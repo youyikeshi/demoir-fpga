@@ -64,12 +64,19 @@ class uhdm_data_loader(data.Dataset):
         path_src = os.path.split(path_tar)[0] + '/' + os.path.split(path_tar)[-1][0:4] + '_moire.jpg'
         if self.mode == 'train':
             if self.loader == 'crop':
-                if os.path.split(path_tar)[0][-5:-3] == 'mi':
-                    w = 4624
-                    h = 3472
-                else:
-                    w = 4032
-                    h = 3024
+                # COMPAT: the original code hard-coded the two UHDM 4K sizes
+                # (4032x3024 and 4624x3472, picked by a substring of the folder
+                # name). That breaks on any other resolution -- e.g. the official
+                # UHDM test split is 3840x2160, so random.randint(0, w-CROP_SIZE)
+                # would pick an out-of-range box and pad in black borders.
+                # Read the real size instead; behaviour is identical on the
+                # original 4K data and correct everywhere else.
+                with Image.open(path_tar) as _im:
+                    w, h = _im.size
+                if w < self.args.CROP_SIZE or h < self.args.CROP_SIZE:
+                    raise ValueError(
+                        'image %s is %dx%d, smaller than CROP_SIZE=%d'
+                        % (path_tar, w, h, self.args.CROP_SIZE))
                 x = random.randint(0, w - self.args.CROP_SIZE)
                 y = random.randint(0, h - self.args.CROP_SIZE)
                 labels, moire_imgs = crop_loader(self.args.CROP_SIZE, x, y, [path_tar, path_src])

@@ -34,12 +34,17 @@ class multi_VGGPerceptualLoss(torch.nn.Module):
             a = 0
         
         feature_loss = 0
-        i = 0
-        for fm in feature_map:
-            loss = F.l1_loss(self.dwt(fm), self.dwt(T_feature_map[i]))
-            i += 1
-            feature_loss += loss
-        return loss1+loss2+loss3+40*a*feature_loss            
+        # T_feature_map is empty when distillation is disabled (the caller in
+        # model/model.py passes []), so skip the DWT comparison entirely.
+        # Note the loop iterates the STUDENT's features and indexes into
+        # T_feature_map, so an empty list would otherwise raise IndexError.
+        if T_feature_map:
+            i = 0
+            for fm in feature_map:
+                loss = F.l1_loss(self.dwt(fm), self.dwt(T_feature_map[i]))
+                i += 1
+                feature_loss += loss
+        return loss1+loss2+loss3+40*a*feature_loss
 
 def dwt_init(x):
     x01 = x[:, :, 0::2, :] / 2

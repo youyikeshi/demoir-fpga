@@ -1,0 +1,56 @@
+﻿GENERAL:
+  GPU_ID: 0
+  SEED: 123
+  WORKER: 4
+  SAVE_PREFIX: './out_dir/real/'
+  EXP_NAME: 'exp_real'
+
+DATA:
+  DATA_TYPE: UHDM
+  # 用真实 4K 测试集按图划分出的两组（硬链接，见 docs/数据集获取方案.md）
+  # 路径相对本仓库根 refer_code/PDNet/PDNet/，退 3 层是 demoir-fpga/
+  TRAIN_DATASET: '../../../uhdm_data/split_train'
+  TEST_DATASET: '../../../uhdm_data/split_eval'
+
+MODEL:
+  EN_FEATURE_NUM: 48
+  EN_INTER_NUM: 32
+  DE_FEATURE_NUM: 64
+  DE_INTER_NUM: 32
+  SAM_NUMBER: 1
+
+TEACHER_MODEL:
+  Teacher: nets_teacher
+  T_en_f: 48
+  T_en_i: 48
+  T_de_f: 64
+  T_de_i: 64
+  T_sam: 1
+  T_load_path: './Teacher_checkpoint/ghost_34large/UHDM/checkpoint_000150.tar'
+
+TRAIN:
+  BATCH_SIZE: 2
+  # crop 模式会在原生 3840x2160 分辨率上随机裁 CROP_SIZE 的块，
+  # 不做任何重采样 —— 摩尔纹频率保持原样（见 docs/交付说明_20260910.md 3.7）
+  LOADER: crop
+  CROP_SIZE: 512   # 上下文实验显示 384~512 收益最大且饱和
+  RESIZE_SIZE: 384
+  SAVE_ITER: 100   # 每 100 步存一张可视化对比图
+  LOAD_EPOCH: 7
+  LAM: 1
+  LAM_P: 1
+
+TEST:
+  TEST_EPOCH: 'auto'
+  SAVE_IMG: False
+  LOAD_PATH: False
+  EVALUATION_METRIC: True
+  EVALUATION_TIME: False
+  EVALUATION_COST: False
+
+SOLVER:
+  EPOCHS: 30      # resume from epoch 7
+  T_0: 50
+  T_MULT: 1
+  ETA_MIN: 0.000001
+  BASE_LR: 0.0002

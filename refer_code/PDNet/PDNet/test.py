@@ -13,11 +13,11 @@ import torch.nn as nn
 from tensorboardX import SummaryWriter
 import torch.optim as optim
 import os
-from model.model_Distillation1 import model_fn_decorator
-from model.nets_student4 import my_model
+from model.model import model_fn_decorator
+from model.nets_student import my_model
 from dataset.load_data import *
 from tqdm import tqdm
-from utils.loss_util_Distillation1 import *
+from utils.loss_util import *
 from utils.common import *
 from config.config import args
 import logging

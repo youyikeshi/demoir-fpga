@@ -55,14 +55,19 @@ def init():
     mkdir(args.NETS_DIR)
     mkdir(args.VISUALS_DIR)
 
-    #os.environ["CUDA_VISIBLE_DEVICES"] = "%d" % args.GPU_ID
-    os.environ["CUDA_VISIBLE_DEVICES"] = "0,1"  #change GPU ID
-    '''device = torch.cuda.set_device(0)
-    print(device)'''
-    device1 = torch.device("cuda:1" if torch.cuda.is_available() else "cpu")
-    print(device1)
+    # The original code hard-coded CUDA_VISIBLE_DEVICES="0,1", which crashes on a
+    # single-GPU machine because the teacher lives on cuda:1. Use both cards only
+    # when they are actually present; otherwise put the teacher on the same card
+    # as the student (it runs under torch.no_grad and only costs forward memory).
+    n_gpu = torch.cuda.device_count()
+    if n_gpu >= 2:
+        os.environ["CUDA_VISIBLE_DEVICES"] = "0,1"
+    else:
+        os.environ["CUDA_VISIBLE_DEVICES"] = "%d" % args.GPU_ID
+
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-    print(device)
+    device1 = torch.device("cuda:1" if torch.cuda.device_count() >= 2 else device)
+    print('n_gpu = %d, device = %s, device1(teacher) = %s' % (n_gpu, device, device1))
 
     # random seed
     random.seed(args.SEED)
@@ -133,7 +138,18 @@ def main():
     train_path = args.TRAIN_DATASET
     TrainImgLoader = create_dataset(args, data_path=train_path, mode='train')
     
-    T_model = load_teacher(device=device1)
+    # Distillation is optional. Set USE_TEACHER: False in the config to train
+    # the student alone (L1 + VGG perceptual, no teacher signal). This is
+    # useful when the teacher's training domain does not match the data: a
+    # 4K-trained teacher loses ~2.3-2.9 dB of guidance power on downsampled
+    # images (measured in pdnet_smoke/teacher_domain_gap.py), because its
+    # moire-frequency statistics no longer match the input.
+    if getattr(args, 'USE_TEACHER', True):
+        T_model = load_teacher(device=device1)
+    else:
+        T_model = None
+        print('Distillation DISABLED (USE_TEACHER=False): '
+              'training the student alone with L1 + perceptual loss.')
 
     # start training
     print("****start traininig!!!****")
@@ -144,8 +160,11 @@ def main():
         logger.add_scalar('Train/avg_loss', avg_train_loss, epoch)
         logger.add_scalar('Train/learning_rate', learning_rate, epoch)
 
-        # Save the network per ten epoch
-        if epoch % 10 == 0:
+        # Save the network periodically. Interval is configurable via
+        # SAVE_EPOCH (default 10, preserving the original behaviour) so that
+        # long runs on unstable hardware can checkpoint more often.
+        _save_every = int(getattr(args, 'SAVE_EPOCH', 10)) or 10
+        if epoch % _save_every == 0:
             savefilename = args.NETS_DIR + '/checkpoint' + '_' + '%06d' % epoch + '.tar'
             torch.save({
                 'learning_rate': learning_rate,

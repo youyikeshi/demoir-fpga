@@ -9,7 +9,10 @@ from torch.nn.parameter import Parameter
 from functools import partial
 import time
 
-def model_fn_decorator(loss_fn, device, device1, mode='train'):
+# device1 is only used by the training closure (it is where the teacher model
+# lives). test.py never passes it, so default it to None instead of making it a
+# required positional argument as in the original release.
+def model_fn_decorator(loss_fn, device, device1=None, mode='train'):
     def test_model_fn(args, data, model, save_path, compute_metrics):
         # prepare input and forward
         number = data['number']
@@ -57,15 +60,26 @@ def model_fn_decorator(loss_fn, device, device1, mode='train'):
         # prepare input and forward
         in_img = data['in_img'].to(device)
         label = data['label'].to(device)
-        T_in_img = data['in_img'].to(device1)
         out_1, out_2, out_3, feature_map = model(in_img)
-        Tout_1, Tout_2, Tout_3, T_feature_map = T_model(T_in_img)
-        T_fm = []
-        for fm in (T_feature_map):
-            fm = fm.to(device)
-            T_fm.append(fm)
-        Tout_1 = Tout_1.to(device)
-        loss = loss_fn(out_1, out_2, out_3, label, feature_map, Tout_1, Tout_2, Tout_3, T_fm)
+
+        if T_model is None:
+            # Distillation disabled. Feed the student's own detached outputs in
+            # the teacher slots: the loss computes
+            #     a = 1 if l1_s > l1_t else 0
+            # and with Tout_x == out_x.detach() we get l1_t == l1_s, so a == 0
+            # and the 40*a*feature_loss term drops out. The empty feature list
+            # also skips the DWT comparison entirely, so no extra compute.
+            loss = loss_fn(out_1, out_2, out_3, label, feature_map,
+                           out_1.detach(), out_2.detach(), out_3.detach(), [])
+        else:
+            T_in_img = data['in_img'].to(device1)
+            Tout_1, Tout_2, Tout_3, T_feature_map = T_model(T_in_img)
+            T_fm = []
+            for fm in (T_feature_map):
+                fm = fm.to(device)
+                T_fm.append(fm)
+            Tout_1 = Tout_1.to(device)
+            loss = loss_fn(out_1, out_2, out_3, label, feature_map, Tout_1, Tout_2, Tout_3, T_fm)
 
         # save images
         if iters % args.SAVE_ITER == (args.SAVE_ITER - 1):

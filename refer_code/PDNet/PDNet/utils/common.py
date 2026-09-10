@@ -8,7 +8,14 @@ import random
 from shutil import get_terminal_size
 import sys
 import time
-from thop import profile, clever_format
+# COMPAT: thop imports distutils.version, which was removed in Python 3.12.
+# It is only needed by calculate_cost() (MACs/params report), so import it
+# lazily and degrade gracefully instead of breaking the whole module.
+try:
+    from thop import profile, clever_format
+except ImportError:
+    profile = None
+    clever_format = None
 import torch
 from torchvision.utils import make_grid
 from torch.optim.lr_scheduler import _LRScheduler
@@ -50,8 +57,16 @@ class CosineAnnealingWarmRestarts(_LRScheduler):
         self.eta_min = eta_min
 
         self.T_cur = 0 if last_epoch < 0 else last_epoch
-        super(CosineAnnealingWarmRestarts, self).__init__(optimizer, last_epoch, verbose)
-    
+        # COMPAT: torch >= 2.0 dropped the `verbose` argument from
+        # _LRScheduler.__init__, so the original call
+        #   super().__init__(optimizer, last_epoch, verbose)
+        # raises TypeError on modern torch. Fall back to the 2-arg form.
+        try:
+            super(CosineAnnealingWarmRestarts, self).__init__(optimizer, last_epoch, verbose)
+        except TypeError:
+            self.verbose = verbose
+            super(CosineAnnealingWarmRestarts, self).__init__(optimizer, last_epoch)
+
     def get_lr(self):
         if not self._get_lr_called_within_step:
             warnings.warn("To get the last learning rate computed by the scheduler, "
@@ -115,7 +130,9 @@ class CosineAnnealingWarmRestarts(_LRScheduler):
             for i, data in enumerate(zip(self.optimizer.param_groups, self.get_lr())):
                 param_group, lr = data
                 param_group['lr'] = lr
-                self.print_lr(self.verbose, i, lr, epoch)
+                # COMPAT: _LRScheduler.print_lr was removed in torch >= 2.5.
+                if hasattr(self, 'print_lr'):
+                    self.print_lr(self.verbose, i, lr, epoch)
         self._last_lr = [group['lr'] for group in self.optimizer.param_groups]
 
 def tensor2img(tensor, out_type=np.uint8, min_max=(0, 1)):
@@ -170,6 +187,11 @@ def set_requires_grad(nets, requires_grad=False):
 				param.requires_grad = requires_grad
 
 def calculate_cost(model, input_size=(1,3,224,224)):
+    if profile is None:
+        logging.warning('thop is unavailable (distutils removed in Python 3.12); '
+                        'skipping MACs/params report. Install thop or use '
+                        'pdnet_smoke/probe_vram.py instead.')
+        return
     input_ = torch.randn(input_size).cuda()
     macs, params = profile(model, inputs=(input_, ))
     macs, params = clever_format([macs, params], "%.3f")

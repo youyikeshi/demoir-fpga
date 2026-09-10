@@ -1,0 +1,56 @@
+GENERAL:
+  GPU_ID: 0
+  SEED: 123
+  WORKER: 0
+  SAVE_PREFIX: './out_dir/smoke'
+  EXP_NAME: 'exp_smoke'
+
+DATA:
+  DATA_TYPE: UHDM
+  # Paths are relative to this repo's root: refer_code/PDNet/PDNet/
+  TRAIN_DATASET: '../../../pdnet_smoke/synth_data/Train'
+  TEST_DATASET: '../../../pdnet_smoke/synth_data/Test'
+
+MODEL:
+  EN_FEATURE_NUM: 48
+  EN_INTER_NUM: 32
+  DE_FEATURE_NUM: 64
+  DE_INTER_NUM: 32
+  SAM_NUMBER: 1
+
+TEACHER_MODEL:
+  Teacher: nets_teacher
+  T_en_f: 48
+  T_en_i: 48
+  T_de_f: 64
+  T_de_i: 64
+  T_sam: 1
+  T_load_path: './Teacher_checkpoint/ghost_34large/UHDM/checkpoint_000150.tar'
+
+TRAIN:
+  BATCH_SIZE: 2
+  # NOTE: 'crop' hard-codes the 4K UHDM dimensions (4032x3024 / 4624x3472) inside
+  # dataset/load_data.py, so it would crop outside our 384x384 synthetic images.
+  # 'default' feeds whole images, which is what a smoke test needs.
+  LOADER: default
+  CROP_SIZE: 384
+  RESIZE_SIZE: 384
+  SAVE_ITER: 100000
+  LOAD_EPOCH: False
+  LAM: 1
+  LAM_P: 1
+
+TEST:
+  TEST_EPOCH: 'auto'
+  SAVE_IMG: png
+  LOAD_PATH: False
+  EVALUATION_METRIC: True
+  EVALUATION_TIME: False
+  EVALUATION_COST: False
+
+SOLVER:
+  EPOCHS: 5
+  T_0: 50
+  T_MULT: 1
+  ETA_MIN: 0.000001
+  BASE_LR: 0.0002
