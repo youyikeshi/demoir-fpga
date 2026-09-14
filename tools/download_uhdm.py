@@ -1,12 +1,19 @@
 """下载并解压 UHDM 数据集（ESDNet / PDNet 官方数据）。
 
-这三个 Google Drive id 直接取自 refer_code/PDNet/PDNet/scripts/download_data.sh。
+这三个 Google Drive id 直接取自 vendor/PDNet/scripts/download_data.sh。
 支持断点续传：若下载中断，重跑本脚本即可接着下。
+
+⚠️ 走 VPN 耗流量。国内建议优先用 `download_uhdm_opendatalab.py`，
+或在训练机上下载，详见 `docs/数据集获取方案.md`。
 
 用法：
     python tools/download_uhdm.py                 # 下全部三个包并解压
     python tools/download_uhdm.py --skip-origin   # 跳过 test_origin
     python tools/download_uhdm.py --extract-only  # 只解压已下好的包
+
+产物路径（与 datasets/README.md 的约定一致）：
+    datasets/uhdm/raw/   *.tar.gz           原始压缩包
+    datasets/uhdm/pairs/ 解压后的图片
 """
 import argparse
 import os
@@ -16,7 +23,8 @@ import time
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)
-DEFAULT_OUT = os.path.join(ROOT, 'uhdm_data')
+DEFAULT_OUT = os.path.join(ROOT, 'datasets', 'uhdm', 'raw')
+DEFAULT_EXTRACT = os.path.join(ROOT, 'datasets', 'uhdm', 'pairs')
 
 # name -> (google drive file id, 解压后目录名)
 FILES = [
@@ -80,14 +88,17 @@ def count_images(d):
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument('--out', default=DEFAULT_OUT)
+    ap.add_argument('--out', default=DEFAULT_OUT, help='压缩包存放目录')
+    ap.add_argument('--extract-to', default=DEFAULT_EXTRACT, help='解压目标目录')
     ap.add_argument('--skip-origin', action='store_true',
                     help='跳过 test_origin.tar.gz（它只是未配对的原始测试图，评估用不到）')
     ap.add_argument('--extract-only', action='store_true', help='只解压，不下载')
     a = ap.parse_args()
 
     os.makedirs(a.out, exist_ok=True)
-    print('目标目录: %s' % os.path.abspath(a.out))
+    os.makedirs(a.extract_to, exist_ok=True)
+    print('压缩包目录: %s' % os.path.abspath(a.out))
+    print('解压目录  : %s' % os.path.abspath(a.extract_to))
     print()
 
     todo = [f for f in FILES if not (a.skip_origin and f[2] == 'test_origin')]
@@ -96,16 +107,22 @@ def main():
         if not a.extract_only:
             dest = download(name, fid, a.out)
         if os.path.exists(dest):
-            extract(dest, a.out, target)
+            extract(dest, a.extract_to, target)
         print()
 
     print('=== 结果 ===')
     for name, fid, target in FILES:
-        d = os.path.join(a.out, target)
+        d = os.path.join(a.extract_to, target)
         if os.path.isdir(d):
             print('%-12s %6d 张图片  %s' % (target, count_images(d), d))
         else:
             print('%-12s (未下载)' % target)
+
+    print()
+    print('下一步：把解压出来的某组图变成 train/eval 划分')
+    print('  python tools/make_split.py --src %s'
+          % os.path.join(a.extract_to, 'test'))
+    print('  python tools/make_split.py                 # 默认就是 datasets/uhdm/pairs')
 
 
 if __name__ == '__main__':

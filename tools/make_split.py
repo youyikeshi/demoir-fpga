@@ -2,7 +2,7 @@
 
 为什么需要
 ----------
-官方 tar 解压后只有 `test/`（500 对）。要在本地做训练+评估，必须自己划分，
+官方 tar 解压后只有一组图（500 对）。要在本地做训练+评估，必须自己划分，
 而且**必须按整张图划分**——同一张图的不同裁块不能同时出现在训练和评估集里，
 否则就是数据泄漏（评估分数会虚高）。
 
@@ -10,7 +10,7 @@
 
 用法
 ----
-    python tools/make_split.py                       # 默认 uhdm_data/test -> 400/100
+    python tools/make_split.py                       # datasets/uhdm/pairs -> train/ + eval/ (400/100)
     python tools/make_split.py --n-train 400         # 指定训练集图数
     python tools/make_split.py --src <dir> --out <dir>
     python tools/make_split.py --copy                # 用复制代替硬链接（跨盘时必需）
@@ -22,7 +22,7 @@ import sys
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)
-DEFAULT_SRC = os.path.join(ROOT, 'uhdm_data', 'test')
+DEFAULT_SRC = os.path.join(ROOT, 'datasets', 'uhdm', 'pairs')
 
 
 def human(b):
@@ -36,8 +36,8 @@ def human(b):
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument('--src', default=DEFAULT_SRC, help='源目录（含 XXXX_gt.jpg / XXXX_moire.jpg）')
-    ap.add_argument('--out', default=os.path.join(ROOT, 'uhdm_data'),
-                    help='输出根目录，会创建 split_train/ 与 split_eval/')
+    ap.add_argument('--out', default=os.path.join(ROOT, 'datasets', 'uhdm'),
+                    help='数据集根目录，会创建 train/ 与 eval/ 两个子目录')
     ap.add_argument('--n-train', type=int, default=400, help='训练集图数')
     ap.add_argument('--copy', action='store_true',
                     help='用复制代替硬链接（源与目标不在同一卷时必需）')
@@ -53,8 +53,8 @@ def main():
         print('源目录里没有 *_gt.jpg: %s' % a.src)
         return 1
 
-    train_dir = os.path.join(a.out, 'split_train')
-    eval_dir = os.path.join(a.out, 'split_eval')
+    train_dir = os.path.join(a.out, 'train')
+    eval_dir = os.path.join(a.out, 'eval')
 
     if a.force:
         for d in (train_dir, eval_dir):
@@ -100,10 +100,10 @@ def main():
         print('新增占用: %s%s' % (human(total),
                                 '（硬链接，实际不占额外磁盘）' if not a.copy else ''))
     print()
-    print('划分完成。训练配置里的路径：')
-    print("  TRAIN_DATASET: '../../../uhdm_data/split_train'")
-    print("  TEST_DATASET : '../../../uhdm_data/split_eval'")
-    print('（相对于 refer_code/PDNet/PDNet/ 运行目录）')
+    print('划分完成。数据已就位，配置里只需写数据集名字：')
+    print('  DATA:')
+    print('    DATASET: %s' % os.path.basename(os.path.normpath(a.out)))
+    print('（训练：python src/train.py --config uhdm_4k_s）')
     return 0
 
 

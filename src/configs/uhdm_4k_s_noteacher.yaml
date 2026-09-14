@@ -1,0 +1,60 @@
+# ---------------------------------------------------------------------------
+# 不用 teacher，单独训练 student（L1 + VGG 感知，无蒸馏项）
+#
+# 用法：
+#   python src/train.py --config uhdm_4k_s_noteacher
+#
+# 什么时候用：
+#   * teacher 的训练域与你的数据不匹配。我们实测 4K 训练的 teacher 在下采样图上
+#     指导能力掉 2.3~2.9 dB（experiments/teacher_domain_gap.py），
+#     因为它学到的摩尔纹频率统计与输入对不上了。
+#   * 只想快速试水 —— 省掉 teacher 前向，约快 1.5 倍。
+#   * 换到没有对应 teacher 权重的数据集时（见 aim_1k_s.yaml / tip_256_s.yaml）。
+#
+# 代价：少了蒸馏这个主力信号（权重 40），通常需要更多 epoch。
+# 实测同一份数据：loss 4.14（无 teacher）vs 13.98（有 teacher）。
+# ---------------------------------------------------------------------------
+USE_TEACHER: False
+
+GENERAL:
+  GPU_ID: 0
+  SEED: 123
+  WORKER: 4
+
+DATA:
+  DATA_TYPE: UHDM
+  DATASET: uhdm
+
+MODEL:
+  EN_FEATURE_NUM: 48
+  EN_INTER_NUM: 32
+  DE_FEATURE_NUM: 64
+  DE_INTER_NUM: 32
+  SAM_NUMBER: 1
+
+TRAIN:
+  BATCH_SIZE: 2
+  LOADER: crop
+  CROP_SIZE: 512
+  RESIZE_SIZE: 384
+  SAVE_ITER: 100
+  SAVE_EPOCH: 10
+  LOAD_EPOCH: False
+  LAM: 1
+  LAM_P: 1
+
+TEST:
+  TEST_EPOCH: 'auto'
+  SAVE_IMG: False
+  LOAD_PATH: False
+  EVALUATION_METRIC: True
+  EVALUATION_TIME: False
+  EVALUATION_COST: False
+
+SOLVER:
+  # 没有 teacher，建议比带蒸馏时训得更久
+  EPOCHS: 60
+  T_0: 50
+  T_MULT: 1
+  ETA_MIN: 0.000001
+  BASE_LR: 0.0002

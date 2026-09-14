@@ -1,0 +1,49 @@
+GENERAL:
+  GPU_ID: 0
+  SEED: 123
+  WORKER: 4
+  SAVE_PREFIX: g:\qiansaiFPGA2026\demoir-fpga\runs\2026-09-10_uhdm4k_s512
+  EXP_NAME: ''
+  RUN: 2026-09-10_uhdm4k_s512
+DATA:
+  DATA_TYPE: UHDM
+  DATASET: uhdm
+  TRAIN_DATASET: g:\qiansaiFPGA2026\demoir-fpga\datasets\uhdm\train
+  TEST_DATASET: g:\qiansaiFPGA2026\demoir-fpga\datasets\uhdm\eval
+MODEL:
+  EN_FEATURE_NUM: 48
+  EN_INTER_NUM: 32
+  DE_FEATURE_NUM: 64
+  DE_INTER_NUM: 32
+  SAM_NUMBER: 1
+TEACHER_MODEL:
+  TEACHER: ghost_34large
+  T_load_path: g:\qiansaiFPGA2026\demoir-fpga\weights\teacher/ghost_34large_UHDM_ep150.tar
+  T_en_f: 48
+  T_en_i: 48
+  T_de_f: 64
+  T_de_i: 64
+  T_sam: 1
+TRAIN:
+  BATCH_SIZE: 2
+  LOADER: crop
+  CROP_SIZE: 512
+  RESIZE_SIZE: 384
+  SAVE_ITER: 100
+  SAVE_EPOCH: 10
+  LOAD_EPOCH: false
+  LAM: 1
+  LAM_P: 1
+TEST:
+  TEST_EPOCH: auto
+  SAVE_IMG: false
+  LOAD_PATH: false
+  EVALUATION_METRIC: true
+  EVALUATION_TIME: false
+  EVALUATION_COST: false
+SOLVER:
+  EPOCHS: 30
+  T_0: 50
+  T_MULT: 1
+  ETA_MIN: 1.0e-06
+  BASE_LR: 0.0002

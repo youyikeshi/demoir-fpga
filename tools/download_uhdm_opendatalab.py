@@ -29,7 +29,7 @@ OpenDataLab 上的数据集标识：`OpenDataLab/UHDM`，总 82.0 GB，实际结
 4. 解压（80 GB 解压后约 85 GB，先确认磁盘够）：
        tar -xzvf UHDM.tar.gz
 
-依赖：`pip install openxlab`（已随 tools/requirements_pdnet.txt 安装）
+依赖：`pip install openxlab`（已随 tools/requirements.txt 安装）
 """
 import argparse
 import os
@@ -40,7 +40,7 @@ import sys
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)
 DATASET_REPO = 'OpenDataLab/UHDM'
-DEFAULT_OUT = os.path.join(ROOT, 'uhdm_data', '_opendatalab')
+DEFAULT_OUT = os.path.join(ROOT, 'datasets', 'uhdm', 'raw')
 
 
 def find_cli():

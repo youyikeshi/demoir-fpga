@@ -1,0 +1,65 @@
+# ---------------------------------------------------------------------------
+# 主力配置：UHDM 4K 原生裁块训练（含 teacher 蒸馏）
+#
+# 用法：
+#   python src/train.py --config uhdm_4k_s
+#
+# 数据与权重都不在本文件里写路径，只写"名字"，由 src/vendor_boot.py 解析：
+#   DATA.DATASET           -> datasets/<名字>/{train,eval}
+#   TEACHER_MODEL.TEACHER  -> weights/weights.yaml 里登记的权重
+# 所以换数据集/换 teacher 都只改一行。
+# ---------------------------------------------------------------------------
+GENERAL:
+  GPU_ID: 0
+  SEED: 123
+  WORKER: 4
+  # RUN 留空 -> 自动生成 <日期>_<数据集>_c<crop>_s，例如 2026-09-13_uhdm_c512_s
+  # 续训时**必须**把它设成原来那个运行目录名（见 uhdm_4k_s_resume.yaml）
+
+DATA:
+  DATA_TYPE: UHDM
+  DATASET: uhdm          # datasets/uhdm/{train,eval}
+
+MODEL:
+  EN_FEATURE_NUM: 48
+  EN_INTER_NUM: 32
+  DE_FEATURE_NUM: 64
+  DE_INTER_NUM: 32
+  SAM_NUMBER: 1          # 1 = ESDNet，2 = ESDNet-L
+
+TEACHER_MODEL:
+  TEACHER: ghost_34large # weights.yaml 里的名字（不是路径）
+
+TRAIN:
+  BATCH_SIZE: 2
+  # crop：在**原生分辨率**上随机裁 CROP_SIZE 的块，不做任何重采样。
+  # 这是刻意的：摩尔纹的空间频率与采集分辨率绑定，一旦 resize 就会混叠变形，
+  # 指标失去意义（见 docs/交付说明_20260910.md 3.4）。
+  LOADER: crop
+  # 上下文实验（experiments/context_study.py）显示：给网络更多上下文到 512 饱和，
+  # 384~512 收益最大。600x400 部署目标正好在甜点区。
+  CROP_SIZE: 512
+  RESIZE_SIZE: 384
+  SAVE_ITER: 100
+  # 存盘间隔。调小 -> 中断时代价更小（本项目曾遇过训练中途进程级崩溃）
+  SAVE_EPOCH: 10
+  LOAD_EPOCH: False
+  LAM: 1
+  LAM_P: 1
+
+TEST:
+  TEST_EPOCH: 'auto'
+  SAVE_IMG: False
+  LOAD_PATH: False
+  EVALUATION_METRIC: True
+  EVALUATION_TIME: False
+  EVALUATION_COST: False
+
+SOLVER:
+  # 论文是 150 epoch。30 epoch = 6000 步就能看到明显提升（Δ +2.50 dB），
+  # 适合先跑一轮看效果；要论文级复现再调大。
+  EPOCHS: 30
+  T_0: 50
+  T_MULT: 1
+  ETA_MIN: 0.000001
+  BASE_LR: 0.0002

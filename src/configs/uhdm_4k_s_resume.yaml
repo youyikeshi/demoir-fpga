@@ -1,0 +1,59 @@
+# ---------------------------------------------------------------------------
+# 续训配置模板
+#
+# 上游 train.py 按 `checkpoint_%06d.tar` 找断点，所以有三个数必须对齐：
+#   1. GENERAL.RUN     —— 必须是**原来那个运行目录**（否则找不到 checkpoint）
+#   2. TRAIN.LOAD_EPOCH —— 从哪个 epoch 之后接着训
+#   3. SOLVER.EPOCHS    —— 这次要训到第几个 epoch
+#
+# 用法：
+#   python src/train.py --config uhdm_4k_s_resume
+#
+# 本文件里的值是**我们历史上那次续训**的真实参数（epoch 8 崩溃后从 7 续到 30），
+# 保留下来既当模板、也当记录。换一次训练就照着改这三个数。
+# ---------------------------------------------------------------------------
+GENERAL:
+  GPU_ID: 0
+  SEED: 123
+  WORKER: 4
+  RUN: 2026-09-10_uhdm4k_s512   # ← 指向已有的运行目录
+
+DATA:
+  DATA_TYPE: UHDM
+  DATASET: uhdm
+
+MODEL:
+  EN_FEATURE_NUM: 48
+  EN_INTER_NUM: 32
+  DE_FEATURE_NUM: 64
+  DE_INTER_NUM: 32
+  SAM_NUMBER: 1
+
+TEACHER_MODEL:
+  TEACHER: ghost_34large
+
+TRAIN:
+  BATCH_SIZE: 2
+  LOADER: crop
+  CROP_SIZE: 512
+  RESIZE_SIZE: 384
+  SAVE_ITER: 100
+  SAVE_EPOCH: 10
+  LOAD_EPOCH: 7                 # ← 从第 7 epoch 的权重接着训
+  LAM: 1
+  LAM_P: 1
+
+TEST:
+  TEST_EPOCH: 'auto'
+  SAVE_IMG: False
+  LOAD_PATH: False
+  EVALUATION_METRIC: True
+  EVALUATION_TIME: False
+  EVALUATION_COST: False
+
+SOLVER:
+  EPOCHS: 30                    # ← 这次训到第 30 epoch
+  T_0: 50
+  T_MULT: 1
+  ETA_MIN: 0.000001
+  BASE_LR: 0.0002

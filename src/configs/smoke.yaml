@@ -1,0 +1,59 @@
+# ---------------------------------------------------------------------------
+# 冒烟测试：用合成数据跑通整条链路（几分钟，不需要真实数据集）
+#
+# 用法：
+#   python src/train.py --config smoke --epochs 1
+#
+# 数据由 experiments/make_synth_data.py 生成到 samples/synth/（已被 gitignore），
+# 只有 12 对 384x384 的合成摩尔纹图，**只能用来验证"代码能跑"**，
+# 不要用它评估效果（那是过拟合 12 张图的结果）。
+# ---------------------------------------------------------------------------
+GENERAL:
+  GPU_ID: 0
+  SEED: 123
+  WORKER: 0          # 数据量太小，多进程反而慢
+  # 固定运行目录名。冒烟测试每次都写同一个目录，不往 runs/ 里堆积垃圾。
+  RUN: smoke
+
+DATA:
+  DATA_TYPE: UHDM
+  # 合成数据不在 datasets/ 下，直接给相对仓库根的路径（会被解析成绝对路径）
+  TRAIN_DATASET: samples/synth/Train
+  TEST_DATASET: samples/synth/Test
+
+MODEL:
+  EN_FEATURE_NUM: 48
+  EN_INTER_NUM: 32
+  DE_FEATURE_NUM: 64
+  DE_INTER_NUM: 32
+  SAM_NUMBER: 1
+
+TEACHER_MODEL:
+  TEACHER: ghost_34large
+
+TRAIN:
+  BATCH_SIZE: 2
+  # 'default' 整图喂入。合成图只有 384x384，crop 也裁不出更多东西。
+  LOADER: default
+  CROP_SIZE: 384
+  RESIZE_SIZE: 384
+  SAVE_ITER: 100000
+  SAVE_EPOCH: 1
+  LOAD_EPOCH: False
+  LAM: 1
+  LAM_P: 1
+
+TEST:
+  TEST_EPOCH: 'auto'
+  SAVE_IMG: False
+  LOAD_PATH: False
+  EVALUATION_METRIC: True
+  EVALUATION_TIME: False
+  EVALUATION_COST: False
+
+SOLVER:
+  EPOCHS: 5
+  T_0: 50
+  T_MULT: 1
+  ETA_MIN: 0.000001
+  BASE_LR: 0.0002

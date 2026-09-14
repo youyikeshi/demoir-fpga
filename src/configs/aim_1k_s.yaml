@@ -1,0 +1,63 @@
+# ---------------------------------------------------------------------------
+# AIM2019 / LCDMoire（1024x1024，**真拍屏**）训练模板
+#
+# 用法：
+#   python src/train.py --config aim_1k_s --dataset aim
+#
+# 目录布局（要求较严格，见 src/configs/README.md）：
+#   datasets/aim/train/{clear,moire}/   moire 用 .jpg
+#   datasets/aim/eval/{clear,moire}/    moire 用 .png   <- 注意上游 test 分支只认 .png
+#
+# 为什么用这份数据
+#   它是**原生 1024x1024 实拍**，不是 4K 下采样来的。
+#   4K 下采样的摩尔纹会被混叠折叠到低频，那个空间尺度现实中任何低分辨率相机
+#   都拍不出来（见 docs/交付说明_20260910.md 3.4）。所以做小画幅部署时，
+#   原生低分数据在频率上更忠实。
+#
+# teacher 这里默认关掉：ESDNet 官方有 AIM 版权重（1024x1024 训练），
+# 接口与本项目 teacher 完全一致，但需要自己注册进 weights/weights.yaml 后
+# 把 USE_TEACHER 改成 True 并填 TEACHER_MODEL.TEACHER。
+# ---------------------------------------------------------------------------
+USE_TEACHER: False
+
+GENERAL:
+  GPU_ID: 0
+  SEED: 123
+  WORKER: 4
+
+DATA:
+  DATA_TYPE: AIM
+  DATASET: aim
+
+MODEL:
+  EN_FEATURE_NUM: 48
+  EN_INTER_NUM: 32
+  DE_FEATURE_NUM: 64
+  DE_INTER_NUM: 32
+  SAM_NUMBER: 1
+
+TRAIN:
+  BATCH_SIZE: 2
+  LOADER: crop
+  CROP_SIZE: 512        # 原图 1024，裁 512 与上游 aim_config 一致
+  RESIZE_SIZE: 384
+  SAVE_ITER: 500
+  SAVE_EPOCH: 10
+  LOAD_EPOCH: False
+  LAM: 1
+  LAM_P: 1
+
+TEST:
+  TEST_EPOCH: 'auto'
+  SAVE_IMG: False
+  LOAD_PATH: False
+  EVALUATION_METRIC: True
+  EVALUATION_TIME: False
+  EVALUATION_COST: False
+
+SOLVER:
+  EPOCHS: 150
+  T_0: 50
+  T_MULT: 1
+  ETA_MIN: 0.000001
+  BASE_LR: 0.0002

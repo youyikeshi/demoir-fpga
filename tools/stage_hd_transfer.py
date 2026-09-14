@@ -11,12 +11,13 @@ GitHub 有单文件 100MB 限制、仓库建议 1GB 以内。本项目的 teache
         README.md
         manifest.txt                <- 清单：相对路径 / 大小 / CRC32
         payload/                    <- 镜像仓库根目录结构
-            refer_code/PDNet/PDNet/Teacher_checkpoint/...
-            uhdm_data/...
-            pdnet_smoke/synth_data/...
+            weights/teacher/ghost_34large_UHDM_ep150.tar
+            weights/student/uhdm4k_s512_ep30.tar
+            datasets/uhdm/...
+            samples/synth/...
 
-还原 = 把 payload/ 里的内容按原相对路径放回仓库根目录，所以仓库里的
-相对路径配置（如 config 里的 T_load_path）在新机器上无需修改。
+还原 = 把 payload/ 里的内容按原相对路径放回仓库根目录，
+所以目标机器不需要改任何配置（配置里存的是绝对路径，由 src/paths.py 推导）。
 
 用法
 ----
@@ -43,19 +44,21 @@ MANIFEST = os.path.join(STAGE_DIR, 'manifest.txt')
 # (仓库内相对路径, 类型, 说明)
 #
 # ⚠️ 刻意不收录的路径：
-#   uhdm_data/split_train、uhdm_data/split_eval
-#     它们是 test/ 的**硬链接**，复制会打破硬链接、三倍占用磁盘；
+#   datasets/uhdm/train、datasets/uhdm/eval
+#     它们是 pairs/ 的**硬链接**，复制会打破硬链接、三倍占用磁盘；
 #     且在目标机器上一条 `python tools/make_split.py` 即可重建。
 ITEMS = [
-    ('refer_code/PDNet/PDNet/Teacher_checkpoint/ghost_34large/UHDM/checkpoint_000150.tar',
-     'file', 'PDNet 蒸馏训练必需的 teacher 权重（论文作者训练，官方仅在百度网盘提供）'),
-    ('refer_code/PDNet/PDNet/out_dir/real/exp_real/net_checkpoints',
-     'dir', '我方训练出的 student checkpoint（30 epoch）'),
-    ('uhdm_data/test',
-     'dir', 'UHDM 测试集解压后的 500 对 4K 图（评估用）'),
-    ('uhdm_data/test.tar.gz',
-     'file', 'UHDM 测试集原始压缩包。⚠️ 只为评估可删掉省 5.5GB（test/ 已有解压数据）'),
-    ('pdnet_smoke/synth_data',
+    ('weights/teacher/ghost_34large_UHDM_ep150.tar',
+     'file', 'PDNet 蒸馏训练必需的 teacher 权重（论文作者训练，官方仅在网盘提供）'),
+    ('weights/student/uhdm4k_s512_ep30.tar',
+     'file', '我方训练出的 student 发布版权重（30 epoch）'),
+    ('runs/2026-09-10_uhdm4k_s512/net_checkpoints',
+     'dir', '我方训练产物的完整 checkpoint（含中间 epoch，便于续训）'),
+    ('datasets/uhdm/pairs',
+     'dir', 'UHDM 测试集解压后的 500 对 4K 图（评估与重新划分的源）'),
+    ('datasets/uhdm/raw',
+     'dir', 'UHDM 原始压缩包。⚠️ 只为评估可删掉省 5.5GB（pairs/ 已有解压数据）'),
+    ('samples/synth',
      'dir', '合成冒烟数据，可由 make_synth_data.py 以固定种子重新生成'),
 ]
 

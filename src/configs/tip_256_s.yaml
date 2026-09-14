@@ -1,0 +1,56 @@
+# ---------------------------------------------------------------------------
+# TIP2018（256x256）训练模板
+#
+# 用法：
+#   python src/train.py --config tip_256_s --dataset tip
+#
+# 目录布局：
+#   datasets/tip/train/{target,source}/
+#   datasets/tip/eval/{target,source}/
+#
+# 注意：TIP 的 loader 自己会裁中心 2/3 再 resize 到 256，
+# **不看 CROP_SIZE / LOADER**（见 vendor/PDNet/dataset/load_data.py 的 tip_data_loader），
+# 所以这两个键在这里故意不写，以免误导。
+#
+# teacher 默认关掉（同 aim_1k_s.yaml 的说明）。
+# ---------------------------------------------------------------------------
+USE_TEACHER: False
+
+GENERAL:
+  GPU_ID: 0
+  SEED: 123
+  WORKER: 4
+
+DATA:
+  DATA_TYPE: TIP
+  DATASET: tip
+
+MODEL:
+  EN_FEATURE_NUM: 48
+  EN_INTER_NUM: 32
+  DE_FEATURE_NUM: 64
+  DE_INTER_NUM: 32
+  SAM_NUMBER: 1
+
+TRAIN:
+  BATCH_SIZE: 2
+  SAVE_ITER: 500
+  SAVE_EPOCH: 10
+  LOAD_EPOCH: False
+  LAM: 1
+  LAM_P: 1
+
+TEST:
+  TEST_EPOCH: 'auto'
+  SAVE_IMG: False
+  LOAD_PATH: False
+  EVALUATION_METRIC: True
+  EVALUATION_TIME: False
+  EVALUATION_COST: False
+
+SOLVER:
+  EPOCHS: 70
+  T_0: 10
+  T_MULT: 1
+  ETA_MIN: 0.000001
+  BASE_LR: 0.0002

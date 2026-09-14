@@ -1,0 +1,40 @@
+# 权重注册表 —— 告诉项目"哪个文件是什么模型"
+#
+# 为什么需要这个文件
+# ----------------
+# 权重文件名（checkpoint_latest.tar / checkpoint_000150.tar）本身不说它是 teacher 还是
+# student，也不说该用哪套通道数。多机协作时最容易踩的坑就是"权重放对了但结构参数错了"，
+# 报错又很难懂（strict=True 加载失败会列一长串 missing keys）。
+#
+# 所以：**凡是项目里要用到的权重，都在这里登记**。脚本只写逻辑名，路径与结构参数由此解析。
+#
+# 字段
+# ----
+#   file  : 相对 weights/ 的路径（也可写绝对路径）
+#   arch  : 构造网络用的结构参数（必须与该 checkpoint 严格一致）
+#   note  : 说明来源
+#   run   : 若是自己训练产出的，记录它来自哪个 runs/<run>（便于追溯）
+#
+# 用法（在 src/configs/*.yaml 里）
+# -----------------------------
+#   TEACHER_MODEL:
+#     TEACHER: ghost_34large      # 名字，不是路径
+#
+# 训练时 B 机不需要改任何路径；只要把 weights/ 从移动硬盘还原到位即可。
+
+teacher:
+  ghost_34large:
+    file: teacher/ghost_34large_UHDM_ep150.tar
+    arch: {en_f: 48, en_i: 48, de_f: 64, de_i: 64, sam: 1}
+    note: >-
+      论文作者的 teacher（ESDNet ghost_34large），在 UHDM 4K 上训练到第 150 epoch。
+      不是我们的产物。50.8 MB / 4.396 M 参数。
+
+student:
+  uhdm4k_s512_ep30:
+    file: student/uhdm4k_s512_ep30.tar
+    arch: {en_f: 48, en_i: 32, de_f: 64, de_i: 32, sam: 1}
+    run: 2026-09-10_uhdm4k_s512
+    note: >-
+      我们的 student，30 epoch / 6000 步，UHDM test 划分出的 400 张图上训练。
+      18.3 MB / 1.562 M 参数。仍是欠训练状态（论文 33.7 万步，我们只 1.8%）。
