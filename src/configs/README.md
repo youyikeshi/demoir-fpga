@@ -20,11 +20,16 @@ TEACHER_MODEL:
 | 文件 | 用途 |
 |---|---|
 | `uhdm_4k_s.yaml` | **主力**：UHDM 4K 原生裁块 512，含 teacher 蒸馏 |
+| `uhdm_4k_s_ep150.yaml` | **全量**：官方 4500 对训练集，crop 640，150 epoch（论文量级） |
 | `uhdm_4k_s_resume.yaml` | 续训模板（要改 `RUN` / `LOAD_EPOCH` / `EPOCHS` 三处） |
 | `uhdm_4k_s_noteacher.yaml` | 不用 teacher，单独训 student |
 | `smoke.yaml` | 冒烟测试，用合成数据，几分钟出结果 |
 | `aim_1k_s.yaml` | AIM2019/LCDMoire（1024×1024）模板 |
 | `tip_256_s.yaml` | TIP2018（256×256）模板 |
+
+> `uhdm_4k_s_ep150.yaml` 与 `uhdm_4k_s.yaml` 的差别只有三处：数据（4500 张全量 vs 400 张划分）、
+> crop（640 vs 512）、epoch（150 vs 30）。它用 `TRAIN_DATASET`/`TEST_DATASET` 显式写路径，
+> 因为训练集来自**官方 train 划分**（`datasets/uhdm_full/`），与 `datasets/uhdm/` 不是同一批数据。
 
 上游作者自带的 9 份配置（`uhdm_config.yaml`、`aim_large_config.yaml` 等）
 留在 `vendor/PDNet/config/`，当参考用，不属于我们。

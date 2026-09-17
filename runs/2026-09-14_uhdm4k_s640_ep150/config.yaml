@@ -1,0 +1,68 @@
+# 本次运行的配置快照（上游 train.py 实际读的就是这份）
+#
+# ⚠️ 这是**历史快照**：本次训练发生在 2026-09-14，早于 2026-09-14 的目录重构，
+#    因此下面的路径是**旧结构**（refer_code/PDNet/PDNet/…）的绝对路径，按快照语义原样保留，
+#    以保证"这份记录等于当时真实用的东西"。
+#    想在新结构下复现同样的训练，用 `src/configs/uhdm_4k_s_ep150.yaml`。
+
+GENERAL:
+  GPU_ID: 0
+  SEED: 123
+  WORKER: 12          # 旧结构下从默认 4 提到 12（22 逻辑核，数据管线是共限因素）
+  SAVE_PREFIX: E:\ai\demoir-fpga\demoir-fpga-main\refer_code\PDNet\PDNet\out_dir\full
+  EXP_NAME: exp_full_150ep
+  RUN: 2026-09-14_uhdm4k_s640_ep150
+
+DATA:
+  DATA_TYPE: UHDM
+  # 官方全量训练集 4500 对（原生 4032x3024，按 pair_NN / pair_mi_NN 分 28 个子目录）
+  TRAIN_DATASET: E:\ai\demoir-fpga\demoir-fpga-main\uhdm_data\Train
+  # 评估集：官方 test 集按图划分出的 100 张（与训练集无重叠）
+  TEST_DATASET: E:\ai\demoir-fpga\demoir-fpga-main\uhdm_data\split_eval
+
+MODEL:
+  EN_FEATURE_NUM: 48
+  EN_INTER_NUM: 32
+  DE_FEATURE_NUM: 64
+  DE_INTER_NUM: 32
+  SAM_NUMBER: 1
+
+TEACHER_MODEL:
+  Teacher: nets_teacher
+  T_en_f: 48
+  T_en_i: 48
+  T_de_f: 64
+  T_de_i: 64
+  T_sam: 1
+  T_load_path: ./Teacher_checkpoint/ghost_34large/UHDM/checkpoint_000150.tar
+
+TRAIN:
+  BATCH_SIZE: 2
+  LOADER: crop
+  # 官方配置是 768，但本机 12GB 显存跑不动（实测 11830/12282 MiB、0.04 it/s）。
+  # 640 与 512 挂钟时间几乎相同，且保持官方步数 2250 步/epoch。详见 docs/本机重训环境搭建_实测.md 5.2
+  CROP_SIZE: 640
+  RESIZE_SIZE: 384
+  # 若沿用 100，337500 步会产出 3375 张可视化图（约 700MB）；降到 5000 -> 约 67 张
+  SAVE_ITER: 5000
+  LOAD_EPOCH: False
+  LAM: 1
+  LAM_P: 1
+
+TEST:
+  TEST_EPOCH: 'auto'
+  SAVE_IMG: False
+  LOAD_PATH: False
+  EVALUATION_METRIC: True
+  EVALUATION_TIME: False
+  EVALUATION_COST: False
+
+SOLVER:
+  EPOCHS: 150
+  T_0: 50
+  T_MULT: 1
+  ETA_MIN: 0.000001
+  BASE_LR: 0.0002
+
+# 长跑存盘间隔：150 epoch / 5 = 30 个 checkpoint x 18.3MB ≈ 550MB
+SAVE_EPOCH: 5

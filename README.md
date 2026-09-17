@@ -4,8 +4,12 @@
 知识蒸馏方案：大的 teacher 模型只用于训练期指导，**最终部署到 FPGA 的只有小的 student**
 （1.562 M 参数 / INT8 约 1.5 MB）。
 
-目前状态：student 已在 UHDM 上训出可用版本（Δ +2.50 dB，仍欠训练），
-量化与 FPGA 部署尚未开始。
+目前状态：student 已用**官方全量训练集（4500 对）跑满 150 epoch**（论文量级），
+评估 **Δ +4.70 dB / SSIM 0.7735**，已逼近 teacher 上界（+4.80 / 0.7777）——
+用 36% 的参数量达到其 98% 的画质。量化与 FPGA 部署尚未开始。
+
+> 权重随仓库提供：`weights/student/uhdm4k_s640_ep150.tar`（18.3 MB，已提交进 git），
+> clone 下来即可直接 `python src/infer.py` 看效果，不必先凑齐移动硬盘上的大文件。
 
 ---
 
@@ -56,11 +60,12 @@ demoir-fpga/
 │  └─ uhdm/{raw,pairs,train,eval}/
 │
 ├─ runs/                训练产物，一次训练一个目录
-│  └─ 2026-09-10_uhdm4k_s512/    ← 首个可用 student
+│  ├─ 2026-09-10_uhdm4k_s512/        早期 student（400 张，6000 步，Δ +2.50）
+│  └─ 2026-09-14_uhdm4k_s640_ep150/  ★ 当前推荐（4500 张全量，150 epoch，Δ +4.70）
 │
 ├─ weights/             已发布权重 + weights.yaml 注册表
 │  ├─ teacher/          论文作者的 teacher（4.396 M）
-│  └─ student/          我们训出的 student（1.562 M）
+│  └─ student/          ★ uhdm4k_s640_ep150.tar（1.562 M，随仓库提供）
 │
 ├─ samples/             输入图片
 │  ├─ phone/            ★ 自己拍的照片丢这里
@@ -81,6 +86,9 @@ demoir-fpga/
 python src/infer.py
 python src/infer.py --image samples/phone/xxx.jpg --no-teacher
 
+# 大图 / 显存紧张：分块推理（带显存护栏，避免把驱动撑到蓝屏）
+python src/infer.py --image big.jpg --tile 2048 --overlap 512
+
 # 定量评估：在数据集评估集上算 PSNR/SSIM（需要配对真值）
 python src/eval.py --role student --limit 60
 python src/eval.py --role teacher --limit 100 --crops-per-image 4   # 上界参考
@@ -89,6 +97,7 @@ python src/eval.py --role student --dataset aim --split eval        # 换数据�
 # 训练 / 续训
 python src/train.py --config uhdm_4k_s
 python src/train.py --config uhdm_4k_s_resume
+python src/train.py --config uhdm_4k_s_ep150        # 全量 4500 对 / 150 epoch
 ```
 
 `--config` 直接给 `src/configs/` 下的名字即可（不加 `.yaml`）。
@@ -113,7 +122,8 @@ DATA:
 | 配置 | 数据集 | 说明 |
 |---|---|---|
 | `smoke` | 合成数据 | 几分钟跑通链路，**不要用它评估效果** |
-| `uhdm_4k_s` | UHDM 4K | 主力配置，原生裁 512 |
+| `uhdm_4k_s` | UHDM 4K | 主力配置，原生裁 512（400 张，30 epoch） |
+| `uhdm_4k_s_ep150` | UHDM 4K **全量** | **论文量级**：官方 4500 对，crop 640，150 epoch |
 | `uhdm_4k_s_resume` | UHDM 4K | 续训 |
 | `uhdm_4k_s_noteacher` | UHDM 4K | 关掉蒸馏，省 1.5 倍时间 |
 | `aim_1k_s` | AIM2019 | 真拍屏 1024×1024（模板） |
@@ -158,7 +168,8 @@ python src/train.py --config uhdm_4k_s --dataset-root D:/some/pairs_dir
 | 文档 | 内容 |
 |---|---|
 | `docs/目录结构说明.md` | 重构后的结构说明 + 从旧结构迁移的对照表 |
-| `docs/交付说明_20260910.md` | **主要技术文档**：修了哪些 bug、实验结果、四条假设的验证 |
+| `docs/交付说明_20260910.md` | 主要技术文档：修了哪些 bug、实验结果、四条假设的验证 |
+| `docs/本机重训环境搭建_实测.md` | **在本机跑通全量训练**的实测记录：环境补齐、5 个坑、显存/吞吐实测、TDR 蓝屏排查 |
 | `docs/操作流程_双机协作.md` | 两台机器之间怎么同步 |
 | `docs/数据集获取方案.md` | 数据从哪下（含国内镜像） |
 | `docs/交接文档_去摩尔纹训练部署.md` | 最初的技术路线决策 |

@@ -1,0 +1,74 @@
+# ---------------------------------------------------------------------------
+# 全量训练配置：官方 UHDM 训练集 4500 对，跑满论文量级的 150 epoch
+#
+# 用法：
+#   python src/train.py --config uhdm_4k_s_ep150
+#
+# 与主力配置 uhdm_4k_s.yaml 的差别只有三点：数据量、crop、epoch 数。
+#   uhdm_4k_s.yaml        ：datasets/uhdm（官方 test 集划分出的 400 张），30 epoch
+#   uhdm_4k_s_ep150.yaml  ：官方全量训练集 4500 张，150 epoch（本文件）
+#
+# 产出记录见 runs/2026-09-14_uhdm4k_s640_ep150/：
+#   train loss 5.89 -> 2.39，评估 Δ +4.70 dB（teacher 上界 +4.80），约 39.7 小时。
+# ---------------------------------------------------------------------------
+GENERAL:
+  GPU_ID: 0
+  SEED: 123
+  # 数据管线是共限因素（crop 640 时 GPU 利用率仍有富余）。
+  # 本机 22 逻辑核，实测 12 worker 可用；显存/内存紧张时调小。
+  WORKER: 12
+  # 锁定运行目录名，保证复现时落到与记录一致的位置
+  RUN: 2026-09-14_uhdm4k_s640_ep150
+
+DATA:
+  DATA_TYPE: UHDM
+  # 官方全量训练集：4500 对，原生 4032x3024，按 pair_NN / pair_mi_NN 分 28 个子目录。
+  # 获取方式见 docs/本机重训环境搭建_实测.md 2.2（国内可用 tools/fetch_uhdm_from_hf.py，
+  # 无需 VPN，且只下需要的部分）。
+  TRAIN_DATASET: datasets/uhdm_full/train
+  # 评估集复用 uhdm 的那份划分（官方 test 集的 100 张，与训练集无重叠）
+  TEST_DATASET: datasets/uhdm/eval
+
+MODEL:
+  EN_FEATURE_NUM: 48
+  EN_INTER_NUM: 32
+  DE_FEATURE_NUM: 64
+  DE_INTER_NUM: 32
+  SAM_NUMBER: 1
+
+TEACHER_MODEL:
+  TEACHER: ghost_34large
+
+TRAIN:
+  BATCH_SIZE: 2
+  LOADER: crop
+  # ⚠️ 官方配置是 768，但**本机 12GB 显存跑不动**：768+batch2 实测占用
+  #    11830/12282 MiB（96%），分配器饥饿颠簸，吞吐从 2.6 it/s 崩到 0.04 it/s。
+  #    实测 512 与 640 的挂钟时间几乎相同（GPU 有余量），且都保持官方的
+  #    2250 步/epoch，所以取 640 —— 相对 512 是"白送"的更大上下文。
+  #    完整对照见 docs/本机重训环境搭建_实测.md 5.2。
+  CROP_SIZE: 640
+  RESIZE_SIZE: 384
+  # 337500 步若沿用 100，会产出 3375 张可视化图（约 700MB）。降到 5000 -> 约 67 张。
+  SAVE_ITER: 5000
+  # 长跑存盘间隔：150/5 = 30 个 checkpoint x 18.3MB ≈ 550MB，中断代价最多 5 epoch
+  SAVE_EPOCH: 5
+  LOAD_EPOCH: False
+  LAM: 1
+  LAM_P: 1
+
+TEST:
+  TEST_EPOCH: 'auto'
+  SAVE_IMG: False
+  LOAD_PATH: False
+  EVALUATION_METRIC: True
+  EVALUATION_TIME: False
+  EVALUATION_COST: False
+
+SOLVER:
+  # 论文量级：150 epoch x 2250 步 = 337500 步
+  EPOCHS: 150
+  T_0: 50
+  T_MULT: 1
+  ETA_MIN: 0.000001
+  BASE_LR: 0.0002

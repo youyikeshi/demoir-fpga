@@ -28,9 +28,33 @@ DATA:
 | 名字 | 来源 | 规模 | 说明 |
 |---|---|---|---|
 | `uhdm` | UHDM 官方 | 500 对 3840×2160 | 由官方 `test.tar.gz` 解压后**按图**划分成 400 / 100 |
+| `uhdm_full` | UHDM 官方 | **4500 对 4032×3024** | 官方 **train 划分**，按 `pair_NN`/`pair_mi_NN` 分 28 个子目录 |
 
 `raw/` 里保留的是 `test.tar.gz`（5.5 GB）。要论文级复现需要官方的 4500 对训练集，
 下载方式见 `docs/数据集获取方案.md`。
+
+### `uhdm_full` 怎么拿（国内可直连，不必挂 VPN）
+
+官方只在 Google Drive 提供（`train.tar.gz` ≈72 GB），另有 OpenDataLab 的 80 GB 单文件整包。
+两条路都不轻。**更省的做法**是走 hf-mirror 上的完整包，用本仓库的
+`tools/fetch_uhdm_from_hf.py` 做**远程随机抽取**：只读 ZIP 中央目录，再对需要的条目发
+精确 Range 请求，**只下训练集那 35 GB，省掉整包的 9.5 GB 流量**，且逐文件校验 CRC32。
+
+```bash
+# 看包里有什么
+python tools/fetch_uhdm_from_hf.py --list
+
+# 抽取官方训练集 4500 对（保留 pair_NN 子目录结构），约 2 小时 / 5.3 MB/s
+python tools/fetch_uhdm_from_hf.py --extract-subset \
+    --path-filter "train/train/" --out datasets/uhdm_full/train --workers 12
+
+# 抽取测试集 500 对（摊平成 datasets/uhdm/pairs/，再跑 make_split.py 划分）
+python tools/fetch_uhdm_from_hf.py --extract-test --path-filter "test/test/"
+```
+
+> ⚠️ `--path-filter` 必须写 `train/train/` 或 `test/test/`。写 `train` 会同时命中
+> `test_origin/`，两者文件名相同会互相覆盖。
+> 实测记录（含两个数据集的核对结果）见 `docs/本机重训环境搭建_实测.md` 2.2。
 
 ## 怎么新增一个数据集
 

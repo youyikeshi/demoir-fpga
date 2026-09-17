@@ -1,0 +1,49 @@
+﻿# 本机（Windows + RTX 4070 SUPER + Python 3.11）实测可用的依赖清单
+#
+# 与 tools/requirements_pdnet.txt（A 机在 Python 3.12 上的 freeze）的差异：
+#   numpy     2.5.2   -> 2.4.6     (numpy >= 2.5 要求 Python >= 3.12，3.11 装不上)
+#   scipy     1.18.1  -> 1.17.1
+#   tifffile  2026.9.9 -> 2026.3.3
+#   filelock  3.32.3  -> 3.32.6
+#   tqdm      4.70.0  -> 4.70.1
+# 其余包版本与 A 机 freeze 完全一致。
+#
+# torch / torchvision 不在此列：官方 CDN (download.pytorch.org) 在国内会挂死，
+# 需从镜像并行下载 wheel 后离线安装，见 _bootstrap 说明 / tools/fetch_wheel_parallel.py。
+#
+# 生成命令: pip freeze
+beautifulsoup4==4.15.0
+certifi==2026.7.22
+charset-normalizer==3.5.1
+colorama==0.4.6
+filelock==3.32.6
+fsspec==2026.7.0
+gdown==6.2.0
+idna==3.19
+ImageIO==2.37.4
+Jinja2==3.1.6
+lazy-loader==0.5
+lpips==0.1.4
+MarkupSafe==3.0.3
+mpmath==1.3.0
+networkx==3.6.1
+numpy==2.4.6
+opencv-python==5.0.0.93
+packaging==26.3
+pillow==12.3.0
+protobuf==7.36.1
+PySocks==1.7.1
+PyYAML==6.0.3
+requests==2.34.2
+scikit-image==0.26.0
+scipy==1.17.1
+soupsieve==2.9.2
+sympy==1.14.0
+tensorboardX==2.6.5
+thop==0.1.1.post2209072238
+tifffile==2026.3.3
+torch @ file:///E:/ai/demoir-fpga/wheels/torch-2.7.0%2Bcu118-cp311-cp311-win_amd64.whl#sha256=9f76e430a8779bb9a79d413cf62d6e87206822a762af243584ffeee265c1230b
+torchvision @ file:///E:/ai/demoir-fpga/wheels/torchvision-0.22.0%2Bcu118-cp311-cp311-win_amd64.whl#sha256=6b9de51882a9ea18f24600582377dab2e9fce80b90e04d41adad035a2802a28e
+tqdm==4.70.1
+typing_extensions==4.16.0
+urllib3==2.7.0

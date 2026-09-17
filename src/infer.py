@@ -23,11 +23,17 @@
     python src/infer.py --image samples/phone/df18....jpg
 
     # 指定权重（可用 weights.yaml 里的名字，或 runs/ 下的运行目录名，或 .tar 路径）
-    python src/infer.py --student uhdm4k_s512_ep30
+    python src/infer.py --student uhdm4k_s640_ep150
     python src/infer.py --student 2026-09-10_uhdm4k_s512
 
     # 不跑 teacher
     python src/infer.py --no-teacher
+
+    # 大图/显存紧张：分块推理（每块只占几百 MB，代价是每块上下文变少）
+    python src/infer.py --image big.jpg --tile 2048 --overlap 512
+
+    # 更保守的显存上限
+    python src/infer.py --image big.jpg --max-vram 6
 
 产物（默认落在 experiments/out/infer/）
 --------------------------------------
@@ -38,6 +44,26 @@
 
 ⚠️ 全程在**原生分辨率**上推理，不做任何缩放。
 摩尔纹的空间频率与采集分辨率绑定，resize 会把它混叠变形（见 docs 交付说明 3.4）。
+
+⚠️ 显存护栏：为什么必须有
+------------------------
+Windows 的 WDDM **允许显存超额分配** —— 显存不够时驱动不报错，而是把显存换页到系统内存。
+一旦这个换页让驱动操作超过 TDR 默认的 **2 秒** 上限，就会直接
+`VIDEO_TDR_FAILURE (0x00000116)` **蓝屏**，而不是抛一个可捕获的 CUDA OOM。
+（本项目 2026-09-16 就因此蓝屏过一次。）
+
+本机实测的显存系数（可用 `experiments/probe_image_vram.py` 复现）：
+
+| 模型 | fp16 | fp32 |
+|---|---|---|
+| student（1.562 M） | 469 字节/像素 | 936 字节/像素 |
+| teacher（4.396 M） | 831 字节/像素 | 1657 字节/像素 |
+
+于是 4080×3072 的图：student fp16 需 5.5 GB、fp32 需 10.9 GB；
+teacher 仅 fp16 就需 **9.7 GB**，在 12 GB 卡上整图基本必挂 → 必须 `--tile`。
+
+所以本脚本用 `set_per_process_memory_fraction()` 给分配器设硬上限：
+超限时抛的是**可捕获的 OutOfMemoryError**，物理上不给驱动超额分配的机会。
 """
 import argparse
 import math
@@ -63,9 +89,27 @@ from utils.common import img_pad             # noqa: E402
 
 IMG_EXT = ('.jpg', '.jpeg', '.png', '.bmp', '.webp')
 
-DEFAULT_STUDENT = '2026-09-10_uhdm4k_s512'   # runs/ 下已有的那个
+# 实测显存系数（字节/像素），见文件头与 experiments/probe_image_vram.py
+BYTES_PER_PX = {
+    'student': {True: 469, False: 936},
+    'teacher': {True: 831, False: 1657},
+}
+
+DEFAULT_STUDENT = 'uhdm4k_s640_ep150'        # weights.yaml 里推荐的发布版
 DEFAULT_TEACHER = 'ghost_34large'
 DEFAULT_OUT = os.path.join(paths.EXPERIMENTS_OUT, 'infer')
+
+
+def estimate_mb(role, w, h, half):
+    """预估一次前向的峰值显存（MB）。分块模式传块尺寸即可。"""
+    return w * h * BYTES_PER_PX[role][half] / 1024 ** 2
+
+
+def choose_half(role, w, h, budget_mb, want_half=False):
+    """决定精度：显式 --half 优先；否则 fp32 超预算就自动降 fp16。"""
+    if want_half:
+        return True
+    return budget_mb is not None and estimate_mb(role, w, h, False) > budget_mb * 0.9
 
 
 # --------------------------------------------------------------------------- #
@@ -107,6 +151,124 @@ def infer(model, pil_in, device, half):
     with torch.no_grad():
         out = pad_forward(model, t).clamp(0, 1)
     return transforms.ToPILImage()(out[0].float().cpu())
+
+
+# --------------------------------------------------------------------------- #
+# 分块推理（大图 / 显存紧张时用）
+# --------------------------------------------------------------------------- #
+def axis_positions(length, tile, overlap):
+    """一维切分起点：保证全覆盖，且最后一块贴边（不留缺角）。"""
+    if tile >= length:
+        return [0]
+    step = max(1, tile - overlap)
+    pos = list(range(0, length - tile + 1, step))
+    if pos[-1] != length - tile:
+        pos.append(length - tile)
+    return pos
+
+
+def feather_weight(n, ov, ramp_start, ramp_end):
+    """一维羽化权重：需要时左侧 0→1、右侧 1→0。
+
+    相邻两块在重叠区权重互补（1→0 与 0→1），加权和恒为 1，因此不会留下接缝。
+    贴图像边界的那一侧不参与羽化（没有邻居可融合）。
+    """
+    w = np.ones(n, dtype=np.float32)
+    ov = min(ov, n // 2)
+    if ov > 0:
+        if ramp_start:
+            w[:ov] *= np.linspace(0.0, 1.0, ov, dtype=np.float32)
+        if ramp_end:
+            w[-ov:] *= np.linspace(1.0, 0.0, ov, dtype=np.float32)
+    return w
+
+
+def infer_tiled(model, pil_in, device, half, tile, overlap, verbose=False):
+    """分块推理 + 重叠羽化融合。
+
+    每块单独前向，输出按羽化权重累加再归一化。显存只与块大小有关
+    （1024 块 fp16 约 0.5 GB，2048 块约 1.9 GB），与整图尺寸无关。
+
+    ⚠️ 代价：每块能看到的上下文只有 tile 这么大。实测同一张 4080x3072 的图，
+    1024 块的结果与整图相差 22.78 dB、2048 块相差 33.31 dB —— 块越大越接近整图。
+    （因为网络的有效感受野约 512，见 docs 交付说明 3.3。）
+    """
+    model = model.half() if half else model.float()
+    W, H = pil_in.size
+    xs = axis_positions(W, tile, overlap)
+    ys = axis_positions(H, tile, overlap)
+    acc = np.zeros((H, W, 3), dtype=np.float32)
+    wsum = np.zeros((H, W, 1), dtype=np.float32)
+    to_t = transforms.ToTensor()
+
+    total = len(xs) * len(ys)
+    n = 0
+    for y in ys:
+        for x in xs:
+            box = (x, y, min(x + tile, W), min(y + tile, H))
+            patch = pil_in.crop(box)
+            pw, ph = patch.size
+            t = to_t(patch).unsqueeze(0).to(device)
+            if half:
+                t = t.half()
+            with torch.no_grad():
+                out = pad_forward(model, t).clamp(0, 1)
+            arr = out[0].float().cpu().permute(1, 2, 0).numpy()
+            del out, t
+
+            wx = feather_weight(pw, overlap, x > 0, x + pw < W)
+            wy = feather_weight(ph, overlap, y > 0, y + ph < H)
+            w2 = np.outer(wy, wx).astype(np.float32)[:, :, None]
+            acc[y:y + ph, x:x + pw, :] += arr * w2
+            wsum[y:y + ph, x:x + pw, :] += w2
+
+            n += 1
+            if verbose and device.type == 'cuda':
+                print('  [%d/%d] 块  当前显存 %.0f MB'
+                      % (n, total, torch.cuda.memory_allocated() / 1024 ** 2), flush=True)
+    wsum = np.maximum(wsum, 1e-6)
+    out = np.clip(acc / wsum, 0.0, 1.0)
+    return Image.fromarray((out * 255).round().astype('uint8'))
+
+
+def run_model(model, role, src, device, want_half, tile, overlap, budget_mb):
+    """按显存预算选精度与模式并执行一次推理。
+
+    返回 (PIL 输出, 模式描述)；无法在预算内完成时返回 (None, 原因)。
+
+    行为约定：
+      * 显式 --half 优先；否则 fp32 预估超预算就自动降 fp16；
+      * 整图超预算且没指定 --tile 时，**自动转分块并明确打印提示**（不静默改变算法）；
+      * 分配器已设硬上限，所以真撞上也是可捕获的 OOM，不会蓝屏。
+    """
+    w, h = src.size
+    half = choose_half(role, w, h, budget_mb, want_half)
+    use_tile = tile
+
+    if not use_tile and budget_mb is not None:
+        est_whole = estimate_mb(role, w, h, half)
+        if est_whole > budget_mb:
+            use_tile = 2048
+            # 注意：不要在这里用 emoji —— 中文 Windows 控制台是 GBK，
+            # 打印 U+26A0 之类字符会直接 UnicodeEncodeError 崩掉。
+            print('    [注意] 整图预估 %.1f GB > 上限 %.1f GB，自动改用分块 %d'
+                  '（每块上下文变少，结果与整图有差异）'
+                  % (est_whole / 1024, budget_mb / 1024, use_tile))
+
+    if use_tile:
+        est = estimate_mb(role, use_tile, use_tile, half)
+        if budget_mb is not None and est > budget_mb:
+            return None, ('分块 %d 的单块预估 %.1f GB 仍超上限 %.1f GB，请调小 --tile 或 --max-vram'
+                          % (use_tile, est / 1024, budget_mb / 1024))
+        out = infer_tiled(model, src, device, half, use_tile, overlap)
+        return out, '%s 分块%d/重叠%d' % ('fp16' if half else 'fp32', use_tile, overlap)
+
+    est = estimate_mb(role, w, h, half)
+    if budget_mb is not None and est > budget_mb:
+        return None, ('整图预估 %.1f GB > 上限 %.1f GB。加 --tile 2048 分块处理，'
+                      '或调高 --max-vram（别超过物理显存）'
+                      % (est / 1024, budget_mb / 1024))
+    return infer(model, src, device, half), '%s 整图' % ('fp16' if half else 'fp32')
 
 
 # --------------------------------------------------------------------------- #
@@ -189,6 +351,12 @@ def main():
     ap.add_argument('--teacher', default=DEFAULT_TEACHER, help='同上，teacher 版')
     ap.add_argument('--no-teacher', action='store_true', help='不跑 teacher，只出 3 列')
     ap.add_argument('--half', action='store_true', help='fp16 推理（省显存，大图更快）')
+    ap.add_argument('--tile', type=int, default=0,
+                    help='分块推理的块边长（32 的倍数）；0 = 整图。推荐 2048')
+    ap.add_argument('--overlap', type=int, default=256,
+                    help='分块重叠像素（默认 256 = 有效感受野 512 的一半）')
+    ap.add_argument('--max-vram', type=float, default=0.0,
+                    help='本进程显存上限(GB)。默认取总显存的 80%%，给桌面与驱动留余量')
     ap.add_argument('--out', default=DEFAULT_OUT)
     a = ap.parse_args()
 
@@ -205,6 +373,22 @@ def main():
 
     device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
     half = a.half or device.type == 'cpu'
+    if a.tile and a.tile % 32:
+        a.tile = int(math.ceil(a.tile / 32.0)) * 32
+        print('--tile 已向上取整到 32 的倍数：%d' % a.tile)
+    if a.tile and a.overlap >= a.tile:
+        a.overlap = a.tile // 4
+        print('--overlap 必须小于 --tile，已改为 %d' % a.overlap)
+
+    # ---- 显存护栏：先给分配器设硬上限，再加载任何模型 ----
+    budget_mb = None
+    if device.type == 'cuda':
+        total_mb = torch.cuda.get_device_properties(0).total_memory / 1024 ** 2
+        budget_mb = (a.max_vram * 1024) if a.max_vram > 0 else total_mb * 0.80
+        torch.cuda.set_per_process_memory_fraction(min(budget_mb / total_mb, 1.0))
+        print('本进程显存上限 = %.0f MB（超限干净报错，不让驱动超额分配 -> 避免 TDR 蓝屏）'
+              % budget_mb)
+
     print('device  = %s' % device)
     if device.type == 'cuda':
         print('gpu     = %s (%.1f GB)'
@@ -233,24 +417,40 @@ def main():
 
         t0 = time.time()
         try:
-            out_s = infer(student, src, device, half)
+            out_s, desc_s = run_model(student, 'student', src, device, half,
+                                      a.tile, a.overlap, budget_mb)
         except torch.cuda.OutOfMemoryError:
             torch.cuda.empty_cache()
-            print('  显存不足，改用 fp16 重试')
-            out_s = infer(student, src, device, True)
+            print('  干净地显存不足（已被护栏拦住），改用 fp16 重试')
+            out_s, desc_s = run_model(student, 'student', src, device, True,
+                                      a.tile or 2048, a.overlap, budget_mb)
         dt = time.time() - t0
+        if out_s is None:
+            print('  跳过：%s' % desc_s)
+            continue
+        print('  student  %s' % desc_s)
 
         cols, labels, freq_pils, freq_labels = [out_s], ['student'], [spectrum_image(src)], ['频谱 输入']
         freq_pils.append(spectrum_image(out_s))
         freq_labels.append('频谱 student')
 
         if teacher is not None:
-            out_t = infer(teacher, src, device, True)   # teacher 更大，统一走 fp16
-            cols.append(out_t)
-            labels.append('teacher')
-            freq_pils.append(spectrum_image(out_t))
-            freq_labels.append('频谱 teacher')
-            out_t.save(os.path.join(a.out, '%s_teacher.png' % name))
+            try:
+                # teacher 更大，统一走 fp16（显存系数是 student 的 1.77 倍）
+                out_t, desc_t = run_model(teacher, 'teacher', src, device, True,
+                                          a.tile, a.overlap, budget_mb)
+            except torch.cuda.OutOfMemoryError:
+                torch.cuda.empty_cache()
+                out_t, desc_t = None, '显存不足（teacher 1.696 倍于 student 的系数）'
+            if out_t is None:
+                print('  teacher 跳过：%s' % desc_t)
+            else:
+                print('  teacher  %s' % desc_t)
+                cols.append(out_t)
+                labels.append('teacher')
+                freq_pils.append(spectrum_image(out_t))
+                freq_labels.append('频谱 teacher')
+                out_t.save(os.path.join(a.out, '%s_teacher.png' % name))
 
         src.save(os.path.join(a.out, '%s_in.png' % name))
         out_s.save(os.path.join(a.out, '%s_student.png' % name))

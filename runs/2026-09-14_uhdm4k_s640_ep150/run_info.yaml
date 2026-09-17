@@ -1,0 +1,24 @@
+run: 2026-09-14_uhdm4k_s640_ep150
+created: '2026-09-14T18:39:22'
+# 本次运行早于 2026-09-14 的目录重构，源配置当时叫
+# refer_code/PDNet/PDNet/config/full_150ep_local_config.yaml；
+# 新结构下的等价配置是 src/configs/uhdm_4k_s_ep150.yaml
+source_config: src/configs/uhdm_4k_s_ep150.yaml
+dataset: uhdm_full
+# 下面是本次**实际使用**的绝对路径（旧结构）。新结构下的对应位置：
+#   datasets/uhdm_full/train   <- 官方全量训练集 4500 对
+#   datasets/uhdm/eval         <- 官方 test 集划分出的 100 张
+train_dataset: E:\ai\demoir-fpga\demoir-fpga-main\uhdm_data\Train
+test_dataset: E:\ai\demoir-fpga\demoir-fpga-main\uhdm_data\split_eval
+teacher: ghost_34large
+crop_size: 640
+loader: crop
+batch_size: 2
+epochs: 150
+steps_total: 337500
+use_teacher: true
+overrides: {}
+host: LAPTOP-T7OV87V0
+note: >-
+  官方全量训练集（4500 对）跑满 150 epoch，无中断。crop 从官方的 768 降到 640，
+  原因是本机 12GB 显存跑不动 768+batch2（实测吞吐崩到 0.04 it/s）。

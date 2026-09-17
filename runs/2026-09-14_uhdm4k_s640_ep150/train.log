@@ -1,0 +1,167 @@
+# 训练日志（逐 epoch 摘要）
+#
+# 原始日志是 73 MB 的 tqdm 逐迭代刷屏（每步一行），不适合入库。
+# 这里只保留每个 epoch 的收尾行；完整的逐 epoch loss / lr 曲线在 logs/ 下的
+# tfevents 里（tensorboard 可读，或参考 experiments/ 下的脚本读法）。
+#
+# 环境（供复现对照）：
+#   torch 2.7.0+cu118 / torchvision 0.22.0+cu118 / Python 3.11.9
+#   RTX 4070 SUPER 12GB，驱动 596.21
+#   实测稳态吞吐 2.24 it/s，显存 9557 MiB，GPU 利用率 98%
+#
+# lr 走 CosineAnnealingWarmRestarts(T_0=50, T_mult=1, eta_min=1e-6)，
+# 因此在 epoch 51、101 处 lr 会跳回 base_lr(2e-4)，loss 相应先反弹再下降 —— 属正常设计。
+
+n_gpu = 1, device = cuda:0, device1(teacher) = cuda:0
+Loading Teacher ===============================
+****start traininig!!!****
+Epoch   1  lr 0.0002000  Avg. Loss = 5.88836
+Epoch   2  lr 0.0001998  Avg. Loss = 4.87345
+Epoch   3  lr 0.0001992  Avg. Loss = 4.56217
+Epoch   4  lr 0.0001982  Avg. Loss = 4.41566
+Epoch   5  lr 0.0001969  Avg. Loss = 4.30256
+Epoch   6  lr 0.0001951  Avg. Loss = 4.15842
+Epoch   7  lr 0.0001930  Avg. Loss = 4.10062
+Epoch   8  lr 0.0001905  Avg. Loss = 4.01551
+Epoch   9  lr 0.0001877  Avg. Loss = 3.96844
+Epoch  10  lr 0.0001845  Avg. Loss = 3.88605
+Epoch  11  lr 0.0001810  Avg. Loss = 3.80349
+Epoch  12  lr 0.0001772  Avg. Loss = 3.80112
+Epoch  13  lr 0.0001730  Avg. Loss = 3.71518
+Epoch  14  lr 0.0001686  Avg. Loss = 3.68749
+Epoch  15  lr 0.0001639  Avg. Loss = 3.66221
+Epoch  16  lr 0.0001590  Avg. Loss = 3.58556
+Epoch  17  lr 0.0001538  Avg. Loss = 3.59547
+Epoch  18  lr 0.0001484  Avg. Loss = 3.55576
+Epoch  19  lr 0.0001429  Avg. Loss = 3.46843
+Epoch  20  lr 0.0001371  Avg. Loss = 3.49075
+Epoch  21  lr 0.0001312  Avg. Loss = 3.42288
+Epoch  22  lr 0.0001252  Avg. Loss = 3.44592
+Epoch  23  lr 0.0001191  Avg. Loss = 3.39289
+Epoch  24  lr 0.0001130  Avg. Loss = 3.35589
+Epoch  25  lr 0.0001067  Avg. Loss = 3.36063
+Epoch  26  lr 0.0001005  Avg. Loss = 3.32980
+Epoch  27  lr 0.0000943  Avg. Loss = 3.28280
+Epoch  28  lr 0.0000880  Avg. Loss = 3.27722
+Epoch  29  lr 0.0000819  Avg. Loss = 3.25066
+Epoch  30  lr 0.0000758  Avg. Loss = 3.24055
+Epoch  31  lr 0.0000698  Avg. Loss = 3.24074
+Epoch  32  lr 0.0000639  Avg. Loss = 3.23102
+Epoch  33  lr 0.0000581  Avg. Loss = 3.13651
+Epoch  34  lr 0.0000526  Avg. Loss = 3.16601
+Epoch  35  lr 0.0000472  Avg. Loss = 3.15512
+Epoch  36  lr 0.0000420  Avg. Loss = 3.13118
+Epoch  37  lr 0.0000371  Avg. Loss = 3.05599
+Epoch  38  lr 0.0000324  Avg. Loss = 3.07786
+Epoch  39  lr 0.0000280  Avg. Loss = 3.06067
+Epoch  40  lr 0.0000238  Avg. Loss = 3.05208
+Epoch  41  lr 0.0000200  Avg. Loss = 3.04097
+Epoch  42  lr 0.0000165  Avg. Loss = 3.01482
+Epoch  43  lr 0.0000133  Avg. Loss = 2.99777
+Epoch  44  lr 0.0000105  Avg. Loss = 2.97638
+Epoch  45  lr 0.0000080  Avg. Loss = 2.96404
+Epoch  46  lr 0.0000059  Avg. Loss = 2.98783
+Epoch  47  lr 0.0000041  Avg. Loss = 2.94893
+Epoch  48  lr 0.0000028  Avg. Loss = 2.95132
+Epoch  49  lr 0.0000018  Avg. Loss = 2.96859
+Epoch  50  lr 0.0000012  Avg. Loss = 2.95817
+Epoch  51  lr 0.0002000  Avg. Loss = 3.47056
+Epoch  52  lr 0.0001998  Avg. Loss = 3.36875
+Epoch  53  lr 0.0001992  Avg. Loss = 3.34693
+Epoch  54  lr 0.0001982  Avg. Loss = 3.34781
+Epoch  55  lr 0.0001969  Avg. Loss = 3.31149
+Epoch  56  lr 0.0001951  Avg. Loss = 3.31508
+Epoch  57  lr 0.0001930  Avg. Loss = 3.29236
+Epoch  58  lr 0.0001905  Avg. Loss = 3.28026
+Epoch  59  lr 0.0001877  Avg. Loss = 3.20833
+Epoch  60  lr 0.0001845  Avg. Loss = 3.24936
+Epoch  61  lr 0.0001810  Avg. Loss = 3.24880
+Epoch  62  lr 0.0001772  Avg. Loss = 3.19510
+Epoch  63  lr 0.0001730  Avg. Loss = 3.15334
+Epoch  64  lr 0.0001686  Avg. Loss = 3.15695
+Epoch  65  lr 0.0001639  Avg. Loss = 3.15470
+Epoch  66  lr 0.0001590  Avg. Loss = 3.13401
+Epoch  67  lr 0.0001538  Avg. Loss = 3.09299
+Epoch  68  lr 0.0001484  Avg. Loss = 3.05041
+Epoch  69  lr 0.0001429  Avg. Loss = 3.03833
+Epoch  70  lr 0.0001371  Avg. Loss = 2.99440
+Epoch  71  lr 0.0001312  Avg. Loss = 3.00900
+Epoch  72  lr 0.0001252  Avg. Loss = 2.95213
+Epoch  73  lr 0.0001191  Avg. Loss = 2.96848
+Epoch  74  lr 0.0001130  Avg. Loss = 2.96065
+Epoch  75  lr 0.0001067  Avg. Loss = 2.94019
+Epoch  76  lr 0.0001005  Avg. Loss = 2.90001
+Epoch  77  lr 0.0000943  Avg. Loss = 2.86940
+Epoch  78  lr 0.0000880  Avg. Loss = 2.89185
+Epoch  79  lr 0.0000819  Avg. Loss = 2.82519
+Epoch  80  lr 0.0000758  Avg. Loss = 2.83190
+Epoch  81  lr 0.0000698  Avg. Loss = 2.79236
+Epoch  82  lr 0.0000639  Avg. Loss = 2.79120
+Epoch  83  lr 0.0000581  Avg. Loss = 2.76474
+Epoch  84  lr 0.0000526  Avg. Loss = 2.77652
+Epoch  85  lr 0.0000472  Avg. Loss = 2.74968
+Epoch  86  lr 0.0000420  Avg. Loss = 2.75313
+Epoch  87  lr 0.0000371  Avg. Loss = 2.73623
+Epoch  88  lr 0.0000324  Avg. Loss = 2.70434
+Epoch  89  lr 0.0000280  Avg. Loss = 2.66464
+Epoch  90  lr 0.0000238  Avg. Loss = 2.64959
+Epoch  91  lr 0.0000200  Avg. Loss = 2.66840
+Epoch  92  lr 0.0000165  Avg. Loss = 2.62678
+Epoch  93  lr 0.0000133  Avg. Loss = 2.61258
+Epoch  94  lr 0.0000105  Avg. Loss = 2.62022
+Epoch  95  lr 0.0000080  Avg. Loss = 2.62922
+Epoch  96  lr 0.0000059  Avg. Loss = 2.59680
+Epoch  97  lr 0.0000041  Avg. Loss = 2.59654
+Epoch  98  lr 0.0000028  Avg. Loss = 2.59940
+Epoch  99  lr 0.0000018  Avg. Loss = 2.57912
+Epoch 100  lr 0.0000012  Avg. Loss = 2.58216
+Epoch 101  lr 0.0002000  Avg. Loss = 3.07623
+Epoch 102  lr 0.0001998  Avg. Loss = 3.06940
+Epoch 103  lr 0.0001992  Avg. Loss = 3.06095
+Epoch 104  lr 0.0001982  Avg. Loss = 3.01775
+Epoch 105  lr 0.0001969  Avg. Loss = 3.01102
+Epoch 106  lr 0.0001951  Avg. Loss = 3.02424
+Epoch 107  lr 0.0001930  Avg. Loss = 3.02132
+Epoch 108  lr 0.0001905  Avg. Loss = 2.99008
+Epoch 109  lr 0.0001877  Avg. Loss = 2.97293
+Epoch 110  lr 0.0001845  Avg. Loss = 2.99405
+Epoch 111  lr 0.0001810  Avg. Loss = 2.97143
+Epoch 112  lr 0.0001772  Avg. Loss = 2.94950
+Epoch 113  lr 0.0001730  Avg. Loss = 2.93938
+Epoch 114  lr 0.0001686  Avg. Loss = 2.93129
+Epoch 115  lr 0.0001639  Avg. Loss = 2.91671
+Epoch 116  lr 0.0001590  Avg. Loss = 2.89589
+Epoch 117  lr 0.0001538  Avg. Loss = 2.88529
+Epoch 118  lr 0.0001484  Avg. Loss = 2.84637
+Epoch 119  lr 0.0001429  Avg. Loss = 2.88867
+Epoch 120  lr 0.0001371  Avg. Loss = 2.79916
+Epoch 121  lr 0.0001312  Avg. Loss = 2.80442
+Epoch 122  lr 0.0001252  Avg. Loss = 2.77914
+Epoch 123  lr 0.0001191  Avg. Loss = 2.75464
+Epoch 124  lr 0.0001130  Avg. Loss = 2.75846
+Epoch 125  lr 0.0001067  Avg. Loss = 2.76605
+Epoch 126  lr 0.0001005  Avg. Loss = 2.73227
+Epoch 127  lr 0.0000943  Avg. Loss = 2.70505
+Epoch 128  lr 0.0000880  Avg. Loss = 2.71731
+Epoch 129  lr 0.0000819  Avg. Loss = 2.68088
+Epoch 130  lr 0.0000758  Avg. Loss = 2.64785
+Epoch 131  lr 0.0000698  Avg. Loss = 2.61026
+Epoch 132  lr 0.0000639  Avg. Loss = 2.62930
+Epoch 133  lr 0.0000581  Avg. Loss = 2.61230
+Epoch 134  lr 0.0000526  Avg. Loss = 2.58924
+Epoch 135  lr 0.0000472  Avg. Loss = 2.56135
+Epoch 136  lr 0.0000420  Avg. Loss = 2.53385
+Epoch 137  lr 0.0000371  Avg. Loss = 2.53458
+Epoch 138  lr 0.0000324  Avg. Loss = 2.50723
+Epoch 139  lr 0.0000280  Avg. Loss = 2.49517
+Epoch 140  lr 0.0000238  Avg. Loss = 2.48922
+Epoch 141  lr 0.0000200  Avg. Loss = 2.47963
+Epoch 142  lr 0.0000165  Avg. Loss = 2.47634
+Epoch 143  lr 0.0000133  Avg. Loss = 2.45020
+Epoch 144  lr 0.0000105  Avg. Loss = 2.41423
+Epoch 145  lr 0.0000080  Avg. Loss = 2.43720
+Epoch 146  lr 0.0000059  Avg. Loss = 2.44441
+Epoch 147  lr 0.0000041  Avg. Loss = 2.38930
+Epoch 148  lr 0.0000028  Avg. Loss = 2.39956
+Epoch 149  lr 0.0000018  Avg. Loss = 2.41772
+Epoch 150  lr 0.0000012  Avg. Loss = 2.38993
