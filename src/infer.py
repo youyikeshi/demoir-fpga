@@ -80,6 +80,7 @@ from PIL import Image, ImageDraw        # noqa: E402
 from torchvision import transforms      # noqa: E402
 
 import paths                            # noqa: E402
+import tiling                           # noqa: E402
 import vendor_boot                      # noqa: E402
 
 paths.add_vendor_pdnet_to_path()
@@ -155,80 +156,41 @@ def infer(model, pil_in, device, half):
 
 # --------------------------------------------------------------------------- #
 # 分块推理（大图 / 显存紧张时用）
+#
+# 切割与拼接的实现在 src/tiling.py —— 那是个不依赖模型的独立模块，
+# 有完整的设计说明与自检（python src/tiling.py --selftest）。
+# 这里只做一层适配：把"跑一块"这件事包成 tiling 需要的 forward_patch。
 # --------------------------------------------------------------------------- #
-def axis_positions(length, tile, overlap):
-    """一维切分起点：保证全覆盖，且最后一块贴边（不留缺角）。"""
-    if tile >= length:
-        return [0]
-    step = max(1, tile - overlap)
-    pos = list(range(0, length - tile + 1, step))
-    if pos[-1] != length - tile:
-        pos.append(length - tile)
-    return pos
-
-
-def feather_weight(n, ov, ramp_start, ramp_end):
-    """一维羽化权重：需要时左侧 0→1、右侧 1→0。
-
-    相邻两块在重叠区权重互补（1→0 与 0→1），加权和恒为 1，因此不会留下接缝。
-    贴图像边界的那一侧不参与羽化（没有邻居可融合）。
-    """
-    w = np.ones(n, dtype=np.float32)
-    ov = min(ov, n // 2)
-    if ov > 0:
-        if ramp_start:
-            w[:ov] *= np.linspace(0.0, 1.0, ov, dtype=np.float32)
-        if ramp_end:
-            w[-ov:] *= np.linspace(1.0, 0.0, ov, dtype=np.float32)
-    return w
-
-
 def infer_tiled(model, pil_in, device, half, tile, overlap, verbose=False):
-    """分块推理 + 重叠羽化融合。
+    """分块推理 + 重叠羽化拼接（委托给 src/tiling.py）。
 
-    每块单独前向，输出按羽化权重累加再归一化。显存只与块大小有关
-    （1024 块 fp16 约 0.5 GB，2048 块约 1.9 GB），与整图尺寸无关。
+    显存只与块大小有关（1024 块 fp16 约 0.5 GB，2048 块约 1.9 GB），与整图尺寸无关。
 
     ⚠️ 代价：每块能看到的上下文只有 tile 这么大。实测同一张 4080x3072 的图，
     1024 块的结果与整图相差 22.78 dB、2048 块相差 33.31 dB —— 块越大越接近整图。
-    （因为网络的有效感受野约 512，见 docs 交付说明 3.3。）
+    详见 docs/分块推理_切割与拼接.md。
     """
     model = model.half() if half else model.float()
-    W, H = pil_in.size
-    xs = axis_positions(W, tile, overlap)
-    ys = axis_positions(H, tile, overlap)
-    acc = np.zeros((H, W, 3), dtype=np.float32)
-    wsum = np.zeros((H, W, 1), dtype=np.float32)
     to_t = transforms.ToTensor()
 
-    total = len(xs) * len(ys)
-    n = 0
-    for y in ys:
-        for x in xs:
-            box = (x, y, min(x + tile, W), min(y + tile, H))
-            patch = pil_in.crop(box)
-            pw, ph = patch.size
-            t = to_t(patch).unsqueeze(0).to(device)
-            if half:
-                t = t.half()
-            with torch.no_grad():
-                out = pad_forward(model, t).clamp(0, 1)
-            arr = out[0].float().cpu().permute(1, 2, 0).numpy()
-            del out, t
+    def forward_patch(patch):
+        """一块 PIL -> 同尺寸 float32 HWC 数组（0~1）。"""
+        t = to_t(patch).unsqueeze(0).to(device)
+        if half:
+            t = t.half()
+        with torch.no_grad():
+            out = pad_forward(model, t).clamp(0, 1)
+        arr = out[0].float().cpu().permute(1, 2, 0).numpy()
+        del out, t
+        return arr
 
-            wx = feather_weight(pw, overlap, x > 0, x + pw < W)
-            wy = feather_weight(ph, overlap, y > 0, y + ph < H)
-            w2 = np.outer(wy, wx).astype(np.float32)[:, :, None]
-            acc[y:y + ph, x:x + pw, :] += arr * w2
-            wsum[y:y + ph, x:x + pw, :] += w2
+    def on_tile(i, n):
+        if verbose and device.type == 'cuda':
+            print('  [%d/%d] 块  当前显存 %.0f MB'
+                  % (i, n, torch.cuda.memory_allocated() / 1024 ** 2), flush=True)
 
-            n += 1
-            if verbose and device.type == 'cuda':
-                print('  [%d/%d] 块  当前显存 %.0f MB'
-                      % (n, total, torch.cuda.memory_allocated() / 1024 ** 2), flush=True)
-    wsum = np.maximum(wsum, 1e-6)
-    out = np.clip(acc / wsum, 0.0, 1.0)
-    return Image.fromarray((out * 255).round().astype('uint8'))
+    return tiling.run_tiled(pil_in, forward_patch, tile=tile, overlap=overlap,
+                            on_tile=on_tile if verbose else None)
 
 
 def run_model(model, role, src, device, want_half, tile, overlap, budget_mb):

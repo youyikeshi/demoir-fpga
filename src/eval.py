@@ -57,8 +57,8 @@ from model.nets_student import my_model      # noqa: E402
 from model.nets_teacher import T_my_model    # noqa: E402
 from utils.common import PSNR, SSIM, img_pad  # noqa: E402
 
-# student 的默认权重，与 src/infer.py 保持一致（runs/ 下已有的那个已训模型）
-DEFAULT_STUDENT = '2026-09-10_uhdm4k_s512'
+# student 的默认权重，与 src/infer.py 保持一致（weights.yaml 里推荐的发布版）
+DEFAULT_STUDENT = 'uhdm4k_s640_ep150'
 
 
 # --------------------------------------------------------------------------- #
@@ -178,6 +178,9 @@ def main():
     ap.add_argument('--crops-per-image', type=int, default=1, help='每张图取几个位置')
     ap.add_argument('--lpips', action='store_true', help='额外算 LPIPS（较慢）')
     ap.add_argument('--half', action='store_true', help='fp16 推理')
+    ap.add_argument('--max-vram', type=float, default=0.0,
+                    help='本进程显存上限(GB)。默认取总显存的 80%%，给桌面与驱动留余量；'
+                         '设了硬上限后，显存不足是可捕获的 OOM，而不是 WDDM 超额分配导致的 TDR 蓝屏')
     ap.add_argument('--seed', type=int, default=0)
     ap.add_argument('--grid-n', type=int, default=3, help='对比图里放几行')
     ap.add_argument('--out', default=os.path.join(paths.EXPERIMENTS_OUT, 'eval'))
@@ -208,6 +211,13 @@ def main():
     device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
     print('device = %s' % device)
     if device.type == 'cuda':
+        # ---- 显存护栏：先给分配器设硬上限，再加载模型 ----
+        # 没有这道上限时，显存不够不会报错，而是被 WDDM 换页到系统内存；
+        # 一旦驱动操作超过 TDR 默认的 2 秒，就是 VIDEO_TDR_FAILURE 蓝屏。
+        total_mb = torch.cuda.get_device_properties(0).total_memory / 1024 ** 2
+        budget_mb = (a.max_vram * 1024) if a.max_vram > 0 else total_mb * 0.80
+        torch.cuda.set_per_process_memory_fraction(min(budget_mb / total_mb, 1.0))
+        print('显存上限 = %.0f MB（超限干净报错，不让驱动超额分配）' % budget_mb)
         print('gpu    = %s (%.1f GB)'
               % (torch.cuda.get_device_name(0),
                  torch.cuda.get_device_properties(0).total_memory / 1024 ** 3))
