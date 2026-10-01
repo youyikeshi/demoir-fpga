@@ -1,0 +1,400 @@
+zocl: adapt to Linux 6.12 (Xilinx kernel 6.12.40)
+
+XRT 2024.1 的 zocl 驱动针对内核 6.6 编写；在 6.12 上有两类 API 漂移：
+
+  1. <linux/vmalloc.h> 自 ~6.10 起不再被其他头文件隐式包含，
+     导致 vmalloc/vzalloc/vfree/vmap/vunmap/VM_MAP 变成隐式声明
+     （GCC 默认 -Werror=implicit-function-declaration）。
+  2. platform_driver 的 .remove 回调自 6.11 起必须返回 void
+     （原为 int），否则 -Werror=incompatible-pointer-types。
+
+本补丁按最小改动适配，不改任何运行时语义。
+
+Upstream-Status: Inappropriate [本地适配 Xilinx 内核 6.12.40，非上游问题]
+
+diff --git a/common/cu.c b/common/cu.c
+index efc9d30601..36b783a0e3 100644
+--- a/common/cu.c
++++ b/common/cu.c
+@@ -10,6 +10,7 @@
+  * License version 2 or Apache License, Version 2.0.
+  */
+ 
++#include <linux/vmalloc.h>	/* kernel >= 6.12: 不再隐式包含 */
+ #include "zocl_drv.h"
+ #include "xrt_cu.h"
+ #include "zocl_ert_intc.h"
+@@ -446,7 +447,7 @@ err:
+ 	return err;
+ }
+ 
+-static int cu_remove(struct platform_device *pdev)
++static void cu_remove(struct platform_device *pdev)
+ {
+ 	struct zocl_cu *zcu;
+ 	struct drm_zocl_dev *zdev;
+@@ -455,7 +456,7 @@ static int cu_remove(struct platform_device *pdev)
+ 
+ 	zcu = platform_get_drvdata(pdev);
+ 	if (!zcu)
+-		return -EINVAL;
++		return;
+ 
+ 	info = &zcu->base.info;
+ 	switch (info->model) {
+@@ -488,7 +489,7 @@ static int cu_remove(struct platform_device *pdev)
+ 	kfree(zcu->irq_name);
+ 	kfree(zcu);
+ 
+-	return 0;
++	return;
+ }
+ 
+ static struct platform_device_id cu_id_table[] = {
+diff --git a/common/zocl_bo.c b/common/zocl_bo.c
+index 25031c55e5..3b971a8e69 100644
+--- a/common/zocl_bo.c
++++ b/common/zocl_bo.c
+@@ -14,6 +14,7 @@
+  * License version 2 or Apache License, Version 2.0.
+  */
+ 
++#include <linux/vmalloc.h>	/* kernel >= 6.12: 不再隐式包含 */
+ #include <linux/pagemap.h>
+ #include <linux/of_address.h>
+ #include <linux/dma-buf.h>
+diff --git a/common/zocl_drv.c b/common/zocl_drv.c
+index 412f3dd025..356bc2024c 100644
+--- a/common/zocl_drv.c
++++ b/common/zocl_drv.c
+@@ -16,6 +16,7 @@
+  * License version 2 or Apache License, Version 2.0.
+  */
+ 
++#include <linux/vmalloc.h>	/* kernel >= 6.12: 不再隐式包含 */
+ #include <linux/delay.h>
+ #include <linux/dma-buf.h>
+ #include <linux/module.h>
+@@ -1320,7 +1321,7 @@ err_apt:
+  * @return       0 on success, Error code on failure.
+  *
+  */
+-static int zocl_drm_platform_remove(struct platform_device *pdev)
++static void zocl_drm_platform_remove(struct platform_device *pdev)
+ {
+ 	struct drm_zocl_dev *zdev = platform_get_drvdata(pdev);
+ 	struct drm_device *drm = zdev->ddev;
+@@ -1356,7 +1357,7 @@ static int zocl_drm_platform_remove(struct platform_device *pdev)
+ 	drm_dev_unregister(drm);
+ 	ZOCL_DRM_DEV_PUT(drm);
+ 
+-	return 0;
++	return;
+ }
+ 
+ static struct platform_driver zocl_drm_private_driver = {
+diff --git a/common/zocl_kds.c b/common/zocl_kds.c
+index 87f2086661..2030c5eda1 100644
+--- a/common/zocl_kds.c
++++ b/common/zocl_kds.c
+@@ -10,6 +10,7 @@
+  * License version 2 or Apache License, Version 2.0.
+  */
+ 
++#include <linux/vmalloc.h>	/* kernel >= 6.12: 不再隐式包含 */
+ #include <linux/sched/signal.h>
+ #include "zocl_drv.h"
+ #include "zocl_util.h"
+diff --git a/common/zocl_xclbin.c b/common/zocl_xclbin.c
+index dc78a12d14..6e23ed51e0 100644
+--- a/common/zocl_xclbin.c
++++ b/common/zocl_xclbin.c
+@@ -12,6 +12,7 @@
+  * License version 2 or Apache License, Version 2.0.
+  */
+ 
++#include <linux/vmalloc.h>	/* kernel >= 6.12: 不再隐式包含 */
+ #include <linux/fpga/fpga-mgr.h>
+ #include <linux/of.h>
+ #include "zocl_drv.h"
+diff --git a/edge/zocl_aie.c b/edge/zocl_aie.c
+index fe6b20c55e..0371486e79 100644
+--- a/edge/zocl_aie.c
++++ b/edge/zocl_aie.c
+@@ -13,6 +13,7 @@
+  * License version 2 or Apache License, Version 2.0.
+  */
+ 
++#include <linux/vmalloc.h>	/* kernel >= 6.12: 不再隐式包含 */
+ #include "zocl_drv.h"
+ #include "zocl_aie.h"
+ #include "xrt_xclbin.h"
+diff --git a/edge/zocl_cu.c b/edge/zocl_cu.c
+index 7bcd8a8c20..5bf3603203 100644
+--- a/edge/zocl_cu.c
++++ b/edge/zocl_cu.c
+@@ -12,6 +12,7 @@
+  */
+ 
+ 
++#include <linux/vmalloc.h>	/* kernel >= 6.12: 不再隐式包含 */
+ #include <drm/drm.h>
+ #include <drm/drm_print.h>
+ #include <linux/io.h>
+diff --git a/edge/zocl_edge_kds.c b/edge/zocl_edge_kds.c
+index ff853390f6..6ce43a5bce 100644
+--- a/edge/zocl_edge_kds.c
++++ b/edge/zocl_edge_kds.c
+@@ -10,6 +10,7 @@
+  * License version 2 or Apache License, Version 2.0.
+  */
+ 
++#include <linux/vmalloc.h>	/* kernel >= 6.12: 不再隐式包含 */
+ #include <linux/sched/signal.h>
+ #include "zocl_drv.h"
+ #include "zocl_util.h"
+diff --git a/edge/zocl_edge_xclbin.c b/edge/zocl_edge_xclbin.c
+index 60fdf88a21..267375d123 100644
+--- a/edge/zocl_edge_xclbin.c
++++ b/edge/zocl_edge_xclbin.c
+@@ -12,6 +12,7 @@
+  * License version 2 or Apache License, Version 2.0.
+  */
+ 
++#include <linux/vmalloc.h>	/* kernel >= 6.12: 不再隐式包含 */
+ #include <linux/fpga/fpga-mgr.h>
+ #include <linux/of.h>
+ #include "zocl_drv.h"
+diff --git a/edge/zocl_error.c b/edge/zocl_error.c
+index 630e77bcd5..2ddbc3914a 100644
+--- a/edge/zocl_error.c
++++ b/edge/zocl_error.c
+@@ -12,6 +12,7 @@
+  * License version 2 or Apache License, Version 2.0.
+  */
+ 
++#include <linux/vmalloc.h>	/* kernel >= 6.12: 不再隐式包含 */
+ #include <linux/mutex.h>
+ 
+ #include "zocl_error.h"
+diff --git a/zert/scu.c b/zert/scu.c
+index e7dbfa9895..411547c88d 100644
+--- a/zert/scu.c
++++ b/zert/scu.c
+@@ -10,6 +10,7 @@
+  * License version 2 or Apache License, Version 2.0.
+  */
+ 
++#include <linux/vmalloc.h>	/* kernel >= 6.12: 不再隐式包含 */
+ #include "zocl_drv.h"
+ #include "zocl_sk.h"
+ #include "xrt_cu.h"
+@@ -264,7 +265,7 @@ err:
+ 	return err;
+ }
+ 
+-static int scu_remove(struct platform_device *pdev)
++static void scu_remove(struct platform_device *pdev)
+ {
+ 	struct zocl_scu *zcu = platform_get_drvdata(pdev);
+ 	struct drm_zocl_dev *zdev = zocl_get_zdev();
+@@ -286,7 +287,7 @@ static int scu_remove(struct platform_device *pdev)
+ 	zocl_info(&pdev->dev, "SCU[%d] removed", info->cu_idx);
+ 	kfree(zcu);
+ 
+-	return 0;
++	return;
+ }
+ 
+ static struct platform_device_id scu_id_table[] = {
+diff --git a/zert/zocl_csr_intc.c b/zert/zocl_csr_intc.c
+index 0ac120466d..dc19b28d64 100644
+--- a/zert/zocl_csr_intc.c
++++ b/zert/zocl_csr_intc.c
+@@ -131,12 +131,12 @@ static int zintc_probe(struct platform_device *pdev)
+ 	return 0;
+ }
+ 
+-static int zintc_remove(struct platform_device *pdev)
++static void zintc_remove(struct platform_device *pdev)
+ {
+ 	struct zocl_csr_intc *zintc = platform_get_drvdata(pdev);
+ 
+ 	zintc_info(zintc, "Removing %s", ZINTC_NAME);
+-	return 0;
++	return;
+ }
+ 
+ /*
+diff --git a/zert/zocl_ctrl_ert.c b/zert/zocl_ctrl_ert.c
+index dded40efa6..31bfdd254f 100644
+--- a/zert/zocl_ctrl_ert.c
++++ b/zert/zocl_ctrl_ert.c
+@@ -711,7 +711,7 @@ static int zert_probe(struct platform_device *pdev)
+ 	return ret;
+ }
+ 
+-static int zert_remove(struct platform_device *pdev)
++static void zert_remove(struct platform_device *pdev)
+ {
+ 	struct zocl_ctrl_ert *zert = platform_get_drvdata(pdev);
+ 
+@@ -729,7 +729,7 @@ static int zert_remove(struct platform_device *pdev)
+ 	zocl_ert_destroy_intc(zert->zce_xgq_intc);
+ 	zocl_ert_destroy_intc(zert->zce_cu_intc);
+ 
+-	return 0;
++	return;
+ }
+ 
+ struct platform_driver zocl_ctrl_ert_driver = {
+diff --git a/zert/zocl_cu_xgq.c b/zert/zocl_cu_xgq.c
+index 278a930139..c660bc645c 100644
+--- a/zert/zocl_cu_xgq.c
++++ b/zert/zocl_cu_xgq.c
+@@ -9,6 +9,7 @@
+  * License version 2 or Apache License, Version 2.0.
+  */
+ 
++#include <linux/vmalloc.h>	/* kernel >= 6.12: 不再隐式包含 */
+ #include <linux/mod_devicetable.h>
+ #include <linux/platform_device.h>
+ #include <linux/mutex.h>
+@@ -341,7 +342,7 @@ static int zcu_xgq_probe(struct platform_device *pdev)
+ 	return 0;
+ }
+ 
+-static int zcu_xgq_remove(struct platform_device *pdev)
++static void zcu_xgq_remove(struct platform_device *pdev)
+ {
+ 	struct zocl_cu_xgq *zcu_xgq = platform_get_drvdata(pdev);
+ 
+@@ -357,7 +358,7 @@ static int zcu_xgq_remove(struct platform_device *pdev)
+ 	if (zcu_xgq->zxc_client_hdl)
+ 		zocl_destroy_client(zcu_xgq->zxc_client_hdl);
+ 	zcu_xgq_fini_xgq(zcu_xgq);
+-	return 0;
++	return;
+ }
+ 
+ static const struct platform_device_id zocl_cu_xgq_id_match[] = {
+diff --git a/zert/zocl_ert.c b/zert/zocl_ert.c
+index 3abf2fa0a5..cc67a1cf1f 100644
+--- a/zert/zocl_ert.c
++++ b/zert/zocl_ert.c
+@@ -298,10 +298,10 @@ static int zocl_ert_probe(struct platform_device *pdev)
+ 	return 0;
+ }
+ 
+-static int zocl_ert_remove(struct platform_device *pdev)
++static void zocl_ert_remove(struct platform_device *pdev)
+ {
+ 	ert_dbg(pdev, "Release resource");
+-	return 0;
++	return;
+ }
+ 
+ struct platform_driver zocl_ert_driver = {
+diff --git a/zert/zocl_ospi_versal.c b/zert/zocl_ospi_versal.c
+index 83c22a86c5..dbf0c04460 100644
+--- a/zert/zocl_ospi_versal.c
++++ b/zert/zocl_ospi_versal.c
+@@ -12,6 +12,7 @@
+  * License version 2 or Apache License, Version 2.0.
+  */
+ 
++#include <linux/vmalloc.h>	/* kernel >= 6.12: 不再隐式包含 */
+ #include <linux/delay.h>
+ #include <linux/kthread.h>
+ #include <linux/platform_device.h>
+@@ -498,7 +499,7 @@ static int zocl_ov_probe(struct platform_device  *pdev)
+ 	return 0;
+ }
+ 
+-static int zocl_ov_remove(struct platform_device *pdev)
++static void zocl_ov_remove(struct platform_device *pdev)
+ {
+ 	struct zocl_ov_dev *ov = platform_get_drvdata(pdev);
+ 
+@@ -507,7 +508,7 @@ static int zocl_ov_remove(struct platform_device *pdev)
+ 	if (ov && ov->timer_task)
+ 		kthread_stop(ov->timer_task);
+ 
+-	return 0;
++	return;
+ }
+ 
+ struct platform_driver zocl_ospi_versal_driver = {
+diff --git a/zert/zocl_ps_kds.c b/zert/zocl_ps_kds.c
+index 909d136724..9e61b8b01a 100644
+--- a/zert/zocl_ps_kds.c
++++ b/zert/zocl_ps_kds.c
+@@ -10,6 +10,7 @@
+  * License version 2 or Apache License, Version 2.0.
+  */
+ 
++#include <linux/vmalloc.h>	/* kernel >= 6.12: 不再隐式包含 */
+ #include <linux/sched/signal.h>
+ #include "zocl_drv.h"
+ #include "zocl_util.h"
+diff --git a/zert/zocl_ps_xclbin.c b/zert/zocl_ps_xclbin.c
+index db57d5e7e1..edce5a8352 100644
+--- a/zert/zocl_ps_xclbin.c
++++ b/zert/zocl_ps_xclbin.c
+@@ -12,6 +12,7 @@
+  * License version 2 or Apache License, Version 2.0.
+  */
+ 
++#include <linux/vmalloc.h>	/* kernel >= 6.12: 不再隐式包含 */
+ #include <linux/fpga/fpga-mgr.h>
+ #include <linux/of.h>
+ #include "zocl_drv.h"
+diff --git a/zert/zocl_rpu_channel.c b/zert/zocl_rpu_channel.c
+index aa8e4a8ebc..4f6f8a9db3 100644
+--- a/zert/zocl_rpu_channel.c
++++ b/zert/zocl_rpu_channel.c
+@@ -10,6 +10,7 @@
+  * License version 2 or Apache License, Version 2.0.
+  */
+ 
++#include <linux/vmalloc.h>	/* kernel >= 6.12: 不再隐式包含 */
+ #include <linux/mod_devicetable.h>
+ #include <linux/platform_device.h>
+ #include <linux/of_address.h>
+@@ -519,7 +520,7 @@ err_intc:
+ 	return -EINVAL;
+ };
+ 
+-static int zrpu_channel_remove(struct platform_device *pdev)
++static void zrpu_channel_remove(struct platform_device *pdev)
+ {
+ 	struct zocl_rpu_channel *chan = platform_get_drvdata(pdev);
+ 
+@@ -527,7 +528,7 @@ static int zrpu_channel_remove(struct platform_device *pdev)
+ 		zxgq_fini(chan->xgq_hdl);
+ 	zocl_ert_destroy_intc(chan->intc_pdev);
+ 	sysfs_remove_group(&pdev->dev.kobj, &zrpu_channel_attrgroup);
+-	return 0;
++	return;
+ };
+ 
+ struct platform_driver zocl_rpu_channel_driver = {
+diff --git a/zert/zocl_xgq_intc.c b/zert/zocl_xgq_intc.c
+index 103ae6fa1f..48dce74763 100644
+--- a/zert/zocl_xgq_intc.c
++++ b/zert/zocl_xgq_intc.c
+@@ -87,12 +87,12 @@ static int zintc_probe(struct platform_device *pdev)
+ 	return 0;
+ }
+ 
+-static int zintc_remove(struct platform_device *pdev)
++static void zintc_remove(struct platform_device *pdev)
+ {
+ 	struct zocl_irq_intc *zintc = platform_get_drvdata(pdev);
+ 
+ 	zintc_info(zintc, "Removing %s", ZINTC_DRV_NAME);
+-	return 0;
++	return;
+ }
+ 
+ /*

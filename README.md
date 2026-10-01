@@ -6,10 +6,27 @@
 
 目前状态：student 已用**官方全量训练集（4500 对）跑满 150 epoch**（论文量级），
 评估 **Δ +4.70 dB / SSIM 0.7735**，已逼近 teacher 上界（+4.80 / 0.7777）——
-用 36% 的参数量达到其 98% 的画质。量化与 FPGA 部署尚未开始。
+用 36% 的参数量达到其 98% 的画质。
+
+**FPGA 部署侧**：硬件准备已全部完成（XSA 补全、`zocl.ko` 移植、SD 镜像组装并逐项验证），
+**下一步需要物理接触开发板**（当前机器没接）。量化尚未开始。
 
 > 权重随仓库提供：`weights/student/uhdm4k_s640_ep150.tar`（18.3 MB，已提交进 git），
 > clone 下来即可直接 `python src/infer.py` 看效果，不必先凑齐移动硬盘上的大文件。
+
+---
+
+## 你在找什么？
+
+| 我想…… | 去哪 |
+|---|---|
+| **看效果**（自己拍的照片跑一遍 student） | 下面「30 秒上手」 |
+| **训练 / 换数据集 / 评估** | [`docs/训练/`](docs/训练/) 与 [`src/configs/README.md`](src/configs/README.md) |
+| **把模型弄到 AX7015B 开发板上跑** | **[`docs/部署/README.md`](docs/部署/README.md)** ← 部署线入口 |
+| **接手这块板子**（上一任干了什么、下一步干什么） | [`docs/部署/README.md`](docs/部署/README.md) 第 4 节 |
+| **上板脚本 / 配方在哪** | [`deploy/README.md`](deploy/README.md) |
+| **所有文档的索引** | [`docs/README.md`](docs/README.md) |
+| **零基础理解模型结构** | [`docs/tutorial/`](docs/tutorial/) |
 
 ---
 
@@ -40,7 +57,7 @@ python src/infer.py
 
 每块只干一件事，不需要读代码就知道该把东西放哪。
 
-```
+```text
 demoir-fpga/
 ├─ README.md            ← 你在看的这个，唯一入口
 │
@@ -74,7 +91,12 @@ demoir-fpga/
 │
 ├─ experiments/         研究/分析脚本 + out/ 结果
 ├─ tools/               运维：下载、划分数据、搬运大文件
-├─ docs/                文档
+├─ deploy/              上板：XSA 脚本、PYNQ 板级文件、zocl 配方、验收脚本
+├─ docs/                文档（索引见 docs/README.md）
+│  ├─ 部署/             PS–PL 上板这条线
+│  ├─ 训练/             训练与推理这条线
+│  ├─ 仓库/             仓库约定
+│  └─ tutorial/         教学材料
 └─ _hd_transfer/        移动硬盘搬运暂存                 ← 不进 git
 ```
 
@@ -149,7 +171,7 @@ python src/train.py --config uhdm_4k_s --dataset-root D:/some/pairs_dir
 | 权重 `*.tar`、数据集 `datasets/`、`_hd_transfer/` | **移动硬盘** |
 | Python 虚拟环境、VGG/LPIPS 权重缓存 | **哪都不走**，目标机器重建 |
 
-搬运流程见 `docs/操作流程_双机协作.md`。**改了 `datasets/` 或 `weights/` 的路径就必须重新 stage**
+搬运流程见 `docs/训练/流程_双机协作.md`。**改了 `datasets/` 或 `weights/` 的路径就必须重新 stage**
 （`_hd_transfer/payload/` 是按仓库路径镜像的，`manifest.txt` 里存了相对路径）。
 
 ### 不要改 vendor/
@@ -166,17 +188,12 @@ python src/train.py --config uhdm_4k_s --dataset-root D:/some/pairs_dir
 
 ## 进一步阅读
 
-| 文档 | 内容 |
+**不在这里重复文档列表** —— 索引只有一处，避免两份清单各自过期：
+
+| 入口 | 覆盖什么 |
 |---|---|
-| `docs/目录结构说明.md` | 重构后的结构说明 + 从旧结构迁移的对照表 |
-| `docs/交付说明_20260910.md` | 主要技术文档：修了哪些 bug、实验结果、四条假设的验证 |
-| `docs/本机重训环境搭建_实测.md` | **在本机跑通全量训练**的实测记录：环境补齐、5 个坑、显存/吞吐实测、TDR 蓝屏排查 |
-| `docs/分块推理_切割与拼接.md` | **大图怎么切、怎么拼**：重叠为什么取 256、羽化权重、参数选型、自检方法 |
-| `docs/操作流程_双机协作.md` | 两台机器之间怎么同步 |
-| `docs/数据集获取方案.md` | 数据从哪下（含国内镜像） |
-| `docs/交接文档_去摩尔纹训练部署.md` | 最初的技术路线决策 |
-| `src/configs/README.md` | 各数据集的目录布局契约 |
-| `vendor/README.md` | 上游代码状况 + 我们改过的 9 处 |
-| `weights/README.md` | 权重来源与导出方式 |
-| `datasets/README.md` | 数据集放法与新增步骤 |
-| `runs/*/README.md` | 每次训练用了什么、结果如何 |
+| [`docs/README.md`](docs/README.md) | **全部文档的索引**（按主题分组，含每份文档的一句话说明） |
+| [`docs/部署/README.md`](docs/部署/README.md) | 上板这条线：按你的处境指路 + 六个产物的依赖链 |
+| [`deploy/README.md`](deploy/README.md) | 上板用的脚本与配方：有什么、按什么顺序用、由谁解释 |
+| [`docs/仓库/规范_文档编写.md`](docs/仓库/规范_文档编写.md) | **要写或改文档时先读这份**：信息架构（入口/指针/层次）、命名、图怎么画 |
+| [`docs/仓库/规范_目录结构.md`](docs/仓库/规范_目录结构.md) | 仓库为什么这样分区、从旧结构怎么迁过来 |

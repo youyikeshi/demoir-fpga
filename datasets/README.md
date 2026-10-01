@@ -1,10 +1,10 @@
 # datasets/ —— 所有数据集
 
-> ⚠️ 整个目录**不进 git**（GB 级）。走移动硬盘搬运，见 `docs/操作流程_双机协作.md`。
+> ⚠️ 整个目录**不进 git**（GB 级）。走移动硬盘搬运，见 `docs/训练/流程_双机协作.md`。
 
 ## 约定布局
 
-```
+```text
 datasets/
 └─ <数据集名字>/
    ├─ raw/          原始压缩包（下载来的 tar.gz，解压后可以删）
@@ -31,7 +31,7 @@ DATA:
 | `uhdm_full` | UHDM 官方 | **4500 对 4032×3024** | 官方 **train 划分**，按 `pair_NN`/`pair_mi_NN` 分 28 个子目录 |
 
 `raw/` 里保留的是 `test.tar.gz`（5.5 GB）。要论文级复现需要官方的 4500 对训练集，
-下载方式见 `docs/数据集获取方案.md`。
+下载方式见 `docs/训练/方案_数据集获取.md`。
 
 ### `uhdm_full` 怎么拿（国内可直连，不必挂 VPN）
 
@@ -54,7 +54,7 @@ python tools/fetch_uhdm_from_hf.py --extract-test --path-filter "test/test/"
 
 > ⚠️ `--path-filter` 必须写 `train/train/` 或 `test/test/`。写 `train` 会同时命中
 > `test_origin/`，两者文件名相同会互相覆盖。
-> 实测记录（含两个数据集的核对结果）见 `docs/本机重训环境搭建_实测.md` 2.2。
+> 实测记录（含两个数据集的核对结果）见 `docs/训练/说明_本机重训环境搭建.md` 2.2。
 
 ## 怎么新增一个数据集
 
@@ -99,5 +99,5 @@ python tools/make_split.py --n-train 300 --force            # 换比例，重建
 理论下限约 224。裁剪尺寸取 384~512 收益最大且饱和（见 `experiments/context_study.py`）。
 
 ⚠️ **不要把大图 resize 后再训练/评估**。摩尔纹的空间频率与采集分辨率强绑定，
-重采样会把它混叠折叠成现实中不存在的低频纹理（见 `docs/交付说明_20260910.md` 3.4）。
+重采样会把它混叠折叠成现实中不存在的低频纹理（见 `docs/训练/说明_交付_20260910.md` 3.4）。
 正确做法是在**原生分辨率**上裁块。

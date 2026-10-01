@@ -1,0 +1,65 @@
+zocl: 在 ARM32（Zynq-7000）上补齐缺失的 AIE 空桩
+
+背景
+----
+zocl 的 `edge/zocl_aie.c` 无条件引用 10 个外部 AIE 符号：
+    aie_partition_request / _release / _get_fd / _get_freq / _set_freq_req
+    aie_partition_is_available / aie_part_rscmgr_set_static_range
+    aie_register_error_notification / aie_get_errors / aie_free_errors
+
+这些符号由内核的 AI Engine 驱动导出（EXPORT_SYMBOL_GPL），而该驱动是
+Versal 专属硬件驱动，其 Kconfig 为：
+
+    config XILINX_AIE
+        depends on ARM64 || COMPILE_TEST
+        depends on ZYNQMP_FIRMWARE
+
+Zynq-7000 是 ARM32，因此 CONFIG_XILINX_AIE 永远无法开启 —— 在 6.6 和
+6.12 上限制完全相同，这不是 2025.2 新引入的问题。
+
+XRT 上游对此的设计意图
+----------------------
+上游 XRT 早已为"非 PetaLinux 构建"准备了 `__NONE_PETALINUX__` 开关：
+    - `edge/zocl_aie.c` 用它跳过 `#include <linux/xlnx-ai-engine.h>`
+    - `include/zocl_aie.h` 在该开关下自行定义 AIE 类型，并提供
+      **static inline 空桩**（请求分区返回 NULL、其余返回 -EINVAL）
+    - `build/build.sh` 用 `EXTRA_CFLAGS=-D__NONE_PETALINUX__` 走这条路
+
+空桩被内联进 zocl.ko 本身，因此不需要任何外部符号，modpost 即可通过。
+对于没有 AI Engine 的 Zynq-7000，AIE ioctl 返回错误正是正确行为。
+
+本补丁的作用
+------------
+上游的空桩清单不完整：`aie_partition_get_freq` 与
+`aie_partition_set_freq_req` 两个函数被 `zocl_aie_freqscale()` 调用，
+却没有对应的空桩，导致开启 `__NONE_PETALINUX__` 后仍有 2 个未定义符号。
+本补丁按同款风格补齐这两个桩，签名与内核头文件一致：
+
+    int aie_partition_set_freq_req(struct device *dev, u64 freq);
+    int aie_partition_get_freq(struct device *dev, u64 *freq);
+
+配合配方中的 `-D__NONE_PETALINUX__`，zocl 在 ARM32 上即可完全自洽。
+
+Upstream-Status: Inappropriate [上游 __NONE_PETALINUX__ 空桩清单不全，此为本地补齐]
+
+--- a/include/zocl_aie.h
++++ b/include/zocl_aie.h
+@@ -138,6 +138,18 @@
+ aie_free_errors(struct aie_errors *aie_errs)
+ {
+ }
++
++static inline int
++aie_partition_get_freq(struct device *dev, u64 *freq)
++{
++	return -EINVAL;
++}
++
++static inline int
++aie_partition_set_freq_req(struct device *dev, u64 freq)
++{
++	return -EINVAL;
++}
+ #endif
+ 
+ struct aie_info {

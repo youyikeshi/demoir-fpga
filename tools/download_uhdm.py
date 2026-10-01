@@ -4,7 +4,7 @@
 支持断点续传：若下载中断，重跑本脚本即可接着下。
 
 ⚠️ 走 VPN 耗流量。国内建议优先用 `download_uhdm_opendatalab.py`，
-或在训练机上下载，详见 `docs/数据集获取方案.md`。
+或在训练机上下载，详见 `docs/训练/方案_数据集获取.md`。
 
 用法：
     python tools/download_uhdm.py                 # 下全部三个包并解压

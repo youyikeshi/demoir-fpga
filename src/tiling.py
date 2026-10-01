@@ -107,7 +107,7 @@ out.save('big_demoir.png')
 ```
 
 命令行入口在 `src/infer.py`（`--tile / --overlap`），说明文档见
-`docs/分块推理_切割与拼接.md`。
+`docs/训练/说明_分块推理与拼接.md`。
 """
 import argparse
 import sys

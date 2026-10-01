@@ -22,7 +22,7 @@
 | 续训 | 8~30 | `uhdm_4k_s_resume`（`LOAD_EPOCH: 7` → 续到 30） |
 
 续训前的操作是把 `checkpoint_latest.tar` 复制成 `checkpoint_000007.tar`，
-详见 `docs/交付说明_20260910.md` 4.3。**现在这条已由 `src/train.py` 的快照机制覆盖**，
+详见 `docs/训练/说明_交付_20260910.md` 4.3。**现在这条已由 `src/train.py` 的快照机制覆盖**，
 但上游仍按 `checkpoint_%06d.tar` 找断点，所以那个复制动作依然要做。
 
 ## 结果

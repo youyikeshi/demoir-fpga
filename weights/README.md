@@ -25,7 +25,7 @@ TEACHER_MODEL:
 
 ## 目录
 
-```
+```text
 weights/
 ├── weights.yaml                        # 注册表（进 git）
 ├── README.md                           # 本文件（进 git）

@@ -1,0 +1,83 @@
+/include/ "system-conf.dtsi"
+
+/ {
+};
+
+/* ═══════════════════════════════════════════════════════════════════════════
+ * AX7015B 设备树补充（PetaLinux 不会自动生成，必须手工加）
+ *
+ * 这个文件在执行 `petalinux-config --get-hw-description` 之后覆盖到
+ *   <工程>/project-spec/meta-user/recipes-bsp/device-tree/files/system-user.dtsi
+ * 由 deploy/peta/create_peta_project.sh 自动完成。
+ *
+ * 一共补三样东西：① PS 网口 PHY 绑定  ② PYNQ 的板卡标识  ③ zocl 驱动节点
+ * ═══════════════════════════════════════════════════════════════════════════ */
+
+/* ── ① AX7015B PS 端千兆网口 PHY ──────────────────────────────────────────
+ *
+ * 硬件依据：开发板资料/AX7015B_UG_V3.0.md 第 2.2 节
+ *   PHY 型号：景略半导体 JL2121-N040I（工业级 GPHY），RGMII
+ *   MDIO 地址：由 RXD3_ADR0 / RXC_ADR1 / RXCTL_ADR2 上电电平决定，
+ *             手册表 2.2.1 写明 "PHY Address 为 001" → reg = <1>
+ *
+ * 为什么要补：
+ *   PetaLinux 从 XSA 生成的 system-conf.dtsi 里，GEM0 节点只有
+ *   status="okay" / phy-mode="rgmii-id" / enet-reset=<&gpio0 7 0>，
+ *   但没有 phy-handle，也没有 PHY 子节点。缺了它内核只能靠
+ *   "扫 MDIO 总线取第一个 PHY" 兜底；显式绑定地址 1 更可靠。
+ *
+ * 注意用 &gem0 标签而非完整路径：Zynq-7000 的 SoC dtsi 里
+ * gem0 = ethernet@e000b000；设备树容器节点在 6.12 里已从 amba 改名 axi，
+ * 用标签可以回避这个差异（见 ③ 的说明）。
+ */
+&gem0 {
+	phy-handle = <&ethernet_phy>;
+
+	ethernet_phy: ethernet-phy@1 {
+		reg = <1>;
+		/*
+		 * JL2121 的 TXDLY / RXDLY 上电均为"延时"，等效 RGMII 内部 2ns 延时，
+		 * 与 system-conf.dtsi 里自动推导出的 phy-mode = "rgmii-id" 一致。
+		 * 若上板后链路起不来 / 丢包严重，可试改成 "rgmii"（两边都不延时）。
+		 */
+	};
+};
+
+/* ── ②③ PYNQ 需要的两个节点 ───────────────────────────────────────────────
+ *
+ * 依据：PYNQ v3.1 官方板级设备树
+ *   sdbuild/boot/meta-pynq/recipes-bsp/device-tree/files/
+ *     ├── pynq_zocl_poll_zynq.dtsi      ← Zynq-7000 + FPGA manager 用这个（本板）
+ *     └── pynq_zocl_intc_zynq.dtsi      ← 需要 PL 里有 axi_intc，本板不用
+ *   （两份片段的本仓库副本在 deploy/pynq/参考/）
+ *
+ * ② chosen/pynq_board
+ *    PYNQ 用 pynq/ps.py 里的这一行判断"是否在真实板卡上运行"：
+ *        ON_TARGET = os.path.isfile('/proc/device-tree/chosen/pynq_board')
+ *    缺了它 → ON_TARGET=False → xrt_device.py 不 import pyxrt
+ *    → 报出极具误导性的 `NameError: name 'pyxrt' is not defined`
+ *    （看起来像 XRT 没装，其实只是设备树缺一个字符串）。
+ *
+ * ③ zyxclmm_drm（zocl 驱动）
+ *    驱动靠 compatible = "xlnx,zocl" 匹配。已用 modinfo 核对：
+ *        alias: of:N*T*Cxlnx,zocl
+ *    挂 &amba 而非绝对路径：6.12 内核里这个容器的**节点名**已从 amba 改成 axi，
+ *    但**标签 amba 保留**（arch/arm/boot/dts/xilinx/zynq-7000.dtsi 的 `amba: axi {`），
+ *    所以用标签最稳。
+ *
+ *    这里刻意**不写 interrupt-parent / interrupts** —— 走 poll 模式。
+ *    intc 变体要求 PL 里有一个 axi_intc（中断控制器），我们的 PL 设计没有，
+ *    写了反而会加载失败。zocl 无中断时自动退化为轮询。
+ */
+/ {
+	chosen {
+		pynq_board = "AX7015B";
+	};
+};
+
+&amba {
+	zyxclmm_drm {
+		compatible = "xlnx,zocl";
+		status = "okay";
+	};
+};

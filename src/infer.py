@@ -168,7 +168,7 @@ def infer_tiled(model, pil_in, device, half, tile, overlap, verbose=False):
 
     ⚠️ 代价：每块能看到的上下文只有 tile 这么大。实测同一张 4080x3072 的图，
     1024 块的结果与整图相差 22.78 dB、2048 块相差 33.31 dB —— 块越大越接近整图。
-    详见 docs/分块推理_切割与拼接.md。
+    详见 docs/训练/说明_分块推理与拼接.md。
     """
     model = model.half() if half else model.float()
     to_t = transforms.ToTensor()

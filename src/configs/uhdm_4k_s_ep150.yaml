@@ -23,7 +23,7 @@ GENERAL:
 DATA:
   DATA_TYPE: UHDM
   # 官方全量训练集：4500 对，原生 4032x3024，按 pair_NN / pair_mi_NN 分 28 个子目录。
-  # 获取方式见 docs/本机重训环境搭建_实测.md 2.2（国内可用 tools/fetch_uhdm_from_hf.py，
+  # 获取方式见 docs/训练/说明_本机重训环境搭建.md 2.2（国内可用 tools/fetch_uhdm_from_hf.py，
   # 无需 VPN，且只下需要的部分）。
   TRAIN_DATASET: datasets/uhdm_full/train
   # 评估集复用 uhdm 的那份划分（官方 test 集的 100 张，与训练集无重叠）
@@ -46,7 +46,7 @@ TRAIN:
   #    11830/12282 MiB（96%），分配器饥饿颠簸，吞吐从 2.6 it/s 崩到 0.04 it/s。
   #    实测 512 与 640 的挂钟时间几乎相同（GPU 有余量），且都保持官方的
   #    2250 步/epoch，所以取 640 —— 相对 512 是"白送"的更大上下文。
-  #    完整对照见 docs/本机重训环境搭建_实测.md 5.2。
+  #    完整对照见 docs/训练/说明_本机重训环境搭建.md 5.2。
   CROP_SIZE: 640
   RESIZE_SIZE: 384
   # 337500 步若沿用 100，会产出 3375 张可视化图（约 700MB）。降到 5000 -> 约 67 张。
