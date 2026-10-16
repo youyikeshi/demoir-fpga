@@ -22,6 +22,26 @@ hint() { echo -e "         \e[2m→ $1\e[0m"; }
 # 注意：函数名不能叫 head —— 会覆盖 head(1)，而本脚本多处用到 `head -1`
 section() { echo; echo "── $1 ──────────────────────────────────────"; }
 
+# ── 环境自愈：不解决这两件事，第 6/7/8 项会莫名其妙全红 ──────────────────────
+# ① PYNQ 的 python 在**虚拟环境**里：/usr/local/share/pynq-venv
+#    登录 shell 靠 /etc/profile.d/pynq_venv.sh 自动 activate 它；
+#    但 `sudo`（默认 env_reset）会重置 PATH 并丢掉它 → `python3` 落到系统
+#    /usr/bin/python3 → 那里没有 pydantic → `import pynq` 报
+#        ModuleNotFoundError: No module named 'pydantic'
+# ② XILINX_XRT 由 /etc/profile.d/xrt_setup.sh 提供，同样只在登录 shell 生效；
+#    缺了它 PYNQ 根本不找 XRT 设备（第 8 项必红）。
+# 2026-10-06 实测：`sudo bash M1_acceptance_check.sh` 会让 6/7/8 全红，
+# 看起来像板子坏了，其实只是环境变量没带上。这里显式找回来。
+PYNQ_PY=""
+for c in /usr/local/share/pynq-venv/bin/python3 /opt/python3.10/bin/python3; do
+	[ -x "$c" ] && { PYNQ_PY="$c"; break; }
+done
+[ -n "$PYNQ_PY" ] || PYNQ_PY=$(command -v python3)
+if [ -z "${XILINX_XRT:-}" ] && [ -f /etc/profile.d/xrt_setup.sh ]; then
+	. /etc/profile.d/xrt_setup.sh
+fi
+export XILINX_XRT
+
 echo "============================================================"
 echo " M−1 验收：AX7015B + PYNQ"
 echo " 时间：$(date)    主机：$(hostname)"
@@ -38,6 +58,9 @@ echo "  磁盘：$(df -h / 2>/dev/null | awk 'NR==2{print $2" 总 / "$4" 可用 
 echo "  内核 cmdline：$(cat /proc/cmdline 2>/dev/null)"
 echo "  resizefs 跑过没：$(grep -q 'RESIZED=1' /etc/environment 2>/dev/null && echo '已跑（/etc/environment 有 RESIZED=1）' || echo '未跑')"
 echo "  swap：$(swapon --show=NAME,SIZE --noheadings 2>/dev/null | tr '\n' ' ' || true)"
+echo "  运行身份：$(id -un) (uid=$(id -u))    sudo 后 PATH 会被重置，故本脚本自带环境自愈"
+echo "  PYNQ python：$PYNQ_PY  ($($PYNQ_PY --version 2>&1))"
+echo "  XILINX_XRT：${XILINX_XRT:-（未设置！第 8 项会红）}"
 
 # ---------------------------------------------------------------- 1. SD 启动
 section "1. 从 SD 卡启动 + 串口可用"
@@ -50,7 +73,11 @@ if [ -b "$(findmnt -n -o SOURCE / 2>/dev/null | sed 's/p\?[0-9]*$//')" ]; then
 else
 	bad "无法确定根设备"
 fi
-[ -c /dev/ttyPS0 ] || [ -c /dev/ttyPS1 ] && ok "PS 串口设备存在" || warn "未找到 /dev/ttyPS0|1（串口可能用于 console）"
+if [ -c /dev/ttyPS0 ] || [ -c /dev/ttyPS1 ]; then
+	ok "PS 串口设备存在"
+else
+	warn "未找到 /dev/ttyPS0|1（串口可能用于 console）"
+fi
 
 # ---------------------------------------------------------------- 2. 网口
 section "2. 网口：PHY 链路 → IP"
@@ -125,8 +152,8 @@ if [ -f /proc/device-tree/chosen/pynq_board ]; then
 	ok "存在，值 = \"$BOARD\""
 else
 	bad "不存在！"
-	hint "没有它 → pynq/ps.py 的 ON_TARGET=False → xrt_device.py 不 import pyxrt"
-	hint "报错会是 NameError: name 'pyxrt' is not defined，极难定位"
+	hint "PYNQ 用它识别板卡型号（值应为 AX7015B），缺了会影响板级识别"
+	hint "⚠️ PYNQ 3.1 里**没有** ON_TARGET 这个符号（那是 2.x 的机制）；3.1 是靠环境变量 XILINX_XRT 决定要不要找 XRT 设备的，见附录 C.3"
 	hint "构建时由 sdbuild/boot/meta-pynq/.../pynq_bootargs.dtsi 注入；手工构建需自己加"
 fi
 
@@ -166,7 +193,7 @@ dmesg 2>/dev/null | grep -i zocl | tail -5 | sed 's/^/          /' || echo "    
 
 # ------------------------------------------------- 6. pyxrt
 section "6. pyxrt（XRT 用户态绑定，耦合点 2）"
-PY=$(command -v python3)
+PY="$PYNQ_PY"
 echo "  python3：$PY  ($($PY --version 2>&1))"
 $PY - <<'EOF' && ok "import pyxrt 成功" || { bad "import pyxrt 失败"; }
 import sys
@@ -191,6 +218,7 @@ EOF
 # ------------------------------------------------- 7. pynq 包
 section "7. PYNQ Python 包"
 $PY - <<'EOF' && ok "from pynq import Overlay 成功" || bad "import pynq 失败"
+import os
 import sys
 try:
     import pynq
@@ -198,10 +226,22 @@ try:
     print("        pynq 位置：", getattr(pynq, "__file__", "?"))
     from pynq import Overlay
     from pynq import pl_server
-    from pynq.ps import ON_TARGET
-    print("        ON_TARGET =", ON_TARGET)
-    if not ON_TARGET:
-        print("        → ON_TARGET=False！pynq_board 节点缺失，pyxrt 不会被 import")
+
+    # 注意：PYNQ 3.1 **没有** ON_TARGET 这个符号（那是老版本 PYNQ 的机制，
+    # 本脚本 2026-09-30 首版误用过，见 docs/部署/流程_全链路构建.md 附录 C.3）。
+    # 3.1 里 pl_server/__init__.py 是这样决定要不要找 XRT 设备的：
+    #     if os.environ.get("XILINX_XRT", False):
+    #         from .embedded_device import EmbeddedDevice
+    # 所以缺了 XILINX_XRT → Device.devices 永远是 [] → pynq.allocate() 必报
+    # "No Devices Found"。这个环境变量由 /etc/profile.d/xrt_setup.sh 提供。
+    if not os.environ.get("XILINX_XRT"):
+        print("        → XILINX_XRT 未设置！PYNQ 根本不会去找 XRT 设备（第 8 项必红）")
+        print("          修法：echo 'export XILINX_XRT=/usr' > /etc/profile.d/xrt_setup.sh")
+        print("               然后重新登录（或 export XILINX_XRT=/usr）再跑本脚本")
+        sys.exit(1)
+    print("        XILINX_XRT =", os.environ["XILINX_XRT"])
+    from pynq.pl_server.embedded_device import EmbeddedDevice
+    print("        EmbeddedDevice 可导入（XRT 后端已启用）")
 except Exception as e:
     print("        错误：%s: %s" % (type(e).__name__, e))
     sys.exit(1)

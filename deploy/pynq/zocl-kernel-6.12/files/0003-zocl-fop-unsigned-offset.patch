@@ -1,0 +1,12 @@
+--- a/common/zocl_drv.c
++++ b/common/zocl_drv.c
+@@ -1007,6 +1007,9 @@
+ 
+ static const struct file_operations zocl_driver_fops = {
+ 	.owner          = THIS_MODULE,
++#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 12, 0)
++	.fop_flags      = FOP_UNSIGNED_OFFSET,
++#endif
+ 	.open           = drm_open,
+ 	.mmap           = zocl_mmap,
+ 	.poll           = zocl_poll,

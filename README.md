@@ -8,8 +8,10 @@
 评估 **Δ +4.70 dB / SSIM 0.7735**，已逼近 teacher 上界（+4.80 / 0.7777）——
 用 36% 的参数量达到其 98% 的画质。
 
-**FPGA 部署侧**：硬件准备已全部完成（XSA 补全、`zocl.ko` 移植、SD 镜像组装并逐项验证），
-**下一步需要物理接触开发板**（当前机器没接）。量化尚未开始。
+**FPGA 部署侧**：板卡侧已上板实测通过（从 SD 卡启动、串口、网口、`import pynq` 全通）。
+**模型上板已经开工**：网络切分（PS 控制 / PL 算子）已定，HLS C/C++ 算子写完并
+**通过三段等价性验证**（NumPy↔PyTorch、C++↔NumPy、HLS 综合跑通），
+见 **[`hls/README.md`](hls/README.md)**。量化（M1）与真正的加速器架构（M2）尚未开始。
 
 > 权重随仓库提供：`weights/student/uhdm4k_s640_ep150.tar`（18.3 MB，已提交进 git），
 > clone 下来即可直接 `python src/infer.py` 看效果，不必先凑齐移动硬盘上的大文件。
@@ -24,6 +26,8 @@
 | **训练 / 换数据集 / 评估** | [`docs/训练/`](docs/训练/) 与 [`src/configs/README.md`](src/configs/README.md) |
 | **把模型弄到 AX7015B 开发板上跑** | **[`docs/部署/README.md`](docs/部署/README.md)** ← 部署线入口 |
 | **接手这块板子**（上一任干了什么、下一步干什么） | [`docs/部署/README.md`](docs/部署/README.md) 第 4 节 |
+| **把网络切成 PS 控制 + PL 算子、写 HLS C/C++** | **[`hls/README.md`](hls/README.md)** ← 算子线入口 |
+| **HLS 算子现在是什么状态 / 怎么验等价性** | [`hls/README.md`](hls/README.md) 第 4 节 + [`hls/docs/流程_等价性验证.md`](hls/docs/流程_等价性验证.md) |
 | **上板脚本 / 配方在哪** | [`deploy/README.md`](deploy/README.md) |
 | **所有文档的索引** | [`docs/README.md`](docs/README.md) |
 | **零基础理解模型结构** | [`docs/tutorial/`](docs/tutorial/) |
@@ -92,6 +96,12 @@ demoir-fpga/
 ├─ experiments/         研究/分析脚本 + out/ 结果
 ├─ tools/               运维：下载、划分数据、搬运大文件
 ├─ deploy/              上板：XSA 脚本、PYNQ 板级文件、zocl 配方、验收脚本
+├─ hls/                 ★ PS/PL 切分 + HLS 算子（入口 hls/README.md）
+│  ├─ ps/               PS 侧：ARM 上跑的 NumPy 参考（图/算子/整网）
+│  ├─ pl/               PL 侧：要综合成硬件的 C/C++
+│  ├─ tools/            权重导出、算子清单实测（只有开发机用）
+│  ├─ tests/            三段等价性验证
+│  └─ docs/             切分契约、等价性流程、算子清单（生成物）
 ├─ docs/                文档（索引见 docs/README.md）
 │  ├─ 部署/             PS–PL 上板这条线
 │  ├─ 训练/             训练与推理这条线

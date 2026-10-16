@@ -35,7 +35,7 @@ PYNQ 自己的做法是**带一份没有机器限制的 recipe**：
 （`SRCREV=a75e9843c875bac0f52d34a1763e39e16fb3c9a7`）——
 这是 PYNQ 官方发布镜像用的同一组合，属于已验证基线。
 
-## 2. 两个补丁
+## 2. 三个补丁
 
 ### `files/0001-zocl-kernel-6.12-api.patch` —— 内核 6.12 API 漂移
 
@@ -54,6 +54,58 @@ XRT 2024.1 的 zocl 是针对内核 6.6 写的，在 6.12 上有两类漂移（1
 ### `files/0002-zocl-aie-arm32-stubs.patch` —— 补齐缺失的 AIE 空桩
 
 详见下一节。
+
+### `files/0003-zocl-fop-unsigned-offset.patch` —— DRM fops 缺 `FOP_UNSIGNED_OFFSET`
+
+**这个是 2026-10-06 首次上板实测才暴露的**：前两个补丁让 zocl 编过、模块加载成功、
+`/dev/dri/renderD128` 也建出来了，但**所有 DRM 节点 open 一律返回 `EINVAL`**。
+后果是一连串看起来毫不相干的报错：
+
+```text
+xbutil examine          →  Devices present: 0 devices found
+pyxrt.device(0)         →  RuntimeError: Could not open device with index '0'
+pynq.allocate(...)      →  UserWarning: No devices found, is the XRT environment sourced?
+                           RuntimeError: No Devices Found
+```
+
+根因是内核 6.12 新加的一条检查（`drivers/gpu/drm/drm_file.c`，`drm_open_helper()`）：
+
+```c
+	if (WARN_ON_ONCE(!(filp->f_op->fop_flags & FOP_UNSIGNED_OFFSET)))
+		return -EINVAL;
+```
+
+`FOP_UNSIGNED_OFFSET` 定义在 `include/linux/fs.h`（`1 << 5`），含义是
+"本驱动的 file_operations 使用无符号 offset，不再有 `MAX_NON_LFS` 限制"。
+XRT 2024.1 的 `common/zocl_drv.c` 里 `zocl_driver_fops` 没有这个字段，
+所以内核**每次 open 都直接拒绝**（我们实测过：`card0` 和 `renderD128`、
+读和写，四种组合全是 `EINVAL`）。
+
+修法就是给那个 fops 补一行（带内核版本判断，不影响老内核）：
+
+```c
+static const struct file_operations zocl_driver_fops = {
+	.owner          = THIS_MODULE,
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 12, 0)
+	.fop_flags      = FOP_UNSIGNED_OFFSET,
+#endif
+	.open           = drm_open,
+```
+
+**验证**（换上新 `.ko` 即可，不必重烧卡）：
+
+```bash
+python3 -c "import os; print('OPEN OK', os.open('/dev/dri/renderD128', os.O_RDWR))"
+xbutil examine | tail -5      # 应从 "0 devices found" 变成列出 [0000:00:00.0] edge
+python3 -c "import pyxrt; pyxrt.device(0)"   # 应不再报 Could not open device
+```
+
+> ⚠️ **改完补丁后必须确认 Yocto 工作目录里的旧副本被刷新。**
+> `file://` 补丁会被复制到 `build/tmp/work/…/zocl/<PV>/`，只改工程里的
+> `files/` 而 bitbake 复用旧副本时，会报
+> `Hunk #1 succeeded at … with fuzz N` —— 而 `patch-fuzz` 是**致命 QA**，
+> 构建直接失败。处理：`rm -rf build/tmp/work/…/zocl build/tmp/stamps/…/zocl`
+> 后再编。手写补丁时行号/空白很容易差一点，**建议用真实文件 `diff -u` 生成**。
 
 ## 3. AIE 依赖：是什么、怎么修的
 
@@ -139,11 +191,11 @@ modinfo $K                 # → vermagic 与目标内核一致；alias 含 of:N
 ## 4. 怎么构建
 
 ```bash
-# 1) recipe 与两个补丁装进 PetaLinux 工程
+# 1) recipe 与三个补丁装进 PetaLinux 工程
 P=/home/zheyang/SRP/qiansaiFPGA/peta_prj/ax_peta/project-spec/meta-user/recipes-xrt/zocl
 mkdir -p $P/files
 cp zocl_git.bb $P/
-cp files/0001-zocl-kernel-6.12-api.patch files/0002-zocl-aie-arm32-stubs.patch $P/files/
+cp files/*.patch $P/files/
 
 # 2) petalinuxbsp.conf 里必须有这行（否则 bitbake 按最高 PV 选中 meta-xilinx
 #    的 202520.2.20.0，而它不兼容 zynq）

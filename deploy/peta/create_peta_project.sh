@@ -7,7 +7,7 @@
 #   3. 导入 XSA（petalinux-config --get-hw-description）
 #   4. 改工程配置：ext4 根分区 + FPGA manager + bootargs + 离线镜像
 #   5. 覆盖设备树补充文件 system-user.dtsi
-#   6. 装入 zocl 配方与两个内核 6.12 适配补丁
+#   6. 装入 zocl 配方与三个内核 6.12 适配补丁
 #
 # 可重复执行：工程已存在时会拒绝覆盖（要重来先手动删掉，见文档"回退"一节）。
 #

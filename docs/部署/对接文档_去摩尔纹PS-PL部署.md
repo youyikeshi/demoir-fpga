@@ -13,7 +13,7 @@
 2. **PL 推理 IP**：用可综合的 Vitis HLS C++（必要处可用 RTL）实现计算单元，经综合、布局布线成为 bitstream。HLS C++ 是电路描述，不能把 PyTorch 调用直接粘进去。
 3. **PS 控制程序**：首版优先使用 PYNQ 上的 Python/NumPy。它负责输入图片、内存、逐层调度、硬件状态、错误处理和输出。PYNQ 的 Python 是**控制加速器**，不是把现有 PyTorch 网络原样搬到 Cortex-A9 上执行。若板上实测发现逐层 Python 调度成为瓶颈，再减少控制调用、让 PL 批量执行任务，必要时将 PS 控制层改为 C/C++。
 
-**板卡软件是新增的前置关口**：PYNQ 官方提供 Zynq-7000 架构支持及可供定制板使用的 ARM rootfs，但官方预编译镜像列表没有 AX7015B。不能把 PYNQ-Z2 的 SD 镜像或 PS 配置直接用于 AX7015B；需依据本板 DDR、SD、串口、网口和启动配置制作或移植板卡镜像。官方 PYNQ v3.1 镜像构建说明以 Vivado/Vitis/PetaLinux **2024.1** 为版本组合，而本工程用 **2025.2**。**2026-09-30：这条路线已在 2025.2 上跑通并逐项验证** —— 做法是在现有 2025.2 PetaLinux 工程里移植 PYNQ 组件（zocl + 设备树节点 + AMD 的板卡无关 rootfs），完整步骤见 [`流程_全链路构建.md`](流程_全链路构建.md)。板上启动、overlay 加载和缓冲区分配仍需**实测**确认。板上只加载推理权重，不需要训练数据、teacher、优化器或 PyTorch 训练环境。
+**板卡软件是新增的前置关口**：PYNQ 官方提供 Zynq-7000 架构支持及可供定制板使用的 ARM rootfs，但官方预编译镜像列表没有 AX7015B。不能把 PYNQ-Z2 的 SD 镜像或 PS 配置直接用于 AX7015B；需依据本板 DDR、SD、串口、网口和启动配置制作或移植板卡镜像。官方 PYNQ v3.1 镜像构建说明以 Vivado/Vitis/PetaLinux **2024.1** 为版本组合，而本工程用 **2025.2**。**2026-09-30：这条路线已在 2025.2 上跑通并逐项验证** —— 做法是在现有 2025.2 PetaLinux 工程里移植 PYNQ 组件（zocl + 设备树节点 + AMD 的板卡无关 rootfs），完整步骤见 [`全链路构建/README.md`](全链路构建/README.md)。板上启动、overlay 加载和缓冲区分配仍需**实测**确认。板上只加载推理权重，不需要训练数据、teacher、优化器或 PyTorch 训练环境。
 
 ## 2. 系统结构与职责
 
@@ -186,19 +186,19 @@ Vivado Block Design 至少包含 PS7、PL 时钟/复位、PS GP 到 IP 的 AXI-L
 
 > **2026-09-30 更新：本节写于 2026-09-28，记录的是当时的核查结论。**
 > 下面提到的阻塞（XSA 缺 SD/网口、`MANUAL_SELECT`）都已修复，移植路线也已选定并跑通，
-> 完整现状与操作步骤见 [`流程_全链路构建.md`](流程_全链路构建.md)。
+> 完整现状与操作步骤见 [`全链路构建/README.md`](全链路构建/README.md)。
 > 本节保留作为"当时为什么判断它还不是合格基础"的记录。
 
 AX7015B 不在 PYNQ 官方预编译镜像列表中。官方“其他 Zynq 板卡”入口指向 [自定义 SD 镜像构建指南](https://pynq.readthedocs.io/en/v3.1/pynq_sd_card.html)，其中的 **Retargeting to a Different Board** 才是本板应读的部分；它要求板卡目录、板卡规格文件及匹配版本的 PetaLinux BSP，Zynq-7000 的架构为 `arm`，可复用 PYNQ 的 ARM 通用 rootfs。
 
-本工作区已有的 `xilinx_project/moro_v1/design_1_wrapper.xsa` 是 **Vivado 2025.2** 生成的。**当时**（2026-09-28 之前）其 `.hwh` 中 `PCW_EN_SDIO0=0`、`PCW_EN_ENET0=0`、`PCW_EN_USB0=0`，只启用了 UART1；PetaLinux 工程配置也将网口、Flash、主 SD 标为 `MANUAL_SELECT`。所以它当时还不是 PYNQ 板卡 BSP 的合格硬件基础，更不能直接拿 PYNQ-Z2 镜像替代。这些外设已于 2026-09-28 补全（见 [`流程_全链路构建.md`](流程_全链路构建.md) 第 2.2 节）。
+本工作区已有的 `xilinx_project/moro_v1/design_1_wrapper.xsa` 是 **Vivado 2025.2** 生成的。**当时**（2026-09-28 之前）其 `.hwh` 中 `PCW_EN_SDIO0=0`、`PCW_EN_ENET0=0`、`PCW_EN_USB0=0`，只启用了 UART1；PetaLinux 工程配置也将网口、Flash、主 SD 标为 `MANUAL_SELECT`。所以它当时还不是 PYNQ 板卡 BSP 的合格硬件基础，更不能直接拿 PYNQ-Z2 镜像替代。这些外设已于 2026-09-28 补全（见 [`全链路构建/流程_前置条件.md`](全链路构建/流程_前置条件.md) 第 2.2 节）。
 
 对这块板的最短核查顺序是：
 
 1. **固定版本组合**：官方 PYNQ v3.1 文档使用 Vivado/Vitis/PetaLinux 2024.1。若按官方流程移植，单独准备匹配版本的构建环境与 XSA/BSP；现有 2025.2 工程保留供对照。向 2025.2 工程移植 PYNQ 组件可研究，但属于未验证路线。
 2. **先做能启动的板卡 PS 设计**：按本地 `../../../AX7015B_LINUX教程_2025.2版/PetaLinux_创建流程_XSA到上板.md` 的板级信息核对 DDR、SD0、UART1、PS 网口及 PHY、USB、时钟和启动方式；相应工程必须在选定的匹配版 Vivado 中生成。后续 overlay 所需的 GP/HP 接口也要在设计中核对。
 3. **生成同版本的 PetaLinux BSP**：检查设备树、SD 启动、串口、网口、FPGA manager 和连续内存配置。板卡 BSP 是自定义 PYNQ 镜像的输入，不等于把当前已构建的 `BOOT.BIN` 复制到 PYNQ-Z2 镜像。
-4. **建立 PYNQ 板卡目录**：按官方指南准备 `AX7015B.spec`、BSP、可选启动 bitstream 与板卡补丁，选择 `arm` 通用 rootfs 和匹配的 PYNQ 源码发行包，然后生成专属 SD 镜像。（**本仓库最终没走这条 sdbuild 路线**，因此不附 `.spec`/BSP；实际做法见 [`流程_全链路构建.md`](流程_全链路构建.md)。）
+4. **建立 PYNQ 板卡目录**：按官方指南准备 `AX7015B.spec`、BSP、可选启动 bitstream 与板卡补丁，选择 `arm` 通用 rootfs 和匹配的 PYNQ 源码发行包，然后生成专属 SD 镜像。（**本仓库最终没走这条 sdbuild 路线**，因此不附 `.spec`/BSP；实际做法见 [`全链路构建/README.md`](全链路构建/README.md)。）
 5. **先验收 PYNQ 基础功能**：SD 启动、串口登录、网口或其他远程连接、Python 导入 PYNQ、加载同名 `.bit`/`.hwh`、分配与同步缓冲区、运行一个简单的 PL 内存往返。此时再进入去摩尔纹算子开发。
 
-本节是 2026-09-28 的移植路线核查记录，**不是当前做法**；当前做法与现状见 [`流程_全链路构建.md`](流程_全链路构建.md)。
+本节是 2026-09-28 的移植路线核查记录，**不是当前做法**；当前做法与现状见 [`全链路构建/README.md`](全链路构建/README.md)。

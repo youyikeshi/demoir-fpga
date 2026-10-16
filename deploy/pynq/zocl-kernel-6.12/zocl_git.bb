@@ -21,6 +21,7 @@ BRANCHARG = "${@['nobranch=1', 'branch=${BRANCH}'][d.getVar('BRANCH', True) != '
 SRC_URI = "${REPO};${BRANCHARG} \
            file://0001-zocl-kernel-6.12-api.patch \
            file://0002-zocl-aie-arm32-stubs.patch \
+           file://0003-zocl-fop-unsigned-offset.patch \
           "
 
 PV = "202410.2.17.0"
