@@ -1,23 +1,26 @@
 # 去摩尔纹模型的 PS–PL 架构说明
 
 > 阅读场景：想了解 student 模型如何从开发机部署到 AX7015B，以及 PS、PL、DDR 和 PYNQ 的分工。
-> 本文记录截至 2026-10-17 可在本地核对的架构与验证状态。具体命令见各目录的 README。
+> 本文记录截至 2026-10-18 可在 GitHub 与本地核对的架构与验证状态。具体命令见各目录的 README。
 > 目标板卡为 AX7015B（XC7Z015，Zynq-7000）。首轮验收聚焦 SD 卡单图推理，相机接入留待后续。
 
 ---
 
-## 1. 先区分两份工程现状
+## 1. 三个分支各放什么
 
-本文所在的 `restructure` 目录与本地 `fpga-deploy` 工作树进度不同。下文提到“已完成”时，须结合对应工作树理解。
+本文位于 `restructure` 分支；可直接运行的 PS/PL 源码放在同级的 `restructure1` 分支（简称 r1）。
+下文所有实现路径均以 r1 的 `pynq_specialized_code/` 为准。
 
 | 范围 | 已有内容 | 当前边界 |
 |---|---|---|
-| `restructure`（本文所在目录） | `deploy/` 的 PYNQ 板卡环境已上板实测；`hls/` 已有 12 类算子的 HLS 源码、PS 调度计划和等价性验证 | `hls/` 尚未完成量化、模型 overlay 和 PYNQ 整网驱动 |
-| 本地 `fpga-deploy` 工作树 | 新增 `fpga/`，包括 INT8 部署包、PS 调度与层间算子、单卷积引擎、Vivado 集成产物和本机回归 | 这些提交尚未合入 GitHub `restructure`；模型整网尚未在实板对拍 |
+| `restructure`（本文所在分支） | `deploy/` 的 PYNQ 板卡环境已上板实测；`hls/` 已有 12 类算子的 HLS 源码、PS 调度计划和等价性验证 | 本分支只保留架构说明与参考线，不含 `pynq_specialized_code/` |
+| `restructure1`（r1） | 在 `restructure` 基础上新增 `pynq_specialized_code/`：PS 调度与层间算子、PL 单卷积引擎、测试台、构建脚本和清单；只收源码，不含比特流/XSA/部署包 | 模型整网尚未在实板对拍 |
+| `main` | 保持原样 | 未合入上述实现 |
 
-`fpga-deploy` 的工程入口是 `fpga/README.md`，交接要求对照在 `fpga/docs/交接要求对照.md`。
-这两个文件位于另一份本地工作树。**当前 `restructure` 目录里还没有 `fpga/`**。
-下文引用 `fpga/` 时，均指本地 `fpga-deploy` 的实现，供后续合流参考。
+r1 的工程入口是 `pynq_specialized_code/README.md`；PS/PL 各自的文件职责见
+`pynq_specialized_code/ps/README.md` 与 `pynq_specialized_code/pl/README.md`。
+构建产物（`design_1.bit`、`.hwh`、`.xsa`、`weights_pack/`、`board_bundle/`）不随源码入库，
+按 `pynq_specialized_code/README.md` 第 4、6 节在本地生成。
 
 ## 2. 一张图看完运行路线
 
@@ -46,18 +49,18 @@ PL 运行的是综合后形成的硬件电路。`nets_student.py` 定义网络�
 
 | 顺序 | 输入 | 生成物 | 谁负责生成 |
 |---|---|---|---|
-| 1 | `vendor/PDNet/model/nets_student.py` 与 student `.tar` | 浮点推理基准、逐层名称和权重来源 | `src/infer.py` 与 `fpga/ps/tools/export_network.py` |
-| 2 | 确定的输入画幅 | `manifest_640.json` 等执行清单，记录算子顺序、张量形状和依赖 | `fpga/ps/tools/build_manifest.py` |
-| 3 | 执行清单、权重和多张标定图 | `weights_pack/`，包含 INT8 权重、标度和参考输入输出 | `fpga/ps/tools/export_network.py` |
+| 1 | `vendor/PDNet/model/nets_student.py` 与 student `.tar` | 浮点推理基准、逐层名称和权重来源 | `src/infer.py` 与 `pynq_specialized_code/ps/tools/export_network.py` |
+| 2 | 确定的输入画幅 | `manifest_640.json` 等执行清单，记录算子顺序、张量形状和依赖 | `pynq_specialized_code/ps/tools/build_manifest.py` |
+| 3 | 执行清单、权重和多张标定图 | `weights_pack/`，包含 INT8 权重、标度和参考输入输出 | `pynq_specialized_code/ps/tools/export_network.py` |
 | 4 | PL 引擎源码与 AX7015B 硬件设计 | `design_1.bit`、同名 `.hwh` 和可复核的综合/实现报告 | Vitis HLS 与 Vivado |
-| 5 | 上述产物与 PS 运行脚本 | 供拷贝到板子的 `board_bundle/` 目录 | `fpga/ps/tools/make_board_bundle.py` |
+| 5 | 上述产物与 PS 运行脚本 | 供拷贝到板子的 `board_bundle/` 目录 | `pynq_specialized_code/ps/tools/make_board_bundle.py` |
 
 板卡 PYNQ 镜像由 [`deploy/`](../../deploy/) 构建；`board_bundle/` 收集的是模型 overlay 和运行文件。
-`board_bundle/` 由打包脚本生成，当前 `restructure` 目录中没有它。
+`board_bundle/` 由打包脚本生成，不随源码入库；当前 `restructure` 与 r1 中都没有它。
 
 ### 2.2 一张 640×640 图片在板上怎么走
 
-上板脚本位于 `fpga/ps/pynq/run_network_on_board.py`。
+上板脚本位于 `pynq_specialized_code/ps/pynq/run_network_on_board.py`。
 目前它读取**已量化的** `input_q.bin`，尚未在板上解码 JPG，也未将结果保存为 PNG。
 处理自己拍的照片时，先在开发机用 `prep_input.py` 原生裁剪并量化，再将生成的二进制文件交给上板脚本。
 
@@ -88,24 +91,26 @@ PL 运行的是综合后形成的硬件电路。`nets_student.py` 定义网络�
 | [`hls/ps/`](../../hls/ps/) | 开发机 | NumPy 算法参考、计算图与静态任务/缓冲计划 | 目前是参考实现，尚不能直接充当完整的上板应用 |
 | [`hls/pl/`](../../hls/pl/) | PL 开发 | 可综合的 HLS 算子及测试台 | 综合、集成后生成的硬件，不是板上运行的 C++ 文件 |
 | [`deploy/`](../../deploy/) | 镜像构建、板卡 | AX7015B 的 XSA、PetaLinux、PYNQ 镜像与验收脚本 | 与该板匹配的启动镜像和 PYNQ 环境 |
-| `fpga/`（仅本地 `fpga-deploy`） | PS、PL 开发 | 已量化的部署实现；见下表 | 待实板验收后，按 `fpga/README.md` 制作上板包 |
+| `pynq_specialized_code/`（仅 `restructure1`） | PS、PL 开发 | 已量化的部署实现；见下表 | 待实板验收后，按 `pynq_specialized_code/README.md` 制作上板包 |
 
-`fpga-deploy` 将模型部署细分为以下部分。**这些路径属于另一份本地工作树，当前目录中尚不存在。**
+`pynq_specialized_code/` 将模型部署细分为以下部分。这些路径位于 `restructure1` 分支，
+`restructure` 分支本身不含该目录。
 
 | 路径 | 归属 | 具体内容 |
 |---|---|---|
-| `fpga/ps/tools/` | 主要在开发机 | `export_network.py` 导出并标定；`prep_input.py` 原生裁剪；`tiled_infer.py` 分块、羽化；`check_pack_ref.py` 复算部署参考 |
-| `fpga/ps/manifest_*.json` | PS | 固定画幅的执行顺序、张量与缓冲描述；换画幅需要匹配的清单 |
-| `fpga/ps/pynq/runner.py` | PS | 读取清单和部署包，规划 DDR 内存池，逐项执行 517 个有效任务 |
-| `fpga/ps/pynq/ops_numpy.py` | PS | `pixel_shuffle/unshuffle`、插值、拼接、加法、ECA 等层间算子 |
-| `fpga/ps/pynq/conv_engine.py` | PS 控制 PL | 借助 overlay 的 `.hwh` 元数据定位 IP，写入卷积参数、启动引擎并读取状态 |
-| `fpga/pl/src/conv2d_engine.cpp/.h` | PL 源码 | INT8 单卷积引擎；卷积参数经 AXI4-Lite 配置，输入、权重和输出经 AXI4 master 访问 DDR |
-| `fpga/board/overlay_engine_150mhz/` | PL 交付物 | 同次 Vivado 构建的 `design_1.bit` 与 `design_1.hwh` |
-| `fpga/deploy/weights_pack/` | PS 加载、PL 读取 | 已导出的量化权重、标度、输入与参考输出；PS 放入可访问的 DDR 缓冲区 |
+| `pynq_specialized_code/ps/tools/` | 主要在开发机 | `export_network.py` 导出并标定；`prep_input.py` 原生裁剪；`tiled_infer.py` 分块、羽化；`check_pack_ref.py` 复算部署参考 |
+| `pynq_specialized_code/ps/manifest_*.json` | PS | 固定画幅的执行顺序、张量与缓冲描述；换画幅需要匹配的清单 |
+| `pynq_specialized_code/ps/pynq/runner.py` | PS | 读取清单和部署包，规划 DDR 内存池，逐项执行 517 个有效任务 |
+| `pynq_specialized_code/ps/pynq/ops_numpy.py` | PS | `pixel_shuffle/unshuffle`、插值、拼接、加法、ECA 等层间算子 |
+| `pynq_specialized_code/ps/pynq/conv_engine.py` | PS 控制 PL | 借助 overlay 的 `.hwh` 元数据定位 IP，写入卷积参数、启动引擎并读取状态 |
+| `pynq_specialized_code/pl/src/conv2d_engine.cpp/.h` | PL 源码 | INT8 单卷积引擎；卷积参数经 AXI4-Lite 配置，输入、权重和输出经 AXI4 master 访问 DDR |
+| 本地构建目录 `board/overlay_engine_150mhz/` | PL 交付物 | 同次 Vivado 构建的 `design_1.bit` 与 `design_1.hwh`；不随源码入库 |
+| 本地导出目录 `weights_pack/` | PS 加载、PL 读取 | 已导出的量化权重、标度、输入与参考输出；PS 放入可访问的 DDR 缓冲区；不随源码入库 |
 
 ### 3.1 当前上板包的文件分工
 
-`fpga-deploy` 的打包脚本把上板文件集中到 `fpga/board/board_bundle/`。
+`pynq_specialized_code/ps/tools/make_board_bundle.py` 把上板文件集中到本地构建目录
+`board_bundle/`（不随源码入库）。
 该目录由脚本生成，主要包含以下文件。
 
 | 上板包内路径 | 运行时交给谁 | 含义 |
@@ -124,7 +129,7 @@ PL 运行的是综合后形成的硬件电路。`nets_student.py` 定义网络�
 
 ### 3.2 源码、构建产物与运行文件
 
-`fpga/pl/src/conv2d_engine.cpp` 是硬件设计源码。Vitis HLS 将其转换成 RTL/IP，再由 Vivado 生成 `.bit/.hwh`。
+`pynq_specialized_code/pl/src/conv2d_engine.cpp` 是硬件设计源码。Vitis HLS 将其转换成 RTL/IP，再由 Vivado 生成 `.bit/.hwh`。
 修改这份 C++ 源码后，需要重新综合、实现并生成上板包，PL 电路才会更新。
 `runner.py` 和 `ops_numpy.py` 则在 PS 上运行；修改它们不会改变 `.bit`。
 两侧都依赖执行清单和权重格式。调整接口时，须一并核对相关文件。
@@ -163,7 +168,7 @@ PS：准备 input / weight / bias / output 的 DDR 区间，刷新 CPU 缓存
 
 ### 4.3 PL 与 DDR 怎么配合
 
-`fpga-deploy` 用一块 INT8 卷积引擎处理网络中的各种卷积。
+`pynq_specialized_code/pl` 用一块 INT8 卷积引擎处理网络中的各种卷积。
 PS 在运行时设置通道数、核大小、步长、膨胀率、补边、右移量和 ReLU 开关，PL 按这些参数复用电路。
 PL 用 AXI4 master 经 PS 的 HP 口从 DDR 读取输入、权重和偏置，并把输出写回 DDR。
 PL 内部的行缓冲保存当前输出块需要的输入行；权重缓冲按 8 个输出通道一组轮转装载。
@@ -175,15 +180,15 @@ SAM 多分支特征和其他中间张量仍放在 DDR 中。
 
 ### 4.4 两条实现线的接口差异
 
-| 项目 | `restructure/hls/` 参考线 | 本地 `fpga-deploy/fpga/` 实现线 |
+| 项目 | `restructure/hls/` 参考线 | `restructure1/pynq_specialized_code/` 实现线 |
 |---|---|---|
 | PL 的目标算子 | 12 类算子，包含卷积、重排、插值和 ECA | 已集成为单卷积引擎；层间算子仍由 PS 的 NumPy 执行 |
 | 数值类型 | 现有 `demoir_t` 为 float | 卷积输入/权重为 INT8，偏置为 INT32；ECA 等保留部分浮点处理 |
 | 张量排列 | HLS 契约计划使用 NHWC | 单引擎与 `Runner` 使用 CHW；卷积权重按输出通道、输入通道、核行、核列排列 |
-| 成熟度 | 算子等价性、综合通过；缺模型 overlay | 本机量化、单引擎 RTL 验证、比特流与 PS 驱动已有；板上整网待验证 |
+| 成熟度 | 算子等价性、综合通过；缺模型 overlay | 本机量化、单引擎 RTL 验证、比特流构建与 PS 驱动已有；板上整网待验证 |
 
 合并两条实现线之前，需要统一张量排列、数值格式、标度、寄存器接口和任务顺序，并重新逐算子对拍。
-首版可沿用 `fpga/` 的卷积引擎。是否将 `hls/` 的层间算子移入 PL，应根据板上耗时和 DDR 流量决定。
+首版可沿用 `pynq_specialized_code/pl` 的卷积引擎。是否将 `hls/` 的层间算子移入 PL，应根据板上耗时和 DDR 流量决定。
 
 ## 5. 输入、权重和结果的约定
 
@@ -196,7 +201,7 @@ SAM 多分支特征和其他中间张量仍放在 DDR 中。
 640×640 输入因此占 `3×640×640 = 1,228,800` 字节。
 
 大图分块和羽化规则见 [`说明_分块推理与拼接.md`](../训练/说明_分块推理与拼接.md)。
-`fpga/ps/tools/tiled_infer.py` 已实现分块与羽化。当前上板整网脚本只接收单块 `input_q.bin`。
+`pynq_specialized_code/ps/tools/tiled_infer.py` 已实现分块与羽化。当前上板整网脚本只接收单块 `input_q.bin`。
 要在板上直接读取照片、处理大图并保存结果，还需要扩展应用入口。
 
 ### 5.2 manifest 与部署包怎么配套
@@ -234,11 +239,11 @@ PS 先用这些偏移算出 DDR 设备地址，再把地址与卷积参数写给
 |---|---|---|
 | 板卡 PYNQ 基础 | `restructure` 的镜像已在 AX7015B 启动，串口、网口、`import pynq` 等通过；见 [`部署/README.md`](README.md) | 用匹配的模型 overlay 复测分配、寄存器和数据通路 |
 | `hls/` 参考线 | PyTorch、NumPy、C++ 三段等价性和算子综合已通过；见 [`../../hls/README.md`](../../hls/README.md) | 完成量化、IP 导出、Vivado 集成与上板调用 |
-| 本地 `fpga-deploy` 实现线 | INT8 参考包、单引擎 csim/cosim、Vivado 比特流与本机对拍已有记录 | JTAG 单算子、PYNQ 单算子、板上整网逐位对拍仍待实测 |
+| `restructure1` 的 `pynq_specialized_code/` 实现线 | INT8 参考包、单引擎 csim/cosim、Vivado 比特流与本机对拍已有记录 | JTAG 单算子、PYNQ 单算子、板上整网逐位对拍仍待实测 |
 
-合流时，应先核对两条线的权重标度和张量排列，再按 `fpga/docs/on_board_checklist.md` 的顺序测试。
+合流时，应先核对两条线的权重标度和张量排列，再按 `pynq_specialized_code/docs/on_board_checklist.md` 的顺序测试。
 量化离群值、608×416 画幅的完整标定包、SSIM，以及层间算子是否移入 PL，仍待处理。
-逐项状态见 `fpga/docs/交接要求对照.md`。
+目录与文件职责见 `pynq_specialized_code/docs/FPGA部署_目录结构说明.md`。
 
 ### 6.1 首次实板验证顺序
 
@@ -248,14 +253,14 @@ PS 先用这些偏移算出 DDR 设备地址，再把地址与卷积参数写给
 4. 记录单次卷积、整网、缓存同步和层间 NumPy 算子的耗时，再判断是否值得把更多算子移到 PL。
 5. 接入自己拍的照片与图片保存；画幅不一致时先在开发机生成匹配清单及标定包，再做分块应用。
 
-板卡基础镜像和本地 `fpga/board/` 的 overlay 来自两条工程线。
+板卡基础镜像和本地构建目录 `board/` 的 overlay 来自两条工程线。
 该 overlay 的 PS7 工程主要配置 DDR、AXI 和时钟。将它加载到现有 PYNQ 镜像后，
 须在实板核对时钟、连续内存、SD 卡和网口状态。
 
 ### 6.2 当前最容易误读的地方
 
 `restructure` 的 12 类 HLS 算子已通过对拍和综合，尚未作为完整模型在 AX7015B 的 PL 上运行。
-`fpga-deploy` 已生成比特流和驱动文件，但整网仍待实板验收。
+`restructure1` 的源码已完成单引擎验证；比特流与驱动由本地构建生成，整网仍待实板验收。
 `run_network_on_board.py` 目前读取 INT8 二进制输入并对拍结果；照片输入与 PNG 输出仍待接入。
 
 ## 7. 从哪里继续读
