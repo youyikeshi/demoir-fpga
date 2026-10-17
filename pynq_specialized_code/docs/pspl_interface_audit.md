@@ -156,18 +156,21 @@
 ## 6. 复现命令
 
 ```bash
+# 以下命令从仓库根目录执行；<weights_pack> 指本地导出的权重包目录（不随源码入库）
+
 # 1) 形状回归（含新的 640 宽用例）：期望 30/30
-cd fpga/pl && g++ -std=c++14 -O2 -I src src/conv2d_engine.cpp src/conv_ref_rt.cpp \
-    tb/tb_engine.cpp -o build/tb_engine.exe && python scripts/fuzz_shapes.py
+(cd pynq_specialized_code/pl && mkdir -p build && \
+  g++ -std=c++14 -O2 -I src src/conv2d_engine.cpp src/conv_ref_rt.cpp \
+  tb/tb_engine.cpp -o build/tb_engine.exe && python scripts/fuzz_shapes.py)
 
 # 2) 上界守卫（无需 pynq / 无需板子）
-python -c "import sys;sys.path.insert(0,'fpga/ps/pynq');import conv_engine as C;
+python -c "import sys;sys.path.insert(0,'pynq_specialized_code/ps/pynq');import conv_engine as C;
 C.check_limits(640,640,352,192,1,1);print('ok')"
 
 # 3) PS 全套
-cd fpga/ps/tools && python test_runner_local.py && python test_pool_plan.py \
-  && python check_consistency.py --manifest ../manifest_640.json --pack ../../deploy/weights_pack \
-  && python tiled_infer.py --selftest && python check_pack_ref.py
+cd pynq_specialized_code/ps/tools && python test_runner_local.py && python test_pool_plan.py \
+  && python check_consistency.py --manifest ../manifest_640.json --pack <weights_pack> \
+  && python tiled_infer.py --selftest && python check_pack_ref.py --pack <weights_pack>
 ```
 
 ---
