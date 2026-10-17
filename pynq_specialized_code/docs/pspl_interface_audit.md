@@ -1,0 +1,211 @@
+# PS–PL 接口审查（2026-10-17）
+
+> 范围：`pl/src/conv2d_engine.cpp`（PL 电路）+ `ps/pynq/{conv_engine,runner,ops_numpy,ref_numpy}.py`
+> （PS 驱动与调度）+ 两者之间的**寄存器/内存/缓存/数值**契约。
+> 方法：静态逐行 + **拿 HLS 生成的驱动头对表** + C/RTL cosim 实测周期 + 动态回归。
+
+---
+
+## 0. 结论先说
+
+**功能正确性**：两侧契约逐项对齐（寄存器映射、行缓冲边界、权重索引、返回码、缓存），
+并用 **30/30 形状回归（含 640 宽）** + PS 全套回归 + 部署包自检验证。
+
+**发现并已修 4 处**：
+
+| 级别 | 问题 | 修法 |
+|---|---|---|
+| **P0** | 单次卷积超时 `5.0s`：按 cosim 实测，640 画幅最贵的一层要**约 170s**，第一层大卷积就会误超时 | `estimate_seconds()` 按工作量估算（25 拍/单元 @100MHz + 2 倍余量，下限 30s）；板上脚本加 `--timeout` 与进度 |
+| P1 | **部署宽度没有回归覆盖**：`fuzz_shapes` 的 W≤9、C++ 穷举到 260，640 宽的列分块路径从未压过 | 新增 `(16,16,k3,8,640)` 与 `(352,192,k1,4,640)` → **30/30 PASS** |
+| P1 | 两条 RTL 上界没在软件侧拦：`cin*H*W` 会撞 int32；`ceil(cin/2)·k²·16256` 会撞 26 位累加器 | `build_manifest.check_engine_limits`（生成时）+ `conv_engine.check_limits`（运行时），**离线可测** |
+| P2 | 四个 m_axi 地址寄存器是 64 位，MMIO 只写低 32 位 | 显式写 0 到 `+4`，杜绝残留高半字 |
+| **P0（流程）** | 工作区 `01_hls/src/conv2d_engine.cpp` 被**误贴了两段 markdown 审查表**（`namespace {` 里），编译直接失败；而 `fuzz_shapes.py` 仍用**旧 exe** 跑出 30/30 —— 假绿 | 用库里的干净版本恢复（245 行，逐字节一致）；`fuzz_shapes.py` 增加**"二进制比源码旧就拒绝运行"**守卫（真拦截验证过：旧 exe → exit 2） |
+
+**发现但没改（必须动 RTL + 重综合）**：
+
+| 级别 | 问题 | 说明 |
+|---|---|---|
+| P1 | **吞吐比设计目标低约 17 倍** | cosim 实测 **17.4 拍/单元**（II=1 目标应为 1 拍/单元）；640 整网粗算 **≈29 分钟**，不是秒级。详见 §4 |
+
+---
+
+## 1. 寄存器映射：和 HLS 生成的头逐项对表
+
+比对对象：`pl/proj/engine_v1/solution1/impl/ip/drivers/conv2d_engine_v1_0/src/xconv2d_engine_hw.h`
+（HLS 自己生成的驱动头，是硬件的权威描述）↔ `ps/pynq/conv_engine.py` 的偏移常量。
+
+| 功能 | HLS 头 | 驱动 | |
+|---|---|---|---|
+| AP_CTRL / AP_RETURN | 0x00 / 0x10 | 0x00 / 0x10 | ✅ |
+| H / W / Hout / Wout | 0x18 / 0x20 / 0x28 / 0x30 | 同 | ✅ |
+| cin / cout / ksize | 0x38 / 0x40 / 0x48 | 同 | ✅ |
+| stride / dil / pad / shift | 0x50 / 0x58 / 0x60 / 0x68 | 同 | ✅ |
+| relu_en | 0x70 | 0x70 | ✅ |
+| in_fm / wgt / bias / out_fm | 0x10 / 0x1c / 0x28 / 0x34（各 64 位） | 同 | ✅ |
+
+`.hwh` 侧：`s_axi_ctrl` @ `0x4001_0000`、`s_axi_control` @ `0x4000_0000`，各 64KB
+（`ADDRESSBLOCK RANGE=65536`），与驱动里的 `MMIO(..., 0x10000)` 和回退地址一致 ✅。
+
+---
+
+## 2. PL 侧逐项
+
+| 检查点 | 结论 |
+|---|---|
+| 参数校验在碰缓冲区**之前**（空指针 / H,W / Hout,Wout / cin,cout / k / s / d / pad / shift / span / bwcol） | ✅ 顺序正确，非法参数直接返回错误码 |
+| Hout/Wout 与 same-padding 公式一致（用乘法比较，避免运行期除法） | ✅ 传错尺寸会 `ERR_SIZE`，不会越界写 |
+| 行缓冲三段（左补零 / 直拷 / 右补零）与列分块 | ✅ 新增 640 宽用例（10 块/行 + 右边界）全过 |
+| `line_buf[cin][span][bwcol]` 索引上界 | ✅ `cb+rodoff[kx] ≤ (bw-1)·s+2p ≤ bwcol-1`；`span ≤ SPAN_MAX=7` |
+| 权重索引 `(oc·cin+ic)·k²` | ✅ 与 `index.json` 的 `w_shape`（cout,cin,k,k）一致 |
+| 双累加器 → 加偏置 → 算术右移 → ReLU 旁路 → int8 饱和 | ✅ 与 `conv_ref_rt` 逐位一致（5 场景 + 2256 穷举） |
+| `stride=2` 时 bw=32、否则 64；`bwcol` 上界 | ✅ s=2 时 `31·2+span+2p = 75 ≤ 76` |
+
+---
+
+## 3. PS 侧逐项
+
+| 检查点 | 结论 |
+|---|---|
+| 返回码 | ✅ `PYNQEngine.conv` 非 0 直接抛异常（不会静默出错） |
+| 缓存 | ✅ 每次卷积前 flush 整个池、后 invalidate；权重池初始化时 flush 一次 |
+| 地址 | ✅ `device_address + 64B 对齐偏移`；高 32 位已显式清零 |
+| 重定标 `_req` | ✅ `rint` + clip 到 int8（汇合点按目标标度重定标） |
+| `pixel_unshuffle/shuffle` | ✅ 与 torch 逐位一致（通道序 `c·r²+i·r+j`） |
+| `interp` | ✅ `align_corners=False`，与 `F.interpolate` 最大差 2.56e-05 |
+| `cat`/`slice`/`add` | ✅ 先拼后截断；`add` 用 `rint` + clip |
+| ECA / sam_sum | ✅ 空间均值→Conv1d(k=9,p=4)→ReLU→Shuffle→Conv1d→Unshuffle→Sigmoid；权重 fp32；与 torch 差 2.98e-07 |
+| 张量排列 | ✅ 全链 CHW（manifest / pack / 引擎一致）。**注意 `hls/` 线契约是 NHWC，合流时必须换排** |
+| 清单与包的一致性 | ✅ `check_consistency`（形状/标度/偏移/池规划）+ `check_pack_ref`（重算整网与 `ref_out.bin` 逐位 0 差异） |
+
+---
+
+## 4. 性能实测：为什么 5 秒超时一定会炸
+
+**实测来源**：`pl/proj/engine_cosim/cosim1/sim/report/conv2d_engine_cosim.rpt`
+（C/RTL cosim，Verilog，Pass）——`Total Execution Time = 4,694,784` 拍。
+对应数据集 `testdata_c352_o192_k1_h2`：cin=352、cout=192、k=1、H=W=2（4 个输出像素）。
+
+一个"单元" = 一个输出像素 × 一个输出通道 × 一个输入通道。
+这里单元数 = 2×2×192×352 = **270,336** → **17.4 拍/单元**。
+
+| 量 | 数值（按 17.4 拍/单元、150MHz 外推） |
+|---|---|
+| 最贵层 `decoder_1...conv_proj`（320², cin=224, cout=64） | 1.468G 单元 → **≈170 s** |
+| 640 整网 247 个卷积 | 15.14G 单元 → **≈29 分钟** |
+
+也就是说：**功能对、但慢**。5 秒超时会在第一层大卷积上直接抛 `TimeoutError`；
+即使不抛，整网也是"半小时级"，离"秒级"两个数量级。
+
+**为什么慢**：`for (ic…)` 上写了 `PIPELINE II=1`，但实测 17 拍/单元，
+说明循环携带依赖没被打开——每个 `ic` 迭代里 25 个抽头的乘加链（DSP latency=3）
+串成一条长链；`acc_even/acc_odd` 的拆分没有改变 II。
+
+**建议的优化顺序**（每步都要按 README 的"电路改动＝全链重验"走）：
+
+1. **给 1×1 单独一条快路径**：249 个卷积里 **132 个是 1×1**，现在它们和 5×5 走同一条
+   25 抽头通路（24/25 的乘法被谓词掉），白白耗掉同样拍数。
+2. 抽头求和改**树形归约 + 寄存器打拍**，把 `part` 的串行链打断。
+3. 再做通道维并行（OC_BLOCK 内多通道并行），此时才谈得上 25~50 MAC/拍。
+
+---
+
+## 5. 优化尝试：1×1 专用快路径（2026-10-17 晚，v3.3）
+
+**动机**：640 网络里 **132/249 个卷积是 1×1**，却和 5×5 共用同一条 25 抽头谓词通路
+（24/25 的乘法被 `if` 掉，但拍数照付）。
+
+**改法**：在 `src/conv2d_engine.cpp` 的 `(x2, i)` 循环里加 `if (ksize == 1)` 分支，
+只做一次乘加；`src_cosim` 同步（见 §7 的同步检查）。
+
+**实测（全部重跑，不是估计）**：
+
+| 项 | v3.2 | v3.3（+快路径） |
+|---|---|---|
+| cosim 周期（cin=352 cout=192 k=1，2×2 输出） | 4,694,784 | **4,142,592（−11.8%）** |
+| cosim 结果 | PASS | **PASS（768 输出逐位一致）** |
+| csynth | 165 BRAM / 56 DSP / 14450 FF / 19265 LUT | 165 / **56** / 14818 / 19748（+483 LUT, +368 FF） |
+| 实现 | WNS +0.107ns | **WNS +0.087ns**；BRAM 82 块(86.3%) / DSP 59(36.9%) / LUT 11699(25.3%) |
+
+**为什么这个形状只有 12%？** 说明瓶颈不在抽头链。拆账（同一形状，H=W=2）：
+
+- 计算循环：4 像素 × 24 个 OC 块 × 8 通道 × 352 输入通道 = **270k** 次迭代；
+- **权重重装**：每个 (行, 列块, OC 块) 都重读 `ocbl × cin × k²` = 8×352×1，
+  ×24 块 ×2 行 = **135k** 次迭代，且每次要写进分区化的 `wgt_buf`（实测这部分吃掉了
+  4.14M 里的约 3.4M 拍，即 **~82%**）。
+
+> ⚠️ **这个 82% 是"2×2 小画幅"的放大效应，不能直接套到真实层**：
+> 权重重装次数 ∝ `Hout × ceil(Wout/64) × ((cout/8)×8×cin)`，而计算单元数 ∝
+> `Hout × Wout × cout × cin`。比值 = `ceil(Wout/64) / Wout`：
+> - 2×2：ceil(2/64)=1 → 比值 1/2（权重装载被放大 32 倍）；
+> - 320 宽真实层：ceil(320/64)=5 → 比值 **1/8**。
+>
+> 所以 **12% 是这个形状下的下限**。按真实宽度的比值重算：k=1 层每单元
+> ≈ 计算 1.5 拍 + 权重 (25 拍 × 1/8 ≈ 3.1 拍) ≈ **4.6 拍/单元**（原 17.4）→
+> 640 整网从 ~29 分钟降到 **~9–10 分钟**。这是**解析估计**，要确认得跑一次
+> 宽画幅（如 H=8/W=320）的 cosim 或上板计时。
+
+**结论**：下一刀不是继续抠乘法，而是**把权重装载从"每行每块"提出来**：
+
+1. 提到 (行, OC 块) 级（去掉列块维的重复，320 宽能省 5×）；
+2. 或整层一次装载 —— 最坏层权重 352×192×1×1 ≈ 67 KB，约 30 个 BRAM18K，
+   而当前 BRAM 已用 86.3%，**放不下**，必须先换循环顺序或降 `OC_BLOCK` 的常驻策略；
+3. 每改一次都要 `check_src_sync.py` + csim/cosim + 重综合（本轮已按此走完）。
+
+---
+
+## 6. 复现命令
+
+```bash
+# 1) 形状回归（含新的 640 宽用例）：期望 30/30
+cd fpga/pl && g++ -std=c++14 -O2 -I src src/conv2d_engine.cpp src/conv_ref_rt.cpp \
+    tb/tb_engine.cpp -o build/tb_engine.exe && python scripts/fuzz_shapes.py
+
+# 2) 上界守卫（无需 pynq / 无需板子）
+python -c "import sys;sys.path.insert(0,'fpga/ps/pynq');import conv_engine as C;
+C.check_limits(640,640,352,192,1,1);print('ok')"
+
+# 3) PS 全套
+cd fpga/ps/tools && python test_runner_local.py && python test_pool_plan.py \
+  && python check_consistency.py --manifest ../manifest_640.json --pack ../../deploy/weights_pack \
+  && python tiled_infer.py --selftest && python check_pack_ref.py
+```
+
+---
+
+## 7. 仍然无法在本机证明的三件事（上板前必须补）
+
+| 事项 | 为什么本机证不了 |
+|---|---|
+| **640 宽度的 RTL 级 cosim** | 现有 cosim 只跑过 2×2 / 8×8 等小形状；C 级已覆盖 640 宽，但 RTL 没跑过 |
+| FCLK 实际频率与 CMA 余量 | 150MHz 是约束与 hwh 的目标，实测要看板子；84.8MB 池 + 1.6MB 权重需 CMA 支持 |
+| 板载整网逐位对拍 | 需要真板；顺序见 `on_board_checklist.md`（JTAG 5 用例 → PYNQ 5 用例 → 整网） |
+
+---
+
+## 8. 一次"假绿"的教训（值得写进流程）
+
+### 8.0 2026-10-18 上板前复测新增
+
+| 发现 | 处理 |
+|---|---|
+| **寄存器映射没有自动核对**（PS 偏移是手抄的，改了接口只改一边就会写到错误寄存器，板上表现为"参数没生效/永远 done 不了"） | 把 HLS 生成的 `xconv2d_engine_hw.h` 收入 `pl/scripts/` 作 golden，新增 **`pl/scripts/check_regmap.py`**：18 项逐项对表，现在全一致 |
+| **`prep_input.py` 在没装 torch 的机器上直接崩**（它只想读图裁剪，却经 `export_network` 间接 `import torch`） | 读图拆分到 **`ps/tools/img_io.py`**（仅 numpy + Pillow）；`export_network.load_image` 保留为 torch 包装层（语义不变）；`prep_input` 改用 `load_image_np`。复测：无 torch 环境下 1706×1279 → 608×416 → 758,784 字节 ✔ |
+
+### 8.1 `src` / `src_cosim` 不同步（2026-10-17 真踩）
+
+给 `src/` 加了 1×1 快路径后跑 cosim，**周期数一模一样（4,694,784）**——因为
+`hls_cosim_engine.tcl` 用的是 `src_cosim/` 那份副本，而我只改了 `src/`。
+差点误判成"优化无效"。
+
+已加 **`pl/scripts/check_src_sync.py`**：规范化掉 `depth=` 与 cosim-only 注释后逐行比对，
+不一致就 exit 1 并指出首个差异。以后改电路，先跑它再跑 cosim。
+
+审查当天发现工作区源码里混进了两段 markdown 表格（之前某次操作把审查结论写进了 `.cpp`），
+`g++` 报 `stray '\346' in program`。但 `fuzz_shapes.py` 当时仍然打印 **30/30 PASS**——
+因为 `build/tb_engine.exe` 是污染前的旧二进制，脚本只检查"文件存在"。
+
+这类事故的可怕之处不是编译失败（那会立刻暴露），而是**旧二进制替坏源码通过验证**。
+已经加了两道防线：
+
+1. `fuzz_shapes.py`：`tb_engine.exe` 必须比 `src/*.cpp|h` 与 `tb/tb_engine.cpp` 都新，否则拒绝运行；
+2. 审查结论只写进 `docs/`，不再往源文件里贴文档。

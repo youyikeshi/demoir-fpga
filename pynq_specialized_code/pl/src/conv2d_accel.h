@@ -1,0 +1,80 @@
+#ifndef CONV2D_ACCEL_H
+#define CONV2D_ACCEL_H
+
+// 双环境编译：g++ 走原生类型，Vitis HLS 走任意位宽类型。
+// 选 g++ 是因为本机没装 HLS 也能验证算法；选 ap_int 是因为硬件位宽要精确控制。
+#ifdef USE_HLS_TYPES
+  #include "ap_int.h"
+  typedef ap_int<8>  data_t;
+  typedef ap_int<26> acc_t;
+  typedef ap_int<32> bias_t;
+  // 两段式字符串化：先展开参数里的宏（例如 PIPELINE_II），再交给 _Pragma
+  #define HLS_PRAGMA_STR(x) #x
+  #define HLS_PRAGMA_CAT(x) HLS_PRAGMA_STR(x)
+  #define HLS_PRAGMA(x) _Pragma(HLS_PRAGMA_CAT(x))
+#else
+  #include <cstdint>
+  typedef int8_t  data_t;
+  typedef int32_t acc_t;
+  typedef int32_t bias_t;
+  #define HLS_PRAGMA(x)
+#endif
+
+// 卷积参数。默认值是 encoder.conv_first（12→48，5×5，补边 2）。
+// 其他层用 -D 覆盖，例如：
+//   -DCIN=48 -DCOUT=16 -DKSIZE=1 -DPAD=0     (Ghost 的 1×1 卷积)
+//   -DCIN=112 -DCOUT=64 -DKSIZE=3 -DPAD=1    (decoder 的 3×3 预卷积)
+#ifndef CIN
+#define CIN    12
+#endif
+#ifndef COUT
+#define COUT   48
+#endif
+#ifndef KSIZE
+#define KSIZE  5
+#endif
+#ifndef PAD
+#define PAD    2
+#endif
+
+#ifndef MAX_W
+#define MAX_W  512
+#endif
+
+// 膨胀率。默认 1 是普通卷积。
+// Ghost 模块的 cheap_operation 用 dilation 1/2/3，配 padding=d、kernel=3。
+#ifndef DILATION
+#define DILATION 1
+#endif
+
+// 步长。默认 1。encoder 的前两级下采样用步长 2。
+#ifndef STRIDE
+#define STRIDE 1
+#endif
+
+// 输出边长。same padding 且步长 1 时等于输入边长。
+#define CONV_OUT(n) ((((n) + 2 * PAD - ((KSIZE - 1) * DILATION + 1)) / STRIDE) + 1)
+
+// 本实现按"same padding"工作：补边必须等于 (K-1)*d/2。
+// 不满足时编译期直接报错，避免跑出错误结果却看不出来。
+#if (PAD * 2) != ((KSIZE - 1) * DILATION)
+#error "本实现要求 PAD == (KSIZE-1)*DILATION/2，即 same padding"
+#endif
+
+// 返回值：0 表示成功，其余为错误码
+enum {
+    ERR_OK    = 0,
+    ERR_NULL  = 1,
+    ERR_SIZE  = 2,
+    ERR_SHIFT = 3
+};
+
+// HLS 综合目标
+int conv2d_accel(const data_t *in_fm, const data_t *wgt, const bias_t *bias,
+                 data_t *out_fm, int H, int W, int shift);
+
+// 本机参考实现，用于比对
+int conv_ref(const data_t *in_fm, const data_t *wgt, const bias_t *bias,
+             data_t *out_fm, int H, int W, int shift);
+
+#endif  // CONV2D_ACCEL_H
