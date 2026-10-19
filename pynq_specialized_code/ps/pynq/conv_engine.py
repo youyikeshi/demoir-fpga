@@ -113,7 +113,7 @@ class Conv2dEngine:
         wout = (W - 1) // s + 1
         check_limits(H, W, cin, cout, k, s)
         if timeout_s is None:
-            timeout_s = max(30.0, 2.0 * self.estimate_seconds(H, W, cin, cout, s))
+            timeout_s = max(30.0, 2.0 * self.estimate_seconds(H, W, cin, cout, k, s))
         # 1) 四个缓冲区基地址（offset=slave）
         #    注意：这类地址寄存器是 64 位，MMIO 一次只写 32 位低半部分。
         #    Zynq-7000 的 DDR 都在 4GB 以下，高半部分必须显式为 0，
@@ -145,14 +145,22 @@ class Conv2dEngine:
         return rc, time.time() - t0
 
     @staticmethod
-    def estimate_seconds(H, W, cin, cout, s):
+    def estimate_seconds(H, W, cin, cout, k, s):
         """这一层在 PL 上大约要多久（秒，**保守**估计）。
 
-        依据：C/RTL cosim 实测（cin=352 cout=192 k=1，2×2 输出）共 4,694,784 拍，
-        对应 270,336 个"单元"→ 约 17.4 拍/单元。这里取 **25 拍/单元** 再按
-        **100 MHz** 折算（FCLK 若被配低也还能兜住），是偏保守的上界。
+        校准点（2026-10-19，150MHz C/RTL cosim）：
+          · 宽画幅 1×1：2.41 拍/单元；
+          · 宽画幅 3×3：4.01 拍/单元；
+          · 2×2、cin=352/cout=192 的 1×1：8.8 拍/单元（权重重装被放大）。
+        模型按每个输出列块计入"计算 + 权重重装"，再乘 1.5 作为等待余量；
+        比旧版的 25 拍/单元、100MHz 更贴近实测，同时仍留出板端 DDR 抖动余量。
         """
         hout = (H - 1) // s + 1
         wout = (W - 1) // s + 1
-        units = hout * wout * cout * cin
-        return 25.0 * units / 100e6
+        bw = 32 if s == 2 else 64
+        kk = 1 if k == 1 else (9 if k == 3 else 25)
+        cycles = 0.0
+        for x0 in range(0, wout, bw):
+            xn = min(bw, wout - x0)
+            cycles += hout * cout * cin * (2.5 * xn + 15.0 * kk)
+        return 1.5 * cycles / 150e6

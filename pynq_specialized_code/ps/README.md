@@ -107,7 +107,7 @@ python ps/tools/check_pack_ref.py --manifest ps/manifest_640.json --pack <pack �
 sudo python3 test_on_board.py
 #   预期：FCLK0 = 150.0 MHz，5/5 用例通过
 
-# 第 2 步：整网（约 9–10 分钟，别当卡死）
+# 第 2 步：整网（640 约 5–6 分钟；保守上界 7–9 分钟，别当卡死）
 sudo python3 run_network_on_board.py --manifest manifest_640.json \
     --pack weights_pack --input weights_pack/input_q.bin
 #   预期：0/1228800 不一致；失败时先跑 check_pack_ref.py 证明包没问题

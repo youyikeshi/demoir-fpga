@@ -101,7 +101,8 @@ pynq_specialized_code/
 1. 把上板包整个目录拷到板上（SD 卡 / scp / Samba 均可）；
 2. `sudo python3 test_on_board.py` → 预期 `FCLK0 = 150.0 MHz`、`5/5 用例通过`；
 3. `sudo python3 run_network_on_board.py --manifest manifest_640.json --pack weights_pack --input weights_pack/input_q.bin`
-   → 预期 `与部署参考对比: 0/1228800 不一致`（整网按实测外推约 9–10 分钟，脚本每 25 个卷积打印进度）。
+   → 预期 `与部署参考对比: 0/1228800 不一致`（640 整网预计约 5–6 分钟；
+   保守上界 7–9 分钟，脚本每 25 个卷积打印进度）。
 
 `.bit` 的装载方式：PYNQ 用 `Overlay("design_1.bit")`（运行时经 FPGA manager 配置 PL，掉电失效）；
 JTAG 用 Hardware Manager 直接 Program Device；要开机自动加载则把 bit 打进 `BOOT.BIN`。
@@ -120,7 +121,7 @@ JTAG 用 Hardware Manager 直接 Program Device；要开机自动加载则把 bi
 
 ---
 
-## 7. 验证状态（2026-10-18 实测）
+## 7. 验证状态（2026-10-19 实测）
 
 | 层 | 项 | 结果 |
 |---|---|---|
@@ -128,10 +129,10 @@ JTAG 用 Hardware Manager 直接 Program Device；要开机自动加载则把 bi
 | | 引擎穷举（relu=1/0 + 非法参数） | **2256 用例 PASS** |
 | | 真实数据 5 场景 | 逐位一致（最大 1,572,864 输出） |
 | | 4 个历史单测 | 全 PASS |
-| HLS | csim | **PASS 3072 输出** |
-| | csynth | 165 BRAM_18K / 56 DSP / 14,818 FF / 19,748 LUT |
-| | C/RTL cosim | PASS 768 输出（352×192 k=1，2×2 图；4,142,592 拍） |
-| 实现 | 时序 / 资源 | **WNS +0.087 ns @150MHz**；BRAM 82 块(86.3%)、DSP 59(36.9%)、LUT 11,699(25.3%) |
+| HLS | csim | **PASS（本轮 10,240 输出）** |
+| | csynth | 165 BRAM_18K / 58 DSP / 15,630 FF / 21,491 LUT |
+| | C/RTL cosim | PASS 768 输出（352×192 k=1，2×2 图；2,385,312 拍，较 v3.3 快 42%） |
+| 实现 | 时序 / 资源 | **WNS +0.024 ns（6.40ns 过约束口径；等效 150MHz 约 +0.29ns）**，WHS +0.036 ns；BRAM 82(86.3%)、DSP 62(38.8%)、LUT 12,571(27.2%) |
 | PS | 整网调度 | 517 算子 / 247 卷积，两次运行逐位一致 |
 | | 部署包自检 | 640：0/1,228,800 差异、31.52 dB；512：0/786,432、31.73 dB |
 | 接口 | 寄存器对表 | 18 项全一致（`pl/scripts/check_regmap.py`） |
@@ -141,8 +142,11 @@ JTAG 用 Hardware Manager 直接 Program Device；要开机自动加载则把 bi
 
 ## 8. 已知边界（上板前请知道）
 
-- **性能**：按 cosim 实测外推，640 整网约 **9–10 分钟**（不是秒级）；1×1 快路径已加，
-  下一刀是"权重装载从每行每块提出来"（整层装载需 ~67 KB ≈ 30 个 BRAM18K，当前 BRAM 已 86.3%）。
+- **性能**：宽画幅 cosim 校准为 1×1 **2.41 拍/单元**、3×3 **4.01 拍/单元**；
+  640 整网的 PL 卷积约 **4.6 分钟**，加 PS/缓存后预计 **5–6 分钟**，保守上界 **7–9 分钟**。
+  512/608×416 的 PL 约 2.9 分钟，整图预计 3.5–5.5 分钟。
+  1×1 权重装载已改为专用流水；下一步若要继续提速，需要把 3×3/5×5 的权重也跨列块复用
+  （会牵动 BRAM 预算，当前 BRAM 已用 86.3%，不能直接整层常驻）。
 - **640 宽度的 RTL 级 cosim 尚未跑**（C 级已覆盖 640 宽；RTL 只跑过 2×2 / 8×8 等小形状）。
 - **608×416** 只有清单，没有对应标定包；跑该画幅需按 §4-⑤ 重新导出。
 - `ps/tools/test_ops_vs_torch.py` 需要 PyTorch；无 torch 的环境会显式 `SKIP(77)`。

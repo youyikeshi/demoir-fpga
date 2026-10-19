@@ -160,12 +160,23 @@ int conv2d_engine(const data_t *in_fm, const data_t *wgt, const bias_t *bias,
                 // 注意：不要给这条循环加 HLS PIPELINE —— 试过 II=2，
                 // HLS 会试图"展开再流水"，运行期循环次数展开失败后逻辑暴涨
                 // （LUT 19.7k→69k、DSP 66→471），实现直接放不下。
-                int off = off_ocb;
-                for (int i = 0; i < ocbl; ++i, off += cin_kk) {
-                    int o2 = off;
-                    for (int ic = 0; ic < cin; ++ic, o2 += kk) {
-                        const data_t *wbase = wgt + o2;
-                        if (ksize == 3) {
+                if (ksize == 1) {
+                    // 1×1 的权重每个 (oc,ic) 只有 1 字节，单独做一条可流水的
+                    // 连续读取；避免通用分支里运行期 k 造成的动态索引和长等待。
+                    int off1 = off_ocb;
+                    for (int i = 0; i < ocbl; ++i, off1 += cin_kk) {
+                        HLS_PRAGMA(HLS PIPELINE II=1)
+                        for (int ic = 0; ic < cin; ++ic) {
+                            wgt_buf[i][ic][0][0] = wgt[off1 + ic];
+                        }
+                    }
+                } else {
+                    int off = off_ocb;
+                    for (int i = 0; i < ocbl; ++i, off += cin_kk) {
+                        int o2 = off;
+                        for (int ic = 0; ic < cin; ++ic, o2 += kk) {
+                            const data_t *wbase = wgt + o2;
+                            if (ksize == 3) {
                             data_t wr[9];
                             for (int t = 0; t < 9; ++t) {
                                 HLS_PRAGMA(HLS UNROLL)
@@ -178,7 +189,7 @@ int conv2d_engine(const data_t *in_fm, const data_t *wgt, const bias_t *bias,
                                     wgt_buf[i][ic][ky][kx] = wr[ky * 3 + kx];
                                 }
                             }
-                        } else if (ksize == 5) {
+                            } else if (ksize == 5) {
                             data_t wr[25];
                             for (int t = 0; t < 25; ++t) {
                                 HLS_PRAGMA(HLS UNROLL)
@@ -191,8 +202,9 @@ int conv2d_engine(const data_t *in_fm, const data_t *wgt, const bias_t *bias,
                                     wgt_buf[i][ic][ky][kx] = wr[ky * 5 + kx];
                                 }
                             }
-                        } else {
-                            wgt_buf[i][ic][0][0] = wbase[0];
+                            } else {
+                                wgt_buf[i][ic][0][0] = wbase[0];
+                            }
                         }
                     }
                 }
@@ -209,7 +221,7 @@ int conv2d_engine(const data_t *in_fm, const data_t *wgt, const bias_t *bias,
                             // 网络里 132/249 个卷积是 1×1，却和 5×5 走同一条 25 抽头
                             // 谓词通路：24/25 的乘法被 if 掉，但**拍数照付**。
                             // 单独一条"每 ic 一次乘加"的循环：循环携带依赖只剩 int32 加法，
-                            // II 能到 1，实测 17.4 拍/单元 → 约 1.2 拍/单元。
+                            // 宽画幅实测约 2.41 拍/单元（2×2 小画幅会被权重重装放大）。
                             // k=1 时 pad=0、span=1，line_buf 只有第 0 行，列下标就是 cb。
                             if (ksize == 1) {
                                 for (int ic = 0; ic < cin; ++ic) {
@@ -221,6 +233,37 @@ int conv2d_engine(const data_t *in_fm, const data_t *wgt, const bias_t *bias,
                                         acc_odd += t1;
                                     } else {
                                         acc_even += t1;
+                                    }
+                                }
+                            } else if (ksize == 3) {
+                                // ---- 3×3 专用快路径（2026-10-19）----
+                                // 通用路径按 KMAX=5 展开 25 个抽头，k=3 时仍有 16 个
+                                // 谓词掉的乘法；这里只展开 9 个抽头。抽头结果分成两条
+                                // 加法链再合并，缩短 3×3 的依赖链，整数求和顺序不影响结果。
+                                for (int ic = 0; ic < cin; ++ic) {
+                                    HLS_PRAGMA(HLS PIPELINE II=PIPELINE_II)
+                                    acc_t part0 = 0;
+                                    acc_t part1 = 0;
+                                    for (int ky = 0; ky < 3; ++ky) {
+                                        HLS_PRAGMA(HLS UNROLL)
+                                        for (int kx = 0; kx < 3; ++kx) {
+                                            HLS_PRAGMA(HLS UNROLL)
+                                            const int32_t p = (int32_t)line_buf[ic]
+                                                [rdoff[ky]][cb + rdoff[kx]];
+                                            const int32_t wv = (int32_t)wgt_buf[i][ic][ky][kx];
+                                            const int32_t prod = p * wv;
+                                            if (((ky + kx) & 1) == 0) {
+                                                part0 += prod;
+                                            } else {
+                                                part1 += prod;
+                                            }
+                                        }
+                                    }
+                                    const acc_t part = part0 + part1;
+                                    if (ic & 1) {
+                                        acc_odd += part;
+                                    } else {
+                                        acc_even += part;
                                     }
                                 }
                             } else {

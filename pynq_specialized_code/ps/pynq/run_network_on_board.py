@@ -56,9 +56,9 @@ def main():
     engine.n_layers = sum(1 for o in manifest["ops"] if o["op"] == "conv" and o["needed"])
     r = Runner(a.manifest, a.pack, engine=engine, arena=arena)
 
-    est = sum(engine.unit.estimate_seconds(o["h"], o["w"], o["cin"], o["cout"], o["s"])
+    est = sum(engine.unit.estimate_seconds(o["h"], o["w"], o["cin"], o["cout"], o["k"], o["s"])
               for o in r.ops if o["op"] == "conv")
-    print("预计卷积耗时 ≈ %.1f 分钟（25 拍/单元 @100MHz 的保守估计；层间算子另计）"
+    print("预计卷积耗时 ≈ %.1f 分钟（150MHz cosim 校准 + 1.5× 余量；层间算子另计）"
           % (est / 60.0))
 
     t0 = time.time()

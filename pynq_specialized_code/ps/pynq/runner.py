@@ -218,7 +218,7 @@ class PYNQEngine:
                   % (self.n_calls, self.n_layers or self.n_calls, op["name"],
                      op["h"], op["w"], op["cin"], op["cout"], op["k"],
                      self.unit.estimate_seconds(op["h"], op["w"], op["cin"],
-                                                op["cout"], op["s"])),
+                                                op["cout"], op["k"], op["s"])),
                   flush=True)
         self.arena.flush()
         rc, _ = self.unit.run(self._ns(self.arena.addr(in_t)),
@@ -281,9 +281,27 @@ class Runner:
             elif k == "slice":
                 A.view(o0)[...] = A.view(op["in"][0])[:op["channels"]]
             elif k == "cat":
+                # 直接把每个输入分段拷进输出视图，避免 concatenate 的临时大数组
+                # 再整体赋值一次。只有在输出与任一输入共享内存时才回退到旧路径。
+                out = A.view(o0)
                 s_out = self._s(o0)
-                parts = [self._req(A.view(n), self._s(n), s_out) for n in op["in"]]
-                A.view(o0)[...] = ops.cat(parts, op.get("channels"))
+                srcs = [A.view(n) for n in op["in"]]
+                if any(np.shares_memory(out, src) for src in srcs):
+                    parts = [self._req(src, self._s(n), s_out)
+                             for src, n in zip(srcs, op["in"])]
+                    out[...] = ops.cat(parts, op.get("channels"))
+                else:
+                    dst = 0
+                    for src, n in zip(srcs, op["in"]):
+                        take = min(src.shape[0], out.shape[0] - dst)
+                        if take <= 0:
+                            break
+                        part = self._req(src, self._s(n), s_out)
+                        out[dst:dst + take] = part[:take]
+                        dst += take
+                    if dst != out.shape[0]:
+                        raise RuntimeError("cat 输出通道数不匹配: op=%s dst=%d out=%d"
+                                           % (op["name"], dst, out.shape[0]))
             elif k == "add":
                 s_out = self._s(o0)
                 a = self._req(A.view(op["in"][0]), self._s(op["in"][0]), s_out)

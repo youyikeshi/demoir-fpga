@@ -100,9 +100,13 @@ python pynq_specialized_code/pl/scripts/check_src_sync.py  # src ↔ src_cosim
 python pynq_specialized_code/pl/scripts/check_regmap.py    # 接口对表
 ```
 
-**2026-10-18 实测**：csim PASS 3072 输出；csynth 165 BRAM_18K / 56 DSP / 14,818 FF / 19,748 LUT；
-cosim PASS 768 输出（352×192 k=1，2×2 图，4,142,592 拍）；实现 **WNS +0.087 ns @150MHz**，
-BRAM 82 块（86.3%）、DSP 59（36.9%）、LUT 11,699（25.3%）。
+**2026-10-19 实测**：csim PASS；csynth 165 BRAM_18K / 58 DSP / 15,630 FF / 21,491 LUT；
+cosim PASS 768 输出（352×192 k=1，2×2 图，**2,385,312 拍**）；实现 **WNS +0.024 ns**
+（6.40ns 过约束口径，等效 150MHz 约 +0.29ns）、WHS +0.036 ns；BRAM 82 块（86.3%）、
+DSP 62（38.8%）、LUT 12,571（27.2%）。
+
+宽画幅基准（H=2、W=320）：1×1 从 857,552 降到 **790,952 拍**（2.41 拍/单元）；
+3×3 从 1,775,052 降到 **1,314,252 拍**（4.01 拍/单元）。640 整网 PL 约 4.6 分钟。
 
 ---
 
