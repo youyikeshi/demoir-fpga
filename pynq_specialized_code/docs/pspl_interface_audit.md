@@ -349,7 +349,7 @@ cd pynq_specialized_code/ps/tools && python test_runner_local.py && python test_
 | 指标 | 实测（640 单张） |
 |---|---|
 | 整网 @125 MHz | **313.96 s**（原始 749 s，**2.39×**） |
-| 整网 @150 MHz | **276.74 s**（原始 749 s，**2.70×**）；conv 219.3 s |
+| 整网 @150 MHz | **265.07 s**（原始 749 s，**2.83×**）；conv 207.2 s（行复用后） |
 | conv | 257.5 s（其中填充 105 / k=3 乘加 101 / k=1 乘加 31 / k=5 9 / 其它 12） |
 | PS | 56.4 s（sam_sum 24.4 / interp 17.1 / eca 7.7 / cat 5.6 / add 1.5） |
 | 逐位对拍 | 0 / 1,228,800 |
@@ -406,3 +406,8 @@ cd pynq_specialized_code/ps/tools && python test_runner_local.py && python test_
 **结论**：这不是"算法/写法错了"，是**并行读模式触发了 HLS 的存储器复制，而复制后的
 写侧语义它没保证**。任何"提高某维并行度"的改写，都要先看 csynth 的 Memory 表有没有
 出现同一数组的多实例，再跑 cosim。
+
+**已生效的一条（2026-10-22 凌晨）**：交换 y/列块循环顺序 + 行缓冲复用
+（BRAM 内下移 `span-stride` 行、DDR 只装 `stride` 行）→ 填充 105 → **50 s**，
+整网 276.7 → **265.07 s**（150 MHz，0 不一致）。注意收益比"省掉 2/3 流量"小得多，
+因为 BRAM 内搬行的 bank 多路选择并不便宜。
