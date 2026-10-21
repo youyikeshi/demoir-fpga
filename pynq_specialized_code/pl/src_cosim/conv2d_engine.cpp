@@ -27,10 +27,18 @@ int conv2d_engine(const data_t *in_fm, const data_t *wgt, const bias_t *bias,
                   data_t *out_fm, int H, int W, int Hout, int Wout,
                   int cin, int cout, int ksize, int stride, int dil,
                   int pad, int shift, int relu_en) {
-    HLS_PRAGMA(HLS INTERFACE m_axi port=in_fm offset=slave bundle=gmem0 depth=1408)
-    HLS_PRAGMA(HLS INTERFACE m_axi port=wgt offset=slave bundle=gmem0 depth=67584)
-    HLS_PRAGMA(HLS INTERFACE m_axi port=bias offset=slave bundle=gmem0 depth=192)
-    HLS_PRAGMA(HLS INTERFACE m_axi port=out_fm offset=slave bundle=gmem1 depth=768)
+    // 2026-10-21：显式指定突发长度与**在途请求数**。
+    // 板端实测行缓冲填充只有 16 拍/字节（≈8 MB/s，而 HP0+DDR 能力 ≥500 MB/s），
+    // 反推每搬一行（68 B）就要等一次完整往返、相邻行完全不重叠 —— 瓶颈是
+    // 并发度而不是带宽。默认的 num_read_outstanding 太小，这里放大到 16。
+    HLS_PRAGMA(HLS INTERFACE m_axi port=in_fm offset=slave bundle=gmem0 depth=1408 \
+        max_read_burst_length=64 num_read_outstanding=16)
+    HLS_PRAGMA(HLS INTERFACE m_axi port=wgt offset=slave bundle=gmem0 depth=67584 \
+        max_read_burst_length=64 num_read_outstanding=16)
+    HLS_PRAGMA(HLS INTERFACE m_axi port=bias offset=slave bundle=gmem0 depth=192 \
+        max_read_burst_length=64 num_read_outstanding=16)
+    HLS_PRAGMA(HLS INTERFACE m_axi port=out_fm offset=slave bundle=gmem1 depth=768 \
+        max_write_burst_length=64 num_write_outstanding=16)
     HLS_PRAGMA(HLS INTERFACE s_axilite port=H bundle=ctrl)
     HLS_PRAGMA(HLS INTERFACE s_axilite port=W bundle=ctrl)
     HLS_PRAGMA(HLS INTERFACE s_axilite port=Hout bundle=ctrl)
