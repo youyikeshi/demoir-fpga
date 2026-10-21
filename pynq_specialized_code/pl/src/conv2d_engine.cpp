@@ -273,12 +273,12 @@ int conv2d_engine(const data_t *in_fm, const data_t *wgt, const bias_t *bias,
                             out_fm[((ocb + i) * Hout + y) * Wout + x0 + x2] =
                                 saturate_int8(v);
                         }
+
                     } else {
                     for (int i = 0; i < OC_BLOCK; ++i) {
                         if (i < ocbl) {
                             acc_t acc_even = 0;
                             acc_t acc_odd = 0;
-
                             // ---- 1×1 专用快路径（2026-10-17）----
                             // 网络里 132/249 个卷积是 1×1，却和 5×5 走同一条 25 抽头
                             // 谓词通路：24/25 的乘法被 if 掉，但**拍数照付**。

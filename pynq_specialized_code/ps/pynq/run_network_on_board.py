@@ -30,8 +30,10 @@ def main():
                     help="单次卷积等待上限（秒）。默认按工作量估算（见 conv_engine.estimate_seconds）")
     ap.add_argument("--progress", type=int, default=25,
                     help="每多少个卷积打印一行进度（0=不打印）")
-    ap.add_argument("--fclk", type=float, default=None,
-                    help="加载 overlay 后把 FCLK0 设成该频率（MHz），例如 150")
+    ap.add_argument("--fclk", type=float, default=150.0,
+                    help="加载 overlay 后把 FCLK0 设成该频率（MHz）。默认 150（本版 "
+                         "implement WNS = +0.217 ns @150 MHz，实测整网逐位一致）；"
+                         "时序余量不足的旧 bit 请显式传 125")
     ap.add_argument("--dump-out", default=None,
                     help="把板上输出（int8 (3,H,W)）另存为原始文件，便于本机差异分析")
     ap.add_argument("--profile", action="store_true",
@@ -57,7 +59,8 @@ def main():
     fclk_now = None
     try:
         from pynq.ps import Clocks
-        print("FCLK0 = %.1f MHz（期望 150）" % Clocks.fclk0_mhz)
+        print("FCLK0 = %.1f MHz（overlay 默认；目标 %.1f）"
+              % (Clocks.fclk0_mhz, a.fclk if a.fclk else 0))
         if a.fclk:
             Clocks.fclk0_mhz = a.fclk
             print("FCLK0 手动设为 %.1f MHz" % Clocks.fclk0_mhz)

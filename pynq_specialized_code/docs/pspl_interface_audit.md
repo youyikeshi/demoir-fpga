@@ -346,9 +346,10 @@ cd pynq_specialized_code/ps/tools && python test_runner_local.py && python test_
 + 权重重装按 k 拆分支（常量步长 + II=1）；PS 侧 = 256 项查找表重定标（`bytes.translate`）
 + cat 零拷贝 + 整数 interp + 分块 eca。
 
-| 指标 | 实测（125 MHz，640 单张） |
+| 指标 | 实测（640 单张） |
 |---|---|
-| 整网 | **313.96 s**（原始 749 s，**2.39×**） |
+| 整网 @125 MHz | **313.96 s**（原始 749 s，**2.39×**） |
+| 整网 @150 MHz | **276.74 s**（原始 749 s，**2.70×**）；conv 219.3 s |
 | conv | 257.5 s（其中填充 105 / k=3 乘加 101 / k=1 乘加 31 / k=5 9 / 其它 12） |
 | PS | 56.4 s（sam_sum 24.4 / interp 17.1 / eca 7.7 / cat 5.6 / add 1.5） |
 | 逐位对拍 | 0 / 1,228,800 |
