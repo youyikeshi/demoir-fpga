@@ -11,7 +11,7 @@
 
 | 文件 | 作用 |
 |---|---|
-| `runner.py` | **整网调度器**：读清单，按 `needed` 过滤出 517 个算子；卷积交给引擎，其余交给 `ops_numpy`；含 `plan_pool` 内存池规划、`NumpyArena`（本机）与 `PYNQArena`（板上连续内存） |
+| `runner.py` | **整网调度器**：读清单，按 `needed` 过滤出 517 个算子；卷积交给引擎，其余交给 `ops_numpy`；含 `plan_pool` 内存池规划、`NumpyArena`（本机）与 `PYNQArena`（板上连续内存）。**`compute_cat_alias`**：把 224 个通道拼接折叠成"一块缓冲区 + 切片视图"（零拷贝），运行期只剩标度重定标 |
 | `ops_numpy.py` | 层间算子（int8 语义）：`pixel_unshuffle/shuffle`、`interp`（双线性，align_corners=False）、`slice`、`cat`、`add`、`eca_attn`、`sam_sum` |
 | `conv_engine.py` | **PL 驱动**：从 `.hwh` 发现两个 AXI-Lite 基地址；写 4 个 DDR 地址 + 11 个参数；启动并轮询 done；返回码检查；超时按工作量估算；两条 RTL 上界前置拦截 |
 | `ref_numpy.py` | 卷积的 numpy 金标准（与 `pl/src/conv_ref_rt.cpp` 逐位一致） |
@@ -25,6 +25,7 @@
 | `build_manifest.py` | 按画幅生成执行清单（算子顺序/形状/缓冲/依赖）；内置引擎上界检查 | 否 |
 | `export_network.py` | 浮点前向 + 多图标定 → 权重包（`weights.bin/index.json`）+ 部署参考；交叉验证；写 `build_info.json`；`--clip-pct` 分位裁剪（实测默认 100 别改） | **是** |
 | `prep_input.py` | 照片 → 原生裁剪 → `input_q.bin`（**只裁不缩**；画幅须 32 倍数） | 否（读图在 `img_io.py`） |
+| `make_image_pack.py` | 一键"图片测试包"：裁片 + 本机 RefEngine 参考 `ref_out.bin` + 可视化（`output.png` / `compare.png`），产物目录可直接当板上 `--pack` | 否（只需 numpy + Pillow） |
 | `img_io.py` | 读图/裁剪（numpy + Pillow；被 `prep_input` 与 `export_network` 共用） | 否 |
 | `tiled_infer.py` | 大图分块推理 + 羽化拼接（tile 32 倍数、overlap 默认 256；带自检） | 否 |
 | `check_pack_ref.py` | **部署包自检**：用包重算整网，与 `ref_out.bin` 逐位对拍（640/512 均 0 差异） | 否 |
@@ -44,7 +45,7 @@
 |---|---|
 | `baremetal/main.c` | **JTAG 裸机自检**：5 个用例（含 352×192）、CPU 参考对拍、报告写 `0x3000_0000` |
 | `manifest_64.json` | 64×64 快速回归 |
-| `manifest_640.json` | **主用**：640×640（517 算子、522 张量、池 84.8 MB） |
+| `manifest_640.json` | **主用**：640×640（517 算子、522 张量、池 **66.8 MB**；cat 零拷贝后） |
 | `manifest_512.json` | 512 原生画幅（池 54.3 MB） |
 | `manifest_608x416.json` | 600×400 需求的 32 倍数画幅（池 52.4 MB；**尚无对应标定包**） |
 
@@ -55,7 +56,7 @@
 ```
 读 input_q.bin (3,H,W int8)
   → Overlay(design_1.bit)            # 加载 PL，PYNQ 按 .hwh 配 FCLK0=150MHz
-  → PYNQArena: 一块连续 DDR 池（640 图 84.8 MB）+ 偏移视图
+  → PYNQArena: 一块连续 DDR 池（640 图 66.8 MB）+ 偏移视图（cat 组成员共享一块缓冲）
   → PYNQEngine: 再把 weights.bin 装进另一块池（~1.6 MB）并 flush
   → for op in manifest.ops（517 条）:
         conv       → 写 4 个地址 + 11 个参数 → start → 等 done → 查返回码

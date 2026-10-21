@@ -37,30 +37,78 @@ def pixel_shuffle(t, r=2):
     return np.ascontiguousarray(x.reshape(c, h * r, w * r))
 
 
-def _resize_axis(t, axis, out_len):
-    """沿 axis 做 align_corners=False 的双线性重采样（float 计算）。"""
+def _round_div_pow2(y, k):
+    """整数除 2^k 并做"半偶舍入"，等价于 np.rint(y / 2^k)（y 为 int16）。"""
+    q = y >> k                      # 算术右移 = floor(y/2^k)
+    r = y - (q << k)                # 0 .. 2^k-1
+    half = 1 << (k - 1)
+    q = q + ((r > half) | ((r == half) & ((q & 1) == 1)))
+    return np.clip(q, -128, 127).astype(np.int8)
+
+
+def _axis_weights(in_len, out_len):
+    """返回 (i0, i1, w8, 是否落在 1/8 网格)。
+
+    网络的插值比例只有 1/2、1/4、2/1、4/1，且涉及的边长都是 2 的幂，
+    权重恰好只落 0~7/8 → 可以整段用整数算。非 2 的幂（例如 7→3 会产生
+    2/3 权重）就不在网格上，调用方要回退到浮点实现。
+    """
+    scale = out_len / in_len
+    src = (np.arange(out_len) + 0.5) / scale - 0.5
+    src = np.clip(src, 0.0, in_len - 1)
+    i0 = np.floor(src).astype(np.intp)   # 板子是 32 位 ARM：np.take 要求索引 ≤ intp
+    i1 = np.minimum(i0 + 1, in_len - 1).astype(np.intp)
+    w8 = (src - i0) * 8.0
+    on_grid = bool(np.all(w8 == np.rint(w8)))
+    return i0, i1, np.rint(w8).astype(np.int16), on_grid
+
+
+def _resize_axis_int(t, axis, i0, i1, w8):
+    """整数双线性的一段：t 为 int16（真实值×k），返回 int16（×8k）。"""
+    shape = [1] * t.ndim
+    shape[axis] = len(w8)
+    w8 = w8.reshape(shape)
+    a = np.take(t, i0, axis=axis)
+    b = np.take(t, i1, axis=axis)
+    return a * (8 - w8) + b * w8
+
+
+def _resize_axis_f32(t, axis, out_len):
+    """浮点参考实现（只用于非 2 的幂比例的回退路径）。"""
     in_len = t.shape[axis]
     scale = out_len / in_len
     src = (np.arange(out_len) + 0.5) / scale - 0.5
     src = np.clip(src, 0.0, in_len - 1)
-    i0 = np.floor(src).astype(np.int64)
-    i1 = np.minimum(i0 + 1, in_len - 1)
-    w = src - i0
+    i0 = np.floor(src).astype(np.intp)
+    i1 = np.minimum(i0 + 1, in_len - 1).astype(np.intp)
+    w = (src - i0).astype(np.float32)
     shape = [1] * t.ndim
     shape[axis] = out_len
     w = w.reshape(shape)
-    a = np.take(t.astype(np.float32), i0, axis=axis)
-    b = np.take(t.astype(np.float32), i1, axis=axis)
+    tf = t if t.dtype == np.float32 else t.astype(np.float32)
+    a = np.take(tf, i0, axis=axis)
+    b = np.take(tf, i1, axis=axis)
     return a * (1.0 - w) + b * w
 
 
 def interp(t, num, den):
-    """双线性插值，比例 num/den（如 1/2 下采样、2/1 上采样），int8 -> int8。"""
+    """双线性插值，比例 num/den（如 1/2 下采样、2/1 上采样），int8 -> int8。
+
+    2026-10-21：比例与边长都是 2 的幂时走**整数路径**（两段 ×8，合计分母 64，
+    全程 int16，不再产生 float32 整块临时数组，板端这一项原本 20.9 s）；
+    否则回退到原来的 float32 实现。两条路径结果**逐位一致**（已对拍）。
+    """
     c, h, w = t.shape
     h2 = h * num // den
     w2 = w * num // den
-    y = _resize_axis(t, 1, h2)
-    y = _resize_axis(y, 2, w2)
+    i0h, i1h, wh, okh = _axis_weights(h, h2)
+    i0w, i1w, ww, okw = _axis_weights(w, w2)
+    if okh and okw:
+        y = _resize_axis_int(t.astype(np.int16), 1, i0h, i1h, wh)
+        y = _resize_axis_int(y, 2, i0w, i1w, ww)
+        return _round_div_pow2(y, 6)
+    y = _resize_axis_f32(t, 1, h2)
+    y = _resize_axis_f32(y, 2, w2)
     return _q(y)
 
 
@@ -73,8 +121,16 @@ def cat(ts, channels=None):
 
 
 def add(a, b):
-    """逐元素相加（残差），round + 截断。"""
-    return _q(a.astype(np.float32) + b.astype(np.float32))
+    """逐元素相加（残差），round + 截断。
+
+    2026-10-21：输入是 int8，整数和本身就是精确值，`rint` 恒等，所以
+    round+clip 等价于"int16 相加再饱和"。省掉两份 float32 临时数组，
+    结果与 float32 版逐位相同（已对拍）。
+    """
+    t = a.astype(np.int16)
+    t += b
+    np.clip(t, -128, 127, out=t)
+    return t.astype(np.int8)
 
 
 def _conv1d_k9(x, w):
@@ -99,12 +155,26 @@ def _channel_unshuffle(x, g=3):
 def eca_attn(t, w_conv2, w_conv1):
     """ECA：输入 (3C,h,w) int8 → 输出 (3C,1,1) float32 的逐通道权重。"""
     x = t.astype(np.float32).mean(axis=(1, 2))     # 空间平均 (3C,)
+    return eca_attn_from_mean(x, w_conv2, w_conv1)
+
+
+def eca_attn_from_mean(x, w_conv2, w_conv1):
+    """ECA 的后半段：输入是每通道的空间均值 (3C,) float32 → 逐通道权重。
+
+    单独拆出来是为了让调用方**按通道分块**算空间均值（避免把整块
+    14.7 MB 的特征图 astype 成 59 MB 的 float32 临时数组）。
+    """
     x = _conv1d_k9(x, w_conv2)
     x = np.maximum(x, 0.0)                          # ReLU
     x = _channel_shuffle(x.astype(np.float32), 3)
     x = _conv1d_k9(x, w_conv1)
     x = _channel_unshuffle(x.astype(np.float32), 3)
     x = 1.0 / (1.0 + np.exp(-x))                    # Sigmoid
+    # 固定点量化（1/4096）：抹平跨平台浮点差异。
+    # 原因：mean 的 float32 归约与 np.exp 在 x86(SIMD/AVX) 与 ARM(标量) 上
+    # 会有 ulp 级差异，传播到 sam_sum 后会把 ~17% 的像素推过 rint 的 .5 边界。
+    # 量化到 2^-12 后，1e-7 量级的差异不再影响结果（除非正好落在边界 1e-9 内）。
+    x = np.round(x * 4096.0) / 4096.0
     return x.reshape(-1, 1, 1).astype(np.float32)
 
 

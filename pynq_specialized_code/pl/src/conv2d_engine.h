@@ -51,6 +51,10 @@
 #define OC_BLOCK  8
 #endif
 
+#ifndef K1_OC_UNROLL
+#define K1_OC_UNROLL 4   /* 1×1 快路径：每拍并行几个输出通道（LUTRAM 分 bank 后 4 路并行读）*/
+#endif
+
 #ifndef PIPELINE_II
 #define PIPELINE_II 1
 #endif

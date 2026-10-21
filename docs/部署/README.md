@@ -39,6 +39,7 @@
 | **要改 XSA / PS 配置** | [`../../deploy/xsa/README.md`](../../deploy/xsa/README.md) | 旧 XSA 为什么是坏的、26 个属性、两个 Vivado 顺序坑 |
 | **zocl 编不过 / 要改配方** | [`../../deploy/pynq/zocl-kernel-6.12/README.md`](../../deploy/pynq/zocl-kernel-6.12/README.md) | AIE 依赖的机理、两个补丁、验证方法 |
 | **要动手敲命令 / 找脚本** | [`../../deploy/README.md`](../../deploy/README.md) | 上板脚本的入口：有什么工具、按什么顺序用、由谁解释 |
+| **板子已连上，但 PL 卷积输出全 0 / 想复现上板全流程** | [`记录_20261021_PS端验证与BOOT重建.md`](记录_20261021_PS端验证与BOOT重建.md) | 2026-10-21 实板验证全过程（单算子 5/5、整网 0 不一致）：CMA 扩容、HLS/Vivado 重建、**输出全 0 的真根因（BD 的 DDR 解码范围只有 512 MB）**、PYNQ 3.1 兼容补丁、BOOT.BIN 备用重建方案 |
 
 ---
 

@@ -93,3 +93,21 @@ _hd_transfer/
 hls/build/
 hls/pl/build/
 # 本地 python 环境（导出权重 / 跑对拍用）由上面的 .venv*/ 统一覆盖
+
+# ---------------------------------------------------------------------------
+# PS/PL 特化工程（pynq_specialized_code/）构建产物
+# ---------------------------------------------------------------------------
+# HLS 工程与 Vivado 工程可重建；bit/hwh/xsa 与部署包由脚本生成，不手工入库。
+pynq_specialized_code/pl/proj/
+pynq_specialized_code/pl/vivado/
+pynq_specialized_code/board/
+pynq_specialized_code/deploy/weights_pack/
+pynq_specialized_code/docs/reports/
+
+# 本机构建/仿真日志与临时产物（2026-10-21）：Vivado 的 vivado*.log 会落在仓库根
+# （谁在根目录跑谁生成），HLS 的 tcl 日志落 logs/，.Xil 是 Vivado 的临时目录。
+logs/
+vivado*.log
+.Xil/
+NA/
+pynq_specialized_code/pl/build/

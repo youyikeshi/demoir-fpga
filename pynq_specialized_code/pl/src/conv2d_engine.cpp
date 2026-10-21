@@ -76,8 +76,15 @@ int conv2d_engine(const data_t *in_fm, const data_t *wgt, const bias_t *bias,
 
     // 权重缓冲：只装当前 OC 块
     data_t wgt_buf[OC_BLOCK][CIN_MAX][KMAX][KMAX];
+    // 1×1 专用权重缓冲（2026-10-21 性能改造）：
+    //   k=1 占 132/249 层，走 wgt_buf 时每个 oc 只能串行读（BRAM 双端口），
+    //   这里单独放一份，并按输出通道完全分 bank（分布式 RAM，不占 BRAM），
+    //   于是每拍可并行读 K1_OC_UNROLL 个权重 → 每拍 K1_OC_UNROLL 个 MAC。
+    data_t wgt1_buf[OC_BLOCK][CIN_MAX];
     HLS_PRAGMA(HLS ARRAY_PARTITION variable=wgt_buf complete dim=3)
     HLS_PRAGMA(HLS ARRAY_PARTITION variable=wgt_buf complete dim=4)
+    HLS_PRAGMA(HLS ARRAY_PARTITION variable=wgt1_buf complete dim=1)
+    HLS_PRAGMA(HLS BIND_STORAGE variable=wgt1_buf type=RAM_2P impl=LUTRAM)
 
     // 行缓冲：只装当前输出块需要的列
     data_t line_buf[CIN_MAX][SPAN_MAX][BWCOL_MAX];
@@ -126,10 +133,14 @@ int conv2d_engine(const data_t *in_fm, const data_t *wgt, const bias_t *bias,
             for (int r = 0; r < span; ++r, io_r += W) {
                 const int iy = y * stride + r - pad;
                 const bool row_ok = (iy >= 0) && (iy < H);
-                // v3.1（时序修复）：输入地址由"每 ic 重算 ic*hw"改为常量递推，
-                // 消掉装载循环里的 32 位乘加链（原为 14 级进位链的 WNS 边缘路径）。
                 int io = io_r;
                 for (int ic = 0; ic < cin; ++ic, io += hw) {
+                    // 【2026-10-21 三次实测，别再试了】
+                    // ① 谓词把补零折进同一条流水 → 破坏 burst，整网慢 4~5 倍；
+                    // ② 只给拷贝段加 II=1 → 中性（257.5 → 257.5 s）；
+                    // ③ 把 (ic,j) 压平成一条长循环 → 更慢（257.5 → 288.5 s，
+                    //    循环携带的 j 回绕依赖把预取堵死）。
+                    // 结论：这条循环的瓶颈不是"起没起流水"，保持现状。
                     for (int j = 0; j < la; ++j) {
                         line_buf[ic][r][j] = (data_t)0;
                     }
@@ -167,43 +178,45 @@ int conv2d_engine(const data_t *in_fm, const data_t *wgt, const bias_t *bias,
                     for (int i = 0; i < ocbl; ++i, off1 += cin_kk) {
                         HLS_PRAGMA(HLS PIPELINE II=1)
                         for (int ic = 0; ic < cin; ++ic) {
-                            wgt_buf[i][ic][0][0] = wgt[off1 + ic];
+                            HLS_PRAGMA(HLS PIPELINE II=1)
+                            wgt1_buf[i][ic] = wgt[off1 + ic];
                         }
                     }
-                } else {
+                } else if (ksize == 3) {
+                    // 【2026-10-21】"142 拍/字节"的主因在这一条循环：
+                    //   ① 步长 kk 是**运行期值** → HLS 无法做跨迭代仿射分析，
+                    //      9 个连续读被当成 9 个独立标量事务；
+                    //   ② 循环**没有流水** → 每次迭代都要等上一批 9 字节的
+                    //      AXI 返回才能开始下一次。
+                    // 改法：按 k 拆分支把步长变成编译期常量 9，指针递推 +
+                    // II=1，让 9 个读被预取。这里不涉及任何谓词，访问仍是
+                    // 连续常量偏移，因此**不会**像"填充循环"那样破坏 burst。
                     int off = off_ocb;
                     for (int i = 0; i < ocbl; ++i, off += cin_kk) {
-                        int o2 = off;
-                        for (int ic = 0; ic < cin; ++ic, o2 += kk) {
-                            const data_t *wbase = wgt + o2;
-                            if (ksize == 3) {
-                            data_t wr[9];
-                            for (int t = 0; t < 9; ++t) {
-                                HLS_PRAGMA(HLS UNROLL)
-                                wr[t] = wbase[t];
-                            }
+                        const data_t *wp = wgt + off;
+                        HLS_PRAGMA(HLS PIPELINE II=1)
+                        for (int ic = 0; ic < cin; ++ic, wp += 9) {
+                            HLS_PRAGMA(HLS UNROLL)
                             for (int ky = 0; ky < 3; ++ky) {
                                 HLS_PRAGMA(HLS UNROLL)
                                 for (int kx = 0; kx < 3; ++kx) {
-                                    HLS_PRAGMA(HLS UNROLL)
-                                    wgt_buf[i][ic][ky][kx] = wr[ky * 3 + kx];
+                                    wgt_buf[i][ic][ky][kx] = wp[ky * 3 + kx];
                                 }
                             }
-                            } else if (ksize == 5) {
-                            data_t wr[25];
-                            for (int t = 0; t < 25; ++t) {
-                                HLS_PRAGMA(HLS UNROLL)
-                                wr[t] = wbase[t];
-                            }
+                        }
+                    }
+                } else {   // ksize == 5（ksize 已被上界校验限制为 1/3/5）
+                    int off = off_ocb;
+                    for (int i = 0; i < ocbl; ++i, off += cin_kk) {
+                        const data_t *wp = wgt + off;
+                        HLS_PRAGMA(HLS PIPELINE II=1)
+                        for (int ic = 0; ic < cin; ++ic, wp += 25) {
+                            HLS_PRAGMA(HLS UNROLL)
                             for (int ky = 0; ky < 5; ++ky) {
                                 HLS_PRAGMA(HLS UNROLL)
                                 for (int kx = 0; kx < 5; ++kx) {
-                                    HLS_PRAGMA(HLS UNROLL)
-                                    wgt_buf[i][ic][ky][kx] = wr[ky * 5 + kx];
+                                    wgt_buf[i][ic][ky][kx] = wp[ky * 5 + kx];
                                 }
-                            }
-                            } else {
-                                wgt_buf[i][ic][0][0] = wbase[0];
                             }
                         }
                     }
@@ -212,6 +225,47 @@ int conv2d_engine(const data_t *in_fm, const data_t *wgt, const bias_t *bias,
 
                 for (int x2 = 0; x2 < xn; ++x2) {
                     const int cb = x2 * stride;
+
+                    // ---- 2026-10-21 性能改造（Stage 1）：1×1 快路径重排 ----
+                    // 原结构 oc 在外层串行：每个 (像素, 输出通道) 都重启一次内层
+                    // II=1 流水，实测约 2.4 拍/MAC。改为：
+                    //   · ic 在外层流水（每拍只读一次 line_buf）；
+                    //   · oc 在内层按 K1_OC_UNROLL 展开，累加器全展开成寄存器；
+                    //   · 8 个 oc 一次性参与流水，不存在 per-oc 重启气泡。
+                    // acc0/acc1 仍按 ic 奇偶分两条加法链（缩短依赖）；整数加法
+                    // 可交换，求和顺序变化不影响结果（g++/csim/cosim 三重对拍）。
+                    if (ksize == 1) {
+                        acc_t acc0[OC_BLOCK];
+                        acc_t acc1[OC_BLOCK];
+                        HLS_PRAGMA(HLS ARRAY_PARTITION variable=acc0 complete dim=1)
+                        HLS_PRAGMA(HLS ARRAY_PARTITION variable=acc1 complete dim=1)
+                        for (int i = 0; i < OC_BLOCK; ++i) {
+                            HLS_PRAGMA(HLS UNROLL)
+                            acc0[i] = 0;
+                            acc1[i] = 0;
+                        }
+                        for (int ic = 0; ic < cin; ++ic) {
+                            HLS_PRAGMA(HLS PIPELINE II=PIPELINE_II)
+                            const int32_t p = (int32_t)line_buf[ic][0][cb];
+                            for (int i = 0; i < OC_BLOCK; ++i) {
+                                HLS_PRAGMA(HLS UNROLL factor=K1_OC_UNROLL)
+                                const int32_t t1 = p * (int32_t)wgt1_buf[i][ic];
+                                if (ic & 1) {
+                                    acc1[i] += (acc_t)t1;
+                                } else {
+                                    acc0[i] += (acc_t)t1;
+                                }
+                            }
+                        }
+                        for (int i = 0; i < ocbl; ++i) {
+                            const int32_t acc = (int32_t)acc0[i] + (int32_t)acc1[i];
+                            int32_t v = acc + (int32_t)bias_buf[ocb + i];
+                            v = v >> shift;
+                            if (relu_en != 0 && v < 0) v = 0;
+                            out_fm[((ocb + i) * Hout + y) * Wout + x0 + x2] =
+                                saturate_int8(v);
+                        }
+                    } else {
                     for (int i = 0; i < OC_BLOCK; ++i) {
                         if (i < ocbl) {
                             acc_t acc_even = 0;
@@ -299,6 +353,7 @@ int conv2d_engine(const data_t *in_fm, const data_t *wgt, const bias_t *bias,
                                 saturate_int8(v);
                         }
                     }
+                    }   // end else (ksize != 1)
                 }
             }
         }
