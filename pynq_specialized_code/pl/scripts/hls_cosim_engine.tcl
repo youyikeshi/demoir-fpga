@@ -13,6 +13,22 @@ set tb_dir   [file normalize "$here/../tb"]
 set proj_dir [file normalize "$here/../proj/engine_cosim"]
 set cflags   "-DUSE_HLS_TYPES -I$src_dir"
 
+
+# 2026-10-22：先对账 AXI depth= 与 cosim 数据集，对不上直接中止。
+# 为什么：depth 与数据集不符时，C 测试台会少载/少写数据，最终报出来的是
+# "C/RTL co-simulation FAIL / 不一致 N/N"，**看起来像电路写错了**。
+# 当晚因此把 3x3 的正确改写冤杀了三次（每次都是同一个 4094）。
+if {[info exists ::env(TB_DATA)]} {
+    set dimchk [file join $here "check_cosim_dims.py"]
+    if {[file exists $dimchk]} {
+        if {[catch {exec python3 $dimchk --data $::env(TB_DATA) 2>@1} msg]} {
+            puts $msg
+            error "cosim 中止：AXI depth= 与数据集不一致（见上表）。先跑 scripts/check_cosim_dims.py --write"
+        }
+        puts $msg
+    }
+}
+
 open_project -reset $proj_dir
 add_files $src_dir/conv2d_engine.cpp -cflags $cflags
 add_files $src_dir/conv_ref_rt.cpp   -cflags $cflags

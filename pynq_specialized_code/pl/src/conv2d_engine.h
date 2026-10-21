@@ -51,6 +51,13 @@
 #define OC_BLOCK  8
 #endif
 
+#ifndef K1_WIDE_COLS
+/* k=1 且 stride=1 时，把 line_buf 的 SPAN_MAX 个 row-bank 当作
+   SPAN_MAX×64 列的一条宽行用（k=1 本来只用 r=0）→ 整行输入只搬一次，
+   不再被多个列块各搬一遍。零额外 BRAM。1=开启 */
+#define K1_WIDE_COLS 1
+#endif
+
 #ifndef K1_OC_UNROLL
 #define K1_OC_UNROLL 4   /* 1×1 快路径：每拍并行几个输出通道（LUTRAM 分 bank 后 4 路并行读）*/
 #endif

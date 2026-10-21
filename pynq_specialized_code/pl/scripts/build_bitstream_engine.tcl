@@ -17,6 +17,10 @@ set proj_dir [file normalize "$PL/vivado/proj_engine"]
 set proj_file [file normalize "$proj_dir/proj_engine.xpr"]
 set out_dir   [file normalize "$FPGA/board/overlay_engine_150mhz"]
 set jobs      8
+# 2026-10-22：并行度。launch_runs 的 -jobs 只控制"并行跑几个 run"，
+# 单个 run 内部线程数由 general.maxThreads 决定（实测默认只用 ~2.5 核）。
+# 另外请确认 ~/.Xilinx/Vivado_init.tcl 里也有这条——子进程读的是它。
+set_param general.maxThreads 16
 
 if {![file exists $proj_file]} {
     error "找不到工程：$proj_file（先跑 build_bd_engine.tcl）"

@@ -78,9 +78,15 @@ int conv2d_engine(const data_t *in_fm, const data_t *wgt, const bias_t *bias,
     if (span > SPAN_MAX) return ERR_SIZE;
     // 每块的输出列数：s=1 时 64 列，s=2 时 32 列。
     // （更小的块做过实验：BRAM 会被 HLS 复制成 336 块，已否决。）
-    const int bw = (stride == 2) ? 32 : 64;
+    // 2026-10-22：k=1 且 s=1 时用"宽列块"——把 SPAN_MAX 个 row-bank 当作
+    // SPAN_MAX×64 列的一条宽行用（k=1 本来只用 r=0）：整行输入只需搬一次，
+    // 不再被多个列块各搬一遍。目标与"宽读 64B/事务"相同（减少每条输入行的
+    // 往返次数），但不动 AXI 位宽，因此没有"8 字节写同一 bank → HLS 复制存储器
+    // → 布线拥塞"的问题（那次实测 397 个重叠节点）。零额外 BRAM。
+    const bool wide1 = (K1_WIDE_COLS != 0) && (ksize == 1) && (stride == 1);
+    const int bw = wide1 ? (SPAN_MAX * 64) : ((stride == 2) ? 32 : 64);
     const int bwcol = (bw - 1) * stride + span + 2 * pad;
-    if (bwcol > BWCOL_MAX) return ERR_SIZE;
+    if (bwcol > (wide1 ? (SPAN_MAX * 64) : BWCOL_MAX)) return ERR_SIZE;
 
     // 权重缓冲：只装当前 OC 块
     data_t wgt_buf[OC_BLOCK][CIN_MAX][KMAX][KMAX];
@@ -89,10 +95,19 @@ int conv2d_engine(const data_t *in_fm, const data_t *wgt, const bias_t *bias,
     //   这里单独放一份，并按输出通道完全分 bank（分布式 RAM，不占 BRAM），
     //   于是每拍可并行读 K1_OC_UNROLL 个权重 → 每拍 K1_OC_UNROLL 个 MAC。
     data_t wgt1_buf[OC_BLOCK][CIN_MAX];
+    // 3×3 专用权重缓冲（2026-10-22）：按 oc 完全分 bank，每拍可并行读 8 个 oc。
+    // 目的：把 oc 从"串行 8 个"改成"内层展开"，消除每个 oc 重开一次 ic 流水的
+    // 气泡（板端实测 k=3 是 6.69 拍/单元，微基准 4.01）。
+    // 8×352×9 = 25.3 KB，放 LUTRAM（约 +3.2k LUT），不动已经很紧的 BRAM。
+    data_t wgt3_buf[OC_BLOCK][CIN_MAX][3][3];
     HLS_PRAGMA(HLS ARRAY_PARTITION variable=wgt_buf complete dim=3)
     HLS_PRAGMA(HLS ARRAY_PARTITION variable=wgt_buf complete dim=4)
     HLS_PRAGMA(HLS ARRAY_PARTITION variable=wgt1_buf complete dim=1)
     HLS_PRAGMA(HLS BIND_STORAGE variable=wgt1_buf type=RAM_2P impl=LUTRAM)
+    HLS_PRAGMA(HLS ARRAY_PARTITION variable=wgt3_buf complete dim=1)
+    HLS_PRAGMA(HLS ARRAY_PARTITION variable=wgt3_buf complete dim=3)
+    HLS_PRAGMA(HLS ARRAY_PARTITION variable=wgt3_buf complete dim=4)
+    HLS_PRAGMA(HLS BIND_STORAGE variable=wgt3_buf type=RAM_2P impl=LUTRAM)
 
     // 行缓冲：只装当前输出块需要的列
     data_t line_buf[CIN_MAX][SPAN_MAX][BWCOL_MAX];
@@ -158,22 +173,42 @@ int conv2d_engine(const data_t *in_fm, const data_t *wgt, const bias_t *bias,
                 const bool row_ok = (iy >= 0) && (iy < H);
                 const int io_row = io_base + r * W;
                 for (int ic = 0; ic < cin; ++ic) {
+                    // 行缓冲写入统一入口：wide1 时"bank 当列空间"，其余路径不变。
+                    // 注意三处补零也必须走同一映射，否则会写到 [76] 维度之外。
                     for (int j = 0; j < la; ++j) {
-                        line_buf[ic][r][j] = (data_t)0;
+                        if (wide1) {
+                            line_buf[ic][j >> 6][j & 63] = (data_t)0;
+                        } else {
+                            line_buf[ic][r][j] = (data_t)0;
+                        }
                     }
                     if (row_ok) {
                         const int io = io_row + ic * hw;
                         HLS_PRAGMA(HLS PIPELINE II=1)
                         for (int j = 0; j < lb; ++j) {
-                            line_buf[ic][r][la + j] = in_fm[io + j];
+                            if (wide1) {
+                                line_buf[ic][(la + j) >> 6][(la + j) & 63] = in_fm[io + j];
+                            } else {
+                                line_buf[ic][r][la + j] = in_fm[io + j];
+                            }
                         }
                     } else {
                         for (int j = 0; j < lb; ++j) {
-                            line_buf[ic][r][la + j] = (data_t)0;
+                            if (wide1) {
+                                line_buf[ic][(la + j) >> 6][(la + j) & 63] = (data_t)0;
+                            } else {
+                                line_buf[ic][r][la + j] = (data_t)0;
+                            }
                         }
                     }
-                    for (int j = la + lb; j < bwcol; ++j) {
-                        line_buf[ic][r][j] = (data_t)0;
+                    // 尾部补零：wide1 时**不需要**——k=1 的 pad=0，计算只会读
+                    // 到 x2 < xn == lb，lb 之后的列永远不会被读。若照旧补到
+                    // bwcol(=448)，小图（如 16×16）会白写 432 个零，实测把
+                    // 该用例从 122.7 ms 拖到 148.8 ms。
+                    if (!wide1) {
+                        for (int j = la + lb; j < bwcol; ++j) {
+                            line_buf[ic][r][j] = (data_t)0;
+                        }
                     }
                 }
             }
@@ -220,7 +255,7 @@ int conv2d_engine(const data_t *in_fm, const data_t *wgt, const bias_t *bias,
                                 for (int ky = 0; ky < 3; ++ky) {
                                     HLS_PRAGMA(HLS UNROLL)
                                     for (int kx = 0; kx < 3; ++kx) {
-                                        wgt_buf[i][ic][ky][kx] = wp[ky * 3 + kx];
+                                        wgt3_buf[i][ic][ky][kx] = wp[ky * 3 + kx];
                                     }
                                 }
                             }
@@ -266,7 +301,9 @@ int conv2d_engine(const data_t *in_fm, const data_t *wgt, const bias_t *bias,
                             }
                             for (int ic = 0; ic < cin; ++ic) {
                                 HLS_PRAGMA(HLS PIPELINE II=PIPELINE_II)
-                                const int32_t p = (int32_t)line_buf[ic][0][cb];
+                                const int32_t p = wide1
+                                    ? (int32_t)line_buf[ic][cb >> 6][cb & 63]
+                                    : (int32_t)line_buf[ic][0][cb];
                                 for (int i = 0; i < OC_BLOCK; ++i) {
                                     HLS_PRAGMA(HLS UNROLL factor=K1_OC_UNROLL)
                                     const int32_t t1 = p * (int32_t)wgt1_buf[i][ic];
@@ -286,6 +323,64 @@ int conv2d_engine(const data_t *in_fm, const data_t *wgt, const bias_t *bias,
                                     saturate_int8(v);
                             }
 
+                        } else if (ksize == 3) {
+                            // ---- 3×3 快路径重排（2026-10-22）：ic 外层流水 + oc 展开 ----
+                            // 原结构 oc 在外层串行 → 每算一个输出通道就重开一次 ic 流水，
+                            // 板端 6.69 拍/单元（微基准 4.01），重启开销占大头。
+                            // 现在：8 个累加器全展开成寄存器；ic 外层流水；9 个抽头每 ic 只读
+                            // 一次、8 个 oc 复用；权重从 wgt3_buf（每 oc 独立 bank）并行读。
+                            acc_t acc0[OC_BLOCK];
+                            acc_t acc1[OC_BLOCK];
+                            HLS_PRAGMA(HLS ARRAY_PARTITION variable=acc0 complete dim=1)
+                            HLS_PRAGMA(HLS ARRAY_PARTITION variable=acc1 complete dim=1)
+                            for (int i = 0; i < OC_BLOCK; ++i) {
+                                HLS_PRAGMA(HLS UNROLL)
+                                acc0[i] = 0;
+                                acc1[i] = 0;
+                            }
+                            for (int ic = 0; ic < cin; ++ic) {
+                                HLS_PRAGMA(HLS PIPELINE II=PIPELINE_II)
+                                const int32_t q0 = (int32_t)line_buf[ic][rdoff[0]][cb + rdoff[0]];
+                                const int32_t q1 = (int32_t)line_buf[ic][rdoff[0]][cb + rdoff[1]];
+                                const int32_t q2 = (int32_t)line_buf[ic][rdoff[0]][cb + rdoff[2]];
+                                const int32_t q3 = (int32_t)line_buf[ic][rdoff[1]][cb + rdoff[0]];
+                                const int32_t q4 = (int32_t)line_buf[ic][rdoff[1]][cb + rdoff[1]];
+                                const int32_t q5 = (int32_t)line_buf[ic][rdoff[1]][cb + rdoff[2]];
+                                const int32_t q6 = (int32_t)line_buf[ic][rdoff[2]][cb + rdoff[0]];
+                                const int32_t q7 = (int32_t)line_buf[ic][rdoff[2]][cb + rdoff[1]];
+                                const int32_t q8 = (int32_t)line_buf[ic][rdoff[2]][cb + rdoff[2]];
+                                int32_t h0[OC_BLOCK];
+                                int32_t h1[OC_BLOCK];
+                                HLS_PRAGMA(HLS ARRAY_PARTITION variable=h0 complete dim=1)
+                                HLS_PRAGMA(HLS ARRAY_PARTITION variable=h1 complete dim=1)
+                                for (int i = 0; i < OC_BLOCK; ++i) {
+                                    HLS_PRAGMA(HLS UNROLL factor=K3_OC_UNROLL)
+                                    h0[i] = q0 * (int32_t)wgt3_buf[i][ic][0][0]
+                                          + q2 * (int32_t)wgt3_buf[i][ic][0][2]
+                                          + q4 * (int32_t)wgt3_buf[i][ic][1][1]
+                                          + q6 * (int32_t)wgt3_buf[i][ic][2][0]
+                                          + q8 * (int32_t)wgt3_buf[i][ic][2][2];
+                                    h1[i] = q1 * (int32_t)wgt3_buf[i][ic][0][1]
+                                          + q3 * (int32_t)wgt3_buf[i][ic][1][0]
+                                          + q5 * (int32_t)wgt3_buf[i][ic][1][2]
+                                          + q7 * (int32_t)wgt3_buf[i][ic][2][1];
+                                }
+                                for (int i = 0; i < OC_BLOCK; ++i) {
+                                    HLS_PRAGMA(HLS UNROLL)
+                                    if (ic & 1) {
+                                        acc1[i] += (acc_t)(h0[i] + h1[i]);
+                                    } else {
+                                        acc0[i] += (acc_t)(h0[i] + h1[i]);
+                                    }
+                                }
+                            }
+                            for (int i = 0; i < ocbl; ++i) {
+                                const int32_t acc = (int32_t)acc0[i] + (int32_t)acc1[i];
+                                int32_t v = acc + (int32_t)bias_buf[ocb + i];
+                                v = v >> shift;
+                                if (relu_en != 0 && v < 0) v = 0;
+                                out_fm[((ocb + i) * Hout + y) * Wout + x0 + x2] = saturate_int8(v);
+                            }
                         } else {
                         for (int i = 0; i < OC_BLOCK; ++i) {
                             if (i < ocbl) {
