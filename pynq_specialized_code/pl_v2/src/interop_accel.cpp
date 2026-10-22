@@ -115,6 +115,14 @@ int interop_accel(const data_t *src0, const data_t *src1, const data_t *src2,
 #ifndef PP_OPS_MIN
 #define PP_OPS_MIN 0
 #endif
+#ifndef PP_KEEP_MEAN
+/* PP_OPS_MIN=1 时是否**保留** REDUCE_MEAN（通道和）。
+   ECA 的输入是 cat 的输出、且各分支标度不同（cat 逐元素重定标），
+   所以 conv 侧的 chsum 推不出 ECA 要的和（实测 conv→eca 配对恒为 0）；
+   只能把"对整块张量求通道和"这一步搬到 pp 来做。
+   REDUCE_MEAN 是纯累加器、**不占乘法器**，加回来面积很小。 */
+#define PP_KEEP_MEAN 0
+#endif
 
     switch (op) {
     // ── RESCALE：单位置缩放（吃掉 cat 的重定标）──────────────────────────────
@@ -266,7 +274,7 @@ int interop_accel(const data_t *src0, const data_t *src1, const data_t *src2,
 
 #endif
     // ── REDUCE_MEAN：逐通道 int64 求和写回（PS 只再做 576 次除法/加法）───────
-#if !PP_OPS_MIN
+#if (!PP_OPS_MIN) || PP_KEEP_MEAN
     case PP_OP_REDUCE_MEAN: {
         // 逐通道 int64 求和写回。**不用 int64* 强转**（HLS 不接受 ap_int<8>* 的
         // 重解释），改成按小端拆成 8 个字节写进字节缓冲：PS 侧 `np.frombuffer(..,
