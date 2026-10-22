@@ -34,8 +34,16 @@ import numpy as np
 import ops_numpy as ops
 try:
     import pp_ops                      # 板上是扁平目录
+    import lut_util
 except ImportError:                    # 仓库里作为 pynq 包时
     from . import pp_ops
+    from . import lut_util
+
+
+def _env_flag(name):
+    """环境变量开关：未设置 / 空 / 0 / false / off 都算关。"""
+    v = os.environ.get(name, "")
+    return str(v).strip().lower() not in ("", "0", "false", "off", "no")
 
 
 def load_pack(pack_dir):
@@ -405,26 +413,47 @@ class RefEngine:
     def __init__(self, index, blob, arena):
         self.index, self.blob, self.arena = index, blob, arena
 
-    def conv(self, in_t, out_t, op):
+    # 支持卷积融合出口的 out_lut 链路（本机后端按 RTL 语义模拟）
+    supports_fuse = True
+
+    def conv(self, in_t, out_t, op, out_lut=None, chsum=None):
         from ref_numpy import conv_ref_numpy
         w, b = _w_b(self.index, self.blob, op["weights_key"])
         y = conv_ref_numpy(self.arena.view(in_t), w, b,
                            op["k"], op["s"], op["d"], op["pad"],
                            self.index["layers"][op["weights_key"]]["shift"],
                            relu=bool(op["relu"]))
+        if out_lut is not None:
+            # 与 RTL 逐位等价：v8 = sat8(acc) 之后查表
+            y = lut_util.apply_out_lut(y, out_lut)
+        if chsum is not None:
+            # RTL 目前只声明了 chsum 端口，三处写回里**还没有累加逻辑**。
+            # 这里宁可报错也不返回一副"看似能用、实则恒为 0"的通道和。
+            raise NotImplementedError(
+                "chsum（ECA 通道和）RTL 尚未实现累加，PS 侧暂不启用")
         self.arena.view(out_t)[...] = y
 
 
 class PYNQEngine:
-    """上板真引擎：连续内存池 + Conv2dEngine 驱动（上板联调时启用）。"""
+    """上板真引擎：连续内存池 + Conv2dEngine 驱动（上板联调时启用）。
 
-    def __init__(self, overlay, index, blob, arena):
+    融合出口（FUSE_OUT=1 的 bit）：
+      · out_lut —— 256 项 int8 表，按表内容缓存一块 256B 连续内存；
+      · chsum   —— 驱动接口已留位，但 RTL 还没有累加逻辑 → 传值即报错。
+    注意：交付版 bit 没有这两个寄存器，默认（开关关）不会走到这里。
+    """
+
+    # 支持卷积融合出口（out_lut），前提是 bit 为 FUSE_OUT=1 且驱动构造时
+    # 注入了寄存器偏移（见 conv_engine.Conv2dEngine）。
+    supports_fuse = True
+
+    def __init__(self, overlay, index, blob, arena, fuse_offsets=None):
         import types
         from pynq import allocate
         from conv_engine import Conv2dEngine
         self.types = types
         self.index, self.arena = index, arena
-        self.unit = Conv2dEngine(overlay)
+        self.unit = Conv2dEngine(overlay, fuse_offsets=fuse_offsets)
         # 上板时由调用方设置：
         #   n_layers  —— 总共要跑多少个卷积（只用于进度）
         #   timeout_s —— 单次卷积的等待上限；None = 驱动按工作量估算
@@ -436,15 +465,33 @@ class PYNQEngine:
         self.wpool = allocate(shape=(size,), dtype=np.uint8)
         _np(self.wpool)[:len(blob)] = np.frombuffer(blob, np.uint8)
         self.wpool.flush()
+        # out_lut 的小块连续内存（按表内容缓存，避免每层重分配）
+        self._allocate = allocate
+        self._lut_bufs = {}
+
+    def _lut_buf(self, lut):
+        """把 256 项 int8 表放进一块连续内存（同表只分配一次）。"""
+        key = np.ascontiguousarray(np.asarray(lut, dtype=np.int8)).tobytes()
+        buf = self._lut_bufs.get(key)
+        if buf is None:
+            buf = self._allocate(shape=(256,), dtype=np.int8)
+            _np(buf)[:] = np.frombuffer(key, dtype=np.int8)
+            buf.flush()
+            self._lut_bufs[key] = buf
+        return buf
 
     def _ns(self, addr):
         return self.types.SimpleNamespace(device_address=int(addr),
                                           physical_address=int(addr))
 
-    def conv(self, in_t, out_t, op):
+    def conv(self, in_t, out_t, op, out_lut=None, chsum=None):
         e = self.index["layers"][op["weights_key"]]
         waddr = int(self.wpool.device_address) + e["w_off"]
         baddr = int(self.wpool.device_address) + e["b_off"]
+        if chsum is not None:
+            # 与 RefEngine 一致：RTL 还没有 chsum 累加逻辑，先禁用以免假结果。
+            raise NotImplementedError(
+                "chsum（ECA 通道和）RTL 尚未实现累加，PS 侧暂不启用")
         self.n_calls += 1
         if self.progress_every and (self.n_calls % self.progress_every == 0):
             print("  [%d/%d] %-34s H=%d W=%d cin=%d cout=%d k=%d 预计 %.1fs"
@@ -454,12 +501,14 @@ class PYNQEngine:
                                                 op["cout"], op["k"], op["s"])),
                   flush=True)
         self.arena.flush()
+        lut_buf = self._lut_buf(out_lut) if out_lut is not None else None
         rc, _ = self.unit.run(self._ns(self.arena.addr(in_t)),
                               self._ns(waddr), self._ns(baddr),
                               self._ns(self.arena.addr(out_t)),
                               op["h"], op["w"], op["cin"], op["cout"],
                               op["k"], op["s"], op["d"], op["pad"],
                               e["shift"], relu=bool(op["relu"]),
+                              out_lut=lut_buf, chsum=None,
                               timeout_s=self.timeout_s)
         self.arena.invalidate()
         if rc != 0:
@@ -469,7 +518,8 @@ class PYNQEngine:
 # ---------------- 调度器 ----------------
 
 class Runner:
-    def __init__(self, manifest_path, pack_dir, engine=None, arena=None):
+    def __init__(self, manifest_path, pack_dir, engine=None, arena=None,
+                 fuse_conv=None):
         with open(manifest_path, "r", encoding="utf-8") as f:
             self.m = json.load(f)
         self.index, self.blob = load_pack(pack_dir)
@@ -479,6 +529,10 @@ class Runner:
         # pp_ops_en: 允许走加速器的算子名集合（默认空 = 全部走 numpy，保逐位一致）
         self.pp = None
         self.pp_ops_en = set()
+        # 卷积融合出口（RTL FUSE_OUT=1 才有）：默认关，保证交付 bit 行为逐位不变。
+        # fuse_conv=None 时读环境变量 PP_FUSE_CONV（1/true/on 才开）。
+        self.fuse_conv = (_env_flag("PP_FUSE_CONV") if fuse_conv is None
+                          else bool(fuse_conv))
         self.ops = [o for o in self.m["ops"] if o["needed"]]
         self.alias = compute_cat_alias(self.m)
         if arena is not None:
@@ -492,6 +546,7 @@ class Runner:
         self.profile_ops = None # 计时用：设成 list 后逐算子记录 (id, name, op, 秒)
         self.hashlog = None     # 调试用：设成 list 后逐算子记录 (name, op, shape, sha1)
         self._luts = {}         # 标度重定标查找表缓存：键 = (s_from, s_to)
+        self._fuse_skips = 0    # 调试/验证用：cat 分支实际跳过重定标的段数
 
     # 标度辅助
     def _s(self, name, dflt=1.0):
@@ -507,13 +562,14 @@ class Runner:
         表项用与旧实现完全相同的表达式（float64 乘法 + rint + clip）算出，
         所以结果逐位一致；且从此不再有跨平台浮点差异。
         返回 256 字节的 bytes（供 `bytes.translate` 用，见 _req）。
+
+        2026-10-22：表的具体计算搬进 `lut_util.rescale_lut_bytes`，
+        与融合出口的 `make_out_lut` 共用同一份实现（Runner 只保留缓存）。
         """
         key = (s_from, s_to)
         lut = self._luts.get(key)
         if lut is None:
-            vals = np.arange(256, dtype=np.int16).astype(np.int8).astype(np.float64)
-            tab = np.clip(np.rint(vals * (s_from / s_to)), -128, 127).astype(np.int8)
-            lut = tab.tobytes()          # 按 uint8 位模式排列，正好是 translate 表
+            lut = lut_util.rescale_lut_bytes(s_from, s_to)
             self._luts[key] = lut
         return lut
 
@@ -534,18 +590,90 @@ class Runner:
         return np.frombuffer(np.ascontiguousarray(t).tobytes().translate(tbl),
                              dtype=np.int8).reshape(t.shape)
 
+    def _plan_fuse(self):
+        """规划"卷积出口直接写目标标度"（FUSE_OUT 融合出口）。
+
+        只有同时满足下面全部条件的 conv 才纳入（任一条不满足就完全走旧路径，
+        行为逐位不变）：
+
+          ① 该 conv 的输出张量是某个 cat 别名组的 **direct** 成员
+             （生产者本来就直接写进组缓冲的通道切片）；
+          ② 该张量的消费者集合**恰好只有那个 cat**。若在 cat 之前还被别的
+             算子读过（例如 Ghost 的 primary 输出同时喂 cheap_operation），
+             把它写成 cat 的目标标度会改坏那次读取，所以必须排除；
+          ③ 该 cat 确实在 alias["noop"] 里（零拷贝路径没有被整组回退）。
+
+        返回 (plan, skip)：
+          plan[conv_op_id] = (张量名, cat_op_id, s_from, s_to, lut_int8)
+          skip[张量名]     = cat_op_id（cat 分支据此跳过该段重定标）
+        """
+        ops_all = self.m["ops"]
+        if not hasattr(self, "_prod_cons"):
+            prod, cons = {}, {}
+            for op in ops_all:
+                for t in op.get("out", []):
+                    prod.setdefault(t, op)
+                for t in op.get("in", []):
+                    cons.setdefault(t, []).append(op)
+            self._prod_cons = (prod, cons)
+        _prod, cons = self._prod_cons
+
+        # 张量 -> [(cat_op_id, mode)]（只记零拷贝布局里的成员）
+        lay_of = {}
+        for cid, lay in self.alias["noop"].items():
+            for t, _off, mode in lay:
+                lay_of.setdefault(t, []).append((cid, mode))
+
+        plan, skip = {}, {}
+        for op in self.ops:
+            if op["op"] != "conv":
+                continue
+            t = op["out"][0]
+            if t not in self.alias["member"]:
+                continue
+            cs = cons.get(t, [])
+            if len(cs) != 1 or cs[0].get("op") != "cat":
+                continue
+            cat = cs[0]
+            if cat["id"] not in self.alias["noop"]:
+                continue
+            if [m for cid, m in lay_of.get(t, []) if cid == cat["id"]] != ["direct"]:
+                continue
+            s_from = self._s(t)
+            s_to = self._s(cat["out"][0])
+            plan[op["id"]] = (t, cat["id"], s_from, s_to,
+                              lut_util.make_out_lut(s_from, s_to))
+            skip[t] = cat["id"]
+        return plan, skip
+
     def run(self, img_int8=None):
         A = self.arena
         t_in = self.m["io"]["t_in"]
         if img_int8 is not None:
             A.view(t_in)[...] = img_int8
+        fuse_plan, fused = {}, {}
+        if self.fuse_conv:
+            if not getattr(self.engine, "supports_fuse", False):
+                raise RuntimeError(
+                    "PP_FUSE_CONV=1 需要支持融合出口的引擎（RefEngine / PYNQEngine）")
+            fuse_plan, fused = self._plan_fuse()
+            if fuse_plan:
+                print("INFO: 卷积融合出口已启用：%d 个 conv 直接写 cat 目标标度"
+                      % len(fuse_plan), flush=True)
+        fused_cats = set(fused.values())
+        self._fuse_skips = 0
         t0 = time.time()
         for op in self.ops:
             k = op["op"]
             o0 = op["out"][0]
             t_op = time.time() if self.profile is not None else 0.0
             if k == "conv":
-                self.engine.conv(op["in"][0], o0, op)
+                fp = fuse_plan.get(op["id"])
+                if fp is not None:
+                    # 写回时直接应用 256 项 LUT（本层标度 -> 目标张量标度）
+                    self.engine.conv(op["in"][0], o0, op, out_lut=fp[4])
+                else:
+                    self.engine.conv(op["in"][0], o0, op)
             elif k == "pixel_unshuffle":
                 A.view(o0)[...] = ops.pixel_unshuffle(A.view(op["in"][0]), op["factor"])
             elif k == "pixel_shuffle":
@@ -569,10 +697,16 @@ class Runner:
                     s_out = self._s(o0)
                     out = A.view(o0)
                     if ("cat" in self.pp_ops_en and self.pp is not None
+                            and op["id"] not in fused_cats
                             and pp_ops.run_cat_rescale(self.pp, A, op, A.view,
                                                        self._s, lay)):
                         lay = []                          # 已由 v2 完成，跳过逐段重标
                     for n, off, mode in lay:
+                        if fused.get(n) == op["id"]:
+                            # 该段的生产者 conv 已用 out_lut 直接写成目标标度
+                            # （见 _plan_fuse），这里不能再重定标一次。
+                            self._fuse_skips += 1
+                            continue
                         sn = self._s(n)
                         if mode == "copy":
                             c = A.view(n).shape[0]

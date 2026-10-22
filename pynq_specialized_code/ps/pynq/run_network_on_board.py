@@ -41,6 +41,12 @@ def main():
                          "默认空 = 全部走 numpy（保持逐位一致）")
     ap.add_argument("--no-pp", action="store_true",
                     help="不启用 v2 层间算子加速器（用于 A/B 对照）")
+    ap.add_argument("--fuse-conv", action="store_true", default=None,
+                    help="启用卷积融合出口（要求 FUSE_OUT=1 的 bit + --fuse-offsets）；"
+                         "不给则读环境变量 PP_FUSE_CONV（默认关）")
+    ap.add_argument("--fuse-offsets", default=None,
+                    help="out_lut,chsum 两个 AXI-Lite 基地址寄存器偏移，逗号分隔"
+                         "（从 FUSE_OUT=1 导出的 xconv2d_engine_hw.h 读，例如 0x78,0x80）")
     ap.add_argument("--profile", action="store_true",
                     help="按算子类型统计耗时，跑完打印分布表")
     ap.add_argument("--profile-layers", action="store_true",
@@ -75,11 +81,25 @@ def main():
     index, blob = load_pack(a.pack)
     arena = PYNQArena(manifest)
     print("内存池: %.1f MB" % (arena.size / 1e6))
-    engine = PYNQEngine(ol, index, blob, arena)
+    fuse_offsets = None
+    if a.fuse_offsets:
+        parts = [int(x, 0) for x in a.fuse_offsets.split(",")]
+        if len(parts) != 2:
+            ap.error("--fuse-offsets 需要两个值：out_lut偏移,chsum偏移")
+        fuse_offsets = (parts[0], parts[1])
+    engine = PYNQEngine(ol, index, blob, arena, fuse_offsets=fuse_offsets)
     engine.timeout_s = a.timeout
     engine.progress_every = a.progress
     engine.n_layers = sum(1 for o in manifest["ops"] if o["op"] == "conv" and o["needed"])
-    r = Runner(a.manifest, a.pack, engine=engine, arena=arena)
+    r = Runner(a.manifest, a.pack, engine=engine, arena=arena,
+               fuse_conv=a.fuse_conv)
+    if r.fuse_conv:
+        if fuse_offsets is None:
+            ap.error("启用融合出口需要 --fuse-offsets（从 FUSE_OUT=1 导出的 "
+                     "xconv2d_engine_hw.h 读 out_lut,chsum 两个基地址偏移）；"
+                     "没有偏移就不能往未知地址写寄存器")
+        print("卷积融合出口: 已要求启用（out_lut 偏移=%s）"
+              % hex(fuse_offsets[0]))
 
     # v2 层间算子加速器（可选；--no-pp 可关掉做 A/B 对照）
     if not getattr(a, "no_pp", False):

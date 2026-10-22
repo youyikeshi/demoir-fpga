@@ -16,6 +16,16 @@ R_RELU = 0x70               # v2：relu 旁路（1=ReLU；0=线性输出）
 # s_axi_control 寄存器偏移（四个 m_axi 的基地址，offset=slave）
 B_IN_FM, B_WGT, B_BIAS, B_OUT_FM = 0x10, 0x1C, 0x28, 0x34
 
+# 融合出口（FUSE_OUT=1 构建）会多出两个 m_axi 基地址寄存器：out_lut / chsum。
+# 这两个偏移**不能猜**：
+#   · 交付版 bit（FUSE_OUT=0）里没有这两个寄存器，旧流程也从不写它们；
+#   · RTL 已在 FUSE_OUT=1 分支里声明了 m_axi（depth 256 / 4096），但还没有
+#     单独导出过 FUSE_OUT=1 的 IP，因此没有权威的 xconv2d_engine_hw.h 可读，
+#     寄存器偏移表目前不存在。
+# 等 FUSE_OUT=1 的 bit 导出后，从生成的驱动头文件里读出两个基地址寄存器
+# 偏移，显式传进来：
+#     Conv2dEngine(overlay, fuse_offsets=(out_lut偏移, chsum偏移))
+# 未传时若调用方要求启用融合，会抛明确异常，而不是往未知地址写寄存器。
 AP_START, AP_DONE = 0x1, 0x2
 
 
@@ -47,13 +57,20 @@ def check_limits(H, W, cin, cout, k, s):
 
 
 class Conv2dEngine:
-    def __init__(self, overlay, ip_name=None):
+    def __init__(self, overlay, ip_name=None, fuse_offsets=None):
         from pynq import MMIO        # 延迟导入：本机没有 pynq 时也能 import 本模块做静态检查
         self._MMIO = MMIO
         ctrl_addr, offs_addr, name = self._discover(overlay, ip_name)
         self.name = name
         self.ctrl = self._MMIO(ctrl_addr, 0x10000)
         self.offs = self._MMIO(offs_addr, 0x10000)
+        # 融合出口的两个基地址寄存器偏移；None = 当前 bit 没有这两个寄存器
+        if fuse_offsets is not None:
+            if len(fuse_offsets) != 2:
+                raise ValueError("fuse_offsets 必须是 (out_lut偏移, chsum偏移)")
+            self.fuse_offsets = (int(fuse_offsets[0]), int(fuse_offsets[1]))
+        else:
+            self.fuse_offsets = None
 
     @staticmethod
     def _discover(ov, ip_name=None):
@@ -99,11 +116,23 @@ class Conv2dEngine:
         return ctrl, offs, name
 
     def run(self, in_buf, wgt_buf, bias_buf, out_buf,
-            H, W, cin, cout, k, s, d, pad, shift, relu=True, timeout_s=None):
+            H, W, cin, cout, k, s, d, pad, shift, relu=True,
+            out_lut=None, chsum=None, timeout_s=None):
         """写参数 → 启动 → 等 done。返回 (返回码, 耗时秒)。
 
         说明：缓冲区内容要与 PL 的可见性一致——调用前自行 flush 输入，
         完成后自行 invalidate 输出（见 test_on_board.py 的用法）。
+
+        out_lut / chsum 是 FUSE_OUT=1 融合出口的可选缓冲区（256 项 int8 表 /
+        每输出通道一个 int32）。默认 None：不启用融合，不写这两个寄存器，
+        对交付版 bit 的行为与旧版**逐位不变**。要启用必须同时满足：
+          · bit 是 FUSE_OUT=1 构建；
+          · 构造时传入了 fuse_offsets（两个寄存器的偏移，见文件头注释）。
+        否则启用会直接抛异常，避免往未知地址写寄存器。
+
+        注意 chsum 目前只是**接口占位**：RTL 声明了端口但三处写回还没有累加
+        逻辑，Runner/RefEngine/PYNQEngine 都拒绝传非 None 的 chsum。out_lut
+        才是本任务真正接线的链路。
 
         timeout_s=None 时按工作量估算（见 estimate_seconds）。**不要再用 5 秒**：
         cosim 实测每"单元"（一个输出像素 × 一个输出通道 × 一个输入通道）约 12~17 拍，
@@ -112,6 +141,12 @@ class Conv2dEngine:
         hout = (H - 1) // s + 1
         wout = (W - 1) // s + 1
         check_limits(H, W, cin, cout, k, s)
+        want_fuse = (out_lut is not None) or (chsum is not None)
+        if want_fuse and self.fuse_offsets is None:
+            raise RuntimeError(
+                "当前 bit/驱动没有 out_lut、chsum 的 AXI-Lite 寄存器偏移："
+                "FUSE_OUT=1 构建综合后把 Conv2dEngine(fuse_offsets=(lut, chsum)) "
+                "传进来才能启用融合出口（不要猜偏移）")
         if timeout_s is None:
             timeout_s = max(30.0, 2.0 * self.estimate_seconds(H, W, cin, cout, k, s))
         # 1) 四个缓冲区基地址（offset=slave）
@@ -126,6 +161,14 @@ class Conv2dEngine:
         self.offs.write(B_BIAS + 4, 0)
         self.offs.write(B_OUT_FM, _buf_addr(out_buf))
         self.offs.write(B_OUT_FM + 4, 0)
+        # 1b) 融合出口的两个基地址（仅 FUSE_OUT=1 的 bit 有；None 写 0 =
+        #     RTL 里 `if (out_lut != 0)` 不查表、不累加，等价旧行为）
+        if self.fuse_offsets is not None:
+            off_lut, off_sum = self.fuse_offsets
+            self.offs.write(off_lut, 0 if out_lut is None else _buf_addr(out_lut))
+            self.offs.write(off_lut + 4, 0)
+            self.offs.write(off_sum, 0 if chsum is None else _buf_addr(chsum))
+            self.offs.write(off_sum + 4, 0)
         # 2) 形状参数
         self.ctrl.write(R_H, H); self.ctrl.write(R_W, W)
         self.ctrl.write(R_HOUT, hout); self.ctrl.write(R_WOUT, wout)
