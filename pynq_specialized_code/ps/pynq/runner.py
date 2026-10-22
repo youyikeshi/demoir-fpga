@@ -1073,10 +1073,19 @@ class Runner:
             elif k == "interp":
                 i0 = op["in"][0]
                 if self.c8:
-                    # interp 只动 H/W，但 ops.interp 按 3-D 写死 ⇒ 转 CHW 算再转回
-                    A.view(o0)[...] = c8_layout.ops_c8().interp(
-                        A.view(i0), self._lay(i0), op["scale_num"], op["scale_den"],
-                        out_lay=self._lay(o0))
+                    # C8 直算快路径（C 内核；逐位一致，非 1/8 网格/布局不符则回落）
+                    done = False
+                    try:
+                        ops.interp_c8_into(A.view(o0), A.view(i0),
+                                           op["scale_num"], op["scale_den"])
+                        done = True
+                    except Exception:
+                        done = False
+                    if not done:
+                        # interp 只动 H/W，但 ops.interp 按 3-D 写死 ⇒ 转 CHW 算再转回
+                        A.view(o0)[...] = c8_layout.ops_c8().interp(
+                            A.view(i0), self._lay(i0), op["scale_num"],
+                            op["scale_den"], out_lay=self._lay(o0))
                 else:
                     A.view(o0)[...] = ops.interp(A.view(i0),
                                                  op["scale_num"], op["scale_den"])

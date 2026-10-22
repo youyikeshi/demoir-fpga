@@ -35,7 +35,7 @@ _C_ARCH_OK = _ARCH.startswith(("arm", "aarch"))
 
 
 _C_LIB = {"tried": False, "lib": None, "fn": None, "fn8": None, "err": None,
-          "warned": False, "fn_sum": None}
+          "warned": False, "fn_sum": None, "fn_interp": None}
 
 
 def _sam_sum_ref_chw(out, y0, y2, y4, attn, x, s0, s2, s4, sx, so, chunk=16):
@@ -105,6 +105,32 @@ def _c_selftest(fn, fn8=None):
             got8.ctypes.data)
         if not _np.array_equal(ref8, got8):
             return False
+    fi = _C_LIB.get("fn_interp")
+    if fi is not None:
+        blocks = 2
+        for num, den in ((2, 1), (1, 2), (4, 1), (1, 4)):
+            hh, ww = 8, 8
+            src = rng.integers(-128, 128, (blocks, hh, ww, 8), dtype=_np.int8)
+            oh, ow = hh * num // den, ww * num // den
+            i0h, i1h, wh8, okh = _axis_weights(hh, oh)
+            i0w, i1w, ww8, okw = _axis_weights(ww, ow)
+            if not (okh and okw):
+                return False
+            refi = _np.empty((blocks, oh, ow, 8), dtype=_np.int8)
+            for cc in range(8):
+                refi[..., cc] = interp(src[..., cc], num, den)
+            goti = _np.empty_like(refi)
+            a0h = _np.ascontiguousarray(i0h, _np.int32)
+            a1h = _np.ascontiguousarray(i1h, _np.int32)
+            awh = _np.ascontiguousarray(wh8, _np.int32)
+            a0w = _np.ascontiguousarray(i0w, _np.int32)
+            a1w = _np.ascontiguousarray(i1w, _np.int32)
+            aww = _np.ascontiguousarray(ww8, _np.int32)
+            fi(src.ctypes.data, goti.ctypes.data, blocks, hh, ww, oh, ow,
+               a0h.ctypes.data, a1h.ctypes.data, awh.ctypes.data,
+               a0w.ctypes.data, a1w.ctypes.data, aww.ctypes.data)
+            if not _np.array_equal(refi, goti):
+                return False
     return True
 
 
@@ -172,6 +198,10 @@ def _ensure_lib():
     if fsum is not None:
         fsum.argtypes = [ctypes.c_void_p, ctypes.c_int, ctypes.c_int64,
                          ctypes.c_void_p]
+    finterp = _sym("interp_c8", None)
+    if finterp is not None:
+        finterp.argtypes = ([ctypes.c_void_p] * 2 + [ctypes.c_int] * 5
+                            + [ctypes.c_void_p] * 6)
     if fn is None:
         return _C_LIB
     try:
@@ -186,6 +216,7 @@ def _ensure_lib():
     _C_LIB["fn"] = fn
     _C_LIB["fn8"] = fn8
     _C_LIB["fn_sum"] = fsum
+    _C_LIB["fn_interp"] = finterp
     _C_LIB["err"] = None
     print("INFO: sam_sum C 内核已启用（%s，CHW%s）"
           % (so, " + C8" if fn8 is not None else ""))
@@ -214,6 +245,41 @@ def _io_bufs(n):
         _IO_BUF["bufs"] = tuple(_np.empty(n, _np.int8) for _ in range(5))
         _IO_BUF["n"] = n
     return tuple(b[:n] for b in _IO_BUF["bufs"])
+
+
+def interp_c8_into(dst, src, num, den):
+    """C8 视图的双线性插值（原地写 dst），与 ops.interp 的整数路径逐位一致。"""
+    lib = _ensure_lib()
+    fn = lib.get("fn_interp")
+    if fn is None:
+        raise RuntimeError("interp C 内核不可用: %s" % lib.get("err"))
+    blocks, H, W, last = src.shape
+    ob, oH, oW, olast = dst.shape
+    if last != 8 or olast != 8 or ob != blocks:
+        raise ValueError("interp_c8_into 需要 (blocks,H,W,8) 视图")
+    i0h, i1h, wh8, okh = _axis_weights(H, oH)
+    i0w, i1w, ww8, okw = _axis_weights(W, oW)
+    if not (okh and okw):
+        raise ValueError("非 1/8 网格比例，走浮点回退")
+    n_src = int(blocks) * H * W * 8
+    n_dst = int(blocks) * oH * oW * 8
+    bufs = _io_bufs(max(n_src, n_dst))
+    s = bufs[0][:n_src]
+    d = bufs[1][:n_dst]
+    _np.copyto(s, _np.asarray(src).reshape(-1))
+    # 注意：这些 int32 数组必须**先绑定到局部变量**再取 ctypes.data——
+    # 写成 np.ascontiguousarray(...).ctypes.data 时临时数组在取完指针后就被
+    # 回收（x86 上 intp=int64→int32 必然新建对象），C 侧读到的是悬垂内存。
+    a0h = _np.ascontiguousarray(i0h, _np.int32)
+    a1h = _np.ascontiguousarray(i1h, _np.int32)
+    awh = _np.ascontiguousarray(wh8, _np.int32)
+    a0w = _np.ascontiguousarray(i0w, _np.int32)
+    a1w = _np.ascontiguousarray(i1w, _np.int32)
+    aww = _np.ascontiguousarray(ww8, _np.int32)
+    fn(s.ctypes.data, d.ctypes.data, blocks, H, W, oH, oW,
+       a0h.ctypes.data, a1h.ctypes.data, awh.ctypes.data,
+       a0w.ctypes.data, a1w.ctypes.data, aww.ctypes.data)
+    _np.copyto(dst.reshape(-1), d)
 
 
 def chsum_c8(src, nc):

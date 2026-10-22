@@ -122,3 +122,49 @@ void chsum_c8(const int8_t *restrict src, int blocks, int64_t HW,
         sums[b * 8 + 6] = s6; sums[b * 8 + 7] = s7;
     }
 }
+
+/* ── INTERP（C8 布局，2 的幂比例，权重在 1/8 网格上）──────────────────────
+ * 与 ops_numpy.interp 的整数路径逐位一致：
+ *   top = p00*(8-wx) + p01*wx      (unit 8)
+ *   bot = p10*(8-wx) + p11*wx
+ *   v   = top*(8-wy) + bot*wy      (unit 64)
+ *   q   = v>>6，余数 r=v&63：r>32 → q++；r==32 且 q 为奇 → q++；再饱和。
+ * 位置/权重表 i0/i1/w 由 PS 用 float64 算好传进来（与 _axis_weights 同一份）。 */
+void interp_c8(const int8_t *restrict src, int8_t *restrict dst,
+               int blocks, int H, int W, int oH, int oW,
+               const int32_t *restrict i0h, const int32_t *restrict i1h,
+               const int32_t *restrict wh,
+               const int32_t *restrict i0w, const int32_t *restrict i1w,
+               const int32_t *restrict ww)
+{
+    const int64_t HW = (int64_t)H * W;
+    for (int b = 0; b < blocks; ++b) {
+        const int8_t *ps = src + (int64_t)b * HW * 8;
+        int8_t *pd = dst + (int64_t)b * oH * oW * 8;
+        for (int oy = 0; oy < oH; ++oy) {
+            const int y0 = i0h[oy], y1 = i1h[oy], wy = wh[oy];
+            for (int ox = 0; ox < oW; ++ox) {
+                const int x0 = i0w[ox], x1 = i1w[ox], wx = ww[ox];
+                const int64_t o00 = ((int64_t)y0 * W + x0) * 8;
+                const int64_t o01 = ((int64_t)y0 * W + x1) * 8;
+                const int64_t o10 = ((int64_t)y1 * W + x0) * 8;
+                const int64_t o11 = ((int64_t)y1 * W + x1) * 8;
+                int8_t *po = pd + ((int64_t)oy * oW + ox) * 8;
+                for (int cc = 0; cc < 8; ++cc) {
+                    const int32_t top = (int32_t)ps[o00 + cc] * (8 - wx)
+                                      + (int32_t)ps[o01 + cc] * wx;
+                    const int32_t bot = (int32_t)ps[o10 + cc] * (8 - wx)
+                                      + (int32_t)ps[o11 + cc] * wx;
+                    int32_t v = top * (8 - wy) + bot * wy;
+                    int32_t q = v >> 6;
+                    const int32_t r = v & 63;
+                    if (r > 32) ++q;
+                    else if (r == 32 && (q & 1)) ++q;
+                    if (q > 127) q = 127;
+                    else if (q < -128) q = -128;
+                    po[cc] = (int8_t)q;
+                }
+            }
+        }
+    }
+}
