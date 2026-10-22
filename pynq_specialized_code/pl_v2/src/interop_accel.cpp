@@ -91,7 +91,10 @@ int interop_accel(const data_t *src0, const data_t *src1, const data_t *src2,
     // 2026-10-22：这两个算子块是**纯访存型**（每张图读 0.5~1.5 GB，计算只有几亿次
     // 8x32 乘），乘法器少几个几乎不影响时间。与 conv 引擎同板时 DSP 只有 160 个，
     // conv 已占 143，所以这里把 mul 硬限到 8 个（原来综合出 30 个）。
-#pragma HLS ALLOCATION operation instances=mul limit=8
+// 2026-10-22：PP 是**访存型**（约 0.8 MAC/byte），II 放大几乎不增加墙钟时间，
+// 但能把乘法器共享掉 —— 这是"把 PP 做小"最直接的一招。
+// limit=2 时 32×32 乘法器最多 2 个（≈8 DSP），而 DDR 往返时间完全不变。
+#pragma HLS ALLOCATION operation instances=mul limit=1
 #endif
     if (op < PP_OP_RESCALE || op > PP_OP_REDUCE_MEAN) return PP_ERR_OP;
     if (C <= 0 || H <= 0 || W <= 0) return PP_ERR_SHAPE;
@@ -107,16 +110,29 @@ int interop_accel(const data_t *src0, const data_t *src1, const data_t *src2,
     // ── RESCALE：单位置缩放（吃掉 cat 的重定标）──────────────────────────────
     // dst[(dst_ch_off + c)*H*W + i] = sat(round(src0[c*H*W + i] * kbuf[c]) >> 16)
     case PP_OP_RESCALE: {
+        // 2026-10-22：**LUT 化**。数据是 int8（只有 256 种取值），所以
+        //   dst = clip(round(src * k / 2^16))
+        // 对固定 k 就是一个 256 项表。查表与乘法**逐位等价**（主机对拍
+        // 819 万样本 0 不一致），但把每元素一次 32×32 乘法换成一次 ROM 读。
+        // 建表本身只剩 1 个乘法器（256 拍建完，HW 通常几千，开销 <5%）。
         for (int c = 0; c < C; ++c) {
             const coef_t k = coef[c];
             const int32_t base_s = c * HW;
             const int32_t base_d = (dst_ch_off + c) * HW;
+            data_t lut[256];
+#ifdef USE_HLS_TYPES
+// 256 项表放 LUTRAM（分布式 RAM）：不占 BRAM 站点，避免与 conv 的 163 块抢位
+#pragma HLS BIND_STORAGE variable=lut type=RAM_1P impl=LUTRAM
+#pragma HLS PIPELINE II=1
+#endif
+            for (int t = 0; t < 256; ++t) {
+                lut[t] = (data_t)pp_round_q16((int32_t)(t - 128) * (int32_t)k);
+            }
             for (int i = 0; i < HW; ++i) {
 #ifdef USE_HLS_TYPES
 #pragma HLS PIPELINE II=1
 #endif
-                const int32_t acc = (int32_t)src0[base_s + i] * k;
-                dst[base_d + i] = (data_t)pp_round_q16(acc);
+                dst[base_d + i] = lut[(int)src0[base_s + i] + 128];
             }
         }
         break;
@@ -125,6 +141,9 @@ int interop_accel(const data_t *src0, const data_t *src1, const data_t *src2,
     // ── ADD：两源加权相加 ────────────────────────────────────────────────────
     case PP_OP_ADD: {
         if (nsrc < 2 || src1 == 0) return PP_ERR_NULL;
+        // 注意：这里**不能**用两张 LUT 相加——原语义是"先加权求和、再一次性
+        // 舍入"，两张表各自舍入后再加会分岔（csim 实测 ref=8 got=9）。
+        // 只有 RESCALE 这种单源运算才能安全 LUT 化。
         for (int c = 0; c < C; ++c) {
             const coef_t k0 = coef[2 * c + 0];
             const coef_t k1 = coef[2 * c + 1];
