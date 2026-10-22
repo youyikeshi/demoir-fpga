@@ -101,3 +101,19 @@ python tools/make_split.py --n-train 300 --force            # 换比例，重建
 ⚠️ **不要把大图 resize 后再训练/评估**。摩尔纹的空间频率与采集分辨率强绑定，
 重采样会把它混叠折叠成现实中不存在的低频纹理（见 `docs/训练/说明_交付_20260910.md` 3.4）。
 正确做法是在**原生分辨率**上裁块。
+
+## 实际数据位置（2026-10-23 补记）
+
+> 本机（Linux 开发机）的 `datasets/` 曾一度是空的 —— 数据没删，在 **CP2 移动硬盘**上。
+
+| 项 | 路径 |
+|---|---|
+| 原始数据 | `/media/felix/CP2 2TB A/ai/demoir-fpga/demoir-fpga-main/uhdm_data/Train/pair_*/` |
+| 规模 | **4500 对** `<id>_gt.jpg` + `<id>_moire.jpg`，4032×3024 RGB，38 GB |
+| 本仓库软链接 | `datasets/uhdm/eval/`（100 对）、`datasets/uhdm/train/`（200 对） |
+
+**为什么用软链接**：38 GB 不必复制；`src/eval.py` 的 `list_pairs()` 要求**扁平目录**且
+文件名**前 4 位**是唯一 id（`0000_gt.jpg` ↔ `0000_moire.jpg`），而原始数据的 id 在
+每个 `pair_XX/` 子目录里会重复，所以软链接做了**重编号**（跨 pair 随机抽样后编号 0000 起）。
+
+重建命令见 `docs/部署/记录_20261023_数据集恢复与int4实验.md`；挂载点变化时只需改软链接。
