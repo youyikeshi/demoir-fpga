@@ -101,6 +101,13 @@
 //   sum = Σ_{ic,ky,kx} in[ic][y*s+ky*d-pad][x*s+kx*d-pad] * wgt[oc][ic][ky][kx]
 // 要求 same padding：(k-1)*d == 2*pad。
 // Hout/Wout 由调用方传入（避免内核里做运行期除法）。
+/* FUSE_OUT=1 时才真正启用"融合出口"（out_lut / chsum）：
+   默认 0 表示这两个参数完全不使用，HLS 不会为它们生成 AXI-Lite 寄存器，
+   交付版的 ABI 与资源（131 DSP / 163 BRAM）保持逐字不变。 */
+#ifndef FUSE_OUT
+#define FUSE_OUT 0
+#endif
+
 int conv2d_engine(const data_t *in_fm, const data_t *wgt, const bias_t *bias,
                   data_t *out_fm, int H, int W, int Hout, int Wout,
                   int cin, int cout, int ksize, int stride, int dil,
