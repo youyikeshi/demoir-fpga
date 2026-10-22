@@ -115,6 +115,12 @@ int interop_accel(const data_t *src0, const data_t *src1, const data_t *src2,
 #ifndef PP_OPS_MIN
 #define PP_OPS_MIN 0
 #endif
+#ifndef PP_KEEP_INTERP
+/* PP_OPS_MIN=1 时是否保留 INTERP（双线性插值）。
+   网络里 26 个 interp 占 PS 的 17.7 s（numpy）；pp 的 INTERP 在主机侧已对拍逐位精确，
+   加回来能省 ~16 s。代价是它含位置递推与乘法器，面积比 REDUCE_MEAN 贵得多。 */
+#define PP_KEEP_INTERP 0
+#endif
 #ifndef PP_KEEP_MEAN
 /* PP_OPS_MIN=1 时是否**保留** REDUCE_MEAN（通道和）。
    ECA 的输入是 cat 的输出、且各分支标度不同（cat 逐元素重定标），
@@ -224,7 +230,7 @@ int interop_accel(const data_t *src0, const data_t *src1, const data_t *src2,
     //   最后 half-even ÷64 再饱和到 int8
     // 整数化：pos8 = (2o+1)*in*8/(2*out) - in*8/2，当 in/out 是 2 的幂时该除法精确；
     // 不精确说明权重不在 1/8 网格上（PS 侧会回退浮点），这里直接拒绝。
-#if !PP_OPS_MIN
+#if (!PP_OPS_MIN) || PP_KEEP_INTERP
     case PP_OP_INTERP: {
         if (out_H <= 0 || out_W <= 0) return PP_ERR_SHAPE;
         const int in8h = H * 8, in8w = W * 8;

@@ -11,7 +11,7 @@
 | 内核（`src/interop_accel.cpp`） | ✅ 五个算子全部实现 |
 | 主机侧逐位验证（`tb/tb_interop.cpp`） | ✅ **34,608 用例 / 0 失败** |
 | HLS csim | ✅ PASS（快速档 435 断言） |
-| csynth | ✅ BRAM **5** / DSP **30** / LUT ≈13k，Fmax 估 **205 MHz** |
+| csynth | ✅ BRAM **5** / DSP **30** / LUT ≈13k，Fmax 估 **205 MHz**（这是最初一版；LUT 化 + `mul limit` 之后 Total 行见文末三档表：DSP 33 / 11 / 8） |
 | C/RTL cosim | ✅ **PASS**（`PP_TB_QUICK=1 DO_COSIM=1`） |
 | PS 驱动 `ps/pynq/pp_engine.py` | ⬜ 未写 |
 | BD 集成 + 上板 | ⬜ 未做 |
