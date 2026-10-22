@@ -32,6 +32,10 @@ def _np(buf):
 import numpy as np
 
 import ops_numpy as ops
+try:
+    import pp_ops                      # 板上是扁平目录
+except ImportError:                    # 仓库里作为 pynq 包时
+    from . import pp_ops
 
 
 def load_pack(pack_dir):
@@ -471,6 +475,10 @@ class Runner:
         self.index, self.blob = load_pack(pack_dir)
         self.scales = self.index.get("scales", {})
         self.eca = self.index.get("eca", {})
+        # v2 层间算子加速器（PPEngine）。None = 全部走 numpy（本机/无硬件时）。
+        # pp_ops_en: 允许走加速器的算子名集合（默认空 = 全部走 numpy，保逐位一致）
+        self.pp = None
+        self.pp_ops_en = set()
         self.ops = [o for o in self.m["ops"] if o["needed"]]
         self.alias = compute_cat_alias(self.m)
         if arena is not None:
@@ -556,6 +564,10 @@ class Runner:
                     # 重标定用 256 项查找表，逐位等价于原来的 float64 公式。
                     s_out = self._s(o0)
                     out = A.view(o0)
+                    if ("cat" in self.pp_ops_en and self.pp is not None
+                            and pp_ops.run_cat_rescale(self.pp, A, op, A.view,
+                                                       self._s, lay)):
+                        lay = []                          # 已由 v2 完成，跳过逐段重标
                     for n, off, mode in lay:
                         sn = self._s(n)
                         if mode == "copy":
@@ -588,10 +600,14 @@ class Runner:
                         raise RuntimeError("cat 输出通道数不匹配: op=%s dst=%d out=%d"
                                            % (op["name"], dst, out.shape[0]))
             elif k == "add":
-                s_out = self._s(o0)
-                a = self._req(A.view(op["in"][0]), self._s(op["in"][0]), s_out)
-                b = self._req(A.view(op["in"][1]), self._s(op["in"][1]), s_out)
-                A.view(o0)[...] = ops.add(a, b)
+                if ("add" in self.pp_ops_en and self.pp is not None
+                        and pp_ops.run_add(self.pp, A, op, A.view, self._s)):
+                    pass                                  # v2 加速器完成（逐位一致）
+                else:
+                    s_out = self._s(o0)
+                    a = self._req(A.view(op["in"][0]), self._s(op["in"][0]), s_out)
+                    b = self._req(A.view(op["in"][1]), self._s(op["in"][1]), s_out)
+                    A.view(o0)[...] = ops.add(a, b)
             elif k == "eca":
                 # 2026-10-21：按通道分块算空间均值。原来把整块（144×320×320）
                 # astype 成 float32（59 MB 临时）再求均值；分块后临时数组只有
@@ -607,6 +623,10 @@ class Runner:
                     fin *= sc
                     mean_c[sl] = fin.mean(axis=(1, 2), dtype=np.float32)
                 A.view(o0)[...] = ops.eca_attn_from_mean(mean_c, e["conv2"], e["conv1"])
+            elif (k == "sam_sum" and "sam_sum" in self.pp_ops_en
+                    and self.pp is not None
+                    and pp_ops.run_sam_sum(self.pp, A, op, A.view, self._s)):
+                pass
             elif k == "sam_sum":
                 # 按通道分块算（原来是整块 float64，单张 5 个张量 ≈ 200 MB 临时数组）。
                 # 分块后逐元素运算与分块前完全一致，结果逐位不变。

@@ -39,6 +39,15 @@ typedef int32_t acc_t;      // 主机侧用 32 位（范围足够）
 #ifndef VT_OCG
 #define VT_OCG 8           // 每个 pass 处理多少输出通道
 #endif
+// cosim 需要的 depth 上界（AXI 模型会按它算地址空间；给大了 TB 缓冲跟不上会 SIGSEGV）。
+// 4096 足够覆盖下面 quick 档的所有形状。
+#ifndef VT_DEPTH
+#define VT_DEPTH 65536
+#endif
+#ifndef VT_BIAS_DEPTH
+#define VT_BIAS_DEPTH 1024
+#endif
+
 #ifndef VT_PXP
 #define VT_PXP 4           // 像素并行度：每拍同时算多少个输出像素（1..VT_TH*VT_TW）
 #endif
@@ -75,10 +84,10 @@ int conv_tile(const data_t *in_fm, const data_t *wgt, const bias_t *bias,
               int cin, int cout, int ksize, int stride, int dil,
               int pad, int shift, int relu_en) {
 #ifdef USE_HLS_TYPES
-#pragma HLS INTERFACE m_axi port=in_fm offset=slave bundle=gmem0 depth=1048576
-#pragma HLS INTERFACE m_axi port=wgt   offset=slave bundle=gmem0 depth=1048576
-#pragma HLS INTERFACE m_axi port=bias  offset=slave bundle=gmem0 depth=1024
-#pragma HLS INTERFACE m_axi port=out_fm offset=slave bundle=gmem1 depth=1048576
+#pragma HLS INTERFACE m_axi port=in_fm offset=slave bundle=gmem0 depth=VT_DEPTH
+#pragma HLS INTERFACE m_axi port=wgt   offset=slave bundle=gmem0 depth=VT_DEPTH
+#pragma HLS INTERFACE m_axi port=bias  offset=slave bundle=gmem0 depth=VT_BIAS_DEPTH
+#pragma HLS INTERFACE m_axi port=out_fm offset=slave bundle=gmem1 depth=VT_DEPTH
 #pragma HLS INTERFACE s_axilite port=H bundle=ctrl
 #pragma HLS INTERFACE s_axilite port=W bundle=ctrl
 #pragma HLS INTERFACE s_axilite port=Hout bundle=ctrl
@@ -125,19 +134,35 @@ int conv_tile(const data_t *in_fm, const data_t *wgt, const bias_t *bias,
             {
                 const int iy0 = ty * stride - pad;
                 const int ix0 = tx * stride - pad;
+                // 列方向按"左补零 / 连续直拷 / 右补零"三段拆开。
+                // 为什么：原来逐字节走 `srow<0||sx>=W ? 0 : in_fm[...]` 的谓词，
+                // 把 AXI burst 全废了（cosim 实测 v3 比现引擎慢 6.2×，全慢在这里）。
+                // 中间段无谓词 → HLS 能并成整拍传输。
+                int lz = (ix0 < 0) ? -ix0 : 0;
+                if (lz > VT_IW) lz = VT_IW;
+                int cnt = W - (ix0 + lz);
+                if (cnt < 0) cnt = 0;
+                if (cnt > VT_IW - lz) cnt = VT_IW - lz;
                 for (int ic = 0; ic < cin; ++ic) {
                     for (int iy = 0; iy < VT_IH; ++iy) {
                         const int sy = iy0 + iy;
-                        const int srow = (sy < 0 || sy >= H) ? -1 : sy;
-#ifdef USE_HLS_TYPES
-#pragma HLS PIPELINE II=1
-#endif
-                        for (int ix = 0; ix < VT_IW; ++ix) {
-                            const int sx = ix0 + ix;
-                            const int sidx = ic * H * W + srow * W + sx;
-                            itile[ic][iy][ix] =
-                                (srow < 0 || sx < 0 || sx >= W) ? (data_t)0
-                                                                : in_fm[sidx];
+                        const bool rok = (sy >= 0) && (sy < H);
+                        for (int ix = 0; ix < lz; ++ix) {
+                            itile[ic][iy][ix] = (data_t)0;
+                        }
+                        if (rok) {
+                            const int io = ic * H * W + sy * W + ix0 + lz;
+                            HLS_PRAGMA(HLS PIPELINE II=1)
+                            for (int ix = 0; ix < cnt; ++ix) {
+                                itile[ic][iy][lz + ix] = in_fm[io + ix];
+                            }
+                        } else {
+                            for (int ix = 0; ix < cnt; ++ix) {
+                                itile[ic][iy][lz + ix] = (data_t)0;
+                            }
+                        }
+                        for (int ix = lz + cnt; ix < VT_IW; ++ix) {
+                            itile[ic][iy][ix] = (data_t)0;
                         }
                     }
                 }

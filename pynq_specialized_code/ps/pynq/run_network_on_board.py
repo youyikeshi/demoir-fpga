@@ -36,6 +36,11 @@ def main():
                          "时序余量不足的旧 bit 请显式传 125")
     ap.add_argument("--dump-out", default=None,
                     help="把板上输出（int8 (3,H,W)）另存为原始文件，便于本机差异分析")
+    ap.add_argument("--pp-ops", default="",
+                    help="允许走 v2 加速器的层间算子，逗号分隔（add,cat,sam_sum）。"
+                         "默认空 = 全部走 numpy（保持逐位一致）")
+    ap.add_argument("--no-pp", action="store_true",
+                    help="不启用 v2 层间算子加速器（用于 A/B 对照）")
     ap.add_argument("--profile", action="store_true",
                     help="按算子类型统计耗时，跑完打印分布表")
     ap.add_argument("--profile-layers", action="store_true",
@@ -75,6 +80,20 @@ def main():
     engine.progress_every = a.progress
     engine.n_layers = sum(1 for o in manifest["ops"] if o["op"] == "conv" and o["needed"])
     r = Runner(a.manifest, a.pack, engine=engine, arena=arena)
+
+    # v2 层间算子加速器（可选；--no-pp 可关掉做 A/B 对照）
+    if not getattr(a, "no_pp", False):
+        try:
+            try:
+                from .pp_engine import PPEngine     # 作为包
+            except ImportError:
+                from pp_engine import PPEngine      # 板上扁平目录
+            r.pp = PPEngine(ol)
+            r.pp_ops_en = set(x for x in (a.pp_ops or "").split(",") if x)
+            print("v2 层间算子加速器: 已启用（%s），启用算子=%s"
+                  % (r.pp.name, sorted(r.pp_ops_en) or "无（全走 numpy）"))
+        except Exception as e:                       # noqa: BLE001
+            print("v2 层间算子加速器不可用（%s）：层间算子继续走 numpy" % e)
 
     est = sum(engine.unit.estimate_seconds(o["h"], o["w"], o["cin"], o["cout"], o["k"], o["s"])
               for o in r.ops if o["op"] == "conv")
