@@ -26,7 +26,8 @@ inline data_t saturate_int8(int32_t v) {
 int conv2d_engine(const data_t *in_fm, const data_t *wgt, const bias_t *bias,
                   data_t *out_fm, int H, int W, int Hout, int Wout,
                   int cin, int cout, int ksize, int stride, int dil,
-                  int pad, int shift, int relu_en) {
+                  int pad, int shift, int relu_en,
+               const data_t *out_lut, int32_t *chsum) {
     // 2026-10-21：显式指定突发长度与**在途请求数**。
     // 板端实测行缓冲填充只有 16 拍/字节（≈8 MB/s，而 HP0+DDR 能力 ≥500 MB/s），
     // 反推每搬一行（68 B）就要等一次完整往返、相邻行完全不重叠 —— 瓶颈是
@@ -39,6 +40,12 @@ int conv2d_engine(const data_t *in_fm, const data_t *wgt, const bias_t *bias,
         max_read_burst_length=64 num_read_outstanding=16)
     HLS_PRAGMA(HLS INTERFACE m_axi port=out_fm offset=slave bundle=gmem1 \
         max_write_burst_length=64 num_write_outstanding=16)
+#if FUSE_OUT
+    // 融合出口。**必须**声明 m_axi + depth：否则 HLS 会推断成 ap_none，
+    // 那两个指针就不是 AXI-Lite 寄存器，PS 写不进地址，引擎会拿到未定义值。
+    HLS_PRAGMA(HLS INTERFACE m_axi port=out_lut offset=slave bundle=gmem0 depth=256)
+    HLS_PRAGMA(HLS INTERFACE m_axi port=chsum offset=slave bundle=gmem0 depth=4096)
+#endif
     HLS_PRAGMA(HLS INTERFACE s_axilite port=H bundle=ctrl)
     HLS_PRAGMA(HLS INTERFACE s_axilite port=W bundle=ctrl)
     HLS_PRAGMA(HLS INTERFACE s_axilite port=Hout bundle=ctrl)
@@ -319,8 +326,13 @@ int conv2d_engine(const data_t *in_fm, const data_t *wgt, const bias_t *bias,
                                 int32_t v = acc + (int32_t)bias_buf[ocb + i];
                                 v = v >> shift;
                                 if (relu_en != 0 && v < 0) v = 0;
-                                out_fm[((ocb + i) * Hout + y) * Wout + x0 + x2] =
-                                    saturate_int8(v);
+                            {
+                                data_t v8 = saturate_int8(v);
+#if FUSE_OUT
+                                if (out_lut != 0) v8 = out_lut[(int)v8 + 128];
+#endif
+                                out_fm[((ocb + i) * Hout + y) * Wout + x0 + x2] = v8;
+                            }
                             }
 
                         } else if (ksize == 3) {
@@ -379,7 +391,13 @@ int conv2d_engine(const data_t *in_fm, const data_t *wgt, const bias_t *bias,
                                 int32_t v = acc + (int32_t)bias_buf[ocb + i];
                                 v = v >> shift;
                                 if (relu_en != 0 && v < 0) v = 0;
-                                out_fm[((ocb + i) * Hout + y) * Wout + x0 + x2] = saturate_int8(v);
+                            {
+                                data_t v8 = saturate_int8(v);
+#if FUSE_OUT
+                                if (out_lut != 0) v8 = out_lut[(int)v8 + 128];
+#endif
+                                out_fm[((ocb + i) * Hout + y) * Wout + x0 + x2] = v8;
+                            }
                             }
                         } else {
                         for (int i = 0; i < OC_BLOCK; ++i) {
@@ -464,8 +482,13 @@ int conv2d_engine(const data_t *in_fm, const data_t *wgt, const bias_t *bias,
                                 v = v >> shift;
                                 if (relu_en != 0 && v < 0) v = 0;   // v2：ReLU 可旁路
 
-                                out_fm[((ocb + i) * Hout + y) * Wout + x0 + x2] =
-                                    saturate_int8(v);
+                            {
+                                data_t v8 = saturate_int8(v);
+#if FUSE_OUT
+                                if (out_lut != 0) v8 = out_lut[(int)v8 + 128];
+#endif
+                                out_fm[((ocb + i) * Hout + y) * Wout + x0 + x2] = v8;
+                            }
                             }
                         }
                         }   // end else (ksize != 1)

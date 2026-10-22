@@ -111,7 +111,12 @@
 int conv2d_engine(const data_t *in_fm, const data_t *wgt, const bias_t *bias,
                   data_t *out_fm, int H, int W, int Hout, int Wout,
                   int cin, int cout, int ksize, int stride, int dil,
-                  int pad, int shift, int relu_en);
+                  int pad, int shift, int relu_en,
+                  /* 融合出口（默认 0 = 完全不使用，行为与旧版逐字一致）：
+                       out_lut —— 256 项 LUT，写回时把本层标度映射到目标张量标度
+                       chsum   —— 每输出通道累加和（ECA 的通道均值）
+                     只有 FUSE_OUT=1 的构建才会为它们生成 AXI-Lite 寄存器。 */
+                  const data_t *out_lut = 0, int32_t *chsum = 0);
 
 // 运行期版本的参考实现（金标准，只用于验证，不综合）。
 int conv_ref_rt(const data_t *in_fm, const data_t *wgt, const bias_t *bias,
