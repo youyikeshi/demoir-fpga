@@ -37,6 +37,8 @@
 | `make_board_bundle.py` | 一键拼上板包（bit/hwh + 脚本 + 清单 + 部署包 + 说明） | 否 |
 | `make_mock_pack.py` | 造测试用假权重包（`test_runner_local.py` 用） | 否 |
 | `test_runner_local.py` / `test_pool_plan.py` / `test_ops_vs_torch.py` / `test_driver_discovery.py` | 本机回归（整网调度 / 内存池 / 算子对拍 / 地址发现） | 后者需要 torch |
+| `test_pp_vs_numpy.py` | v2 层间算子加速器定点语义 vs `ops_numpy` 逐位对拍 | 否 |
+| `test_fuse_out_ab.py` / `test_fuse_sum_ab.py` | 融合出口主机侧 A/B（out_lut 写回查表 / conv→eca 的 chsum 通道和）+ 驱动寄存器安全 | 否 |
 | `_diag_pool.py` | 内存池调试（打印每个张量的生命周期与地址） | 否 |
 
 ### 其它
@@ -128,6 +130,9 @@ python test_pool_plan.py             # 2/2（对齐/覆盖/无重叠）
 python check_consistency.py --manifest ../manifest_640.json --pack <pack>
 python tiled_infer.py --selftest     # 分块/羽化自检
 python check_pack_ref.py --manifest ../manifest_640.json --pack <pack>
+python test_pp_vs_numpy.py          # 36 例定点语义逐位一致
+python test_fuse_out_ab.py          # out_lut 融合：0/1228800
+python test_fuse_sum_ab.py          # chsum 接线 + 驱动只写声明寄存器；加 --full 跑 640 整网
 ```
 
 2026-10-18 实测：以上全过；`test_ops_vs_torch.py` 在无 torch 环境显式 `SKIP(77)`。

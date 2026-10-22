@@ -42,11 +42,21 @@ def main():
     ap.add_argument("--no-pp", action="store_true",
                     help="不启用 v2 层间算子加速器（用于 A/B 对照）")
     ap.add_argument("--fuse-conv", action="store_true", default=None,
-                    help="启用卷积融合出口（要求 FUSE_OUT=1 的 bit + --fuse-offsets）；"
+                    help="启用卷积融合出口（要求对应构建的 bit + --fuse-offsets）；"
                          "不给则读环境变量 PP_FUSE_CONV（默认关）")
     ap.add_argument("--fuse-offsets", default=None,
-                    help="out_lut,chsum 两个 AXI-Lite 基地址寄存器偏移，逗号分隔"
-                         "（从 FUSE_OUT=1 导出的 xconv2d_engine_hw.h 读，例如 0x78,0x80）")
+                    help="out_lut,chsum 两个 AXI-Lite 基地址寄存器偏移，逗号分隔。"
+                         "没有该端口的位置写 none。例：只有 FUSE_SUM=1 的 bit 传 "
+                         "none,0x40（= 只写 chsum，绝不碰 out_lut）；只有 FUSE_OUT=1 "
+                         "的 bit 传 0x78,none")
+    ap.add_argument("--verify-chsum", action="store_true",
+                    help="板端 chsum 自检：每个融合的 ECA 都拿特征图重算一次通道和，"
+                         "与 PL 累加结果逐位对拍（会让那段退化回扫描，仅用于 bring-up）")
+    ap.add_argument("--chsum-probe", default=None,
+                    help="板端 chsum 端口自检：给指定的卷积（op id 或名字）挂一块 "
+                         "chsum 缓冲，跑完拿特征图重算的通道和对拍。本网络没有 "
+                         "conv→eca 配对，这是唯一能在真实权重/形状下验证 0x40 端口、"
+                         "int32 累加语义与 PS 清零的办法")
     ap.add_argument("--profile", action="store_true",
                     help="按算子类型统计耗时，跑完打印分布表")
     ap.add_argument("--profile-layers", action="store_true",
@@ -83,23 +93,36 @@ def main():
     print("内存池: %.1f MB" % (arena.size / 1e6))
     fuse_offsets = None
     if a.fuse_offsets:
-        parts = [int(x, 0) for x in a.fuse_offsets.split(",")]
+        from conv_engine import norm_fuse_offset
+        parts = [norm_fuse_offset(x) for x in a.fuse_offsets.split(",")]
         if len(parts) != 2:
-            ap.error("--fuse-offsets 需要两个值：out_lut偏移,chsum偏移")
+            ap.error("--fuse-offsets 需要两个值：out_lut偏移,chsum偏移"
+                     "（没有该端口的位置写 none，例：none,0x40）")
+        if parts[0] is None and parts[1] is None:
+            ap.error("--fuse-offsets 的两个位置都是 none：没有可写的融合寄存器")
         fuse_offsets = (parts[0], parts[1])
     engine = PYNQEngine(ol, index, blob, arena, fuse_offsets=fuse_offsets)
+    if fuse_offsets is not None:
+        print("融合寄存器: out_lut=%s  chsum=%s"
+              % ("None（不写）" if fuse_offsets[0] is None else hex(fuse_offsets[0]),
+                 "None（不写）" if fuse_offsets[1] is None else hex(fuse_offsets[1])))
     engine.timeout_s = a.timeout
     engine.progress_every = a.progress
     engine.n_layers = sum(1 for o in manifest["ops"] if o["op"] == "conv" and o["needed"])
     r = Runner(a.manifest, a.pack, engine=engine, arena=arena,
                fuse_conv=a.fuse_conv)
+    r.verify_chsum = bool(a.verify_chsum)
+    r.chsum_probe = a.chsum_probe
+    if a.chsum_probe is not None and not engine.fuse_sum_ok:
+        ap.error("--chsum-probe 需要 chsum 寄存器偏移（--fuse-offsets none,0x40）")
     if r.fuse_conv:
         if fuse_offsets is None:
-            ap.error("启用融合出口需要 --fuse-offsets（从 FUSE_OUT=1 导出的 "
-                     "xconv2d_engine_hw.h 读 out_lut,chsum 两个基地址偏移）；"
+            ap.error("启用融合出口需要 --fuse-offsets（从该次综合导出的 "
+                     "xconv2d_engine_hw.h 读；只有 FUSE_SUM=1 时写 none,0x40）；"
                      "没有偏移就不能往未知地址写寄存器")
-        print("卷积融合出口: 已要求启用（out_lut 偏移=%s）"
-              % hex(fuse_offsets[0]))
+        print("卷积融合出口: 已要求启用（out_lut %s，chsum %s）"
+              % ("可用" if engine.fuse_out_ok else "本构建没有",
+                 "可用" if engine.fuse_sum_ok else "本构建没有"))
 
     # v2 层间算子加速器（可选；--no-pp 可关掉做 A/B 对照）
     if not getattr(a, "no_pp", False):
@@ -132,6 +155,25 @@ def main():
     out, _ = r.run(img)
     dt = time.time() - t0
     print("整网完成: %.2fs（%d 个算子，%d 个卷积）" % (dt, len(r.ops), r.n_conv))
+    if r.fuse_conv:
+        print("融合出口统计: conv→cat %d 段（cat 跳过重定标 %d 段），"
+              "conv→eca %d 段（ECA 跳过整块扫描 %d 次）"
+              % (r._fuse_plan_n, r._fuse_skips,
+                 r._fuse_sum_plan_n, r._fuse_sums))
+    if a.chsum_probe is not None:
+        print("chsum 端口自检（probe=%s）: 跑了 %d 次，与特征图重算不一致 %d 个通道和"
+              % (a.chsum_probe, r._chsum_probe_n, r._chsum_probe_bad))
+        if r._chsum_probe_bad or not r._chsum_probe_n:
+            print("ERROR: chsum 自检失败（偏移不对 / 清零没做 / 累加语义不符）"
+                  "——不要相信这版接线")
+            sys.exit(2)
+    if a.verify_chsum:
+        print("chsum 自检: ECA 用 chsum %d 次，与特征图重算不一致 %d 个通道和"
+              % (r._fuse_sums, r._chsum_verify_bad))
+        if r._chsum_verify_bad:
+            print("ERROR: chsum 与特征图重算不一致（清零没做 / 地址写错 / "
+                  "RTL 累加语义不符）——不要相信本次结果")
+            sys.exit(2)
 
     if a.hashlog:
         with open(a.hashlog, "w") as f:

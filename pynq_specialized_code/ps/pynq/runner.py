@@ -413,8 +413,20 @@ class RefEngine:
     def __init__(self, index, blob, arena):
         self.index, self.blob, self.arena = index, blob, arena
 
-    # 支持卷积融合出口的 out_lut 链路（本机后端按 RTL 语义模拟）
+    # 支持卷积融合出口（out_lut 写回查表 / chsum 通道和，本机按 RTL 语义模拟）
     supports_fuse = True
+    fuse_out_ok = True          # 本机模拟：两个出口都"存在"
+    fuse_sum_ok = True
+
+    def alloc_chsum(self, cout):
+        """分配一块 chsum 累加缓冲（每输出通道一个 int32）。
+
+        返回 (buf, view)：buf 原样传给 conv(chsum=...)，view 用来读回结果。
+        本机后端里两者是同一个 numpy 数组；真引擎里 buf 是设备缓冲、view 是
+        它的共享内存视图（PL 写完后 invalidate 再读）。
+        """
+        arr = np.zeros(int(cout), dtype=np.int32)
+        return arr, arr
 
     def conv(self, in_t, out_t, op, out_lut=None, chsum=None):
         from ref_numpy import conv_ref_numpy
@@ -427,24 +439,25 @@ class RefEngine:
             # 与 RTL 逐位等价：v8 = sat8(acc) 之后查表
             y = lut_util.apply_out_lut(y, out_lut)
         if chsum is not None:
-            # RTL 目前只声明了 chsum 端口，三处写回里**还没有累加逻辑**。
-            # 这里宁可报错也不返回一副"看似能用、实则恒为 0"的通道和。
-            raise NotImplementedError(
-                "chsum（ECA 通道和）RTL 尚未实现累加，PS 侧暂不启用")
+            # 与 RTL 逐位等价：chsum[oc] += Σ_{y,x} v8（**累加**、不覆盖，调用方
+            # 已清零）。RTL 累加的是写回的 int8 值，所以必须在 out_lut 之后取 y：
+            # 同时开两个出口时，"落盘值"和"累加值"同源。
+            y64 = y.reshape(y.shape[0], -1).sum(axis=1, dtype=np.int64)
+            chsum[...] += y64.astype(np.int32)
         self.arena.view(out_t)[...] = y
 
 
 class PYNQEngine:
     """上板真引擎：连续内存池 + Conv2dEngine 驱动（上板联调时启用）。
 
-    融合出口（FUSE_OUT=1 的 bit）：
-      · out_lut —— 256 项 int8 表，按表内容缓存一块 256B 连续内存；
-      · chsum   —— 驱动接口已留位，但 RTL 还没有累加逻辑 → 传值即报错。
-    注意：交付版 bit 没有这两个寄存器，默认（开关关）不会走到这里。
+    融合出口（由 bit 的构建宏决定，两个开关**独立**）：
+      · out_lut —— FUSE_OUT=1；256 项 int8 表，按表内容缓存一块 256B 连续内存；
+      · chsum   —— FUSE_SUM=1；每输出通道一个 int32，PL 写回时累加（不覆盖）。
+    驱动构造时注入寄存器偏移（见 conv_engine.Conv2dEngine）；只有偏移非 None
+    的出口才会被写寄存器，也才会被 Runner 纳入规划。
     """
 
-    # 支持卷积融合出口（out_lut），前提是 bit 为 FUSE_OUT=1 且驱动构造时
-    # 注入了寄存器偏移（见 conv_engine.Conv2dEngine）。
+    # 支持卷积融合出口，前提是 bit 里真有对应端口且驱动构造时注入了偏移
     supports_fuse = True
 
     def __init__(self, overlay, index, blob, arena, fuse_offsets=None):
@@ -454,6 +467,9 @@ class PYNQEngine:
         self.types = types
         self.index, self.arena = index, arena
         self.unit = Conv2dEngine(overlay, fuse_offsets=fuse_offsets)
+        # 哪些融合出口真的可用（Runner 据此决定要不要规划对应链路）
+        self.fuse_out_ok = bool(getattr(self.unit, "fuse_out_ok", False))
+        self.fuse_sum_ok = bool(getattr(self.unit, "fuse_sum_ok", False))
         # 上板时由调用方设置：
         #   n_layers  —— 总共要跑多少个卷积（只用于进度）
         #   timeout_s —— 单次卷积的等待上限；None = 驱动按工作量估算
@@ -468,6 +484,20 @@ class PYNQEngine:
         # out_lut 的小块连续内存（按表内容缓存，避免每层重分配）
         self._allocate = allocate
         self._lut_bufs = {}
+
+    def alloc_chsum(self, cout):
+        """分配一块每通道 int32 的累加缓冲（清零后返回 (buf, view)）。
+
+        **必须每次清零**：RTL 是 `chsum[oc] += v8`（累加），硬件不会清零。
+        """
+        cout = int(cout)
+        if cout <= 0:
+            raise ValueError("chsum 通道数必须为正（cout=%d）" % cout)
+        buf = self._allocate(shape=(cout,), dtype=np.int32)
+        view = _np(buf).reshape(cout)
+        view[...] = 0
+        buf.flush()              # 清零结果对 PL 可见（DDR 走 cache）
+        return buf, view
 
     def _lut_buf(self, lut):
         """把 256 项 int8 表放进一块连续内存（同表只分配一次）。"""
@@ -488,10 +518,6 @@ class PYNQEngine:
         e = self.index["layers"][op["weights_key"]]
         waddr = int(self.wpool.device_address) + e["w_off"]
         baddr = int(self.wpool.device_address) + e["b_off"]
-        if chsum is not None:
-            # 与 RefEngine 一致：RTL 还没有 chsum 累加逻辑，先禁用以免假结果。
-            raise NotImplementedError(
-                "chsum（ECA 通道和）RTL 尚未实现累加，PS 侧暂不启用")
         self.n_calls += 1
         if self.progress_every and (self.n_calls % self.progress_every == 0):
             print("  [%d/%d] %-34s H=%d W=%d cin=%d cout=%d k=%d 预计 %.1fs"
@@ -502,15 +528,26 @@ class PYNQEngine:
                   flush=True)
         self.arena.flush()
         lut_buf = self._lut_buf(out_lut) if out_lut is not None else None
+        if chsum is not None:
+            # 调用方（Runner）已清零并 flush；这里再 flush 一次是廉价的保险：
+            # RTL 是 `+=`，若 DDR 里还是旧值，累加结果就是错的。
+            f = getattr(chsum, "flush", None)
+            if f is not None:
+                f()
         rc, _ = self.unit.run(self._ns(self.arena.addr(in_t)),
                               self._ns(waddr), self._ns(baddr),
                               self._ns(self.arena.addr(out_t)),
                               op["h"], op["w"], op["cin"], op["cout"],
                               op["k"], op["s"], op["d"], op["pad"],
                               e["shift"], relu=bool(op["relu"]),
-                              out_lut=lut_buf, chsum=None,
+                              out_lut=lut_buf, chsum=chsum,
                               timeout_s=self.timeout_s)
         self.arena.invalidate()
+        if chsum is not None:
+            # PL 通过 AXI 写进 DDR 的累加和，CPU 读之前必须 invalidate
+            inv = getattr(chsum, "invalidate", None)
+            if inv is not None:
+                inv()
         if rc != 0:
             raise RuntimeError("PL 引擎返回错误码 %d（op=%s）" % (rc, op["name"]))
 
@@ -547,6 +584,20 @@ class Runner:
         self.hashlog = None     # 调试用：设成 list 后逐算子记录 (name, op, shape, sha1)
         self._luts = {}         # 标度重定标查找表缓存：键 = (s_from, s_to)
         self._fuse_skips = 0    # 调试/验证用：cat 分支实际跳过重定标的段数
+        self._fuse_sums = 0     # 调试/验证用：ECA 分支实际用 chsum 代替扫描的次数
+        self._fuse_plan_n = 0   # 调试/验证用：conv→cat 配对数
+        self._fuse_sum_plan_n = 0   # 调试/验证用：conv→eca 配对数
+        self._chsum = {}        # 待消费的通道和缓冲：张量名 -> (buf, view)
+        # 板端 bring-up 用：True 时在 ECA 里拿特征图重算通道和并与 chsum 对拍
+        # （会让该段退化回扫描，只用于验证接线/清零语义，不用于提速）
+        self.verify_chsum = False
+        self._chsum_verify_bad = 0
+        # 板端 bring-up 用：给指定 conv（op id 或名字）挂一次 chsum，跑完立刻拿
+        # 特征图重算通道和来对拍。**真实权重/真实形状**下验证 bit 的 chsum 端口
+        # （寄存器偏移、int32 累加语义、PS 清零）——即使本网络没有 conv→eca 配对。
+        self.chsum_probe = None
+        self._chsum_probe_n = 0
+        self._chsum_probe_bad = 0
 
     # 标度辅助
     def _s(self, name, dflt=1.0):
@@ -607,16 +658,7 @@ class Runner:
           plan[conv_op_id] = (张量名, cat_op_id, s_from, s_to, lut_int8)
           skip[张量名]     = cat_op_id（cat 分支据此跳过该段重定标）
         """
-        ops_all = self.m["ops"]
-        if not hasattr(self, "_prod_cons"):
-            prod, cons = {}, {}
-            for op in ops_all:
-                for t in op.get("out", []):
-                    prod.setdefault(t, op)
-                for t in op.get("in", []):
-                    cons.setdefault(t, []).append(op)
-            self._prod_cons = (prod, cons)
-        _prod, cons = self._prod_cons
+        _prod, cons = self._prod_cons_map()
 
         # 张量 -> [(cat_op_id, mode)]（只记零拷贝布局里的成员）
         lay_of = {}
@@ -646,22 +688,157 @@ class Runner:
             skip[t] = cat["id"]
         return plan, skip
 
+    def _prod_cons_map(self):
+        """张量 → 生产者 / 张量 → [消费者算子]（惰性建表，两条融合规划共用）。"""
+        if not hasattr(self, "_prod_cons"):
+            prod, cons = {}, {}
+            for op in self.m["ops"]:
+                for t in op.get("out", []):
+                    prod.setdefault(t, op)
+                for t in op.get("in", []):
+                    cons.setdefault(t, []).append(op)
+            self._prod_cons = (prod, cons)
+        return self._prod_cons
+
+    def _plan_fuse_sum(self):
+        """规划"卷积写回时顺便累加每通道和"（FUSE_SUM=1 的 chsum 出口）。
+
+        ECA 前半段要的是每个通道的空间均值，而均值只依赖通道和：
+            mean_c = Σ_{y,x} out[c,y,x] × s / (H·W)
+        所以让引擎在写回时顺手把 int8 值累加出来，ECA 就不必再整块扫一遍
+        （原本 144×320×320 的张量要 astype(float32) 再求均值）。
+
+        条件（与 out_lut 那条一样严格，任一条不满足就完全走旧路径）：
+          ① 该 conv 的输出张量恰好只有 **一个** 消费者；
+          ② 那个消费者是 **eca**，且它的输入正是这个张量；
+          ③ 该 eca 本轮真的要执行（needed）；
+          ④ int32 累加不会溢出：127·H·W < 2^31（RTL 里 chsum 是 int32）。
+
+        注意（2026-10-22 实测）：本网络 6 个 ECA 的输入都是 `fuse_cat`
+        （`cat(y0, up2(y2), up4(y4))`，见 tools/build_manifest.py 的 sam()），
+        **不是** 任何一个 conv 的直接输出，所以当前拓扑下本规划恒为空表。
+        机制保留：它只依赖"唯一消费者是 eca"这一条数据流事实，拓扑一变
+        （或 RTL 把 ECA 直接接在 conv 后面）就能生效。
+
+        返回 plan[conv_op_id] = (张量名, cout)
+        """
+        _prod, cons = self._prod_cons_map()
+        bufs = self.m["buffers"]
+        needed = set(op["id"] for op in self.ops)
+        plan = {}
+        for op in self.ops:
+            if op["op"] != "conv":
+                continue
+            t = op["out"][0]
+            cs = cons.get(t, [])
+            if len(cs) != 1:
+                continue
+            eca = cs[0]
+            if eca.get("op") != "eca" or eca["id"] not in needed:
+                continue
+            if not eca.get("in") or eca["in"][0] != t:
+                continue
+            cout = int(op.get("cout", bufs[t]["c"]))
+            if cout != bufs[t]["c"]:
+                continue
+            if 127 * int(op["h"]) * int(op["w"]) >= (1 << 31):
+                continue        # RTL 的 chsum 是 int32，宁可回落也不溢出
+            plan[op["id"]] = (t, cout)
+        return plan
+
+    def _verify_chsum(self, sums, tname, tag):
+        """把 chsum 与"拿特征图重算的通道和"逐位对拍，返回不一致的通道数。
+
+        只用于 bring-up 自检：重算本身就是 ECA 原本要做的那次扫描。
+        """
+        v = self.arena.view(tname)
+        nc = v.shape[0]
+        sums = np.asarray(sums)
+        if sums.shape[0] != nc:
+            raise RuntimeError("chsum 长度 %d != 张量 %s 的通道数 %d"
+                               % (sums.shape[0], tname, nc))
+        ref = v.reshape(nc, -1).sum(axis=1, dtype=np.int64)
+        got = sums.astype(np.int64)
+        bad = int(np.count_nonzero(ref != got))
+        if bad:
+            c0 = int(np.argmax(ref != got))
+            print("WARN: chsum 与特征图重算不一致 %d/%d 通道"
+                  "（首处 c=%d chsum=%d 重算=%d，%s）"
+                  % (bad, nc, c0, int(got[c0]), int(ref[c0]), tag), flush=True)
+        return bad
+
+    def _resolve_probe(self):
+        """把 chsum_probe（op id / 卷积名，可逗号分隔多个）解析成 op id 集合。"""
+        p = self.chsum_probe
+        if p is None:
+            return set()
+        items = p if isinstance(p, (list, tuple, set)) else str(p).split(",")
+        convs = [o for o in self.ops if o["op"] == "conv"]
+        by_name = {}
+        for o in convs:
+            by_name[o["name"]] = o["id"]
+        ids = set()
+        for raw in items:
+            s = str(raw).strip()
+            if not s:
+                continue
+            if s.isdigit():
+                pid = int(s)
+                if not any(o["id"] == pid for o in convs):
+                    raise ValueError("chsum_probe=%s 不是本轮执行的卷积 op id" % pid)
+                ids.add(pid)
+            elif s in by_name:
+                ids.add(by_name[s])
+            else:
+                raise ValueError("chsum_probe=%r 找不到同名卷积（例：%s）"
+                                 % (s, convs[0]["name"] if convs else "（无卷积）"))
+        if not ids:
+            raise ValueError("chsum_probe=%r 没解析出任何卷积" % (p,))
+        return ids
+
     def run(self, img_int8=None):
         A = self.arena
         t_in = self.m["io"]["t_in"]
         if img_int8 is not None:
             A.view(t_in)[...] = img_int8
-        fuse_plan, fused = {}, {}
+        fuse_plan, fused, sum_plan = {}, {}, {}
+        self._chsum = {}
         if self.fuse_conv:
             if not getattr(self.engine, "supports_fuse", False):
                 raise RuntimeError(
                     "PP_FUSE_CONV=1 需要支持融合出口的引擎（RefEngine / PYNQEngine）")
-            fuse_plan, fused = self._plan_fuse()
-            if fuse_plan:
-                print("INFO: 卷积融合出口已启用：%d 个 conv 直接写 cat 目标标度"
-                      % len(fuse_plan), flush=True)
+            # 两个出口独立：只有驱动真的注入了该寄存器的偏移才规划对应链路，
+            # 否则会拿着一个不存在的端口去写寄存器（= 往别人地址写）。
+            if getattr(self.engine, "fuse_out_ok", True):
+                fuse_plan, fused = self._plan_fuse()
+            else:
+                print("INFO: 未声明 out_lut 偏移 → 跳过 conv→cat 融合规划", flush=True)
+            if getattr(self.engine, "fuse_sum_ok", True):
+                sum_plan = self._plan_fuse_sum()
+            else:
+                print("INFO: 未声明 chsum 偏移 → 跳过 conv→eca 融合规划", flush=True)
+            if fuse_plan or sum_plan:
+                print("INFO: 卷积融合出口已启用：conv→cat %d 个（直接写目标标度），"
+                      "conv→eca %d 个（写回时累加通道和）"
+                      % (len(fuse_plan), len(sum_plan)), flush=True)
+                # chsum 缓冲：每个配对一块（cout 个 int32），先清零。
+                # 按张量名索引，ECA 分支据此取用（用完即 pop，生命周期到 eca 为止）。
+                for _cid, (tname, cout) in sum_plan.items():
+                    buf, view = self.engine.alloc_chsum(cout)
+                    view[...] = 0
+                    f = getattr(buf, "flush", None)
+                    if f is not None:
+                        f()
+                    self._chsum[tname] = (buf, view)
         fused_cats = set(fused.values())
+        probe_ids = self._resolve_probe()
         self._fuse_skips = 0
+        self._fuse_sums = 0
+        self._chsum_verify_bad = 0
+        self._chsum_probe_n = 0
+        self._chsum_probe_bad = 0
+        self._fuse_plan_n = len(fuse_plan)      # conv→cat 配对数（诊断输出用）
+        self._fuse_sum_plan_n = len(sum_plan)   # conv→eca 配对数（诊断输出用）
         t0 = time.time()
         for op in self.ops:
             k = op["op"]
@@ -669,11 +846,28 @@ class Runner:
             t_op = time.time() if self.profile is not None else 0.0
             if k == "conv":
                 fp = fuse_plan.get(op["id"])
+                sp = sum_plan.get(op["id"])
+                cbuf = self._chsum[sp[0]][0] if sp is not None else None
+                cview = self._chsum[sp[0]][1] if sp is not None else None
+                if op["id"] in probe_ids and cbuf is None:
+                    # 一次性自检：给这个 conv 单独挂一块 chsum 缓冲
+                    cbuf, cview = self.engine.alloc_chsum(op["cout"])
+                    cview[...] = 0
+                    f = getattr(cbuf, "flush", None)
+                    if f is not None:
+                        f()
                 if fp is not None:
                     # 写回时直接应用 256 项 LUT（本层标度 -> 目标张量标度）
-                    self.engine.conv(op["in"][0], o0, op, out_lut=fp[4])
+                    self.engine.conv(op["in"][0], o0, op, out_lut=fp[4], chsum=cbuf)
+                elif cbuf is not None:
+                    # 写回时顺便累加每通道和（ECA 前半段用它替代整块扫描）
+                    self.engine.conv(op["in"][0], o0, op, chsum=cbuf)
                 else:
                     self.engine.conv(op["in"][0], o0, op)
+                if op["id"] in probe_ids:
+                    self._chsum_probe_n += 1
+                    self._chsum_probe_bad += self._verify_chsum(
+                        cview, o0, "probe:" + op["name"])
             elif k == "pixel_unshuffle":
                 A.view(o0)[...] = ops.pixel_unshuffle(A.view(op["in"][0]), op["factor"])
             elif k == "pixel_shuffle":
@@ -750,19 +944,33 @@ class Runner:
                 # 2026-10-21：按通道分块算空间均值。原来把整块（144×320×320）
                 # astype 成 float32（59 MB 临时）再求均值；分块后临时数组只有
                 # 32 通道那么大，且逐通道均值与分块无关 → 结果逐位不变。
+                # 2026-10-22：若该输入张量是某个 conv 的**唯一消费者产物**，
+                # 通道和已经由 FUSE_SUM 的 chsum 出口在写回时累加好了 → 直接
+                # 用和算均值，pp/分块扫描两条路都不必走（见 _plan_fuse_sum）。
                 e = self.eca[op["weights_key"]]
                 v = A.view(op["in"][0])
                 sc = self._s(op["in"][0])
-                nc = v.shape[0]
+                nc, hh, ww = v.shape
+                hw = float(hh * ww)
                 mean_c = None
-                if "eca" in self.pp_ops_en and self.pp is not None:
+                ent = self._chsum.pop(op["in"][0], None)
+                if ent is not None:
+                    _cbuf, sums = ent
+                    if self.verify_chsum:
+                        # 板端 bring-up 用：直接拿特征图重算一次和来对拍
+                        # （会让这一段退化回扫描，只用于验证，不用于提速）
+                        self._chsum_verify_bad += self._verify_chsum(
+                            sums, op["in"][0], "eca:" + op["name"])
+                    # 与下面 pp/回退路径同一个公式：mean = 精确和 × s / (H·W)
+                    mean_c = (np.asarray(sums).astype(np.float64) * sc / hw).astype(np.float32)
+                    self._fuse_sums += 1
+                if mean_c is None and "eca" in self.pp_ops_en and self.pp is not None:
                     sums, ok = pp_ops.run_eca_mean(self.pp, A, A.view, self._s,
-                                                   op["in"][0], nc, v.shape[1], v.shape[2])
+                                                   op["in"][0], nc, hh, ww)
                     if ok:
                         # 均值 = (int64 精确和) × 标度 / (H·W)；比 numpy 的
                         # float32 逐步累加更准，差异只在最后几位（attn 层面）
-                        mean_c = (sums.astype(np.float64) * sc
-                                  / float(v.shape[1] * v.shape[2])).astype(np.float32)
+                        mean_c = (sums.astype(np.float64) * sc / hw).astype(np.float32)
                 if mean_c is None:
                     mean_c = np.empty(nc, dtype=np.float32)
                     for c0 in range(0, nc, 32):

@@ -103,6 +103,17 @@ def _inval(b):
         f()
 
 
+def _rc_of(res):
+    """PPEngine.run() 返回 (rc, 秒)；PPSim.run() 只返回 rc。
+
+    2026-10-22 教训：零拷贝版重写时我写成了 `rc = pp.run(...)` 然后 `rc != PP_OK`，
+    而硬件返回的是元组 ⇒ 恒判失败 ⇒ **pp 在硬件上一次都没真正跑过**，
+    全部静默回落 numpy（sam_sum 一直是 29.9 s 而不是 6.3 s）。
+    主机侧测试用的是 PPSim（返回 int），所以完美地掩盖了这个 bug。
+    """
+    return res[0] if isinstance(res, (tuple, list)) else res
+
+
 def _k_ok(k, nsrc):
     k = np.asarray(k, dtype=np.int64)
     return bool(int(np.max(np.abs(k))) * 128 * nsrc < ACC_LIMIT)
@@ -131,7 +142,7 @@ def run_interp(pp, arena, op, view, s_of):
         cb, _ = _scratch(4, np.int32, np.zeros(1, dtype=np.int32))
     try:
         _flush(sb)
-        rc = pp.run(OP_INTERP, [sb], db, cb, C, H, W, out_H=oH, out_W=oW, nsrc=1)
+        rc = _rc_of(pp.run(OP_INTERP, [sb], db, cb, C, H, W, out_H=oH, out_W=oW, nsrc=1))
         if rc != PP_OK:
             return False
         _inval(db)
@@ -156,7 +167,7 @@ def run_eca_mean(pp, arena, view, s_of, name, C, H, W):
         return None, False
     try:
         _flush(sb)
-        rc = pp.run(OP_REDUCE_MEAN, [sb], db, cb, C, H, W, nsrc=1)
+        rc = _rc_of(pp.run(OP_REDUCE_MEAN, [sb], db, cb, C, H, W, nsrc=1))
         if rc != PP_OK:
             return None, False
         _inval(db)
@@ -195,7 +206,7 @@ def run_cat_rescale(pp, arena, op, view, s_of, lay):
             cb, _ = _scratch(c * 4, np.int32, np.full(c, k, dtype=np.int32))
         try:
             _flush(sb)
-            rc = pp.run(OP_RESCALE, [sb], db, cb, c, H, W, dst_ch_off=off, nsrc=1)
+            rc = _rc_of(pp.run(OP_RESCALE, [sb], db, cb, c, H, W, dst_ch_off=off, nsrc=1))
             if rc != PP_OK:
                 return False
             _inval(db)
@@ -230,7 +241,7 @@ def run_add(pp, arena, op, view, s_of):
     try:
         _flush(sb0)
         _flush(sb1)
-        rc = pp.run(OP_ADD, [sb0, sb1], db, cb, C, H, W, nsrc=2)
+        rc = _rc_of(pp.run(OP_ADD, [sb0, sb1], db, cb, C, H, W, nsrc=2))
         if rc != PP_OK:
             return False
         _inval(db)
@@ -269,7 +280,7 @@ def run_sam_sum(pp, arena, op, view, s_of):
     try:
         for s in srcs:
             _flush(s)
-        rc = pp.run(OP_SUM3W, srcs, db, cb, C, H, W, nsrc=4)
+        rc = _rc_of(pp.run(OP_SUM3W, srcs, db, cb, C, H, W, nsrc=4))
         if rc != PP_OK:
             return False
         _inval(db)
