@@ -105,7 +105,10 @@
    默认 0 表示这两个参数完全不使用，HLS 不会为它们生成 AXI-Lite 寄存器，
    交付版的 ABI 与资源（131 DSP / 163 BRAM）保持逐字不变。 */
 #ifndef FUSE_OUT
-#define FUSE_OUT 0
+#define FUSE_OUT 0      /* 256 项出口 LUT（cat 融合）：实测 +0.64 ns，慎用 */
+#endif
+#ifndef FUSE_SUM
+#define FUSE_SUM 0      /* 每通道累加和（ECA 融合）：只是几条 32 位加法器，很便宜 */
 #endif
 
 int conv2d_engine(const data_t *in_fm, const data_t *wgt, const bias_t *bias,

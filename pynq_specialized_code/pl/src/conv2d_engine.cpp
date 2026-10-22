@@ -40,10 +40,13 @@ int conv2d_engine(const data_t *in_fm, const data_t *wgt, const bias_t *bias,
         max_read_burst_length=64 num_read_outstanding=16)
     HLS_PRAGMA(HLS INTERFACE m_axi port=out_fm offset=slave bundle=gmem1 \
         max_write_burst_length=64 num_write_outstanding=16)
+    // 融合出口。**必须**声明 m_axi + depth：否则 HLS 推断成 ap_none，
+    // 那两个指针就不是 AXI-Lite 寄存器，PS 写不进地址（2026-10-22 已踩两次）。
+    // 两个端口**分别**按各自的开关声明 —— chsum 属于 FUSE_SUM，别绑在 FUSE_OUT 上。
 #if FUSE_OUT
-    // 融合出口。**必须**声明 m_axi + depth：否则 HLS 会推断成 ap_none，
-    // 那两个指针就不是 AXI-Lite 寄存器，PS 写不进地址，引擎会拿到未定义值。
     HLS_PRAGMA(HLS INTERFACE m_axi port=out_lut offset=slave bundle=gmem0 depth=256)
+#endif
+#if FUSE_SUM
     HLS_PRAGMA(HLS INTERFACE m_axi port=chsum offset=slave bundle=gmem0 depth=4096)
 #endif
     HLS_PRAGMA(HLS INTERFACE s_axilite port=H bundle=ctrl)
@@ -285,6 +288,17 @@ int conv2d_engine(const data_t *in_fm, const data_t *wgt, const bias_t *bias,
                     }
                     off_ocb += cin_kk * OC_BLOCK;   // 下一 OC 块的起始偏移
 
+#if FUSE_SUM
+                    // ECA 融合：本 OC 块在本行的每通道累加和（寄存器，跨 x2 累加，
+                    // 行末再一次性加到全局 chsum，避免写回循环里对外部内存做读改写）。
+                    int32_t csum_l[OC_BLOCK];
+                    HLS_PRAGMA(HLS ARRAY_PARTITION variable=csum_l complete dim=1)
+                    for (int i = 0; i < OC_BLOCK; ++i) {
+                        HLS_PRAGMA(HLS UNROLL)
+                        csum_l[i] = 0;
+                    }
+#endif
+
                     for (int x2 = 0; x2 < xn; ++x2) {
                         const int cb = x2 * stride;
 
@@ -330,6 +344,9 @@ int conv2d_engine(const data_t *in_fm, const data_t *wgt, const bias_t *bias,
                                 data_t v8 = saturate_int8(v);
 #if FUSE_OUT
                                 if (out_lut != 0) v8 = out_lut[(int)v8 + 128];
+#endif
+#if FUSE_SUM
+                                csum_l[i] += (int32_t)v8;   // ECA 的通道和
 #endif
                                 out_fm[((ocb + i) * Hout + y) * Wout + x0 + x2] = v8;
                             }
@@ -395,6 +412,9 @@ int conv2d_engine(const data_t *in_fm, const data_t *wgt, const bias_t *bias,
                                 data_t v8 = saturate_int8(v);
 #if FUSE_OUT
                                 if (out_lut != 0) v8 = out_lut[(int)v8 + 128];
+#endif
+#if FUSE_SUM
+                                csum_l[i] += (int32_t)v8;   // ECA 的通道和
 #endif
                                 out_fm[((ocb + i) * Hout + y) * Wout + x0 + x2] = v8;
                             }
@@ -487,13 +507,26 @@ int conv2d_engine(const data_t *in_fm, const data_t *wgt, const bias_t *bias,
 #if FUSE_OUT
                                 if (out_lut != 0) v8 = out_lut[(int)v8 + 128];
 #endif
+#if FUSE_SUM
+                                csum_l[i] += (int32_t)v8;   // ECA 的通道和
+#endif
                                 out_fm[((ocb + i) * Hout + y) * Wout + x0 + x2] = v8;
                             }
                             }
                         }
                         }   // end else (ksize != 1)
                     }
-                }
+                
+#if FUSE_SUM
+                    // 本行、本 OC 块的通道和一次性加到全局（chsum 由 PS 侧清零）。
+                    // 放在 x2 循环之外：避免在写回流水里对外部内存做读改写。
+                    if (chsum != 0) {
+                        for (int i = 0; i < ocbl; ++i) {
+                            chsum[ocb + i] += csum_l[i];
+                        }
+                    }
+#endif
+}
             }
         }
 
