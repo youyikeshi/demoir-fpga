@@ -24,6 +24,10 @@ set FPGA [file normalize "$PL/.."]
 set REPO [file normalize "$FPGA/.."]
 
 set ip_repo  [file normalize "$PL/proj/engine_v1/solution1/impl/ip"]
+# v2 层间算子加速器：HLS 工程放在仓库外（放仓库内时 HLS 会把设计文件记成
+# "../src/..." 而解析不到、静默只编 TB）。用 PP_IP_REPO 覆盖。
+set pp_ip_repo [file normalize [expr {[info exists ::env(PP_IP_REPO)] ? $::env(PP_IP_REPO) \
+                  : "/data/work/hls_pp_export/solution1/impl/ip"}]]
 set proj_dir [file normalize "$PL/vivado/proj_engine"]
 set part     xc7z015clg485-2
 set vlnv     demoir:hls:conv2d_engine:1.0
@@ -31,13 +35,16 @@ set vlnv     demoir:hls:conv2d_engine:1.0
 if {![file exists $ip_repo]} {
     error "找不到 HLS IP：$ip_repo（先跑 hls_run_engine.tcl 导出）"
 }
+if {![file exists $pp_ip_repo]} {
+    error "找不到 v2 IP：$pp_ip_repo（先跑 pl_v2/scripts/hls_run_pp.tcl，HLS_PP_PROJ=/data/work/hls_pp_export）"
+}
 
 puts "==== build_bd_engine ===="
 puts "repo   : $REPO"
 puts "ip_repo: $ip_repo"
 
 create_project -force proj_engine $proj_dir -part $part
-set_property ip_repo_paths $ip_repo [current_project]
+set_property ip_repo_paths [list $ip_repo $pp_ip_repo] [current_project]
 update_ip_catalog
 
 create_bd_design design_1
@@ -72,17 +79,25 @@ connect_bd_net [get_bd_pins ps7/FCLK_RESET0_N] [get_bd_pins rst_0/ext_reset_in]
 create_bd_cell -type ip -vlnv $vlnv engine
 
 # ── 控制通路：GP0 → 2 个 AXI-Lite 从口 ──────────────────────────────────
+# ── v2 层间算子加速器 ────────────────────────────────────────────────────
+create_bd_cell -type ip -vlnv xilinx.com:hls:interop_accel:1.0 pp
+
 create_bd_cell -type ip -vlnv xilinx.com:ip:axi_interconnect axi_ctrl
-set_property -dict [list CONFIG.NUM_SI {1} CONFIG.NUM_MI {2}] [get_bd_cells axi_ctrl]
+set_property -dict [list CONFIG.NUM_SI {1} CONFIG.NUM_MI {4}] [get_bd_cells axi_ctrl]
 connect_bd_intf_net [get_bd_intf_pins ps7/M_AXI_GP0] [get_bd_intf_pins axi_ctrl/S00_AXI]
 connect_bd_intf_net [get_bd_intf_pins axi_ctrl/M00_AXI] [get_bd_intf_pins engine/s_axi_control]
 connect_bd_intf_net [get_bd_intf_pins axi_ctrl/M01_AXI] [get_bd_intf_pins engine/s_axi_ctrl]
+connect_bd_intf_net [get_bd_intf_pins axi_ctrl/M02_AXI] [get_bd_intf_pins pp/s_axi_control]
+connect_bd_intf_net [get_bd_intf_pins axi_ctrl/M03_AXI] [get_bd_intf_pins pp/s_axi_ctrl]
 
 # ── 数据通路：两个 m_axi → HP0 ──────────────────────────────────────────
 create_bd_cell -type ip -vlnv xilinx.com:ip:smartconnect smc
-set_property -dict [list CONFIG.NUM_SI {2} CONFIG.NUM_MI {1}] [get_bd_cells smc]
+set_property -dict [list CONFIG.NUM_SI {5} CONFIG.NUM_MI {1}] [get_bd_cells smc]
 connect_bd_intf_net [get_bd_intf_pins engine/m_axi_gmem0] [get_bd_intf_pins smc/S00_AXI]
 connect_bd_intf_net [get_bd_intf_pins engine/m_axi_gmem1] [get_bd_intf_pins smc/S01_AXI]
+connect_bd_intf_net [get_bd_intf_pins pp/m_axi_gmem0] [get_bd_intf_pins smc/S02_AXI]
+connect_bd_intf_net [get_bd_intf_pins pp/m_axi_gmem1] [get_bd_intf_pins smc/S03_AXI]
+connect_bd_intf_net [get_bd_intf_pins pp/m_axi_gmem2] [get_bd_intf_pins smc/S04_AXI]
 connect_bd_intf_net [get_bd_intf_pins smc/M00_AXI] [get_bd_intf_pins ps7/S_AXI_HP0]
 
 # ── 时钟与复位 ──────────────────────────────────────────────────────────
@@ -90,17 +105,23 @@ connect_bd_net [get_bd_pins ps7/FCLK_CLK0] \
     [get_bd_pins ps7/M_AXI_GP0_ACLK] [get_bd_pins ps7/S_AXI_HP0_ACLK] \
     [get_bd_pins axi_ctrl/ACLK] [get_bd_pins axi_ctrl/S00_ACLK] \
     [get_bd_pins axi_ctrl/M00_ACLK] [get_bd_pins axi_ctrl/M01_ACLK] \
-    [get_bd_pins smc/aclk] [get_bd_pins engine/ap_clk]
+    [get_bd_pins axi_ctrl/M02_ACLK] [get_bd_pins axi_ctrl/M03_ACLK] \
+    [get_bd_pins smc/aclk] [get_bd_pins engine/ap_clk] [get_bd_pins pp/ap_clk]
 connect_bd_net [get_bd_pins rst_0/peripheral_aresetn] \
     [get_bd_pins axi_ctrl/ARESETN] [get_bd_pins axi_ctrl/S00_ARESETN] \
     [get_bd_pins axi_ctrl/M00_ARESETN] [get_bd_pins axi_ctrl/M01_ARESETN] \
-    [get_bd_pins smc/aresetn] [get_bd_pins engine/ap_rst_n]
+    [get_bd_pins axi_ctrl/M02_ARESETN] [get_bd_pins axi_ctrl/M03_ARESETN] \
+    [get_bd_pins smc/aresetn] [get_bd_pins engine/ap_rst_n] [get_bd_pins pp/ap_rst_n]
 
 # ── 地址（与 PS 驱动固定地址一致）──────────────────────────────────────
 assign_bd_address -offset 0x40000000 -range 64K -force \
     -target_address_space /ps7/Data [get_bd_addr_segs engine/s_axi_control/Reg]
 assign_bd_address -offset 0x40010000 -range 64K -force \
     -target_address_space /ps7/Data [get_bd_addr_segs engine/s_axi_ctrl/Reg]
+assign_bd_address -offset 0x40020000 -range 64K -force \
+    -target_address_space /ps7/Data [get_bd_addr_segs pp/s_axi_ctrl/Reg]
+assign_bd_address -offset 0x40030000 -range 64K -force \
+    -target_address_space /ps7/Data [get_bd_addr_segs pp/s_axi_control/Reg]
 assign_bd_address
 
 validate_bd_design

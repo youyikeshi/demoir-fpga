@@ -1,0 +1,19 @@
+INFO: [SIM 2] *************** CSIM start ***************
+   Compiling ../../../../../tb/tb_interop.cpp in debug mode
+   Generating csim.exe
+../../../../../tb/tb_interop.cpp:165:49: warning: left operand of comma operator has no effect [-Wunused-value]
+    std::vector<s32>     coef(std::max((size_t)(1, 0), (size_t)PP_COEF_DEPTH), 0);          // 归约不用系数，占位即可
+                                                ^
+1 warning generated.
+ld.lld: error: undefined symbol: interop_accel(ap_int<8> const*, ap_int<8> const*, ap_int<8> const*, ap_int<8> const*, ap_int<8>*, ap_int<32> const*, int, int, int, int, int, int, int, int)
+>>> referenced by tb_interop.cpp:64 (../../../../../tb/tb_interop.cpp:64)
+>>>               obj/tb_interop.o:(test_rescale(int, int, int, int))
+>>> referenced by tb_interop.cpp:83 (../../../../../tb/tb_interop.cpp:83)
+>>>               obj/tb_interop.o:(test_add(int, int, int))
+>>> referenced by tb_interop.cpp:105 (../../../../../tb/tb_interop.cpp:105)
+>>>               obj/tb_interop.o:(test_sum3w(int, int, int, int))
+>>> referenced 2 more times
+clang++: error: linker command failed with exit code 1 (use -v to see invocation)
+make: *** [Makefile.rules:333: csim.exe] Error 1
+ERR: [SIM 100] 'csim_design' failed: compilation error(s).
+INFO: [SIM 3] *************** CSIM finish ***************

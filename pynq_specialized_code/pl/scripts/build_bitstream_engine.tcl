@@ -29,6 +29,17 @@ if {![file exists $proj_file]} {
 puts "==== build_bitstream_engine ===="
 open_project $proj_file
 
+# 上一次构建被中断（OOM / kill）会留下 "Running" 的僵死状态，直接 launch 会报
+# "Run 'impl_1' is already running and cannot be relaunched"。这里先自愈。
+set _st [get_property STATUS [get_runs impl_1]]
+set _pg [get_property PROGRESS [get_runs impl_1]]
+# 判据：只要没到 100% 就先 reset。半成品无法续跑，而僵死状态（Queued.../Running...）
+# 会让 launch 直接报 "already running"。对尚未开始的 run，reset 是无操作。
+if {$_pg ne "100%"} {
+    puts "WARNING: impl_1 未完成（STATUS=$_st PROGRESS=$_pg），先 reset_run 再跑"
+    reset_run impl_1
+}
+
 if {[get_property PROGRESS [get_runs impl_1]] ne "100%"} {
     launch_runs impl_1 -to_step write_bitstream -jobs $jobs
     wait_on_run impl_1

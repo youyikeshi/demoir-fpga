@@ -35,10 +35,13 @@ typedef int32_t     idx_t;
 // ─────────────────────────────────────────────────────────────────────────────
 // 定点工具
 // ─────────────────────────────────────────────────────────────────────────────
-static inline int32_t pp_round_q16(int64_t acc) {
+// 累加器用 int32：4 源 × 128 × 65536 = 3.4e7 < 2^31，绝对安全。
+// 原来用 int64 让 HLS 把每个累加都映射成 DSP48 的"Block Arithmetic"（宽加法链），
+// 与 conv 引擎同板时 DSP 超限。32 位加法一半宽度，DSP 用量显著下降。
+static inline int32_t pp_round_q16(int32_t acc) {
     // 半偶舍入（与 numpy.rint 一致）
-    int64_t q = acc >> 16;
-    const int64_t r = acc & 0xFFFF;
+    int32_t q = acc >> 16;
+    const int32_t r = acc & 0xFFFF;
     if (r > 0x8000) {
         ++q;
     } else if (r == 0x8000) {
@@ -84,6 +87,12 @@ int interop_accel(const data_t *src0, const data_t *src1, const data_t *src2,
 #pragma HLS INTERFACE s_axilite port=return bundle=ctrl
 #endif
 
+#ifdef USE_HLS_TYPES
+    // 2026-10-22：这两个算子块是**纯访存型**（每张图读 0.5~1.5 GB，计算只有几亿次
+    // 8x32 乘），乘法器少几个几乎不影响时间。与 conv 引擎同板时 DSP 只有 160 个，
+    // conv 已占 143，所以这里把 mul 硬限到 8 个（原来综合出 30 个）。
+#pragma HLS ALLOCATION operation instances=mul limit=8
+#endif
     if (op < PP_OP_RESCALE || op > PP_OP_REDUCE_MEAN) return PP_ERR_OP;
     if (C <= 0 || H <= 0 || W <= 0) return PP_ERR_SHAPE;
     if (C > PP_CH_MAX) return PP_ERR_SHAPE;
@@ -106,7 +115,7 @@ int interop_accel(const data_t *src0, const data_t *src1, const data_t *src2,
 #ifdef USE_HLS_TYPES
 #pragma HLS PIPELINE II=1
 #endif
-                const int64_t acc = (int64_t)src0[base_s + i] * (int64_t)k;
+                const int32_t acc = (int32_t)src0[base_s + i] * k;
                 dst[base_d + i] = (data_t)pp_round_q16(acc);
             }
         }
@@ -122,10 +131,10 @@ int interop_accel(const data_t *src0, const data_t *src1, const data_t *src2,
             const int32_t b = c * HW;
             for (int i = 0; i < HW; ++i) {
 #ifdef USE_HLS_TYPES
-#pragma HLS PIPELINE II=1
+#pragma HLS PIPELINE II=2      // 两源共用一个乘法器
 #endif
-                const int64_t acc = (int64_t)src0[b + i] * (int64_t)k0
-                                  + (int64_t)src1[b + i] * (int64_t)k1;
+                const int32_t acc = (int32_t)((int32_t)src0[b + i] * k0)
+                                  + (int32_t)((int32_t)src1[b + i] * k1);
                 dst[b + i] = (data_t)pp_round_q16(acc);
             }
         }
@@ -144,14 +153,20 @@ int interop_accel(const data_t *src0, const data_t *src1, const data_t *src2,
             const coef_t k2 = coef[4 * c + 2];
             const coef_t k3 = coef[4 * c + 3];
             const int32_t b = c * HW;
+            // 源用**运行时循环**而不是 4 条展开的乘加：HLS 只会实例化 1 个乘法器
+            // （II≈nsrc），DSP 从 4 个降到 1 个。SUM3W 是纯访存型，II=4 仍然远快于
+            // DDR 带宽，因此不影响实际速度。
             for (int i = 0; i < HW; ++i) {
 #ifdef USE_HLS_TYPES
-#pragma HLS PIPELINE II=1
+                // II 必须是**常量**：写成 II=nsrc（运行时）HLS 会忽略，仍按 II=1
+                // 排 4 个乘法器。固定 II=4 → 四个源共用一个乘法器。
+                // SUM3W 是纯访存型，II=4 仍远快于 DDR。
+#pragma HLS PIPELINE II=4
 #endif
-                int64_t acc = (int64_t)src0[b + i] * (int64_t)k0;
-                if (nsrc >= 2) acc += (int64_t)src1[b + i] * (int64_t)k1;
-                if (nsrc >= 3) acc += (int64_t)src2[b + i] * (int64_t)k2;
-                if (nsrc >= 4) acc += (int64_t)src3[b + i] * (int64_t)k3;
+                int32_t acc = (int32_t)src0[b + i] * k0;
+                if (nsrc >= 2) acc += (int32_t)src1[b + i] * k1;
+                if (nsrc >= 3) acc += (int32_t)src2[b + i] * k2;
+                if (nsrc >= 4) acc += (int32_t)src3[b + i] * k3;
                 dst[b + i] = (data_t)pp_round_q16(acc);
             }
         }
@@ -171,8 +186,8 @@ int interop_accel(const data_t *src0, const data_t *src1, const data_t *src2,
         for (int c = 0; c < C; ++c) {
             const int32_t sb = c * HW;
             const int32_t db = c * out_H * out_W;
-            for (int oy = 0; oy < out_H; ++oy) {
-                const int32_t numy = (2 * oy + 1) * in8h;
+            int32_t numy = in8h;                    // (2*0+1)*in8h
+            for (int oy = 0; oy < out_H; ++oy, numy += 2 * in8h) {
                 if (numy % (2 * out_H) != 0) return PP_ERR_SHAPE;
                 int posy = numy / (2 * out_H) - 4;   // -0.5 个源像素 = -4/8
                 if (posy < 0) posy = 0;
@@ -180,11 +195,11 @@ int interop_accel(const data_t *src0, const data_t *src1, const data_t *src2,
                 const int y0 = posy >> 3;
                 const int wy = posy & 7;
                 const int y1 = (y0 + 1 < H) ? (y0 + 1) : (H - 1);
-                for (int ox = 0; ox < out_W; ++ox) {
+                int32_t numx = in8w;
+                for (int ox = 0; ox < out_W; ++ox, numx += 2 * in8w) {
 #ifdef USE_HLS_TYPES
 #pragma HLS PIPELINE II=1
 #endif
-                    const int32_t numx = (2 * ox + 1) * in8w;
                     int posx = numx / (2 * out_W) - 4;
                     if (posx < 0) posx = 0;
                     if (posx > (W - 1) * 8) posx = (W - 1) * 8;
