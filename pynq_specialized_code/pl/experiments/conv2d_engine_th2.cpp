@@ -113,7 +113,7 @@ int conv2d_engine(const data_t *in_fm, const data_t *wgt, const bias_t *bias,
     #ifndef THB
 #define THB 2      /* 行批处理：一次填 2 行、算 2 行 */
 #endif
-#define SPAN_BUF (SPAN_MAX + 2)   /* TH=2 行批处理：多留 1 行前瞻 */
+#define SPAN_BUF (SPAN_MAX + 1)   /* TH=2：span + stride，最坏 7+1=8（见下面的守卫） */
     data_t line_buf[CIN_MAX][SPAN_BUF][BWCOL_MAX];
     HLS_PRAGMA(HLS BIND_STORAGE variable=line_buf type=RAM_2P impl=BRAM)
     // 把 7 个行拆成独立 bank：25 个抽头读点不再全部堵在同一块 RAM 上。
@@ -129,6 +129,9 @@ int conv2d_engine(const data_t *in_fm, const data_t *wgt, const bias_t *bias,
         bias_buf[i] = bias[i];
     }
 
+    // TH=2 行批处理需要 span + stride 行；SPAN_BUF = SPAN_MAX+1 = 8。
+    // 只有 (k=5, d=3) 会到 13 行，网络里不存在这种层，直接拒绝而不是静默出错。
+    if ((ksize - 1) * dil + 1 + stride > SPAN_BUF) return ERR_SIZE;
     const int kk = ksize * ksize;
     const int hw = H * W;
     const int cin_kk = cin * kk;   // v3.1：权重装载地址递推的步长
@@ -157,6 +160,7 @@ int conv2d_engine(const data_t *in_fm, const data_t *wgt, const bias_t *bias,
         if (lb > bwcol - la) lb = bwcol - la;
 
         bool row_buf_valid = false;      // 本列块的第一行需要整块装载
+        int prev_adv = stride;           // 上一批推进了几行（末批 th=1 时仍按上一批算）
         // ===== TH=2 行批处理（2026-10-22）=====
         // 填充是延迟受限（实测量级 8 MB/s，而 HP0 能到 500 MB/s）：每读一行就是
         // 一次完整往返。一次装 2 行，把"一次等待"摊到 2 个输出行上，
@@ -170,12 +174,12 @@ int conv2d_engine(const data_t *in_fm, const data_t *wgt, const bias_t *bias,
             const int io_base = need0 * W + gc0 + la;
             const int yspan = span + (th - 1) * stride;   // 本批要覆盖的输入行数
             // 复用：BRAM 内下移 span-stride 行；DDR 只装剩下的 stride 行
-            const int keep = (span > stride) ? (span - stride) : 0;
+            const int keep = (span > prev_adv) ? (span - prev_adv) : 0;
             if (row_buf_valid && keep > 0) {
                 for (int r = 0; r < keep; ++r) {
                     for (int ic = 0; ic < cin; ++ic) {
                         for (int j = 0; j < bwcol; ++j) {
-                            line_buf[ic][r][j] = line_buf[ic][r + th * stride][j];   // 一批 th 行 → 移 th*stride
+                            line_buf[ic][r][j] = line_buf[ic][r + prev_adv][j];   // 按**上一批**的推进量移位
                         }
                     }
                 }
@@ -319,7 +323,7 @@ int conv2d_engine(const data_t *in_fm, const data_t *wgt, const bias_t *bias,
                                 HLS_PRAGMA(HLS PIPELINE II=PIPELINE_II)
                                 const int32_t p = wide1
                                     ? (int32_t)line_buf[ic][cb >> 6][cb & 63]
-                                    : (int32_t)line_buf[ic][0][cb];
+                                    : (int32_t)line_buf[ic][jbase][cb];   // TH=2：行索引随批内行号
                                 for (int i = 0; i < OC_BLOCK; ++i) {
                                     HLS_PRAGMA(HLS UNROLL factor=K1_OC_UNROLL)
                                     const int32_t t1 = p * (int32_t)wgt1_buf[i][ic];
@@ -411,7 +415,7 @@ int conv2d_engine(const data_t *in_fm, const data_t *wgt, const bias_t *bias,
                                 if (ksize == 1) {
                                     for (int ic = 0; ic < cin; ++ic) {
                                         HLS_PRAGMA(HLS PIPELINE II=PIPELINE_II)
-                                        const int32_t p = (int32_t)line_buf[ic][0][cb];
+                                        const int32_t p = (int32_t)line_buf[ic][jbase][cb];
                                         const int32_t wv = (int32_t)wgt_buf[i][ic][0][0];
                                         const int32_t t1 = p * wv;
                                         if (ic & 1) {
@@ -488,6 +492,7 @@ int conv2d_engine(const data_t *in_fm, const data_t *wgt, const bias_t *bias,
                     }
                 }
             }   // end for j2（TH=2 行批）
+            prev_adv = th * stride;
             }
         }
 
