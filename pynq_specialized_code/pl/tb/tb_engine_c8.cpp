@@ -1,11 +1,14 @@
-// 布局位测试台（2026-10-23）：输入/输出**各自**可以按 CHW 或 C8 布局喂/读，
-// 再统一转成 CHW 与 conv_ref_rt（CHW 金标准）逐元素比对。
+// 布局测试台（2026-10-23；第二轮改成**纯编译期**布局）。
 //
-// 布局位（见 conv2d_engine.h；只有 -DC8_LAYOUT=1 的构建才认）：
-//     relu_en bit0 = ReLU
-//     relu_en bit2 = c8_in   （输入缓冲是 C8 布局）
-//     relu_en bit3 = c8_out  （输出缓冲是 C8 布局）
-// 四种组合都要能跑：00 / 11 / 01 / 10。00 是"运行期版退回旧 CHW 行为"的关键回归。
+// 两种构建，各自的布局是编译期定死的，运行期没有选择：
+//     -DC8_LAYOUT=0  CHW：读 input_chw.bin、写 CHW 输出；bit2/bit3 被忽略
+//     -DC8_LAYOUT=1  C8 ：读 input_c8.bin、按 C8 地址写回；bit2/bit3 必须在
+//                        relu_en 里置位（声明位，否则引擎返回 ERR_LAYOUT）
+// 两种构建的输出都转成 CHW 与 conv_ref_rt（CHW 金标准）逐元素比对，所以
+// "同一份数据、同一台机器编出来的两个构建逐字节相同"就是最硬的回归。
+//
+// 历史：上一版是运行期 bit2/bit3 选路（00/11/01/10 四种组合），因为 mux 的
+// 拍数代价（+0.4%~+0.5%）和 LUT 代价（+2,559）被否决，见 conv2d_engine.h。
 //
 // C8 布局：addr(c,y,x) = (c/8)*H*W*8 + y*W*8 + x*8 + (c%8)
 // 数据集目录里的文件（-DC8_LAYOUT=1 时两种都要有）：
@@ -101,9 +104,14 @@ int main(int argc, char **argv) {
     }
 
 #if C8_LAYOUT
+    // 编译期 C8：布局恒定，没有运行期选择。bit2/bit3 是**声明位**——引擎要求
+    // 两位都为 1（见 conv2d_engine.cpp 的 ERR_LAYOUT），所以这里无条件置位，
+    // 让命令行传进来的 relu_en 只剩 bit0 有意义（也正是要顺带验证的点：
+    // 传 1 与传 0b1101 在这个构建里必须等价）。
     const int relu_on = relu_en & 1;
-    const int c8_in   = (relu_en >> RELU_EN_C8IN_BIT) & 1;
-    const int c8_out  = (relu_en >> RELU_EN_C8OUT_BIT) & 1;
+    const int c8_in   = 1;
+    const int c8_out  = 1;
+    relu_en |= (1 << RELU_EN_C8IN_BIT) | (1 << RELU_EN_C8OUT_BIT);
 #else
     // C8_LAYOUT=0 的构建：引擎忽略 bit2/bit3，测试台也必须按 CHW 准备/校验
     // （哪怕命令行传了位，行为应与只传 0/1 完全相同）。
@@ -261,6 +269,27 @@ int main(int argc, char **argv) {
             }
         }
     }
+
+#if C8_LAYOUT
+    // ---- 声明位校验的负向测试 ----
+    // 编译期 C8 的构建里没有 CHW 通路，所以"忘了置 bit2/bit3"必须响亮地失败，
+    // 不能静默按 C8 读 CHW 数据（那是最难查的一类错）。这里清掉两位再调一次，
+    // 期望拿到 ERR_LAYOUT（此时还没写任何输出，不会污染上面的结果）。
+    {
+        const int bad_flags = relu_en
+            & ~((1 << RELU_EN_C8IN_BIT) | (1 << RELU_EN_C8OUT_BIT));
+        const int rc_bad = conv2d_engine(
+            c8_in ? (const data_t *)in_c8 : (const data_t *)in_chw,
+            wgt, bias, out_buf, H, W, Hout, Wout,
+            cin, cout, ksize, stride, dil, pad, shift, bad_flags,
+            (const data_t *)0, (int32_t *)0);
+        if (rc_bad != ERR_LAYOUT) {
+            printf("FAIL: 清掉声明位后返回 %d，期望 ERR_LAYOUT(%d)\n",
+                   rc_bad, (int)ERR_LAYOUT);
+            return 1;
+        }
+    }
+#endif
 
     const char *dump_out = getenv("TB_DUMP_OUT");
     if (dump_out != 0) {

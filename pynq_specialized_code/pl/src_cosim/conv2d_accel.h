@@ -63,10 +63,14 @@
 
 // 返回值：0 表示成功，其余为错误码
 enum {
-    ERR_OK    = 0,
-    ERR_NULL  = 1,
-    ERR_SIZE  = 2,
-    ERR_SHIFT = 3
+    ERR_OK     = 0,
+    ERR_NULL   = 1,
+    ERR_SIZE   = 2,
+    ERR_SHIFT  = 3,
+    /* C8_LAYOUT=1 的构建只认 C8 布局：调用方必须把 relu_en 的 bit2/bit3 都置 1
+       （= "我按 C8 分配了缓冲区"的声明）。声明不符直接报这个错，而不是静默地把
+       CHW 数据当 C8 读（那会算出一堆看似正常的垃圾）。 */
+    ERR_LAYOUT = 4
 };
 
 // HLS 综合目标

@@ -36,9 +36,10 @@ def main():
                          "时序余量不足的旧 bit 请显式传 125")
     ap.add_argument("--dump-out", default=None,
                     help="把板上输出（int8 (3,H,W)）另存为原始文件，便于本机差异分析")
-    ap.add_argument("--pp-ops", default="interp,eca,sam_sum",
-                    help="允许走 v2 加速器的层间算子，逗号分隔（add,cat,sam_sum）。"
-                         "默认空 = 全部走 numpy（保持逐位一致）")
+    ap.add_argument("--pp-ops", default="interp,eca",
+                    help="允许走 v2 加速器的层间算子，逗号分隔（interp,eca）。"
+                         "add/cat/sam_sum 走 pp 都不是逐位一致（整网会把 1 LSB 放大到"
+                         "~59%% 像素），即使写进来也会被 pp_ops 的守卫回落 numpy")
     ap.add_argument("--no-pp", action="store_true",
                     help="不启用 v2 层间算子加速器（用于 A/B 对照）")
     ap.add_argument("--fuse-conv", action="store_true", default=None,
@@ -67,8 +68,11 @@ def main():
                     help="逐算子记录 SHA1 到该文件（与本机对比可定位第一个发散算子）")
     ap.add_argument("--c8", action="store_true", default=None,
                     help="启用 C8 交错布局（等价于环境变量 C8_LAYOUT=1）。"
-                         "要求 C8_LAYOUT=1 综合的 bit（relu_en 的 bit2/bit3）；"
-                         "不给则读环境变量，默认关 = 全 CHW（与旧版逐位一致）")
+                         "**必须**配 C8_LAYOUT=1 综合的纯 C8 bit：此时整网所有 "
+                         "int8 张量都补零到 8 的倍数（3ch->8 / 12ch->16），"
+                         "引擎按 relu_en 的 bit2+bit3 声明位校验（缺一位即 "
+                         "ERR_LAYOUT）。不给则读环境变量，默认关 = 全 CHW。"
+                         "注意：全 CHW 只能配 C8_LAYOUT=0 的 bit。")
     a = ap.parse_args()
     # C8 总开关必须在**构造 arena 之前**定下来（arena 按它决定分配/视图形状）
     if a.c8:

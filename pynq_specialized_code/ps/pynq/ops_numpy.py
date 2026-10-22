@@ -13,7 +13,254 @@
   - cat / slice：无损；add：round + 截断。
 本文件不依赖 PYNQ，本机可自测：python ops_numpy.py
 """
+
+import os as _os
+import platform as _platform
+import subprocess as _subprocess
+
+import numpy as _np
 import numpy as np
+
+# ── 可选的 C 精确内核（sam_sum_fast.c）─────────────────────────────────────
+# 板端 Cortex-A9 跑 float64 numpy ufunc 很慢（6 个 sam_sum 约 16 s）；
+# 同一个逐元素循环用 C 写只要 ~1 s。C 源码随包发布，首次使用时用 cc
+# 现场编���（约 1 s），编不出来/自检不过就静默回落 numpy —— 结果永远一致。
+_C_LIB = {"tried": False, "fn": None}
+_C_DIR = _os.path.dirname(_os.path.abspath(__file__))
+# 只有 ARM（板端 Cortex-A9，没有 double SIMD）才会比 numpy 快；
+# x86 上 numpy 已经向量化，C 反而慢 ⇒ 默认只在 ARM 启用。
+# SAM_SUM_USE_C=1/0 可强制开关（调试用）。
+_ARCH = _platform.machine().lower()
+_C_ARCH_OK = _ARCH.startswith(("arm", "aarch"))
+
+
+_C_LIB = {"tried": False, "lib": None, "fn": None, "fn8": None, "err": None,
+          "warned": False, "fn_sum": None}
+
+
+def _sam_sum_ref_chw(out, y0, y2, y4, attn, x, s0, s2, s4, sx, so, chunk=16):
+    """CHW 参考实现（就是 runner 原来的循环，逐元素同序）。"""
+    c, h, wd = out.shape
+    w = attn.reshape(3, -1)
+    hw = h * wd
+    y0f, y2f, y4f, xf_ = (np.asarray(a).reshape(c, hw) for a in (y0, y2, y4, x))
+    of = out.reshape(c, hw)
+    for c0 in range(0, c, chunk):
+        sl = slice(c0, min(c0 + chunk, c))
+        yf = (w[0][sl].astype(np.float64)[:, None] * (y0f[sl].astype(np.float64) * s0)
+              + w[1][sl].astype(np.float64)[:, None] * (y2f[sl].astype(np.float64) * s2)
+              + w[2][sl].astype(np.float64)[:, None] * (y4f[sl].astype(np.float64) * s4))
+        xf = xf_[sl].astype(np.float64) * sx
+        of[sl] = np.clip(np.rint((xf + yf) / so), -128, 127).astype(np.int8)
+
+
+def _sam_sum_ref_c8(out, y0, y2, y4, attn, x, s0, s2, s4, sx, so):
+    """C8 参考实现：(blocks,H,W,8) 视图，逐元素同序。"""
+    blocks, h, wd, _ = out.shape
+    C = blocks * 8
+    w = np.asarray(attn).reshape(3, -1).reshape(3, blocks, 8)
+    for b in range(blocks):
+        w0 = w[0][b].reshape(1, 1, 8).astype(np.float64)
+        w1 = w[1][b].reshape(1, 1, 8).astype(np.float64)
+        w2 = w[2][b].reshape(1, 1, 8).astype(np.float64)
+        yf = (w0 * (y0[b].astype(np.float64) * s0)
+              + w1 * (y2[b].astype(np.float64) * s2)
+              + w2 * (y4[b].astype(np.float64) * s4))
+        xf = x[b].astype(np.float64) * sx
+        out[b] = np.clip(np.rint((xf + yf) / so), -128, 127).astype(np.int8)
+
+
+def _c_selftest(fn, fn8=None):
+    """用覆盖全部 int8 取值的数据对拍；一位不同就不用 C。"""
+    rng = _np.random.default_rng(20261023)
+    c, h, w = 8, 2, 256
+    y0 = _np.tile(_np.arange(-128, 128, dtype=_np.int8), (c, h, 1))
+    y2 = rng.integers(-128, 128, (c, h, w), dtype=_np.int8)
+    y4 = rng.integers(-128, 128, (c, h, w), dtype=_np.int8)
+    xx = rng.integers(-128, 128, (c, h, w), dtype=_np.int8)
+    attn = (rng.integers(0, 4097, (3 * c, 1, 1)).astype(_np.float32)
+            / _np.float32(4096.0))
+    s0, s2, s4, sx, so = (0.0107458238, 0.00834746197, 0.00943494463,
+                          0.0180516705, 0.013704585)
+    ref = _np.empty((c, h, w), _np.int8)
+    _sam_sum_ref_chw(ref, y0, y2, y4, attn, xx, s0, s2, s4, sx, so)
+    got = _np.empty_like(ref)
+    fn(y0.ctypes.data, y2.ctypes.data, y4.ctypes.data, xx.ctypes.data,
+       attn.ctypes.data, c, h * w, s0, s2, s4, sx, so, got.ctypes.data)
+    if not _np.array_equal(ref, got):
+        return False
+    if fn8 is not None:
+        blocks, hh, ww = 2, 3, 64
+        y0 = rng.integers(-128, 128, (blocks, hh, ww, 8), dtype=_np.int8)
+        y2 = rng.integers(-128, 128, (blocks, hh, ww, 8), dtype=_np.int8)
+        y4 = rng.integers(-128, 128, (blocks, hh, ww, 8), dtype=_np.int8)
+        xx = rng.integers(-128, 128, (blocks, hh, ww, 8), dtype=_np.int8)
+        attn8 = (rng.integers(0, 4097, (3 * blocks * 8, 1, 1)).astype(_np.float32)
+                 / _np.float32(4096.0))
+        ref8 = _np.empty((blocks, hh, ww, 8), _np.int8)
+        _sam_sum_ref_c8(ref8, y0, y2, y4, attn8, xx, s0, s2, s4, sx, so)
+        got8 = _np.empty_like(ref8)
+        fn8(y0.ctypes.data, y2.ctypes.data, y4.ctypes.data, xx.ctypes.data,
+            attn8.ctypes.data, blocks, hh * ww, s0, s2, s4, sx, so,
+            got8.ctypes.data)
+        if not _np.array_equal(ref8, got8):
+            return False
+    return True
+
+
+def _ensure_lib():
+    """编译/加载 .so 并自检；失败返回 None（记录 _C_LIB['err'] 便于诊断）。"""
+    if _C_LIB["tried"]:
+        return _C_LIB
+    _C_LIB["tried"] = True
+    env = _os.environ.get("SAM_SUM_USE_C", "").strip().lower()
+    if env in ("0", "false", "off", "no"):
+        _C_LIB["err"] = "SAM_SUM_USE_C=0"
+        return _C_LIB
+    if not _C_ARCH_OK and env not in ("1", "true", "on", "yes"):
+        _C_LIB["err"] = "非 ARM（%s），numpy 已足够快" % _ARCH
+        return _C_LIB
+    import ctypes
+    src = _os.path.join(_C_DIR, "sam_sum_fast.c")
+    if not _os.path.exists(src):
+        _C_LIB["err"] = "缺少 sam_sum_fast.c"
+        return _C_LIB
+    so = _os.path.join(_C_DIR, "sam_sum_fast_%s.so" % _platform.machine())
+
+    def _open(path):
+        try:
+            return ctypes.CDLL(path)
+        except Exception as e:                  # noqa: BLE001
+            _C_LIB["err"] = "CDLL 失败: %s" % e
+            return None
+
+    lib = _open(so)
+    if lib is not None and _os.path.getmtime(src) > _os.path.getmtime(so):
+        lib = None                              # C 源码更新过 → 必须重编
+    if lib is None:
+        try:
+            _subprocess.run(
+                [_os.environ.get("CC", "cc"), "-O2", "-std=c99",
+                 "-ffp-contract=off", "-fPIC", "-shared", "-o", so, src],
+                check=True, timeout=90,
+                stdout=_subprocess.DEVNULL, stderr=_subprocess.DEVNULL)
+        except Exception as e:                  # noqa: BLE001
+            _C_LIB["err"] = "cc 编译失败: %s" % e
+            return _C_LIB
+        lib = _open(so)
+        if lib is None:
+            return _C_LIB
+
+    def _sym(name, c8):
+        try:
+            f = getattr(lib, name)
+        except Exception as e:                  # noqa: BLE001
+            _C_LIB["err"] = "找不到符号 %s: %s" % (name, e)
+            return None
+        if c8:
+            f.argtypes = ([ctypes.c_void_p] * 5 + [ctypes.c_int, ctypes.c_int64]
+                          + [ctypes.c_double] * 5 + [ctypes.c_void_p])
+        else:
+            f.argtypes = ([ctypes.c_void_p] * 5 + [ctypes.c_int, ctypes.c_int64]
+                          + [ctypes.c_double] * 5 + [ctypes.c_void_p])
+        f.restype = None
+        return f
+
+    fn = _sym("sam_sum_f64", False)
+    fn8 = _sym("sam_sum_c8_f64", True)
+    fsum = _sym("chsum_c8", None)
+    if fsum is not None:
+        fsum.argtypes = [ctypes.c_void_p, ctypes.c_int, ctypes.c_int64,
+                         ctypes.c_void_p]
+    if fn is None:
+        return _C_LIB
+    try:
+        ok = _c_selftest(fn, fn8)
+    except Exception as e:                      # noqa: BLE001
+        _C_LIB["err"] = "自检异常: %s" % e
+        return _C_LIB
+    if not ok:
+        _C_LIB["err"] = "自检不一致（C 与 numpy 有位差）"
+        return _C_LIB
+    _C_LIB["lib"] = lib
+    _C_LIB["fn"] = fn
+    _C_LIB["fn8"] = fn8
+    _C_LIB["fn_sum"] = fsum
+    _C_LIB["err"] = None
+    print("INFO: sam_sum C 内核已启用（%s，CHW%s）"
+          % (so, " + C8" if fn8 is not None else ""))
+    return _C_LIB
+
+
+def _sam_sum_c():
+    return _ensure_lib()["fn"]
+
+
+def _sam_sum_c8_c():
+    return _ensure_lib()["fn8"]
+
+
+_IO_BUF = {"n": 0, "bufs": None}
+
+
+def _io_bufs(n):
+    """复用的私有 int8 缓冲（5 份，最大尺寸），用于"池→私有→池"整块搬运。
+
+    板端 arena 是 CMA 的**非缓存**映射：CPU 逐字节访问极慢（实测同一个 C
+    内核在池视图上 3.65 s/op，在私有数组上 0.75 s/op），但整块 memcpy
+    有 260~570 MB/s。所以先把 4 个源整块拷进私有缓冲、算完再整块写回。
+    """
+    if _IO_BUF["n"] < n:
+        _IO_BUF["bufs"] = tuple(_np.empty(n, _np.int8) for _ in range(5))
+        _IO_BUF["n"] = n
+    return tuple(b[:n] for b in _IO_BUF["bufs"])
+
+
+def chsum_c8(src, nc):
+    """C8 视图 (blocks,H,W,8) 的逐通道 int64 精确和；C 不可用时抛异常。"""
+    lib = _ensure_lib()
+    fn = lib.get("fn_sum")
+    if fn is None:
+        raise RuntimeError("chsum_c8 C 内核不可用: %s" % lib.get("err"))
+    blocks, h, wd, last = src.shape
+    if last != 8 or blocks * 8 < nc:
+        raise ValueError("chsum_c8 需要 (blocks,H,W,8) 视图")
+    n = int(blocks) * h * wd * 8
+    b0 = _io_bufs(n)[0]
+    _np.copyto(b0, _np.asarray(src).reshape(-1))
+    sums = _np.empty(blocks * 8, _np.int64)
+    fn(b0.ctypes.data, blocks, h * wd, sums.ctypes.data)
+    return sums[:nc]
+
+
+def sam_sum_c8_into(out, y0, y2, y4, attn, x, s0, s2, s4, sx, s_out):
+    """C8 交错布局的 SAM 融合（原地写 out，逐位一致）。
+
+    视图一律是 (blocks, H, W, 8)；C 内核不可用时抛 RuntimeError，
+    调用方回落到 _sam_sum_c8 里的 numpy 循环。
+    """
+    fn = _sam_sum_c8_c()
+    if fn is None:
+        raise RuntimeError("C8 C 内核不可用: %s" % _C_LIB.get("err"))
+    blocks, h, wd, last = out.shape
+    if last != 8:
+        raise ValueError("sam_sum_c8_into 需要 (blocks,H,W,8) 视图")
+    a = np.ascontiguousarray(attn, dtype=np.float32)
+    srcs = [np.asarray(v) for v in (y0, y2, y4, x)]
+    if not (out.flags.c_contiguous and a.flags.c_contiguous
+            and all(v.flags.c_contiguous and v.dtype == np.int8 for v in srcs)):
+        raise ValueError("C8 输入不是连续 int8 视图")
+    n = int(blocks) * h * wd * 8
+    b0, b2, b4, bx, bo = _io_bufs(n)
+    _np.copyto(b0, srcs[0].reshape(-1))
+    _np.copyto(b2, srcs[1].reshape(-1))
+    _np.copyto(b4, srcs[2].reshape(-1))
+    _np.copyto(bx, srcs[3].reshape(-1))
+    fn(b0.ctypes.data, b2.ctypes.data, b4.ctypes.data,
+       bx.ctypes.data, a.ctypes.data, blocks, h * wd,
+       float(s0), float(s2), float(s4), float(sx), float(s_out),
+       bo.ctypes.data)
+    _np.copyto(out.reshape(-1), bo)
 
 
 def _q(t):
@@ -186,6 +433,95 @@ def sam_sum(y0, y2, y4, attn, x):
          + w[1][:, None, None] * y2.astype(np.float32)
          + w[2][:, None, None] * y4.astype(np.float32))
     return _q(y + x.astype(np.float32))
+
+
+def sam_sum_into(out, y0, y2, y4, attn, x, s0, s2, s4, sx, s_out, chunk_hw=8192,
+                 use_c=True):
+    """SAM 融合的**分层量化语义**版本，原地写 out，运算顺序与 runner 旧循环逐位一致。
+
+    背景（2026-10-23）：v2 pp 加速器的 SUM3W 用 Q16 int32 系数 + int32 累加，
+    与这里 float64 的 `w*(y*s)` 只差 ~1e-5 量级，整网却有 ~59% 像素不同——
+    因为网络对中间特征 1 LSB 的扰动会雪崩（实测：只翻 sam_sum#0 的**一个**
+    像素，最终输出就有 721,977/1,228,800 不同）。所以 sam_sum 必须逐位一致，
+    pp 的 Q16 定点在这条链路上不可用。
+
+    这里的算式与 runner 原来的分块循环**逐元素同序**（IEEE 运算不可重排）：
+        yf  = w0*(y0*s0) + w1*(y2*s2) + w2*(y4*s4)   # 左结合，每个乘积先算
+        out = clip(rint((xf + yf) / s_out), -128, 127).astype(int8)
+
+    唯一改动是**循环顺序**：旧实现按 16 通道一块、每块 4.9M×8 B 的 float64
+    临时数组（板端内存带宽被打满，6 个 sam_sum 共 24.7 s）；这里按
+    "1 通道 × chunk_hw 个像素"分块，两块 float64 缓冲常驻 L2（各 64 KB），
+    读的仍然只有 4 份 int8 + 写 1 份 int8。数值逐位不变（分块与逐元素
+    运算顺序无关，已在主机用真实形状/标度验证 0 差异）。
+    """
+    c, h, wd = out.shape
+    if not out.flags.c_contiguous:
+        raise ValueError("sam_sum_into 要求 out 是 C 连续视图")
+    hw = h * wd
+    if use_c and c * hw >= 20000:
+        fn = _sam_sum_c()
+        if fn is not None:
+            a = np.ascontiguousarray(attn, dtype=np.float32)
+            srcs = [np.asarray(v) for v in (y0, y2, y4, x)]
+            if (a.flags.c_contiguous and all(
+                    v.flags.c_contiguous and v.dtype == np.int8 for v in srcs)):
+                b0, b2, b4, bx, bo = _io_bufs(c * hw)
+                np.copyto(b0, srcs[0].reshape(-1))
+                np.copyto(b2, srcs[1].reshape(-1))
+                np.copyto(b4, srcs[2].reshape(-1))
+                np.copyto(bx, srcs[3].reshape(-1))
+                fn(b0.ctypes.data, b2.ctypes.data,
+                   b4.ctypes.data, bx.ctypes.data, a.ctypes.data,
+                   c, hw, float(s0), float(s2), float(s4), float(sx),
+                   float(s_out), bo.ctypes.data)
+                np.copyto(out.reshape(-1), bo)
+                return
+            if not _C_LIB["warned"]:
+                _C_LIB["warned"] = True
+                print("INFO: sam_sum 的输入不是连续 int8 视图，回落 numpy 分块")
+        elif not _C_LIB["warned"]:
+            _C_LIB["warned"] = True
+            print("INFO: sam_sum 用 numpy 分块路径（C 内核未启用：%s）"
+                  % _C_LIB.get("err"))
+    w = attn.reshape(3, -1)
+    w0 = np.asarray(w[0], dtype=np.float64)
+    w1 = np.asarray(w[1], dtype=np.float64)
+    w2 = np.asarray(w[2], dtype=np.float64)
+    y0f, y2f, y4f, xf_ = (np.asarray(a).reshape(c, hw) for a in (y0, y2, y4, x))
+    of = out.reshape(c, hw)
+    n = max(1, min(int(chunk_hw), hw))
+    acc = np.empty(n, dtype=np.float64)
+    tmp = np.empty(n, dtype=np.float64)
+    for ch in range(c):
+        ww0, ww1, ww2 = float(w0[ch]), float(w1[ch]), float(w2[ch])
+        r0 = y0f[ch]
+        r2 = y2f[ch]
+        r4 = y4f[ch]
+        rx = xf_[ch]
+        ro = of[ch]
+        for o0 in range(0, hw, n):
+            o1 = min(o0 + n, hw)
+            a = acc[:o1 - o0]
+            t = tmp[:o1 - o0]
+            # yf 第 1 项
+            np.multiply(r0[o0:o1], s0, out=a)
+            a *= ww0
+            # 第 2 项
+            np.multiply(r2[o0:o1], s2, out=t)
+            t *= ww1
+            a += t
+            # 第 3 项
+            np.multiply(r4[o0:o1], s4, out=t)
+            t *= ww2
+            a += t
+            # xf（先算，再与 yf 相加；IEEE 加法可交换）
+            np.multiply(rx[o0:o1], sx, out=t)
+            a += t
+            a /= s_out
+            np.rint(a, out=a)
+            np.clip(a, -128, 127, out=a)
+            ro[o0:o1] = a.astype(np.int8)
 
 
 # ---------------- 本机自测 ----------------

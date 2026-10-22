@@ -26,7 +26,7 @@
 //   · Hout/Wout 必须等于 same-padding 卷积的输出尺寸 floor((n-1)/stride)+1，内核会校验。
 // relu_en：bit0=1 卷积后做 ReLU（默认，等价旧版）；bit0=0 线性输出（饱和
 // [-128,127]），供 Ghost 残差投影与解码器输出层使用（v2，2026-10-15）。
-// 2026-10-23 起同一个寄存器还带布局位 bit2(输入 C8)/bit3(输出 C8)，
+// 2026-10-23 起同一个寄存器还带 bit2/bit3（C8 布局的**声明位**，不是选路位），
 // 见下面 C8_LAYOUT 的说明 —— **不能再用 `relu_en != 0` 判 ReLU**。
 
 #include "conv2d_accel.h"  // 复用 data_t / acc_t / bias_t / ERR_* / HLS_PRAGMA
@@ -54,25 +54,30 @@
 #endif
 
 #ifndef C8_LAYOUT
-/* 激活布局的**编译期能力开关**（2026-10-23）：
+/* 激活布局的**编译期开关**（2026-10-23；第二轮改为纯编译期，无运行期 mux）：
    0 = 只实现 CHW（addr = c*H*W + y*W + x），**逐字等价于改造前的版本**；
        relu_en 的 bit2/bit3 被**忽略**（硬件里没有 C8，行为与旧版完全相同）。
-   1 = 硬件里同时有 CHW 与 C8 两套地址/填充通路，**按层在运行期切换**：
-         relu_en bit2 = c8_in   （输入缓冲是 C8 布局）
-         relu_en bit3 = c8_out  （输出缓冲是 C8 布局）
-       C8 布局：addr = (c/8)*H*W*8 + y*W*8 + x*8 + (c%8)（见
-       docs/设计/设计_激活tiled布局_C8交错.md）。
-       输入/输出**各自独立**：网络里有 cin 对齐而 cout 不对齐的层
-       （decoder_1.out_conv, cout=12），也有 cin 不对齐而 cout 对齐的层
-       （encoder.conv_first, cin=12 / cout=48），一位不够用。
-   要求调用方把 C8 侧的输入/输出张量按 ceil(C/8)*H*W*8 补零分配（C 不是 8 的
-   倍数时，最后一个通道块的尾部 8-C%8 个通道读出的是零，永远不参与乘加）。 */
+   1 = 只实现 C8 交错布局（addr = (c/8)*H*W*8 + y*W*8 + x*8 + (c%8)，见
+       docs/设计/设计_激活tiled布局_C8交错.md）。**硬件里没有 CHW 通路**：
+       填充与写回是唯一一份 C8 代码，数据通路里没有任何布局 mux。
+       relu_en 的 bit2/bit3 在这个构建里是**声明位**：调用方声明"输入/输出
+       缓冲区按 ceil(C/8)*8*H*W 分配并清零、按 C8 地址读写"；两位都必须为 1，
+       否则返回 ERR_LAYOUT（不选路，只做一次入参校验）。
+   为什么不做运行期位（上一版的教训）：运行期 select 让写回循环多 1~2 拍，
+   cosim 339,120 → 340,500、板上 conv 129.8 → 139.6 s（+7.5%），C8 的收益
+   被吃光；而"两种布局都要支持"本身又让 LUT +2,559、DSP +13。
+   现在的前提是 PS 侧把所有 int8 张量补零到 8 的倍数（3ch -> 8、12ch -> 16），
+   于是整网只有一种布局。非 8 倍数的 cin/cout 依然被正确支持：
+   cin 侧读满最后一个 8 通道块（补零区是 0）、乘加只跑 ic<cin；
+   cout 侧只写 cout 个通道，尾部补零通道保持 0。 */
 #define C8_LAYOUT 0
 #endif
 
 /* relu_en 的位定义（2026-10-23）。**不要再把它当布尔用**：
-     bit0 = ReLU（原有语义）；bit2/bit3 是布局位，只有 C8_LAYOUT=1 的构建才认。
-     代码里必须写 `relu_en & 1`；写 `relu_en != 0` 会在设了布局位时误开 ReLU
+     bit0 = ReLU（原有语义）；
+     bit2/bit3 = C8 布局的声明位：C8_LAYOUT=1 的构建**要求**两位都为 1
+     （否则 ERR_LAYOUT），不参与任何地址计算；C8_LAYOUT=0 的构建完全忽略。
+     代码里必须写 `relu_en & 1`；写 `relu_en != 0` 会在设了声明位时误开 ReLU
      （与 depthwise 方案踩过的同类隐患）。 */
 #define RELU_EN_RELU_BIT  0
 #define RELU_EN_C8IN_BIT  2

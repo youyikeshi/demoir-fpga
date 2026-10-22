@@ -7,10 +7,10 @@
      · `py_compile` 编译 ps/ 下全部 .py（语法/导入期错误）
      · C8_LAYOUT 未设置时，布局表必须**全 False**（= 与整合前完全一致）
   B) 布局/分配单测（不跑网络）
-     · 判定表：int8 且 C%8==0 ⇒ C8；fp32 / 非 8 倍数 ⇒ CHW
-     · 字节数：C8 的 ceil(C/8)*8*H*W == C*H*W（本网络 ⇒ **零额外内存**）；
-       非对齐张量（c=13）才需要补零区，且补零区必须是 0
-     · 内存池：C8 与 CHW 的池大小/偏移表必须**逐字节相同**
+     · 判定表：**int8 ⇒ C8（全部补零到 8 的倍数）**；fp32 ⇒ CHW。没有例外
+     · 字节数：对齐张量 ceil(C/8)*8*H*W == C*H*W（零额外内存）；非对齐的
+       4 个张量（3ch/12ch）多占 (8-C%8)*H*W，补零区必须是 0
+     · 内存池：C8 与 CHW 的偏移表相同、池只多出补零那点字节
      · cat 别名组：C8 视图是 (total/8,H,W,8)，成员 = 通道块切片；
        逐组核对"组的 CHW 视图 [off:off+c]" == "成员的 CHW 视图"（偏移公式）
      · 引擎 relu_en 位：relu/in-c8/out-c8 的四种组合
@@ -90,32 +90,38 @@ def stage_b(manifest):
     off = c8_layout.table(manifest, on=False)
     on = c8_layout.table(manifest, on=True)
 
-    # 判定表
-    exp = {t: (m["dtype"] == "int8" and m["c"] % 8 == 0) for t, m in bufs.items()}
-    check("判定表 == 规则(int8 且 C%8==0)", on == exp)
+    # 判定表：int8 全部走 C8（补零到 8 的倍数），fp32 走 CHW
+    exp = {t: (m["dtype"] == "int8") for t, m in bufs.items()}
+    check("判定表 == 规则(int8 ⇒ C8，无例外)", on == exp)
     check("默认表全 False（与整合前一致）", not any(off.values()))
     n8, nchw, exc, nfp = c8_layout.stats(on, manifest)
     print("       C8=%d  int8 CHW=%d  fp32=%d" % (n8, nchw, nfp), flush=True)
-    check("C8=508 / int8 例外 8 / fp32 6（共 522 个 buffer）",
-          (n8, nchw, nfp) == (508, 8, 6), "实际 %d/%d/%d" % (n8, nchw, nfp))
+    check("C8=516 / int8 例外 0 / fp32 6（共 522 个 buffer）",
+          (n8, nchw, nfp) == (516, 0, 6), "实际 %d/%d/%d" % (n8, nchw, nfp))
+    check("c8_layout.table() 里没有 int8 的 False（除 fp32）",
+          all(v for t, v in on.items() if bufs[t]["dtype"] == "int8"))
 
-    # 字节数：本网络所有 C8 张量都恰好 C*H*W（零额外内存）
-    worse = [(t, bufs[t]["c"], bufs[t]["h"], bufs[t]["w"])
-             for t, is8 in on.items()
-             if is8 and c8_layout.nbytes(bufs[t]["c"], bufs[t]["h"], bufs[t]["w"],
-                                         True) != bufs[t]["bytes"]]
-    check("C8 字节数 == CHW 字节数（零额外内存）", not worse, str(worse[:3]))
-    # 非对齐张量才需要补零区
-    check("c=13 的 C8 补零：ceil(13/8)*8*2*3 == 96",
+    # 字节数：对齐张量零额外内存；4 个非对齐张量多占 (8-C%8)*H*W
+    worse = [(t, bufs[t]["c"]) for t, is8 in on.items()
+             if is8 and bufs[t]["c"] % 8 == 0
+             and c8_layout.nbytes(bufs[t]["c"], bufs[t]["h"], bufs[t]["w"], True)
+             != bufs[t]["bytes"]]
+    check("对齐张量：C8 字节数 == CHW 字节数（零额外内存）", not worse, str(worse[:3]))
+    pad_t = [t for t, is8 in on.items() if is8 and bufs[t]["c"] % 8]
+    extra = sum(c8_layout.nbytes(bufs[t]["c"], bufs[t]["h"], bufs[t]["w"], True)
+                - bufs[t]["bytes"] for t in pad_t)
+    print("       补零张量 %d 个：%s，合计多占 %.2f MB"
+          % (len(pad_t), sorted(pad_t), extra / 1e6), flush=True)
+    check("补零张量正好是 3ch/12ch 那 8 个（执行面 4 个）",
+          sorted(pad_t) == ["t0", "t1", "t342", "t343", "t431", "t432",
+                            "t520", "t521"], str(sorted(pad_t)))
+    # 非对齐张量：补零区存在且形状是 ceil(C/8) 个通道块
+    check("c=13 的 C8 补零：ceil(13/8)*8*2*3 == 96，视图 %r"
+          % (c8_layout.view_shape(13, 2, 3, True),),
           c8_layout.nbytes(13, 2, 3, True) == 96
           and c8_layout.pad_channels(13, True) == 16
-          and c8_layout.nbytes(13, 2, 3, False) == 78)
-    try:
-        c8_layout.view_shape(13, 2, 3, True)
-        raised = False
-    except ValueError:
-        raised = True
-    check("非 8 对齐的 C8 视图直接报错（不允许静默算错）", raised)
+          and c8_layout.nbytes(13, 2, 3, False) == 78
+          and c8_layout.view_shape(13, 2, 3, True) == (2, 2, 3, 8))
     # 补零区必须是 0（np.zeros 分配 ⇒ 恒成立）
     z = np.zeros(c8_layout.view_shape(16, 2, 3, True), np.int8)
     z = z.reshape(16, 2, 3)[13:]
@@ -124,9 +130,14 @@ def stage_b(manifest):
     # 池大小/偏移：C8 与 CHW 必须逐字节相同（规范 §3：偏移公式不用改）
     s0, o0 = plan_pool(manifest, layout=off)
     s1, o1 = plan_pool(manifest, layout=on)
-    check("内存池大小不变（C8 vs CHW）", s0 == s1, "%d vs %d" % (s0, s1))
+    print("       池大小：CHW %.2f MB  C8 %.2f MB（+%.2f MB，来自 4 个补零张量）"
+          % (s0 / 1e6, s1 / 1e6, (s1 - s0) / 1e6), flush=True)
+    check("C8 池只多出补零的字节（< 8 MB）", 0 <= (s1 - s0) < 8 * 2 ** 20,
+          "%d vs %d" % (s0, s1))
     diff = [t for t in o0 if o0[t] != o1[t]]
-    check("所有张量池偏移不变（C8 vs CHW）", not diff, str(diff[:3]))
+    print("       偏移表差异 %d 个张量（补零张量变大后重新打包，属预期）"
+          % len(diff), flush=True)
+    check("池大小仍远小于 PYNQ CMA（128 MB）", s1 < 96 * 2 ** 20, "%.1f MB" % (s1 / 1e6))
 
     # cat 别名组：C8 组视图 (total/8,H,W,8)；成员 = 通道块切片；偏移公式对
     ag0 = compute_cat_alias(manifest, is_c8=off)
@@ -275,19 +286,18 @@ def stage_b(manifest):
         dist[k] = dist.get(k, 0) + 1
     print("       conv 的 (c8_in,c8_out) 分布: %s"
           % {str(k): v for k, v in sorted(dist.items())}, flush=True)
-    # 执行面（needed）247 个 conv：245 个 (1,1) + conv_first (0,1) + out_conv (1,0)
-    check("(in,out)=(1,1) 245 / (0,1) 1 / (1,0) 1（needed 247 个）",
-          (dist.get((True, True)), dist.get((False, True)), dist.get((True, False)))
-          == (245, 1, 1), str(dist))
+    # 执行面（needed）247 个 conv：**全部 (1,1)** —— 没有任何层需要混搭
+    check("(in,out) 全部 (1,1)：%d 个 conv" % dist.get((True, True), 0),
+          list(dist.keys()) == [(True, True)] and dist.get((True, True)) == 247,
+          str(dist))
     by_name = {o["name"]: o for o in manifest["ops"] if o["op"] == "conv"}
-    a = by_name["encoder.conv_first"]
-    b = by_name["decoder.decoder_1.out_conv"]
-    check("encoder.conv_first = CHW 进 / C8 出",
-          (on[a["in"][0]], on[a["out"][0]]) == (False, True),
-          "cin=%d cout=%d" % (a["cin"], a["cout"]))
-    check("decoder.decoder_1.out_conv = C8 进 / CHW 出",
-          (on[b["in"][0]], on[b["out"][0]]) == (True, False),
-          "cin=%d cout=%d" % (b["cin"], b["cout"]))
+    for nm in ("encoder.conv_first", "decoder.decoder_1.out_conv"):
+        a = by_name[nm]
+        check("%s：输入/输出都是 C8（cin=%d cout=%d，补零到 %d/%d）"
+              % (nm, a["cin"], a["cout"],
+                 c8_layout.pad_channels(a["cin"], True),
+                 c8_layout.pad_channels(a["cout"], True)),
+              (on[a["in"][0]], on[a["out"][0]]) == (True, True))
     return on, n8, nchw, exc, nfp
 
 
@@ -387,7 +397,8 @@ def _check_pyq_arena(manifest, on):
         for t, meta in bufs.items():
             v = arena.view(t)
             if on[t]:
-                if v.shape != (meta["c"] // 8, meta["h"], meta["w"], 8):
+                if v.shape != c8_layout.view_shape(meta["c"], meta["h"],
+                                                   meta["w"], True):
                     bad.append((t, "shape", v.shape))
             elif v.shape != (meta["c"], meta["h"], meta["w"]):
                 bad.append((t, "shape", v.shape))
@@ -419,7 +430,8 @@ def _check_pyq_arena(manifest, on):
                     bad.append((t, "不共享内存"))
                 if arena.offs[t] != arena.offs[gname] + off_c * grp["h"] * grp["w"]:
                     bad.append((t, "组内偏移", arena.offs[t], arena.offs[gname]))
-                if v.shape != (bufs[t]["c"] // 8, grp["h"], grp["w"], 8):
+                if v.shape != c8_layout.view_shape(bufs[t]["c"], grp["h"],
+                                                   grp["w"], True):
                     bad.append((t, "成员形状", v.shape))
         return not bad, str(bad[:3])
     finally:
@@ -559,12 +571,22 @@ def stage_d(manifest, on, n8, nchw, exc, nfp):
             need.update(op.get("out", []))
     print("   总计 %d 个 buffer：C8 %d 个、CHW %d 个（fp32 %d + int8 例外 %d）"
           % (len(bufs), n8, nchw, nfp, len(exc)), flush=True)
-    print("   8 个 int8 例外（保持 CHW）:", flush=True)
+    print("   int8 例外（保持 CHW）: %d 个（补零后全部走 C8）" % len(exc), flush=True)
     for t, c, h, w in exc:
         print("     %-6s C=%-3d %dx%d  %s" % (t, c, h, w,
                                              "执行面上会碰到" if t in need
                                              else "不在 needed 子图内"),
               flush=True)
+    pad_t = [t for t in bufs if on.get(t) and bufs[t]["c"] % 8]
+    if pad_t:
+        print("   补零到 8 的倍数后仍走 C8 的（原通道数 -> 补零后）:", flush=True)
+        for t in sorted(pad_t):
+            m = bufs[t]
+            print("     %-6s C=%-3d -> %-3d %dx%d  %s"
+                  % (t, m["c"], c8_layout.pad_channels(m["c"], True),
+                     m["h"], m["w"],
+                     "执行面上会碰到" if t in need else "不在 needed 子图内"),
+                  flush=True)
     print("   字节量：C8 %d 个张量共 %.1f MB，CHW %d 个共 %.1f MB"
           % (n8, sum(m["bytes"] for t, m in bufs.items()
                      if on[t]) / 1e6,

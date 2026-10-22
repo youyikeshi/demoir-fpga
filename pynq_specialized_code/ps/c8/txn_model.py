@@ -90,8 +90,9 @@ def collect(manifest, wide1, reuse):
         H, W = op["h"], op["w"]                     # 输入 H/W
         Hout, Wout = bufs[o0]["h"], bufs[o0]["w"]   # 输出 H/W
         cin, cout = op["cin"], op["cout"]
-        c8_in = 8 if cin % 8 == 0 else 0             # 例外张量（12ch）保持 CHW
-        c8_out = 8 if cout % 8 == 0 else 0
+        # 2026-10-23 第二轮：PS 把所有 int8 张量补零到 8 的倍数 ⇒ 引擎恒按 C8
+        # 寻址（cin=12 读满 16 个通道位、乘加只跑 ic<12）。例外张量不再保留 CHW。
+        c8_in, c8_out = 8, 8
         n0, b0 = read_bursts(H, W, Hout, Wout, cin, op["k"], op["s"],
                              op["d"], op["pad"], 0, wide1, reuse)
         n1, _ = read_bursts(H, W, Hout, Wout, cin, op["k"], op["s"],

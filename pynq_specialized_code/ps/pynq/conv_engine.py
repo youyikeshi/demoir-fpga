@@ -13,10 +13,11 @@ R_CIN, R_COUT, R_KSIZE = 0x38, 0x40, 0x48
 R_STRIDE, R_DIL, R_PAD, R_SHIFT = 0x50, 0x58, 0x60, 0x68
 R_RELU = 0x70               # v2：relu_en 寄存器。**不是布尔**（2026-10-23 起）：
                             #   bit0 = ReLU 使能（原有语义）
-                            #   bit2 = 输入缓冲区是 C8 交错布局（C8_LAYOUT=1 的 bit）
-                            #   bit3 = 输出缓冲区是 C8 交错布局
-                            # C8_LAYOUT=0 的综合构建只看 bit0；bit2/bit3 被硬件
-                            # 忽略，所以旧 bit 上写全 0/1 的行为逐位不变。
+                            #   bit2/bit3 = C8 布局的**声明位**（不是选路位）
+                            # 纯编译期 C8 构建（C8_LAYOUT=1）要求两位**都为 1**，否则
+                            # 返回 ERR_LAYOUT(4)；硬件里没有 CHW 通路，这两位不参与
+                            # 任何地址计算（所以没有 mux 代价）。
+                            # C8_LAYOUT=0 的综合构建完全忽略这两位的值。
 # relu_en 的位定义（与 pl/src/conv2d_engine.h 的 RELU_EN_* 一一对应）
 RELU_BIT, C8_IN_BIT, C8_OUT_BIT = 0, 2, 3
 
@@ -29,6 +30,9 @@ def relu_flags(relu=True, c8_in=False, c8_out=False):
         flags = (1 if relu else 0) | (4 if in_is_c8 else 0) | (8 if out_is_c8 else 0)
 
     C8 关闭时 c8_in/c8_out 都是 False ⇒ 返回值只有 0/1，与整合前完全一致。
+
+    C8_LAYOUT=1 的 bit（纯编译期 C8）要求两位都为 1：整网所有 int8 张量都按
+    ``ceil(C/8)*8`` 通道分配的 C8 缓冲区，所以恒传 True。
     """
     return ((1 if relu else 0)
             | (1 << C8_IN_BIT if c8_in else 0)

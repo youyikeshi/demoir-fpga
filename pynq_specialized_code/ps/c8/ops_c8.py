@@ -14,7 +14,8 @@
   A. **完全布局无关，可直接在 C8 上算**（逐元素，结果与布局无关）
        rescale（标度重标定 = 256 项字节查表）、add、sam_sum 的逐元素部分
   B. **必须转 CHW**（通道轴有重排/归约，或归约顺序敏感）
-       pixel_shuffle / pixel_unshuffle（通道重排）
+       pixel_shuffle / pixel_unshuffle（通道重排；**唯一会碰补零张量的两个**，
+       入口按 c_in 切掉补零通道、出口按 c_out 补零，见 _logical_chw/_with_pad）
        interp / pool / sum（H/W 归约，C8 只是 reshape，其实也可以直接算，
        但为了与基线逐位相同统一转 CHW）
        eca（float32 均值对归约顺序敏感 —— 见报告「坑」）
@@ -91,14 +92,46 @@ def sam_sum(y0, y2, y4, attn, x, lay="chw", c8=C8):
 
 # ---------------------------------------------------------------- B 类：转 CHW
 
-def pixel_unshuffle(t, lay, r=2, out_lay="chw", c8=C8):
-    """(C,H*r,W*r) -> (C*r*r,H,W)：通道重排，必须先转 CHW。"""
-    return as_layout(ops.pixel_unshuffle(chw(t, lay, c8), r), out_lay, c8)
+def _logical_chw(t, lay, c_in, c8=C8):
+    """转 CHW 并按**逻辑**通道数切掉补零通道（c_in=None 时不动）。
+
+    2026-10-23 第二轮：C8 覆盖全部 int8 张量后，t0(3ch)/t1(12ch)/t520(12ch)/
+    t521(3ch) 的 C8 视图里都有补零通道（8 或 16 个通道位）。重排类算子必须
+    先按逻辑通道数切，否则通道数会多出 5/4 个、形状全错。
+    """
+    x = chw(t, lay, c8)
+    if c_in is not None and int(x.shape[0]) != int(c_in):
+        x = x[:int(c_in)]
+    return x
 
 
-def pixel_shuffle(t, lay, r=2, out_lay="chw", c8=C8):
+def _with_pad(y, out_lay, c_out, c8=C8):
+    """CHW 结果 -> 目标布局；C8 且通道数不是 8 的倍数时补零到 ceil。
+
+    返回值的形状与 `c8_layout.view_shape(c_out,...,True)` 一致，可直接整块
+    赋给 arena 视图（补零通道为 0，引擎/下游只读前 c_out 个）。
+    """
+    if out_lay == "c8" and int(y.shape[0]) % c8:
+        padded = np.zeros(((int(y.shape[0]) + c8 - 1) // c8 * c8,) + y.shape[1:],
+                          dtype=y.dtype)
+        padded[:y.shape[0]] = y
+        y = padded
+    return as_layout(y, out_lay, c8)
+
+
+def pixel_unshuffle(t, lay, r=2, out_lay="chw", c_in=None, c_out=None, c8=C8):
+    """(C,H*r,W*r) -> (C*r*r,H,W)：通道重排，必须先转 CHW。
+
+    c_in / c_out：逻辑通道数（C8 视图可能带补零通道；None = 按视图通道数）。
+    """
+    return _with_pad(ops.pixel_unshuffle(_logical_chw(t, lay, c_in, c8), r),
+                     out_lay, c_out, c8)
+
+
+def pixel_shuffle(t, lay, r=2, out_lay="chw", c_in=None, c_out=None, c8=C8):
     """(C*r*r,H,W) -> (C,H*r,W*r)：通道重排，必须先转 CHW。"""
-    return as_layout(ops.pixel_shuffle(chw(t, lay, c8), r), out_lay, c8)
+    return _with_pad(ops.pixel_shuffle(_logical_chw(t, lay, c_in, c8), r),
+                     out_lay, c_out, c8)
 
 
 def interp(t, lay, num, den, out_lay="c8", c8=C8):

@@ -1,23 +1,22 @@
 #!/usr/bin/env python3
-"""运行期布局位的形状回归（g++ 版 tb_engine_c8，**四种 c8_in/c8_out 组合**）。
+"""编译期 C8 布局的形状回归（g++ 版 tb_engine_c8）。
 
-与 `fuzz_shapes.py` 的关系：形状/随机数据完全同构。每个用例生成两份输入
-（CHW 与 C8，用软件侧已归档的 `ps/c8/c8lib.py` 的 `to_c8(..., pad=True)` 生成），
-然后对下面四种布局组合各跑一次引擎，输出统一转 CHW 与 `conv_ref_rt` 逐位比对：
+与 `fuzz_shapes.py` 的关系：形状/随机数据完全同构，**23 个形状**逐一跑。
+每个用例生成两份输入（CHW 与 C8，用软件侧已归档的 `ps/c8/c8lib.py` 的
+`to_c8(..., pad=True)` 生成；C8 输入按 ceil(C/8)*8 通道补零），输出统一转
+CHW 与 `conv_ref_rt` 逐位比对：
 
-    (c8_in, c8_out) = (0,0)  ← "运行期版退回旧 CHW 行为"的关键回归
-                      (1,1)  ← C8 版本体
-                      (0,1)  ← conv_first（cin=12 CHW，cout=48 C8）
-                      (1,0)  ← decoder_1.out_conv（cin 对齐 C8，cout=12 CHW）
+    build/tb_engine_c8.exe      ← -DC8_LAYOUT=1：只跑 C8（布局编译期定死）
+    build/tb_engine_c8_chw.exe  ← -DC8_LAYOUT=0：只跑 CHW
 
-所以它同时验证：
-  ① 引擎内部的 C8 地址公式 == numpy 版 c8lib 的布局（读到错位就会算错）；
-  ② 输出 C8 写回的位置正确（含 cout 不是 8 的倍数时不写越界）；
-  ③ 输入/输出两个布局位**互不影响**（混合组合也对）。
+上一版是运行期 bit2/bit3 选路的四种组合（00/11/01/10）；本版布局在编译期
+定死，组合只剩一种，判据变成"两个**独立构建**逐字节相同"：
 
-额外的强回归：如果存在 `build/tb_engine_c8_chw.exe`（同一份测试台用
-`-DC8_LAYOUT=0` 编出来），会把每组的 (0,0) 输出与它**逐字节**比对，
-并确认在 C8_LAYOUT=0 的构建里 bit2/bit3 被**忽略**（传 0b1101 与传 0b0001 同结果）。
+  ① C8 构建的输出 == conv_ref_rt（引擎内部 C8 地址公式 == c8lib 的布局）；
+  ② C8 构建的输出 == CHW 构建的输出（逐字节；含 cout 非 8 倍数时补零通道
+     没被写脏、cin 非 8 倍数时补零区不被乘加"读进来"）；
+  ③ CHW 构建忽略 bit2/bit3（传 0b1101 与传 0b0001 同结果）；
+  ④ C8 构建对"声明位"缺失报 ERR_LAYOUT（由测试台内的负向测试断言）。
 
 用法（pynq_specialized_code/pl 下）：
     /data/work/venv-demoir/bin/python scripts/fuzz_c8_shapes.py
@@ -41,8 +40,8 @@ C8LIB = os.path.join(REPO, "pynq_specialized_code", "ps", "c8")
 sys.path.insert(0, C8LIB)
 import c8lib  # noqa: E402  （仓库里已归档的软件实现，逐位验证过 517 算子）
 
-# (c8_in, c8_out) —— relu_en 的 bit2 / bit3
-COMBOS = [(0, 0), (1, 1), (0, 1), (1, 0)]
+# 编译期布局：C8 构建只有一种组合（bit2/bit3 是声明位，由测试台无条件置位）
+COMBOS = [(1, 1)]
 
 
 def write_case(d, cin, cout, k, h, w, shift, seed):
@@ -164,10 +163,10 @@ def main():
             if not good:
                 print("      [%d%d] %s" % (c8_in, c8_out,
                                            out.strip().splitlines()[-1] if out else "无输出"))
-        # 本用例的四种组合必须彼此逐字节一致（同一参考实现，同一数据）
+        # 编译期布局：只有一种组合，组合间一致性退化为"存在即一致"
         same = len(set(outs.values())) <= 1
         if have_chw:
-            # 与 C8_LAYOUT=0 的构建逐字节比对（(0,0) 组合）
+            # 与 C8_LAYOUT=0 的**另一个构建**逐字节比对
             dump_ref = os.path.join(ddir, "out_chwbuild.bin")
             rc, out = run_tb(TB_CHW, ddir, cin, cout, k, s, dil, pad, 1, dump_ref)
             with open(dump_ref, "rb") as f:
@@ -180,10 +179,10 @@ def main():
                 ref2 = f.read()
             chw_n += 1
             if (rc == 0 and rc2 == 0 and ref == ref2
-                    and (0, 0) in outs and outs[(0, 0)] == ref):
+                    and (1, 1) in outs and outs[(1, 1)] == ref):
                 chw_same += 1
             else:
-                print("      !! #%02d (0,0) 与 C8_LAYOUT=0 构建不一致"
+                print("      !! #%02d C8 构建与 C8_LAYOUT=0 构建不一致"
                       "（rc=%d/%d，bit 忽略=%s）" % (i, rc, rc2, ref == ref2))
         ok += case_ok and same
         print("[%s] #%02d cin=%d(->%d) cout=%d(->%d) k=%d s=%d d=%d p=%d %dx%d  %s%s"
@@ -191,11 +190,11 @@ def main():
                  cout, ((cout + 7) // 8) * 8, k, s, dil, pad, h, w,
                  " ".join(flags), "" if same else "  组合间不一致"))
 
-    print("==== 运行期布局回归 %d/%d 用例 PASS ====" % (ok, n))
+    print("==== 编译期 C8 布局回归 %d/%d 用例 PASS ====" % (ok, n))
     print("     分组合计：" + "  ".join("%d%d=%d/%d" % (a, b, ok_combo[(a, b)], n)
                                        for (a, b) in COMBOS))
     if have_chw:
-        print("     (0,0) 与 C8_LAYOUT=0 构建逐字节一致：%d/%d"
+        print("     C8 构建与 C8_LAYOUT=0 构建逐字节一致：%d/%d"
               "（含 bit2/bit3 被忽略的验证）" % (chw_same, chw_n))
     sys.exit(0 if ok == n and n >= 20 and (not have_chw or chw_same == chw_n) else 1)
 
