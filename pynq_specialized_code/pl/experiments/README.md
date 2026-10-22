@@ -74,3 +74,39 @@ DSP **131 → 47**、FF 17.0k → **8.9k**、BRAM 163 → 115，Fmax 仍 172 MHz
   并在启用 ECA 融合时读回 `chsum[cout]`；
 - manifest 需要在 conv 算子条目里带上 `out_lut`（打包时生成）；
 - 完成后 cat 的重定标（5.7 s）与 ECA 的均值遍历（7.8 s）都可以不再单独走一遍 DDR。
+
+---
+
+## ⚠️ 事故记录（2026-10-22 21:50）：FUSE_OUT=1 的 bit 把板子挂死了
+
+**现象**：把 `FUSE_OUT=1` 的 bit 部署到板上、用**旧驱动**跑 `test_on_board.py`，
+5 个用例全部 `rc=0 但大量不一致`；随后整网跑了几秒，板子直接失联（ping 不通、SSH 无路由，
+主机网口正常），需要断电重启。
+
+**根因**：`FUSE_OUT=1` 的 bit 多出 `out_lut`（0x40）和 `chsum`（0x4C）两个 AXI-Lite
+基地址寄存器。旧驱动**根本不写**这两个寄存器 ⇒ 它们保持复位后的未定义值 ⇒
+RTL 里 `if (out_lut != 0)` 判真 ⇒ 引擎拿垃圾地址去读 256 字节 LUT ⇒
+对未映射地址发起 AXI 访问 ⇒ HP 口/互连死锁 ⇒ PS 侧后续访问挂死。
+
+**为什么之前的验证没抓到**：主机侧 A/B 用的是 `RefEngine`（纯 numpy），
+根本走不到 AXI；而 bit 的 ABI 变化只有真跑硬件才暴露。
+
+**两条改进（下次必须做）**
+1. **RTL 侧改用魔法值使能**，而不是 `!= 0`：
+   `if (out_lut == (const data_t*)0x5AFE0000ULL || ...)` —— 未初始化寄存器几乎不可能撞上；
+   或干脆加一个 s_axilite 的 `fuse_en` 标量，默认 0。
+2. **驱动侧初始化即写 0**：`Conv2dEngine.__init__` 在拿到 `fuse_offsets` 后立刻把两个
+   寄存器写 0，而不是等到第一次 `run()`。这样即使中途异常也不会留垃圾。
+
+**部署纪律**
+- `FUSE_OUT=1` 的 bit **必须**配"会写这两个寄存器"的驱动一起部署；
+  当前驱动需要 `--fuse-offsets 0x40,0x4c`（来自导出 IP 的 `xconv2d_engine_hw.h`）；
+- 板子重启后加载的是 `/home/xilinx/demoir_new/design_1.bit`（现在还是 fusion 版），
+  要么带 `--fuse-offsets` 跑，要么把交付版 bit 重新拷回去。
+
+**权威寄存器偏移（FUSE_OUT=1，取自 `xconv2d_engine_hw.h`）**
+| 寄存器 | 偏移 |
+|---|---|
+| in_fm / wgt / bias / out_fm | 0x10 / 0x1C / 0x28 / 0x34 |
+| **out_lut** | **0x40** |
+| **chsum** | **0x4C** |
