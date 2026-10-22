@@ -69,6 +69,15 @@ class Conv2dEngine:
             if len(fuse_offsets) != 2:
                 raise ValueError("fuse_offsets 必须是 (out_lut偏移, chsum偏移)")
             self.fuse_offsets = (int(fuse_offsets[0]), int(fuse_offsets[1]))
+            # ★ 构造即清零（2026-10-22 事故后加固）：
+            # FUSE_OUT=1 的 bit 里，out_lut/chsum 是**未初始化的 AXI-Lite 寄存器**。
+            # 若第一次 run() 之前有任何路径启动引擎，RTL 的 `if (out_lut != 0)`
+            # 会判真，引擎就拿垃圾地址去读 LUT → 未映射 AXI 访问 → HP 口死锁 → PS 挂死。
+            # 所以拿到偏移后立刻写 0，不留任何窗口。
+            off_lut, off_sum = self.fuse_offsets
+            for off in (off_lut, off_sum):
+                self.offs.write(off, 0)
+                self.offs.write(off + 4, 0)
         else:
             self.fuse_offsets = None
 
