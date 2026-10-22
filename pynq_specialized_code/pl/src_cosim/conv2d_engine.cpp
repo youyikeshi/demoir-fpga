@@ -23,6 +23,19 @@ inline data_t saturate_int8(int32_t v) {
 
 }  // namespace
 
+// ---- 2026-10-23 第三轮：DDR 访问加宽的公共位宽类型 ----
+// 动机见 docs/设计/记录_20261023_conv相位拆解与DDR窄访问根因.md：
+// HLS 只为 `data_t*`（ap_int<8>）指针发 1 字节的 AXI 请求（ARLEN=1），
+// 一个 beat 只用 1/4 带宽。这里把指针按 32 bit 重新解释，让每笔请求带 4 字节。
+// g++ 侧没有 ap_uint，用原生整数顶上，保证同一份代码两个环境都能编。
+#ifdef USE_HLS_TYPES
+typedef ap_uint<32> w32_t;
+#define W32_BYTE(v, n) ((data_t)(v).range(8 * (n) + 7, 8 * (n)))    /* n 必须是常量 */
+#else
+typedef uint32_t w32_t;
+#define W32_BYTE(v, n) ((data_t)(uint8_t)(((v) >> (8 * (n))) & 0xFFu))
+#endif
+
 // 输出地址（2026-10-23，**编译期**决定，无运行期选路）。
 // OC_BLOCK 按 8 对齐轮转 ⇒ 同一像素的 8 个 oc 在 C8 布局里正好是**连续 8 字节**：
 //   addr(oc,y,x) = (oc/8)*Hout*Wout*8 + y*Wout*8 + x*8 + (oc%8)
@@ -149,6 +162,15 @@ int conv2d_engine(const data_t *in_fm, const data_t *wgt, const bias_t *bias,
     // 目的：把 oc 从"串行 8 个"改成"内层展开"，消除每个 oc 重开一次 ic 流水的
     // 气泡（板端实测 k=3 是 6.69 拍/单元，微基准 4.01）。
     // 8×352×9 = 25.3 KB，放 LUTRAM（约 +3.2k LUT），不动已经很紧的 BRAM。
+    // 2026-10-23 第三轮：k=3 权重装载的宽读**试过又退回**（记录在此，别再试）：
+    //   要宽读就得让"一个 oc 的 cin*9 字节连续"，最自然的写法是把
+    //   wgt3_buf 拍平成 [oc][cin*9]。结果：装载确实能宽读了，但**读侧垮了** ——
+    //   计算时每个 ic 的 9 个抽头原来靠 (ky,kx) 各占一个 bank（8*3*3=72 个
+    //   LUTRAM bank，每个抽头一个读口），拍平后 9 个抽头挤在同一 bank 上，
+    //   8 路 oc 展开 × 9 抽头 ⇒ 一个 bank 要 9 个读口。csynth：DSP 111→119、
+    //   FF 24,956→28,595、LUT 38,056→42,464（82%→91%），不能上板。
+    //   下一轮的正解：改导出侧，把 k=3 权重按"每 ic 补齐到 12/16 字节"重排
+    //   （或按 (ky,kx) 拆成 9 个平面），让宽读和分 bank 同时成立。
     data_t wgt3_buf[OC_BLOCK][CIN_MAX][3][3];
     HLS_PRAGMA(HLS ARRAY_PARTITION variable=wgt_buf complete dim=3)
     HLS_PRAGMA(HLS ARRAY_PARTITION variable=wgt_buf complete dim=4)
@@ -167,6 +189,17 @@ int conv2d_engine(const data_t *in_fm, const data_t *wgt, const bias_t *bias,
     // factor=2/4 与 complete 同为 165——拆分是当前结构的最优选择。
     // （历史教训：块减半会让 RAM 被复制成 336 块。）
     HLS_PRAGMA(HLS ARRAY_PARTITION variable=line_buf complete dim=2)
+#if C8_LAYOUT
+    // 2026-10-23 第三轮（实测结论，别再试）：**不要**给 dim1 加 cyclic 拆分。
+    // 试过 `cyclic factor=4 dim=1`，让填充一拍并行写 4 个 bank（II=1）。
+    // 功能完全正确、BRAM 一点不涨（仍是 172），但 csynth LUT 从 35,361 涨到
+    // 42,920（76% → 92%）、FF +1,438：28 个 bank 之后，**每一处** line_buf 读写
+    // 都要生成 28 份"地址 + 片选"，而 line_buf 的读写点在三条计算路径里一共
+    // 40 来个 ⇒ 光 mux/译码就是 +5k LUT。当前 impl 已 80.66%，这条路不能走。
+    // 现在的取舍：填充"每拍写 1 字节、每 4 拍读 1 个 32-bit 字"（II=4），
+    // 事务宽度一样是 4 字节（ARLEN 1→4，这才是板端收益的来源），
+    // 而 line_buf 保持原样 ⇒ 资源逐项不变。
+#endif
 
     // bias 很小，一次装全部
     bias_t bias_buf[COUT_MAX];
@@ -262,11 +295,34 @@ int conv2d_engine(const data_t *in_fm, const data_t *wgt, const bias_t *bias,
                     //   · 输出侧 —— 引擎只写 cout 个通道，尾部补零通道保持 0，
                     //     下游按逻辑通道数（12）读前 12 个。
                     const int nwide = lb * C8_CH;
+                    // ---- 2026-10-23 第三轮：填充改成 32-bit 读 ----
+                    // 原来 `in_fm[iob + t]` 每次只读 1 字节 ⇒ RTL 里
+                    // `m_axi_gmem0_0_ARLEN = 64'd1`（长度按**字节**算），
+                    // 一个 32 位 beat 只搬 1 个有效字节，板端 10.5 拍/字节。
+                    // C8 布局下连续 4 字节 = 同一像素的 4 个通道，所以按
+                    // `ap_uint<32>*` 读：每笔请求 4 字节 ⇒ 事务数 ÷4。
+                    // 对齐前提（两条都恒成立，已逐项核对）：
+                    //   · iob = io_row*8 + (cinb>>3)*H*W*8 → 恒为 8 的倍数；
+                    //   · lb*8 恒为 4 的倍数（其实恒为 8 的倍数）。
+                    //
+                    // 写侧**必须保持"每拍 1 字节"**：line_buf 只按行（dim2）
+                    // 分了 7 个 bank，同一拍写 4 个不同 c 会撞同一个 bank 的
+                    // 单写口，HLS 就会把 line_buf 按通道再拆成 28 个 bank ——
+                    // 实测 LUT 35,361 → 40,996（+5.6k，76%→88%），impl 放不下。
+                    // 所以这里用"循环携带寄存器"：每 4 拍读进一个 32-bit 字
+                    // （`hold`），其余 3 拍从它里面取字节，一拍只写 1 个字节。
+                    // 循环形态与改造前完全相同（1 写/拍、II=1），只有 DDR 那次
+                    // 读变宽 —— 资源逐项不变。
                     if (row_ok) {
-                        HLS_PRAGMA(HLS PIPELINE II=1)
+                        const w32_t *p32 =
+                            reinterpret_cast<const w32_t *>(in_fm + iob);
+                        w32_t hold = 0;
                         for (int t = 0; t < nwide; ++t) {
+                            if ((t & 3) == 0) {
+                                hold = p32[t >> 2];
+                            }
                             line_buf[cinb + (t & (C8_CH - 1))][r][la + (t >> 3)] =
-                                in_fm[iob + t];
+                                (data_t)(hold >> ((t & 3) << 3));
                         }
                     } else {
                         for (int t = 0; t < nwide; ++t) {
@@ -339,12 +395,37 @@ int conv2d_engine(const data_t *in_fm, const data_t *wgt, const bias_t *bias,
                     if (ksize == 1) {
                         // 1×1 的权重每个 (oc,ic) 只有 1 字节，单独做一条可流水的
                         // 连续读取；避免通用分支里运行期 k 造成的动态索引和长等待。
+                        // 2026-10-23 第三轮：改成 32-bit 读。C8/CHW 两种布局下
+                        // 权重包都是 `[cout][cin][1][1]` **逐 oc 连续**，所以
+                        // 同一个 oc 的 cin 个权重就是一段连续字节，连续 4 个
+                        // cin 可以一次读 4 字节（事务数 ÷4）。
+                        // 对齐：off_ocb 每次加 cin_kk*OC_BLOCK = cin*8 ⇒ 恒为 8
+                        // 的倍数；块内 off1 = off_ocb + i*cin，只有 cin%4==0 时
+                        // 才保证 4 对齐 ⇒ cin%4!=0 走原来的逐字节慢路径
+                        // （否则末尾那个字会读到下一个 oc 的地界外）。
+                        // 写侧仍是每拍 1 字节（wgt1_buf 的 dim1 按 oc 分 bank，
+                        // dim2 只有 1 个写口），所以用"每 4 拍取一个字"的
+                        // 循环携带寄存器写法，循环形态与改造前一致。
                         int off1 = off_ocb;
-                        for (int i = 0; i < ocbl; ++i, off1 += cin_kk) {
-                            HLS_PRAGMA(HLS PIPELINE II=1)
-                            for (int ic = 0; ic < cin; ++ic) {
+                        if ((cin & 3) == 0) {
+                            for (int i = 0; i < ocbl; ++i, off1 += cin_kk) {
+                                const w32_t *pw1 = reinterpret_cast<const w32_t *>(
+                                    wgt + off1);
+                                w32_t hold1 = 0;
+                                for (int ic = 0; ic < cin; ++ic) {
+                                    if ((ic & 3) == 0) {
+                                        hold1 = pw1[ic >> 2];
+                                    }
+                                    wgt1_buf[i][ic] =
+                                        (data_t)(hold1 >> ((ic & 3) << 3));
+                                }
+                            }
+                        } else {
+                            for (int i = 0; i < ocbl; ++i, off1 += cin_kk) {
                                 HLS_PRAGMA(HLS PIPELINE II=1)
-                                wgt1_buf[i][ic] = wgt[off1 + ic];
+                                for (int ic = 0; ic < cin; ++ic) {
+                                    wgt1_buf[i][ic] = wgt[off1 + ic];
+                                }
                             }
                         }
                     } else if (ksize == 3) {
@@ -356,6 +437,10 @@ int conv2d_engine(const data_t *in_fm, const data_t *wgt, const bias_t *bias,
                         // 改法：按 k 拆分支把步长变成编译期常量 9，指针递推 +
                         // II=1，让 9 个读被预取。这里不涉及任何谓词，访问仍是
                         // 连续常量偏移，因此**不会**像"填充循环"那样破坏 burst。
+                        // 2026-10-23 第三轮：k=3 的宽读**试过又退回**（见 wgt3_buf
+                        // 声明处的记录）。9 字节步长 + 读侧 9 抽头分 bank，
+                        // 这两件事在现有 wgt3_buf 形状下不能同时满足：
+                        // 拍平能宽读但读侧 LUT 91%。先保持逐字节（ARLEN=1/word）。
                         int off = off_ocb;
                         for (int i = 0; i < ocbl; ++i, off += cin_kk) {
                             const data_t *wp = wgt + off;
@@ -435,6 +520,16 @@ int conv2d_engine(const data_t *in_fm, const data_t *wgt, const bias_t *bias,
                                     }
                                 }
                             }
+// 2026-10-23 第三轮：写回**试过 64-bit 打包，实测无收益，已退回逐字节**
+                            // 记录：C8 下同一像素 8 个 oc 是连续 8 字节，本以为
+                            // 8 次单字节写 → 1 次 64-bit 写能省 8×（写回 13.1 s 的大头）。
+                            // 板上实测相反：write_heavy_8_192 2341 → 2472 ms（慢 5.6%），
+                            // swap_8_64 820.6 → 832.2 ms（慢 1.4%）。
+                            // 说明 HLS 早就把这条"连续地址的 8 次单字节写"合成了
+                            // 一笔 burst（AWLEN/AWSIZE 自适应的写入适配器），
+                            // 加宽只多付了打包的 64-bit 桶形移位 + 3 块 BRAM
+                            // + 约 2.7k LUT。写回的真正成本是**每笔写事务的
+                            // 往返延迟且没有流水**（≈19 拍/字节），不是事务宽度。
                             for (int i = 0; i < ocbl; ++i) {
                                 const int32_t acc = (int32_t)acc0[i] + (int32_t)acc1[i];
                                 int32_t v = acc + (int32_t)bias_buf[ocb + i];
@@ -503,6 +598,16 @@ int conv2d_engine(const data_t *in_fm, const data_t *wgt, const bias_t *bias,
                                     }
                                 }
                             }
+// 2026-10-23 第三轮：写回**试过 64-bit 打包，实测无收益，已退回逐字节**
+                            // 记录：C8 下同一像素 8 个 oc 是连续 8 字节，本以为
+                            // 8 次单字节写 → 1 次 64-bit 写能省 8×（写回 13.1 s 的大头）。
+                            // 板上实测相反：write_heavy_8_192 2341 → 2472 ms（慢 5.6%），
+                            // swap_8_64 820.6 → 832.2 ms（慢 1.4%）。
+                            // 说明 HLS 早就把这条"连续地址的 8 次单字节写"合成了
+                            // 一笔 burst（AWLEN/AWSIZE 自适应的写入适配器），
+                            // 加宽只多付了打包的 64-bit 桶形移位 + 3 块 BRAM
+                            // + 约 2.7k LUT。写回的真正成本是**每笔写事务的
+                            // 往返延迟且没有流水**（≈19 拍/字节），不是事务宽度。
                             for (int i = 0; i < ocbl; ++i) {
                                 const int32_t acc = (int32_t)acc0[i] + (int32_t)acc1[i];
                                 int32_t v = acc + (int32_t)bias_buf[ocb + i];
