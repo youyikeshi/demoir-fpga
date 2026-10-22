@@ -11,6 +11,10 @@ set src_dir  [file normalize "$here/../src"]
 set tb_dir   [file normalize "$here/../tb"]
 set proj_dir [file normalize "$here/../proj/pp_v1"]
 set cflags   "-DUSE_HLS_TYPES -I$src_dir"
+# 2026-10-22：支持额外宏（如 -DPP_OPS_MIN=1 只编 SUM3W 分支）。
+# 注意：这个 tcl 原来**没有**这条，导致我设 EXTRA_CFLAGS 后两次综合结果完全相同
+# —— 宏根本没进编译器。改完务必确认结果有变化，别只看脚本不报错。
+if {[info exists ::env(EXTRA_CFLAGS)]} { append cflags " " $::env(EXTRA_CFLAGS) }
 
 if {[info exists ::env(HLS_PP_PROJ)]} { set proj_dir [file normalize $::env(HLS_PP_PROJ)] }
 puts "==== hls_run_pp : $proj_dir ===="

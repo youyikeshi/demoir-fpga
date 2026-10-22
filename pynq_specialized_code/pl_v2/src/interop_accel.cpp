@@ -94,7 +94,7 @@ int interop_accel(const data_t *src0, const data_t *src1, const data_t *src2,
 // 2026-10-22：PP 是**访存型**（约 0.8 MAC/byte），II 放大几乎不增加墙钟时间，
 // 但能把乘法器共享掉 —— 这是"把 PP 做小"最直接的一招。
 // limit=2 时 32×32 乘法器最多 2 个（≈8 DSP），而 DDR 往返时间完全不变。
-#pragma HLS ALLOCATION operation instances=mul limit=2
+#pragma HLS ALLOCATION operation instances=mul limit=1
 #endif
     if (op < PP_OP_RESCALE || op > PP_OP_REDUCE_MEAN) return PP_ERR_OP;
     if (C <= 0 || H <= 0 || W <= 0) return PP_ERR_SHAPE;
@@ -106,9 +106,20 @@ int interop_accel(const data_t *src0, const data_t *src1, const data_t *src2,
     // 1~4 个系数，放寄存器，不需要 C×nsrc 的片上表（SUM3W 会到 4C = 9 KB）。
     const int HW = H * W;
 
+    // 2026-10-22：**只保留必需算子**的裁剪开关。
+    // 背景：pp 与 8 车道卷积同板时，DSP 已能压到 8~11，但布局仍失败；
+    // 面积（LUT）是主因。而真正无法融合、必须留在 pp 里的只有 SUM3W（sam_sum，
+    // 跨特征图，写回时拿不到别路数据）；RESCALE（cat）与 REDUCE_MEAN（eca）都能
+    // 融进卷积写回，ADD 只有 1.6 s 且可回 numpy，INTERP 是生产型算子无法融合。
+    // 打开后只编 SUM3W 一个分支，其余算子返回 ERR_OP。
+#ifndef PP_OPS_MIN
+#define PP_OPS_MIN 0
+#endif
+
     switch (op) {
     // ── RESCALE：单位置缩放（吃掉 cat 的重定标）──────────────────────────────
     // dst[(dst_ch_off + c)*H*W + i] = sat(round(src0[c*H*W + i] * kbuf[c]) >> 16)
+#if !PP_OPS_MIN
     case PP_OP_RESCALE: {
         // 2026-10-22：**LUT 化**。数据是 int8（只有 256 种取值），所以
         //   dst = clip(round(src * k / 2^16))
@@ -141,7 +152,9 @@ int interop_accel(const data_t *src0, const data_t *src1, const data_t *src2,
         break;
     }
 
+#endif
     // ── ADD：两源加权相加 ────────────────────────────────────────────────────
+#if !PP_OPS_MIN
     case PP_OP_ADD: {
         if (nsrc < 2 || src1 == 0) return PP_ERR_NULL;
         // 注意：这里**不能**用两张 LUT 相加——原语义是"先加权求和、再一次性
@@ -163,6 +176,7 @@ int interop_accel(const data_t *src0, const data_t *src1, const data_t *src2,
         break;
     }
 
+#endif
     // ── SUM3W：多源逐通道加权和（sam_sum 的形态：3~4 源 + 逐通道权重）────────
     // 系数排布：kbuf[c*4 + j] 是第 j 个源对通道 c 的 Q16 系数。
     case PP_OP_SUM3W: {
@@ -202,6 +216,7 @@ int interop_accel(const data_t *src0, const data_t *src1, const data_t *src2,
     //   最后 half-even ÷64 再饱和到 int8
     // 整数化：pos8 = (2o+1)*in*8/(2*out) - in*8/2，当 in/out 是 2 的幂时该除法精确；
     // 不精确说明权重不在 1/8 网格上（PS 侧会回退浮点），这里直接拒绝。
+#if !PP_OPS_MIN
     case PP_OP_INTERP: {
         if (out_H <= 0 || out_W <= 0) return PP_ERR_SHAPE;
         const int in8h = H * 8, in8w = W * 8;
@@ -249,7 +264,9 @@ int interop_accel(const data_t *src0, const data_t *src1, const data_t *src2,
         break;
     }
 
+#endif
     // ── REDUCE_MEAN：逐通道 int64 求和写回（PS 只再做 576 次除法/加法）───────
+#if !PP_OPS_MIN
     case PP_OP_REDUCE_MEAN: {
         // 逐通道 int64 求和写回。**不用 int64* 强转**（HLS 不接受 ap_int<8>* 的
         // 重解释），改成按小端拆成 8 个字节写进字节缓冲：PS 侧 `np.frombuffer(..,
@@ -269,6 +286,7 @@ int interop_accel(const data_t *src0, const data_t *src1, const data_t *src2,
         }
         break;
     }
+#endif  // !PP_OPS_MIN（REDUCE_MEAN）
 
     default:
         return PP_ERR_OP;
