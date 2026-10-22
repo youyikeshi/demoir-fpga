@@ -24,6 +24,12 @@ set jobs      8
 set _mt 8
 if {[info exists ::env(MAX_THREADS)]} { set _mt $::env(MAX_THREADS) }
 set_param general.maxThreads $_mt
+# 控制集优化：默认只在显式开启时生效（见下面 TIMING_EFFORT 分支）
+# 控制集优化开关。**默认 0**：Vivado 2025.2 的 opt_design 已经不认
+# `-control_set_opt_threshold`（会报 Unknown option 并让整个 run 失败）。
+# 保留这个开关是为了将来换版本时能一键打开验证。
+set _csopt 0
+if {[info exists ::env(CS_OPT)]} { set _csopt $::env(CS_OPT) }
 
 if {![file exists $proj_file]} {
     error "找不到工程：$proj_file（先跑 build_bd_engine.tcl）"
@@ -35,6 +41,12 @@ if {![file exists $proj_file]} {
 set _mt 8
 if {[info exists ::env(MAX_THREADS)]} { set _mt $::env(MAX_THREADS) }
 set_param general.maxThreads $_mt
+# 控制集优化：默认只在显式开启时生效（见下面 TIMING_EFFORT 分支）
+# 控制集优化开关。**默认 0**：Vivado 2025.2 的 opt_design 已经不认
+# `-control_set_opt_threshold`（会报 Unknown option 并让整个 run 失败）。
+# 保留这个开关是为了将来换版本时能一键打开验证。
+set _csopt 0
+if {[info exists ::env(CS_OPT)]} { set _csopt $::env(CS_OPT) }
 puts "==== build_bitstream_engine（maxThreads=$_mt）===="
 open_project $proj_file
 
@@ -62,6 +74,21 @@ if {$_effort} {
     set_property STEPS.PLACE_DESIGN.ARGS.DIRECTIVE Explore [get_runs impl_1]
     set_property STEPS.PHYS_OPT_DESIGN.IS_ENABLED true [get_runs impl_1]
     set_property STEPS.PHYS_OPT_DESIGN.ARGS.DIRECTIVE AggressiveExplore [get_runs impl_1]
+}
+
+# 2026-10-22：Detail Placement 失败的常见原因是**可控集太多**（实测 957 个）。
+# 控制集优化把使能/复位相同的寄存器合并，能显著缓解布局自由度压力（与是否调时序无关）。
+if {$_csopt} {
+    puts "==== 控制集优化：control_set_opt_threshold=16 ===="
+    # Vivado 的属性名是 "MORE OPTIONS"（含空格），必须用 -name {...} 形式；用 catch 包住，
+    # 免得版本差异又把整个构建打断。
+    if {[catch {
+        set_property -name {STEPS.OPT_DESIGN.ARGS.MORE OPTIONS} \
+                     -value {-control_set_opt_threshold 16} \
+                     -objects [get_runs impl_1]
+    } _e]} {
+        puts "WARNING: 控制集优化设置失败（$_e），按默认流程继续"
+    }
 }
 
 if {[get_property PROGRESS [get_runs impl_1]] ne "100%"} {
