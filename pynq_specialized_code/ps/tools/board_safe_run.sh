@@ -33,6 +33,9 @@ log() { echo "[safe $(date +%H:%M:%S)] $*"; }
 # 表现为跑到一半被 SIGTERM（退出码 143），却看不出是谁干的。
 # 这里用 flock：拿不到锁就**等待**（不杀对方），超时才退出。
 LOCK=/tmp/board_run.lock
+# 坑：锁文件若由 root 建过（sudo），xilinx 用户再跑会 flock 失败并误报"另一个任务占着锁"。
+# 这里先尝试把权限放开（失败无害），再拿锁。
+[ -e "$LOCK" ] && chmod 666 "$LOCK" 2>/dev/null
 exec 9>"$LOCK"
 if ! flock -w "${BOARD_LOCK_WAIT:-600}" 9; then
   echo "[safe] 另一个板端任务占着锁超过 ${BOARD_LOCK_WAIT:-600}s，放弃启动（不杀对方的进程）"
