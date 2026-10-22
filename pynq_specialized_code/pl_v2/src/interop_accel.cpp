@@ -94,7 +94,7 @@ int interop_accel(const data_t *src0, const data_t *src1, const data_t *src2,
 // 2026-10-22：PP 是**访存型**（约 0.8 MAC/byte），II 放大几乎不增加墙钟时间，
 // 但能把乘法器共享掉 —— 这是"把 PP 做小"最直接的一招。
 // limit=2 时 32×32 乘法器最多 2 个（≈8 DSP），而 DDR 往返时间完全不变。
-#pragma HLS ALLOCATION operation instances=mul limit=1
+#pragma HLS ALLOCATION operation instances=mul limit=2
 #endif
     if (op < PP_OP_RESCALE || op > PP_OP_REDUCE_MEAN) return PP_ERR_OP;
     if (C <= 0 || H <= 0 || W <= 0) return PP_ERR_SHAPE;
