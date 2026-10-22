@@ -36,7 +36,7 @@ def main():
                          "时序余量不足的旧 bit 请显式传 125")
     ap.add_argument("--dump-out", default=None,
                     help="把板上输出（int8 (3,H,W)）另存为原始文件，便于本机差异分析")
-    ap.add_argument("--pp-ops", default="",
+    ap.add_argument("--pp-ops", default="interp,eca,sam_sum",
                     help="允许走 v2 加速器的层间算子，逗号分隔（add,cat,sam_sum）。"
                          "默认空 = 全部走 numpy（保持逐位一致）")
     ap.add_argument("--no-pp", action="store_true",

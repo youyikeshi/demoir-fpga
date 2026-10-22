@@ -550,6 +550,10 @@ class Runner:
                 A.view(o0)[...] = ops.pixel_unshuffle(A.view(op["in"][0]), op["factor"])
             elif k == "pixel_shuffle":
                 A.view(o0)[...] = ops.pixel_shuffle(A.view(op["in"][0]), op["factor"])
+            elif (k == "interp" and "interp" in self.pp_ops_en
+                    and self.pp is not None
+                    and pp_ops.run_interp(self.pp, A, op, A.view, self._s)):
+                pass                                  # v2 加速器完成（纯搬运，逐位一致）
             elif k == "interp":
                 A.view(o0)[...] = ops.interp(A.view(op["in"][0]),
                                              op["scale_num"], op["scale_den"])
@@ -616,12 +620,22 @@ class Runner:
                 v = A.view(op["in"][0])
                 sc = self._s(op["in"][0])
                 nc = v.shape[0]
-                mean_c = np.empty(nc, dtype=np.float32)
-                for c0 in range(0, nc, 32):
-                    sl = slice(c0, min(c0 + 32, nc))
-                    fin = v[sl].astype(np.float32)
-                    fin *= sc
-                    mean_c[sl] = fin.mean(axis=(1, 2), dtype=np.float32)
+                mean_c = None
+                if "eca" in self.pp_ops_en and self.pp is not None:
+                    sums, ok = pp_ops.run_eca_mean(self.pp, A, A.view, self._s,
+                                                   op["in"][0], nc, v.shape[1], v.shape[2])
+                    if ok:
+                        # 均值 = (int64 精确和) × 标度 / (H·W)；比 numpy 的
+                        # float32 逐步累加更准，差异只在最后几位（attn 层面）
+                        mean_c = (sums.astype(np.float64) * sc
+                                  / float(v.shape[1] * v.shape[2])).astype(np.float32)
+                if mean_c is None:
+                    mean_c = np.empty(nc, dtype=np.float32)
+                    for c0 in range(0, nc, 32):
+                        sl = slice(c0, min(c0 + 32, nc))
+                        fin = v[sl].astype(np.float32)
+                        fin *= sc
+                        mean_c[sl] = fin.mean(axis=(1, 2), dtype=np.float32)
                 A.view(o0)[...] = ops.eca_attn_from_mean(mean_c, e["conv2"], e["conv1"])
             elif (k == "sam_sum" and "sam_sum" in self.pp_ops_en
                     and self.pp is not None

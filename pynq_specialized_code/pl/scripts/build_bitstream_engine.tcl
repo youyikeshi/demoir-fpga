@@ -40,6 +40,21 @@ if {$_pg ne "100%"} {
     reset_run impl_1
 }
 
+# 2026-10-22 时序：关键路径是"DSP 输出 → 行缓冲 BRAM 地址"，布线占 74%。
+# phys_opt_design 会重定时/复制驱动、压高扇出，是这条路径的对症手段。
+# TIMING_EFFORT=1（默认）开 Explore+AggressiveExplore；=0 回到默认流。
+set _effort 1
+if {[info exists ::env(TIMING_EFFORT)]} { set _effort $::env(TIMING_EFFORT) }
+if {$_effort} {
+    puts "==== 时序优化模式：opt/place Explore + phys_opt AggressiveExplore ===="
+    # 注意：opt_design 的 Explore 会为优化时序**复制单元**，实测把 DSP 顶到
+    # 168/160 直接 DRC 失败。所以 opt 保持默认，只在 place/phys_opt 上加力。
+    set_property STEPS.OPT_DESIGN.ARGS.DIRECTIVE Default [get_runs impl_1]
+    set_property STEPS.PLACE_DESIGN.ARGS.DIRECTIVE Explore [get_runs impl_1]
+    set_property STEPS.PHYS_OPT_DESIGN.IS_ENABLED true [get_runs impl_1]
+    set_property STEPS.PHYS_OPT_DESIGN.ARGS.DIRECTIVE AggressiveExplore [get_runs impl_1]
+}
+
 if {[get_property PROGRESS [get_runs impl_1]] ne "100%"} {
     launch_runs impl_1 -to_step write_bitstream -jobs $jobs
     wait_on_run impl_1
