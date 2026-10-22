@@ -123,8 +123,13 @@ int main(int argc, char **argv) {
         bias[i] = (bias_t)((int32_t *)(void *)raw_b)[i];
     }
 
+    // 显式把两个融合出口传 0：HLS 的 cosim 会把 conv2d_engine 宏替换成
+    // apatb_conv2d_engine_sw()，**默认实参在那条路径上不生效**
+    // （2026-10-23 踩过：16 参调用 → "requires 18 arguments, but 16 were provided"，
+    //   cosim 直接停在 C 编译。语义与省略完全一样：FUSE_OUT/FUSE_SUM 默认 0。）
     int rc = conv2d_engine(in_fm, wgt, bias, got, H, W, Hout, Wout,
-                           cin, cout, ksize, stride, dil, pad, shift, relu);
+                           cin, cout, ksize, stride, dil, pad, shift, relu,
+                           (const data_t *)0, (int32_t *)0);
     if (rc != ERR_OK) {
         printf("FAIL: conv2d_engine 返回错误码 %d\n", rc);
         return 2;

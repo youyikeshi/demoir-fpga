@@ -11,6 +11,8 @@ cd $here                    ;# 见 hls_run_engine.tcl 里那条 csim/cwd 实测�
 set src_dir  [file normalize "$here/../src_cosim"]
 set tb_dir   [file normalize "$here/../tb"]
 set proj_dir [file normalize "$here/../proj/engine_cosim"]
+# 允许把工程落到别的盘（/data/work/...）：本仓库所在的盘做 HLS 工程会慢/占空间
+if {[info exists ::env(PROJ_ROOT)]} { set proj_dir [file normalize "$::env(PROJ_ROOT)/[expr {[info exists ::env(TAG)] ? $::env(TAG) : {engine_cosim}}]"] }
 set cflags   "-DUSE_HLS_TYPES -I$src_dir"
 
 

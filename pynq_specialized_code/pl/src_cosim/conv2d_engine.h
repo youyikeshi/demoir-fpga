@@ -51,11 +51,57 @@
 #define OC_BLOCK  8
 #endif
 
+#ifndef C8_LAYOUT
+/* 激活布局开关（2026-10-23）：
+   0 = CHW（addr = c*H*W + y*W + x），**逐字等价于改造前的版本**；
+   1 = C8 交错（addr = (c/8)*H*W*8 + y*W*8 + x*8 + (c%8)，见
+       docs/设计/设计_激活tiled布局_C8交错.md）。
+   C8 下：同一 (行, 列块) 的 8 个通道是连续 8 字节 ⇒ 填充从
+   cin 笔 68 B burst 变成 ceil(cin/8) 笔 8*lb B 长 burst（行读事务 ÷8）。
+   要求调用方把输入/输出张量按 ceil(C/8)*H*W*8 补零分配（C 不是 8 的倍数时
+   最后一个通道块的尾部 8-C%8 个通道读出的是零，永远不参与乘加）。 */
+#define C8_LAYOUT 0
+#endif
+
+#ifndef C8_CH
+#define C8_CH 8          /* 布局公式里的通道块大小 */
+#endif
+
+#if C8_LAYOUT && (OC_BLOCK != C8_CH)
+#error "C8_LAYOUT=1 要求 OC_BLOCK==C8_CH==8：写回时同一像素的 8 个 oc 必须是连续 8 字节"
+#endif
+
+#if C8_LAYOUT && (C8_CH != 8)
+#error "填充循环用 t>>3 / t&7 拆 (列, 块内通道)，只对 C8_CH==8 成立"
+#endif
+
 #ifndef K1_WIDE_COLS
 /* k=1 且 stride=1 时，把 line_buf 的 SPAN_MAX 个 row-bank 当作
    SPAN_MAX×64 列的一条宽行用（k=1 本来只用 r=0）→ 整行输入只搬一次，
    不再被多个列块各搬一遍。零额外 BRAM。1=开启 */
 #define K1_WIDE_COLS 1
+#endif
+
+#if C8_LAYOUT
+/* C8 与 wide1 冲突：wide1 把行 bank 当列空间用，写地址变成
+   line_buf[r>>6][r&63]，而 C8 的填充按 (列, 块内通道) 线性展开，
+   两者对不上。C8 下强制关闭，走普通 k=1 路径（k=1 时 span=1、
+   pad=0，普通路径本来就不需要跨行复用）。 */
+#ifdef K1_WIDE_COLS
+#undef K1_WIDE_COLS
+#endif
+#define K1_WIDE_COLS 0
+#endif
+
+#if C8_LAYOUT
+/* C8 的填充是 8*lb 字节的**一条长 burst**（lb≤76 ⇒ 最多 608 B）；
+   32 位 m_axi 数据宽度下是 152 拍，必须把 burst 上限从 64 提到 256，
+   否则 HLS 会把它拆成 3 笔（64+64+24），收益从 ÷8 掉到 ÷2.7。 */
+#define RD_BURST_MAX 256
+#define WR_BURST_MAX 256
+#else
+#define RD_BURST_MAX 64
+#define WR_BURST_MAX 64
 #endif
 
 /* 2026-10-22：展开系数取 2。cosim 实测 4→2 拍数不升反降：
