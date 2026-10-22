@@ -65,7 +65,14 @@ def main():
                     help="把 profile/总耗时/FCLK/池大小/输出 sha1 写成 JSON（便于留档对比）")
     ap.add_argument("--hashlog", default=None,
                     help="逐算子记录 SHA1 到该文件（与本机对比可定位第一个发散算子）")
+    ap.add_argument("--c8", action="store_true", default=None,
+                    help="启用 C8 交错布局（等价于环境变量 C8_LAYOUT=1）。"
+                         "要求 C8_LAYOUT=1 综合的 bit（relu_en 的 bit2/bit3）；"
+                         "不给则读环境变量，默认关 = 全 CHW（与旧版逐位一致）")
     a = ap.parse_args()
+    # C8 总开关必须在**构造 arena 之前**定下来（arena 按它决定分配/视图形状）
+    if a.c8:
+        os.environ["C8_LAYOUT"] = "1"
 
     import json
     with open(a.manifest, "r", encoding="utf-8") as f:
@@ -91,6 +98,10 @@ def main():
     index, blob = load_pack(a.pack)
     arena = PYNQArena(manifest)
     print("内存池: %.1f MB" % (arena.size / 1e6))
+    n_c8 = sum(1 for v in arena.layout.values() if v)
+    print("激活布局: %s（C8 张量 %d 个 / CHW %d 个）"
+          % ("C8 交错（relu_en bit2/bit3 逐张量置位）" if n_c8 else "CHW（默认）",
+             n_c8, len(arena.layout) - n_c8))
     fuse_offsets = None
     if a.fuse_offsets:
         from conv_engine import norm_fuse_offset
@@ -205,6 +216,8 @@ def main():
             "fclk_mhz": fclk_now,
             "pool_mb": arena.size / 1e6,
             "cat_folded": arena.alias["groups_n"] if hasattr(arena, "alias") else None,
+            "c8_layout": bool(r.c8),
+            "c8_tensors": sum(1 for v in r.layout.values() if v),
             "seconds": dt,
             "n_ops": len(r.ops),
             "n_conv": r.n_conv,

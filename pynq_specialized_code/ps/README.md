@@ -13,7 +13,9 @@
 |---|---|
 | `runner.py` | **整网调度器**：读清单，按 `needed` 过滤出 517 个算子；卷积交给引擎，其余交给 `ops_numpy`；含 `plan_pool` 内存池规划、`NumpyArena`（本机）与 `PYNQArena`（板上连续内存）。**`compute_cat_alias`**：把 224 个通道拼接折叠成"一块缓冲区 + 切片视图"（零拷贝），运行期只剩标度重定标 |
 | `ops_numpy.py` | 层间算子（int8 语义）：`pixel_unshuffle/shuffle`、`interp`（双线性，align_corners=False）、`slice`、`cat`、`add`、`eca_attn`、`sam_sum` |
-| `conv_engine.py` | **PL 驱动**：从 `.hwh` 发现两个 AXI-Lite 基地址；写 4 个 DDR 地址 + 11 个参数；启动并轮询 done；返回码检查；超时按工作量估算；两条 RTL 上界前置拦截 |
+| `conv_engine.py` | **PL 驱动**：从 `.hwh` 发现两个 AXI-Lite 基地址；写 4 个 DDR 地址 + 11 个参数；启动并轮询 done；返回码检查；超时按工作量估算；两条 RTL 上界前置拦截。`relu_en` 已不是布尔：bit0=ReLU、bit2=输入 C8、bit3=输出 C8（见 `relu_flags`） |
+| `c8_layout.py` | **C8 交错布局的判定/分配**：环境变量 `C8_LAYOUT`（默认 0=全 CHW）。开时 `int8 且 C%8==0` 的张量按 `(C/8,H,W,8)` 分配（字节数不变），引擎按 bit2/bit3 切换读法，层间算子走 `ps/c8/ops_c8.py` |
+| `lut_util.py` / `pp_ops.py` / `pp_engine.py` | 256 项重定标 LUT 与 v2 层间算子加速器（`--pp-ops` 启用；C8 模式下自动旁路，因为它按 CHW 地址做 DMA） |
 | `ref_numpy.py` | 卷积的 numpy 金标准（与 `pl/src/conv_ref_rt.cpp` 逐位一致） |
 | `test_on_board.py` | 板上第 1 步：5 个单算子用例（含 352×192 最坏形状、`relu_en=0`），与金标准逐元素对拍 |
 | `run_network_on_board.py` | 板上第 2 步：整网推理 + 与部署包 `ref_out.bin` 逐位对拍；`--timeout`、每 25 个卷积的进度 |
@@ -38,6 +40,7 @@
 | `make_mock_pack.py` | 造测试用假权重包（`test_runner_local.py` 用） | 否 |
 | `test_runner_local.py` / `test_pool_plan.py` / `test_ops_vs_torch.py` / `test_driver_discovery.py` | 本机回归（整网调度 / 内存池 / 算子对拍 / 地址发现） | 后者需要 torch |
 | `test_pp_vs_numpy.py` | v2 层间算子加速器定点语义 vs `ops_numpy` 逐位对拍 | 否 |
+| `test_c8_ab.py` | **C8 整合验收**：布局单测 + 整网 A/B（`C8_LAYOUT=0/1` 两次 RefEngine，输出与 517 个算子 sha1 逐位对比）+ 默认路径 vs `ref_out.bin`；`--timing` 另跑纯净计时/PS 转换量 | 否 |
 | `test_fuse_out_ab.py` / `test_fuse_sum_ab.py` | 融合出口主机侧 A/B（out_lut 写回查表 / conv→eca 的 chsum 通道和）+ 驱动寄存器安全 | 否 |
 | `_diag_pool.py` | 内存池调试（打印每个张量的生命周期与地址） | 否 |
 

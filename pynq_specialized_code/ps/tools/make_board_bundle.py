@@ -41,6 +41,14 @@ def main():
         (os.path.join(pynq, "ops_numpy.py"), "ops_numpy.py"),
         (os.path.join(pynq, "ref_numpy.py"), "ref_numpy.py"),
         (os.path.join(pynq, "conv_engine.py"), "conv_engine.py"),
+        # runner.py 在 import 期就依赖这几个（C8 布局表 + 256 项 LUT + v2 加速器）
+        (os.path.join(pynq, "lut_util.py"), "lut_util.py"),
+        (os.path.join(pynq, "c8_layout.py"), "c8_layout.py"),
+        (os.path.join(pynq, "pp_ops.py"), "pp_ops.py"),
+        (os.path.join(pynq, "pp_engine.py"), "pp_engine.py"),
+        # C8 布局/算子支撑模块（C8_LAYOUT=1 时才 import；板上扁平目录）
+        (os.path.join(FPGA, "ps", "c8", "c8lib.py"), "c8lib.py"),
+        (os.path.join(FPGA, "ps", "c8", "ops_c8.py"), "ops_c8.py"),
         (os.path.join(FPGA, "ps", "baremetal", "main.c"), "main.c"),
         (os.path.join(FPGA, "ps", "tools", "check_consistency.py"),
          "check_consistency.py"),
@@ -79,6 +87,9 @@ def main():
   test_on_board.py               第一步自检：5 个单算子用例（含 v3 最坏形状 352×192）
   run_network_on_board.py        第二步：整网推理 + 与 ref_out.bin 对拍
   runner.py / ops_numpy.py / ref_numpy.py / conv_engine.py   运行库
+  c8_layout.py / c8lib.py / ops_c8.py    C8 交错布局（环境变量 C8_LAYOUT=1 启用，
+                                默认 0 = 全部 CHW，行为与整合前逐位一致）
+  pp_ops.py / pp_engine.py / lut_util.py  v2 层间算子加速器（--pp-ops 启用）
   check_consistency.py           部署包一致性自检（上板后可复跑）
   check_pack_ref.py              第三步（可选）：用包重算整网与 ref_out.bin 逐位对拍
   manifest_640.json              整网执行清单（517 算子 / 247 卷积）

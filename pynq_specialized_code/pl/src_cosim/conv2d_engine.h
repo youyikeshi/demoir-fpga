@@ -24,8 +24,10 @@
 //     ceil(cin/2)·k²·127·128 必须 < 2^26；网络最坏是 cin=192,k=3（约 14M，安全）。
 //     同样由 PS 侧拦截。
 //   · Hout/Wout 必须等于 same-padding 卷积的输出尺寸 floor((n-1)/stride)+1，内核会校验。
-// relu_en：=1 卷积后做 ReLU（默认，等价旧版）；=0 线性输出（饱和 [-128,127]），
-// 供 Ghost 残差投影与解码器输出层使用（v2，2026-10-15）。
+// relu_en：bit0=1 卷积后做 ReLU（默认，等价旧版）；bit0=0 线性输出（饱和
+// [-128,127]），供 Ghost 残差投影与解码器输出层使用（v2，2026-10-15）。
+// 2026-10-23 起同一个寄存器还带布局位 bit2(输入 C8)/bit3(输出 C8)，
+// 见下面 C8_LAYOUT 的说明 —— **不能再用 `relu_en != 0` 判 ReLU**。
 
 #include "conv2d_accel.h"  // 复用 data_t / acc_t / bias_t / ERR_* / HLS_PRAGMA
 
@@ -52,16 +54,29 @@
 #endif
 
 #ifndef C8_LAYOUT
-/* 激活布局开关（2026-10-23）：
-   0 = CHW（addr = c*H*W + y*W + x），**逐字等价于改造前的版本**；
-   1 = C8 交错（addr = (c/8)*H*W*8 + y*W*8 + x*8 + (c%8)，见
+/* 激活布局的**编译期能力开关**（2026-10-23）：
+   0 = 只实现 CHW（addr = c*H*W + y*W + x），**逐字等价于改造前的版本**；
+       relu_en 的 bit2/bit3 被**忽略**（硬件里没有 C8，行为与旧版完全相同）。
+   1 = 硬件里同时有 CHW 与 C8 两套地址/填充通路，**按层在运行期切换**：
+         relu_en bit2 = c8_in   （输入缓冲是 C8 布局）
+         relu_en bit3 = c8_out  （输出缓冲是 C8 布局）
+       C8 布局：addr = (c/8)*H*W*8 + y*W*8 + x*8 + (c%8)（见
        docs/设计/设计_激活tiled布局_C8交错.md）。
-   C8 下：同一 (行, 列块) 的 8 个通道是连续 8 字节 ⇒ 填充从
-   cin 笔 68 B burst 变成 ceil(cin/8) 笔 8*lb B 长 burst（行读事务 ÷8）。
-   要求调用方把输入/输出张量按 ceil(C/8)*H*W*8 补零分配（C 不是 8 的倍数时
-   最后一个通道块的尾部 8-C%8 个通道读出的是零，永远不参与乘加）。 */
+       输入/输出**各自独立**：网络里有 cin 对齐而 cout 不对齐的层
+       （decoder_1.out_conv, cout=12），也有 cin 不对齐而 cout 对齐的层
+       （encoder.conv_first, cin=12 / cout=48），一位不够用。
+   要求调用方把 C8 侧的输入/输出张量按 ceil(C/8)*H*W*8 补零分配（C 不是 8 的
+   倍数时，最后一个通道块的尾部 8-C%8 个通道读出的是零，永远不参与乘加）。 */
 #define C8_LAYOUT 0
 #endif
+
+/* relu_en 的位定义（2026-10-23）。**不要再把它当布尔用**：
+     bit0 = ReLU（原有语义）；bit2/bit3 是布局位，只有 C8_LAYOUT=1 的构建才认。
+     代码里必须写 `relu_en & 1`；写 `relu_en != 0` 会在设了布局位时误开 ReLU
+     （与 depthwise 方案踩过的同类隐患）。 */
+#define RELU_EN_RELU_BIT  0
+#define RELU_EN_C8IN_BIT  2
+#define RELU_EN_C8OUT_BIT 3
 
 #ifndef C8_CH
 #define C8_CH 8          /* 布局公式里的通道块大小 */

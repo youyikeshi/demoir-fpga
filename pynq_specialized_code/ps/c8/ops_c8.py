@@ -28,11 +28,12 @@ import sys
 import numpy as np
 
 _HERE = os.path.dirname(os.path.abspath(__file__))
-PS = "/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/ps"
-if PS not in sys.path:
-    sys.path.insert(0, PS)
-if os.path.join(PS, "pynq") not in sys.path:
-    sys.path.insert(0, os.path.join(PS, "pynq"))
+PS = os.path.dirname(_HERE)          # 仓库布局：ps/c8 -> ps；板上扁平目录时 = 上一级
+# 三种摆放都要能 import：仓库（ps/c8 与 ps/pynq 同级）、板上扁平目录（本文件与
+# ops_numpy.py 同目录）。原来这里写死了一个绝对路径，脱离本机就 import 不了。
+for _p in (_HERE, PS, os.path.join(PS, "pynq")):
+    if _p not in sys.path:
+        sys.path.insert(0, _p)
 
 import ops_numpy as ops            # noqa: E402  原实现，不改
 from c8lib import to_c8, from_c8   # noqa: E402

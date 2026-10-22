@@ -20,6 +20,9 @@ if {[info exists ::env(PROJ_ROOT)]} { set root $::env(PROJ_ROOT) }
 set tag "c8"
 if {[info exists ::env(TAG)]} { set tag $::env(TAG) }
 set proj_dir [file normalize "$root/$tag"]
+# SRC_DIR 可覆盖设计源目录：用于 A/B 对照（例如从 git 取旧版本源码到
+# /data/work/c8_old_src 复跑同一测试台），排查"拍数变化是源码还是测试台造成的"。
+if {[info exists ::env(SRC_DIR)]} { set src_dir [file normalize $::env(SRC_DIR)] }
 set cflags   "-DUSE_HLS_TYPES -I$src_dir -DC8_LAYOUT=1"
 
 # 既有的坑：depth= 与数据集不符时，C 测试台会少载/少写数据，报出来却是

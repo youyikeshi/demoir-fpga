@@ -1,13 +1,23 @@
 #!/usr/bin/env python3
-"""C8 交错布局的形状回归（g++ 版 tb_engine_c8）。
+"""运行期布局位的形状回归（g++ 版 tb_engine_c8，**四种 c8_in/c8_out 组合**）。
 
-与 `fuzz_shapes.py` 的关系：形状/随机数据完全同构，唯一区别是**输入按 C8 布局
-编码**（用软件侧已归档的 `ps/c8/c8lib.py` 的 `to_c8(..., pad=True)` 生成），
-引擎输出也按 C8 读回、再转成 CHW 与 `conv_ref_rt` 逐位比对。
+与 `fuzz_shapes.py` 的关系：形状/随机数据完全同构。每个用例生成两份输入
+（CHW 与 C8，用软件侧已归档的 `ps/c8/c8lib.py` 的 `to_c8(..., pad=True)` 生成），
+然后对下面四种布局组合各跑一次引擎，输出统一转 CHW 与 `conv_ref_rt` 逐位比对：
+
+    (c8_in, c8_out) = (0,0)  ← "运行期版退回旧 CHW 行为"的关键回归
+                      (1,1)  ← C8 版本体
+                      (0,1)  ← conv_first（cin=12 CHW，cout=48 C8）
+                      (1,0)  ← decoder_1.out_conv（cin 对齐 C8，cout=12 CHW）
 
 所以它同时验证：
   ① 引擎内部的 C8 地址公式 == numpy 版 c8lib 的布局（读到错位就会算错）；
-  ② 输出 C8 写回的位置正确（含 cout 不是 8 的倍数时不写越界）。
+  ② 输出 C8 写回的位置正确（含 cout 不是 8 的倍数时不写越界）；
+  ③ 输入/输出两个布局位**互不影响**（混合组合也对）。
+
+额外的强回归：如果存在 `build/tb_engine_c8_chw.exe`（同一份测试台用
+`-DC8_LAYOUT=0` 编出来），会把每组的 (0,0) 输出与它**逐字节**比对，
+并确认在 C8_LAYOUT=0 的构建里 bit2/bit3 被**忽略**（传 0b1101 与传 0b0001 同结果）。
 
 用法（pynq_specialized_code/pl 下）：
     /data/work/venv-demoir/bin/python scripts/fuzz_c8_shapes.py
@@ -24,11 +34,15 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.abspath(os.path.join(HERE, ".."))
 REPO = os.path.abspath(os.path.join(ROOT, "..", ".."))
 TB = os.path.join(ROOT, "build", "tb_engine_c8.exe")
+TB_CHW = os.path.join(ROOT, "build", "tb_engine_c8_chw.exe")
 WORK = os.path.join(ROOT, "build", "fuzz_c8_data")
 C8LIB = os.path.join(REPO, "pynq_specialized_code", "ps", "c8")
 
 sys.path.insert(0, C8LIB)
 import c8lib  # noqa: E402  （仓库里已归档的软件实现，逐位验证过 517 算子）
+
+# (c8_in, c8_out) —— relu_en 的 bit2 / bit3
+COMBOS = [(0, 0), (1, 1), (0, 1), (1, 0)]
 
 
 def write_case(d, cin, cout, k, h, w, shift, seed):
@@ -41,6 +55,8 @@ def write_case(d, cin, cout, k, h, w, shift, seed):
         (r, {"orig_c": cin, "padded_c": cin, "n_pad": 0, "C8": 8})
     assert info["padded_c"] == ((cin + 7) // 8) * 8
     assert np.array_equal(c8lib.from_c8(c8, orig_c=cin), chw)   # 往返无损（自检）
+    with open(os.path.join(d, "input_chw.bin"), "wb") as f:
+        f.write(chw.tobytes(order="C"))
     with open(os.path.join(d, "input_c8.bin"), "wb") as f:
         f.write(c8.tobytes(order="C"))
     with open(os.path.join(d, "weight.bin"), "wb") as f:
@@ -54,10 +70,15 @@ def write_case(d, cin, cout, k, h, w, shift, seed):
     return info
 
 
-def run_tb(datadir, cin, cout, k, s, dil, pad, relu=1):
-    r = subprocess.run([TB, datadir, str(cin), str(cout), str(k), str(s),
-                        str(dil), str(pad), str(relu)],
-                       capture_output=True, text=True, timeout=600,
+def run_tb(exe, datadir, cin, cout, k, s, dil, pad, relu_en, dump=None):
+    env = os.environ.copy()
+    if dump is not None:
+        env["TB_DUMP_OUT"] = dump
+    else:
+        env.pop("TB_DUMP_OUT", None)
+    r = subprocess.run([exe, datadir, str(cin), str(cout), str(k), str(s),
+                        str(dil), str(pad), str(relu_en)],
+                       capture_output=True, text=True, timeout=600, env=env,
                        encoding="utf-8", errors="replace")
     return r.returncode, (r.stdout or "") + (r.stderr or "")
 
@@ -67,6 +88,8 @@ def main():
         print("找不到 tb_engine_c8.exe，先编译：")
         print("   g++ -std=c++14 -O2 -DC8_LAYOUT=1 -I src src/conv2d_engine.cpp "
               "src/conv_ref_rt.cpp tb/tb_engine_c8.cpp -o build/tb_engine_c8.exe")
+        print("   g++ -std=c++14 -O2 -DC8_LAYOUT=0 -I src src/conv2d_engine.cpp "
+              "src/conv_ref_rt.cpp tb/tb_engine_c8.cpp -o build/tb_engine_c8_chw.exe")
         sys.exit(2)
     # 二进制必须比源码新（防"旧 exe 假绿"，2026-10-17 真踩过）
     srcs = [os.path.join(ROOT, "src", n) for n in
@@ -74,9 +97,14 @@ def main():
              "conv2d_accel.h")]
     srcs.append(os.path.join(ROOT, "tb", "tb_engine_c8.cpp"))
     newest = max(os.path.getmtime(p) for p in srcs if os.path.exists(p))
-    if os.path.getmtime(TB) < newest:
-        print("!! tb_engine_c8.exe 比源码旧，拒绝运行。先重编（-DC8_LAYOUT=1）")
-        sys.exit(2)
+    for exe in (TB, TB_CHW):
+        if os.path.exists(exe) and os.path.getmtime(exe) < newest:
+            print("!! %s 比源码旧，拒绝运行。先重编" % os.path.basename(exe))
+            sys.exit(2)
+
+    have_chw = os.path.exists(TB_CHW)
+    if not have_chw:
+        print("!! 没有 build/tb_engine_c8_chw.exe：跳过「与旧 CHW 构建逐字节比对」这一项")
 
     rng = random.Random(20261023)
     cases = [
@@ -87,7 +115,7 @@ def main():
         (2, 95, 3, 2, 1, 7, 7),
         (113, 191, 1, 1, 1, 3, 5),
         (351, 95, 3, 1, 1, 4, 6),
-        (12, 48, 5, 1, 1, 5, 5),       # conv_first 形状（k=5 d=1 span=5）
+        (12, 48, 5, 1, 1, 5, 5),       # conv_first 形状：cin CHW / cout C8
         (352, 192, 1, 1, 1, 4, 640),   # 最坏通道 + 640 宽（k=1 宽度路径）
         (16, 16, 3, 1, 1, 8, 640),     # 640 宽 + 3×3：10 块/行
         (96, 192, 3, 2, 1, 8, 8),      # 下采样、大 cout
@@ -107,6 +135,9 @@ def main():
     ]
     ok = 0
     n = 0
+    ok_combo = {c: 0 for c in COMBOS}
+    chw_same = 0
+    chw_n = 0
     for i, (cin, cout, k, s, dil, h, w) in enumerate(cases):
         pad = (k - 1) * dil // 2
         if (k - 1) * dil != 2 * pad:
@@ -116,17 +147,57 @@ def main():
         ddir = os.path.join(WORK, "c%03d" % i)
         shift = rng.randint(1, 12)
         info = write_case(ddir, cin, cout, k, h, w, shift, 20000 + i)
-        rc, out = run_tb(ddir, cin, cout, k, s, dil, pad)
-        good = (rc == 0 and "全部一致" in out)
-        ok += good
-        print("[%s] #%02d cin=%d(->%d) cout=%d(->%d) k=%d s=%d d=%d p=%d %dx%d"
-              % ("PASS" if good else "FAIL", i, cin, info["padded_c"], cout,
-                 ((cout + 7) // 8) * 8, k, s, dil, pad, h, w))
-        if not good:
-            print("      ", out.strip().splitlines()[-1] if out else "无输出")
+        flags = []
+        case_ok = True
+        outs = {}
+        for (c8_in, c8_out) in COMBOS:
+            relu_en = 1 | (c8_in << 2) | (c8_out << 3)   # relu 恒开
+            dump = os.path.join(ddir, "out_%d%d.bin" % (c8_in, c8_out))
+            rc, out = run_tb(TB, ddir, cin, cout, k, s, dil, pad, relu_en, dump)
+            good = (rc == 0 and "全部一致" in out)
+            case_ok = case_ok and good
+            ok_combo[(c8_in, c8_out)] += good
+            if good:
+                with open(dump, "rb") as f:
+                    outs[(c8_in, c8_out)] = f.read()
+            flags.append("%d%d:%s" % (c8_in, c8_out, "P" if good else "F"))
+            if not good:
+                print("      [%d%d] %s" % (c8_in, c8_out,
+                                           out.strip().splitlines()[-1] if out else "无输出"))
+        # 本用例的四种组合必须彼此逐字节一致（同一参考实现，同一数据）
+        same = len(set(outs.values())) <= 1
+        if have_chw:
+            # 与 C8_LAYOUT=0 的构建逐字节比对（(0,0) 组合）
+            dump_ref = os.path.join(ddir, "out_chwbuild.bin")
+            rc, out = run_tb(TB_CHW, ddir, cin, cout, k, s, dil, pad, 1, dump_ref)
+            with open(dump_ref, "rb") as f:
+                ref = f.read()
+            # C8_LAYOUT=0 必须忽略 bit2/bit3：传 0b1101 结果应相同
+            dump_ref2 = os.path.join(ddir, "out_chwbuild_bits.bin")
+            rc2, out2 = run_tb(TB_CHW, ddir, cin, cout, k, s, dil, pad,
+                               1 | (1 << 2) | (1 << 3), dump_ref2)
+            with open(dump_ref2, "rb") as f:
+                ref2 = f.read()
+            chw_n += 1
+            if (rc == 0 and rc2 == 0 and ref == ref2
+                    and (0, 0) in outs and outs[(0, 0)] == ref):
+                chw_same += 1
+            else:
+                print("      !! #%02d (0,0) 与 C8_LAYOUT=0 构建不一致"
+                      "（rc=%d/%d，bit 忽略=%s）" % (i, rc, rc2, ref == ref2))
+        ok += case_ok and same
+        print("[%s] #%02d cin=%d(->%d) cout=%d(->%d) k=%d s=%d d=%d p=%d %dx%d  %s%s"
+              % ("PASS" if (case_ok and same) else "FAIL", i, cin, info["padded_c"],
+                 cout, ((cout + 7) // 8) * 8, k, s, dil, pad, h, w,
+                 " ".join(flags), "" if same else "  组合间不一致"))
 
-    print("==== C8 布局形状回归 %d/%d PASS ====" % (ok, n))
-    sys.exit(0 if ok == n and n >= 20 else 1)
+    print("==== 运行期布局回归 %d/%d 用例 PASS ====" % (ok, n))
+    print("     分组合计：" + "  ".join("%d%d=%d/%d" % (a, b, ok_combo[(a, b)], n)
+                                       for (a, b) in COMBOS))
+    if have_chw:
+        print("     (0,0) 与 C8_LAYOUT=0 构建逐字节一致：%d/%d"
+              "（含 bit2/bit3 被忽略的验证）" % (chw_same, chw_n))
+    sys.exit(0 if ok == n and n >= 20 and (not have_chw or chw_same == chw_n) else 1)
 
 
 if __name__ == "__main__":

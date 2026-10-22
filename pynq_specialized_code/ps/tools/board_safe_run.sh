@@ -28,6 +28,18 @@ BOARD_PY=/usr/local/share/pynq-venv/bin/python3
 
 log() { echo "[safe $(date +%H:%M:%S)] $*"; }
 
+# ── 0) 互斥锁：同一时刻只允许一个板端任务 ─────────────────────────────────
+# 没有锁时的真实事故：两个智能体同时跑板端任务，各自的"清理残留"把对方杀掉，
+# 表现为跑到一半被 SIGTERM（退出码 143），却看不出是谁干的。
+# 这里用 flock：拿不到锁就**等待**（不杀对方），超时才退出。
+LOCK=/tmp/board_run.lock
+exec 9>"$LOCK"
+if ! flock -w "${BOARD_LOCK_WAIT:-600}" 9; then
+  echo "[safe] 另一个板端任务占着锁超过 ${BOARD_LOCK_WAIT:-600}s，放弃启动（不杀对方的进程）"
+  exit 5
+fi
+log "已获取板子独占锁"
+
 # ── 1) 精确清理残留（绝不按整条命令行模糊匹配）────────────────────────────
 kill_stale() {
   local killed=0 pat pid cmd

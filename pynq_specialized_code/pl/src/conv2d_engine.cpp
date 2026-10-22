@@ -23,18 +23,21 @@ inline data_t saturate_int8(int32_t v) {
 
 }  // namespace
 
-// 输出地址（2026-10-23）。OC_BLOCK 按 8 对齐轮转 ⇒ 同一像素的 8 个 oc 在 C8
-// 布局里正好是**连续 8 字节**：
+// 输出地址（2026-10-23，运行期 mux）。OC_BLOCK 按 8 对齐轮转 ⇒ 同一像素的 8 个
+// oc 在 C8 布局里正好是**连续 8 字节**：
 //   addr(oc,y,x) = (oc/8)*Hout*Wout*8 + y*Wout*8 + x*8 + (oc%8)
 // = (((ocb/8)*Hout + y)*Wout + x)*8 + i      （ocb 是 8 的倍数，i = oc%8 ∈ [0,8)）
 // 写回仍然按 i 逐字节写 8 次（**不要**改成 64 位宽写：2026-10-21 的"读宽写窄"
 // 实验里，宽写诱使 HLS 复制存储器 → 397 个重叠节点 → 布线崩）。
-#if C8_LAYOUT
-#define OUT_ADDR(ocb_, i_, y_, x_) \
-    ((((ocb_ >> 3) * Hout + y_) * Wout + x_) * C8_CH + i_)
-#else
-#define OUT_ADDR(ocb_, i_, y_, x_) (((ocb_ + i_) * Hout + y_) * Wout + x_)
-#endif
+//
+// ⚠️ 运行期 select **不能放进写回循环里**（2026-10-23 cosim 实测）：
+// 这份写回循环没有流水，地址在关键路径上。把 `c8_out ? ... : ...` 或
+// `i * 运行期步长` 放进循环体，会让每个输出通道多 1~2 拍：
+//   C8 侧 339,120 → 355,840（+4.9%）；CHW 侧 369,236 → 360,416（反而少 2.4%，
+//   因为省掉了 `(ocb+i)*Hout*Wout` 的双乘法链 —— 但 C8 的代价更大，不划算）。
+// 所以：**布局判断放在循环外，两条循环各自的地址式与旧版逐字相同**。
+// 只有通用路径（k=5，占网络极小头）保留循环内的 select。
+
 
 int conv2d_engine(const data_t *in_fm, const data_t *wgt, const bias_t *bias,
                   data_t *out_fm, int H, int W, int Hout, int Wout,
@@ -99,6 +102,18 @@ int conv2d_engine(const data_t *in_fm, const data_t *wgt, const bias_t *bias,
     // same padding 检查：pad 必须等于 (k-1)*d/2
     if ((ksize - 1) * dil != 2 * pad) return ERR_SIZE;
     if (shift < 1 || shift > 31) return ERR_SHIFT;
+
+    // ---- 2026-10-23：运行期布局位（只在 C8_LAYOUT=1 的构建里存在）----
+    //   bit0 = ReLU；bit2 = 输入 C8；bit3 = 输出 C8（见 conv2d_engine.h）。
+    // ⚠️ relu_en 从此**不是布尔**：所有判 ReLU 的地方都必须用 relu_on，
+    //    否则设了布局位（bit2/bit3）会把 ReLU 一起误开。
+    const int relu_on = (relu_en >> RELU_EN_RELU_BIT) & 1;
+#if C8_LAYOUT
+    const int c8_in  = (relu_en >> RELU_EN_C8IN_BIT) & 1;
+    const int c8_out = (relu_en >> RELU_EN_C8OUT_BIT) & 1;
+#endif
+    // C8_LAYOUT=0 的构建里没有 c8_in/c8_out：填充走 CHW 分支、写回走 CHW 地址，
+    // bit2/bit3 完全不被引用（行为与改造前逐字一致）。
 
     const int span = 2 * pad + 1;              // 窗口跨越的输入行数
     if (span > SPAN_MAX) return ERR_SIZE;
@@ -198,7 +213,8 @@ int conv2d_engine(const data_t *in_fm, const data_t *wgt, const bias_t *bias,
             }
             const int r_begin = (row_buf_valid && keep > 0) ? keep : 0;
 #if C8_LAYOUT
-            // ---- 2026-10-23：C8 交错布局的填充 ----
+            if (c8_in) {
+            // ---- 2026-10-23：C8 交错布局的填充（运行期 bit2=1 时走这里）----
             //   addr(c,y,x) = (c/8)*H*W*8 + y*W*8 + x*8 + (c%8)
             // 同一个 (输入行 iy, 列块, 通道块) 的 8 个通道在 DDR 里是**连续
             // 8 字节**，整个「8 通道 × lb 列」= 连续 8*lb 字节 ⇒ **一笔长 burst**
@@ -243,7 +259,10 @@ int conv2d_engine(const data_t *in_fm, const data_t *wgt, const bias_t *bias,
                     }
                 }
             }
-#else
+            } else
+#endif
+            {
+            // ---- CHW 填充（C8_LAYOUT=0 的构建只有这一条；=1 时 bit2=0 走这里）----
             for (int r = r_begin; r < span; ++r) {
                 const int iy = need0 + r;
                 const bool row_ok = (iy >= 0) && (iy < H);
@@ -288,7 +307,7 @@ int conv2d_engine(const data_t *in_fm, const data_t *wgt, const bias_t *bias,
                     }
                 }
             }
-#endif
+            }
             row_buf_valid = true;
 
                 // v3.1（时序修复）：权重基址改为按 ocb 块 / oc / ic 三级常量递推，
@@ -402,21 +421,57 @@ int conv2d_engine(const data_t *in_fm, const data_t *wgt, const bias_t *bias,
                                     }
                                 }
                             }
-                            for (int i = 0; i < ocbl; ++i) {
-                                const int32_t acc = (int32_t)acc0[i] + (int32_t)acc1[i];
-                                int32_t v = acc + (int32_t)bias_buf[ocb + i];
-                                v = v >> shift;
-                                if (relu_en != 0 && v < 0) v = 0;
-                            {
-                                data_t v8 = saturate_int8(v);
+#if C8_LAYOUT
+                            if (c8_out) {   // C8 写回：地址式与旧版逐字相同
+                                const int obase =
+                                    ((((ocb >> 3) * Hout + y) * Wout + (x0 + x2)) * C8_CH);
+                                for (int i = 0; i < ocbl; ++i) {
+                                    const int32_t acc = (int32_t)acc0[i] + (int32_t)acc1[i];
+                                    int32_t v = acc + (int32_t)bias_buf[ocb + i];
+                                    v = v >> shift;
+                                    if (relu_on && v < 0) v = 0;
+                                {
+                                    data_t v8 = saturate_int8(v);
 #if FUSE_OUT
-                                if (out_lut != 0) v8 = out_lut[(int)v8 + 128];
+                                    if (out_lut != 0) v8 = out_lut[(int)v8 + 128];
 #endif
 #if FUSE_SUM
-                                csum_l[i] += (int32_t)v8;   // ECA 的通道和
+                                    csum_l[i] += (int32_t)v8;   // ECA 的通道和
 #endif
-                                out_fm[OUT_ADDR(ocb, i, y, x0 + x2)] = v8;
-                            }
+                                    out_fm[obase + i] = v8;
+                                }
+                                }
+                            } else
+#endif
+                            {
+                                // CHW 写回：C8_LAYOUT=0 时用旧式（逐拍 369,236 不变）；
+                                // C8_LAYOUT=1 时用地址递推——旧式每通道两次运行期乘法
+                                // 会被 HLS 映射进 DSP48（131 vs 98），运行期版 DSP 已经很紧。
+#if C8_LAYOUT
+                                int oaddr = ((ocb * Hout + y) * Wout + (x0 + x2));
+                                const int ostep = Hout * Wout;
+#endif
+                                for (int i = 0; i < ocbl; ++i) {
+                                    const int32_t acc = (int32_t)acc0[i] + (int32_t)acc1[i];
+                                    int32_t v = acc + (int32_t)bias_buf[ocb + i];
+                                    v = v >> shift;
+                                    if (relu_on && v < 0) v = 0;
+                                {
+                                    data_t v8 = saturate_int8(v);
+#if FUSE_OUT
+                                    if (out_lut != 0) v8 = out_lut[(int)v8 + 128];
+#endif
+#if FUSE_SUM
+                                    csum_l[i] += (int32_t)v8;   // ECA 的通道和
+#endif
+#if C8_LAYOUT
+                                    out_fm[oaddr] = v8;
+                                    oaddr += ostep;
+#else
+                                    out_fm[((ocb + i) * Hout + y) * Wout + (x0 + x2)] = v8;
+#endif
+                                }
+                                }
                             }
 
                         } else if (ksize == 3) {
@@ -470,21 +525,57 @@ int conv2d_engine(const data_t *in_fm, const data_t *wgt, const bias_t *bias,
                                     }
                                 }
                             }
-                            for (int i = 0; i < ocbl; ++i) {
-                                const int32_t acc = (int32_t)acc0[i] + (int32_t)acc1[i];
-                                int32_t v = acc + (int32_t)bias_buf[ocb + i];
-                                v = v >> shift;
-                                if (relu_en != 0 && v < 0) v = 0;
-                            {
-                                data_t v8 = saturate_int8(v);
+#if C8_LAYOUT
+                            if (c8_out) {   // C8 写回：地址式与旧版逐字相同
+                                const int obase =
+                                    ((((ocb >> 3) * Hout + y) * Wout + (x0 + x2)) * C8_CH);
+                                for (int i = 0; i < ocbl; ++i) {
+                                    const int32_t acc = (int32_t)acc0[i] + (int32_t)acc1[i];
+                                    int32_t v = acc + (int32_t)bias_buf[ocb + i];
+                                    v = v >> shift;
+                                    if (relu_on && v < 0) v = 0;
+                                {
+                                    data_t v8 = saturate_int8(v);
 #if FUSE_OUT
-                                if (out_lut != 0) v8 = out_lut[(int)v8 + 128];
+                                    if (out_lut != 0) v8 = out_lut[(int)v8 + 128];
 #endif
 #if FUSE_SUM
-                                csum_l[i] += (int32_t)v8;   // ECA 的通道和
+                                    csum_l[i] += (int32_t)v8;   // ECA 的通道和
 #endif
-                                out_fm[OUT_ADDR(ocb, i, y, x0 + x2)] = v8;
-                            }
+                                    out_fm[obase + i] = v8;
+                                }
+                                }
+                            } else
+#endif
+                            {
+                                // CHW 写回：C8_LAYOUT=0 时用旧式（逐拍 369,236 不变）；
+                                // C8_LAYOUT=1 时用地址递推——旧式每通道两次运行期乘法
+                                // 会被 HLS 映射进 DSP48（131 vs 98），运行期版 DSP 已经很紧。
+#if C8_LAYOUT
+                                int oaddr = ((ocb * Hout + y) * Wout + (x0 + x2));
+                                const int ostep = Hout * Wout;
+#endif
+                                for (int i = 0; i < ocbl; ++i) {
+                                    const int32_t acc = (int32_t)acc0[i] + (int32_t)acc1[i];
+                                    int32_t v = acc + (int32_t)bias_buf[ocb + i];
+                                    v = v >> shift;
+                                    if (relu_on && v < 0) v = 0;
+                                {
+                                    data_t v8 = saturate_int8(v);
+#if FUSE_OUT
+                                    if (out_lut != 0) v8 = out_lut[(int)v8 + 128];
+#endif
+#if FUSE_SUM
+                                    csum_l[i] += (int32_t)v8;   // ECA 的通道和
+#endif
+#if C8_LAYOUT
+                                    out_fm[oaddr] = v8;
+                                    oaddr += ostep;
+#else
+                                    out_fm[((ocb + i) * Hout + y) * Wout + (x0 + x2)] = v8;
+#endif
+                                }
+                                }
                             }
                         } else {
                         for (int i = 0; i < OC_BLOCK; ++i) {
@@ -567,7 +658,7 @@ int conv2d_engine(const data_t *in_fm, const data_t *wgt, const bias_t *bias,
                                 const int32_t acc = (int32_t)acc_even + (int32_t)acc_odd;
                                 int32_t v = acc + (int32_t)bias_buf[ocb + i];
                                 v = v >> shift;
-                                if (relu_en != 0 && v < 0) v = 0;   // v2：ReLU 可旁路
+                                if (relu_on && v < 0) v = 0;   // v2：ReLU 可旁路
 
                             {
                                 data_t v8 = saturate_int8(v);
@@ -577,7 +668,13 @@ int conv2d_engine(const data_t *in_fm, const data_t *wgt, const bias_t *bias,
 #if FUSE_SUM
                                 csum_l[i] += (int32_t)v8;   // ECA 的通道和
 #endif
-                                out_fm[OUT_ADDR(ocb, i, y, x0 + x2)] = v8;
+#if C8_LAYOUT
+                                out_fm[c8_out
+                                    ? ((((ocb >> 3) * Hout + y) * Wout + (x0 + x2)) * C8_CH + i)
+                                    : (((ocb + i) * Hout + y) * Wout + (x0 + x2))] = v8;
+#else
+                                out_fm[((ocb + i) * Hout + y) * Wout + (x0 + x2)] = v8;
+#endif
                             }
                             }
                         }
