@@ -31,10 +31,10 @@ typedef int32_t acc_t;      // 主机侧用 32 位（范围足够）
 
 // ── tile 参数（编译期常量；先用保守值把结构跑通）───────────────────────────
 #ifndef VT_TH
-#define VT_TH 4            // 输出 tile 高
+#define VT_TH 2            // 输出 tile 高
 #endif
 #ifndef VT_TW
-#define VT_TW 4            // 输出 tile 宽
+#define VT_TW 16            // 输出 tile 宽
 #endif
 #ifndef VT_OCG
 #define VT_OCG 8           // 每个 pass 处理多少输出通道
@@ -184,12 +184,28 @@ int conv_tile(const data_t *in_fm, const data_t *wgt, const bias_t *bias,
 #ifdef USE_HLS_TYPES
 #pragma HLS ARRAY_PARTITION variable=wk complete dim=0
 #endif
-                    for (int o = 0; o < VT_OCG; ++o)
-                        for (int ky = 0; ky < VT_KMAX; ++ky)
-                            for (int kx = 0; kx < VT_KMAX; ++kx)
-                                wk[o][ky][kx] = (o < ocb && ky < ksize && kx < ksize)
-                                    ? wgt[(ocg + o) * cin * kk + ic * kk + ky * ksize + kx]
-                                    : (data_t)0;
+                    // 权重装载：按 (o, ky, kx) 三维展开但**没有谓词**——
+                    // 越界的 o（末尾不足 VT_OCG 个通道）先整体清零，然后只对
+                    // o < ocb 的做连续读。原来逐元素带谓词会把读打散成单字节事务。
+                    {
+                        for (int o = 0; o < VT_OCG; ++o) {
+                            const bool ok_o = (o < ocb);
+                            const int base = (ocg + o) * cin * kk + ic * kk;
+                            for (int ky = 0; ky < VT_KMAX; ++ky) {
+                                for (int kx = 0; kx < VT_KMAX; ++kx) {
+                                    wk[o][ky][kx] = (data_t)0;
+                                }
+                            }
+                            if (ok_o) {
+                                HLS_PRAGMA(HLS PIPELINE II=1)
+                                for (int ky = 0; ky < ksize; ++ky) {
+                                    for (int kx = 0; kx < ksize; ++kx) {
+                                        wk[o][ky][kx] = wgt[base + ky * ksize + kx];
+                                    }
+                                }
+                            }
+                        }
+                    }
 
                     // 3) tile 内全复用：**抽头串行（外层）× 像素与通道并行（内层）**
                     //    每个 (ky,kx) 步，32 个乘法器一起算 VT_PXP×VT_OCG 个乘加，
