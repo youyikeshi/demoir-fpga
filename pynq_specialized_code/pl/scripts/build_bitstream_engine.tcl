@@ -20,13 +20,22 @@ set jobs      8
 # 2026-10-22：并行度。launch_runs 的 -jobs 只控制"并行跑几个 run"，
 # 单个 run 内部线程数由 general.maxThreads 决定（实测默认只用 ~2.5 核）。
 # 另外请确认 ~/.Xilinx/Vivado_init.tcl 里也有这条——子进程读的是它。
-set_param general.maxThreads 16
+# 2026-10-22：默认下调到 8 并把控制权交给 MAX_THREADS（16 线程在 30GB 机器上布线会 OOM）。
+set _mt 8
+if {[info exists ::env(MAX_THREADS)]} { set _mt $::env(MAX_THREADS) }
+set_param general.maxThreads $_mt
 
 if {![file exists $proj_file]} {
     error "找不到工程：$proj_file（先跑 build_bd_engine.tcl）"
 }
 
-puts "==== build_bitstream_engine ===="
+# 2026-10-22：内存纪律。place/route 的线程数由 general.maxThreads 控制，
+# 每个线程都要吃内存；Vivado_init.tcl 里全局设成了 16，30GB 机器上布线阶段会 OOM。
+# 这里用 MAX_THREADS 覆盖（默认 8），内存紧张时降到 4~6。
+set _mt 8
+if {[info exists ::env(MAX_THREADS)]} { set _mt $::env(MAX_THREADS) }
+set_param general.maxThreads $_mt
+puts "==== build_bitstream_engine（maxThreads=$_mt）===="
 open_project $proj_file
 
 # 上一次构建被中断（OOM / kill）会留下 "Running" 的僵死状态，直接 launch 会报

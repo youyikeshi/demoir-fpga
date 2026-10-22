@@ -122,7 +122,10 @@ int interop_accel(const data_t *src0, const data_t *src1, const data_t *src2,
             data_t lut[256];
 #ifdef USE_HLS_TYPES
 // 256 项表放 LUTRAM（分布式 RAM）：不占 BRAM 站点，避免与 conv 的 163 块抢位
-#pragma HLS BIND_STORAGE variable=lut type=RAM_1P impl=LUTRAM
+// 2026-10-22 纠正：不要把 256 项表塞进 LUTRAM。conv 已经用掉 36,954 个 LUT 中的大部分
+// （占 80%），而 BRAM 只用了 166/190 块、还剩 24 块。把表推到 LUTRAM 等于用最紧张的
+// 资源换最宽松的资源 —— 集成版 place 失败的真正原因就是 LUT 溢出（37k + 23k > 46.2k）。
+#pragma HLS BIND_STORAGE variable=lut type=RAM_1P impl=BRAM
 #pragma HLS PIPELINE II=1
 #endif
             for (int t = 0; t < 256; ++t) {
