@@ -106,7 +106,7 @@ int conv_tile(const data_t *in_fm, const data_t *wgt, const bias_t *bias,
     if (cin <= 0 || cout <= 0 || H <= 0 || W <= 0) return ERR_SIZE;
     if (cin > VT_CIN_MAX) return ERR_SIZE;
     if (stride > VT_SMAX) return ERR_SIZE;      // 原型只支持 s≤2
-    if (dil != 1) return ERR_SIZE;              // 原型只支持 d=1（网络里 d 全为 1）
+    if (dil < 1 || dil > 3) return ERR_SIZE;    // 网络里 d∈{1,2,3}
     if (ksize != 1 && ksize != 3 && ksize != 5) return ERR_SIZE;
     if (in_fm == 0 || out_fm == 0 || wgt == 0) return ERR_NULL;
 
@@ -138,31 +138,51 @@ int conv_tile(const data_t *in_fm, const data_t *wgt, const bias_t *bias,
                 // 为什么：原来逐字节走 `srow<0||sx>=W ? 0 : in_fm[...]` 的谓词，
                 // 把 AXI burst 全废了（cosim 实测 v3 比现引擎慢 6.2×，全慢在这里）。
                 // 中间段无谓词 → HLS 能并成整拍传输。
-                int lz = (ix0 < 0) ? -ix0 : 0;
-                if (lz > VT_IW) lz = VT_IW;
-                int cnt = W - (ix0 + lz);
-                if (cnt < 0) cnt = 0;
-                if (cnt > VT_IW - lz) cnt = VT_IW - lz;
-                for (int ic = 0; ic < cin; ++ic) {
-                    for (int iy = 0; iy < VT_IH; ++iy) {
-                        const int sy = iy0 + iy;
-                        const bool rok = (sy >= 0) && (sy < H);
-                        for (int ix = 0; ix < lz; ++ix) {
-                            itile[ic][iy][ix] = (data_t)0;
-                        }
-                        if (rok) {
-                            const int io = ic * H * W + sy * W + ix0 + lz;
-                            HLS_PRAGMA(HLS PIPELINE II=1)
-                            for (int ix = 0; ix < cnt; ++ix) {
-                                itile[ic][iy][lz + ix] = in_fm[io + ix];
+                if (dil == 1) {
+                    // ── 快路径：连续直拷（左补零 / 中间无谓词 / 右补零）──────
+                    int lz = (ix0 < 0) ? -ix0 : 0;
+                    if (lz > VT_IW) lz = VT_IW;
+                    int cnt = W - (ix0 + lz);
+                    if (cnt < 0) cnt = 0;
+                    if (cnt > VT_IW - lz) cnt = VT_IW - lz;
+                    for (int ic = 0; ic < cin; ++ic) {
+                        for (int iy = 0; iy < VT_IH; ++iy) {
+                            const int sy = iy0 + iy;
+                            const bool rok = (sy >= 0) && (sy < H);
+                            for (int ix = 0; ix < lz; ++ix) itile[ic][iy][ix] = (data_t)0;
+                            if (rok) {
+                                const int io = ic * H * W + sy * W + ix0 + lz;
+#ifdef USE_HLS_TYPES
+#pragma HLS PIPELINE II=1
+#endif
+                                for (int ix = 0; ix < cnt; ++ix) {
+                                    itile[ic][iy][lz + ix] = in_fm[io + ix];
+                                }
+                            } else {
+                                for (int ix = 0; ix < cnt; ++ix) {
+                                    itile[ic][iy][lz + ix] = (data_t)0;
+                                }
                             }
-                        } else {
-                            for (int ix = 0; ix < cnt; ++ix) {
-                                itile[ic][iy][lz + ix] = (data_t)0;
-                            }
+                            for (int ix = lz + cnt; ix < VT_IW; ++ix) itile[ic][iy][ix] = (data_t)0;
                         }
-                        for (int ix = lz + cnt; ix < VT_IW; ++ix) {
-                            itile[ic][iy][ix] = (data_t)0;
+                    }
+                } else {
+                    // ── 膨胀采样：按 dil 逐点 gather，把膨胀感受野"抓"成连续 tile，
+                    //    之后计算侧照 dil=1 的形态跑（下标仍是常量）。
+                    //    网络里只有 60/247 层是 d>1，逐点采样慢一点可接受。
+                    for (int ic = 0; ic < cin; ++ic) {
+                        for (int iy = 0; iy < VT_IH; ++iy) {
+                            const int sy = iy0 + iy * dil;
+                            const bool rok = (sy >= 0) && (sy < H);
+#ifdef USE_HLS_TYPES
+#pragma HLS PIPELINE II=1
+#endif
+                            for (int ix = 0; ix < VT_IW; ++ix) {
+                                const int sx = ix0 + ix * dil;
+                                itile[ic][iy][ix] =
+                                    (rok && sx >= 0 && sx < W)
+                                        ? in_fm[ic * H * W + sy * W + sx] : (data_t)0;
+                            }
                         }
                     }
                 }

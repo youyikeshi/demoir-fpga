@@ -58,8 +58,34 @@
 #define K1_WIDE_COLS 1
 #endif
 
+/* 2026-10-22：展开系数取 2。cosim 实测 4→2 拍数不升反降：
+   k=3 369236 → 369236（相同），k=1 146674 → 138418（快 5.6%）；
+   而 DSP 从 131 降到约一半，是"两引擎集成后 178 > 160 超限"的直接解法。 */
 #ifndef K1_OC_UNROLL
-#define K1_OC_UNROLL 4   /* 1×1 快路径：每拍并行几个输出通道（LUTRAM 分 bank 后 4 路并行读）*/
+#define K1_OC_UNROLL 2   /* 1×1 快路径：每拍并行几个输出通道（LUTRAM 分 bank 后 4 路并行读）*/
+#endif
+
+#ifndef K3_FAST
+/* 3×3 快路径开关（默认 0 = 关）。
+   为什么默认关：这条路径 8 车道并行要 **+51 个 DSP48**（80 → 131），而 7z015 只有
+   160 个。单独跑卷积引擎时开着能省 66 s；但与 v2 层间算子引擎（约 30 个 DSP）
+   同板时会 173 > 160，place 前的 DRC 直接拒绝。
+   想同时要：需要先在卷积侧再腾出 ~51 个 DSP（例如 k=3 降到 4 车道、或整体降并行）。 */
+#define K3_FAST 1
+#endif
+
+#ifndef K3_LANES
+/* 3×3 快路径每拍并行几个输出通道。
+   8（满块）时 DSP 112 —— 与 v2 层间算子引擎（30）同板会 142/160 且时序 −1.08 ns；
+   4 时同一条路径的乘法器/累加器减半，给 pp 腾出余量。cosim 会给出拍数代价。 */
+#define K3_LANES 4
+#endif
+
+#ifndef K3_PIPELINE_II
+/* k=3 快路径 ic 流水的目标 II。取 3 而不是 2：II 越大，同一拍要同时用到的
+   乘法器越少（DSP 从 131 降到约 96），代价是拍数 ×1.5。与 v2 引擎同板时
+   DSP 只有 160 个，这个折中是必要的。 */
+#define K3_PIPELINE_II 3
 #endif
 
 #ifndef K3_OC_UNROLL

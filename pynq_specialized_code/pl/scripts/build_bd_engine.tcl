@@ -80,6 +80,9 @@ create_bd_cell -type ip -vlnv $vlnv engine
 
 # ── 控制通路：GP0 → 2 个 AXI-Lite 从口 ──────────────────────────────────
 # ── v2 层间算子加速器 ────────────────────────────────────────────────────
+set _no_pp 0
+if {[info exists ::env(NO_PP)]} { set _no_pp $::env(NO_PP) }
+if {!$_no_pp} {
 create_bd_cell -type ip -vlnv xilinx.com:hls:interop_accel:1.0 pp
 
 create_bd_cell -type ip -vlnv xilinx.com:ip:axi_interconnect axi_ctrl
