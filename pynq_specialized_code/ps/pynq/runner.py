@@ -35,9 +35,18 @@ import ops_numpy as ops
 try:
     import pp_ops                      # 板上是扁平目录
     import lut_util
+    import c8_layout                   # C8 布局判定/分配（2026-10-23）
+    import ref_numpy                   # 权重布局标签（k3_plane）/ 金标准 conv
+    import i8_fast                     # int8 拷贝/重定标的 C 内核（可选）
 except ImportError:                    # 仓库里作为 pynq 包时
     from . import pp_ops
     from . import lut_util
+    from . import c8_layout
+    from . import ref_numpy
+    try:
+        from . import i8_fast
+    except ImportError:
+        i8_fast = None
 
 
 def _env_flag(name):
@@ -55,7 +64,35 @@ def load_pack(pack_dir):
     return index, blob
 
 
+def _rescale_pairs(manifest, scales, alias=None):
+    """整网会用到重定标的 (s_from, s_to) 对（预热用）。
+
+    口径取 cat/add/sam_sum 三类汇合算子的输入→输出；alias 组里的 direct/copy
+    段都按这条口径走，所以这就是 `_req` 一族实际会请求的全部组合。
+    """
+    pairs = set()
+    for op in manifest["ops"]:
+        if op["op"] not in ("cat", "add", "sam_sum"):
+            continue
+        so = scales.get(op["out"][0])
+        if so is None:
+            continue
+        for t in op["in"]:
+            st = scales.get(t)
+            if st is not None and float(st) != float(so):
+                pairs.add((float(st), float(so)))
+    return pairs
+
+
 def _w_b(index, blob, key):
+    """取某层的 (权重, 偏置) 视图。
+
+    权重按 `w_shape` 原样 reshape，**不做下标重排**：k=3 的
+    `w_layout="k3_plane"`（9 个平面 [ky][kx][oc][ic]）由
+    `ref_numpy.conv_ref_numpy(w_layout=...)` 负责解释。
+    PL 引擎读的是同一个 buffer 里的同一串字节，所以"参考实现怎么读"必须与
+    `conv_ref_rt.cpp` 的下标公式逐字一致（否则就是"两边一起错"）。
+    """
     e = index["layers"][key]
     w = np.frombuffer(blob, np.int8, e["w_len"], e["w_off"]).reshape(e["w_shape"])
     b = np.frombuffer(blob, np.int32, e["b_len"] // 4, e["b_off"])
@@ -64,7 +101,7 @@ def _w_b(index, blob, key):
 
 # ---------------- 通道拼接零拷贝（cat alias）与内存竞技场 ----------------
 
-def compute_cat_alias(manifest, align=64):
+def compute_cat_alias(manifest, align=64, is_c8=None):
     """把 cat（通道拼接）合并成"一块缓冲区 + 各输入的通道切片视图"。
 
     网络里 224 个 cat 全是同 H/W 的纯通道拼接，输入又都是卷积/层间算子的
@@ -84,6 +121,11 @@ def compute_cat_alias(manifest, align=64):
       ③ H*W 必须是 64 的整数倍（引擎地址对齐）；
       ④ 已在组内的张量，在本 cat 之后不能再被消费（原地重标会改坏别人）；
       ⑤ 合并/平移后的叶子切片必须从 0 起首尾相接盖满整块（否则整组回退）。
+
+    2026-10-23（C8）：多一条硬条件——C8 模式下组的**所有成员**都必须是 C8
+    （每个段的通道数都是 8 的倍数），否则整组回退（回退后各张量各用各的布局，
+    cat 走 ops_c8 的通用路径）。实测 224 个 cat / 454 个段**全部**对齐 8，
+    所以 C8 下这条永远不触发。
 
     返回 dict：groups / member / noop / groups_n / skipped
     """
@@ -124,6 +166,19 @@ def compute_cat_alias(manifest, align=64):
             _bad("输入含网络输入"); continue
         if (h * w) % align:
             _bad("H*W 不是 %d 的整数倍，切片地址无法对齐" % align); continue
+        if is_c8 is not None and any(bool(is_c8.get(t)) or bool(is_c8.get(out))
+                                     for t in ins):
+            # C8 组的 numpy 视图是 (ceil(total/8),H,W,8)，成员必须是**整块切片**
+            # （offset 与通道数都对齐 8），池里的 off_c*H*W 字节偏移公式才成立。
+            # 2026-10-23 第二轮起 C8 覆盖**全部** int8 张量（含 3ch/12ch 补零
+            # 张量），所以这里不能再拿"两边布局标志相同"当判据（那恒成立），
+            # 必须判"段通道数真的是 8 的倍数"。实测 224 个 cat / 454 个段全部
+            # 对齐 ⇒ 这条永远不触发；补零张量本来也不出现在 cat 里。
+            if not all(bool(is_c8.get(t)) == bool(is_c8.get(out)) for t in ins):
+                _bad("C8 布局不一致：组内有成员的布局与输出不同"); continue
+            if any(int(bufs[t]["c"]) % 8 for t in ins) or int(total) % 8:
+                _bad("C8 组的段通道数必须都对齐 8（补零张量不能做块级切片）")
+                continue
 
         # 每个输入在拼接结果里的目标偏移
         desired, cur = [], 0
@@ -207,48 +262,71 @@ def compute_cat_alias(manifest, align=64):
             "groups_n": len(noop), "skipped": skipped}
 
 
-def _alias_unit_table(manifest, alias):
-    """张量 → 分配单元（组或自身）；同时给出单元大小。"""
+def _alias_unit_table(manifest, alias, layout=None):
+    """张量 → 分配单元（组或自身）；同时给出单元**字节数**。
+
+    2026-10-23（C8）：字节数按 `c8_layout.nbytes` 算（C8 = ceil(C/8)*8*H*W）。
+    C%8==0 时两者相等，所以 C8 下池大小不变；`layout=None`（默认）等价于
+    全部 CHW，即整合前的算法。
+    """
     bufs = manifest["buffers"]
     member = alias["member"] if alias else {}
     groups = alias["groups"] if alias else {}
+    is_c8 = layout or {}
     unit_of, unit_size = {}, {}
     for t, meta in bufs.items():
         if t in member:
             u = ("G", member[t][0])
             grp = groups[member[t][0]]
-            unit_size[u] = grp["total"] * grp["h"] * grp["w"]
+            unit_size[u] = (c8_layout.nbytes(grp["total"], grp["h"], grp["w"],
+                                             is_c8.get(member[t][0], False))
+                            * c8_layout.dtype_itemsize(meta["dtype"]))
         else:
             u = ("T", t)
-            unit_size[u] = meta["bytes"]
+            unit_size[u] = c8_layout.bytes_of(meta, is_c8.get(t, False))
         unit_of[t] = u
     return unit_of, unit_size
 
 
 class NumpyArena:
-    """本机后端：每个张量一个独立 numpy 数组；cat 组成员共享同一块缓冲区。"""
+    """本机后端：每个张量一个独立 numpy 数组；cat 组成员共享同一块缓冲区。
 
-    def __init__(self, manifest, alias=None):
+    2026-10-23（C8）：`layout` 给定时按 C8 分配——张量视图 (C/8,H,W,8)、
+    cat 组视图 (total/8,H,W,8)，成员 = 组缓冲的**通道块切片**（零拷贝）。
+    地址公式与 CHW 完全一致（off_c*H*W == (off_c/8)*H*W*8），所以池偏移
+    表一行都不用改，只是 numpy 视图形状变了。
+    """
+
+    def __init__(self, manifest, alias=None, layout=None):
+        self.layout = (c8_layout.table(manifest) if layout is None else layout)
         if alias is None:
-            alias = compute_cat_alias(manifest)
+            alias = compute_cat_alias(manifest, is_c8=self.layout)
         self.alias = alias
         member = alias["member"]
         groups = alias["groups"]
         self.t = {}
         for gname, grp in groups.items():
-            dt = np.int8
-            self.t[gname] = np.zeros((grp["total"], grp["h"], grp["w"]), dtype=dt)
+            is8 = bool(self.layout.get(gname, False))
+            shape = c8_layout.view_shape(grp["total"], grp["h"], grp["w"], is8)
+            # np.zeros：C8 补零通道（若存在）天生就是 0，引擎读它们不会读到脏值。
+            self.t[gname] = np.zeros(shape, dtype=np.int8)
             for t, off in grp["members"].items():
                 meta = manifest["buffers"][t]
-                self.t[t] = self.t[gname][off:off + meta["c"]]
+                self.t[t] = c8_layout.ch_slice(self.t[gname], is8, off, meta["c"])
         for name, meta in manifest["buffers"].items():
             if name in member:
                 continue
+            is8 = bool(self.layout.get(name, False))
             dt = np.int8 if meta["dtype"] == "int8" else np.float32
-            self.t[name] = np.zeros((meta["c"], meta["h"], meta["w"]), dtype=dt)
+            self.t[name] = np.zeros(
+                c8_layout.view_shape(meta["c"], meta["h"], meta["w"], is8), dtype=dt)
 
     def view(self, name):
         return self.t[name]
+
+    def is_c8(self, name):
+        """该张量是否 C8 布局（引擎/算子按它决定读法）。"""
+        return bool(self.layout.get(name, False))
 
     def addr(self, name):
         return None
@@ -260,7 +338,7 @@ class NumpyArena:
         pass
 
 
-def plan_pool(manifest, align=64, alias=None):
+def plan_pool(manifest, align=64, alias=None, layout=None):
     """按生命周期复用给所有张量分配池内偏移，返回 (池大小, 偏移表)。
 
     说明（v3 终检修复）：早期版本的空闲块管理不合并相邻块，导致碎片化
@@ -270,12 +348,19 @@ def plan_pool(manifest, align=64, alias=None):
 
     2026-10-21：分配单位从"张量"升级为"单元"——cat 组的成员共享同一块
     缓冲区（见 compute_cat_alias），组内张量的地址 = 组基址 + 通道偏移×HW。
+
+    2026-10-23（C8）：单元大小改由 `c8_layout.nbytes` 给出（C8 时
+    ceil(C/8)*8*H*W）。因为布局判据是 C%8==0，C8 的字节数与 CHW **相同**，
+    所以池大小、偏移表、以及"组内 off_c*H*W"的字节偏移公式都完全不变。
+    `layout=None` 时按环境变量 C8_LAYOUT 建表（默认关 ⇒ 与整合前逐位一致）。
     """
     ops_all = manifest["ops"]
     bufs = manifest["buffers"]
+    if layout is None:
+        layout = c8_layout.table(manifest)
     if alias is None:
-        alias = compute_cat_alias(manifest, align)
-    unit_of, unit_size = _alias_unit_table(manifest, alias)
+        alias = compute_cat_alias(manifest, align, is_c8=layout)
+    unit_of, unit_size = _alias_unit_table(manifest, alias, layout)
     member = alias["member"]
     groups = alias["groups"]
 
@@ -349,10 +434,13 @@ def plan_pool(manifest, align=64, alias=None):
     offs = {}
     for t, meta in bufs.items():
         o, s = offs_u[unit_of[t]]
+        nb = c8_layout.bytes_of(meta, layout.get(t, False))
         if t in member:
             g, off_c = member[t]
             grp = groups[g]
-            offs[t] = (o + off_c * grp["h"] * grp["w"], meta["bytes"])
+            # 字节偏移公式在 C8 下不用改：
+            #   off_c*H*W == (off_c/8)*H*W*8（off_c 必为 8 的倍数）
+            offs[t] = (o + off_c * grp["h"] * grp["w"], nb)
         else:
             offs[t] = (o, s)
     return top, offs
@@ -362,38 +450,57 @@ class PYNQArena:
     """上板后端：一个连续池 + 偏移视图（上板联调时启用，本机不导入 pynq）。
 
     2026-10-21：cat 组成员共享同一块池内区域（成员 = 组的通道切片视图）。
+    2026-10-23（C8）：C8 张量的视图是 (C/8,H,W,8)（元素个数不变，只是 reshape）；
+    组内成员 = 组视图的**通道块切片**。C8 模式下整池先清零——引擎会读通道补零区
+    （`ceil(cin/8)*8` 的最后一块），那部分必须是 0。
     """
 
-    def __init__(self, manifest, alias=None):
+    def __init__(self, manifest, alias=None, layout=None):
         from pynq import allocate
+        self.layout = (c8_layout.table(manifest) if layout is None else layout)
         if alias is None:
-            alias = compute_cat_alias(manifest)
+            alias = compute_cat_alias(manifest, is_c8=self.layout)
         self.alias = alias
         member = alias["member"]
         groups = alias["groups"]
-        size, offs = plan_pool(manifest, alias=alias)
+        size, offs = plan_pool(manifest, alias=alias, layout=self.layout)
         self.size = size
         self.pool = allocate(shape=(size,), dtype=np.uint8)
+        if any(self.layout.values()):
+            # 补零通道未清零 → 引擎读到脏数据（规范 §6 第一条风险）。
+            # 整池清零只在 C8 模式下做一次，~50 MB，板端可忽略。
+            _np(self.pool)[:] = 0
+            self.pool.flush()
         self.offs = {}
         self.t = {}
         for name, (o, s) in offs.items():
             meta = manifest["buffers"][name]
             dt = np.int8 if meta["dtype"] == "int8" else np.float32
+            is8 = bool(self.layout.get(name, False))
             n = s // np.dtype(dt).itemsize
-            self.t[name] = _np(self.pool)[o:o + s].view(dt).reshape(n)[
-                :meta["c"] * meta["h"] * meta["w"]].reshape(meta["c"], meta["h"], meta["w"])
+            flat = _np(self.pool)[o:o + s].view(dt).reshape(n)
+            # C8 视图的元素数 = ceil(C/8)*8*H*W（**含补零通道**），不是 c*h*w：
+            # 3ch/12ch 补零后视图比 c*h*w 大，按 c*h*w 切片会 reshape 失败。
+            nb = c8_layout.bytes_of(meta, is8) // np.dtype(dt).itemsize
+            self.t[name] = flat[:nb].reshape(
+                c8_layout.view_shape(meta["c"], meta["h"], meta["w"], is8))
             self.offs[name] = o
         # 组内成员必须是组的切片视图（共享同一段内存，不是各自独立缓冲）
         for gname, grp in groups.items():
             base = self.t[gname]
+            is8 = bool(self.layout.get(gname, False))
             for t, off_c in grp["members"].items():
                 c = manifest["buffers"][t]["c"]
-                view = base[off_c:off_c + c]
+                view = c8_layout.ch_slice(base, is8, off_c, c)
                 assert np.shares_memory(view, base)
                 self.t[t] = view
 
     def view(self, name):
         return self.t[name]
+
+    def is_c8(self, name):
+        """该张量是否 C8 布局（引擎据此决定 relu_en 的 bit2/bit3）。"""
+        return bool(self.layout.get(name, False))
 
     def addr(self, name):
         return int(self.pool.device_address) + self.offs[name]
@@ -431,10 +538,20 @@ class RefEngine:
     def conv(self, in_t, out_t, op, out_lut=None, chsum=None):
         from ref_numpy import conv_ref_numpy
         w, b = _w_b(self.index, self.blob, op["weights_key"])
-        y = conv_ref_numpy(self.arena.view(in_t), w, b,
+        # 布局：本机假引擎必须自己模拟 PL 的"直读/直写"——引擎内部是按 CHW
+        # 语义算的参考实现，所以 C8 张量在出入口各做一次布局转换（真机上这两步
+        # 由 PL 直接按 C8 地址读写完成，PS 不发生转换，这里只是仿真开销）。
+        in8 = c8_layout.arena_is_c8(self.arena, in_t)
+        out8 = c8_layout.arena_is_c8(self.arena, out_t)
+        # C8 视图的通道数可能是补零后的（cin=12 -> 16 通道位）：只取前 cin 个，
+        # 补零通道既没有对应权重、也不该进乘加（与 RTL 的 ic < cin 一致）。
+        src = c8_layout.to_chw(self.arena.view(in_t), in8, op["cin"])
+        e = self.index["layers"][op["weights_key"]]
+        y = conv_ref_numpy(src, w, b,
                            op["k"], op["s"], op["d"], op["pad"],
-                           self.index["layers"][op["weights_key"]]["shift"],
-                           relu=bool(op["relu"]))
+                           e["shift"],
+                           relu=bool(op["relu"]),
+                           w_layout=ref_numpy.layout_of(e))
         if out_lut is not None:
             # 与 RTL 逐位等价：v8 = sat8(acc) 之后查表
             y = lut_util.apply_out_lut(y, out_lut)
@@ -444,7 +561,7 @@ class RefEngine:
             # 同时开两个出口时，"落盘值"和"累加值"同源。
             y64 = y.reshape(y.shape[0], -1).sum(axis=1, dtype=np.int64)
             chsum[...] += y64.astype(np.int32)
-        self.arena.view(out_t)[...] = y
+        self.arena.view(out_t)[...] = c8_layout.from_chw(y, out8)
 
 
 class PYNQEngine:
@@ -534,12 +651,19 @@ class PYNQEngine:
             f = getattr(chsum, "flush", None)
             if f is not None:
                 f()
+        # 布局位（2026-10-23）：relu_en 的 bit2/bit3 = 输入/输出是 C8。
+        # 逐张量判定（不能按层硬编码）：encoder.conv_first 是 12ch(CHW) 进 /
+        # 48ch(C8) 出，decoder_1.out_conv 是 C8 进 / 12ch(CHW) 出。
+        # C8_LAYOUT=0 时两个都是 False ⇒ 只写 bit0，与整合前逐位一致。
+        c8_in = c8_layout.arena_is_c8(self.arena, in_t)
+        c8_out = c8_layout.arena_is_c8(self.arena, out_t)
         rc, _ = self.unit.run(self._ns(self.arena.addr(in_t)),
                               self._ns(waddr), self._ns(baddr),
                               self._ns(self.arena.addr(out_t)),
                               op["h"], op["w"], op["cin"], op["cout"],
                               op["k"], op["s"], op["d"], op["pad"],
                               e["shift"], relu=bool(op["relu"]),
+                              c8_in=c8_in, c8_out=c8_out,
                               out_lut=lut_buf, chsum=chsum,
                               timeout_s=self.timeout_s)
         self.arena.invalidate()
@@ -570,12 +694,37 @@ class Runner:
         # fuse_conv=None 时读环境变量 PP_FUSE_CONV（1/true/on 才开）。
         self.fuse_conv = (_env_flag("PP_FUSE_CONV") if fuse_conv is None
                           else bool(fuse_conv))
+        # ---- C8 交错布局总开关（2026-10-23）----
+        # 环境变量 C8_LAYOUT，**默认关**。关时缓冲按 CHW 分配、引擎 relu_en 只写
+        # bit0、层间算子全走 ops_numpy ⇒ 与整合前逐位一致（验收项）。
+        # 开时：int8 且 C%8==0 的张量按 C8 交错布局分配/读写（规范 §1），
+        # 层间算子走 ps/c8/ops_c8.py。
+        self.c8 = c8_layout.enabled()
         self.ops = [o for o in self.m["ops"] if o["needed"]]
-        self.alias = compute_cat_alias(self.m)
-        if arena is not None:
-            self.arena = arena
+        # 布局表：编译期算一次（name -> bool），运行期只查表（规范 §4）。
+        layout = c8_layout.table(self.m, on=self.c8)
+        alay = getattr(arena, "layout", None) if arena is not None else None
+        if arena is not None and alay is None:
+            if self.c8:
+                raise RuntimeError(
+                    "C8_LAYOUT=1 但传入的 arena 没有布局表（它是按 CHW 分配的）："
+                    "用 NumpyArena/PYNQArena(manifest) 构造，或显式传 layout=")
+            self.layout = layout
+        elif alay is not None:
+            if dict(alay) != dict(layout):
+                diff = [t for t in layout if bool(alay.get(t)) != bool(layout[t])]
+                raise RuntimeError(
+                    "C8_LAYOUT 与 arena 的布局表不一致（%d 个张量不同，例：%s）"
+                    "：arena 与环境变量必须同源" % (len(diff), diff[:3]))
+            self.layout = alay
         else:
-            self.arena = NumpyArena(self.m, alias=self.alias)
+            self.layout = layout
+        self.is_c8 = self.layout     # 名字 -> bool（运行期查表用）
+        self.alias = compute_cat_alias(self.m, is_c8=self.layout)
+        if arena is None:
+            self.arena = NumpyArena(self.m, alias=self.alias, layout=self.layout)
+        else:
+            self.arena = arena
         self.engine = engine if engine is not None else RefEngine(self.index, self.blob, self.arena)
         self.n_conv = sum(1 for o in self.ops if o["op"] == "conv")
         self.record = None      # 调试用：设成 dict 后记录每个算子的输出快照
@@ -583,6 +732,18 @@ class Runner:
         self.profile_ops = None # 计时用：设成 list 后逐算子记录 (id, name, op, 秒)
         self.hashlog = None     # 调试用：设成 list 后逐算子记录 (name, op, shape, sha1)
         self._luts = {}         # 标度重定标查找表缓存：键 = (s_from, s_to)
+        self._plans = {}        # 同一对标的“怎么重定标”计划缓存（affine / lut）
+        self._fast_on = (i8_fast is not None and i8_fast.available())
+        self.n_fast_calls = 0   # 诊断：走了多少次 C 内核
+        # 一次性把所有 (s_from,s_to) 的"怎么重定标"批量算好（Q15 拟合 + 256 项
+        # 逐项验证）。不预热的话每一对第一次用到时要 4.2 ms，整网 399 对
+        # ⇒ 1.7 s 的一次性开销（实测 cat 3.6 s 里有 1.7 s 是它）。
+        if self._fast_on:
+            self.plan_stat = lut_util.warm_plans(
+                _rescale_pairs(self.m, self.scales, self.alias))
+        else:
+            self.plan_stat = {}
+        self._plans = lut_util._PLAN_CACHE if self._fast_on else {}
         self._fuse_skips = 0    # 调试/验证用：cat 分支实际跳过重定标的段数
         self._fuse_sums = 0     # 调试/验证用：ECA 分支实际用 chsum 代替扫描的次数
         self._fuse_plan_n = 0   # 调试/验证用：conv→cat 配对数
@@ -603,6 +764,20 @@ class Runner:
     def _s(self, name, dflt=1.0):
         v = self.scales.get(name)
         return float(v) if v else dflt
+
+    # 布局辅助（2026-10-23）
+    def _is_c8(self, name):
+        """该张量是否 C8 交错布局（查编译期算好的表）。"""
+        return bool(self.layout.get(name, False))
+
+    def _lay(self, name):
+        """布局标签 'c8' / 'chw'（ops_c8 的入参约定）。"""
+        return c8_layout.name(self._is_c8(name))
+
+    def _logical_c(self, name):
+        """逻辑通道数（坑：C8 视图的 shape[0] 是通道块数，不是通道数）。"""
+        meta = self.m["buffers"][name]
+        return int(meta["c"])
 
     def _lut(self, s_from, s_to):
         """标度重定标用的 256 项查找表（int8 全值域穷举，逐位等价于浮点公式）。
@@ -628,18 +803,85 @@ class Runner:
         """同一个表的 numpy 视图（个别地方需要数组形式）。"""
         return np.frombuffer(self._lut(s_from, s_to), dtype=np.int8)
 
-    def _req(self, t, s_from, s_to):
-        """把 int8 张量从 s_from 标度重定标到 s_to（相等时为恒等）。
+    def _plan(self, s_from, s_to):
+        """重定标计划：('affine', A, S, C) 或 ('lut', 256 字节表)。
 
-        2026-10-21：由"numpy 花式索引查表"改成 `bytes.translate`——后者是
-        CPython 的 C 实现（字节映射循环），在 Cortex-A9 上比 numpy 的 gather
-        快数倍（板端 cat 的重定标原本 27 s）。
+        affine 与查表**逐位等价**（`lut_util.fit_affine` 对全部 256 个 int8
+        逐项验证过才返回），只是快得多：查表在 A9 上要 8 次 vtbl+选择，
+        实测 62 MB/s（算力受限），仿射路线直接跑满内存带宽。
+        """
+        key = (s_from, s_to)
+        p = self._plans.get(key)
+        if p is None:
+            p = lut_util.rescale_plan(s_from, s_to)
+            self._plans[key] = p
+        return p
+
+    def _req(self, t, s_from, s_to):
+        """把 int8 张量从 s_from 标度重定标到 s_to（相等时为恒等），返回新数组。
+
+        2026-10-21：由"numpy 花式索引查表"改成 `bytes.translate` 快数倍；
+        2026-10-23（第六轮）：板端实测 translate 只有 69 MB/s、整条 `_req`
+        42.8 MB/s，而同一块内存 memcpy 是 183 MB/s ⇒ 改成 C 内核：
+           · affine：y = sat8((x*A+C)>>S)（逐位等价，264 MB/s 量级）
+           · 兜底：256 项表查表（同样逐位等价）
+        非 ARM / 无 cc 时静默回落原 numpy 路径。
         """
         if s_from == s_to:
             return t
+        src = np.ascontiguousarray(t)
+        out = np.empty(src.shape, np.int8)
+        if self._fast_on and src.flags.c_contiguous:
+            self._req_into_buf(out, src, s_from, s_to)
+            return out
         tbl = self._lut(s_from, s_to)
-        return np.frombuffer(np.ascontiguousarray(t).tobytes().translate(tbl),
-                             dtype=np.int8).reshape(t.shape)
+        return np.frombuffer(src.tobytes().translate(tbl),
+                             dtype=np.int8).reshape(src.shape)
+
+    def _req_into_buf(self, dst, src, s_from, s_to):
+        """把 src（C 连续）重定标写进 dst（C 连续、同长）。内核不可用时抛错。"""
+        plan = self._plan(s_from, s_to)
+        if plan[0] == "q15":
+            i8_fast.q15_into(dst, src, plan[1], plan[2])
+        elif plan[0] == "affine":
+            i8_fast.scale_into(dst, src, plan[1], plan[2], plan[3])
+        else:
+            i8_fast.lut_into(dst, src, np.frombuffer(plan[1], dtype=np.int8))
+        self.n_fast_calls += 1
+
+    def _req_into(self, dst, src, s_from, s_to):
+        """重定标并**写进已存在的 dst**（cat 的 copy 段用，省一次临时数组）。
+
+        要求 dst/src 都是 C 连续且元素数相同；否则退回 `dst[...] = _req(...)`。
+        """
+        if s_from == s_to:
+            if self._fast_on and dst.flags.c_contiguous and src.flags.c_contiguous:
+                i8_fast.copy_into(dst, src)
+                self.n_fast_calls += 1
+            else:
+                dst[...] = src
+            return
+        if (self._fast_on and dst.flags.c_contiguous
+                and src.flags.c_contiguous and dst.size == src.size):
+            self._req_into_buf(dst, src, s_from, s_to)
+            return
+        dst[...] = self._req(src, s_from, s_to)
+
+    def _req_ip(self, v, s_from, s_to):
+        """**原地**重定标（cat 的 direct 段用：数据已经在组缓冲的目标位置上）。"""
+        if s_from == s_to:
+            return
+        if (self._fast_on and v.flags.c_contiguous and v.flags.writeable):
+            plan = self._plan(s_from, s_to)
+            if plan[0] == "q15":
+                i8_fast.q15_ip(v, plan[1], plan[2])
+            elif plan[0] == "affine":
+                i8_fast.scale_ip(v, plan[1], plan[2], plan[3])
+            else:
+                i8_fast.lut_ip(v, np.frombuffer(plan[1], dtype=np.int8))
+            self.n_fast_calls += 1
+            return
+        v[...] = self._req(v, s_from, s_to)
 
     def _plan_fuse(self):
         """规划"卷积出口直接写目标标度"（FUSE_OUT 融合出口）。
@@ -752,6 +994,9 @@ class Runner:
         只用于 bring-up 自检：重算本身就是 ECA 原本要做的那次扫描。
         """
         v = self.arena.view(tname)
+        is8 = self._is_c8(tname)
+        # C8 下重算通道和必须先转 CHW；按**逻辑**通道数切掉补零通道
+        v = c8_layout.to_chw(v, is8, self._logical_c(tname))
         nc = v.shape[0]
         sums = np.asarray(sums)
         if sums.shape[0] != nc:
@@ -796,11 +1041,59 @@ class Runner:
             raise ValueError("chsum_probe=%r 没解析出任何卷积" % (p,))
         return ids
 
+    @staticmethod
+    def _sam_sum_c8(out, y0, y2, y4, attn, x, s0, s2, s4, sx, s_out, nc, c8=None):
+        """sam_sum 的 C8 原地实现（纯逐元素，与 CHW 路径逐位相同）。
+
+        out/y0/y2/y4/x 都是 (C/8,H,W,8) 视图；attn 永远是 fp32 CHW 的 (3C,1,1)。
+        10 维广播的坑：权重必须按 ``(块, 1, 1, 8)`` 广播（**最后那一维是块内
+        通道 8**，不是新插的一维）——写成 ``[:, None, None, None]`` 会把 8 顶到
+        新轴上，得到 (块,块,H,W,8) 而报 broadcast 错（2026-10-23 踩过一次）。
+        分块 = 2 个通道块（16 通道），与 CHW 路径的分块宽度一致。
+        """
+        C8 = int(c8 or c8_layout.C8)
+        if int(nc) % C8:
+            # 补零张量（3ch/12ch）不能走这条"按通道块整体处理"的快路径：
+            # 最后一块里混着补零通道，按块算会把它们当成真实通道算进去。
+            # 本网络的 sam_sum 全是 8 对齐张量 ⇒ 永远不触发，这里只是防呆。
+            raise ValueError("sam_sum 的 C8 直算要求通道数 8 对齐（nc=%r）" % (nc,))
+        blocks = nc // C8
+        # C 内核快路径（与下面 numpy 循环逐元素同序；自检不过会抛异常回落）
+        try:
+            ops.sam_sum_c8_into(out, y0, y2, y4, attn, x,
+                                s0, s2, s4, sx, s_out)
+            return out
+        except Exception:
+            pass
+        w = attn.reshape(3, -1).reshape(3, blocks, C8)
+        step = 2 if blocks >= 2 else 1
+        for b0 in range(0, blocks, step):
+            bs = slice(b0, min(b0 + step, blocks))
+            # (块,1,1,8) 广播到 (块,H,W,8)
+            w0 = w[0][bs][:, None, None, :]
+            w1 = w[1][bs][:, None, None, :]
+            w2 = w[2][bs][:, None, None, :]
+            yf = (w0 * (y0[bs].astype(np.float64) * s0)
+                  + w1 * (y2[bs].astype(np.float64) * s2)
+                  + w2 * (y4[bs].astype(np.float64) * s4))
+            xf = x[bs].astype(np.float64) * sx
+            out[bs] = np.clip(np.rint((xf + yf) / s_out),
+                              -128, 127).astype(np.int8)
+        return out
+
     def run(self, img_int8=None):
         A = self.arena
         t_in = self.m["io"]["t_in"]
         if img_int8 is not None:
-            A.view(t_in)[...] = img_int8
+            # 输入张量若走 C8（本网络 t0 是 3ch，不会），这里顺带转换
+            A.view(t_in)[...] = c8_layout.from_chw(img_int8, self._is_c8(t_in))
+        # v2 层间算子加速器（pp_ops）是 **CHW 地址语义**（它按 (C,H,W) 拆形状、
+        # 按 c*H*W 步长做 DMA），C8 下不能用 ⇒ C8 模式自动关掉它，层间算子全走
+        # ops_c8（正确性优先；这是规范 §4 的"转换开销 vs 收益"取舍点）。
+        ppen = set() if self.c8 else self.pp_ops_en
+        if self.c8 and self.pp_ops_en:
+            print("INFO: C8 布局已启用 → 层间算子全部走 ops_c8（v2 加速器是 CHW "
+                  "地址语义，C8 下自动禁用）", flush=True)
         fuse_plan, fused, sum_plan = {}, {}, {}
         self._chsum = {}
         if self.fuse_conv:
@@ -869,18 +1162,57 @@ class Runner:
                     self._chsum_probe_bad += self._verify_chsum(
                         cview, o0, "probe:" + op["name"])
             elif k == "pixel_unshuffle":
-                A.view(o0)[...] = ops.pixel_unshuffle(A.view(op["in"][0]), op["factor"])
+                i0 = op["in"][0]
+                if self.c8:
+                    # 这两个算子是唯一会碰到补零张量的（t0 3ch -> t1 12ch、
+                    # t520 12ch -> t521 3ch），必须把**逻辑**通道数传下去：
+                    # 输入按 c_in 切掉补零通道再重排，输出按 c_out 补零后放回。
+                    A.view(o0)[...] = c8_layout.ops_c8().pixel_unshuffle(
+                        A.view(i0), self._lay(i0), op["factor"],
+                        out_lay=self._lay(o0),
+                        c_in=self._logical_c(i0), c_out=self._logical_c(o0))
+                else:
+                    A.view(o0)[...] = ops.pixel_unshuffle(A.view(i0), op["factor"])
             elif k == "pixel_shuffle":
-                A.view(o0)[...] = ops.pixel_shuffle(A.view(op["in"][0]), op["factor"])
-            elif (k == "interp" and "interp" in self.pp_ops_en
+                i0 = op["in"][0]
+                if self.c8:
+                    A.view(o0)[...] = c8_layout.ops_c8().pixel_shuffle(
+                        A.view(i0), self._lay(i0), op["factor"],
+                        out_lay=self._lay(o0),
+                        c_in=self._logical_c(i0), c_out=self._logical_c(o0))
+                else:
+                    A.view(o0)[...] = ops.pixel_shuffle(A.view(i0), op["factor"])
+            elif (k == "interp" and "interp" in ppen
                     and self.pp is not None
                     and pp_ops.run_interp(self.pp, A, op, A.view, self._s)):
                 pass                                  # v2 加速器完成（纯搬运，逐位一致）
             elif k == "interp":
-                A.view(o0)[...] = ops.interp(A.view(op["in"][0]),
-                                             op["scale_num"], op["scale_den"])
+                i0 = op["in"][0]
+                if self.c8:
+                    # C8 直算快路径（C 内核；逐位一致，非 1/8 网格/布局不符则回落）
+                    done = False
+                    try:
+                        ops.interp_c8_into(A.view(o0), A.view(i0),
+                                           op["scale_num"], op["scale_den"])
+                        done = True
+                    except Exception:
+                        done = False
+                    if not done:
+                        # interp 只动 H/W，但 ops.interp 按 3-D 写死 ⇒ 转 CHW 算再转回
+                        A.view(o0)[...] = c8_layout.ops_c8().interp(
+                            A.view(i0), self._lay(i0), op["scale_num"],
+                            op["scale_den"], out_lay=self._lay(o0))
+                else:
+                    A.view(o0)[...] = ops.interp(A.view(i0),
+                                                 op["scale_num"], op["scale_den"])
             elif k == "slice":
-                A.view(o0)[...] = A.view(op["in"][0])[:op["channels"]]
+                i0 = op["in"][0]
+                if self.c8:
+                    A.view(o0)[...] = c8_layout.ops_c8().slice_channels(
+                        A.view(i0), self._lay(i0), op["channels"], 0,
+                        out_lay=self._lay(o0))
+                else:
+                    A.view(o0)[...] = A.view(i0)[:op["channels"]]
             elif k == "cat":
                 lay = self.alias["noop"].get(op["id"])
                 if lay is not None:
@@ -890,7 +1222,8 @@ class Runner:
                     # 重标定用 256 项查找表，逐位等价于原来的 float64 公式。
                     s_out = self._s(o0)
                     out = A.view(o0)
-                    if ("cat" in self.pp_ops_en and self.pp is not None
+                    out8 = self._is_c8(o0)
+                    if ("cat" in ppen and self.pp is not None
                             and op["id"] not in fused_cats
                             and pp_ops.run_cat_rescale(self.pp, A, op, A.view,
                                                        self._s, lay)):
@@ -903,12 +1236,38 @@ class Runner:
                             continue
                         sn = self._s(n)
                         if mode == "copy":
-                            c = A.view(n).shape[0]
-                            out[off:off + c] = self._req(A.view(n), sn, s_out)
+                            # 通道切片：CHW 是 out[off:off+c]，C8 是通道块切片
+                            # out[off/8:(off+c)/8]（后者要求 off/c 都对齐 8，
+                            # C8 别名组已保证——见 compute_cat_alias）
+                            c = self._logical_c(n)
+                            dst = c8_layout.ch_slice(out, out8, off, c)
+                            # 2026-10-23 第六轮：直接写进 dst（一次读写），
+                            # 不再"造临时数组再整体赋值"（原来 3 遍内存）。
+                            self._req_into(dst, A.view(n), sn, s_out)
                         elif sn != s_out:
-                            v = A.view(n)
-                            v[...] = np.frombuffer(v.tobytes().translate(
-                                self._lut(sn, s_out)), dtype=np.int8).reshape(v.shape)
+                            # direct 段：生产者已经把数据写在这个位置上，
+                            # 只需**原地**重定标（一次读写）。
+                            self._req_ip(A.view(n), sn, s_out)
+                # C8：非别名路径统一交给 ops_c8.cat（段通道数都对齐 8 时是块级
+                # 拼接，只搬字节、零通道重排；有不对齐的段则由它回退 CHW）。
+                elif self.c8:
+                    s_out = self._s(o0)
+                    # 块级拼接的快路径要求**每一段的逻辑通道数都对齐 8**：
+                    # 补零张量（3ch/12ch）的最后一块混着补零通道，按块拼会把
+                    # 补零通道一并搬进去、后面的段整体串位。实测 454/454 段
+                    # 全部对齐，这里只是防呆（宁可响亮报错，不要静默错位）。
+                    unaligned = sorted({n for n in op["in"]
+                                        if self._logical_c(n) % c8_layout.C8})
+                    if unaligned:
+                        raise RuntimeError(
+                            "cat 的段含非 8 对齐张量（%s），C8 块级拼接不成立"
+                            % ",".join(unaligned))
+                    segs = [(c8_layout.as_layout(
+                                self._req(A.view(n), self._s(n), s_out),
+                                self._is_c8(n), self._is_c8(o0)),
+                             self._lay(o0)) for n in op["in"]]
+                    A.view(o0)[...] = c8_layout.ops_c8().cat(
+                        segs, self._logical_c(o0), self._lay(o0), op.get("channels"))
                 # 直接把每个输入分段拷进输出视图，避免 concatenate 的临时大数组
                 # 再整体赋值一次。只有在输出与任一输入共享内存时才回退到旧路径。
                 elif any(np.shares_memory(A.view(o0), A.view(n)) for n in op["in"]):
@@ -932,14 +1291,26 @@ class Runner:
                         raise RuntimeError("cat 输出通道数不匹配: op=%s dst=%d out=%d"
                                            % (op["name"], dst, out.shape[0]))
             elif k == "add":
-                if ("add" in self.pp_ops_en and self.pp is not None
+                if ("add" in ppen and self.pp is not None
                         and pp_ops.run_add(self.pp, A, op, A.view, self._s)):
                     pass                                  # v2 加速器完成（逐位一致）
                 else:
                     s_out = self._s(o0)
                     a = self._req(A.view(op["in"][0]), self._s(op["in"][0]), s_out)
                     b = self._req(A.view(op["in"][1]), self._s(op["in"][1]), s_out)
-                    A.view(o0)[...] = ops.add(a, b)
+                    if self.c8:
+                        # 逐元素，布局无关；只要求两个操作数与输出同布局
+                        out8 = self._is_c8(o0)
+                        a = c8_layout.as_layout(a, self._is_c8(op["in"][0]), out8)
+                        b = c8_layout.as_layout(b, self._is_c8(op["in"][1]), out8)
+                    # 2026-10-23 第六轮：饱和相加改用 C 内核（VQADD.S8 一条指令），
+                    # 原来是 numpy 的 int16 相加 + clip（5 遍内存 + 2 份 int16 临时）。
+                    if (self._fast_on and a.flags.c_contiguous
+                            and b.flags.c_contiguous):
+                        out = A.view(o0)
+                        i8_fast.add_into(out, a, b)
+                    else:
+                        A.view(o0)[...] = ops.add(a, b)
             elif k == "eca":
                 # 2026-10-21：按通道分块算空间均值。原来把整块（144×320×320）
                 # astype 成 float32（59 MB 临时）再求均值；分块后临时数组只有
@@ -950,7 +1321,10 @@ class Runner:
                 e = self.eca[op["weights_key"]]
                 v = A.view(op["in"][0])
                 sc = self._s(op["in"][0])
-                nc, hh, ww = v.shape
+                in8 = self._is_c8(op["in"][0])
+                # 逻辑通道数（坑：C8 视图的 shape[0] 是通道块数）
+                nc = self._logical_c(op["in"][0])
+                hh, ww = c8_layout.hw(v.shape, in8)
                 hw = float(hh * ww)
                 mean_c = None
                 ent = self._chsum.pop(op["in"][0], None)
@@ -964,22 +1338,39 @@ class Runner:
                     # 与下面 pp/回退路径同一个公式：mean = 精确和 × s / (H·W)
                     mean_c = (np.asarray(sums).astype(np.float64) * sc / hw).astype(np.float32)
                     self._fuse_sums += 1
-                if mean_c is None and "eca" in self.pp_ops_en and self.pp is not None:
+                if mean_c is None and "eca" in ppen and self.pp is not None:
                     sums, ok = pp_ops.run_eca_mean(self.pp, A, A.view, self._s,
                                                    op["in"][0], nc, hh, ww)
                     if ok:
                         # 均值 = (int64 精确和) × 标度 / (H·W)；比 numpy 的
                         # float32 逐步累加更准，差异只在最后几位（attn 层面）
                         mean_c = (sums.astype(np.float64) * sc / hw).astype(np.float32)
+                if mean_c is None and in8 and nc % 8 == 0:
+                    # C8 且 pp 被旁路：用 C 内核（8 字节一组顺序扫 + 私有缓冲
+                    # 暂存）直接算 int64 通道和，再走与 pp 完全相同的均值公式。
+                    # 板端 6 个 eca 从 5.3 s 降到 ~0.6 s；attn 最后量化到 2^-12，
+                    # 与 CHW/pp 路径的 ulp 级差异不影响结果（已整网 0 对拍）。
+                    try:
+                        sums8 = ops.chsum_c8(v, nc)
+                        mean_c = (sums8.astype(np.float64) * sc / hw).astype(np.float32)
+                    except Exception:
+                        mean_c = None
                 if mean_c is None:
+                    # **ECA 必须转 CHW**：numpy 的 float32 空间均值对内存布局敏感
+                    # （C8 上按 (Cb,H,W,8) 走带步长归约，尾数与 CHW 的连续块
+                    # pairwise 求和不同），差一个 ulp 就会雪崩到 59% 像素。
+                    # 按 32 通道分块转换 ⇒ 临时数组与旧 CHW 路径同量级，
+                    # 且每块的均值公式与旧代码**逐字相同**（分块与归约顺序无关）。
                     mean_c = np.empty(nc, dtype=np.float32)
                     for c0 in range(0, nc, 32):
-                        sl = slice(c0, min(c0 + 32, nc))
-                        fin = v[sl].astype(np.float32)
+                        c1 = min(c0 + 32, nc)
+                        # CHW 时 chw_chunk 就是 v[c0:c1]（零拷贝），逐位不变
+                        fin = np.asarray(c8_layout.chw_chunk(v, in8, c0, c1)).astype(
+                            np.float32)
                         fin *= sc
-                        mean_c[sl] = fin.mean(axis=(1, 2), dtype=np.float32)
+                        mean_c[c0:c1] = fin.mean(axis=(1, 2), dtype=np.float32)
                 A.view(o0)[...] = ops.eca_attn_from_mean(mean_c, e["conv2"], e["conv1"])
-            elif (k == "sam_sum" and "sam_sum" in self.pp_ops_en
+            elif (k == "sam_sum" and "sam_sum" in ppen
                     and self.pp is not None
                     and pp_ops.run_sam_sum(self.pp, A, op, A.view, self._s)):
                 pass
@@ -990,20 +1381,33 @@ class Runner:
                 s_out = self._s(o0)
                 s0, s2, s4 = (self._s(op["in"][i]) for i in (0, 1, 2))
                 sx = self._s(op["in"][4])
-                w = attn.reshape(3, -1)
                 out = A.view(o0)
-                for c0 in range(0, out.shape[0], 16):
-                    sl = slice(c0, min(c0 + 16, out.shape[0]))
-                    yf = (w[0][sl, None, None] * (y0[sl].astype(np.float64) * s0)
-                          + w[1][sl, None, None] * (y2[sl].astype(np.float64) * s2)
-                          + w[2][sl, None, None] * (y4[sl].astype(np.float64) * s4))
-                    xf = x[sl].astype(np.float64) * sx
-                    out[sl] = np.clip(np.rint((xf + yf) / s_out),
-                                      -128, 127).astype(np.int8)
+                if self.c8:
+                    # C8 直接算（纯逐元素、无归约 ⇒ 逐位相同；已由软件侧报告
+                    # 对拍过 0 不一致）。分块单位 = 2 个通道块 = 16 通道，
+                    # 与 CHW 路径的分块宽度一致。见 _sam_sum_c8（可单测）。
+                    out8 = self._is_c8(o0)
+                    y0 = c8_layout.as_layout(y0, self._is_c8(op["in"][0]), out8)
+                    y2 = c8_layout.as_layout(y2, self._is_c8(op["in"][1]), out8)
+                    y4 = c8_layout.as_layout(y4, self._is_c8(op["in"][2]), out8)
+                    x = c8_layout.as_layout(x, self._is_c8(op["in"][4]), out8)
+                    self._sam_sum_c8(out, y0, y2, y4, attn, x,
+                                     s0, s2, s4, sx, s_out,
+                                     self._logical_c(o0))
+                else:
+                    # CHW：逐位一致前提下的分块快路径（ops.sam_sum_into）。
+                    # 旧写法每个 16 通道块要分配 ~10 份 float64 全图临时数组，
+                    # 板端 6 个 sam_sum 共 24.7 s；新写法只保留两份 ~64 KB
+                    # 缓冲，逐元素运算顺序不变（主机对拍 0 差异）。
+                    ops.sam_sum_into(out, y0, y2, y4, attn, x,
+                                     s0, s2, s4, sx, s_out)
             else:
                 raise RuntimeError("未知算子: " + k)
             if self.record is not None:
-                self.record[op["name"]] = A.view(o0).copy()
+                # 调试快照一律存成 CHW（C8 下从 C8 转回），这样两路可逐算子对比
+                self.record[op["name"]] = np.ascontiguousarray(
+                    c8_layout.to_chw(A.view(o0), self._is_c8(o0),
+                                     self._logical_c(o0))).copy()
             if self.profile_ops is not None:
                 self.profile_ops.append((op["id"], op["name"], k,
                                          (time.time() - t_op) if self.profile is not None else 0.0))
@@ -1013,11 +1417,20 @@ class Runner:
                 p[1] += 1
             if self.hashlog is not None:
                 import hashlib
-                arr = np.ascontiguousarray(A.view(o0))
+                # 同样统一成 CHW（形状串与 sha1 都与布局无关）⇒ 可以拿 CHW 与
+                # C8 两路的 hashlog 直接 diff，定位第一个发散的算子。
+                arr = np.ascontiguousarray(
+                    c8_layout.to_chw(A.view(o0), self._is_c8(o0),
+                                     self._logical_c(o0)))
                 self.hashlog.append((op["name"], k, "%d,%d,%d" % arr.shape,
                                      hashlib.sha1(arr.tobytes()).hexdigest()[:16]))
         dt = time.time() - t0
-        out = A.view(self.m["io"]["out1"]).copy()
+        # 网络输出按 CHW 返回（本网络 out1 是 3ch，本来就是 CHW；若某个 manifest
+        # 的输出走 C8，这里转回来，与部署包 ref_out.bin 的格式保持一致）
+        o1 = self.m["io"]["out1"]
+        out = np.ascontiguousarray(
+            c8_layout.to_chw(A.view(o1), self._is_c8(o1),
+                             self._logical_c(o1))).copy()
         return out, dt
 
 

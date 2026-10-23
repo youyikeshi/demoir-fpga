@@ -14,6 +14,7 @@
 数值边界：内核累加器是 int32，|k|·128·nsrc < 2^31 必须守住（超界返回 False）。
 """
 import numpy as np
+import os
 
 try:
     from pp_engine import (                      # 板上扁平目录
@@ -25,6 +26,21 @@ except ImportError:                              # 仓库里作为 pynq 包
     )
 
 ACC_LIMIT = 1 << 30        # 留一半余量给多源累加
+
+
+def _env_flag(name):
+    v = os.environ.get(name, "")
+    return str(v).strip().lower() not in ("", "0", "false", "off", "no")
+
+
+# SUM3W（sam_sum）默认**不**走 pp：内核是 Q16 int32 定点，而整网参考是
+# float64 的 `w*(y*s)`，两者在 rint 的 .5 边界上必然分岔。实测每层只有
+# 55~501 个像素差 ±1，但整网对 1 LSB 中间差异会雪崩：只翻 sam_sum#0 的
+# **一个**像素，最终输出就有 721,977/1,228,800 不同（59%）。
+# 因此 sam_sum 必须逐位一致 → 回落到 runner 的分块快路径
+# （ops_numpy.sam_sum_into，板端约 2 s，比 pp 还快）。
+# 仅当要实测硬件 SUM3W 吞吐时才设 PP_SAM_SUM_ALLOW=1。
+_ALLOW_SAM_SUM = _env_flag("PP_SAM_SUM_ALLOW")
 
 
 # ── 设备地址（零拷贝）────────────────────────────────────────────────────────
@@ -252,7 +268,15 @@ def run_add(pp, arena, op, view, s_of):
 
 
 def run_sam_sum(pp, arena, op, view, s_of):
-    """SAM 融合：out = rint((Σ w_i·y_i·s_i + x·s_x) / so)，一次 4 源求和。"""
+    """SAM 融合：out = rint((Σ w_i·y_i·s_i + x·s_x) / so)，一次 4 源求和。
+
+    **默认直接返回 False**（回落 numpy 逐位一致路径）：SUM3W 的 Q16 定点
+    与参考的 float64 语义无法逐位一致，而整网会把 1 LSB 差异放大到 ~59%
+    像素（证据见模块顶部与 ops_numpy.sam_sum_into 的注释）。
+    设 PP_SAM_SUM_ALLOW=1 才允许走硬件（仅供吞吐实验，结果不可作为交付）。
+    """
+    if not _ALLOW_SAM_SUM:
+        return False
     so = s_of(op["out"][0])
     y0, y2, y4, attn, x = (view(n) for n in op["in"])
     o = view(op["out"][0])

@@ -16,6 +16,12 @@ set here     [file normalize [file dirname [info script]]]
 cd $here
 set src_dir  [file normalize "$here/../src"]
 set tb_dir   [file normalize "$here/../tb"]
+# csim 用哪个测试台。默认 tb_engine.cpp（CHW）。
+# **C8_LAYOUT=1 的构建必须换 tb_engine_c8.cpp**：纯编译期 C8 的引擎没有 CHW
+# 通路，CHW 测试台喂它等于让它按 C8 读 CHW 数据（引擎会用 ERR_LAYOUT 拦住，
+# 但那不是想要的结果）。配套还要 TB_DATA=<含 input_c8.bin 的目录> TB_RELU=13。
+set tb_src   "tb_engine.cpp"
+if {[info exists ::env(TB_SRC)]} { set tb_src $::env(TB_SRC) }
 set tag      "engine_v1"
 set proj_dir [file normalize "$here/../proj/$tag"]
 set cflags   "-DUSE_HLS_TYPES -I$src_dir"
@@ -26,15 +32,21 @@ puts "==== 单引擎 conv2d_engine ===="
 open_project -reset $proj_dir
 add_files $src_dir/conv2d_engine.cpp -cflags $cflags
 add_files $src_dir/conv_ref_rt.cpp   -cflags $cflags
-add_files -tb $tb_dir/tb_engine.cpp -cflags $cflags
+add_files -tb $tb_dir/$tb_src -cflags $cflags
+puts "csim testbench: $tb_src"
 
 set_top conv2d_engine
 open_solution -reset solution1
 set_part xc7z015clg485-2
 create_clock -period 6.667 -name default
 
-puts "==== csim ===="
-csim_design -clean
+if {[info exists ::env(SKIP_CSIM)]} {
+    # 只打包 IP（csynth + export），不跑 csim。仅在测试台/数据集不可用时用。
+    puts "==== csim: SKIP（SKIP_CSIM 已设置）===="
+} else {
+    puts "==== csim ===="
+    csim_design -clean
+}
 
 puts "==== csynth ===="
 csynth_design

@@ -21,7 +21,9 @@
 
 数据尺寸口径（与 tb_engine.cpp 一致）：
     in  = cin * H * W
-    wgt = cout * cin * k * k
+    # k=3 / k=5 的权重容器是 12 / 28 字节每 (oc,ic)（见 conv2d_engine.h 的
+    # K3_PAD12 / K5_PAD28）；k=1 仍是 k*k。
+    wgt = cout * cin * (12 if k == 3 else (28 if k == 5 else k * k))
     bias= cout
     out = cout * Hout * Wout,  Hout = (H-1)//s + 1
 """
@@ -59,13 +61,20 @@ def parse_meta(data_dir):
     return meta
 
 
-def expected_dims(meta, s):
+def expected_dims(meta, s, c8_pad=False):
+    """期望的 `depth=`。c8_pad=True 时按 C8 规则把 cin/cout 补到 8 的倍数
+    （C8 测试台的 in/out 缓冲是 cin_pad*H*W、cout_pad*Hout*Wout）。"""
     cin, cout, k = meta["cin"], meta["cout"], meta["k"]
     h, w = meta["h"], meta["w"]
+    if c8_pad:
+        cin = (cin + 7) // 8 * 8
+        cout = (cout + 7) // 8 * 8
     hout = (h - 1) // s + 1
     wout = (w - 1) // s + 1
-    return {"in_fm": cin * h * w, "wgt": cout * cin * k * k,
-            "bias": cout, "out_fm": cout * hout * wout}
+    return {"in_fm": cin * h * w,
+            "wgt": meta["cout"] * meta["cin"] *
+                   (12 if k == 3 else (28 if k == 5 else k * k)),
+            "bias": meta["cout"], "out_fm": cout * hout * wout}
 
 
 def read_actual(cpp):
@@ -96,6 +105,8 @@ def main():
                                                   "conv2d_engine.cpp"))
     ap.add_argument("--s", type=int, default=int(os.environ.get("TB_S", 1)))
     ap.add_argument("--write", action="store_true", help="把实际值改成期望值")
+    ap.add_argument("--c8-pad", type=int, default=0,
+                    help="1 = C8 测试台：cin/cout 按 8 的倍数补齐后再算 in/out 尺寸")
     a = ap.parse_args()
     if not a.data:
         print("SKIP: 没有 --data / TB_DATA，跳过 depth 对账")
@@ -106,7 +117,7 @@ def main():
         print("SKIP: 缺少 %s（meta.txt 只有 H/W/shift，其余请用 TB_CIN/TB_COUT/TB_K 环境变量给）"
               % ",".join(miss))
         return 0
-    want = expected_dims(meta, a.s)
+    want = expected_dims(meta, a.s, c8_pad=bool(a.c8_pad))
     src, got = read_actual(a.cpp)
     print("数据集: cin=%d cout=%d k=%d H=%d W=%d s=%d  →  期望 in=%d wgt=%d bias=%d out=%d"
           % (meta["cin"], meta["cout"], meta["k"], meta["h"], meta["w"], a.s,

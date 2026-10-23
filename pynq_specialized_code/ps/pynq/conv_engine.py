@@ -11,7 +11,33 @@ AP_CTRL, AP_RETURN = 0x00, 0x10
 R_H, R_W, R_HOUT, R_WOUT = 0x18, 0x20, 0x28, 0x30
 R_CIN, R_COUT, R_KSIZE = 0x38, 0x40, 0x48
 R_STRIDE, R_DIL, R_PAD, R_SHIFT = 0x50, 0x58, 0x60, 0x68
-R_RELU = 0x70               # v2：relu 旁路（1=ReLU；0=线性输出）
+R_RELU = 0x70               # v2：relu_en 寄存器。**不是布尔**（2026-10-23 起）：
+                            #   bit0 = ReLU 使能（原有语义）
+                            #   bit2/bit3 = C8 布局的**声明位**（不是选路位）
+                            # 纯编译期 C8 构建（C8_LAYOUT=1）要求两位**都为 1**，否则
+                            # 返回 ERR_LAYOUT(4)；硬件里没有 CHW 通路，这两位不参与
+                            # 任何地址计算（所以没有 mux 代价）。
+                            # C8_LAYOUT=0 的综合构建完全忽略这两位的值。
+# relu_en 的位定义（与 pl/src/conv2d_engine.h 的 RELU_EN_* 一一对应）
+RELU_BIT, C8_IN_BIT, C8_OUT_BIT = 0, 2, 3
+
+
+def relu_flags(relu=True, c8_in=False, c8_out=False):
+    """拼 relu_en 寄存器值：bit0=relu、bit2=输入 C8、bit3=输出 C8（三者独立）。
+
+    这是规范 `设计_PS侧C8整合规范.md` §2 给出的唯一公式::
+
+        flags = (1 if relu else 0) | (4 if in_is_c8 else 0) | (8 if out_is_c8 else 0)
+
+    C8 关闭时 c8_in/c8_out 都是 False ⇒ 返回值只有 0/1，与整合前完全一致。
+
+    C8_LAYOUT=1 的 bit（纯编译期 C8）要求两位都为 1：整网所有 int8 张量都按
+    ``ceil(C/8)*8`` 通道分配的 C8 缓冲区，所以恒传 True。
+    """
+    return ((1 if relu else 0)
+            | (1 << C8_IN_BIT if c8_in else 0)
+            | (1 << C8_OUT_BIT if c8_out else 0))
+
 
 # s_axi_control 寄存器偏移（四个 m_axi 的基地址，offset=slave）
 B_IN_FM, B_WGT, B_BIAS, B_OUT_FM = 0x10, 0x1C, 0x28, 0x34
@@ -153,11 +179,19 @@ class Conv2dEngine:
 
     def run(self, in_buf, wgt_buf, bias_buf, out_buf,
             H, W, cin, cout, k, s, d, pad, shift, relu=True,
-            out_lut=None, chsum=None, timeout_s=None):
+            out_lut=None, chsum=None, timeout_s=None,
+            c8_in=False, c8_out=False):
         """写参数 → 启动 → 等 done。返回 (返回码, 耗时秒)。
 
         说明：缓冲区内容要与 PL 的可见性一致——调用前自行 flush 输入，
         完成后自行 invalidate 输出（见 test_on_board.py 的用法）。
+
+        c8_in / c8_out（2026-10-23）：输入/输出缓冲区是否为 C8 交错布局。
+        两个位**互相独立**，由调用方**逐张量**判定（`runner.PYNQEngine.conv`
+        从 arena 的布局表查出来传进来）。默认 False ⇒ relu_en = 0/1，
+        与整合前**逐位一致**（C8_LAYOUT=0 的 bit 根本不看这两位）。
+        布局公式：addr(c,y,x) = (c/8)*H*W*8 + y*W*8 + x*8 + (c%8)；
+        输入/输出缓冲按 ceil(C/8)*H*W*8 分配（补零通道必须为 0）。
 
         out_lut / chsum 是融合出口的可选缓冲区（256 项 int8 表 / 每输出通道一个
         int32）。默认 None：不启用融合，不写这两个寄存器，对交付版 bit 的行为与
@@ -220,7 +254,9 @@ class Conv2dEngine:
         self.ctrl.write(R_KSIZE, k); self.ctrl.write(R_STRIDE, s)
         self.ctrl.write(R_DIL, d); self.ctrl.write(R_PAD, pad)
         self.ctrl.write(R_SHIFT, shift)
-        self.ctrl.write(R_RELU, 1 if relu else 0)
+        # relu_en 现在承载三个独立位（bit0 relu / bit2 输入 C8 / bit3 输出 C8）；
+        # C8 关时 c8_in=c8_out=False ⇒ 值就是 0/1，与整合前完全一致。
+        self.ctrl.write(R_RELU, relu_flags(relu, c8_in, c8_out))
         # 3) 启动并轮询
         t0 = time.time()
         self.ctrl.write(AP_CTRL, AP_START)
