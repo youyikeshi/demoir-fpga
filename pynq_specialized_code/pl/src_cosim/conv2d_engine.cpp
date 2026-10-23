@@ -30,9 +30,11 @@ inline data_t saturate_int8(int32_t v) {
 // g++ 侧没有 ap_uint，用原生整数顶上，保证同一份代码两个环境都能编。
 #ifdef USE_HLS_TYPES
 typedef ap_uint<32> w32_t;
+typedef ap_uint<64> w64_t;
 #define W32_BYTE(v, n) ((data_t)(v).range(8 * (n) + 7, 8 * (n)))    /* n 必须是常量 */
 #else
 typedef uint32_t w32_t;
+typedef uint64_t w64_t;
 #define W32_BYTE(v, n) ((data_t)(uint8_t)(((v) >> (8 * (n))) & 0xFFu))
 #endif
 
@@ -55,6 +57,17 @@ typedef uint32_t w32_t;
     ((((ocb_ >> 3) * Hout + y_) * Wout + x_) * C8_CH + i_)
 #else
 #define OUT_ADDR(ocb_, i_, y_, x_) (((ocb_ + i_) * Hout + y_) * Wout + x_)
+#endif
+
+// ---- 写回落点（2026-10-23 第四轮：改成"行缓冲 + 独立拷贝循环"）----
+// C8：写回只落本行块的行缓冲 wbuf，等 x2 循环跑完再由一条**纯拷贝循环**
+// 按 64-bit 宽写整行出去（见 out_copy）。CHW：保持原来的逐字节直写。
+// 形参约定：i_ = 块内 oc 号（0..7），x2_ = 块内列号；
+// 隐式依赖同作用域的 v8 / ocb / y / x0 / wbuf（三条写回路径共用）。
+#if C8_LAYOUT
+#define WB_STORE(i_, x2_) (wbuf[(i_)][(x2_)] = v8)
+#else
+#define WB_STORE(i_, x2_) (out_fm[OUT_ADDR(ocb, (i_), y, x0 + (x2_))] = v8)
 #endif
 
 int conv2d_engine(const data_t *in_fm, const data_t *wgt, const bias_t *bias,
@@ -211,6 +224,18 @@ int conv2d_engine(const data_t *in_fm, const data_t *wgt, const bias_t *bias,
     // bias 很小，一次装全部
     bias_t bias_buf[COUT_MAX];
 
+#if C8_LAYOUT
+    // 写回行缓冲（2026-10-23 第四轮）。8 个 oc 落在 8 个**编译期常量** bank 上
+    // （dim1 完全拆分），于是"计算时逐字节写、拷贝时一拍读 8 个 bank 拼成一个
+    // 64-bit 字"两侧都无需运行期 bank 号 —— 这是本轮不碰 bank 常量化原则的关键。
+    // 宽度：k=1 的宽列块把 line_buf 的 SPAN_MAX 个 row-bank 当 SPAN_MAX*64 列用，
+    // 所以 xn 最大是 448；其余路径 xn ≤ 64。8×448 = 3.5 KB，放 LUTRAM
+    // （约 +450~900 LUT），不动已经 90% 的 BRAM。
+    data_t wbuf[OC_BLOCK][SPAN_MAX * 64];
+    HLS_PRAGMA(HLS ARRAY_PARTITION variable=wbuf complete dim=1)
+    HLS_PRAGMA(HLS BIND_STORAGE variable=wbuf type=RAM_2P impl=LUTRAM)
+#endif
+
     for (int i = 0; i < cout; ++i) {
         bias_buf[i] = bias[i];
     }
@@ -276,12 +301,19 @@ int conv2d_engine(const data_t *in_fm, const data_t *wgt, const bias_t *bias,
                 const bool row_ok = (iy >= 0) && (iy < H);
                 const int io_row = io_base + r * W;
                 // 左/右补零与通道无关（不碰 DDR），先在通道维度上补干净。
+                // 2026-10-23 第四轮：**wide1（k=1 s=1）不需要右补零** —— 计算只读
+                // 到 cb = x2 < xn == lb，[lb, bwcol) 这 128 列（448-320）一次都
+                // 不会被读。原来这里每行每通道白写 (bwcol-lb) 个零：全网络合计
+                // 624.7 MB ≈ 4.2 s（150 MHz、1 字节/拍），比有效输入（52 MB）还多
+                // 一个数量级。CHW 分支早就有这个 `if (!wide1)`，C8 分支漏了。
                 for (int ic = 0; ic < cin; ++ic) {
                     for (int j = 0; j < la; ++j) {
                         line_buf[ic][r][j] = (data_t)0;
                     }
-                    for (int j = la + lb; j < bwcol; ++j) {
-                        line_buf[ic][r][j] = (data_t)0;
+                    if (!wide1) {
+                        for (int j = la + lb; j < bwcol; ++j) {
+                            line_buf[ic][r][j] = (data_t)0;
+                        }
                     }
                 }
                 for (int cinb = 0; cinb < cin; cinb += C8_CH) {
@@ -562,6 +594,36 @@ int conv2d_engine(const data_t *in_fm, const data_t *wgt, const bias_t *bias,
                     }
 #endif
 
+#if C8_LAYOUT
+                    // ---- 2026-10-23 第四轮：写回改成"整行缓冲 + 独立宽写循环" ----
+                    // 上面三条写回路径（k=1 / k=3 / 通用）现在只写 wbuf，不碰 DDR。
+                    // 为什么要隔一层（上一轮"在计算循环里直接打 64-bit"实测慢 5.6%）：
+                    // 核对生成的 RTL（engine_v1/syn/verilog/…LOOP_610_31.v:627）：
+                    // 流水里的 store 是 **AWLEN=32'd0、WSTRB=1** ⇒ 每字节一笔 1-beat
+                    // AXI 写事务，板端 140.5 MB 要 ~13 s（≈15 拍/字节），瓶颈是
+                    // 每笔事务的往返延迟 × 在途字节数，不是事务宽度。挪到独立循环后
+                    // 每笔事务带满 **8 字节**（WSTRB=8'd255、端口 64 bit）⇒
+                    // 事务数 ÷8、在途字节 16 B → 128 B，实测 17.4 → 8.3 拍/字节。
+                    // ⚠️ 注意 HLS **仍没**给出长 burst（本轮 RTL 依旧是
+                    // `AWLEN = 32'd0`，即每像素一笔 1-beat 64-bit 事务）；把
+                    // AWLEN>0 做出来是下一步（见 docs/设计/记录_20261023_写回宽写与填充零浪费.md §4）。
+                    // 代价：每 (y, ocb) 块多 xn 拍串行拷贝 ⇒ 全网络 140.5 MB/8
+                    // ≈ 17.6 M 拍 ≈ 0.12 s，可以忽略。
+                    //
+                    // 尾部通道：ocbl < 8 时（cout%8 != 0）8 字节整字会写到补零通道，
+                    // 必须显式写 0（PS 侧按 ceil(cout/8)*8 分配缓冲区并期望那里是 0）。
+                    if (ocbl < OC_BLOCK) {
+                        for (int i = 0; i < OC_BLOCK; ++i) {
+                            if (i >= ocbl) {
+                                HLS_PRAGMA(HLS UNROLL)
+                                for (int px = 0; px < xn; ++px) {
+                                    wbuf[i][px] = (data_t)0;
+                                }
+                            }
+                        }
+                    }
+#endif
+
                     for (int x2 = 0; x2 < xn; ++x2) {
                         const int cb = x2 * stride;
 
@@ -603,11 +665,16 @@ int conv2d_engine(const data_t *in_fm, const data_t *wgt, const bias_t *bias,
                             // 8 次单字节写 → 1 次 64-bit 写能省 8×（写回 13.1 s 的大头）。
                             // 板上实测相反：write_heavy_8_192 2341 → 2472 ms（慢 5.6%），
                             // swap_8_64 820.6 → 832.2 ms（慢 1.4%）。
-                            // 说明 HLS 早就把这条"连续地址的 8 次单字节写"合成了
-                            // 一笔 burst（AWLEN/AWSIZE 自适应的写入适配器），
-                            // 加宽只多付了打包的 64-bit 桶形移位 + 3 块 BRAM
-                            // + 约 2.7k LUT。写回的真正成本是**每笔写事务的
-                            // 往返延迟且没有流水**（≈19 拍/字节），不是事务宽度。
+                            // 当时的解释（"HLS 早就把 8 次单字节写合成了一笔 burst"）
+                            // 是**错的**：第四轮核对生成 RTL ——
+                            //   LOOP_610_31.v:627  assign m_axi_gmem1_0_AWLEN = 32'd0;
+                            //                      WSTRB = 1'd1
+                            // ⇒ 每字节一笔 1-beat AXI 写事务。csynth 里这条循环
+                            // achieved II=1（不是没流水！），板端却仍是 ≈15 拍/字节：
+                            // 瓶颈是事务往返延迟 × 在途字节数（16 笔 × 1 B）。
+                            // 所以加宽单笔事务没用，而"打包"又把 store 塞回了计算
+                            // 流水（8 个值攒齐才能打包）。正解：先落行缓冲 wbuf，
+                            // 再用**独立拷贝循环**连续宽写（见 out_copy）。
                             for (int i = 0; i < ocbl; ++i) {
                                 const int32_t acc = (int32_t)acc0[i] + (int32_t)acc1[i];
                                 int32_t v = acc + (int32_t)bias_buf[ocb + i];
@@ -621,7 +688,7 @@ int conv2d_engine(const data_t *in_fm, const data_t *wgt, const bias_t *bias,
 #if FUSE_SUM
                                 csum_l[i] += (int32_t)v8;   // ECA 的通道和
 #endif
-                                out_fm[OUT_ADDR(ocb, i, y, x0 + x2)] = v8;
+                                WB_STORE(i, x2);
                             }
                             }
 
@@ -681,11 +748,16 @@ int conv2d_engine(const data_t *in_fm, const data_t *wgt, const bias_t *bias,
                             // 8 次单字节写 → 1 次 64-bit 写能省 8×（写回 13.1 s 的大头）。
                             // 板上实测相反：write_heavy_8_192 2341 → 2472 ms（慢 5.6%），
                             // swap_8_64 820.6 → 832.2 ms（慢 1.4%）。
-                            // 说明 HLS 早就把这条"连续地址的 8 次单字节写"合成了
-                            // 一笔 burst（AWLEN/AWSIZE 自适应的写入适配器），
-                            // 加宽只多付了打包的 64-bit 桶形移位 + 3 块 BRAM
-                            // + 约 2.7k LUT。写回的真正成本是**每笔写事务的
-                            // 往返延迟且没有流水**（≈19 拍/字节），不是事务宽度。
+                            // 当时的解释（"HLS 早就把 8 次单字节写合成了一笔 burst"）
+                            // 是**错的**：第四轮核对生成 RTL ——
+                            //   LOOP_610_31.v:627  assign m_axi_gmem1_0_AWLEN = 32'd0;
+                            //                      WSTRB = 1'd1
+                            // ⇒ 每字节一笔 1-beat AXI 写事务。csynth 里这条循环
+                            // achieved II=1（不是没流水！），板端却仍是 ≈15 拍/字节：
+                            // 瓶颈是事务往返延迟 × 在途字节数（16 笔 × 1 B）。
+                            // 所以加宽单笔事务没用，而"打包"又把 store 塞回了计算
+                            // 流水（8 个值攒齐才能打包）。正解：先落行缓冲 wbuf，
+                            // 再用**独立拷贝循环**连续宽写（见 out_copy）。
                             for (int i = 0; i < ocbl; ++i) {
                                 const int32_t acc = (int32_t)acc0[i] + (int32_t)acc1[i];
                                 int32_t v = acc + (int32_t)bias_buf[ocb + i];
@@ -699,7 +771,7 @@ int conv2d_engine(const data_t *in_fm, const data_t *wgt, const bias_t *bias,
 #if FUSE_SUM
                                 csum_l[i] += (int32_t)v8;   // ECA 的通道和
 #endif
-                                out_fm[OUT_ADDR(ocb, i, y, x0 + x2)] = v8;
+                                WB_STORE(i, x2);
                             }
                             }
                         } else {
@@ -793,13 +865,40 @@ int conv2d_engine(const data_t *in_fm, const data_t *wgt, const bias_t *bias,
 #if FUSE_SUM
                                 csum_l[i] += (int32_t)v8;   // ECA 的通道和
 #endif
-                                out_fm[OUT_ADDR(ocb, i, y, x0 + x2)] = v8;
+                                WB_STORE(i, x2);
                             }
                             }
                         }
                         }   // end else (ksize != 1)
                     }
-                
+
+#if C8_LAYOUT
+                    // ---- 本 (y, ocb) 行块一次性宽写出去 ----
+                    // 纯拷贝循环：8 个 bank 同址并行读 → 拼 64-bit → 连续写。
+                    // 基址 OUT_ADDR(ocb,0,y,x0) 恒为 8 的倍数（C8 布局每像素 8 字节
+                    // + x 以 8 递增），PS 侧缓冲区也是页对齐，所以 reinterpret 安全。
+                    // 注意：**不要**把它并回计算循环（见上面 64-bit 打包实测）。
+                    {
+                        const int obase = (int)(OUT_ADDR(ocb, 0, y, x0));
+                        w64_t *pw = reinterpret_cast<w64_t *>(out_fm + obase);
+                        HLS_PRAGMA(HLS PIPELINE II=1)
+                        for (int px = 0; px < xn; ++px) {
+                            // 8 个 bank 的同址并行读 → 8 个**常量**移位拼字。
+                            // 不用 .range(8*i+7,8*i)：那样 i 是循环变量，HLS 会
+                            // 先建一个 64-bit 桶形移位再靠 UNROLL 常量折叠，写死更稳。
+                            w64_t w = (w64_t)(uint8_t)(wbuf[0][px]);
+                            w |= (w64_t)(uint8_t)(wbuf[1][px]) << 8;
+                            w |= (w64_t)(uint8_t)(wbuf[2][px]) << 16;
+                            w |= (w64_t)(uint8_t)(wbuf[3][px]) << 24;
+                            w |= (w64_t)(uint8_t)(wbuf[4][px]) << 32;
+                            w |= (w64_t)(uint8_t)(wbuf[5][px]) << 40;
+                            w |= (w64_t)(uint8_t)(wbuf[6][px]) << 48;
+                            w |= (w64_t)(uint8_t)(wbuf[7][px]) << 56;
+                            pw[px] = w;
+                        }
+                    }
+#endif
+
 #if FUSE_SUM
                     // 本行、本 OC 块的通道和一次性加到全局（chsum 由 PS 侧清零）。
                     // 放在 x2 循环之外：避免在写回流水里对外部内存做读改写。
