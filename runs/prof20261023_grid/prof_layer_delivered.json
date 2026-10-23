@@ -1,0 +1,3153 @@
+{
+  "when": "2025-05-05 05:21:14",
+  "host": "pynq",
+  "python": "3.10.4",
+  "numpy": "1.21.5",
+  "fclk_mhz": 150.0,
+  "pool_mb": 67.1744,
+  "cat_folded": 204,
+  "c8_layout": true,
+  "c8_tensors": 516,
+  "seconds": 52.344258546829224,
+  "n_ops": 517,
+  "n_conv": 247,
+  "profile": {
+    "pixel_unshuffle": {
+      "sec": 0.24698972702026367,
+      "n": 1
+    },
+    "conv": {
+      "sec": 44.212299823760986,
+      "n": 247
+    },
+    "cat": {
+      "sec": 1.79091215133667,
+      "n": 224
+    },
+    "add": {
+      "sec": 0.37424540519714355,
+      "n": 6
+    },
+    "interp": {
+      "sec": 1.0492362976074219,
+      "n": 26
+    },
+    "eca": {
+      "sec": 0.6402401924133301,
+      "n": 6
+    },
+    "sam_sum": {
+      "sec": 3.5039498805999756,
+      "n": 6
+    },
+    "pixel_shuffle": {
+      "sec": 0.2407395839691162,
+      "n": 1
+    }
+  },
+  "layers": [
+    {
+      "id": 0,
+      "name": "pre.unshuffle",
+      "op": "pixel_unshuffle",
+      "sec": 0.24695944786071777
+    },
+    {
+      "id": 1,
+      "name": "encoder.conv_first",
+      "op": "conv",
+      "sec": 3.3943521976470947
+    },
+    {
+      "id": 2,
+      "name": "encoder.encoder_1.rdb.ghost_layers.0.primary_conv",
+      "op": "conv",
+      "sec": 0.22795343399047852
+    },
+    {
+      "id": 3,
+      "name": "encoder.encoder_1.rdb.ghost_layers.0.cheap_operation",
+      "op": "conv",
+      "sec": 0.21491265296936035
+    },
+    {
+      "id": 4,
+      "name": "encoder.encoder_1.rdb.ghost_layers.0.cat",
+      "op": "cat",
+      "sec": 0.020508289337158203
+    },
+    {
+      "id": 5,
+      "name": "encoder.encoder_1.rdb.cat.0",
+      "op": "cat",
+      "sec": 0.0550990104675293
+    },
+    {
+      "id": 6,
+      "name": "encoder.encoder_1.rdb.ghost_layers.1.primary_conv",
+      "op": "conv",
+      "sec": 0.34031009674072266
+    },
+    {
+      "id": 7,
+      "name": "encoder.encoder_1.rdb.ghost_layers.1.cheap_operation",
+      "op": "conv",
+      "sec": 0.2549753189086914
+    },
+    {
+      "id": 8,
+      "name": "encoder.encoder_1.rdb.ghost_layers.1.cat",
+      "op": "cat",
+      "sec": 0.02044820785522461
+    },
+    {
+      "id": 9,
+      "name": "encoder.encoder_1.rdb.cat.1",
+      "op": "cat",
+      "sec": 0.020236968994140625
+    },
+    {
+      "id": 10,
+      "name": "encoder.encoder_1.rdb.ghost_layers.2.primary_conv",
+      "op": "conv",
+      "sec": 0.45299792289733887
+    },
+    {
+      "id": 11,
+      "name": "encoder.encoder_1.rdb.ghost_layers.2.cheap_operation",
+      "op": "conv",
+      "sec": 0.21491718292236328
+    },
+    {
+      "id": 12,
+      "name": "encoder.encoder_1.rdb.ghost_layers.2.cat",
+      "op": "cat",
+      "sec": 0.020475387573242188
+    },
+    {
+      "id": 13,
+      "name": "encoder.encoder_1.rdb.cat.2",
+      "op": "cat",
+      "sec": 0.020236492156982422
+    },
+    {
+      "id": 14,
+      "name": "encoder.encoder_1.rdb.conv_proj",
+      "op": "conv",
+      "sec": 1.3444101810455322
+    },
+    {
+      "id": 15,
+      "name": "encoder.encoder_1.rdb.residual",
+      "op": "add",
+      "sec": 0.09752988815307617
+    },
+    {
+      "id": 16,
+      "name": "encoder.encoder_1.sam_blocks.0.basic_block.ghost_layers.0.primary_conv",
+      "op": "conv",
+      "sec": 0.22809267044067383
+    },
+    {
+      "id": 17,
+      "name": "encoder.encoder_1.sam_blocks.0.basic_block.ghost_layers.0.cheap_operation",
+      "op": "conv",
+      "sec": 0.21492457389831543
+    },
+    {
+      "id": 18,
+      "name": "encoder.encoder_1.sam_blocks.0.basic_block.ghost_layers.0.cat",
+      "op": "cat",
+      "sec": 0.02049851417541504
+    },
+    {
+      "id": 19,
+      "name": "encoder.encoder_1.sam_blocks.0.basic_block.cat.0",
+      "op": "cat",
+      "sec": 0.04864025115966797
+    },
+    {
+      "id": 20,
+      "name": "encoder.encoder_1.sam_blocks.0.basic_block.ghost_layers.1.primary_conv",
+      "op": "conv",
+      "sec": 0.34031033515930176
+    },
+    {
+      "id": 21,
+      "name": "encoder.encoder_1.sam_blocks.0.basic_block.ghost_layers.1.cheap_operation",
+      "op": "conv",
+      "sec": 0.2550201416015625
+    },
+    {
+      "id": 22,
+      "name": "encoder.encoder_1.sam_blocks.0.basic_block.ghost_layers.1.cat",
+      "op": "cat",
+      "sec": 0.020569801330566406
+    },
+    {
+      "id": 23,
+      "name": "encoder.encoder_1.sam_blocks.0.basic_block.cat.1",
+      "op": "cat",
+      "sec": 0.020261526107788086
+    },
+    {
+      "id": 24,
+      "name": "encoder.encoder_1.sam_blocks.0.basic_block.ghost_layers.2.primary_conv",
+      "op": "conv",
+      "sec": 0.4529862403869629
+    },
+    {
+      "id": 25,
+      "name": "encoder.encoder_1.sam_blocks.0.basic_block.ghost_layers.2.cheap_operation",
+      "op": "conv",
+      "sec": 0.29935288429260254
+    },
+    {
+      "id": 26,
+      "name": "encoder.encoder_1.sam_blocks.0.basic_block.ghost_layers.2.cat",
+      "op": "cat",
+      "sec": 0.020452022552490234
+    },
+    {
+      "id": 27,
+      "name": "encoder.encoder_1.sam_blocks.0.basic_block.cat.2",
+      "op": "cat",
+      "sec": 0.02025318145751953
+    },
+    {
+      "id": 28,
+      "name": "encoder.encoder_1.sam_blocks.0.basic_block.ghost_layers.3.primary_conv",
+      "op": "conv",
+      "sec": 0.565044641494751
+    },
+    {
+      "id": 29,
+      "name": "encoder.encoder_1.sam_blocks.0.basic_block.ghost_layers.3.cheap_operation",
+      "op": "conv",
+      "sec": 0.25501084327697754
+    },
+    {
+      "id": 30,
+      "name": "encoder.encoder_1.sam_blocks.0.basic_block.ghost_layers.3.cat",
+      "op": "cat",
+      "sec": 0.020473003387451172
+    },
+    {
+      "id": 31,
+      "name": "encoder.encoder_1.sam_blocks.0.basic_block.cat.3",
+      "op": "cat",
+      "sec": 0.020241975784301758
+    },
+    {
+      "id": 32,
+      "name": "encoder.encoder_1.sam_blocks.0.basic_block.ghost_layers.4.primary_conv",
+      "op": "conv",
+      "sec": 0.6775984764099121
+    },
+    {
+      "id": 33,
+      "name": "encoder.encoder_1.sam_blocks.0.basic_block.ghost_layers.4.cheap_operation",
+      "op": "conv",
+      "sec": 0.21492648124694824
+    },
+    {
+      "id": 34,
+      "name": "encoder.encoder_1.sam_blocks.0.basic_block.ghost_layers.4.cat",
+      "op": "cat",
+      "sec": 0.02047133445739746
+    },
+    {
+      "id": 35,
+      "name": "encoder.encoder_1.sam_blocks.0.basic_block.cat.4",
+      "op": "cat",
+      "sec": 0.020246267318725586
+    },
+    {
+      "id": 36,
+      "name": "encoder.encoder_1.sam_blocks.0.basic_block.conv_proj",
+      "op": "conv",
+      "sec": 1.8643395900726318
+    },
+    {
+      "id": 37,
+      "name": "encoder.encoder_1.sam_blocks.0.down2",
+      "op": "interp",
+      "sec": 0.07296109199523926
+    },
+    {
+      "id": 38,
+      "name": "encoder.encoder_1.sam_blocks.0.basic_block_2.ghost_layers.0.primary_conv",
+      "op": "conv",
+      "sec": 0.0621798038482666
+    },
+    {
+      "id": 39,
+      "name": "encoder.encoder_1.sam_blocks.0.basic_block_2.ghost_layers.0.cheap_operation",
+      "op": "conv",
+      "sec": 0.05922818183898926
+    },
+    {
+      "id": 40,
+      "name": "encoder.encoder_1.sam_blocks.0.basic_block_2.ghost_layers.0.cat",
+      "op": "cat",
+      "sec": 0.005431413650512695
+    },
+    {
+      "id": 41,
+      "name": "encoder.encoder_1.sam_blocks.0.basic_block_2.cat.0",
+      "op": "cat",
+      "sec": 0.01283121109008789
+    },
+    {
+      "id": 42,
+      "name": "encoder.encoder_1.sam_blocks.0.basic_block_2.ghost_layers.1.primary_conv",
+      "op": "conv",
+      "sec": 0.09248781204223633
+    },
+    {
+      "id": 43,
+      "name": "encoder.encoder_1.sam_blocks.0.basic_block_2.ghost_layers.1.cheap_operation",
+      "op": "conv",
+      "sec": 0.07128024101257324
+    },
+    {
+      "id": 44,
+      "name": "encoder.encoder_1.sam_blocks.0.basic_block_2.ghost_layers.1.cat",
+      "op": "cat",
+      "sec": 0.005402565002441406
+    },
+    {
+      "id": 45,
+      "name": "encoder.encoder_1.sam_blocks.0.basic_block_2.cat.1",
+      "op": "cat",
+      "sec": 0.005177021026611328
+    },
+    {
+      "id": 46,
+      "name": "encoder.encoder_1.sam_blocks.0.basic_block_2.ghost_layers.2.primary_conv",
+      "op": "conv",
+      "sec": 0.12304353713989258
+    },
+    {
+      "id": 47,
+      "name": "encoder.encoder_1.sam_blocks.0.basic_block_2.ghost_layers.2.cheap_operation",
+      "op": "conv",
+      "sec": 0.08507847785949707
+    },
+    {
+      "id": 48,
+      "name": "encoder.encoder_1.sam_blocks.0.basic_block_2.ghost_layers.2.cat",
+      "op": "cat",
+      "sec": 0.005415439605712891
+    },
+    {
+      "id": 49,
+      "name": "encoder.encoder_1.sam_blocks.0.basic_block_2.cat.2",
+      "op": "cat",
+      "sec": 0.005181312561035156
+    },
+    {
+      "id": 50,
+      "name": "encoder.encoder_1.sam_blocks.0.basic_block_2.ghost_layers.3.primary_conv",
+      "op": "conv",
+      "sec": 0.15349411964416504
+    },
+    {
+      "id": 51,
+      "name": "encoder.encoder_1.sam_blocks.0.basic_block_2.ghost_layers.3.cheap_operation",
+      "op": "conv",
+      "sec": 0.07128477096557617
+    },
+    {
+      "id": 52,
+      "name": "encoder.encoder_1.sam_blocks.0.basic_block_2.ghost_layers.3.cat",
+      "op": "cat",
+      "sec": 0.005345821380615234
+    },
+    {
+      "id": 53,
+      "name": "encoder.encoder_1.sam_blocks.0.basic_block_2.cat.3",
+      "op": "cat",
+      "sec": 0.0052127838134765625
+    },
+    {
+      "id": 54,
+      "name": "encoder.encoder_1.sam_blocks.0.basic_block_2.ghost_layers.4.primary_conv",
+      "op": "conv",
+      "sec": 0.18391823768615723
+    },
+    {
+      "id": 55,
+      "name": "encoder.encoder_1.sam_blocks.0.basic_block_2.ghost_layers.4.cheap_operation",
+      "op": "conv",
+      "sec": 0.05923867225646973
+    },
+    {
+      "id": 56,
+      "name": "encoder.encoder_1.sam_blocks.0.basic_block_2.ghost_layers.4.cat",
+      "op": "cat",
+      "sec": 0.007429838180541992
+    },
+    {
+      "id": 57,
+      "name": "encoder.encoder_1.sam_blocks.0.basic_block_2.cat.4",
+      "op": "cat",
+      "sec": 0.005174875259399414
+    },
+    {
+      "id": 58,
+      "name": "encoder.encoder_1.sam_blocks.0.basic_block_2.conv_proj",
+      "op": "conv",
+      "sec": 0.48968052864074707
+    },
+    {
+      "id": 59,
+      "name": "encoder.encoder_1.sam_blocks.0.down4",
+      "op": "interp",
+      "sec": 0.03168940544128418
+    },
+    {
+      "id": 60,
+      "name": "encoder.encoder_1.sam_blocks.0.basic_block_4.ghost_layers.0.primary_conv",
+      "op": "conv",
+      "sec": 0.018631935119628906
+    },
+    {
+      "id": 61,
+      "name": "encoder.encoder_1.sam_blocks.0.basic_block_4.ghost_layers.0.cheap_operation",
+      "op": "conv",
+      "sec": 0.017952680587768555
+    },
+    {
+      "id": 62,
+      "name": "encoder.encoder_1.sam_blocks.0.basic_block_4.ghost_layers.0.cat",
+      "op": "cat",
+      "sec": 0.0016276836395263672
+    },
+    {
+      "id": 63,
+      "name": "encoder.encoder_1.sam_blocks.0.basic_block_4.cat.0",
+      "op": "cat",
+      "sec": 0.0034532546997070312
+    },
+    {
+      "id": 64,
+      "name": "encoder.encoder_1.sam_blocks.0.basic_block_4.ghost_layers.1.primary_conv",
+      "op": "conv",
+      "sec": 0.027224302291870117
+    },
+    {
+      "id": 65,
+      "name": "encoder.encoder_1.sam_blocks.0.basic_block_4.ghost_layers.1.cheap_operation",
+      "op": "conv",
+      "sec": 0.02196216583251953
+    },
+    {
+      "id": 66,
+      "name": "encoder.encoder_1.sam_blocks.0.basic_block_4.ghost_layers.1.cat",
+      "op": "cat",
+      "sec": 0.0015909671783447266
+    },
+    {
+      "id": 67,
+      "name": "encoder.encoder_1.sam_blocks.0.basic_block_4.cat.1",
+      "op": "cat",
+      "sec": 0.001425027847290039
+    },
+    {
+      "id": 68,
+      "name": "encoder.encoder_1.sam_blocks.0.basic_block_4.ghost_layers.2.primary_conv",
+      "op": "conv",
+      "sec": 0.03601551055908203
+    },
+    {
+      "id": 69,
+      "name": "encoder.encoder_1.sam_blocks.0.basic_block_4.ghost_layers.2.cheap_operation",
+      "op": "conv",
+      "sec": 0.026416540145874023
+    },
+    {
+      "id": 70,
+      "name": "encoder.encoder_1.sam_blocks.0.basic_block_4.ghost_layers.2.cat",
+      "op": "cat",
+      "sec": 0.0015788078308105469
+    },
+    {
+      "id": 71,
+      "name": "encoder.encoder_1.sam_blocks.0.basic_block_4.cat.2",
+      "op": "cat",
+      "sec": 0.0014216899871826172
+    },
+    {
+      "id": 72,
+      "name": "encoder.encoder_1.sam_blocks.0.basic_block_4.ghost_layers.3.primary_conv",
+      "op": "conv",
+      "sec": 0.0448603630065918
+    },
+    {
+      "id": 73,
+      "name": "encoder.encoder_1.sam_blocks.0.basic_block_4.ghost_layers.3.cheap_operation",
+      "op": "conv",
+      "sec": 0.021948575973510742
+    },
+    {
+      "id": 74,
+      "name": "encoder.encoder_1.sam_blocks.0.basic_block_4.ghost_layers.3.cat",
+      "op": "cat",
+      "sec": 0.0015811920166015625
+    },
+    {
+      "id": 75,
+      "name": "encoder.encoder_1.sam_blocks.0.basic_block_4.cat.3",
+      "op": "cat",
+      "sec": 0.0014271736145019531
+    },
+    {
+      "id": 76,
+      "name": "encoder.encoder_1.sam_blocks.0.basic_block_4.ghost_layers.4.primary_conv",
+      "op": "conv",
+      "sec": 0.05367398262023926
+    },
+    {
+      "id": 77,
+      "name": "encoder.encoder_1.sam_blocks.0.basic_block_4.ghost_layers.4.cheap_operation",
+      "op": "conv",
+      "sec": 0.017959117889404297
+    },
+    {
+      "id": 78,
+      "name": "encoder.encoder_1.sam_blocks.0.basic_block_4.ghost_layers.4.cat",
+      "op": "cat",
+      "sec": 0.0015959739685058594
+    },
+    {
+      "id": 79,
+      "name": "encoder.encoder_1.sam_blocks.0.basic_block_4.cat.4",
+      "op": "cat",
+      "sec": 0.0014243125915527344
+    },
+    {
+      "id": 80,
+      "name": "encoder.encoder_1.sam_blocks.0.basic_block_4.conv_proj",
+      "op": "conv",
+      "sec": 0.13460898399353027
+    },
+    {
+      "id": 81,
+      "name": "encoder.encoder_1.sam_blocks.0.up2",
+      "op": "interp",
+      "sec": 0.09322786331176758
+    },
+    {
+      "id": 82,
+      "name": "encoder.encoder_1.sam_blocks.0.up4",
+      "op": "interp",
+      "sec": 0.08084654808044434
+    },
+    {
+      "id": 83,
+      "name": "encoder.encoder_1.sam_blocks.0.fuse_cat",
+      "op": "cat",
+      "sec": 0.10476803779602051
+    },
+    {
+      "id": 84,
+      "name": "encoder.encoder_1.sam_blocks.0.fusion",
+      "op": "eca",
+      "sec": 0.18795514106750488
+    },
+    {
+      "id": 85,
+      "name": "encoder.encoder_1.sam_blocks.0.sum",
+      "op": "sam_sum",
+      "sec": 1.0339100360870361
+    },
+    {
+      "id": 86,
+      "name": "encoder.encoder_1.down",
+      "op": "conv",
+      "sec": 0.7284755706787109
+    },
+    {
+      "id": 87,
+      "name": "encoder.encoder_2.rdb.ghost_layers.0.primary_conv",
+      "op": "conv",
+      "sec": 0.10770463943481445
+    },
+    {
+      "id": 88,
+      "name": "encoder.encoder_2.rdb.ghost_layers.0.cheap_operation",
+      "op": "conv",
+      "sec": 0.059250593185424805
+    },
+    {
+      "id": 89,
+      "name": "encoder.encoder_2.rdb.ghost_layers.0.cat",
+      "op": "cat",
+      "sec": 0.0074825286865234375
+    },
+    {
+      "id": 90,
+      "name": "encoder.encoder_2.rdb.cat.0",
+      "op": "cat",
+      "sec": 0.022815942764282227
+    },
+    {
+      "id": 91,
+      "name": "encoder.encoder_2.rdb.ghost_layers.1.primary_conv",
+      "op": "conv",
+      "sec": 0.13826346397399902
+    },
+    {
+      "id": 92,
+      "name": "encoder.encoder_2.rdb.ghost_layers.1.cheap_operation",
+      "op": "conv",
+      "sec": 0.07126903533935547
+    },
+    {
+      "id": 93,
+      "name": "encoder.encoder_2.rdb.ghost_layers.1.cat",
+      "op": "cat",
+      "sec": 0.0054013729095458984
+    },
+    {
+      "id": 94,
+      "name": "encoder.encoder_2.rdb.cat.1",
+      "op": "cat",
+      "sec": 0.005188941955566406
+    },
+    {
+      "id": 95,
+      "name": "encoder.encoder_2.rdb.ghost_layers.2.primary_conv",
+      "op": "conv",
+      "sec": 0.16871213912963867
+    },
+    {
+      "id": 96,
+      "name": "encoder.encoder_2.rdb.ghost_layers.2.cheap_operation",
+      "op": "conv",
+      "sec": 0.05923318862915039
+    },
+    {
+      "id": 97,
+      "name": "encoder.encoder_2.rdb.ghost_layers.2.cat",
+      "op": "cat",
+      "sec": 0.005349397659301758
+    },
+    {
+      "id": 98,
+      "name": "encoder.encoder_2.rdb.cat.2",
+      "op": "cat",
+      "sec": 0.005228519439697266
+    },
+    {
+      "id": 99,
+      "name": "encoder.encoder_2.rdb.conv_proj",
+      "op": "conv",
+      "sec": 0.8404643535614014
+    },
+    {
+      "id": 100,
+      "name": "encoder.encoder_2.rdb.residual",
+      "op": "add",
+      "sec": 0.04994773864746094
+    },
+    {
+      "id": 101,
+      "name": "encoder.encoder_2.sam_blocks.0.basic_block.ghost_layers.0.primary_conv",
+      "op": "conv",
+      "sec": 0.10830903053283691
+    },
+    {
+      "id": 102,
+      "name": "encoder.encoder_2.sam_blocks.0.basic_block.ghost_layers.0.cheap_operation",
+      "op": "conv",
+      "sec": 0.05926203727722168
+    },
+    {
+      "id": 103,
+      "name": "encoder.encoder_2.sam_blocks.0.basic_block.ghost_layers.0.cat",
+      "op": "cat",
+      "sec": 0.00538325309753418
+    },
+    {
+      "id": 104,
+      "name": "encoder.encoder_2.sam_blocks.0.basic_block.cat.0",
+      "op": "cat",
+      "sec": 0.0195162296295166
+    },
+    {
+      "id": 105,
+      "name": "encoder.encoder_2.sam_blocks.0.basic_block.ghost_layers.1.primary_conv",
+      "op": "conv",
+      "sec": 0.138197660446167
+    },
+    {
+      "id": 106,
+      "name": "encoder.encoder_2.sam_blocks.0.basic_block.ghost_layers.1.cheap_operation",
+      "op": "conv",
+      "sec": 0.07123970985412598
+    },
+    {
+      "id": 107,
+      "name": "encoder.encoder_2.sam_blocks.0.basic_block.ghost_layers.1.cat",
+      "op": "cat",
+      "sec": 0.005389213562011719
+    },
+    {
+      "id": 108,
+      "name": "encoder.encoder_2.sam_blocks.0.basic_block.cat.1",
+      "op": "cat",
+      "sec": 0.005184650421142578
+    },
+    {
+      "id": 109,
+      "name": "encoder.encoder_2.sam_blocks.0.basic_block.ghost_layers.2.primary_conv",
+      "op": "conv",
+      "sec": 0.16871166229248047
+    },
+    {
+      "id": 110,
+      "name": "encoder.encoder_2.sam_blocks.0.basic_block.ghost_layers.2.cheap_operation",
+      "op": "conv",
+      "sec": 0.08457064628601074
+    },
+    {
+      "id": 111,
+      "name": "encoder.encoder_2.sam_blocks.0.basic_block.ghost_layers.2.cat",
+      "op": "cat",
+      "sec": 0.0053560733795166016
+    },
+    {
+      "id": 112,
+      "name": "encoder.encoder_2.sam_blocks.0.basic_block.cat.2",
+      "op": "cat",
+      "sec": 0.005219936370849609
+    },
+    {
+      "id": 113,
+      "name": "encoder.encoder_2.sam_blocks.0.basic_block.ghost_layers.3.primary_conv",
+      "op": "conv",
+      "sec": 0.19922232627868652
+    },
+    {
+      "id": 114,
+      "name": "encoder.encoder_2.sam_blocks.0.basic_block.ghost_layers.3.cheap_operation",
+      "op": "conv",
+      "sec": 0.07123494148254395
+    },
+    {
+      "id": 115,
+      "name": "encoder.encoder_2.sam_blocks.0.basic_block.ghost_layers.3.cat",
+      "op": "cat",
+      "sec": 0.005339622497558594
+    },
+    {
+      "id": 116,
+      "name": "encoder.encoder_2.sam_blocks.0.basic_block.cat.3",
+      "op": "cat",
+      "sec": 0.005220174789428711
+    },
+    {
+      "id": 117,
+      "name": "encoder.encoder_2.sam_blocks.0.basic_block.ghost_layers.4.primary_conv",
+      "op": "conv",
+      "sec": 0.22960281372070312
+    },
+    {
+      "id": 118,
+      "name": "encoder.encoder_2.sam_blocks.0.basic_block.ghost_layers.4.cheap_operation",
+      "op": "conv",
+      "sec": 0.05921292304992676
+    },
+    {
+      "id": 119,
+      "name": "encoder.encoder_2.sam_blocks.0.basic_block.ghost_layers.4.cat",
+      "op": "cat",
+      "sec": 0.005350828170776367
+    },
+    {
+      "id": 120,
+      "name": "encoder.encoder_2.sam_blocks.0.basic_block.cat.4",
+      "op": "cat",
+      "sec": 0.005214691162109375
+    },
+    {
+      "id": 121,
+      "name": "encoder.encoder_2.sam_blocks.0.basic_block.conv_proj",
+      "op": "conv",
+      "sec": 1.0894935131072998
+    },
+    {
+      "id": 122,
+      "name": "encoder.encoder_2.sam_blocks.0.down2",
+      "op": "interp",
+      "sec": 0.023354530334472656
+    },
+    {
+      "id": 123,
+      "name": "encoder.encoder_2.sam_blocks.0.basic_block_2.ghost_layers.0.primary_conv",
+      "op": "conv",
+      "sec": 0.03175234794616699
+    },
+    {
+      "id": 124,
+      "name": "encoder.encoder_2.sam_blocks.0.basic_block_2.ghost_layers.0.cheap_operation",
+      "op": "conv",
+      "sec": 0.017927885055541992
+    },
+    {
+      "id": 125,
+      "name": "encoder.encoder_2.sam_blocks.0.basic_block_2.ghost_layers.0.cat",
+      "op": "cat",
+      "sec": 0.0016257762908935547
+    },
+    {
+      "id": 126,
+      "name": "encoder.encoder_2.sam_blocks.0.basic_block_2.cat.0",
+      "op": "cat",
+      "sec": 0.005338907241821289
+    },
+    {
+      "id": 127,
+      "name": "encoder.encoder_2.sam_blocks.0.basic_block_2.ghost_layers.1.primary_conv",
+      "op": "conv",
+      "sec": 0.0404512882232666
+    },
+    {
+      "id": 128,
+      "name": "encoder.encoder_2.sam_blocks.0.basic_block_2.ghost_layers.1.cheap_operation",
+      "op": "conv",
+      "sec": 0.021924734115600586
+    },
+    {
+      "id": 129,
+      "name": "encoder.encoder_2.sam_blocks.0.basic_block_2.ghost_layers.1.cat",
+      "op": "cat",
+      "sec": 0.0015854835510253906
+    },
+    {
+      "id": 130,
+      "name": "encoder.encoder_2.sam_blocks.0.basic_block_2.cat.1",
+      "op": "cat",
+      "sec": 0.0014264583587646484
+    },
+    {
+      "id": 131,
+      "name": "encoder.encoder_2.sam_blocks.0.basic_block_2.ghost_layers.2.primary_conv",
+      "op": "conv",
+      "sec": 0.049181461334228516
+    },
+    {
+      "id": 132,
+      "name": "encoder.encoder_2.sam_blocks.0.basic_block_2.ghost_layers.2.cheap_operation",
+      "op": "conv",
+      "sec": 0.026362895965576172
+    },
+    {
+      "id": 133,
+      "name": "encoder.encoder_2.sam_blocks.0.basic_block_2.ghost_layers.2.cat",
+      "op": "cat",
+      "sec": 0.0015788078308105469
+    },
+    {
+      "id": 134,
+      "name": "encoder.encoder_2.sam_blocks.0.basic_block_2.cat.2",
+      "op": "cat",
+      "sec": 0.0014255046844482422
+    },
+    {
+      "id": 135,
+      "name": "encoder.encoder_2.sam_blocks.0.basic_block_2.ghost_layers.3.primary_conv",
+      "op": "conv",
+      "sec": 0.05809664726257324
+    },
+    {
+      "id": 136,
+      "name": "encoder.encoder_2.sam_blocks.0.basic_block_2.ghost_layers.3.cheap_operation",
+      "op": "conv",
+      "sec": 0.021967411041259766
+    },
+    {
+      "id": 137,
+      "name": "encoder.encoder_2.sam_blocks.0.basic_block_2.ghost_layers.3.cat",
+      "op": "cat",
+      "sec": 0.0015976428985595703
+    },
+    {
+      "id": 138,
+      "name": "encoder.encoder_2.sam_blocks.0.basic_block_2.cat.3",
+      "op": "cat",
+      "sec": 0.0014233589172363281
+    },
+    {
+      "id": 139,
+      "name": "encoder.encoder_2.sam_blocks.0.basic_block_2.ghost_layers.4.primary_conv",
+      "op": "conv",
+      "sec": 0.06688141822814941
+    },
+    {
+      "id": 140,
+      "name": "encoder.encoder_2.sam_blocks.0.basic_block_2.ghost_layers.4.cheap_operation",
+      "op": "conv",
+      "sec": 0.017920494079589844
+    },
+    {
+      "id": 141,
+      "name": "encoder.encoder_2.sam_blocks.0.basic_block_2.ghost_layers.4.cat",
+      "op": "cat",
+      "sec": 0.0015957355499267578
+    },
+    {
+      "id": 142,
+      "name": "encoder.encoder_2.sam_blocks.0.basic_block_2.cat.4",
+      "op": "cat",
+      "sec": 0.00142669677734375
+    },
+    {
+      "id": 143,
+      "name": "encoder.encoder_2.sam_blocks.0.basic_block_2.conv_proj",
+      "op": "conv",
+      "sec": 0.29289793968200684
+    },
+    {
+      "id": 144,
+      "name": "encoder.encoder_2.sam_blocks.0.down4",
+      "op": "interp",
+      "sec": 0.015505552291870117
+    },
+    {
+      "id": 145,
+      "name": "encoder.encoder_2.sam_blocks.0.basic_block_4.ghost_layers.0.primary_conv",
+      "op": "conv",
+      "sec": 0.008852958679199219
+    },
+    {
+      "id": 146,
+      "name": "encoder.encoder_2.sam_blocks.0.basic_block_4.ghost_layers.0.cheap_operation",
+      "op": "conv",
+      "sec": 0.0052165985107421875
+    },
+    {
+      "id": 147,
+      "name": "encoder.encoder_2.sam_blocks.0.basic_block_4.ghost_layers.0.cat",
+      "op": "cat",
+      "sec": 0.0006921291351318359
+    },
+    {
+      "id": 148,
+      "name": "encoder.encoder_2.sam_blocks.0.basic_block_4.cat.0",
+      "op": "cat",
+      "sec": 0.0015332698822021484
+    },
+    {
+      "id": 149,
+      "name": "encoder.encoder_2.sam_blocks.0.basic_block_4.ghost_layers.1.primary_conv",
+      "op": "conv",
+      "sec": 0.010921478271484375
+    },
+    {
+      "id": 150,
+      "name": "encoder.encoder_2.sam_blocks.0.basic_block_4.ghost_layers.1.cheap_operation",
+      "op": "conv",
+      "sec": 0.006762027740478516
+    },
+    {
+      "id": 151,
+      "name": "encoder.encoder_2.sam_blocks.0.basic_block_4.ghost_layers.1.cat",
+      "op": "cat",
+      "sec": 0.0006844997406005859
+    },
+    {
+      "id": 152,
+      "name": "encoder.encoder_2.sam_blocks.0.basic_block_4.cat.1",
+      "op": "cat",
+      "sec": 0.0014278888702392578
+    },
+    {
+      "id": 153,
+      "name": "encoder.encoder_2.sam_blocks.0.basic_block_4.ghost_layers.2.primary_conv",
+      "op": "conv",
+      "sec": 0.013123273849487305
+    },
+    {
+      "id": 154,
+      "name": "encoder.encoder_2.sam_blocks.0.basic_block_4.ghost_layers.2.cheap_operation",
+      "op": "conv",
+      "sec": 0.007340908050537109
+    },
+    {
+      "id": 155,
+      "name": "encoder.encoder_2.sam_blocks.0.basic_block_4.ghost_layers.2.cat",
+      "op": "cat",
+      "sec": 0.0006437301635742188
+    },
+    {
+      "id": 156,
+      "name": "encoder.encoder_2.sam_blocks.0.basic_block_4.cat.2",
+      "op": "cat",
+      "sec": 0.0004894733428955078
+    },
+    {
+      "id": 157,
+      "name": "encoder.encoder_2.sam_blocks.0.basic_block_4.ghost_layers.3.primary_conv",
+      "op": "conv",
+      "sec": 0.015351533889770508
+    },
+    {
+      "id": 158,
+      "name": "encoder.encoder_2.sam_blocks.0.basic_block_4.ghost_layers.3.cheap_operation",
+      "op": "conv",
+      "sec": 0.006300926208496094
+    },
+    {
+      "id": 159,
+      "name": "encoder.encoder_2.sam_blocks.0.basic_block_4.ghost_layers.3.cat",
+      "op": "cat",
+      "sec": 0.0006411075592041016
+    },
+    {
+      "id": 160,
+      "name": "encoder.encoder_2.sam_blocks.0.basic_block_4.cat.3",
+      "op": "cat",
+      "sec": 0.0004909038543701172
+    },
+    {
+      "id": 161,
+      "name": "encoder.encoder_2.sam_blocks.0.basic_block_4.ghost_layers.4.primary_conv",
+      "op": "conv",
+      "sec": 0.017553091049194336
+    },
+    {
+      "id": 162,
+      "name": "encoder.encoder_2.sam_blocks.0.basic_block_4.ghost_layers.4.cheap_operation",
+      "op": "conv",
+      "sec": 0.00519251823425293
+    },
+    {
+      "id": 163,
+      "name": "encoder.encoder_2.sam_blocks.0.basic_block_4.ghost_layers.4.cat",
+      "op": "cat",
+      "sec": 0.0006849765777587891
+    },
+    {
+      "id": 164,
+      "name": "encoder.encoder_2.sam_blocks.0.basic_block_4.cat.4",
+      "op": "cat",
+      "sec": 0.00048828125
+    },
+    {
+      "id": 165,
+      "name": "encoder.encoder_2.sam_blocks.0.basic_block_4.conv_proj",
+      "op": "conv",
+      "sec": 0.07400178909301758
+    },
+    {
+      "id": 166,
+      "name": "encoder.encoder_2.sam_blocks.0.up2",
+      "op": "interp",
+      "sec": 0.043878793716430664
+    },
+    {
+      "id": 167,
+      "name": "encoder.encoder_2.sam_blocks.0.up4",
+      "op": "interp",
+      "sec": 0.041924476623535156
+    },
+    {
+      "id": 168,
+      "name": "encoder.encoder_2.sam_blocks.0.fuse_cat",
+      "op": "cat",
+      "sec": 0.05047416687011719
+    },
+    {
+      "id": 169,
+      "name": "encoder.encoder_2.sam_blocks.0.fusion",
+      "op": "eca",
+      "sec": 0.07963252067565918
+    },
+    {
+      "id": 170,
+      "name": "encoder.encoder_2.sam_blocks.0.sum",
+      "op": "sam_sum",
+      "sec": 0.5046427249908447
+    },
+    {
+      "id": 171,
+      "name": "encoder.encoder_2.down",
+      "op": "conv",
+      "sec": 0.6807012557983398
+    },
+    {
+      "id": 172,
+      "name": "encoder.encoder_3.rdb.ghost_layers.0.primary_conv",
+      "op": "conv",
+      "sec": 0.05813431739807129
+    },
+    {
+      "id": 173,
+      "name": "encoder.encoder_3.rdb.ghost_layers.0.cheap_operation",
+      "op": "conv",
+      "sec": 0.01792430877685547
+    },
+    {
+      "id": 174,
+      "name": "encoder.encoder_3.rdb.ghost_layers.0.cat",
+      "op": "cat",
+      "sec": 0.0016286373138427734
+    },
+    {
+      "id": 175,
+      "name": "encoder.encoder_3.rdb.cat.0",
+      "op": "cat",
+      "sec": 0.009174585342407227
+    },
+    {
+      "id": 176,
+      "name": "encoder.encoder_3.rdb.ghost_layers.1.primary_conv",
+      "op": "conv",
+      "sec": 0.06684541702270508
+    },
+    {
+      "id": 177,
+      "name": "encoder.encoder_3.rdb.ghost_layers.1.cheap_operation",
+      "op": "conv",
+      "sec": 0.02193307876586914
+    },
+    {
+      "id": 178,
+      "name": "encoder.encoder_3.rdb.ghost_layers.1.cat",
+      "op": "cat",
+      "sec": 0.0015881061553955078
+    },
+    {
+      "id": 179,
+      "name": "encoder.encoder_3.rdb.cat.1",
+      "op": "cat",
+      "sec": 0.0014286041259765625
+    },
+    {
+      "id": 180,
+      "name": "encoder.encoder_3.rdb.ghost_layers.2.primary_conv",
+      "op": "conv",
+      "sec": 0.07569313049316406
+    },
+    {
+      "id": 181,
+      "name": "encoder.encoder_3.rdb.ghost_layers.2.cheap_operation",
+      "op": "conv",
+      "sec": 0.017925500869750977
+    },
+    {
+      "id": 182,
+      "name": "encoder.encoder_3.rdb.ghost_layers.2.cat",
+      "op": "cat",
+      "sec": 0.0016236305236816406
+    },
+    {
+      "id": 183,
+      "name": "encoder.encoder_3.rdb.cat.2",
+      "op": "cat",
+      "sec": 0.0014333724975585938
+    },
+    {
+      "id": 184,
+      "name": "encoder.encoder_3.rdb.conv_proj",
+      "op": "conv",
+      "sec": 0.6165339946746826
+    },
+    {
+      "id": 185,
+      "name": "encoder.encoder_3.rdb.residual",
+      "op": "add",
+      "sec": 0.025983810424804688
+    },
+    {
+      "id": 186,
+      "name": "encoder.encoder_3.sam_blocks.0.basic_block.ghost_layers.0.primary_conv",
+      "op": "conv",
+      "sec": 0.05829906463623047
+    },
+    {
+      "id": 187,
+      "name": "encoder.encoder_3.sam_blocks.0.basic_block.ghost_layers.0.cheap_operation",
+      "op": "conv",
+      "sec": 0.01797199249267578
+    },
+    {
+      "id": 188,
+      "name": "encoder.encoder_3.sam_blocks.0.basic_block.ghost_layers.0.cat",
+      "op": "cat",
+      "sec": 0.0016298294067382812
+    },
+    {
+      "id": 189,
+      "name": "encoder.encoder_3.sam_blocks.0.basic_block.cat.0",
+      "op": "cat",
+      "sec": 0.007647275924682617
+    },
+    {
+      "id": 190,
+      "name": "encoder.encoder_3.sam_blocks.0.basic_block.ghost_layers.1.primary_conv",
+      "op": "conv",
+      "sec": 0.0668478012084961
+    },
+    {
+      "id": 191,
+      "name": "encoder.encoder_3.sam_blocks.0.basic_block.ghost_layers.1.cheap_operation",
+      "op": "conv",
+      "sec": 0.021955490112304688
+    },
+    {
+      "id": 192,
+      "name": "encoder.encoder_3.sam_blocks.0.basic_block.ghost_layers.1.cat",
+      "op": "cat",
+      "sec": 0.00165557861328125
+    },
+    {
+      "id": 193,
+      "name": "encoder.encoder_3.sam_blocks.0.basic_block.cat.1",
+      "op": "cat",
+      "sec": 0.001432180404663086
+    },
+    {
+      "id": 194,
+      "name": "encoder.encoder_3.sam_blocks.0.basic_block.ghost_layers.2.primary_conv",
+      "op": "conv",
+      "sec": 0.07571053504943848
+    },
+    {
+      "id": 195,
+      "name": "encoder.encoder_3.sam_blocks.0.basic_block.ghost_layers.2.cheap_operation",
+      "op": "conv",
+      "sec": 0.026355266571044922
+    },
+    {
+      "id": 196,
+      "name": "encoder.encoder_3.sam_blocks.0.basic_block.ghost_layers.2.cat",
+      "op": "cat",
+      "sec": 0.0015802383422851562
+    },
+    {
+      "id": 197,
+      "name": "encoder.encoder_3.sam_blocks.0.basic_block.cat.2",
+      "op": "cat",
+      "sec": 0.0014295578002929688
+    },
+    {
+      "id": 198,
+      "name": "encoder.encoder_3.sam_blocks.0.basic_block.ghost_layers.3.primary_conv",
+      "op": "conv",
+      "sec": 0.08446311950683594
+    },
+    {
+      "id": 199,
+      "name": "encoder.encoder_3.sam_blocks.0.basic_block.ghost_layers.3.cheap_operation",
+      "op": "conv",
+      "sec": 0.021932125091552734
+    },
+    {
+      "id": 200,
+      "name": "encoder.encoder_3.sam_blocks.0.basic_block.ghost_layers.3.cat",
+      "op": "cat",
+      "sec": 0.0015850067138671875
+    },
+    {
+      "id": 201,
+      "name": "encoder.encoder_3.sam_blocks.0.basic_block.cat.3",
+      "op": "cat",
+      "sec": 0.0014278888702392578
+    },
+    {
+      "id": 202,
+      "name": "encoder.encoder_3.sam_blocks.0.basic_block.ghost_layers.4.primary_conv",
+      "op": "conv",
+      "sec": 0.09336543083190918
+    },
+    {
+      "id": 203,
+      "name": "encoder.encoder_3.sam_blocks.0.basic_block.ghost_layers.4.cheap_operation",
+      "op": "conv",
+      "sec": 0.01840829849243164
+    },
+    {
+      "id": 204,
+      "name": "encoder.encoder_3.sam_blocks.0.basic_block.ghost_layers.4.cat",
+      "op": "cat",
+      "sec": 0.0016522407531738281
+    },
+    {
+      "id": 205,
+      "name": "encoder.encoder_3.sam_blocks.0.basic_block.cat.4",
+      "op": "cat",
+      "sec": 0.0014355182647705078
+    },
+    {
+      "id": 206,
+      "name": "encoder.encoder_3.sam_blocks.0.basic_block.conv_proj",
+      "op": "conv",
+      "sec": 0.7421834468841553
+    },
+    {
+      "id": 207,
+      "name": "encoder.encoder_3.sam_blocks.0.down2",
+      "op": "interp",
+      "sec": 0.012992620468139648
+    },
+    {
+      "id": 208,
+      "name": "encoder.encoder_3.sam_blocks.0.basic_block_2.ghost_layers.0.primary_conv",
+      "op": "conv",
+      "sec": 0.01555180549621582
+    },
+    {
+      "id": 209,
+      "name": "encoder.encoder_3.sam_blocks.0.basic_block_2.ghost_layers.0.cheap_operation",
+      "op": "conv",
+      "sec": 0.005231618881225586
+    },
+    {
+      "id": 210,
+      "name": "encoder.encoder_3.sam_blocks.0.basic_block_2.ghost_layers.0.cat",
+      "op": "cat",
+      "sec": 0.0008234977722167969
+    },
+    {
+      "id": 211,
+      "name": "encoder.encoder_3.sam_blocks.0.basic_block_2.cat.0",
+      "op": "cat",
+      "sec": 0.0021033287048339844
+    },
+    {
+      "id": 212,
+      "name": "encoder.encoder_3.sam_blocks.0.basic_block_2.ghost_layers.1.primary_conv",
+      "op": "conv",
+      "sec": 0.017567157745361328
+    },
+    {
+      "id": 213,
+      "name": "encoder.encoder_3.sam_blocks.0.basic_block_2.ghost_layers.1.cheap_operation",
+      "op": "conv",
+      "sec": 0.0062351226806640625
+    },
+    {
+      "id": 214,
+      "name": "encoder.encoder_3.sam_blocks.0.basic_block_2.ghost_layers.1.cat",
+      "op": "cat",
+      "sec": 0.0006475448608398438
+    },
+    {
+      "id": 215,
+      "name": "encoder.encoder_3.sam_blocks.0.basic_block_2.cat.1",
+      "op": "cat",
+      "sec": 0.0004889965057373047
+    },
+    {
+      "id": 216,
+      "name": "encoder.encoder_3.sam_blocks.0.basic_block_2.ghost_layers.2.primary_conv",
+      "op": "conv",
+      "sec": 0.01973581314086914
+    },
+    {
+      "id": 217,
+      "name": "encoder.encoder_3.sam_blocks.0.basic_block_2.ghost_layers.2.cheap_operation",
+      "op": "conv",
+      "sec": 0.007339954376220703
+    },
+    {
+      "id": 218,
+      "name": "encoder.encoder_3.sam_blocks.0.basic_block_2.ghost_layers.2.cat",
+      "op": "cat",
+      "sec": 0.0006532669067382812
+    },
+    {
+      "id": 219,
+      "name": "encoder.encoder_3.sam_blocks.0.basic_block_2.cat.2",
+      "op": "cat",
+      "sec": 0.0004909038543701172
+    },
+    {
+      "id": 220,
+      "name": "encoder.encoder_3.sam_blocks.0.basic_block_2.ghost_layers.3.primary_conv",
+      "op": "conv",
+      "sec": 0.021929025650024414
+    },
+    {
+      "id": 221,
+      "name": "encoder.encoder_3.sam_blocks.0.basic_block_2.ghost_layers.3.cheap_operation",
+      "op": "conv",
+      "sec": 0.006212711334228516
+    },
+    {
+      "id": 222,
+      "name": "encoder.encoder_3.sam_blocks.0.basic_block_2.ghost_layers.3.cat",
+      "op": "cat",
+      "sec": 0.0006427764892578125
+    },
+    {
+      "id": 223,
+      "name": "encoder.encoder_3.sam_blocks.0.basic_block_2.cat.3",
+      "op": "cat",
+      "sec": 0.0004894733428955078
+    },
+    {
+      "id": 224,
+      "name": "encoder.encoder_3.sam_blocks.0.basic_block_2.ghost_layers.4.primary_conv",
+      "op": "conv",
+      "sec": 0.02424478530883789
+    },
+    {
+      "id": 225,
+      "name": "encoder.encoder_3.sam_blocks.0.basic_block_2.ghost_layers.4.cheap_operation",
+      "op": "conv",
+      "sec": 0.005198240280151367
+    },
+    {
+      "id": 226,
+      "name": "encoder.encoder_3.sam_blocks.0.basic_block_2.ghost_layers.4.cat",
+      "op": "cat",
+      "sec": 0.0006351470947265625
+    },
+    {
+      "id": 227,
+      "name": "encoder.encoder_3.sam_blocks.0.basic_block_2.cat.4",
+      "op": "cat",
+      "sec": 0.00048804283142089844
+    },
+    {
+      "id": 228,
+      "name": "encoder.encoder_3.sam_blocks.0.basic_block_2.conv_proj",
+      "op": "conv",
+      "sec": 0.18642163276672363
+    },
+    {
+      "id": 229,
+      "name": "encoder.encoder_3.sam_blocks.0.down4",
+      "op": "interp",
+      "sec": 0.00909876823425293
+    },
+    {
+      "id": 230,
+      "name": "encoder.encoder_3.sam_blocks.0.basic_block_4.ghost_layers.0.primary_conv",
+      "op": "conv",
+      "sec": 0.006639719009399414
+    },
+    {
+      "id": 231,
+      "name": "encoder.encoder_3.sam_blocks.0.basic_block_4.ghost_layers.0.cheap_operation",
+      "op": "conv",
+      "sec": 0.002638101577758789
+    },
+    {
+      "id": 232,
+      "name": "encoder.encoder_3.sam_blocks.0.basic_block_4.ghost_layers.0.cat",
+      "op": "cat",
+      "sec": 0.0010285377502441406
+    },
+    {
+      "id": 233,
+      "name": "encoder.encoder_3.sam_blocks.0.basic_block_4.cat.0",
+      "op": "cat",
+      "sec": 0.0014495849609375
+    },
+    {
+      "id": 234,
+      "name": "encoder.encoder_3.sam_blocks.0.basic_block_4.ghost_layers.1.primary_conv",
+      "op": "conv",
+      "sec": 0.0074160099029541016
+    },
+    {
+      "id": 235,
+      "name": "encoder.encoder_3.sam_blocks.0.basic_block_4.ghost_layers.1.cheap_operation",
+      "op": "conv",
+      "sec": 0.003208637237548828
+    },
+    {
+      "id": 236,
+      "name": "encoder.encoder_3.sam_blocks.0.basic_block_4.ghost_layers.1.cat",
+      "op": "cat",
+      "sec": 0.0008873939514160156
+    },
+    {
+      "id": 237,
+      "name": "encoder.encoder_3.sam_blocks.0.basic_block_4.cat.1",
+      "op": "cat",
+      "sec": 0.001329660415649414
+    },
+    {
+      "id": 238,
+      "name": "encoder.encoder_3.sam_blocks.0.basic_block_4.ghost_layers.2.primary_conv",
+      "op": "conv",
+      "sec": 0.008254528045654297
+    },
+    {
+      "id": 239,
+      "name": "encoder.encoder_3.sam_blocks.0.basic_block_4.ghost_layers.2.cheap_operation",
+      "op": "conv",
+      "sec": 0.0036923885345458984
+    },
+    {
+      "id": 240,
+      "name": "encoder.encoder_3.sam_blocks.0.basic_block_4.ghost_layers.2.cat",
+      "op": "cat",
+      "sec": 0.0008809566497802734
+    },
+    {
+      "id": 241,
+      "name": "encoder.encoder_3.sam_blocks.0.basic_block_4.cat.2",
+      "op": "cat",
+      "sec": 0.001483917236328125
+    },
+    {
+      "id": 242,
+      "name": "encoder.encoder_3.sam_blocks.0.basic_block_4.ghost_layers.3.primary_conv",
+      "op": "conv",
+      "sec": 0.009164571762084961
+    },
+    {
+      "id": 243,
+      "name": "encoder.encoder_3.sam_blocks.0.basic_block_4.ghost_layers.3.cheap_operation",
+      "op": "conv",
+      "sec": 0.003156423568725586
+    },
+    {
+      "id": 244,
+      "name": "encoder.encoder_3.sam_blocks.0.basic_block_4.ghost_layers.3.cat",
+      "op": "cat",
+      "sec": 0.0009281635284423828
+    },
+    {
+      "id": 245,
+      "name": "encoder.encoder_3.sam_blocks.0.basic_block_4.cat.3",
+      "op": "cat",
+      "sec": 0.001199960708618164
+    },
+    {
+      "id": 246,
+      "name": "encoder.encoder_3.sam_blocks.0.basic_block_4.ghost_layers.4.primary_conv",
+      "op": "conv",
+      "sec": 0.009933948516845703
+    },
+    {
+      "id": 247,
+      "name": "encoder.encoder_3.sam_blocks.0.basic_block_4.ghost_layers.4.cheap_operation",
+      "op": "conv",
+      "sec": 0.002650737762451172
+    },
+    {
+      "id": 248,
+      "name": "encoder.encoder_3.sam_blocks.0.basic_block_4.ghost_layers.4.cat",
+      "op": "cat",
+      "sec": 0.0008707046508789062
+    },
+    {
+      "id": 249,
+      "name": "encoder.encoder_3.sam_blocks.0.basic_block_4.cat.4",
+      "op": "cat",
+      "sec": 0.0012617111206054688
+    },
+    {
+      "id": 250,
+      "name": "encoder.encoder_3.sam_blocks.0.basic_block_4.conv_proj",
+      "op": "conv",
+      "sec": 0.05786585807800293
+    },
+    {
+      "id": 251,
+      "name": "encoder.encoder_3.sam_blocks.0.up2",
+      "op": "interp",
+      "sec": 0.023543596267700195
+    },
+    {
+      "id": 252,
+      "name": "encoder.encoder_3.sam_blocks.0.up4",
+      "op": "interp",
+      "sec": 0.021991491317749023
+    },
+    {
+      "id": 253,
+      "name": "encoder.encoder_3.sam_blocks.0.fuse_cat",
+      "op": "cat",
+      "sec": 0.023415327072143555
+    },
+    {
+      "id": 254,
+      "name": "encoder.encoder_3.sam_blocks.0.fusion",
+      "op": "eca",
+      "sec": 0.04251503944396973
+    },
+    {
+      "id": 255,
+      "name": "encoder.encoder_3.sam_blocks.0.sum",
+      "op": "sam_sum",
+      "sec": 0.2511253356933594
+    },
+    {
+      "id": 256,
+      "name": "decoder.preconv_3",
+      "op": "conv",
+      "sec": 0.40162158012390137
+    },
+    {
+      "id": 257,
+      "name": "decoder.decoder_3.rdb.ghost_layers.0.primary_conv",
+      "op": "conv",
+      "sec": 0.02323770523071289
+    },
+    {
+      "id": 258,
+      "name": "decoder.decoder_3.rdb.ghost_layers.0.cheap_operation",
+      "op": "conv",
+      "sec": 0.017978668212890625
+    },
+    {
+      "id": 259,
+      "name": "decoder.decoder_3.rdb.ghost_layers.0.cat",
+      "op": "cat",
+      "sec": 0.0016341209411621094
+    },
+    {
+      "id": 260,
+      "name": "decoder.decoder_3.rdb.cat.0",
+      "op": "cat",
+      "sec": 0.004141092300415039
+    },
+    {
+      "id": 261,
+      "name": "decoder.decoder_3.rdb.ghost_layers.1.primary_conv",
+      "op": "conv",
+      "sec": 0.03163409233093262
+    },
+    {
+      "id": 262,
+      "name": "decoder.decoder_3.rdb.ghost_layers.1.cheap_operation",
+      "op": "conv",
+      "sec": 0.02194046974182129
+    },
+    {
+      "id": 263,
+      "name": "decoder.decoder_3.rdb.ghost_layers.1.cat",
+      "op": "cat",
+      "sec": 0.0015926361083984375
+    },
+    {
+      "id": 264,
+      "name": "decoder.decoder_3.rdb.cat.1",
+      "op": "cat",
+      "sec": 0.002448558807373047
+    },
+    {
+      "id": 265,
+      "name": "decoder.decoder_3.rdb.ghost_layers.2.primary_conv",
+      "op": "conv",
+      "sec": 0.040488243103027344
+    },
+    {
+      "id": 266,
+      "name": "decoder.decoder_3.rdb.ghost_layers.2.cheap_operation",
+      "op": "conv",
+      "sec": 0.0179135799407959
+    },
+    {
+      "id": 267,
+      "name": "decoder.decoder_3.rdb.ghost_layers.2.cat",
+      "op": "cat",
+      "sec": 0.0015938282012939453
+    },
+    {
+      "id": 268,
+      "name": "decoder.decoder_3.rdb.cat.2",
+      "op": "cat",
+      "sec": 0.0014312267303466797
+    },
+    {
+      "id": 269,
+      "name": "decoder.decoder_3.rdb.conv_proj",
+      "op": "conv",
+      "sec": 0.13530683517456055
+    },
+    {
+      "id": 270,
+      "name": "decoder.decoder_3.rdb.residual",
+      "op": "add",
+      "sec": 0.009429693222045898
+    },
+    {
+      "id": 271,
+      "name": "decoder.decoder_3.sam_blocks.0.basic_block.ghost_layers.0.primary_conv",
+      "op": "conv",
+      "sec": 0.022980928421020508
+    },
+    {
+      "id": 272,
+      "name": "decoder.decoder_3.sam_blocks.0.basic_block.ghost_layers.0.cheap_operation",
+      "op": "conv",
+      "sec": 0.01795506477355957
+    },
+    {
+      "id": 273,
+      "name": "decoder.decoder_3.sam_blocks.0.basic_block.ghost_layers.0.cat",
+      "op": "cat",
+      "sec": 0.0016293525695800781
+    },
+    {
+      "id": 274,
+      "name": "decoder.decoder_3.sam_blocks.0.basic_block.cat.0",
+      "op": "cat",
+      "sec": 0.003611326217651367
+    },
+    {
+      "id": 275,
+      "name": "decoder.decoder_3.sam_blocks.0.basic_block.ghost_layers.1.primary_conv",
+      "op": "conv",
+      "sec": 0.03159451484680176
+    },
+    {
+      "id": 276,
+      "name": "decoder.decoder_3.sam_blocks.0.basic_block.ghost_layers.1.cheap_operation",
+      "op": "conv",
+      "sec": 0.022034645080566406
+    },
+    {
+      "id": 277,
+      "name": "decoder.decoder_3.sam_blocks.0.basic_block.ghost_layers.1.cat",
+      "op": "cat",
+      "sec": 0.0016319751739501953
+    },
+    {
+      "id": 278,
+      "name": "decoder.decoder_3.sam_blocks.0.basic_block.cat.1",
+      "op": "cat",
+      "sec": 0.0014271736145019531
+    },
+    {
+      "id": 279,
+      "name": "decoder.decoder_3.sam_blocks.0.basic_block.ghost_layers.2.primary_conv",
+      "op": "conv",
+      "sec": 0.04052233695983887
+    },
+    {
+      "id": 280,
+      "name": "decoder.decoder_3.sam_blocks.0.basic_block.ghost_layers.2.cheap_operation",
+      "op": "conv",
+      "sec": 0.026395797729492188
+    },
+    {
+      "id": 281,
+      "name": "decoder.decoder_3.sam_blocks.0.basic_block.ghost_layers.2.cat",
+      "op": "cat",
+      "sec": 0.0016028881072998047
+    },
+    {
+      "id": 282,
+      "name": "decoder.decoder_3.sam_blocks.0.basic_block.cat.2",
+      "op": "cat",
+      "sec": 0.0014290809631347656
+    },
+    {
+      "id": 283,
+      "name": "decoder.decoder_3.sam_blocks.0.basic_block.ghost_layers.3.primary_conv",
+      "op": "conv",
+      "sec": 0.04918789863586426
+    },
+    {
+      "id": 284,
+      "name": "decoder.decoder_3.sam_blocks.0.basic_block.ghost_layers.3.cheap_operation",
+      "op": "conv",
+      "sec": 0.021960020065307617
+    },
+    {
+      "id": 285,
+      "name": "decoder.decoder_3.sam_blocks.0.basic_block.ghost_layers.3.cat",
+      "op": "cat",
+      "sec": 0.0016040802001953125
+    },
+    {
+      "id": 286,
+      "name": "decoder.decoder_3.sam_blocks.0.basic_block.cat.3",
+      "op": "cat",
+      "sec": 0.00147247314453125
+    },
+    {
+      "id": 287,
+      "name": "decoder.decoder_3.sam_blocks.0.basic_block.ghost_layers.4.primary_conv",
+      "op": "conv",
+      "sec": 0.058104515075683594
+    },
+    {
+      "id": 288,
+      "name": "decoder.decoder_3.sam_blocks.0.basic_block.ghost_layers.4.cheap_operation",
+      "op": "conv",
+      "sec": 0.01792001724243164
+    },
+    {
+      "id": 289,
+      "name": "decoder.decoder_3.sam_blocks.0.basic_block.ghost_layers.4.cat",
+      "op": "cat",
+      "sec": 0.0015819072723388672
+    },
+    {
+      "id": 290,
+      "name": "decoder.decoder_3.sam_blocks.0.basic_block.cat.4",
+      "op": "cat",
+      "sec": 0.001425027847290039
+    },
+    {
+      "id": 291,
+      "name": "decoder.decoder_3.sam_blocks.0.basic_block.conv_proj",
+      "op": "conv",
+      "sec": 0.18245148658752441
+    },
+    {
+      "id": 292,
+      "name": "decoder.decoder_3.sam_blocks.0.down2",
+      "op": "interp",
+      "sec": 0.0058362483978271484
+    },
+    {
+      "id": 293,
+      "name": "decoder.decoder_3.sam_blocks.0.basic_block_2.ghost_layers.0.primary_conv",
+      "op": "conv",
+      "sec": 0.006667137145996094
+    },
+    {
+      "id": 294,
+      "name": "decoder.decoder_3.sam_blocks.0.basic_block_2.ghost_layers.0.cheap_operation",
+      "op": "conv",
+      "sec": 0.0052187442779541016
+    },
+    {
+      "id": 295,
+      "name": "decoder.decoder_3.sam_blocks.0.basic_block_2.ghost_layers.0.cat",
+      "op": "cat",
+      "sec": 0.0008606910705566406
+    },
+    {
+      "id": 296,
+      "name": "decoder.decoder_3.sam_blocks.0.basic_block_2.cat.0",
+      "op": "cat",
+      "sec": 0.001226663589477539
+    },
+    {
+      "id": 297,
+      "name": "decoder.decoder_3.sam_blocks.0.basic_block_2.ghost_layers.1.primary_conv",
+      "op": "conv",
+      "sec": 0.008695125579833984
+    },
+    {
+      "id": 298,
+      "name": "decoder.decoder_3.sam_blocks.0.basic_block_2.ghost_layers.1.cheap_operation",
+      "op": "conv",
+      "sec": 0.006207942962646484
+    },
+    {
+      "id": 299,
+      "name": "decoder.decoder_3.sam_blocks.0.basic_block_2.ghost_layers.1.cat",
+      "op": "cat",
+      "sec": 0.0006470680236816406
+    },
+    {
+      "id": 300,
+      "name": "decoder.decoder_3.sam_blocks.0.basic_block_2.cat.1",
+      "op": "cat",
+      "sec": 0.0004894733428955078
+    },
+    {
+      "id": 301,
+      "name": "decoder.decoder_3.sam_blocks.0.basic_block_2.ghost_layers.2.primary_conv",
+      "op": "conv",
+      "sec": 0.01086735725402832
+    },
+    {
+      "id": 302,
+      "name": "decoder.decoder_3.sam_blocks.0.basic_block_2.ghost_layers.2.cheap_operation",
+      "op": "conv",
+      "sec": 0.0073130130767822266
+    },
+    {
+      "id": 303,
+      "name": "decoder.decoder_3.sam_blocks.0.basic_block_2.ghost_layers.2.cat",
+      "op": "cat",
+      "sec": 0.0006399154663085938
+    },
+    {
+      "id": 304,
+      "name": "decoder.decoder_3.sam_blocks.0.basic_block_2.cat.2",
+      "op": "cat",
+      "sec": 0.0004885196685791016
+    },
+    {
+      "id": 305,
+      "name": "decoder.decoder_3.sam_blocks.0.basic_block_2.ghost_layers.3.primary_conv",
+      "op": "conv",
+      "sec": 0.013081073760986328
+    },
+    {
+      "id": 306,
+      "name": "decoder.decoder_3.sam_blocks.0.basic_block_2.ghost_layers.3.cheap_operation",
+      "op": "conv",
+      "sec": 0.00672149658203125
+    },
+    {
+      "id": 307,
+      "name": "decoder.decoder_3.sam_blocks.0.basic_block_2.ghost_layers.3.cat",
+      "op": "cat",
+      "sec": 0.0006756782531738281
+    },
+    {
+      "id": 308,
+      "name": "decoder.decoder_3.sam_blocks.0.basic_block_2.cat.3",
+      "op": "cat",
+      "sec": 0.0004887580871582031
+    },
+    {
+      "id": 309,
+      "name": "decoder.decoder_3.sam_blocks.0.basic_block_2.ghost_layers.4.primary_conv",
+      "op": "conv",
+      "sec": 0.0153961181640625
+    },
+    {
+      "id": 310,
+      "name": "decoder.decoder_3.sam_blocks.0.basic_block_2.ghost_layers.4.cheap_operation",
+      "op": "conv",
+      "sec": 0.0052032470703125
+    },
+    {
+      "id": 311,
+      "name": "decoder.decoder_3.sam_blocks.0.basic_block_2.ghost_layers.4.cat",
+      "op": "cat",
+      "sec": 0.0006515979766845703
+    },
+    {
+      "id": 312,
+      "name": "decoder.decoder_3.sam_blocks.0.basic_block_2.cat.4",
+      "op": "cat",
+      "sec": 0.0005314350128173828
+    },
+    {
+      "id": 313,
+      "name": "decoder.decoder_3.sam_blocks.0.basic_block_2.conv_proj",
+      "op": "conv",
+      "sec": 0.046411991119384766
+    },
+    {
+      "id": 314,
+      "name": "decoder.decoder_3.sam_blocks.0.down4",
+      "op": "interp",
+      "sec": 0.004601001739501953
+    },
+    {
+      "id": 315,
+      "name": "decoder.decoder_3.sam_blocks.0.basic_block_4.ghost_layers.0.primary_conv",
+      "op": "conv",
+      "sec": 0.0032029151916503906
+    },
+    {
+      "id": 316,
+      "name": "decoder.decoder_3.sam_blocks.0.basic_block_4.ghost_layers.0.cheap_operation",
+      "op": "conv",
+      "sec": 0.0026264190673828125
+    },
+    {
+      "id": 317,
+      "name": "decoder.decoder_3.sam_blocks.0.basic_block_4.ghost_layers.0.cat",
+      "op": "cat",
+      "sec": 0.0009140968322753906
+    },
+    {
+      "id": 318,
+      "name": "decoder.decoder_3.sam_blocks.0.basic_block_4.cat.0",
+      "op": "cat",
+      "sec": 0.0010204315185546875
+    },
+    {
+      "id": 319,
+      "name": "decoder.decoder_3.sam_blocks.0.basic_block_4.ghost_layers.1.primary_conv",
+      "op": "conv",
+      "sec": 0.004057168960571289
+    },
+    {
+      "id": 320,
+      "name": "decoder.decoder_3.sam_blocks.0.basic_block_4.ghost_layers.1.cheap_operation",
+      "op": "conv",
+      "sec": 0.0031282901763916016
+    },
+    {
+      "id": 321,
+      "name": "decoder.decoder_3.sam_blocks.0.basic_block_4.ghost_layers.1.cat",
+      "op": "cat",
+      "sec": 0.0008642673492431641
+    },
+    {
+      "id": 322,
+      "name": "decoder.decoder_3.sam_blocks.0.basic_block_4.cat.1",
+      "op": "cat",
+      "sec": 0.0008077621459960938
+    },
+    {
+      "id": 323,
+      "name": "decoder.decoder_3.sam_blocks.0.basic_block_4.ghost_layers.2.primary_conv",
+      "op": "conv",
+      "sec": 0.004797220230102539
+    },
+    {
+      "id": 324,
+      "name": "decoder.decoder_3.sam_blocks.0.basic_block_4.ghost_layers.2.cheap_operation",
+      "op": "conv",
+      "sec": 0.0036835670471191406
+    },
+    {
+      "id": 325,
+      "name": "decoder.decoder_3.sam_blocks.0.basic_block_4.ghost_layers.2.cat",
+      "op": "cat",
+      "sec": 0.0008578300476074219
+    },
+    {
+      "id": 326,
+      "name": "decoder.decoder_3.sam_blocks.0.basic_block_4.cat.2",
+      "op": "cat",
+      "sec": 0.0008788108825683594
+    },
+    {
+      "id": 327,
+      "name": "decoder.decoder_3.sam_blocks.0.basic_block_4.ghost_layers.3.primary_conv",
+      "op": "conv",
+      "sec": 0.005643606185913086
+    },
+    {
+      "id": 328,
+      "name": "decoder.decoder_3.sam_blocks.0.basic_block_4.ghost_layers.3.cheap_operation",
+      "op": "conv",
+      "sec": 0.0031232833862304688
+    },
+    {
+      "id": 329,
+      "name": "decoder.decoder_3.sam_blocks.0.basic_block_4.ghost_layers.3.cat",
+      "op": "cat",
+      "sec": 0.0008456707000732422
+    },
+    {
+      "id": 330,
+      "name": "decoder.decoder_3.sam_blocks.0.basic_block_4.cat.3",
+      "op": "cat",
+      "sec": 0.0009310245513916016
+    },
+    {
+      "id": 331,
+      "name": "decoder.decoder_3.sam_blocks.0.basic_block_4.ghost_layers.4.primary_conv",
+      "op": "conv",
+      "sec": 0.006562709808349609
+    },
+    {
+      "id": 332,
+      "name": "decoder.decoder_3.sam_blocks.0.basic_block_4.ghost_layers.4.cheap_operation",
+      "op": "conv",
+      "sec": 0.0026330947875976562
+    },
+    {
+      "id": 333,
+      "name": "decoder.decoder_3.sam_blocks.0.basic_block_4.ghost_layers.4.cat",
+      "op": "cat",
+      "sec": 0.0008480548858642578
+    },
+    {
+      "id": 334,
+      "name": "decoder.decoder_3.sam_blocks.0.basic_block_4.cat.4",
+      "op": "cat",
+      "sec": 0.0010573863983154297
+    },
+    {
+      "id": 335,
+      "name": "decoder.decoder_3.sam_blocks.0.basic_block_4.conv_proj",
+      "op": "conv",
+      "sec": 0.01589655876159668
+    },
+    {
+      "id": 336,
+      "name": "decoder.decoder_3.sam_blocks.0.up2",
+      "op": "interp",
+      "sec": 0.009247541427612305
+    },
+    {
+      "id": 337,
+      "name": "decoder.decoder_3.sam_blocks.0.up4",
+      "op": "interp",
+      "sec": 0.008859872817993164
+    },
+    {
+      "id": 338,
+      "name": "decoder.decoder_3.sam_blocks.0.fuse_cat",
+      "op": "cat",
+      "sec": 0.010643720626831055
+    },
+    {
+      "id": 339,
+      "name": "decoder.decoder_3.sam_blocks.0.fusion",
+      "op": "eca",
+      "sec": 0.01637887954711914
+    },
+    {
+      "id": 340,
+      "name": "decoder.decoder_3.sam_blocks.0.sum",
+      "op": "sam_sum",
+      "sec": 0.08416152000427246
+    },
+    {
+      "id": 343,
+      "name": "decoder.decoder_3.feat",
+      "op": "interp",
+      "sec": 0.030329465866088867
+    },
+    {
+      "id": 344,
+      "name": "decoder.cat2",
+      "op": "cat",
+      "sec": 0.025556325912475586
+    },
+    {
+      "id": 345,
+      "name": "decoder.preconv_2",
+      "op": "conv",
+      "sec": 1.1887996196746826
+    },
+    {
+      "id": 346,
+      "name": "decoder.decoder_2.rdb.ghost_layers.0.primary_conv",
+      "op": "conv",
+      "sec": 0.07727956771850586
+    },
+    {
+      "id": 347,
+      "name": "decoder.decoder_2.rdb.ghost_layers.0.cheap_operation",
+      "op": "conv",
+      "sec": 0.059234619140625
+    },
+    {
+      "id": 348,
+      "name": "decoder.decoder_2.rdb.ghost_layers.0.cat",
+      "op": "cat",
+      "sec": 0.005448818206787109
+    },
+    {
+      "id": 349,
+      "name": "decoder.decoder_2.rdb.cat.0",
+      "op": "cat",
+      "sec": 0.016933441162109375
+    },
+    {
+      "id": 350,
+      "name": "decoder.decoder_2.rdb.ghost_layers.1.primary_conv",
+      "op": "conv",
+      "sec": 0.10771727561950684
+    },
+    {
+      "id": 351,
+      "name": "decoder.decoder_2.rdb.ghost_layers.1.cheap_operation",
+      "op": "conv",
+      "sec": 0.07123994827270508
+    },
+    {
+      "id": 352,
+      "name": "decoder.decoder_2.rdb.ghost_layers.1.cat",
+      "op": "cat",
+      "sec": 0.005387544631958008
+    },
+    {
+      "id": 353,
+      "name": "decoder.decoder_2.rdb.cat.1",
+      "op": "cat",
+      "sec": 0.005177974700927734
+    },
+    {
+      "id": 354,
+      "name": "decoder.decoder_2.rdb.ghost_layers.2.primary_conv",
+      "op": "conv",
+      "sec": 0.13822579383850098
+    },
+    {
+      "id": 355,
+      "name": "decoder.decoder_2.rdb.ghost_layers.2.cheap_operation",
+      "op": "conv",
+      "sec": 0.05920052528381348
+    },
+    {
+      "id": 356,
+      "name": "decoder.decoder_2.rdb.ghost_layers.2.cat",
+      "op": "cat",
+      "sec": 0.0053784847259521484
+    },
+    {
+      "id": 357,
+      "name": "decoder.decoder_2.rdb.cat.2",
+      "op": "cat",
+      "sec": 0.005186557769775391
+    },
+    {
+      "id": 358,
+      "name": "decoder.decoder_2.rdb.conv_proj",
+      "op": "conv",
+      "sec": 0.4966418743133545
+    },
+    {
+      "id": 359,
+      "name": "decoder.decoder_2.rdb.residual",
+      "op": "add",
+      "sec": 0.03195452690124512
+    },
+    {
+      "id": 360,
+      "name": "decoder.decoder_2.sam_blocks.0.basic_block.ghost_layers.0.primary_conv",
+      "op": "conv",
+      "sec": 0.07743024826049805
+    },
+    {
+      "id": 361,
+      "name": "decoder.decoder_2.sam_blocks.0.basic_block.ghost_layers.0.cheap_operation",
+      "op": "conv",
+      "sec": 0.05923104286193848
+    },
+    {
+      "id": 362,
+      "name": "decoder.decoder_2.sam_blocks.0.basic_block.ghost_layers.0.cat",
+      "op": "cat",
+      "sec": 0.005384922027587891
+    },
+    {
+      "id": 363,
+      "name": "decoder.decoder_2.sam_blocks.0.basic_block.cat.0",
+      "op": "cat",
+      "sec": 0.014802694320678711
+    },
+    {
+      "id": 364,
+      "name": "decoder.decoder_2.sam_blocks.0.basic_block.ghost_layers.1.primary_conv",
+      "op": "conv",
+      "sec": 0.10816216468811035
+    },
+    {
+      "id": 365,
+      "name": "decoder.decoder_2.sam_blocks.0.basic_block.ghost_layers.1.cheap_operation",
+      "op": "conv",
+      "sec": 0.07126641273498535
+    },
+    {
+      "id": 366,
+      "name": "decoder.decoder_2.sam_blocks.0.basic_block.ghost_layers.1.cat",
+      "op": "cat",
+      "sec": 0.005364894866943359
+    },
+    {
+      "id": 367,
+      "name": "decoder.decoder_2.sam_blocks.0.basic_block.cat.1",
+      "op": "cat",
+      "sec": 0.0052220821380615234
+    },
+    {
+      "id": 368,
+      "name": "decoder.decoder_2.sam_blocks.0.basic_block.ghost_layers.2.primary_conv",
+      "op": "conv",
+      "sec": 0.13821029663085938
+    },
+    {
+      "id": 369,
+      "name": "decoder.decoder_2.sam_blocks.0.basic_block.ghost_layers.2.cheap_operation",
+      "op": "conv",
+      "sec": 0.0845785140991211
+    },
+    {
+      "id": 370,
+      "name": "decoder.decoder_2.sam_blocks.0.basic_block.ghost_layers.2.cat",
+      "op": "cat",
+      "sec": 0.0054051876068115234
+    },
+    {
+      "id": 371,
+      "name": "decoder.decoder_2.sam_blocks.0.basic_block.cat.2",
+      "op": "cat",
+      "sec": 0.005185604095458984
+    },
+    {
+      "id": 372,
+      "name": "decoder.decoder_2.sam_blocks.0.basic_block.ghost_layers.3.primary_conv",
+      "op": "conv",
+      "sec": 0.16871118545532227
+    },
+    {
+      "id": 373,
+      "name": "decoder.decoder_2.sam_blocks.0.basic_block.ghost_layers.3.cheap_operation",
+      "op": "conv",
+      "sec": 0.07122325897216797
+    },
+    {
+      "id": 374,
+      "name": "decoder.decoder_2.sam_blocks.0.basic_block.ghost_layers.3.cat",
+      "op": "cat",
+      "sec": 0.005379199981689453
+    },
+    {
+      "id": 375,
+      "name": "decoder.decoder_2.sam_blocks.0.basic_block.cat.3",
+      "op": "cat",
+      "sec": 0.005182027816772461
+    },
+    {
+      "id": 376,
+      "name": "decoder.decoder_2.sam_blocks.0.basic_block.ghost_layers.4.primary_conv",
+      "op": "conv",
+      "sec": 0.1992025375366211
+    },
+    {
+      "id": 377,
+      "name": "decoder.decoder_2.sam_blocks.0.basic_block.ghost_layers.4.cheap_operation",
+      "op": "conv",
+      "sec": 0.05922055244445801
+    },
+    {
+      "id": 378,
+      "name": "decoder.decoder_2.sam_blocks.0.basic_block.ghost_layers.4.cat",
+      "op": "cat",
+      "sec": 0.005403995513916016
+    },
+    {
+      "id": 379,
+      "name": "decoder.decoder_2.sam_blocks.0.basic_block.cat.4",
+      "op": "cat",
+      "sec": 0.005191326141357422
+    },
+    {
+      "id": 380,
+      "name": "decoder.decoder_2.sam_blocks.0.basic_block.conv_proj",
+      "op": "conv",
+      "sec": 0.6707181930541992
+    },
+    {
+      "id": 381,
+      "name": "decoder.decoder_2.sam_blocks.0.down2",
+      "op": "interp",
+      "sec": 0.016881942749023438
+    },
+    {
+      "id": 382,
+      "name": "decoder.decoder_2.sam_blocks.0.basic_block_2.ghost_layers.0.primary_conv",
+      "op": "conv",
+      "sec": 0.022938251495361328
+    },
+    {
+      "id": 383,
+      "name": "decoder.decoder_2.sam_blocks.0.basic_block_2.ghost_layers.0.cheap_operation",
+      "op": "conv",
+      "sec": 0.017928123474121094
+    },
+    {
+      "id": 384,
+      "name": "decoder.decoder_2.sam_blocks.0.basic_block_2.ghost_layers.0.cat",
+      "op": "cat",
+      "sec": 0.0016324520111083984
+    },
+    {
+      "id": 385,
+      "name": "decoder.decoder_2.sam_blocks.0.basic_block_2.cat.0",
+      "op": "cat",
+      "sec": 0.004081010818481445
+    },
+    {
+      "id": 386,
+      "name": "decoder.decoder_2.sam_blocks.0.basic_block_2.ghost_layers.1.primary_conv",
+      "op": "conv",
+      "sec": 0.03157448768615723
+    },
+    {
+      "id": 387,
+      "name": "decoder.decoder_2.sam_blocks.0.basic_block_2.ghost_layers.1.cheap_operation",
+      "op": "conv",
+      "sec": 0.021913766860961914
+    },
+    {
+      "id": 388,
+      "name": "decoder.decoder_2.sam_blocks.0.basic_block_2.ghost_layers.1.cat",
+      "op": "cat",
+      "sec": 0.0015873908996582031
+    },
+    {
+      "id": 389,
+      "name": "decoder.decoder_2.sam_blocks.0.basic_block_2.cat.1",
+      "op": "cat",
+      "sec": 0.0014274120330810547
+    },
+    {
+      "id": 390,
+      "name": "decoder.decoder_2.sam_blocks.0.basic_block_2.ghost_layers.2.primary_conv",
+      "op": "conv",
+      "sec": 0.04041314125061035
+    },
+    {
+      "id": 391,
+      "name": "decoder.decoder_2.sam_blocks.0.basic_block_2.ghost_layers.2.cheap_operation",
+      "op": "conv",
+      "sec": 0.026345252990722656
+    },
+    {
+      "id": 392,
+      "name": "decoder.decoder_2.sam_blocks.0.basic_block_2.ghost_layers.2.cat",
+      "op": "cat",
+      "sec": 0.0015819072723388672
+    },
+    {
+      "id": 393,
+      "name": "decoder.decoder_2.sam_blocks.0.basic_block_2.cat.2",
+      "op": "cat",
+      "sec": 0.0014274120330810547
+    },
+    {
+      "id": 394,
+      "name": "decoder.decoder_2.sam_blocks.0.basic_block_2.ghost_layers.3.primary_conv",
+      "op": "conv",
+      "sec": 0.04916644096374512
+    },
+    {
+      "id": 395,
+      "name": "decoder.decoder_2.sam_blocks.0.basic_block_2.ghost_layers.3.cheap_operation",
+      "op": "conv",
+      "sec": 0.02192544937133789
+    },
+    {
+      "id": 396,
+      "name": "decoder.decoder_2.sam_blocks.0.basic_block_2.ghost_layers.3.cat",
+      "op": "cat",
+      "sec": 0.001621246337890625
+    },
+    {
+      "id": 397,
+      "name": "decoder.decoder_2.sam_blocks.0.basic_block_2.cat.3",
+      "op": "cat",
+      "sec": 0.0014338493347167969
+    },
+    {
+      "id": 398,
+      "name": "decoder.decoder_2.sam_blocks.0.basic_block_2.ghost_layers.4.primary_conv",
+      "op": "conv",
+      "sec": 0.05809664726257324
+    },
+    {
+      "id": 399,
+      "name": "decoder.decoder_2.sam_blocks.0.basic_block_2.ghost_layers.4.cheap_operation",
+      "op": "conv",
+      "sec": 0.01797342300415039
+    },
+    {
+      "id": 400,
+      "name": "decoder.decoder_2.sam_blocks.0.basic_block_2.ghost_layers.4.cat",
+      "op": "cat",
+      "sec": 0.0016071796417236328
+    },
+    {
+      "id": 401,
+      "name": "decoder.decoder_2.sam_blocks.0.basic_block_2.cat.4",
+      "op": "cat",
+      "sec": 0.0014693737030029297
+    },
+    {
+      "id": 402,
+      "name": "decoder.decoder_2.sam_blocks.0.basic_block_2.conv_proj",
+      "op": "conv",
+      "sec": 0.18241286277770996
+    },
+    {
+      "id": 403,
+      "name": "decoder.decoder_2.sam_blocks.0.down4",
+      "op": "interp",
+      "sec": 0.011538505554199219
+    },
+    {
+      "id": 404,
+      "name": "decoder.decoder_2.sam_blocks.0.basic_block_4.ghost_layers.0.primary_conv",
+      "op": "conv",
+      "sec": 0.006667375564575195
+    },
+    {
+      "id": 405,
+      "name": "decoder.decoder_2.sam_blocks.0.basic_block_4.ghost_layers.0.cheap_operation",
+      "op": "conv",
+      "sec": 0.005217552185058594
+    },
+    {
+      "id": 406,
+      "name": "decoder.decoder_2.sam_blocks.0.basic_block_4.ghost_layers.0.cat",
+      "op": "cat",
+      "sec": 0.0006926059722900391
+    },
+    {
+      "id": 407,
+      "name": "decoder.decoder_2.sam_blocks.0.basic_block_4.cat.0",
+      "op": "cat",
+      "sec": 0.0012240409851074219
+    },
+    {
+      "id": 408,
+      "name": "decoder.decoder_2.sam_blocks.0.basic_block_4.ghost_layers.1.primary_conv",
+      "op": "conv",
+      "sec": 0.008676767349243164
+    },
+    {
+      "id": 409,
+      "name": "decoder.decoder_2.sam_blocks.0.basic_block_4.ghost_layers.1.cheap_operation",
+      "op": "conv",
+      "sec": 0.006215333938598633
+    },
+    {
+      "id": 410,
+      "name": "decoder.decoder_2.sam_blocks.0.basic_block_4.ghost_layers.1.cat",
+      "op": "cat",
+      "sec": 0.0006492137908935547
+    },
+    {
+      "id": 411,
+      "name": "decoder.decoder_2.sam_blocks.0.basic_block_4.cat.1",
+      "op": "cat",
+      "sec": 0.0004913806915283203
+    },
+    {
+      "id": 412,
+      "name": "decoder.decoder_2.sam_blocks.0.basic_block_4.ghost_layers.2.primary_conv",
+      "op": "conv",
+      "sec": 0.010886907577514648
+    },
+    {
+      "id": 413,
+      "name": "decoder.decoder_2.sam_blocks.0.basic_block_4.ghost_layers.2.cheap_operation",
+      "op": "conv",
+      "sec": 0.007821321487426758
+    },
+    {
+      "id": 414,
+      "name": "decoder.decoder_2.sam_blocks.0.basic_block_4.ghost_layers.2.cat",
+      "op": "cat",
+      "sec": 0.0006878376007080078
+    },
+    {
+      "id": 415,
+      "name": "decoder.decoder_2.sam_blocks.0.basic_block_4.cat.2",
+      "op": "cat",
+      "sec": 0.0004947185516357422
+    },
+    {
+      "id": 416,
+      "name": "decoder.decoder_2.sam_blocks.0.basic_block_4.ghost_layers.3.primary_conv",
+      "op": "conv",
+      "sec": 0.01312708854675293
+    },
+    {
+      "id": 417,
+      "name": "decoder.decoder_2.sam_blocks.0.basic_block_4.ghost_layers.3.cheap_operation",
+      "op": "conv",
+      "sec": 0.006223440170288086
+    },
+    {
+      "id": 418,
+      "name": "decoder.decoder_2.sam_blocks.0.basic_block_4.ghost_layers.3.cat",
+      "op": "cat",
+      "sec": 0.0006511211395263672
+    },
+    {
+      "id": 419,
+      "name": "decoder.decoder_2.sam_blocks.0.basic_block_4.cat.3",
+      "op": "cat",
+      "sec": 0.0004904270172119141
+    },
+    {
+      "id": 420,
+      "name": "decoder.decoder_2.sam_blocks.0.basic_block_4.ghost_layers.4.primary_conv",
+      "op": "conv",
+      "sec": 0.015352725982666016
+    },
+    {
+      "id": 421,
+      "name": "decoder.decoder_2.sam_blocks.0.basic_block_4.ghost_layers.4.cheap_operation",
+      "op": "conv",
+      "sec": 0.005196094512939453
+    },
+    {
+      "id": 422,
+      "name": "decoder.decoder_2.sam_blocks.0.basic_block_4.ghost_layers.4.cat",
+      "op": "cat",
+      "sec": 0.0006442070007324219
+    },
+    {
+      "id": 423,
+      "name": "decoder.decoder_2.sam_blocks.0.basic_block_4.cat.4",
+      "op": "cat",
+      "sec": 0.0004863739013671875
+    },
+    {
+      "id": 424,
+      "name": "decoder.decoder_2.sam_blocks.0.basic_block_4.conv_proj",
+      "op": "conv",
+      "sec": 0.046404361724853516
+    },
+    {
+      "id": 425,
+      "name": "decoder.decoder_2.sam_blocks.0.up2",
+      "op": "interp",
+      "sec": 0.030965805053710938
+    },
+    {
+      "id": 426,
+      "name": "decoder.decoder_2.sam_blocks.0.up4",
+      "op": "interp",
+      "sec": 0.028633832931518555
+    },
+    {
+      "id": 427,
+      "name": "decoder.decoder_2.sam_blocks.0.fuse_cat",
+      "op": "cat",
+      "sec": 0.03245663642883301
+    },
+    {
+      "id": 428,
+      "name": "decoder.decoder_2.sam_blocks.0.fusion",
+      "op": "eca",
+      "sec": 0.05548238754272461
+    },
+    {
+      "id": 429,
+      "name": "decoder.decoder_2.sam_blocks.0.sum",
+      "op": "sam_sum",
+      "sec": 0.3351008892059326
+    },
+    {
+      "id": 432,
+      "name": "decoder.decoder_2.feat",
+      "op": "interp",
+      "sec": 0.1154165267944336
+    },
+    {
+      "id": 433,
+      "name": "decoder.cat1",
+      "op": "cat",
+      "sec": 0.07065176963806152
+    },
+    {
+      "id": 434,
+      "name": "decoder.preconv_1",
+      "op": "conv",
+      "sec": 3.1841557025909424
+    },
+    {
+      "id": 435,
+      "name": "decoder.decoder_1.rdb.ghost_layers.0.primary_conv",
+      "op": "conv",
+      "sec": 0.2839980125427246
+    },
+    {
+      "id": 436,
+      "name": "decoder.decoder_1.rdb.ghost_layers.0.cheap_operation",
+      "op": "conv",
+      "sec": 0.21482443809509277
+    },
+    {
+      "id": 437,
+      "name": "decoder.decoder_1.rdb.ghost_layers.0.cat",
+      "op": "cat",
+      "sec": 0.02047276496887207
+    },
+    {
+      "id": 438,
+      "name": "decoder.decoder_1.rdb.cat.0",
+      "op": "cat",
+      "sec": 0.06656670570373535
+    },
+    {
+      "id": 439,
+      "name": "decoder.decoder_1.rdb.ghost_layers.1.primary_conv",
+      "op": "conv",
+      "sec": 0.3963508605957031
+    },
+    {
+      "id": 440,
+      "name": "decoder.decoder_1.rdb.ghost_layers.1.cheap_operation",
+      "op": "conv",
+      "sec": 0.2550032138824463
+    },
+    {
+      "id": 441,
+      "name": "decoder.decoder_1.rdb.ghost_layers.1.cat",
+      "op": "cat",
+      "sec": 0.020532608032226562
+    },
+    {
+      "id": 442,
+      "name": "decoder.decoder_1.rdb.cat.1",
+      "op": "cat",
+      "sec": 0.020244598388671875
+    },
+    {
+      "id": 443,
+      "name": "decoder.decoder_1.rdb.ghost_layers.2.primary_conv",
+      "op": "conv",
+      "sec": 0.5086653232574463
+    },
+    {
+      "id": 444,
+      "name": "decoder.decoder_1.rdb.ghost_layers.2.cheap_operation",
+      "op": "conv",
+      "sec": 0.21484160423278809
+    },
+    {
+      "id": 445,
+      "name": "decoder.decoder_1.rdb.ghost_layers.2.cat",
+      "op": "cat",
+      "sec": 0.02052164077758789
+    },
+    {
+      "id": 446,
+      "name": "decoder.decoder_1.rdb.cat.2",
+      "op": "cat",
+      "sec": 0.020242691040039062
+    },
+    {
+      "id": 447,
+      "name": "decoder.decoder_1.rdb.conv_proj",
+      "op": "conv",
+      "sec": 1.9010252952575684
+    },
+    {
+      "id": 448,
+      "name": "decoder.decoder_1.rdb.residual",
+      "op": "add",
+      "sec": 0.15923237800598145
+    },
+    {
+      "id": 449,
+      "name": "decoder.decoder_1.sam_blocks.0.basic_block.ghost_layers.0.primary_conv",
+      "op": "conv",
+      "sec": 0.2841684818267822
+    },
+    {
+      "id": 450,
+      "name": "decoder.decoder_1.sam_blocks.0.basic_block.ghost_layers.0.cheap_operation",
+      "op": "conv",
+      "sec": 0.21486353874206543
+    },
+    {
+      "id": 451,
+      "name": "decoder.decoder_1.sam_blocks.0.basic_block.ghost_layers.0.cat",
+      "op": "cat",
+      "sec": 0.020472049713134766
+    },
+    {
+      "id": 452,
+      "name": "decoder.decoder_1.sam_blocks.0.basic_block.cat.0",
+      "op": "cat",
+      "sec": 0.05809521675109863
+    },
+    {
+      "id": 453,
+      "name": "decoder.decoder_1.sam_blocks.0.basic_block.ghost_layers.1.primary_conv",
+      "op": "conv",
+      "sec": 0.39632749557495117
+    },
+    {
+      "id": 454,
+      "name": "decoder.decoder_1.sam_blocks.0.basic_block.ghost_layers.1.cheap_operation",
+      "op": "conv",
+      "sec": 0.25493574142456055
+    },
+    {
+      "id": 455,
+      "name": "decoder.decoder_1.sam_blocks.0.basic_block.ghost_layers.1.cat",
+      "op": "cat",
+      "sec": 0.02046990394592285
+    },
+    {
+      "id": 456,
+      "name": "decoder.decoder_1.sam_blocks.0.basic_block.cat.1",
+      "op": "cat",
+      "sec": 0.02025127410888672
+    },
+    {
+      "id": 457,
+      "name": "decoder.decoder_1.sam_blocks.0.basic_block.ghost_layers.2.primary_conv",
+      "op": "conv",
+      "sec": 0.5086424350738525
+    },
+    {
+      "id": 458,
+      "name": "decoder.decoder_1.sam_blocks.0.basic_block.ghost_layers.2.cheap_operation",
+      "op": "conv",
+      "sec": 0.29943299293518066
+    },
+    {
+      "id": 459,
+      "name": "decoder.decoder_1.sam_blocks.0.basic_block.ghost_layers.2.cat",
+      "op": "cat",
+      "sec": 0.020500659942626953
+    },
+    {
+      "id": 460,
+      "name": "decoder.decoder_1.sam_blocks.0.basic_block.cat.2",
+      "op": "cat",
+      "sec": 0.020232200622558594
+    },
+    {
+      "id": 461,
+      "name": "decoder.decoder_1.sam_blocks.0.basic_block.ghost_layers.3.primary_conv",
+      "op": "conv",
+      "sec": 0.6211068630218506
+    },
+    {
+      "id": 462,
+      "name": "decoder.decoder_1.sam_blocks.0.basic_block.ghost_layers.3.cheap_operation",
+      "op": "conv",
+      "sec": 0.25495362281799316
+    },
+    {
+      "id": 463,
+      "name": "decoder.decoder_1.sam_blocks.0.basic_block.ghost_layers.3.cat",
+      "op": "cat",
+      "sec": 0.028576135635375977
+    },
+    {
+      "id": 464,
+      "name": "decoder.decoder_1.sam_blocks.0.basic_block.cat.3",
+      "op": "cat",
+      "sec": 0.020253896713256836
+    },
+    {
+      "id": 465,
+      "name": "decoder.decoder_1.sam_blocks.0.basic_block.ghost_layers.4.primary_conv",
+      "op": "conv",
+      "sec": 0.7337038516998291
+    },
+    {
+      "id": 466,
+      "name": "decoder.decoder_1.sam_blocks.0.basic_block.ghost_layers.4.cheap_operation",
+      "op": "conv",
+      "sec": 0.21484136581420898
+    },
+    {
+      "id": 467,
+      "name": "decoder.decoder_1.sam_blocks.0.basic_block.ghost_layers.4.cat",
+      "op": "cat",
+      "sec": 0.02043914794921875
+    },
+    {
+      "id": 468,
+      "name": "decoder.decoder_1.sam_blocks.0.basic_block.cat.4",
+      "op": "cat",
+      "sec": 0.020227432250976562
+    },
+    {
+      "id": 469,
+      "name": "decoder.decoder_1.sam_blocks.0.basic_block.conv_proj",
+      "op": "conv",
+      "sec": 2.567841053009033
+    },
+    {
+      "id": 470,
+      "name": "decoder.decoder_1.sam_blocks.0.down2",
+      "op": "interp",
+      "sec": 0.05895662307739258
+    },
+    {
+      "id": 471,
+      "name": "decoder.decoder_1.sam_blocks.0.basic_block_2.ghost_layers.0.primary_conv",
+      "op": "conv",
+      "sec": 0.07784771919250488
+    },
+    {
+      "id": 472,
+      "name": "decoder.decoder_1.sam_blocks.0.basic_block_2.ghost_layers.0.cheap_operation",
+      "op": "conv",
+      "sec": 0.059238433837890625
+    },
+    {
+      "id": 473,
+      "name": "decoder.decoder_1.sam_blocks.0.basic_block_2.ghost_layers.0.cat",
+      "op": "cat",
+      "sec": 0.00544428825378418
+    },
+    {
+      "id": 474,
+      "name": "decoder.decoder_1.sam_blocks.0.basic_block_2.cat.0",
+      "op": "cat",
+      "sec": 0.015343427658081055
+    },
+    {
+      "id": 475,
+      "name": "decoder.decoder_1.sam_blocks.0.basic_block_2.ghost_layers.1.primary_conv",
+      "op": "conv",
+      "sec": 0.10768628120422363
+    },
+    {
+      "id": 476,
+      "name": "decoder.decoder_1.sam_blocks.0.basic_block_2.ghost_layers.1.cheap_operation",
+      "op": "conv",
+      "sec": 0.07125520706176758
+    },
+    {
+      "id": 477,
+      "name": "decoder.decoder_1.sam_blocks.0.basic_block_2.ghost_layers.1.cat",
+      "op": "cat",
+      "sec": 0.0053958892822265625
+    },
+    {
+      "id": 478,
+      "name": "decoder.decoder_1.sam_blocks.0.basic_block_2.cat.1",
+      "op": "cat",
+      "sec": 0.005181312561035156
+    },
+    {
+      "id": 479,
+      "name": "decoder.decoder_1.sam_blocks.0.basic_block_2.ghost_layers.2.primary_conv",
+      "op": "conv",
+      "sec": 0.13820433616638184
+    },
+    {
+      "id": 480,
+      "name": "decoder.decoder_1.sam_blocks.0.basic_block_2.ghost_layers.2.cheap_operation",
+      "op": "conv",
+      "sec": 0.08454489707946777
+    },
+    {
+      "id": 481,
+      "name": "decoder.decoder_1.sam_blocks.0.basic_block_2.ghost_layers.2.cat",
+      "op": "cat",
+      "sec": 0.00536036491394043
+    },
+    {
+      "id": 482,
+      "name": "decoder.decoder_1.sam_blocks.0.basic_block_2.cat.2",
+      "op": "cat",
+      "sec": 0.005221366882324219
+    },
+    {
+      "id": 483,
+      "name": "decoder.decoder_1.sam_blocks.0.basic_block_2.ghost_layers.3.primary_conv",
+      "op": "conv",
+      "sec": 0.1687462329864502
+    },
+    {
+      "id": 484,
+      "name": "decoder.decoder_1.sam_blocks.0.basic_block_2.ghost_layers.3.cheap_operation",
+      "op": "conv",
+      "sec": 0.07123923301696777
+    },
+    {
+      "id": 485,
+      "name": "decoder.decoder_1.sam_blocks.0.basic_block_2.ghost_layers.3.cat",
+      "op": "cat",
+      "sec": 0.005343914031982422
+    },
+    {
+      "id": 486,
+      "name": "decoder.decoder_1.sam_blocks.0.basic_block_2.cat.3",
+      "op": "cat",
+      "sec": 0.0052220821380615234
+    },
+    {
+      "id": 487,
+      "name": "decoder.decoder_1.sam_blocks.0.basic_block_2.ghost_layers.4.primary_conv",
+      "op": "conv",
+      "sec": 0.19920587539672852
+    },
+    {
+      "id": 488,
+      "name": "decoder.decoder_1.sam_blocks.0.basic_block_2.ghost_layers.4.cheap_operation",
+      "op": "conv",
+      "sec": 0.05921339988708496
+    },
+    {
+      "id": 489,
+      "name": "decoder.decoder_1.sam_blocks.0.basic_block_2.ghost_layers.4.cat",
+      "op": "cat",
+      "sec": 0.005349636077880859
+    },
+    {
+      "id": 490,
+      "name": "decoder.decoder_1.sam_blocks.0.basic_block_2.cat.4",
+      "op": "cat",
+      "sec": 0.005214691162109375
+    },
+    {
+      "id": 491,
+      "name": "decoder.decoder_1.sam_blocks.0.basic_block_2.conv_proj",
+      "op": "conv",
+      "sec": 0.678666353225708
+    },
+    {
+      "id": 492,
+      "name": "decoder.decoder_1.sam_blocks.0.down4",
+      "op": "interp",
+      "sec": 0.03813767433166504
+    },
+    {
+      "id": 493,
+      "name": "decoder.decoder_1.sam_blocks.0.basic_block_4.ghost_layers.0.primary_conv",
+      "op": "conv",
+      "sec": 0.022939682006835938
+    },
+    {
+      "id": 494,
+      "name": "decoder.decoder_1.sam_blocks.0.basic_block_4.ghost_layers.0.cheap_operation",
+      "op": "conv",
+      "sec": 0.017941713333129883
+    },
+    {
+      "id": 495,
+      "name": "decoder.decoder_1.sam_blocks.0.basic_block_4.ghost_layers.0.cat",
+      "op": "cat",
+      "sec": 0.0016796588897705078
+    },
+    {
+      "id": 496,
+      "name": "decoder.decoder_1.sam_blocks.0.basic_block_4.cat.0",
+      "op": "cat",
+      "sec": 0.004041194915771484
+    },
+    {
+      "id": 497,
+      "name": "decoder.decoder_1.sam_blocks.0.basic_block_4.ghost_layers.1.primary_conv",
+      "op": "conv",
+      "sec": 0.03159070014953613
+    },
+    {
+      "id": 498,
+      "name": "decoder.decoder_1.sam_blocks.0.basic_block_4.ghost_layers.1.cheap_operation",
+      "op": "conv",
+      "sec": 0.021930694580078125
+    },
+    {
+      "id": 499,
+      "name": "decoder.decoder_1.sam_blocks.0.basic_block_4.ghost_layers.1.cat",
+      "op": "cat",
+      "sec": 0.002145528793334961
+    },
+    {
+      "id": 500,
+      "name": "decoder.decoder_1.sam_blocks.0.basic_block_4.cat.1",
+      "op": "cat",
+      "sec": 0.0014393329620361328
+    },
+    {
+      "id": 501,
+      "name": "decoder.decoder_1.sam_blocks.0.basic_block_4.ghost_layers.2.primary_conv",
+      "op": "conv",
+      "sec": 0.04043412208557129
+    },
+    {
+      "id": 502,
+      "name": "decoder.decoder_1.sam_blocks.0.basic_block_4.ghost_layers.2.cheap_operation",
+      "op": "conv",
+      "sec": 0.026395797729492188
+    },
+    {
+      "id": 503,
+      "name": "decoder.decoder_1.sam_blocks.0.basic_block_4.ghost_layers.2.cat",
+      "op": "cat",
+      "sec": 0.002170085906982422
+    },
+    {
+      "id": 504,
+      "name": "decoder.decoder_1.sam_blocks.0.basic_block_4.cat.2",
+      "op": "cat",
+      "sec": 0.0014314651489257812
+    },
+    {
+      "id": 505,
+      "name": "decoder.decoder_1.sam_blocks.0.basic_block_4.ghost_layers.3.primary_conv",
+      "op": "conv",
+      "sec": 0.04921150207519531
+    },
+    {
+      "id": 506,
+      "name": "decoder.decoder_1.sam_blocks.0.basic_block_4.ghost_layers.3.cheap_operation",
+      "op": "conv",
+      "sec": 0.021932363510131836
+    },
+    {
+      "id": 507,
+      "name": "decoder.decoder_1.sam_blocks.0.basic_block_4.ghost_layers.3.cat",
+      "op": "cat",
+      "sec": 0.0015881061553955078
+    },
+    {
+      "id": 508,
+      "name": "decoder.decoder_1.sam_blocks.0.basic_block_4.cat.3",
+      "op": "cat",
+      "sec": 0.0014274120330810547
+    },
+    {
+      "id": 509,
+      "name": "decoder.decoder_1.sam_blocks.0.basic_block_4.ghost_layers.4.primary_conv",
+      "op": "conv",
+      "sec": 0.05807781219482422
+    },
+    {
+      "id": 510,
+      "name": "decoder.decoder_1.sam_blocks.0.basic_block_4.ghost_layers.4.cheap_operation",
+      "op": "conv",
+      "sec": 0.0179135799407959
+    },
+    {
+      "id": 511,
+      "name": "decoder.decoder_1.sam_blocks.0.basic_block_4.ghost_layers.4.cat",
+      "op": "cat",
+      "sec": 0.0015790462493896484
+    },
+    {
+      "id": 512,
+      "name": "decoder.decoder_1.sam_blocks.0.basic_block_4.cat.4",
+      "op": "cat",
+      "sec": 0.0014286041259765625
+    },
+    {
+      "id": 513,
+      "name": "decoder.decoder_1.sam_blocks.0.basic_block_4.conv_proj",
+      "op": "conv",
+      "sec": 0.18239212036132812
+    },
+    {
+      "id": 514,
+      "name": "decoder.decoder_1.sam_blocks.0.up2",
+      "op": "interp",
+      "sec": 0.11220097541809082
+    },
+    {
+      "id": 515,
+      "name": "decoder.decoder_1.sam_blocks.0.up4",
+      "op": "interp",
+      "sec": 0.10590291023254395
+    },
+    {
+      "id": 516,
+      "name": "decoder.decoder_1.sam_blocks.0.fuse_cat",
+      "op": "cat",
+      "sec": 0.12123465538024902
+    },
+    {
+      "id": 517,
+      "name": "decoder.decoder_1.sam_blocks.0.fusion",
+      "op": "eca",
+      "sec": 0.2581455707550049
+    },
+    {
+      "id": 518,
+      "name": "decoder.decoder_1.sam_blocks.0.sum",
+      "op": "sam_sum",
+      "sec": 1.2948529720306396
+    },
+    {
+      "id": 519,
+      "name": "decoder.decoder_1.out_conv",
+      "op": "conv",
+      "sec": 0.6278729438781738
+    },
+    {
+      "id": 520,
+      "name": "decoder.decoder_1.shuffle",
+      "op": "pixel_shuffle",
+      "sec": 0.24071049690246582
+    }
+  ],
+  "out_sha1": "f3682522b6d9ba202a1897491ca15298ff9c0da4"
+}
