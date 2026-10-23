@@ -21,7 +21,9 @@
 
 数据尺寸口径（与 tb_engine.cpp 一致）：
     in  = cin * H * W
-    wgt = cout * cin * k * k
+    # k=3 的权重容器是 12 字节/(oc,ic)（9 个抽头 + 3 个零，见 conv2d_engine.h
+    # 的 K3_PAD12）；k=1/k=5 仍是 k*k。
+    wgt = cout * cin * (12 if k == 3 else k * k)
     bias= cout
     out = cout * Hout * Wout,  Hout = (H-1)//s + 1
 """
@@ -64,7 +66,8 @@ def expected_dims(meta, s):
     h, w = meta["h"], meta["w"]
     hout = (h - 1) // s + 1
     wout = (w - 1) // s + 1
-    return {"in_fm": cin * h * w, "wgt": cout * cin * k * k,
+    return {"in_fm": cin * h * w,
+            "wgt": cout * cin * (12 if k == 3 else k * k),
             "bias": cout, "out_fm": cout * hout * wout}
 
 

@@ -38,6 +38,7 @@ EN_F, EN_I, DE_F, DE_I = 48, 32, 64, 32
 
 
 from img_io import load_image_np        # noqa: E402  （读图拆出去：不依赖 torch）
+from ref_numpy import k3_to_pad12, W_LAYOUT_K3_PAD12, W_LAYOUT_OCIC  # noqa: E402
 
 
 def load_image(path, h, w, crop="center", allow_resize=False):
@@ -385,11 +386,24 @@ def main():
             s_out = s_in * sw * (2 ** shift)
             scales[out_t] = s_out
             w_q = np.clip(np.rint(w / sw), -128, 127).astype(np.int8)
-            w_off = put(w_q.tobytes())
+            # ---- k=3 的 12 字节容器（2026-10-23 第四轮）----
+            # 每个 (oc,ic) 的 9 个抽头紧排在前 9 字节、再补 3 个零，凑成
+            # 3 个 32-bit 字 ⇒ 容器起点 (oc*cin+ic)*12 恒 4 字节对齐，
+            # PL 装载一拍读一个字（事务数 ÷9、每笔 12 字节）。
+            # 数值语义不变（补的是零），所以 ref_out.bin / 板上 md5 不变；
+            # 代价是 k=3 权重 ×4/3。k=1/k=5 容器不变（[oc][ic][k][k]）。
+            if op["k"] == 3:
+                w_out = k3_to_pad12(w_q)
+                w_layout = W_LAYOUT_K3_PAD12
+            else:
+                w_out = w_q
+                w_layout = W_LAYOUT_OCIC
+            w_off = put(w_out.tobytes())
             b_off = put(b_q.astype("<i4").tobytes())
             layers[key] = {"w_off": w_off, "w_len": int(w_q.size),
-                           "w_shape": list(w_q.shape), "b_off": b_off,
+                           "w_shape": list(w_out.shape), "b_off": b_off,
                            "b_len": int(b_q.size * 4), "shift": shift,
+                           "w_layout": w_layout,
                            "sw": sw, "scale_in": float(s_in),
                            "scale_out": float(s_out),
                            "relu": int(bool(op["relu"]))}

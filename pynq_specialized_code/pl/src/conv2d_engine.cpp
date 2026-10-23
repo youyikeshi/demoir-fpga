@@ -168,16 +168,23 @@ int conv2d_engine(const data_t *in_fm, const data_t *wgt, const bias_t *bias,
     //   LUTRAM bank，每个抽头一个读口），拍平后 9 个抽头挤在同一 bank 上，
     //   8 路 oc 展开 × 9 抽头 ⇒ 一个 bank 要 9 个读口。csynth：DSP 111→119、
     //   FF 24,956→28,595、LUT 38,056→42,464（82%→91%），不能上板。
-    //   下一轮的正解：改导出侧，把 k=3 权重按"每 ic 补齐到 12/16 字节"重排
-    //   （或按 (ky,kx) 拆成 9 个平面），让宽读和分 bank 同时成立。
-    data_t wgt3_buf[OC_BLOCK][CIN_MAX][3][3];
+    //   正解（第四轮已落地）：容器布局**不动**，只把装载循环按 4 个 ic 分组 ——
+    //   4×9 = 36 字节 = 9 个 32-bit 字，且每组起点恒 4 字节对齐。这样 DDR 侧
+    //   变成"每 36 字节一笔 burst"，而写侧仍是 9 个**常量** bank ⇒ 读侧、资源、
+    //   权重包、参考实现全都不变。见 `#if K3_WIDE_LOAD` 那段。
+    //   （同时试过的"按 (ky,kx) 拆 9 个平面"导出布局更差：LUT 38,235、DSP 111、
+    //   cosim 反而涨到 458,786 拍 —— 因为写 bank 由两个运行期下标决定，HLS 拒绝
+    //   把它做成流水。已弃用。）
+    // 形状 [oc][ic][9]：第三维就是 (ky,kx) 展平后的**平面号** p = ky*3+kx，
+    // complete 拆分后是 8×9 = 72 个 LUTRAM bank（每个 bank 深度 CIN_MAX），
+    // 与改造前逐字等价（[3][3] → [9] 只是展平了下标）。
+    data_t wgt3_buf[OC_BLOCK][CIN_MAX][9];
     HLS_PRAGMA(HLS ARRAY_PARTITION variable=wgt_buf complete dim=3)
     HLS_PRAGMA(HLS ARRAY_PARTITION variable=wgt_buf complete dim=4)
     HLS_PRAGMA(HLS ARRAY_PARTITION variable=wgt1_buf complete dim=1)
     HLS_PRAGMA(HLS BIND_STORAGE variable=wgt1_buf type=RAM_2P impl=LUTRAM)
     HLS_PRAGMA(HLS ARRAY_PARTITION variable=wgt3_buf complete dim=1)
     HLS_PRAGMA(HLS ARRAY_PARTITION variable=wgt3_buf complete dim=3)
-    HLS_PRAGMA(HLS ARRAY_PARTITION variable=wgt3_buf complete dim=4)
     HLS_PRAGMA(HLS BIND_STORAGE variable=wgt3_buf type=RAM_2P impl=LUTRAM)
 
     // 行缓冲：只装当前输出块需要的列
@@ -382,6 +389,8 @@ int conv2d_engine(const data_t *in_fm, const data_t *wgt, const bias_t *bias,
                 // v3.1（时序修复）：权重基址改为按 ocb 块 / oc / ic 三级常量递推，
                 // 消掉原 ((ocb+i)*cin+ic)*kk 的每迭代乘加链（WNS 边缘路径的源头）。
                 int off_ocb = 0;
+                // k=3（12 字节对齐容器）的块基址递推：每块 +cin*12*OC_BLOCK
+                int off_ocb12 = 0;
                 for (int ocb = 0; ocb < cout; ocb += OC_BLOCK) {
                     const int ocbl = (cout - ocb < OC_BLOCK) ? (cout - ocb) : OC_BLOCK;
 
@@ -428,18 +437,45 @@ int conv2d_engine(const data_t *in_fm, const data_t *wgt, const bias_t *bias,
                             }
                         }
                     } else if (ksize == 3) {
-                        // 【2026-10-21】"142 拍/字节"的主因在这一条循环：
-                        //   ① 步长 kk 是**运行期值** → HLS 无法做跨迭代仿射分析，
-                        //      9 个连续读被当成 9 个独立标量事务；
-                        //   ② 循环**没有流水** → 每次迭代都要等上一批 9 字节的
-                        //      AXI 返回才能开始下一次。
-                        // 改法：按 k 拆分支把步长变成编译期常量 9，指针递推 +
-                        // II=1，让 9 个读被预取。这里不涉及任何谓词，访问仍是
-                        // 连续常量偏移，因此**不会**像"填充循环"那样破坏 burst。
-                        // 2026-10-23 第三轮：k=3 的宽读**试过又退回**（见 wgt3_buf
-                        // 声明处的记录）。9 字节步长 + 读侧 9 抽头分 bank，
-                        // 这两件事在现有 wgt3_buf 形状下不能同时满足：
-                        // 拍平能宽读但读侧 LUT 91%。先保持逐字节（ARLEN=1/word）。
+#if K3_PAD12
+                        /* ---- k=3 权重装载加宽：容器按 12 字节/（oc,ic）补齐 ----
+                           导出侧把每个 (oc,ic) 的 9 个抽头**紧排在前 9 字节**、再补
+                           3 个 0，凑成 3 个 32-bit 字（抽头 k 在第 k>>2 个字的第
+                           k&3 字节），于是
+                             · 每个 (oc,ic) 的起点 (oc·cin+ic)·12 恒 4 字节对齐
+                               ⇒ 与 cin 是否 4 的倍数无关，**没有回退路径**；
+                             · 一笔逻辑 burst = 12 字节（3 个字），原来是 9 笔
+                               单字节事务（ARLEN=1，板端 16.3 拍/字节）；
+                             · 写侧仍是 9 个**编译期常量** bank、每拍一个地址
+                               ⇒ 吞吐上界 9 字节/拍（与改造前相同）；
+                             · 读侧 `wgt3_buf[oc][ic][p]` 与 72 个 LUTRAM bank 的
+                               划分逐字未变 ⇒ 计算路径的 DSP/FF/LUT 不变。
+                           代价：权重体积 ×12/9 = 1.33（k=3 的 357 MB → 476 MB），
+                           换来事务数 ÷9 且每次搬 12 字节。实测（csynth/上板）
+                           见 docs/设计/记录_20261023_k3权重装载宽读.md。
+                           为什么不用"每 4 个 ic 一组读 9 个字"（不膨胀体积）：
+                           那个写法要在一个循环体里放 36 条静态写，HLS 的写端口
+                           多路器 LUT +3.8k（36,775 → 40,950 = 88%，超红线）。 */
+                        const int cin12 = cin * 12;
+                        int off = off_ocb12;            // = ocb*cin*12（递推）
+                        for (int i = 0; i < ocbl; ++i, off += cin12) {
+                            const w32_t *pw =
+                                reinterpret_cast<const w32_t *>(wgt + off);
+                            HLS_PRAGMA(HLS PIPELINE II=1)
+                            for (int ic = 0; ic < cin; ++ic) {
+                                // 容器内字节序：抽头 k（= ky*3+kx）落在
+                                // 第 (k>>2) 个字的第 (k&3) 字节；k=9..11 是补零。
+                                HLS_PRAGMA(HLS UNROLL)
+                                for (int k = 0; k < 9; ++k) {
+                                    const w32_t wv = pw[3 * ic + (k >> 2)];
+                                    wgt3_buf[i][ic][k] =
+                                        (data_t)(wv >> (8 * (k & 3)));
+                                }
+                            }
+                        }
+#else
+                        /* ---- 基线（K3_PAD12=0）：每 ic 逐字节读 9 个抽头 ----
+                           板端 16.3 拍/字节（ARLEN=1），只作对照构建。 */
                         int off = off_ocb;
                         for (int i = 0; i < ocbl; ++i, off += cin_kk) {
                             const data_t *wp = wgt + off;
@@ -449,11 +485,12 @@ int conv2d_engine(const data_t *in_fm, const data_t *wgt, const bias_t *bias,
                                 for (int ky = 0; ky < 3; ++ky) {
                                     HLS_PRAGMA(HLS UNROLL)
                                     for (int kx = 0; kx < 3; ++kx) {
-                                        wgt3_buf[i][ic][ky][kx] = wp[ky * 3 + kx];
+                                        wgt3_buf[i][ic][ky * 3 + kx] = wp[ky * 3 + kx];
                                     }
                                 }
                             }
                         }
+#endif
                     } else {   // ksize == 5（ksize 已被上界校验限制为 1/3/5）
                         int off = off_ocb;
                         for (int i = 0; i < ocbl; ++i, off += cin_kk) {
@@ -470,7 +507,8 @@ int conv2d_engine(const data_t *in_fm, const data_t *wgt, const bias_t *bias,
                             }
                         }
                     }
-                    off_ocb += cin_kk * OC_BLOCK;   // 下一 OC 块的起始偏移
+                    off_ocb += cin_kk * OC_BLOCK;       // 下一 OC 块的起始偏移
+                    off_ocb12 += cin * 12 * OC_BLOCK;   // 同上（k=3 的 12 字节容器）
 
 #if FUSE_SUM
                     // ECA 融合：本 OC 块在本行的每通道累加和（寄存器，跨 x2 累加，
@@ -578,15 +616,15 @@ int conv2d_engine(const data_t *in_fm, const data_t *wgt, const bias_t *bias,
                                 HLS_PRAGMA(HLS ARRAY_PARTITION variable=h1 complete dim=1)
                                 for (int i = 0; i < OC_BLOCK; ++i) {
                                     HLS_PRAGMA(HLS UNROLL factor=K3_OC_UNROLL)
-                                    h0[i] = q0 * (int32_t)wgt3_buf[i][ic][0][0]
-                                          + q2 * (int32_t)wgt3_buf[i][ic][0][2]
-                                          + q4 * (int32_t)wgt3_buf[i][ic][1][1]
-                                          + q6 * (int32_t)wgt3_buf[i][ic][2][0]
-                                          + q8 * (int32_t)wgt3_buf[i][ic][2][2];
-                                    h1[i] = q1 * (int32_t)wgt3_buf[i][ic][0][1]
-                                          + q3 * (int32_t)wgt3_buf[i][ic][1][0]
-                                          + q5 * (int32_t)wgt3_buf[i][ic][1][2]
-                                          + q7 * (int32_t)wgt3_buf[i][ic][2][1];
+                                    h0[i] = q0 * (int32_t)wgt3_buf[i][ic][0]
+                                          + q2 * (int32_t)wgt3_buf[i][ic][2]
+                                          + q4 * (int32_t)wgt3_buf[i][ic][4]
+                                          + q6 * (int32_t)wgt3_buf[i][ic][6]
+                                          + q8 * (int32_t)wgt3_buf[i][ic][8];
+                                    h1[i] = q1 * (int32_t)wgt3_buf[i][ic][1]
+                                          + q3 * (int32_t)wgt3_buf[i][ic][3]
+                                          + q5 * (int32_t)wgt3_buf[i][ic][5]
+                                          + q7 * (int32_t)wgt3_buf[i][ic][7];
                                 }
                                 for (int i = 0; i < OC_BLOCK; ++i) {
                                     HLS_PRAGMA(HLS UNROLL)

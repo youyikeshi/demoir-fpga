@@ -90,6 +90,31 @@ def main():
         if e["w_off"] + e["w_len"] > blob_size or e["b_off"] + e["b_len"] > blob_size:
             errs.append("偏移越界: %s" % k)
 
+    # 6b) k=3 权重容器（2026-10-23 第四轮）
+    #     PL 的 k=3 装载路径**只**认 12 字节容器 [oc][ic][12]；把 9 字节紧排的
+    #     旧包喂给新 bit 不会报错，只会算出"看起来正常"的错数据，所以在这里拦。
+    shape_of = {}
+    for op in m["ops"]:
+        if op["op"] == "conv":
+            shape_of[op["weights_key"]] = (op["cin"], op["cout"], op["k"])
+    n_k3 = 0
+    for k, e in layers.items():
+        cin, cout, kk = shape_of.get(k, (0, 0, 0))
+        lay = e.get("w_layout")
+        if kk == 3:
+            n_k3 += 1
+            if lay != "k3_pad12":
+                errs.append("k=3 层缺 w_layout=k3_pad12: %s（用 "
+                            "ps/tools/repack_k3_pad12.py 重打包）" % k)
+            if list(e["w_shape"]) != [cout, cin, 12]:
+                errs.append("k=3 层 w_shape 应为 [%d,%d,12]: %s = %r"
+                            % (cout, cin, k, e["w_shape"]))
+            if e["w_len"] != 12 * cout * cin:
+                errs.append("k=3 层 w_len 应为 12*cout*cin: %s" % k)
+        elif lay not in (None, "oc_ic_ky_kx"):
+            errs.append("非 k=3 层不该声明 w_layout=%s: %s" % (lay, k))
+    print("k=3 的 12 字节容器：%d 层全部声明 k3_pad12" % n_k3 if n_k3 else "无 k=3 层")
+
     # 7) 池规划
     pool_bytes, offs = plan_pool(m)
     for t, (o, s) in offs.items():

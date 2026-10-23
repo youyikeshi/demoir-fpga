@@ -36,10 +36,12 @@ try:
     import pp_ops                      # 板上是扁平目录
     import lut_util
     import c8_layout                   # C8 布局判定/分配（2026-10-23）
+    import ref_numpy                   # 权重布局标签（k3_plane）/ 金标准 conv
 except ImportError:                    # 仓库里作为 pynq 包时
     from . import pp_ops
     from . import lut_util
     from . import c8_layout
+    from . import ref_numpy
 
 
 def _env_flag(name):
@@ -58,6 +60,14 @@ def load_pack(pack_dir):
 
 
 def _w_b(index, blob, key):
+    """取某层的 (权重, 偏置) 视图。
+
+    权重按 `w_shape` 原样 reshape，**不做下标重排**：k=3 的
+    `w_layout="k3_plane"`（9 个平面 [ky][kx][oc][ic]）由
+    `ref_numpy.conv_ref_numpy(w_layout=...)` 负责解释。
+    PL 引擎读的是同一个 buffer 里的同一串字节，所以"参考实现怎么读"必须与
+    `conv_ref_rt.cpp` 的下标公式逐字一致（否则就是"两边一起错"）。
+    """
     e = index["layers"][key]
     w = np.frombuffer(blob, np.int8, e["w_len"], e["w_off"]).reshape(e["w_shape"])
     b = np.frombuffer(blob, np.int32, e["b_len"] // 4, e["b_off"])
@@ -511,10 +521,12 @@ class RefEngine:
         # C8 视图的通道数可能是补零后的（cin=12 -> 16 通道位）：只取前 cin 个，
         # 补零通道既没有对应权重、也不该进乘加（与 RTL 的 ic < cin 一致）。
         src = c8_layout.to_chw(self.arena.view(in_t), in8, op["cin"])
+        e = self.index["layers"][op["weights_key"]]
         y = conv_ref_numpy(src, w, b,
                            op["k"], op["s"], op["d"], op["pad"],
-                           self.index["layers"][op["weights_key"]]["shift"],
-                           relu=bool(op["relu"]))
+                           e["shift"],
+                           relu=bool(op["relu"]),
+                           w_layout=ref_numpy.layout_of(e))
         if out_lut is not None:
             # 与 RTL 逐位等价：v8 = sat8(acc) 之后查表
             y = lut_util.apply_out_lut(y, out_lut)

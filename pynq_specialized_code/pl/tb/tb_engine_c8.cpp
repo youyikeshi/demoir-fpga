@@ -148,7 +148,10 @@ int main(int argc, char **argv) {
 
     const size_t n_in_chw = (size_t)cin * H * W;
     const size_t n_in_c8 = (size_t)cin_pad * H * W;         // = Cb*H*W*8
-    const size_t n_w = (size_t)cout * cin * ksize * ksize;
+    // k=3 的权重容器按 12 字节/(oc,ic) 补齐（K3_PAD12=1，见 conv2d_engine.h）：
+    // 9 个抽头 + 3 个零 = 3 个 32-bit 字，装载一拍读一个字。
+    const size_t n_w = (size_t)cout * cin *
+        (K3_PAD12 && ksize == 3 ? 12 : ksize * ksize);
     const size_t n_b = (size_t)cout;
     const size_t n_out_chw = (size_t)cout * Hout * Wout;
     const size_t n_out_c8 = (size_t)cout_pad * Hout * Wout;

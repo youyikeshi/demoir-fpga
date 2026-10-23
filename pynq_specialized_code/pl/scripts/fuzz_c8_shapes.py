@@ -59,8 +59,10 @@ def write_case(d, cin, cout, k, h, w, shift, seed):
     with open(os.path.join(d, "input_c8.bin"), "wb") as f:
         f.write(c8.tobytes(order="C"))
     with open(os.path.join(d, "weight.bin"), "wb") as f:
+        # k=3 的权重容器是 12 字节/(oc,ic)（9 个抽头 + 3 个零，K3_PAD12=1）
+        n_w = cout * cin * (12 if k == 3 else k * k)
         f.write(bytes(bytearray(rng.randint(-128, 127) & 0xFF
-                                for _ in range(cout * cin * k * k))))
+                                for _ in range(n_w))))
     bias = [rng.randint(-100000, 100000) for _ in range(cout)]
     with open(os.path.join(d, "bias.bin"), "wb") as f:
         f.write(struct.pack("<%di" % cout, *bias))

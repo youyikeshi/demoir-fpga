@@ -22,7 +22,8 @@ WORK = os.path.join(ROOT, "build", "fuzz_data")
 def write_case(d, cin, cout, k, h, w, shift, seed):
     os.makedirs(d, exist_ok=True)
     rng = random.Random(seed)
-    n_in, n_w = cin * h * w, cout * cin * k * k
+    # k=3 的权重容器是 12 字节/(oc,ic)（9 个抽头 + 3 个零，K3_PAD12=1）
+    n_in, n_w = cin * h * w, cout * cin * (12 if k == 3 else k * k)
     with open(os.path.join(d, "input.bin"), "wb") as f:
         f.write(bytes(bytearray(rng.randint(-128, 127) & 0xFF
                                 for _ in range(n_in))))

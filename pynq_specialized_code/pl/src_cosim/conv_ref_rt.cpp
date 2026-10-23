@@ -3,6 +3,22 @@
 
 #include "conv2d_engine.h"
 
+namespace {
+// k=3 权重容器的下标（2026-10-23 第四轮）：`K3_PAD12=1` 时每个 (oc,ic) 是
+// 12 字节（9 个抽头 + 3 个补零，第 q 个字的低 3 字节 = 抽头 3q..3q+2）。
+// **参考实现必须与引擎的装载下标逐字一致**，否则 fuzz 只是"两边一起错"；
+// 更高一层的独立性由"重打包后 ref_out.bin 逐字节不变"保证。
+inline int widx(int ky, int kx, int oc, int ic, int cout, int cin, int ksize) {
+#if K3_PAD12
+    if (ksize == 3) {
+        (void)cout;
+        return (oc * cin + ic) * 12 + ky * 3 + kx;
+    }
+#endif
+    return ((oc * cin + ic) * ksize + ky) * ksize + kx;
+}
+}  // namespace
+
 int conv_ref_rt(const data_t *in_fm, const data_t *wgt, const bias_t *bias,
                 data_t *out_fm, int H, int W, int Hout, int Wout,
                 int cin, int cout, int ksize, int stride, int dil,
@@ -19,7 +35,7 @@ int conv_ref_rt(const data_t *in_fm, const data_t *wgt, const bias_t *bias,
                             if (iy >= 0 && iy < H && ix >= 0 && ix < W) {
                                 const int32_t p = (int32_t)in_fm[(ic * H + iy) * W + ix];
                                 const int32_t wv = (int32_t)wgt
-                                    [((oc * cin + ic) * ksize + ky) * ksize + kx];
+                                    [widx(ky, kx, oc, ic, cout, cin, ksize)];
                                 acc += p * wv;
                             }
                         }

@@ -17,7 +17,7 @@ import numpy as np
 from pynq import Overlay, allocate
 
 from conv_engine import Conv2dEngine
-from ref_numpy import conv_ref_numpy
+from ref_numpy import conv_ref_numpy, k3_to_pad12
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 
@@ -86,6 +86,11 @@ def main():
         rng = np.random.default_rng(seed)
         inp = rng.integers(-128, 128, size=(cin, H, W)).astype(np.int8)
         wgt = rng.integers(-128, 128, size=(cout, cin, k, k)).astype(np.int8)
+        # 硬件侧容器（2026-10-23 第四轮）：k=3 每个 (oc,ic) 补成 12 字节
+        # （9 个抽头 + 3 个零 = 3 个 32-bit 字，装载能宽读）；k=1/k=5 不变。
+        # 金标准 conv_ref_numpy 直接用 (cout,cin,k,k) 的 wgt —— 所以这一步
+        # 顺带就是"导出侧打包 ↔ 参考实现"的独立对拍。
+        w_hw = k3_to_pad12(wgt) if k == 3 else wgt
         bias = rng.integers(-100000, 100000, size=(cout,)).astype(np.int32)
         hout = (H - 1) // s + 1
         wout = (W - 1) // s + 1
@@ -94,7 +99,7 @@ def main():
         cout_p = (cout + C8N - 1) // C8N * C8N if c8 else cout
 
         in_buf = allocate(shape=(cin_p * H * W,), dtype=np.int8)
-        w_buf = allocate(shape=(wgt.size,), dtype=np.int8)
+        w_buf = allocate(shape=(w_hw.size,), dtype=np.int8)   # 硬件容器尺寸（k=3 是 12 字节/(oc,ic)）
         b_buf = allocate(shape=(bias.size,), dtype=np.int32)
         o_buf = allocate(shape=(cout_p * hout * wout,), dtype=np.int8)
 
@@ -105,7 +110,7 @@ def main():
                 src[:] = _to_c8(inp).reshape(-1)
             else:
                 _arr(in_buf).reshape(-1)[:] = inp.reshape(-1)
-            _arr(w_buf).reshape(-1)[:] = wgt.reshape(-1)
+            _arr(w_buf).reshape(-1)[:] = w_hw.reshape(-1)
             _arr(b_buf).reshape(-1)[:] = bias
             if c8:
                 _arr(o_buf).reshape(-1)[:] = 0

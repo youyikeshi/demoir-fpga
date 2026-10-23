@@ -13,6 +13,11 @@ import os
 
 import numpy as np
 
+import sys
+sys.path.insert(0, os.path.abspath(os.path.join(
+    os.path.dirname(os.path.abspath(__file__)), "..", "pynq")))
+from ref_numpy import k3_to_pad12, W_LAYOUT_K3_PAD12, W_LAYOUT_OCIC  # noqa: E402
+
 
 def build_mock_pack(manifest_path, out_dir, seed=1234, w_abs=8, b_abs=1000):
     with open(manifest_path, "r", encoding="utf-8") as f:
@@ -39,10 +44,16 @@ def build_mock_pack(manifest_path, out_dir, seed=1234, w_abs=8, b_abs=1000):
             cin, cout, k = op["cin"], op["cout"], op["k"]
             w = rng.integers(-w_abs, w_abs + 1, size=(cout, cin, k, k)).astype(np.int8)
             b = rng.integers(-b_abs, b_abs + 1, size=(cout,)).astype(np.int32)
-            w_off = put(w.tobytes())
+            # 容器：k=3 与 export_network.py 一致用 12 字节/(oc,ic)（9+3 零）
+            if k == 3:
+                w_out, w_layout = k3_to_pad12(w), W_LAYOUT_K3_PAD12
+            else:
+                w_out, w_layout = w, W_LAYOUT_OCIC
+            w_off = put(w_out.tobytes())
             b_off = put(b.tobytes())
             layers[key] = {
-                "w_off": w_off, "w_len": w.size, "w_shape": list(w.shape),
+                "w_off": w_off, "w_len": w_out.size, "w_shape": list(w_out.shape),
+                "w_layout": w_layout,
                 "b_off": b_off, "b_len": b.size * 4,
                 "shift": int(rng.integers(1, 12)),
             }
