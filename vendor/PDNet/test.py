@@ -132,6 +132,7 @@ def main():
                      de_feature_num=args.DE_FEATURE_NUM,
                      de_inter_num=args.DE_INTER_NUM,
                      sam_number=args.SAM_NUMBER,
+                     dw_groups=int(getattr(args, 'DW_GROUPS', 0) or 0),
                      ).to(device)
 
     # load checkpoint

@@ -112,11 +112,19 @@ def load_checkpoint(model, optimizer, load_epoch):
 def main():
     logger, device, device1 = init()
     # create model
+    # DW_GROUPS (default 0) keeps the historical dense 3x3 cheap_operation.
+    # 1 = real depthwise (GhostNet paper design). Weights of the two are NOT
+    # shape-compatible; use model.nets_student.dense_to_depthwise_state_dict()
+    # to warm-start a depthwise net from a dense checkpoint.
+    _dw = int(getattr(args, 'DW_GROUPS', 0) or 0)
+    print('GhostBlock.dw_groups = %d  (%s)' % (_dw, 'depthwise, GhostNet paper'
+                                               if _dw else 'dense 3x3, historical'))
     model = my_model(en_feature_num=args.EN_FEATURE_NUM,
                      en_inter_num=args.EN_INTER_NUM,
                      de_feature_num=args.DE_FEATURE_NUM,
                      de_inter_num=args.DE_INTER_NUM,
                      sam_number=args.SAM_NUMBER,
+                     dw_groups=_dw,
                      ).to(device)
     model._initialize_weights()
 
