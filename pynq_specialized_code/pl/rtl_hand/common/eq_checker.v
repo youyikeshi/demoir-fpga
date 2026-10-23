@@ -48,6 +48,16 @@ module eq_checker #(
         else        cyc <= cyc + 1;
     end
 
+    // ---------------- 允许的拍差（SKEW > 0 时用延迟指纹）----------------
+    // 说明：SKEW 只做"延迟对齐"，不改变判据强度。SKEW=0 时 a_cmp == a_flat。
+    // 2026-10-23 修：原实现只声明了 a_q 却没接到比较器上（SKEW 是空转的）。
+    logic [N_PORTS*WIDTH-1:0] a_dly [0:SKEW];
+    always_ff @(posedge clk) begin
+        a_dly[0] <= a_flat;
+        for (int i = 1; i <= SKEW; i++) a_dly[i] <= a_dly[i-1];
+    end
+    wire [N_PORTS*WIDTH-1:0] a_cmp = (SKEW == 0) ? a_flat : a_dly[SKEW];
+
     // ---------------- 统计 ----------------
     longint unsigned n_checked;
     longint unsigned n_err;
@@ -63,12 +73,12 @@ module eq_checker #(
                 n_checked <= n_checked + 1;
                 for (int p = 0; p < N_PORTS; p++) begin
                     if (compare_en[p]) begin
-                        if (a_flat[p*WIDTH +: WIDTH] !== b_flat[p*WIDTH +: WIDTH]) begin
+                        if (a_cmp[p*WIDTH +: WIDTH] !== b_flat[p*WIDTH +: WIDTH]) begin
                             n_err <= n_err + 1;
                             if (n_err < MAX_ERR)
                                 $display("[EQ-CHECK] ✗ cyc=%0d port=%0d 期望=%0h 实际=%0h",
                                          cyc, p,
-                                         a_flat[p*WIDTH +: WIDTH],
+                                         a_cmp[p*WIDTH +: WIDTH],
                                          b_flat[p*WIDTH +: WIDTH]);
                             if (n_err + 1 >= MAX_ERR) begin
                                 $display("[EQ-CHECK] 已达最大失配数 %0d，停止比较", MAX_ERR);
@@ -76,25 +86,13 @@ module eq_checker #(
                             end
                         end else if (VERBOSE) begin
                             $display("[EQ-CHECK] ✓ cyc=%0d port=%0d %0h", cyc, p,
-                                     a_flat[p*WIDTH +: WIDTH]);
+                                     a_cmp[p*WIDTH +: WIDTH]);
                         end
                     end
                 end
             end
         end
     end
-
-    // ---------------- 允许的拍差（SKEW > 0 时用延迟指纹）----------------
-    // 说明：SKEW 只做"延迟对齐"，不改变判据强度。SKEW=0 时本段不生效。
-    generate
-        if (SKEW > 0) begin : g_skew
-            logic [N_PORTS*WIDTH-1:0] a_q [SKEW];
-            always_ff @(posedge clk) begin
-                a_q[0] <= a_flat;
-                for (int i = 1; i < SKEW; i++) a_q[i] <= a_q[i-1];
-            end
-        end
-    endgenerate
 
     // ---------------- 结束报告 ----------------
     task automatic report();
@@ -106,4 +104,70 @@ module eq_checker #(
                      n_checked, n_err, MAX_ERR);
     endtask
 
+endmodule
+
+// ============================================================================
+//  eq_byte_checker —— 按字节比对的验收器（契约 §5：逐字节比 expected_c8.bin）
+//
+//  与上面 eq_checker 的分工：
+//    · eq_checker      ：有"黄金 RTL"可同时例化时，用它做**逐拍**指纹比对；
+//    · eq_byte_checker ：只有 golden/<shape>/expected_c8.bin 时，用它做**逐字节**
+//                        比对（手写模块的最终验收判据）。
+//
+//  tb_common_tasks.vh 里例化一份，check_bytes() 调 compare()。不依赖仿真器特性：
+//  tasks 用 SystemVerilog 动态数组参数（xsim / iverilog -g2012 / verilator 均支持）。
+// ============================================================================
+module eq_byte_checker #(
+    parameter int MAX_PRINT = 20      // 最多打印多少条失配（其余只计数）
+)();
+    int n_compare;                    // 被调用次数（一个 golden case 算一次）
+    longint total_checked;
+    longint total_bad;
+
+    task automatic compare(
+        input  byte   exp[],          // 期望字节（golden/<shape>/expected_c8.bin）
+        input  byte   got[],          // DUT 写到输出缓冲的字节
+        input  string ctx,            // 上下文（shape 名 / case 目录），用于定位
+        input  int    cout,
+        input  int    hout,
+        input  int    wout,
+        output int    n_bad
+    );
+        int printed;
+        int c, y, x;
+        printed = 0;
+        n_bad = 0;
+        n_compare++;
+        if (exp.size() != got.size()) begin
+            $display("[BYTE-CHECK] ✗ %s：长度不一致 expected=%0d got=%0d",
+                     ctx, exp.size(), got.size());
+            n_bad = (exp.size() > got.size()) ? exp.size() : got.size();
+            total_bad += n_bad;
+            return;
+        end
+        for (int i = 0; i < exp.size(); i++) begin
+            if (exp[i] !== got[i]) begin
+                n_bad++;
+                if (printed < MAX_PRINT) begin
+                    // C8 地址反解出 (c,y,x)，便于直接定位到 RTL 的写回逻辑
+                    c = (i / (hout * wout * 8)) * 8 + (i % 8);
+                    y = (i / (wout * 8)) % hout;
+                    x = (i / 8) % wout;
+                    $display("[BYTE-CHECK] ✗ %s @byte=%0d (c=%0d,y=%0d,x=%0d) 期望=%0d(0x%02h) 实际=%0d(0x%02h)",
+                             ctx, i, c, y, x,
+                             $signed(exp[i]), exp[i], $signed(got[i]), got[i]);
+                    printed++;
+                end
+            end
+        end
+        total_checked += exp.size();
+        total_bad     += n_bad;
+        if (printed < n_bad)
+            $display("[BYTE-CHECK] ... 另有 %0d 处失配未打印", n_bad - printed);
+        if (n_bad == 0)
+            $display("[BYTE-CHECK] ✓ %s：%0d 字节全部一致", ctx, exp.size());
+        else
+            $display("[BYTE-CHECK] ✗ %s：%0d / %0d 字节不一致",
+                     ctx, n_bad, exp.size());
+    endtask
 endmodule
