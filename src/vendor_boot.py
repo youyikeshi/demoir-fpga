@@ -46,6 +46,7 @@ _SECTION = {
 
     'EN_FEATURE_NUM': 'MODEL', 'EN_INTER_NUM': 'MODEL',
     'DE_FEATURE_NUM': 'MODEL', 'DE_INTER_NUM': 'MODEL', 'SAM_NUMBER': 'MODEL',
+    'DW_GROUPS': 'MODEL',
 
     'TEACHER': 'TEACHER_MODEL', 'T_load_path': 'TEACHER_MODEL',
     'T_en_f': 'TEACHER_MODEL', 'T_en_i': 'TEACHER_MODEL',
@@ -263,6 +264,7 @@ def resolve_config(cfg_name, run=None, overrides=None, dataset=None,
         'loader': (cfg.get('TRAIN') or {}).get('LOADER'),
         'epochs': (cfg.get('SOLVER') or {}).get('EPOCHS'),
         'use_teacher': cfg.get('USE_TEACHER', True),
+        'dw_groups': (cfg.get('MODEL') or {}).get('DW_GROUPS', 0),
         'overrides': {k: v for k, v in (overrides or {}).items() if v is not None},
         'host': os.environ.get('COMPUTERNAME') or os.environ.get('HOSTNAME') or '',
     }

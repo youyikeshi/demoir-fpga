@@ -1,0 +1,61 @@
+# ---------------------------------------------------------------------------
+# depthwise 版 student（GhostNet 论文原设计）：
+#   GhostBlock.cheap_operation 由稠密 3x3 改成 groups=init_channels 的 depthwise。
+#
+# 代价/收益（2026-10-23 实测，见 runs/dw_probe/REPORT_DW.md）：
+#   * MAC 33.1475 -> 27.5954 GMAC @640x640（−16.75%，被替换的 108 层占 17.87%）
+#   * 零样本（从稠密权重取对角热启动）：PSNR 19.800 -> 15.623 dB（−4.18）
+#   * 重训后：见报告
+#
+# 用法：
+#   python src/train.py --config uhdm_4k_s_dw
+#   python src/eval.py  --student runs/<run>/net_checkpoints/checkpoint_latest.tar --dw-groups 1 --dw-init keep
+#
+# ⚠️ DW_GROUPS=1 时权重形状与旧 checkpoint 不兼容（[16,1,3,3] vs [16,16,3,3]）。
+#    热启动要么用 model.nets_student.dense_to_depthwise_state_dict() 取对角，
+#    要么直接重新初始化。src/train.py 的 LOAD_EPOCH 续训只适用于同为 depthwise 的 checkpoint。
+# ---------------------------------------------------------------------------
+USE_TEACHER: False
+
+GENERAL:
+  GPU_ID: 0
+  SEED: 123
+  WORKER: 6
+
+DATA:
+  DATA_TYPE: UHDM
+  DATASET: uhdm
+
+MODEL:
+  DW_GROUPS: 1          # 0=稠密(默认) / 1=depthwise
+  EN_FEATURE_NUM: 48
+  EN_INTER_NUM: 32
+  DE_FEATURE_NUM: 64
+  DE_INTER_NUM: 32
+  SAM_NUMBER: 1
+
+TRAIN:
+  BATCH_SIZE: 2
+  LOADER: crop
+  CROP_SIZE: 512
+  RESIZE_SIZE: 384
+  SAVE_ITER: 1000000
+  SAVE_EPOCH: 2
+  LOAD_EPOCH: False
+  LAM: 1
+  LAM_P: 1
+
+TEST:
+  TEST_EPOCH: 'auto'
+  SAVE_IMG: False
+  LOAD_PATH: False
+  EVALUATION_METRIC: True
+  EVALUATION_TIME: False
+  EVALUATION_COST: False
+
+SOLVER:
+  EPOCHS: 30
+  T_0: 30
+  T_MULT: 1
+  ETA_MIN: 0.000001
+  BASE_LR: 0.0002

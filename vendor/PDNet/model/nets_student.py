@@ -17,11 +17,16 @@ class my_model(nn.Module):
                  de_feature_num,
                  de_inter_num,
                  sam_number=1,
+                 dw_groups=0,
                  ):
         super(my_model, self).__init__()
-        self.encoder = Encoder(feature_num=en_feature_num, inter_num=en_inter_num, sam_number=sam_number)
+        # dw_groups=0 -> GhostBlock 的 cheap_operation 是稠密 3x3（历史行为，权重形状不变）
+        # dw_groups=1 -> 真 depthwise 3x3（GhostNet 论文原设计，groups=init_channels）
+        self.dw_groups = dw_groups
+        self.encoder = Encoder(feature_num=en_feature_num, inter_num=en_inter_num, sam_number=sam_number,
+                               dw_groups=dw_groups)
         self.decoder = Decoder(en_num=en_feature_num, feature_num=de_feature_num, inter_num=de_inter_num,
-                               sam_number=sam_number)
+                               sam_number=sam_number, dw_groups=dw_groups)
 
     def forward(self, x):
         y_1, y_2, y_3 = self.encoder(x)
@@ -45,16 +50,16 @@ class my_model(nn.Module):
 
 
 class Decoder(nn.Module):
-    def __init__(self, en_num, feature_num, inter_num, sam_number):
+    def __init__(self, en_num, feature_num, inter_num, sam_number, dw_groups=0):
         super(Decoder, self).__init__()
         self.preconv_3 = conv_relu(4 * en_num, feature_num, 3, padding=1)
-        self.decoder_3 = Decoder_Level(feature_num, inter_num, sam_number)
+        self.decoder_3 = Decoder_Level(feature_num, inter_num, sam_number, dw_groups=dw_groups)
 
         self.preconv_2 = conv_relu(2 * en_num + feature_num, feature_num, 3, padding=1)
-        self.decoder_2 = Decoder_Level(feature_num, inter_num, sam_number)
+        self.decoder_2 = Decoder_Level(feature_num, inter_num, sam_number, dw_groups=dw_groups)
 
         self.preconv_1 = conv_relu(en_num + feature_num, feature_num, 3, padding=1)
-        self.decoder_1 = Decoder_Level(feature_num, inter_num, sam_number)
+        self.decoder_1 = Decoder_Level(feature_num, inter_num, sam_number, dw_groups=dw_groups)
 
     def forward(self, y_1, y_2, y_3):
         x_3 = y_3
@@ -73,15 +78,15 @@ class Decoder(nn.Module):
 
 
 class Encoder(nn.Module):
-    def __init__(self, feature_num, inter_num, sam_number):
+    def __init__(self, feature_num, inter_num, sam_number, dw_groups=0):
         super(Encoder, self).__init__()
         self.conv_first = nn.Sequential(
             nn.Conv2d(12, feature_num, kernel_size=5, stride=1, padding=2, bias=True),
             nn.ReLU(inplace=True)
         )
-        self.encoder_1 = Encoder_Level(feature_num, inter_num, level=1, sam_number=sam_number)
-        self.encoder_2 = Encoder_Level(2 * feature_num, inter_num, level=2, sam_number=sam_number)
-        self.encoder_3 = Encoder_Level(4 * feature_num, inter_num, level=3, sam_number=sam_number)
+        self.encoder_1 = Encoder_Level(feature_num, inter_num, level=1, sam_number=sam_number, dw_groups=dw_groups)
+        self.encoder_2 = Encoder_Level(2 * feature_num, inter_num, level=2, sam_number=sam_number, dw_groups=dw_groups)
+        self.encoder_3 = Encoder_Level(4 * feature_num, inter_num, level=3, sam_number=sam_number, dw_groups=dw_groups)
 
     def forward(self, x):
         x = F.pixel_unshuffle(x, 2)
@@ -95,13 +100,14 @@ class Encoder(nn.Module):
 
 
 class Encoder_Level(nn.Module):
-    def __init__(self, feature_num, inter_num, level, sam_number):
+    def __init__(self, feature_num, inter_num, level, sam_number, dw_groups=0):
         super(Encoder_Level, self).__init__()
         #self.rdb = RDB(in_channel=feature_num, d_list=(1, 2, 1), inter_num=inter_num)
-        self.rdb = GhostModule(feature_num, inter_num, d_list=(1,2,1))
+        self.rdb = GhostModule(feature_num, inter_num, d_list=(1,2,1), dw_groups=dw_groups)
         self.sam_blocks = nn.ModuleList()
         for _ in range(sam_number):
-            sam_block = SAM(in_channel=feature_num, d_list=(1, 2, 3, 2, 1), inter_num=inter_num)
+            sam_block = SAM(in_channel=feature_num, d_list=(1, 2, 3, 2, 1), inter_num=inter_num,
+                            dw_groups=dw_groups)
             self.sam_blocks.append(sam_block)
 
         if level < 3:
@@ -122,13 +128,14 @@ class Encoder_Level(nn.Module):
 
 
 class Decoder_Level(nn.Module):
-    def __init__(self, feature_num, inter_num, sam_number):
+    def __init__(self, feature_num, inter_num, sam_number, dw_groups=0):
         super(Decoder_Level, self).__init__()
         #self.rdb = RDB(feature_num, (1, 2, 1), inter_num)
-        self.rdb = GhostModule(feature_num, inter_num, d_list=(1,2,1))
+        self.rdb = GhostModule(feature_num, inter_num, d_list=(1,2,1), dw_groups=dw_groups)
         self.sam_blocks = nn.ModuleList()
         for _ in range(sam_number):
-            sam_block = SAM(in_channel=feature_num, d_list=(1, 2, 3, 2, 1), inter_num=inter_num)
+            sam_block = SAM(in_channel=feature_num, d_list=(1, 2, 3, 2, 1), inter_num=inter_num,
+                            dw_groups=dw_groups)
             self.sam_blocks.append(sam_block)
         self.conv = conv(in_channel=feature_num, out_channel=12, kernel_size=3, padding=1)
 
@@ -146,7 +153,8 @@ class Decoder_Level(nn.Module):
             return out
 
 class GhostBlock(nn.Module):
-    def __init__(self, inp, oup, d_list=1, padding=1, kernel_size=1, ratio=2, dw_size=3, stride=1, relu=True):
+    def __init__(self, inp, oup, d_list=1, padding=1, kernel_size=1, ratio=2, dw_size=3, stride=1, relu=True,
+                 dw_groups=0):
         super(GhostBlock, self).__init__()
         self.oup = oup
         init_channels = math.ceil(oup / ratio)
@@ -156,9 +164,23 @@ class GhostBlock(nn.Module):
             nn.Conv2d(inp, init_channels, kernel_size, stride, kernel_size // 2, bias=False),
             nn.ReLU(inplace=True) if relu else nn.Sequential(),
         )
+
+        # GhostNet 论文的 cheap operation 是 depthwise（groups=init_channels）。
+        # 上游实现少了 groups=，因此实际是稠密 k=3（占全模型 17.9% MAC）。
+        # dw_groups=0 保持原行为（默认，旧权重逐位兼容）；dw_groups=1 用真 depthwise。
+        # 注意 depthwise 权重形状 [C,1,k,k] 与稠密 [C,C,k,k] 不同，需要 dense_to_dw 转换。
+        self.dw_groups = 1 if dw_groups else 0
+        if dw_groups:
+            if new_channels % init_channels != 0:
+                raise ValueError('dw_groups=1 要求 new_channels %% init_channels == 0（%d %% %d）'
+                                 % (new_channels, init_channels))
+            groups = init_channels
+        else:
+            groups = 1
  
         self.cheap_operation = nn.Sequential(
-            nn.Conv2d(init_channels, new_channels, dw_size, 1, padding=padding, dilation=d_list,  bias=False),
+            nn.Conv2d(init_channels, new_channels, dw_size, 1, padding=padding, dilation=d_list,
+                      groups=groups, bias=False),
             nn.ReLU(inplace=True) if relu else nn.Sequential(),
         )
  
@@ -169,12 +191,12 @@ class GhostBlock(nn.Module):
         return out[:, :self.oup, :, :]
 
 class GhostModule(nn.Module):
-    def __init__(self, inp, inter, d_list):
+    def __init__(self, inp, inter, d_list, dw_groups=0):
         super(GhostModule, self).__init__()
         self.ghost_layers = nn.ModuleList()
         c = inp
         for i in range(len(d_list)):
-            ghost_conv = GhostBlock(c, inter, d_list=d_list[i], padding=d_list[i])
+            ghost_conv = GhostBlock(c, inter, d_list=d_list[i], padding=d_list[i], dw_groups=dw_groups)
             self.ghost_layers.append(ghost_conv)
             c = c + inter
         self.conv = nn.Conv2d(c, inp, 1)
@@ -188,12 +210,12 @@ class GhostModule(nn.Module):
         return t + x
 
 class GhostModule1(nn.Module):
-    def __init__(self, inp, inter, d_list):
+    def __init__(self, inp, inter, d_list, dw_groups=0):
         super(GhostModule1, self).__init__()
         self.ghost_layers = nn.ModuleList()
         c = inp
         for i in range(len(d_list)):
-            ghost_conv = GhostBlock(c, inter, d_list=d_list[i], padding=d_list[i])
+            ghost_conv = GhostBlock(c, inter, d_list=d_list[i], padding=d_list[i], dw_groups=dw_groups)
             self.ghost_layers.append(ghost_conv)
             c = c + inter
         self.conv = nn.Conv2d(c, inp, 1)
@@ -230,11 +252,11 @@ class DB(nn.Module):
 
 
 class SAM(nn.Module):
-    def __init__(self, in_channel, d_list, inter_num):
+    def __init__(self, in_channel, d_list, inter_num, dw_groups=0):
         super(SAM, self).__init__()
-        self.basic_block = GhostModule1(in_channel, inter_num, d_list)
-        self.basic_block_2 = GhostModule1(in_channel, inter_num, d_list)
-        self.basic_block_4 = GhostModule1(in_channel, inter_num, d_list)
+        self.basic_block = GhostModule1(in_channel, inter_num, d_list, dw_groups=dw_groups)
+        self.basic_block_2 = GhostModule1(in_channel, inter_num, d_list, dw_groups=dw_groups)
+        self.basic_block_4 = GhostModule1(in_channel, inter_num, d_list, dw_groups=dw_groups)
         self.fusion = ECA(3 * in_channel)
 
     def forward(self, x):
@@ -368,3 +390,34 @@ class ChannelUnshuffle(nn.Module):
         x = x.view(batchsize, -1, height, width)
         
         return x
+
+# --------------------------------------------------------------------------- #
+# dw_groups 开关的配套工具
+# --------------------------------------------------------------------------- #
+def dense_to_depthwise_state_dict(sd):
+    """把 dw_groups=0（稠密）的权重转成 dw_groups=1（depthwise）能吃的形状。
+
+    GhostBlock.cheap_operation 的权重在两种模式下形状不同：
+        稠密      : [C, C, k, k]   （C=16, k=3）
+        depthwise : [C, 1, k, k]
+    转换 = 取"对角"（输出通道 c 只保留输入通道 c 的核），其余丢弃。
+    这正好等价于"把非对角置零"那个探针起点（实测 −4.18 dB），因此可以当作
+    "从稠密权重热启动 depthwise"的初始化。
+
+    用法：
+        sd = torch.load(ckpt)['state_dict']
+        model = my_model(..., dw_groups=1)
+        model.load_state_dict(dense_to_depthwise_state_dict(sd), strict=True)
+    """
+    out = {}
+    n = 0
+    for k, v in sd.items():
+        if ('cheap_operation' in k and k.endswith('.weight') and v.dim() == 4
+                and v.shape[1] == v.shape[0] and v.shape[0] > 1):
+            c = v.shape[0]
+            w = torch.stack([v[i, i] for i in range(c)], dim=0).unsqueeze(1).contiguous()
+            out[k] = w
+            n += 1
+        else:
+            out[k] = v
+    return out, n

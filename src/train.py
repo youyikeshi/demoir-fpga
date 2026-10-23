@@ -53,6 +53,8 @@ def build_overrides(a):
         ov['GPU_ID'] = a.gpu
     if a.no_teacher:
         ov['USE_TEACHER'] = False
+    if a.dw_groups is not None:
+        ov['DW_GROUPS'] = a.dw_groups
     return ov
 
 
@@ -110,6 +112,8 @@ def main():
     g.add_argument('--seed', type=int, default=None)
     g.add_argument('--workers', type=int, default=None)
     g.add_argument('--gpu', type=int, default=None, help='GPU_ID')
+    g.add_argument('--dw-groups', type=int, default=None, choices=[0, 1],
+                   help='GhostBlock.cheap_operation: 0=稠密3x3(默认) / 1=depthwise(GhostNet 原设计)')
 
     a = ap.parse_args()
 
@@ -145,6 +149,9 @@ def main():
     print('  评估集 : %s' % paths.pretty(meta['test_dataset']))
     print('模型     : %s, crop=%s, batch 见 config.yaml' % (loader, crop))
     print('蒸馏     : %s' % ('ON  (%s)' % meta['teacher'] if use_teacher else 'OFF（只训 student）'))
+    _dw = int(meta.get('dw_groups', 0) or 0)
+    print('GhostBlock: %s' % ('dw_groups=1（depthwise，GhostNet 原设计）' if _dw
+                             else 'dw_groups=0（稠密 3x3，历史行为）'))
     print('epochs   : %s' % meta['epochs'])
     print('快照     : runs/%s/config.yaml  +  run_info.yaml' % meta['run'])
     print('=' * 74)

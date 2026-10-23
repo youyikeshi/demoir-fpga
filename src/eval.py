@@ -97,14 +97,39 @@ def pad_forward(model, x):
     return out[:, :, h_pad:h_pad + h, w_pad:w_pad + w]
 
 
-def load_model(role, spec, device):
+def load_model(role, spec, device, dw_groups=0, dw_init='auto'):
+    """构建模型并加载权重。
+
+    dw_groups=1 时 GhostBlock.cheap_operation 是 depthwise（[C,1,3,3]），
+    与稠密权重（[C,C,3,3]）形状不同。dw_init 决定怎么处理：
+      auto  —— 先按原形状 strict 加载；失败且确实是形状不匹配时退化为对角线提取（=裁非对角）；
+      diag  —— 强制把稠密权重取对角（用来复现"零样本改造"的 −4.18 dB 起点）；
+      keep  —— 强制 strict，形状不对就报错（加载已经训好的 depthwise 权重）。
+    """
+    from model.nets_student import dense_to_depthwise_state_dict
     if role == 'teacher':
         ckpt, arch, desc = vendor_boot.resolve_teacher(spec)
         m = T_my_model(arch['en_f'], arch['en_i'], arch['de_f'], arch['de_i'], arch['sam'])
     else:
         ckpt, arch, desc = vendor_boot.resolve_student(spec)
-        m = my_model(arch['en_f'], arch['en_i'], arch['de_f'], arch['de_i'], arch['sam'])
+        m = my_model(arch['en_f'], arch['en_i'], arch['de_f'], arch['de_i'], arch['sam'],
+                     dw_groups=dw_groups)
     sd = torch.load(ckpt, map_location='cpu', weights_only=False)['state_dict']
+    if dw_groups:
+        if dw_init == 'diag':
+            sd, n = dense_to_depthwise_state_dict(sd)
+            print('dw_init=diag: %d 个 cheap_operation 权重取对角（其余非对角丢弃）' % n)
+            desc += ' [dw, diag init]'
+        elif dw_init == 'auto':
+            try:
+                m.load_state_dict(sd, strict=True)
+            except RuntimeError:
+                sd, n = dense_to_depthwise_state_dict(sd)
+                print('dw_init=auto: 权重是稠密形状，%d 层改取对角后加载' % n)
+                m.load_state_dict(sd, strict=True)
+                desc += ' [dw, diag init]'
+            else:
+                desc += ' [dw, native]'
     m.load_state_dict(sd, strict=True)
     m = m.to(device).eval()
     for p in m.parameters():
@@ -182,6 +207,10 @@ def main():
                     help='本进程显存上限(GB)。默认取总显存的 80%%，给桌面与驱动留余量；'
                          '设了硬上限后，显存不足是可捕获的 OOM，而不是 WDDM 超额分配导致的 TDR 蓝屏')
     ap.add_argument('--seed', type=int, default=0)
+    ap.add_argument('--dw-groups', type=int, default=0, choices=[0, 1],
+                    help='0=GhostBlock 稠密 3x3（历史行为）；1=真 depthwise（GhostNet 论文）')
+    ap.add_argument('--dw-init', default='auto', choices=['auto', 'diag', 'keep'],
+                    help='dw_groups=1 时如何把稠密权重塞进 depthwise 形状')
     ap.add_argument('--grid-n', type=int, default=3, help='对比图里放几行')
     ap.add_argument('--out', default=os.path.join(paths.EXPERIMENTS_OUT, 'eval'))
     a = ap.parse_args()
@@ -203,6 +232,8 @@ def main():
     tag = '%s_c%d_n%s' % (a.role, a.crop, a.limit if a.limit else 'all')
     if a.crops_per_image > 1:
         tag += 'x%d' % a.crops_per_image
+    if a.dw_groups:
+        tag += '_dw'
     if a.half:
         tag += '_fp16'
     log = Tee(os.path.join(a.out, 'eval_%s.log' % tag))
@@ -237,7 +268,7 @@ def main():
                          '  --student <runs 下的目录名>  现有：%s\n'
                          '  --student <.tar 路径>' % (', '.join(runs) or '(无)'))
 
-    model, desc = load_model(a.role, spec, device)
+    model, desc = load_model(a.role, spec, device, dw_groups=a.dw_groups, dw_init=a.dw_init)
     print('model  = %s' % desc)
     print('params = %.3f M' % (sum(p.numel() for p in model.parameters()) / 1e6))
     if a.half or device.type == 'cpu':
