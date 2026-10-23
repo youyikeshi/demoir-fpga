@@ -74,9 +74,9 @@ if {$pp_en && ![file exists $pp_ip_repo]} {
 #
 # 改法：export 之后就地改 component.xml，只动 M_AXI_GMEM*（AXI-Lite 的
 # S_AXI_* 必须保持 0）。改的是接口声明，**寄存器映射/地址分配一个字都不变**。
-# 关掉：环境变量 FORCE_HAS_BURST=0。
-# 默认**不改**（FORTE_HAS_BURST 生效需显式设为 1）：实测 HAS_BURST=1 吞吐零收益、
-# 只多 479 LUT 并掉 0.19 ns 时序，所以默认保持 HLS 导出的原样（=0）。
+# **默认不开**：板上实测 HAS_BURST=1 吞吐零收益（13 个微基准逐项 +0.3%~1.3% = WNS
+# 退化量），只多 479 LUT 并掉 0.19 ns 时序 ⇒ 默认保持 HLS 导出的原样（=0）。
+# 要复现那轮实验：FORCE_HAS_BURST=1（bit 归档 c8_r5_hasburst_898bd37f）。
 if {[info exists ::env(FORCE_HAS_BURST)] && $::env(FORCE_HAS_BURST) == "1"} {
     # 本轮只改 conv 引擎（pp 的 m_axi 也是同一份 HLS 导出，同样 HAS_BURST=0；
     # 为了把收益归因干净，pp 留到下一轮再一起打开 —— 加进下面这个 list 即可）。
@@ -177,15 +177,26 @@ if {$pp_en} {
 connect_bd_intf_net [get_bd_intf_pins smc/M00_AXI] [get_bd_intf_pins ps7/S_AXI_HP0]
 
 # ── 时钟与复位 ──────────────────────────────────────────────────────────
-connect_bd_net [get_bd_pins ps7/FCLK_CLK0] \
+# 注意：pp 的 ap_clk/ap_rst_n 必须**跟着 pp 一起条件化**，否则
+# PP_ENABLE=1 回退时会报 `[BD 41-758] The following clock pins are not
+# connected to a valid clock source`（2026-10-23 踩过）。
+set clk_pins [list \
     [get_bd_pins ps7/M_AXI_GP0_ACLK] [get_bd_pins ps7/S_AXI_HP0_ACLK] \
     [get_bd_pins axi_ctrl/ACLK] [get_bd_pins axi_ctrl/S00_ACLK] \
     [get_bd_pins axi_ctrl/M00_ACLK] [get_bd_pins axi_ctrl/M01_ACLK] \
-    [get_bd_pins smc/aclk] [get_bd_pins engine/ap_clk]
-connect_bd_net [get_bd_pins rst_0/peripheral_aresetn] \
+    [get_bd_pins smc/aclk] [get_bd_pins engine/ap_clk]]
+set rst_pins [list \
     [get_bd_pins axi_ctrl/ARESETN] [get_bd_pins axi_ctrl/S00_ARESETN] \
     [get_bd_pins axi_ctrl/M00_ARESETN] [get_bd_pins axi_ctrl/M01_ARESETN] \
-    [get_bd_pins smc/aresetn] [get_bd_pins engine/ap_rst_n]
+    [get_bd_pins smc/aresetn] [get_bd_pins engine/ap_rst_n]]
+if {$pp_en} {
+    lappend clk_pins [get_bd_pins pp/ap_clk]
+    lappend rst_pins [get_bd_pins pp/ap_rst_n]
+    lappend clk_pins [get_bd_pins axi_ctrl/M02_ACLK] [get_bd_pins axi_ctrl/M03_ACLK]
+    lappend rst_pins [get_bd_pins axi_ctrl/M02_ARESETN] [get_bd_pins axi_ctrl/M03_ARESETN]
+}
+connect_bd_net [get_bd_pins ps7/FCLK_CLK0] {*}$clk_pins
+connect_bd_net [get_bd_pins rst_0/peripheral_aresetn] {*}$rst_pins
 
 # ── 地址（与 PS 驱动固定地址一致）──────────────────────────────────────
 assign_bd_address -offset 0x40000000 -range 64K -force \

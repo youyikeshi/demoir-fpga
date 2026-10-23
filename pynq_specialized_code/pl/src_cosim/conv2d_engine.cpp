@@ -675,7 +675,12 @@ int conv2d_engine(const data_t *in_fm, const data_t *wgt, const bias_t *bias,
                             // 所以加宽单笔事务没用，而"打包"又把 store 塞回了计算
                             // 流水（8 个值攒齐才能打包）。正解：先落行缓冲 wbuf，
                             // 再用**独立拷贝循环**连续宽写（见 out_copy）。
-                            for (int i = 0; i < ocbl; ++i) {
+                            // 2026-10-23 第七轮：收尾**完全展开**（原来 ocbl 是运行期上界、8 个通道串行
+// 过一条流水，实测每个 (pixel, ocb) 块有 ~50 拍的固定开销 —— 这部分不是 DDR，
+// 是收尾序列）。改成"常量 8 路 + 谓词"，8 路 shift/relu/saturate/wbuf 存并行。
+                            HLS_PRAGMA(HLS UNROLL)
+                            for (int i = 0; i < OC_BLOCK; ++i) {
+                                if (i < ocbl) {
                                 const int32_t acc = (int32_t)acc0[i] + (int32_t)acc1[i];
                                 int32_t v = acc + (int32_t)bias_buf[ocb + i];
                                 v = v >> shift;
@@ -690,6 +695,7 @@ int conv2d_engine(const data_t *in_fm, const data_t *wgt, const bias_t *bias,
 #endif
                                 WB_STORE(i, x2);
                             }
+                                }
                             }
 
                         } else if (ksize == 3) {
@@ -758,7 +764,12 @@ int conv2d_engine(const data_t *in_fm, const data_t *wgt, const bias_t *bias,
                             // 所以加宽单笔事务没用，而"打包"又把 store 塞回了计算
                             // 流水（8 个值攒齐才能打包）。正解：先落行缓冲 wbuf，
                             // 再用**独立拷贝循环**连续宽写（见 out_copy）。
-                            for (int i = 0; i < ocbl; ++i) {
+                            // 2026-10-23 第七轮：收尾**完全展开**（原来 ocbl 是运行期上界、8 个通道串行
+// 过一条流水，实测每个 (pixel, ocb) 块有 ~50 拍的固定开销 —— 这部分不是 DDR，
+// 是收尾序列）。改成"常量 8 路 + 谓词"，8 路 shift/relu/saturate/wbuf 存并行。
+                            HLS_PRAGMA(HLS UNROLL)
+                            for (int i = 0; i < OC_BLOCK; ++i) {
+                                if (i < ocbl) {
                                 const int32_t acc = (int32_t)acc0[i] + (int32_t)acc1[i];
                                 int32_t v = acc + (int32_t)bias_buf[ocb + i];
                                 v = v >> shift;
@@ -773,6 +784,7 @@ int conv2d_engine(const data_t *in_fm, const data_t *wgt, const bias_t *bias,
 #endif
                                 WB_STORE(i, x2);
                             }
+                                }
                             }
                         } else {
                         for (int i = 0; i < OC_BLOCK; ++i) {
