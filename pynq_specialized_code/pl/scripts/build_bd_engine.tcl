@@ -32,11 +32,75 @@ set proj_dir [file normalize "$PL/vivado/proj_engine"]
 set part     xc7z015clg485-2
 set vlnv     demoir:hls:conv2d_engine:1.0
 
+# ── 【2026-10-23 第六轮】pp（v2 层间算子加速器）默认**不进 BD** ──────────────
+# 为什么可以删（实测证据，见 docs/设计/记录_20261023_删pp与k1并行度.md）：
+#   · runner.py:989  `ppen = set() if self.c8 else self.pp_ops_en`
+#     → C8 布局下**无论 --pp-ops 传什么都强制清空**，pp_ops 的所有调用点
+#       （run_interp/run_cat_rescale/run_add/run_eca_mean/run_sam_sum）
+#       全部包在 `"xxx" in ppen and self.pp is not None` 里 ⇒ 一次都进不去；
+#   · 板上 A/B：`--no-pp` 与默认（pp 已加载）整网 52.22 s vs 52.39 s、
+#     md5 都等于 ref_out（97f5a094…），**差在噪声内**；
+#   · PPEngine 构造失败会被 run_network_on_board.py 的 try/except 吞掉并打印
+#     "v2 层间算子加速器不可用"，层间算子继续走 ARM（ops_c8 / sam_sum_fast），
+#     即删掉 pp 之后 PS 侧**不需要任何改动**。
+# 收益：impl 里 145 个 DSP 中有 45 个是 pp 的 ⇒ 删掉后 conv 引擎可用的
+# DSP 预算从 15 涨到 60（同样 160 的总数），这是抬 k=1 并行度的前提。
+# 回退：PP_ENABLE=1 重新跑本脚本即可恢复（下面的连接/地址分配都是条件化的）。
+# 默认与"已上板验证+归档"的 bit 一致（9cd7af5b：无 pp、HAS_BURST 保持 0）。
+# 要恢复 v2 加速器：PP_ENABLE=1。
+set pp_en 0
+if {[info exists ::env(PP_ENABLE)]} { set pp_en [expr {$::env(PP_ENABLE) != "0"}] }
+puts "pp 进 BD：$pp_en"
+
 if {![file exists $ip_repo]} {
     error "找不到 HLS IP：$ip_repo（先跑 hls_run_engine.tcl 导出）"
 }
-if {![file exists $pp_ip_repo]} {
-    error "找不到 v2 IP：$pp_ip_repo（先跑 pl_v2/scripts/hls_run_pp.tcl，HLS_PP_PROJ=/data/work/hls_pp_export）"
+if {$pp_en && ![file exists $pp_ip_repo]} {
+    error "找不到 v2 IP：$pp_ip_repo（先跑 pl_v2/scripts/hls_run_pp.tcl，HLS_PP_PROJ=/data/work/hls_pp_export；或 PP_ENABLE=0 不出 pp）"
+}
+
+# ── 【2026-10-23 第五轮】把 HLS IP 的 m_axi 接口声明改成 HAS_BURST=1 ──────────
+# 为什么必须要：Vitis HLS 导出的 component.xml 里，每个 m_axi 端口的
+# BUSIFPARAM 都写死 `HAS_BURST = 0`（哪怕它实际在发 AWLEN=63 的长 burst）。
+# SmartConnect 按这个声明配置自己的 SI 协议转换器：
+#     design_1_smc_0/bd_0/ip/*/bd_6c92_sXXsic_0.xci → "HAS_BURST": 0
+# 于是**每一笔 burst 都被拆成单拍事务**再进内部 crossbar。
+# 读侧靠 16~32 个 AR 在途还能撑住；写侧内核每个 (y,ocb) 块只有 1 笔在途
+# （FSM 等 B），于是每 8 字节付一次完整往返 ⇒ 板端 6.4 拍/字节。
+#
+# 证据（本轮实测，`/data/work/wbexp/mon_sim.log`）：RTL cosim 里 m_axi_gmem1
+# 的 AWLEN 是 63（64 拍 512 B 的**真 burst**），所以"HLS 只给 AWLEN=0"是错的
+# ——错的只是接口声明，把 burst 在互联里废掉了。
+#
+# 改法：export 之后就地改 component.xml，只动 M_AXI_GMEM*（AXI-Lite 的
+# S_AXI_* 必须保持 0）。改的是接口声明，**寄存器映射/地址分配一个字都不变**。
+# 关掉：环境变量 FORCE_HAS_BURST=0。
+# 默认**不改**（FORTE_HAS_BURST 生效需显式设为 1）：实测 HAS_BURST=1 吞吐零收益、
+# 只多 479 LUT 并掉 0.19 ns 时序，所以默认保持 HLS 导出的原样（=0）。
+if {[info exists ::env(FORCE_HAS_BURST)] && $::env(FORCE_HAS_BURST) == "1"} {
+    # 本轮只改 conv 引擎（pp 的 m_axi 也是同一份 HLS 导出，同样 HAS_BURST=0；
+    # 为了把收益归因干净，pp 留到下一轮再一起打开 —— 加进下面这个 list 即可）。
+    foreach {tag repo_dir} [list engine $ip_repo] {
+        set cx "$repo_dir/component.xml"
+        if {![file exists $cx]} { continue }
+        set fh [open $cx r]; set txt [read $fh]; close $fh
+        set n 0
+        foreach p {M_AXI_GMEM0 M_AXI_GMEM1 M_AXI_GMEM2} {
+            # 只按 spirit:id 精确匹配那一个端口，AXI-Lite 的 s_axi_* 不动
+            set from "spirit:id=\"BUSIFPARAM_VALUE.$p.HAS_BURST\">0<"
+            set to   "spirit:id=\"BUSIFPARAM_VALUE.$p.HAS_BURST\">1<"
+            if {[string first $from $txt] >= 0} {
+                set txt [string map [list $from $to] $txt]
+                incr n
+            }
+        }
+        if {$n > 0} {
+            set fh [open $cx w]; puts -nonewline $fh $txt; close $fh
+            puts "PATCH $tag component.xml: $n 处 HAS_BURST 0 -> 1"
+        } else {
+            puts "PATCH $tag component.xml: 已是 HAS_BURST=1（无改动）"
+        }
+    }
 }
 
 puts "==== build_bd_engine ===="
@@ -44,7 +108,11 @@ puts "repo   : $REPO"
 puts "ip_repo: $ip_repo"
 
 create_project -force proj_engine $proj_dir -part $part
-set_property ip_repo_paths [list $ip_repo $pp_ip_repo] [current_project]
+if {$pp_en} {
+    set_property ip_repo_paths [list $ip_repo $pp_ip_repo] [current_project]
+} else {
+    set_property ip_repo_paths [list $ip_repo] [current_project]
+}
 update_ip_catalog
 
 create_bd_design design_1
@@ -80,24 +148,32 @@ create_bd_cell -type ip -vlnv $vlnv engine
 
 # ── 控制通路：GP0 → 2 个 AXI-Lite 从口 ──────────────────────────────────
 # ── v2 层间算子加速器 ────────────────────────────────────────────────────
-create_bd_cell -type ip -vlnv xilinx.com:hls:interop_accel:1.0 pp
+if {$pp_en} {
+    create_bd_cell -type ip -vlnv xilinx.com:hls:interop_accel:1.0 pp
+}
 
 create_bd_cell -type ip -vlnv xilinx.com:ip:axi_interconnect axi_ctrl
-set_property -dict [list CONFIG.NUM_SI {1} CONFIG.NUM_MI {4}] [get_bd_cells axi_ctrl]
+set _nmi [expr {$pp_en ? 4 : 2}]
+set_property -dict [list CONFIG.NUM_SI {1} CONFIG.NUM_MI $_nmi] [get_bd_cells axi_ctrl]
 connect_bd_intf_net [get_bd_intf_pins ps7/M_AXI_GP0] [get_bd_intf_pins axi_ctrl/S00_AXI]
 connect_bd_intf_net [get_bd_intf_pins axi_ctrl/M00_AXI] [get_bd_intf_pins engine/s_axi_control]
 connect_bd_intf_net [get_bd_intf_pins axi_ctrl/M01_AXI] [get_bd_intf_pins engine/s_axi_ctrl]
-connect_bd_intf_net [get_bd_intf_pins axi_ctrl/M02_AXI] [get_bd_intf_pins pp/s_axi_control]
-connect_bd_intf_net [get_bd_intf_pins axi_ctrl/M03_AXI] [get_bd_intf_pins pp/s_axi_ctrl]
+if {$pp_en} {
+    connect_bd_intf_net [get_bd_intf_pins axi_ctrl/M02_AXI] [get_bd_intf_pins pp/s_axi_control]
+    connect_bd_intf_net [get_bd_intf_pins axi_ctrl/M03_AXI] [get_bd_intf_pins pp/s_axi_ctrl]
+}
 
 # ── 数据通路：两个 m_axi → HP0 ──────────────────────────────────────────
 create_bd_cell -type ip -vlnv xilinx.com:ip:smartconnect smc
-set_property -dict [list CONFIG.NUM_SI {5} CONFIG.NUM_MI {1}] [get_bd_cells smc]
+set _nsi [expr {$pp_en ? 5 : 2}]
+set_property -dict [list CONFIG.NUM_SI $_nsi CONFIG.NUM_MI {1}] [get_bd_cells smc]
 connect_bd_intf_net [get_bd_intf_pins engine/m_axi_gmem0] [get_bd_intf_pins smc/S00_AXI]
 connect_bd_intf_net [get_bd_intf_pins engine/m_axi_gmem1] [get_bd_intf_pins smc/S01_AXI]
-connect_bd_intf_net [get_bd_intf_pins pp/m_axi_gmem0] [get_bd_intf_pins smc/S02_AXI]
-connect_bd_intf_net [get_bd_intf_pins pp/m_axi_gmem1] [get_bd_intf_pins smc/S03_AXI]
-connect_bd_intf_net [get_bd_intf_pins pp/m_axi_gmem2] [get_bd_intf_pins smc/S04_AXI]
+if {$pp_en} {
+    connect_bd_intf_net [get_bd_intf_pins pp/m_axi_gmem0] [get_bd_intf_pins smc/S02_AXI]
+    connect_bd_intf_net [get_bd_intf_pins pp/m_axi_gmem1] [get_bd_intf_pins smc/S03_AXI]
+    connect_bd_intf_net [get_bd_intf_pins pp/m_axi_gmem2] [get_bd_intf_pins smc/S04_AXI]
+}
 connect_bd_intf_net [get_bd_intf_pins smc/M00_AXI] [get_bd_intf_pins ps7/S_AXI_HP0]
 
 # ── 时钟与复位 ──────────────────────────────────────────────────────────
@@ -105,23 +181,23 @@ connect_bd_net [get_bd_pins ps7/FCLK_CLK0] \
     [get_bd_pins ps7/M_AXI_GP0_ACLK] [get_bd_pins ps7/S_AXI_HP0_ACLK] \
     [get_bd_pins axi_ctrl/ACLK] [get_bd_pins axi_ctrl/S00_ACLK] \
     [get_bd_pins axi_ctrl/M00_ACLK] [get_bd_pins axi_ctrl/M01_ACLK] \
-    [get_bd_pins axi_ctrl/M02_ACLK] [get_bd_pins axi_ctrl/M03_ACLK] \
-    [get_bd_pins smc/aclk] [get_bd_pins engine/ap_clk] [get_bd_pins pp/ap_clk]
+    [get_bd_pins smc/aclk] [get_bd_pins engine/ap_clk]
 connect_bd_net [get_bd_pins rst_0/peripheral_aresetn] \
     [get_bd_pins axi_ctrl/ARESETN] [get_bd_pins axi_ctrl/S00_ARESETN] \
     [get_bd_pins axi_ctrl/M00_ARESETN] [get_bd_pins axi_ctrl/M01_ARESETN] \
-    [get_bd_pins axi_ctrl/M02_ARESETN] [get_bd_pins axi_ctrl/M03_ARESETN] \
-    [get_bd_pins smc/aresetn] [get_bd_pins engine/ap_rst_n] [get_bd_pins pp/ap_rst_n]
+    [get_bd_pins smc/aresetn] [get_bd_pins engine/ap_rst_n]
 
 # ── 地址（与 PS 驱动固定地址一致）──────────────────────────────────────
 assign_bd_address -offset 0x40000000 -range 64K -force \
     -target_address_space /ps7/Data [get_bd_addr_segs engine/s_axi_control/Reg]
 assign_bd_address -offset 0x40010000 -range 64K -force \
     -target_address_space /ps7/Data [get_bd_addr_segs engine/s_axi_ctrl/Reg]
-assign_bd_address -offset 0x40020000 -range 64K -force \
-    -target_address_space /ps7/Data [get_bd_addr_segs pp/s_axi_ctrl/Reg]
-assign_bd_address -offset 0x40030000 -range 64K -force \
-    -target_address_space /ps7/Data [get_bd_addr_segs pp/s_axi_control/Reg]
+if {$pp_en} {
+    assign_bd_address -offset 0x40020000 -range 64K -force \
+        -target_address_space /ps7/Data [get_bd_addr_segs pp/s_axi_ctrl/Reg]
+    assign_bd_address -offset 0x40030000 -range 64K -force \
+        -target_address_space /ps7/Data [get_bd_addr_segs pp/s_axi_control/Reg]
+}
 assign_bd_address
 
 validate_bd_design
