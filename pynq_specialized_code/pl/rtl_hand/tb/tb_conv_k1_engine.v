@@ -11,7 +11,7 @@
 //    cd rtl_hand && ./tools/run_module.sh conv_k1_engine k1_64x64 --compile-only
 //
 //  DUT 形状：运行期 cin/cout/H/W 走 ctrl_* 寄存器（来自 golden meta.json），
-//  编译期参数只是上界：CIN_MAX=64、COUT_MAX=64、LANES=32。
+//  编译期参数只是上界：CIN_MAX=352、COUT_MAX=192、LANES=32。
 //  因此 k1_64x64（cin=64, cout=64, H=2, W=320）直接可用。
 //
 //  拍数口径（详见 docs/rtl_hand/conv_k1_engine.md）：
@@ -29,7 +29,7 @@ module tb_conv_k1_engine;
     conv_k1_engine #(
         .CIN(64), .COUT(64), .W(320), .H(320),
         .PAD(0), .STRIDE(1), .DIL(1), .RELU(1'b1),
-        .LANES(32), .CIN_MAX(64), .COUT_MAX(64)
+        .LANES(32), .CIN_MAX(352), .COUT_MAX(192)
     ) dut (
         .ap_clk(ap_clk), .ap_rst_n(ap_rst_n),
 

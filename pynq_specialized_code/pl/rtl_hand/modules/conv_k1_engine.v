@@ -2,37 +2,41 @@
 //  conv_k1_engine.v —— 手写 1×1 卷积加速器 IP（k=1, stride=1, pad=0, dil=1）
 //
 //  契约：docs/rtl_hand/00_SPEC_接口契约.md §3（端口名/方向严格一致）
-//  结构来源：docs/rtl_map/04_mac_array.md（k=1 HLS 现状：16 车道 + 21 拍收尾）
-//            docs/rtl_map/03_weight_path.md（重装 = 每 (y,列块,ocb) 一次）
+//  结构来源：docs/rtl_map/04_mac_array.md / 03_weight_path.md
 //
-//  设计目标（针对 132 个 k=1 层里占比最大的 64×64 形状）：
-//    1. 32 个 oc 车道并行（8×8 乘法器 ×32，映射 DSP ≤ 60 的红线内）；
-//    2. 收尾完全并行、3 拍流水：acc0+acc1 → +bias → >>>shift/ReLU/sat8；
-//    3. 权重整层驻留 + 双 bank（ping-pong）：每层只从 DDR 装一次
-//       （64×64 = 4 KB），彻底消掉 HLS 的 237 MB 重装；
-//    4. 输入按 C8 布局整 8 字节读，双/四缓冲预取把 DDR 延迟藏进计算；
-//    5. 每个 (pixel, 32-oc) 块 = cin 拍（II=1），收尾与下一块重叠，
-//       稳态每像素每 oc 块恰好 cin 拍。
+//  两版能力：
+//    v1（已验收）：cin≤64, cout≤64，只覆盖 16/132 层；
+//    v2（本版）  ：CIN_MAX=352, COUT_MAX=192 —— 覆盖网络全部 132 个 k=1 层的
+//                 通道范围。车道数仍固定 32（DSP 仍 32 个，不随 cout 涨）；
+//                 cout 用**多 pass** 覆盖：每个 pass 算 32 个 oc，权重按 pass
+//                 重装（每层总共 cin·cout 字节，而不是 HLS 的
+//                 cin·cout·Hout·ceil(Wout/64)）。
 //
-//  关键不变量（仿真/综合都必须成立）：
-//    · 计算内核每拍消费 1 个 ic（issue_en=1 时），32 个 8×8 乘 + 32 个 26 位加
-//      同拍发生；bank 号 = generate 常量，权重地址 = {bank, ic>>3}；
-//    · 累加器 26 位有符号，奇偶双链（每条链 2 拍循环依赖）；
-//    · 收尾 E1: ep_acc_e+ep_acc_o；E2: +bias；E3: >>>shift/ReLU/sat8 → 写队列；
-//    · 权重/偏置各用独立 AXI4 读口，装载与计算重叠（bank1 在 pass0 期间装）；
-//    · 输出按 C8 分组（每 oc 组 8 字节）单拍写，经 4 块深写队列排空。
+//  设计目标：
+//    1. 32 个 oc 车道并行（8×8 乘法器 ×32），II=1；
+//    2. 收尾 3 拍完全并行：acc0+acc1 → +bias → >>>shift/ReLU/sat8，且与下一块重叠；
+//    3. 稳态每 (pixel, 32-oc 块) = cin 拍；
+//    4. 输入按 C8 整 8 字节读，4 像素缓冲预取；
+//    5. 权重按 pass 常驻 32 lane × cin 字节（cin=352 时 90 kbit，分 32 个
+//       44×64bit LUTRAM）；每个 pass 的装载量 = 32·cin 字节，
+//       相对该 pass 的 H·W·cin 拍可忽略（见文档）。
+//
+//  Verilog 位宽铁律（本版踩过的坑，务必保留注释）：
+//    **part-select 基址 [expr +: W] 里的 expr 是自决定表达式**，`a*b` 的结果位宽
+//    取 max(操作数位宽)（不是和）。因此所有“乘法型索引”都必须显式拼接加宽：
+//        {sel_a, 3'b000}   // ic 字节偏移 = sel_a*8
+//        {f_rd, 6'b000000} // 组偏移 = f_rd*64
+//    写成 sel_a*4'd8 / f_rd*7'd64 会被截断成 4/7 位，导致只读字节 0/1、只落 2 个组。
 //
 //  参数：
-//    CIN/COUT/H/W/PAD/STRIDE/DIL/RELU 与契约 §3 同名；第一版**运行时形状**
-//    由 ctrl_* 给出（≤ 下面的 CIN_MAX/COUT_MAX），编译期参数是上界/默认值。
-//    固定形状（cin=64,cout=64,H=W=320）直接用即可；H/W 走 ctrl 是为了能用
-//    黄金向量 k1_64x64（H=2,W=320，来自 /data/work/tb_c8_k1_64x64）。
+//    CIN/COUT/W/H/PAD/STRIDE/DIL/RELU 与契约 §3 同名；运行期形状由 ctrl_* 给出。
+//    CIN_MAX/COUT_MAX 是编译期上界。
 //
 //  已知限制（详见 docs/rtl_hand/conv_k1_engine.md）：
-//    · 要求 cin % 8 == 0（权重按 8 字节整字装；非 8 倍数的 cin 未实现）；
-//    · cin ≥ 8（收尾 3 拍与下一块的流水重叠需要块长 > 3）；
-//    · cout ≤ COUT_MAX = 64（两个 32-lane bank）；RELU 是编译期参数；
-//    · 不支持 stride≠1 / pad≠0 / dil≠1（k=1 不需要）。
+//    · cin % 8 == 0、cin ≥ 8（全网络 132 个 k=1 层都满足）
+//    · cout ≤ 192（6 个 pass）；RELU 是编译期参数
+//    · 不支持 stride≠1 / pad≠0 / dil≠1（k=1 不需要）
+//    · 输出每 oc 组 8 字节单拍写（AWLEN=0），不是 burst
 // ============================================================================
 `timescale 1ns / 1ps
 
@@ -46,11 +50,11 @@ module conv_k1_engine #(
     parameter int DIL      = 1,
     parameter bit RELU     = 1'b1,
 
-    // ---- 实现参数（本版固定）----
-    parameter int LANES    = 32,   // oc 车道数（= 每块 oc 数）
-    parameter int CIN_MAX  = 64,   // 运行期 cin 上界；权重每 lane 深度 = 2*CIN_MAX/8
-    parameter int COUT_MAX = 64,   // 运行期 cout 上界；bank 数 = COUT_MAX/LANES
-    parameter int NBUF     = 4,    // 输入像素缓冲数（预取深度）
+    // ---- 实现参数 ----
+    parameter int LANES    = 32,   // oc 车道数（固定，DSP = 32）
+    parameter int CIN_MAX  = 352,  // 全网络 k=1 最大 cin
+    parameter int COUT_MAX = 192,  // 全网络 k=1 最大 cout（6 个 pass）
+    parameter int NBUF     = 4,    // 输入像素缓冲数
     parameter int OBUF_N   = 4     // 输出块队列深度（每块 4 个 oc 组）
 )(
     input  logic        ap_clk,
@@ -82,13 +86,13 @@ module conv_k1_engine #(
     output logic        m_axi_out_wlast,
     input  logic        m_axi_out_bvalid,  output logic m_axi_out_bready,
 
-    // ---- 控制寄存器（AXI-Lite 侧由 BD 分配，这里只列语义）----
+    // ---- 控制寄存器 ----
     input  logic [31:0] ctrl_in_addr,
     input  logic [31:0] ctrl_wgt_addr,
     input  logic [31:0] ctrl_bias_addr,
     input  logic [31:0] ctrl_out_addr,
     input  logic [31:0] ctrl_shift,
-    input  logic [31:0] ctrl_cin,       // 运行时通道数
+    input  logic [31:0] ctrl_cin,
     input  logic [31:0] ctrl_cout,
     input  logic [31:0] ctrl_h,
     input  logic [31:0] ctrl_w,
@@ -98,28 +102,30 @@ module conv_k1_engine #(
 );
 
     // ========================================================================
-    // 0. 常量
+    // 0. 常量 / 位宽
     // ========================================================================
-    localparam int C8      = 8;
-    localparam int GMAX    = CIN_MAX / C8;              // 每 lane 每组 8 通道 → 组数
-    localparam int WDEPTH  = 2 * GMAX;                  // ping-pong bank × 组
-    localparam int BLKMAX  = (COUT_MAX + LANES - 1) / LANES;
-    localparam int NCGMAX  = (COUT_MAX + 7) / 8;        // 输出 8 字节组数
-    localparam int NBUFW   = $clog2(NBUF);
-    localparam int OBUFW   = $clog2(OBUF_N);
+    localparam int GMAX    = CIN_MAX / 8;                    // 44 组
+    localparam int BLKMAX  = (COUT_MAX + LANES - 1) / LANES; // 6 个 oc pass
+    localparam int NCGMAX  = (COUT_MAX + 7) / 8;             // 24 个 oc 组
+    localparam int ICW     = $clog2(CIN_MAX + 1);            // 9
+    localparam int CW      = $clog2(COUT_MAX + 1);           // 8
+    localparam int GW      = $clog2(GMAX + 1);               // 6
+    localparam int BW      = $clog2(BLKMAX + 1);             // 3
+    localparam int NGW     = $clog2(NCGMAX + 1);             // 5
 
     // ========================================================================
     // 1. 配置锁存 / 派生
     // ========================================================================
-    logic [31:0] in_base_r, wgt_base_r, bias_base_r, out_base_r;
-    logic [6:0]  cin_r, cout_r;
-    logic [4:0]  shift_r;
-    logic [31:0] pix_total_r, hw8_r;
-    logic [3:0]  g_count_r;          // cin/8，1..8
-    logic [1:0]  blk_cnt_r;          // ceil(cout/32)
-    logic [3:0]  ncg_r;              // ceil(cout/8)
-    logic [1:0]  blk_r;              // 当前 oc 块
+    logic [31:0] in_base_r, wgt_base_r, bias_base_r, out_base_r, pass_gbase;
+    logic [ICW-1:0] cin_r;
+    logic [CW-1:0]  cout_r;
+    logic [4:0]     shift_r;
+    logic [31:0]    pix_total_r, hw8_r;
+    logic [GW-1:0]  g_count_r;
+    logic [BW-1:0]  blk_cnt_r, blk_r;
+    logic [NGW-1:0] ncg_r;
 
+    // 16×16 在 assignment 上下文里本该是 32 位；显式拼 32 位，防止再踩自决定位宽
     wire [31:0] hw_mul = {16'd0, ctrl_h[15:0]} * {16'd0, ctrl_w[15:0]};
 
     // ========================================================================
@@ -134,17 +140,19 @@ module conv_k1_engine #(
 
     logic [2:0] state;
     logic       start_q, start_pulse;
-    logic [1:0] bank_ready;
-    logic       bias_ready;
+    logic       bank_ready, bias_ready;
 
-    // 前向声明（主 FSM / 取数 / 收尾 / 写队列互有引用）
     logic         f_busy;
     logic [31:0]  f_pix, f_next, f_araddr;
-    logic [3:0]   f_ar, f_rd;
+    logic [GW-1:0] f_ar, f_rd;
     logic [7:0]   b_cnt;
     logic [2:0]   ob_cnt;
     logic         push_vld;
-    logic [511:0] px_sh [0:NBUF-1];
+    // 像素缓冲：{buffer[1:0], group[5:0]} 直接寻址的简单双口 LUTRAM（1 写 + 1 异步读）。
+    // 读地址 = {cur_buf, ic_cur[8:3]}，组内按 ic_cur[2:0] 选字节。
+    // 这样既不需要 2816-bit 移位（它的“移位值/新数据”二选一 mux 是上一版 31k LUT 的来源），
+    // 也不需要环形指针；0 FF、~256 LUT6、0 BRAM、异步读无延迟。
+    (* ram_style = "distributed" *) reg [63:0] px_mem [0:255];
 
     assign ctrl_busy   = (state != ST_IDLE);
     assign start_pulse = ctrl_start & ~start_q;
@@ -154,49 +162,54 @@ module conv_k1_engine #(
         else           start_q <= ctrl_start;
     end
 
-    // 计算/取数核心与收尾的状态
     logic [31:0] pix_cur, pix_off;
-    logic [6:0]  ic_cur;
+    logic [ICW-1:0] ic_cur;
     logic        pass_done;
-    logic [2:0]  pend;               // 已发射但收尾还没入队的块数
+    logic [2:0]  pend;
     logic [1:0]  cur_buf;
 
     assign cur_buf = pix_cur[1:0];
 
     logic pass_go;
-    assign pass_go = ((state == ST_LOAD) && bank_ready[0] && bias_ready) ||
-                     ((state == ST_NEXT) && bank_ready[blk_r] && bias_ready);
-
-    // 输入缓冲就绪 / 输出队列余量
     logic [NBUF-1:0] pix_ready;
     wire blk_room = (ob_cnt <= (OBUF_N - 2));
 
     logic issue_en;
     assign issue_en = (state == ST_PASS) && !pass_done &&
-                      ((ic_cur != 7'd0) ||
+                      ((ic_cur != {ICW{1'b0}}) ||
                        (pix_ready[cur_buf] && blk_room));
 
-    // 块开始 / 收尾入队脉冲
-    wire block_start = issue_en && (ic_cur == 7'd0);
+    wire block_start = issue_en && (ic_cur == {ICW{1'b0}});
     wire push_ok     = push_vld && (ob_cnt < OBUF_N);
+
+    // 权重装载请求（PASS→NEXT 时给 loader 一个 1 拍脉冲）
+    logic          wl_req_pulse;
+    logic [BW-1:0] wl_req_blk;
+    logic [BW-1:0] wl_done_blk;   // 前向声明：pass_go 要用（避免先用后声明）
+
+    assign pass_go = ((state == ST_LOAD) && bank_ready && (wl_done_blk == 3'd0) && bias_ready) ||
+                     ((state == ST_NEXT) && bank_ready && (wl_done_blk == blk_r) && bias_ready);
 
     always_ff @(posedge ap_clk or negedge ap_rst_n) begin
         if (!ap_rst_n) begin
             state       <= ST_IDLE;
             ctrl_done   <= 1'b0;
-            blk_r       <= 2'd0;
+            blk_r       <= 3'd0;
+            blk_cnt_r   <= 3'd1;
+            pass_gbase  <= 32'd0;
+            wl_req_pulse<= 1'b0;
+            wl_req_blk  <= 3'd0;
             in_base_r   <= 32'd0;
             wgt_base_r  <= 32'd0;
             bias_base_r <= 32'd0;
             out_base_r  <= 32'd0;
-            cin_r       <= 7'd0;
-            cout_r      <= 7'd0;
+            cin_r       <= 9'd0;
+            cout_r      <= 8'd0;
             shift_r     <= 5'd0;
             pix_total_r <= 32'd0;
             hw8_r       <= 32'd0;
-            g_count_r   <= 4'd0;
-            blk_cnt_r   <= 2'd1;
-            ncg_r       <= 4'd1;
+            g_count_r   <= 6'd0;
+            ncg_r       <= 5'd1;
         end else begin
             ctrl_done <= 1'b0;
             case (state)
@@ -206,15 +219,17 @@ module conv_k1_engine #(
                         wgt_base_r  <= ctrl_wgt_addr;
                         bias_base_r <= ctrl_bias_addr;
                         out_base_r  <= ctrl_out_addr;
-                        cin_r       <= ctrl_cin[6:0];
-                        cout_r      <= ctrl_cout[6:0];
+                        pass_gbase  <= ctrl_out_addr;
+                        cin_r       <= ctrl_cin[ICW-1:0];
+                        cout_r      <= ctrl_cout[CW-1:0];
                         shift_r     <= ctrl_shift[4:0];
                         pix_total_r <= hw_mul;
                         hw8_r       <= hw_mul << 3;
-                        g_count_r   <= ctrl_cin[6:3];
-                        blk_cnt_r   <= (ctrl_cout[6:0] + 7'd31) >> 5;
-                        ncg_r       <= (ctrl_cout[6:0] + 7'd7) >> 3;
-                        blk_r       <= 2'd0;
+                        g_count_r   <= ctrl_cin[ICW-1:3];
+                        blk_cnt_r   <= (ctrl_cout[CW-1:0] + 8'd31) >> 5;
+                        ncg_r       <= (ctrl_cout[CW-1:0] + 8'd7) >> 3;
+                        blk_r       <= 3'd0;
+                        wl_req_pulse<= 1'b0;
                         state       <= ST_LOAD;
                     end
                 end
@@ -222,15 +237,21 @@ module conv_k1_engine #(
                 ST_PASS: begin
                     if (pass_done && (pend == 3'd0) && !f_busy &&
                         (f_next == pix_total_r)) begin
-                        if ((blk_r + 2'd1) < blk_cnt_r) begin
-                            blk_r <= blk_r + 2'd1;
-                            state <= ST_NEXT;
+                        if ((blk_r + 3'd1) < blk_cnt_r) begin
+                            blk_r        <= blk_r + 3'd1;
+                            pass_gbase   <= pass_gbase + (hw8_r << 2);
+                            wl_req_pulse <= 1'b1;
+                            wl_req_blk   <= blk_r + 3'd1;
+                            state        <= ST_NEXT;
                         end else begin
                             state <= ST_DRAIN;
                         end
                     end
                 end
-                ST_NEXT: if (pass_go) state <= ST_PASS;
+                ST_NEXT: begin
+                    wl_req_pulse <= 1'b0;
+                    if (pass_go) state <= ST_PASS;
+                end
                 ST_DRAIN: if ((ob_cnt == 3'd0) && (b_cnt == 8'd0)) state <= ST_DONE;
                 ST_DONE: begin
                     ctrl_done <= 1'b1;
@@ -241,22 +262,21 @@ module conv_k1_engine #(
         end
     end
 
-    // ---- 计算像素/ic 指针 ----
+    // ---- 计算像素 / ic 指针 ----
     always_ff @(posedge ap_clk or negedge ap_rst_n) begin
         if (!ap_rst_n) begin
             pix_cur   <= 32'd0;
             pix_off   <= 32'd0;
-            ic_cur    <= 7'd0;
+            ic_cur    <= 9'd0;
             pass_done <= 1'b0;
         end else if (start_pulse || pass_go) begin
             pix_cur   <= 32'd0;
             pix_off   <= 32'd0;
-            ic_cur    <= 7'd0;
+            ic_cur    <= 9'd0;
             pass_done <= 1'b0;
         end else if (issue_en) begin
-            if (ic_cur == (cin_r - 7'd1)) begin
-                pix_ready[cur_buf] <= 1'b0;          // 本像素数据已消费完
-                ic_cur             <= 7'd0;
+            if (ic_cur == (cin_r - 1'b1)) begin
+                ic_cur <= {ICW{1'b0}};
                 if (pix_cur == (pix_total_r - 32'd1)) begin
                     pass_done <= 1'b1;
                 end else begin
@@ -264,23 +284,23 @@ module conv_k1_engine #(
                     pix_off <= pix_off + 32'd8;
                 end
             end else begin
-                ic_cur <= ic_cur + 7'd1;
+                ic_cur <= ic_cur + 1'b1;
             end
         end
     end
 
     // ---- 在飞块计数 ----
     always_ff @(posedge ap_clk or negedge ap_rst_n) begin
-        if (!ap_rst_n)                          pend <= 3'd0;
-        else if (start_pulse || pass_go)        pend <= 3'd0;
-        else                                    pend <= pend + block_start - push_ok;
+        if (!ap_rst_n)                   pend <= 3'd0;
+        else if (start_pulse || pass_go) pend <= 3'd0;
+        else                             pend <= pend + block_start - push_ok;
     end
 
     // ========================================================================
     // 3. AXI4 读：输入像素预取（每像素 g_count 笔 1-beat，C8 组步长 HW*8）
     // ========================================================================
-    wire         in_ar_hs = m_axi_in_arvalid && m_axi_in_arready;
-    wire         in_r_hs  = m_axi_in_rvalid  && m_axi_in_rready;
+    wire in_ar_hs = m_axi_in_arvalid && m_axi_in_arready;
+    wire in_r_hs  = m_axi_in_rvalid  && m_axi_in_rready;
 
     assign m_axi_in_arvalid = f_busy && (f_ar < g_count_r);
     assign m_axi_in_araddr  = f_araddr;
@@ -289,77 +309,63 @@ module conv_k1_engine #(
 
     always_ff @(posedge ap_clk or negedge ap_rst_n) begin
         if (!ap_rst_n) begin
-            f_busy   <= 1'b0;
-            f_pix    <= 32'd0;
-            f_next   <= 32'd0;
-            f_araddr <= 32'd0;
-            f_ar     <= 4'd0;
-            f_rd     <= 4'd0;
+            f_busy    <= 1'b0;
+            f_pix     <= 32'd0;
+            f_next    <= 32'd0;
+            f_araddr  <= 32'd0;
+            f_ar      <= 6'd0;
+            f_rd      <= 6'd0;
             pix_ready <= '0;
         end else if (start_pulse || pass_go) begin
             f_busy    <= 1'b0;
             f_next    <= 32'd0;
-            f_ar      <= 4'd0;
-            f_rd      <= 4'd0;
+            f_ar      <= 6'd0;
+            f_rd      <= 6'd0;
             pix_ready <= '0;
-        end else if (!f_busy) begin
-            if ((state == ST_PASS) && (f_next < pix_total_r) &&
-                ((f_next - pix_cur) < NBUF[31:0])) begin
-                f_busy   <= 1'b1;
-                f_pix    <= f_next;
-                f_ar     <= 4'd0;
-                f_rd     <= 4'd0;
-                f_araddr <= in_base_r + (f_next << 3);
-            end
         end else begin
-            if (in_ar_hs) begin
-                f_ar     <= f_ar + 4'd1;
-                f_araddr <= f_araddr + hw8_r;
-            end
-            if (in_r_hs) begin
-                case (f_pix[1:0])
-                    2'd0: px_sh[0][{f_rd, 6'b000000} +: 64] <= m_axi_in_rdata;
-                    2'd1: px_sh[1][{f_rd, 6'b000000} +: 64] <= m_axi_in_rdata;
-                    2'd2: px_sh[2][{f_rd, 6'b000000} +: 64] <= m_axi_in_rdata;
-                    default: px_sh[3][{f_rd, 6'b000000} +: 64] <= m_axi_in_rdata;
-                endcase
-                f_rd <= f_rd + 4'd1;
-            end
-            if (((f_ar + {3'd0, in_ar_hs}) == g_count_r) &&
-                ((f_rd + {3'd0, in_r_hs}) == g_count_r)) begin
-                f_busy                <= 1'b0;
-                pix_ready[f_pix[1:0]] <= 1'b1;
-                f_next                <= f_pix + 32'd1;
+            // ---- 计算侧：消费完一个像素后清 ready（像素数据在 px_mem 里，不移动）----
+            if (issue_en && (ic_cur == (cin_r - 1'b1)))
+                pix_ready[cur_buf] <= 1'b0;
+
+            // ---- fetch 侧 ----
+            if (!f_busy) begin
+                if ((state == ST_PASS) && (f_next < pix_total_r) &&
+                    ((f_next - pix_cur) < NBUF[31:0])) begin
+                    f_busy   <= 1'b1;
+                    f_pix    <= f_next;
+                    f_ar     <= 6'd0;
+                    f_rd     <= 6'd0;
+                    f_araddr <= in_base_r + (f_next << 3);
+                end
+            end else begin
+                if (in_ar_hs) begin
+                    f_ar     <= f_ar + 6'd1;
+                    f_araddr <= f_araddr + hw8_r;
+                end
+                if (in_r_hs) begin
+                    px_mem[{f_pix[1:0], f_rd}] <= m_axi_in_rdata;
+                    f_rd <= f_rd + 6'd1;
+                end
+                if (((f_ar + {5'd0, in_ar_hs}) == g_count_r) &&
+                    ((f_rd + {5'd0, in_r_hs}) == g_count_r)) begin
+                    f_busy                <= 1'b0;
+                    pix_ready[f_pix[1:0]] <= 1'b1;
+                    f_next                <= f_pix + 32'd1;
+                end
             end
         end
     end
 
     // ========================================================================
-    // 4. 输入像素缓冲（每像素 8 组 × 64 bit = 512 bit 移位寄存器）
-    //    计算时每拍右移 8 bit，最低字节即当前 ic 的激活值（C8：组内 8 通道连续）
+    // 4. 输入像素缓冲（每像素 44 组 × 64 bit = 2816 bit 移位寄存器）
     // ========================================================================
-    logic [7:0] p_byte;
-    always_comb begin
-        case (cur_buf)
-            2'd0: p_byte = px_sh[0][7:0];
-            2'd1: p_byte = px_sh[1][7:0];
-            2'd2: p_byte = px_sh[2][7:0];
-            default: p_byte = px_sh[3][7:0];
-        endcase
-    end
-
-    always_ff @(posedge ap_clk) begin
-        if (issue_en && (cur_buf == 2'd0)) px_sh[0] <= {8'h00, px_sh[0][511:8]};
-        if (issue_en && (cur_buf == 2'd1)) px_sh[1] <= {8'h00, px_sh[1][511:8]};
-        if (issue_en && (cur_buf == 2'd2)) px_sh[2] <= {8'h00, px_sh[2][511:8]};
-        if (issue_en && (cur_buf == 2'd3)) px_sh[3] <= {8'h00, px_sh[3][511:8]};
-    end
+    // 读：{buffer, group} 直接寻址，组内按 ic[2:0] 选字节；异步读，同拍可用
+    wire [7:0]  px_raddr = {cur_buf, ic_cur[ICW-1:3]};
+    wire [63:0] p_word   = px_mem[px_raddr];
+    wire [7:0]  p_byte   = p_word[{ic_cur[2:0], 3'b000} +: 8];
 
     // ========================================================================
     // 5. 计算流水（3 级，II=1）
-    //    A: 取 p / 读权重 word（BRAM/LUTRAM 同步读）/ 记 parity、last、pix
-    //    B: 8×8 乘（32 路同拍），按 sel_a 从 64-bit word 里选字节
-    //    C: 26 位奇偶双链累加；last_b 时快照进收尾寄存器并清 0
     // ========================================================================
     logic signed [7:0] p_a;
     logic [2:0]        sel_a;
@@ -367,21 +373,22 @@ module conv_k1_engine #(
     logic              last_a, last_b;
     logic              v_a, v_b;
     logic [31:0]       pixoff_a, pixoff_b;
-    logic [1:0]        blk_a, blk_b;
+    logic [BW-1:0]     blk_a, blk_b;
 
-    logic [63:0]       w_word_q [0:LANES-1];
-    logic signed [15:0] prod_b  [0:LANES-1];
-    logic signed [25:0] acc_e   [0:LANES-1];
-    logic signed [25:0] acc_o   [0:LANES-1];
-    logic signed [25:0] ep_e    [0:LANES-1];
-    logic signed [25:0] ep_o    [0:LANES-1];
-    logic signed [26:0] sum27   [0:LANES-1];
-    logic signed [31:0] v32     [0:LANES-1];
-    logic [7:0]         sat_b   [0:LANES-1];
-    logic signed [31:0] bias0   [0:LANES-1];
-    logic signed [31:0] bias1   [0:LANES-1];
+    logic [63:0]        w_word_q [0:LANES-1];
+    (* use_dsp = "yes" *) logic signed [15:0] prod_b [0:LANES-1];
+    logic signed [25:0] acc_e    [0:LANES-1];
+    logic signed [25:0] acc_o    [0:LANES-1];
+    logic signed [26:0] sum27    [0:LANES-1];
+    logic signed [31:0] v32      [0:LANES-1];
+    logic [7:0]         sat_b    [0:LANES-1];
+    logic signed [31:0] bias_lane [0:LANES-1][0:BLKMAX-1];
 
-    // ---- stage A/B metadata ----
+    // 收尾流水 valid / 块信息（供 generate 与 E1/E2/E3 共用）
+    logic          e1_vld, e2_vld;
+    logic [BW-1:0] ep_blk_q;
+    logic [31:0]   ep_gbase;
+
     always_ff @(posedge ap_clk or negedge ap_rst_n) begin
         if (!ap_rst_n) begin
             p_a <= 8'sd0; sel_a <= 3'd0;
@@ -389,7 +396,7 @@ module conv_k1_engine #(
             last_a <= 1'b0; last_b <= 1'b0;
             v_a <= 1'b0; v_b <= 1'b0;
             pixoff_a <= 32'd0; pixoff_b <= 32'd0;
-            blk_a <= 2'd0; blk_b <= 2'd0;
+            blk_a <= 3'd0; blk_b <= 3'd0;
         end else if (start_pulse || pass_go) begin
             p_a <= 8'sd0; sel_a <= 3'd0;
             par_a <= 1'b0; par_b <= 1'b0;
@@ -401,13 +408,12 @@ module conv_k1_engine #(
                 p_a      <= p_byte;
                 sel_a    <= ic_cur[2:0];
                 par_a    <= ic_cur[0];
-                last_a   <= (ic_cur == (cin_r - 7'd1));
+                last_a   <= (ic_cur == (cin_r - 1'b1));
                 pixoff_a <= pix_off;
                 blk_a    <= blk_r;
             end else begin
-                // 关键：块边界若输入没就绪（issue 停顿），last_a 必须清 0；
-                // 否则 last_b 会在停顿期间保持 1，下一块第一个乘积会被误判成
-                // “最后拍”而触发一次假快照/清 0。
+                // 块边界若 issue 停顿，last_a 必须清 0；否则 last_b 会在停顿期间
+                // 保持 1，下一块第一个乘积会被误判成“最后拍”。
                 last_a   <= 1'b0;
             end
             v_b      <= v_a;
@@ -419,49 +425,49 @@ module conv_k1_engine #(
     end
 
     // ========================================================================
-    // 6. 权重 bank（每 lane 一个 16×64bit ram：{bank, ic>>3}）+ 累加器
-    //    bank 号 = generate 常量 ⇒ 32 个独立 RAM，无运行期 bank 选择 mux
+    // 6. 权重 bank（每 lane 一个 44×64bit ram，地址 = ic>>3）+ 累加器
     // ========================================================================
     logic        wl_we;
-    logic [63:0] wl_din;          // 权重 beat 是 64 位（每 oc 的 8 个 ic 一组）
+    logic [63:0] wl_din;
     logic [4:0]  wl_we_lane;
-    logic [3:0]  wl_we_word;
-    logic [1:0]  wl_we_blk;
+    logic [GW-1:0] wl_we_word;
 
-    logic        bl_weA, bl_weB;
-    logic [6:0]  bl_idxA, bl_idxB;
+    // 偏置装载写口（在 generate 之前声明，供每个 lane 的 bias 写解码使用）
+    logic             bl_weA, bl_weB;
+    logic [7:0]       bl_idxA, bl_idxB;
     logic signed [31:0] bl_dataA, bl_dataB;
-
-    logic e1_vld, e2_vld, e3_vld;
-    logic [1:0]  ep_blk_q;
-    logic [31:0] ep_gbase;
 
     genvar gi;
     generate
         for (gi = 0; gi < LANES; gi = gi + 1) begin : g_lane
-            (* ram_style = "distributed" *) reg [63:0] wmem [0:WDEPTH-1];
+            (* ram_style = "distributed" *) reg [63:0] wmem [0:GMAX-1];
 
             always_ff @(posedge ap_clk) begin
-                // 装载写口（bank 号常量 = gi）
                 if (wl_we && (wl_we_lane == gi[4:0]))
-                    wmem[{wl_we_blk, wl_we_word[2:0]}] <= wl_din;
-                // 计算读口：{当前 oc bank, ic>>3}
+                    wmem[wl_we_word] <= wl_din;
                 if (issue_en)
-                    w_word_q[gi] <= wmem[{blk_r, ic_cur[5:3]}];
+                    w_word_q[gi] <= wmem[ic_cur[ICW-1:3]];
             end
 
-            // 偏置（每 lane 两个 bank 的寄存器，无读地址 mux）
+            // 偏置：BLKMAX 个 pass 各一份，收尾按 ep_blk_q 选（无读地址 mux）
             always_ff @(posedge ap_clk or negedge ap_rst_n) begin
                 if (!ap_rst_n) begin
-                    bias0[gi] <= 32'sd0;
-                    bias1[gi] <= 32'sd0;
+                    for (int kk = 0; kk < BLKMAX; kk++)
+                        bias_lane[gi][kk] <= 32'sd0;
                 end else begin
-                    if (bl_weA && (bl_idxA == gi[6:0]))    bias0[gi] <= bl_dataA;
-                    if (bl_weB && (bl_idxB == gi[6:0]))    bias0[gi] <= bl_dataB;
-                    if (bl_weA && (bl_idxA == (gi + 32)))  bias1[gi] <= bl_dataA;
-                    if (bl_weB && (bl_idxB == (gi + 32)))  bias1[gi] <= bl_dataB;
+                    for (int kk = 0; kk < BLKMAX; kk++) begin
+                        if (bl_weA && (bl_idxA == (gi + 32*kk)))
+                            bias_lane[gi][kk] <= bl_dataA;
+                        if (bl_weB && (bl_idxB == (gi + 32*kk)))
+                            bias_lane[gi][kk] <= bl_dataB;
+                    end
                 end
             end
+
+            // 乘法器：use_dsp 强制映射到 DSP48；**组合使用**（不启用 DSP 内部
+            // A/B/M/P 寄存器），所以 prod_b 仍然只延迟 1 拍，像素/权重对齐不变。
+            (* use_dsp = "yes" *) wire signed [15:0] mul_prod =
+                p_a * $signed(w_word_q[gi][{sel_a, 3'b000} +: 8]);
 
             // B/C 级：乘 + 奇偶双链累加 + 收尾快照
             always_ff @(posedge ap_clk or negedge ap_rst_n) begin
@@ -469,23 +475,23 @@ module conv_k1_engine #(
                     prod_b[gi] <= 16'sd0;
                     acc_e[gi]  <= 26'sd0;
                     acc_o[gi]  <= 26'sd0;
-                    ep_e[gi]   <= 26'sd0;
-                    ep_o[gi]   <= 26'sd0;
+                    sum27[gi]  <= 27'sd0;
                 end else if (start_pulse || pass_go) begin
                     prod_b[gi] <= 16'sd0;
                     acc_e[gi]  <= 26'sd0;
                     acc_o[gi]  <= 26'sd0;
+                    sum27[gi]  <= 27'sd0;
                 end else begin
-                    prod_b[gi] <= p_a * $signed(w_word_q[gi][{sel_a, 3'b000} +: 8]);
+                    prod_b[gi] <= mul_prod;
                     if (v_b) begin
                         if (last_b) begin
-                            if (par_b) begin
-                                ep_e[gi] <= acc_e[gi];
-                                ep_o[gi] <= acc_o[gi] + {{10{prod_b[gi][15]}}, prod_b[gi]};
-                            end else begin
-                                ep_e[gi] <= acc_e[gi] + {{10{prod_b[gi][15]}}, prod_b[gi]};
-                                ep_o[gi] <= acc_o[gi];
-                            end
+                            // 两条奇偶链 + 最后一个乘积一次加完（27 位有符号）。
+                            // 原来先写 ep_e/ep_o（2×26 位）再下一拍相加；总数恒为
+                            // acc_e+acc_o+prod_b，与 parity 无关，所以直接合并，
+                            // 省 2×32×26 = 3,328 FF，并把收尾从 3 级压到 2 级。
+                            sum27[gi] <= $signed({{1{acc_e[gi][25]}}, acc_e[gi]}) +
+                                         $signed({{1{acc_o[gi][25]}}, acc_o[gi]}) +
+                                         $signed({{11{prod_b[gi][15]}}, prod_b[gi]});
                             acc_e[gi] <= 26'sd0;
                             acc_o[gi] <= 26'sd0;
                         end else if (par_b) begin
@@ -497,26 +503,21 @@ module conv_k1_engine #(
                 end
             end
 
-            // E1/E2：合并双链 → 加 bias
+            // E2：sum27 + bias → v32（sum27 在 last_b 拍已经算好）
             always_ff @(posedge ap_clk or negedge ap_rst_n) begin
                 if (!ap_rst_n) begin
-                    sum27[gi] <= 27'sd0;
-                    v32[gi]   <= 32'sd0;
+                    v32[gi] <= 32'sd0;
                 end else if (start_pulse || pass_go) begin
-                    sum27[gi] <= 27'sd0;
-                    v32[gi]   <= 32'sd0;
-                end else begin
-                    if (e1_vld)
-                        sum27[gi] <= ep_e[gi] + ep_o[gi];
-                    if (e2_vld)
-                        v32[gi] <= $signed({{5{sum27[gi][26]}}, sum27[gi]}) +
-                                   (ep_blk_q ? bias1[gi] : bias0[gi]);
+                    v32[gi] <= 32'sd0;
+                end else if (e1_vld) begin
+                    v32[gi] <= $signed({{5{sum27[gi][26]}}, sum27[gi]}) +
+                               bias_lane[gi][ep_blk_q];
                 end
             end
 
-            // E3：>>>shift / ReLU / sat8（组合），lane 越界写 0
+            // E3：>>>shift / ReLU / sat8
             wire signed [31:0] shf = v32[gi] >>> shift_r;
-            wire [6:0] lane_abs = gi[6:0] + (ep_blk_q ? 7'd32 : 7'd0);
+            wire [7:0] lane_abs = gi[7:0] + {ep_blk_q, 5'b00000};
             wire       lane_ok  = (lane_abs < cout_r);
             always_comb begin
                 if (!lane_ok)                   sat_b[gi] = 8'd0;
@@ -529,18 +530,16 @@ module conv_k1_engine #(
     endgenerate
 
     // ========================================================================
-    // 7. 收尾流水控制（E1→E2→E3，3 拍）+ 输出版本拼字
+    // 7. 收尾流水控制（sum27→+bias→>>>shift，2 拍）+ 输出拼字
     // ========================================================================
     logic [63:0] out_word [0:3];
     always_comb begin
         for (int j = 0; j < 4; j++)
             for (int b = 0; b < 8; b++)
-                out_word[j][b*8 +: 8] = sat_b[j*8 + b];
+                out_word[j][{b[2:0], 3'b000} +: 8] = sat_b[j*8 + b];
     end
 
     logic [2:0]  push_n;
-    logic [31:0] push_addr [0:3];
-    logic [63:0] push_data [0:3];
 
     logic [2:0] push_n_comb;
     always_comb begin
@@ -553,37 +552,29 @@ module conv_k1_engine #(
     integer jj;
     always_ff @(posedge ap_clk or negedge ap_rst_n) begin
         if (!ap_rst_n) begin
-            e1_vld <= 1'b0; e2_vld <= 1'b0; e3_vld <= 1'b0;
+            e1_vld <= 1'b0; e2_vld <= 1'b0;
             push_vld <= 1'b0; push_n <= 3'd0;
-            ep_blk_q <= 2'd0; ep_gbase <= 32'd0;
+            ep_blk_q <= 3'd0; ep_gbase <= 32'd0;
         end else if (start_pulse || pass_go) begin
-            e1_vld <= 1'b0; e2_vld <= 1'b0; e3_vld <= 1'b0;
+            e1_vld <= 1'b0; e2_vld <= 1'b0;
             push_vld <= 1'b0; push_n <= 3'd0;
         end else begin
             e1_vld <= v_b && last_b;
             e2_vld <= e1_vld;
-            e3_vld <= e2_vld;
-            push_vld <= e3_vld;
+            push_vld <= e2_vld;
 
             if (v_b && last_b) begin
                 ep_blk_q <= blk_b;
-                ep_gbase <= out_base_r + pixoff_b + (blk_b ? (hw8_r << 2) : 32'd0);
+                ep_gbase <= pass_gbase + pixoff_b;
             end
 
-            if (e3_vld) begin
+            if (e2_vld)
                 push_n <= push_n_comb;
-                for (jj = 0; jj < 4; jj = jj + 1) begin
-                    if (({1'b0, ep_blk_q, 2'b00} + jj[2:0]) < ncg_r) begin
-                        push_addr[jj] <= ep_gbase + jj * hw8_r;
-                        push_data[jj] <= out_word[jj];
-                    end
-                end
-            end
         end
     end
 
     // ========================================================================
-    // 8. 输出块队列（OBUF_N 块 × 4 组）与 AXI4 写排空
+    // 8. 输出块队列与 AXI4 写排空
     // ========================================================================
     logic [1:0]  ob_wr, ob_rd;
     logic [2:0]  ob_n [0:OBUF_N-1];
@@ -598,9 +589,10 @@ module conv_k1_engine #(
             ob_wr <= 2'd0; ob_rd <= 2'd0; ob_cnt <= 3'd0;
         end else begin
             if (push_ok) begin
+                // ep_gbase / out_word 在 push 这一拍稳定，直接组合写入，省 384 FF
                 for (jj = 0; jj < 4; jj = jj + 1) begin
-                    ob_addr[ob_wr][jj] <= push_addr[jj];
-                    ob_data[ob_wr][jj] <= push_data[jj];
+                    ob_addr[ob_wr][jj] <= ep_gbase + jj * hw8_r;
+                    ob_data[ob_wr][jj] <= out_word[jj];
                 end
                 ob_n[ob_wr] <= push_n;
                 ob_wr       <= ob_wr + 2'd1;
@@ -659,50 +651,61 @@ module conv_k1_engine #(
     end
 
     // ========================================================================
-    // 9. 权重装载（每层一次；bank0 装完即开始计算，bank1 在 pass0 期间装好）
-    //    权重布局 k=1：[oc][ic] 1 字节 → 每 oc 的 cin 字节 = cin/8 个 64-bit 字
+    // 9. 权重装载（按 oc pass；每次装 32 lane × cin 字节，装完计算）
     // ========================================================================
     localparam logic [1:0] WL_IDLE = 2'd0, WL_AR = 2'd1, WL_R = 2'd2;
 
     logic [1:0]  wl_state;
     logic [31:0] wl_addr;
     logic [4:0]  wl_lane;
-    logic [3:0]  wl_word;
-    logic [1:0]  wl_blk;
-    logic [6:0]  wl_lane_lim;            // 本 bank 实际要装的 oc 数（min(32, 余量)）
-    wire  [3:0]  wpl = cin_r[6:3];        // 每 oc 的 64-bit 字数
+    logic [GW-1:0] wl_word;
+    logic [5:0]  wl_lane_lim;
+    logic [BW-1:0] wl_blk;
+    wire  [GW-1:0] wpl = cin_r[ICW-1:3];
+    wire  [7:0]    wl_rem = cout_r - {wl_req_blk, 5'b00000}; // 本 pass 剩余 oc 数
 
     assign m_axi_w_arvalid = (wl_state == WL_AR);
     assign m_axi_w_araddr  = wl_addr;
-    assign m_axi_w_arlen   = (wpl == 4'd0) ? 8'd0 : (wpl - 4'd1);
+    assign m_axi_w_arlen   = (wpl == 6'd0) ? 8'd0 : (wpl - 6'd1);
     assign m_axi_w_rready  = (wl_state == WL_R);
 
     always_ff @(posedge ap_clk or negedge ap_rst_n) begin
         if (!ap_rst_n) begin
-            wl_state <= WL_IDLE;
-            wl_addr  <= 32'd0;
-            wl_lane  <= 5'd0;
-            wl_word  <= 4'd0;
-            wl_blk   <= 2'd0;
-            wl_we    <= 1'b0;
-            wl_din   <= 64'd0;
-            wl_we_lane <= 5'd0;
-            wl_we_word <= 4'd0;
-            wl_we_blk  <= 2'd0;
-            wl_lane_lim <= 7'd32;
-            bank_ready <= 2'd0;
+            wl_state    <= WL_IDLE;
+            wl_addr     <= 32'd0;
+            wl_lane     <= 5'd0;
+            wl_word     <= 6'd0;
+            wl_blk      <= 3'd0;
+            wl_done_blk <= 3'd0;
+            wl_we       <= 1'b0;
+            wl_din      <= 64'd0;
+            wl_we_lane  <= 5'd0;
+            wl_we_word  <= 6'd0;
+            wl_lane_lim <= 6'd32;
+            bank_ready  <= 1'b0;
         end else if (start_pulse) begin
-            wl_state   <= WL_AR;
-            wl_addr    <= ctrl_wgt_addr;
-            wl_lane    <= 5'd0;
-            wl_word    <= 4'd0;
-            wl_blk     <= 2'd0;
-            wl_we      <= 1'b0;
-            wl_lane_lim <= (ctrl_cout[6:0] >= 7'd32) ? 7'd32 : ctrl_cout[6:0];
-            bank_ready <= 2'd0;
+            wl_state    <= WL_AR;
+            wl_addr     <= ctrl_wgt_addr;
+            wl_lane     <= 5'd0;
+            wl_word     <= 6'd0;
+            wl_blk      <= 3'd0;
+            wl_done_blk <= 3'd0;
+            wl_we       <= 1'b0;
+            wl_lane_lim <= (ctrl_cout[7:0] > 8'd32) ? 6'd32 : ctrl_cout[5:0];
+            bank_ready  <= 1'b0;
         end else begin
             wl_we <= 1'b0;
             case (wl_state)
+                WL_IDLE: begin
+                    if (wl_req_pulse) begin
+                        wl_blk      <= wl_req_blk;
+                        wl_lane     <= 5'd0;
+                        wl_word     <= 6'd0;
+                        wl_lane_lim <= (wl_rem > 8'd32) ? 6'd32 : wl_rem[5:0];
+                        bank_ready  <= 1'b0;
+                        wl_state    <= WL_AR;
+                    end
+                end
                 WL_AR: begin
                     if (m_axi_w_arvalid && m_axi_w_arready)
                         wl_state <= WL_R;
@@ -713,26 +716,19 @@ module conv_k1_engine #(
                         wl_din     <= m_axi_w_rdata;
                         wl_we_lane <= wl_lane;
                         wl_we_word <= wl_word;
-                        wl_we_blk  <= wl_blk;
                         wl_addr    <= wl_addr + 32'd8;
-                        if ((wl_word + 4'd1) == wpl) begin
-                            wl_word <= 4'd0;
-                            if (({1'b0, wl_lane} + 7'd1) == wl_lane_lim) begin
-                                bank_ready[wl_blk] <= 1'b1;
-                                if ((wl_blk + 2'd1) < blk_cnt_r) begin
-                                    wl_blk      <= wl_blk + 2'd1;
-                                    wl_lane     <= 5'd0;
-                                    wl_lane_lim <= cout_r - 7'd32; // 本 bank 剩余 oc 数
-                                    wl_state    <= WL_AR;
-                                end else begin
-                                    wl_state <= WL_IDLE;
-                                end
+                        if ((wl_word + 6'd1) == wpl) begin
+                            wl_word <= 6'd0;
+                            if (({1'b0, wl_lane} + 6'd1) == wl_lane_lim) begin
+                                bank_ready  <= 1'b1;
+                                wl_done_blk <= wl_blk;
+                                wl_state    <= WL_IDLE;
                             end else begin
                                 wl_lane  <= wl_lane + 5'd1;
                                 wl_state <= WL_AR;
                             end
                         end else begin
-                            wl_word <= wl_word + 4'd1;
+                            wl_word <= wl_word + 6'd1;
                         end
                     end
                 end
@@ -742,37 +738,37 @@ module conv_k1_engine #(
     end
 
     // ========================================================================
-    // 10. 偏置装载（cout × int32，每 64-bit 拍 2 个；bank0=oc0..31，bank1=oc32..63）
+    // 10. 偏置装载（所有 cout 一次装；每 64-bit 拍 2 个 int32；按 32 分 bank）
     // ========================================================================
     localparam logic [1:0] BI_IDLE = 2'd0, BI_AR = 2'd1, BI_R = 2'd2;
 
     logic [1:0] bi_state;
-    logic [5:0] bi_beat, bi_total;
-    wire  [5:0] bi_n = (ctrl_cout[6:0] + 7'd1) >> 1;
+    logic [6:0] bi_beat, bi_total;
+    wire  [6:0] bi_n = (ctrl_cout[7:0] + 8'd1) >> 1;
 
     assign m_axi_b_arvalid = (bi_state == BI_AR);
     assign m_axi_b_araddr  = ctrl_bias_addr;
-    assign m_axi_b_arlen   = bi_n - 6'd1;
+    assign m_axi_b_arlen   = (bi_n == 7'd0) ? 8'd0 : (bi_n - 7'd1);
     assign m_axi_b_rready  = (bi_state == BI_R);
 
     always_ff @(posedge ap_clk or negedge ap_rst_n) begin
         if (!ap_rst_n) begin
-            bi_state  <= BI_IDLE;
-            bi_beat   <= 6'd0;
-            bi_total  <= 6'd0;
-            bl_weA    <= 1'b0;
-            bl_weB    <= 1'b0;
-            bl_idxA   <= 7'd0;
-            bl_idxB   <= 7'd0;
-            bl_dataA  <= 32'sd0;
-            bl_dataB  <= 32'sd0;
+            bi_state   <= BI_IDLE;
+            bi_beat    <= 7'd0;
+            bi_total   <= 7'd0;
+            bl_weA     <= 1'b0;
+            bl_weB     <= 1'b0;
+            bl_idxA    <= 8'd0;
+            bl_idxB    <= 8'd0;
+            bl_dataA   <= 32'sd0;
+            bl_dataB   <= 32'sd0;
             bias_ready <= 1'b0;
         end else if (start_pulse) begin
-            bi_state  <= BI_AR;
-            bi_beat   <= 6'd0;
-            bi_total  <= bi_n;
-            bl_weA    <= 1'b0;
-            bl_weB    <= 1'b0;
+            bi_state   <= BI_AR;
+            bi_beat    <= 7'd0;
+            bi_total   <= bi_n;
+            bl_weA     <= 1'b0;
+            bl_weB     <= 1'b0;
             bias_ready <= 1'b0;
         end else begin
             bl_weA <= 1'b0;
@@ -787,14 +783,14 @@ module conv_k1_engine #(
                         bl_weA   <= 1'b1;
                         bl_weB   <= 1'b1;
                         bl_idxA  <= {bi_beat, 1'b0};
-                        bl_idxB  <= {bi_beat, 1'b0} + 7'd1;
+                        bl_idxB  <= {bi_beat, 1'b0} + 8'd1;
                         bl_dataA <= m_axi_b_rdata[31:0];
                         bl_dataB <= m_axi_b_rdata[63:32];
-                        if ((bi_beat + 6'd1) == bi_total) begin
+                        if ((bi_beat + 7'd1) == bi_total) begin
                             bi_state   <= BI_IDLE;
                             bias_ready <= 1'b1;
                         end else begin
-                            bi_beat <= bi_beat + 6'd1;
+                            bi_beat <= bi_beat + 7'd1;
                         end
                     end
                 end
@@ -808,10 +804,12 @@ module conv_k1_engine #(
     // ========================================================================
     // synopsys translate_off
     always @(posedge ap_clk) begin
-        if (ap_rst_n && start_pulse && ((ctrl_cin[2:0] != 3'd0) ||
-                                        (ctrl_cin < 32'd8)))
-            $display("[K1] WARNING: cin=%0d 不是 8 的倍数或 <8，本版不支持",
-                     ctrl_cin);
+        if (ap_rst_n && start_pulse &&
+            ((ctrl_cin[2:0] != 3'd0) || (ctrl_cin < 32'd8) || (ctrl_cin > CIN_MAX)))
+            $display("[K1] WARNING: cin=%0d 不满足 8 的倍数 / 8..%0d，本版不支持",
+                     ctrl_cin, CIN_MAX);
+        if (ap_rst_n && (ctrl_cout > COUT_MAX))
+            $display("[K1] WARNING: cout=%0d 超过 COUT_MAX=%0d", ctrl_cout, COUT_MAX);
         if (ap_rst_n && push_vld && (ob_cnt >= OBUF_N))
             $display("[K1] ERROR: 输出块队列溢出（ob_cnt=%0d）", ob_cnt);
     end
