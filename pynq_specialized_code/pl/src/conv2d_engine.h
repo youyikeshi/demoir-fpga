@@ -208,6 +208,33 @@
 #define K5_PAD28 1
 #endif
 
+#ifndef K1_LANES
+/* k=1 快路径的**车道数**（每拍几个 MAC），2026-10-23 第十轮。
+   8  = 一个 OC 块（原有行为；这一档与原实现逐字等价）；
+   16 = 两个 OC 块：`ocb` 循环仍按 OC_BLOCK 步进，但 k=1 时**跳过奇数块**，
+        一个 pass 算 ocb..ocb+15。
+   为什么 16 车道不撞 line_buf：16 个 oc 共用**同一个**像素 `p`，line_buf 每拍
+   仍然只读 1 次 ⇒ 不动 91% 的 BRAM、不动填充、不动 k=3/k=5；
+   加倍的只有 wgt1_buf（+8 个 LUTRAM bank）、wbuf（+8 个 bank）、累加器（16×2 条链）。
+   实测：k=1 计算 13.8 s（1.276×理想）→ ~6.9 s；见
+   docs/设计/记录_20261023_cin×cout二维网格与conv成本模型.md 与第十轮记录。 */
+#define K1_LANES 16
+#endif
+
+#ifndef K1_DSP_LANES
+/* 前这么多个 k=1 车道用 BIND_OP 强制进 DSP48，其余留在 LUT 乘法器。
+   为什么要混搭：`mul_8s_8s_16` 41 LUT/个，全塞 DSP 要 +16 DSP；
+   混搭 8/8 实测只 +8 DSP、+328 LUT（DSP 预算留给以后）。 */
+#define K1_DSP_LANES 8
+#endif
+
+#if (K1_LANES != 8) && (K1_LANES != 16)
+#error "K1_LANES 只能是 8 或 16"
+#endif
+#if (K1_DSP_LANES < 0) || (K1_DSP_LANES > K1_LANES)
+#error "K1_DSP_LANES 必须在 [0, K1_LANES] 内"
+#endif
+
 #ifndef PIPELINE_II
 #define PIPELINE_II 1
 #endif

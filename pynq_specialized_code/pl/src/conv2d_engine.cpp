@@ -38,6 +38,12 @@ typedef uint64_t w64_t;
 #define W32_BYTE(v, n) ((data_t)(uint8_t)(((v) >> (8 * (n))) & 0xFFu))
 #endif
 
+// k=1 快路径一拍覆盖几个 OC 块（1 = 8 车道，2 = 16 车道，见 conv2d_engine.h 的 K1_LANES）
+#define K1_BLK (K1_LANES / OC_BLOCK)
+#if (K1_BLK * OC_BLOCK) != K1_LANES
+#error "K1_LANES 必须是 OC_BLOCK 的整数倍"
+#endif
+
 // 输出地址（2026-10-23，**编译期**决定，无运行期选路）。
 // OC_BLOCK 按 8 对齐轮转 ⇒ 同一像素的 8 个 oc 在 C8 布局里正好是**连续 8 字节**：
 //   addr(oc,y,x) = (oc/8)*Hout*Wout*8 + y*Wout*8 + x*8 + (oc%8)
@@ -168,8 +174,8 @@ int conv2d_engine(const data_t *in_fm, const data_t *wgt, const bias_t *bias,
     // 1×1 专用权重缓冲（2026-10-21 性能改造）：
     //   k=1 占 132/249 层，走 wgt_buf 时每个 oc 只能串行读（BRAM 双端口），
     //   这里单独放一份，并按输出通道完全分 bank（分布式 RAM，不占 BRAM），
-    //   于是每拍可并行读 K1_OC_UNROLL 个权重 → 每拍 K1_OC_UNROLL 个 MAC。
-    data_t wgt1_buf[OC_BLOCK][CIN_MAX];
+    //   于是每拍可并行读 OC_BLOCK*K1_BLK 个权重 → 每拍同样多个 MAC（第十轮 16 车道）。
+    data_t wgt1_buf[OC_BLOCK * K1_BLK][CIN_MAX];
     // 3×3 专用权重缓冲（2026-10-22）：按 oc 完全分 bank，每拍可并行读 8 个 oc。
     // 目的：把 oc 从"串行 8 个"改成"内层展开"，消除每个 oc 重开一次 ic 流水的
     // 气泡（板端实测 k=3 是 6.69 拍/单元，微基准 4.01）。
@@ -230,7 +236,7 @@ int conv2d_engine(const data_t *in_fm, const data_t *wgt, const bias_t *bias,
     // 宽度：k=1 的宽列块把 line_buf 的 SPAN_MAX 个 row-bank 当 SPAN_MAX*64 列用，
     // 所以 xn 最大是 448；其余路径 xn ≤ 64。8×448 = 3.5 KB，放 LUTRAM
     // （约 +450~900 LUT），不动已经 90% 的 BRAM。
-    data_t wbuf[OC_BLOCK][SPAN_MAX * 64];
+    data_t wbuf[OC_BLOCK * K1_BLK][SPAN_MAX * 64];
     HLS_PRAGMA(HLS ARRAY_PARTITION variable=wbuf complete dim=1)
     HLS_PRAGMA(HLS BIND_STORAGE variable=wbuf type=RAM_2P impl=LUTRAM)
 #endif
@@ -425,8 +431,24 @@ int conv2d_engine(const data_t *in_fm, const data_t *wgt, const bias_t *bias,
                 int off_ocb12 = 0;
                 // k=5（28 字节对齐容器）的块基址递推：每块 +cin*28*OC_BLOCK
                 int off_ocb28 = 0;
+                // 补齐后的通道数（C8 写回按 8 的整块走）
+                const int cpadded = ((cout + OC_BLOCK - 1) / OC_BLOCK) * OC_BLOCK;
                 for (int ocb = 0; ocb < cout; ocb += OC_BLOCK) {
                     const int ocbl = (cout - ocb < OC_BLOCK) ? (cout - ocb) : OC_BLOCK;
+                    // 本 pass 实际算的通道上界：k=1 是 K1_LANES（两个 OC 块），其余是 OC_BLOCK
+                    const int ocbl1 = (cout - ocb < OC_BLOCK * K1_BLK) ? (cout - ocb)
+                                                                      : OC_BLOCK * K1_BLK;
+                    // 三个权重基址递推**先取本块值、再无条件推进**：
+                    // k=1 的 16 车道会 `continue` 跳过奇数块，跳过时递推也不能错位。
+                    const int off_b = off_ocb;
+                    const int off12_b = off_ocb12;
+                    const int off28_b = off_ocb28;
+                    off_ocb += cin_kk * OC_BLOCK;       // 下一 OC 块的起始偏移
+                    off_ocb12 += cin * 12 * OC_BLOCK;   // 同上（k=3 的 12 字节容器）
+                    off_ocb28 += cin * 28 * OC_BLOCK;   // 同上（k=5 的 28 字节容器）
+                    // k=1 的 16 车道一次吃掉两个 OC 块 ⇒ 奇数块整块跳过。
+                    // （只对 k=1 生效；k=3/k=5 仍是每块 8 个 oc。）
+                    if ((K1_BLK > 1) && (ksize == 1) && ((ocb & OC_BLOCK) != 0)) continue;
 
                     // 装当前 OC 块的权重。DDR 里每个 (oc,ic) 的 k×k 权重是连续的；
                     // 先顺序读到寄存器组，再用静态索引摆到 wgt_buf 的 (ky,kx) 位置。
@@ -448,9 +470,9 @@ int conv2d_engine(const data_t *in_fm, const data_t *wgt, const bias_t *bias,
                         // 写侧仍是每拍 1 字节（wgt1_buf 的 dim1 按 oc 分 bank，
                         // dim2 只有 1 个写口），所以用"每 4 拍取一个字"的
                         // 循环携带寄存器写法，循环形态与改造前一致。
-                        int off1 = off_ocb;
+                        int off1 = off_b;
                         if ((cin & 3) == 0) {
-                            for (int i = 0; i < ocbl; ++i, off1 += cin_kk) {
+                            for (int i = 0; i < ocbl1; ++i, off1 += cin_kk) {
                                 const w32_t *pw1 = reinterpret_cast<const w32_t *>(
                                     wgt + off1);
                                 w32_t hold1 = 0;
@@ -463,7 +485,7 @@ int conv2d_engine(const data_t *in_fm, const data_t *wgt, const bias_t *bias,
                                 }
                             }
                         } else {
-                            for (int i = 0; i < ocbl; ++i, off1 += cin_kk) {
+                            for (int i = 0; i < ocbl1; ++i, off1 += cin_kk) {
                                 HLS_PRAGMA(HLS PIPELINE II=1)
                                 for (int ic = 0; ic < cin; ++ic) {
                                     wgt1_buf[i][ic] = wgt[off1 + ic];
@@ -491,7 +513,7 @@ int conv2d_engine(const data_t *in_fm, const data_t *wgt, const bias_t *bias,
                            那个写法要在一个循环体里放 36 条静态写，HLS 的写端口
                            多路器 LUT +3.8k（36,775 → 40,950 = 88%，超红线）。 */
                         const int cin12 = cin * 12;
-                        int off = off_ocb12;            // = ocb*cin*12（递推）
+                        int off = off12_b;              // = ocb*cin*12（递推）
                         for (int i = 0; i < ocbl; ++i, off += cin12) {
                             const w32_t *pw =
                                 reinterpret_cast<const w32_t *>(wgt + off);
@@ -510,7 +532,7 @@ int conv2d_engine(const data_t *in_fm, const data_t *wgt, const bias_t *bias,
 #else
                         /* ---- 基线（K3_PAD12=0）：每 ic 逐字节读 9 个抽头 ----
                            板端 16.3 拍/字节（ARLEN=1），只作对照构建。 */
-                        int off = off_ocb;
+                        int off = off_b;
                         for (int i = 0; i < ocbl; ++i, off += cin_kk) {
                             const data_t *wp = wgt + off;
                             HLS_PRAGMA(HLS PIPELINE II=1)
@@ -540,7 +562,7 @@ int conv2d_engine(const data_t *in_fm, const data_t *wgt, const bias_t *bias,
                            与 k=3 的 12 字节容器是同一招，详见
                            docs/设计/记录_20261023_k5权重装载宽读.md。 */
                         const int cin28 = cin * 28;
-                        int off = off_ocb28;            // = ocb*cin*28（递推）
+                        int off = off28_b;              // = ocb*cin*28（递推）
                         for (int i = 0; i < ocbl; ++i, off += cin28) {
                             const w32_t *pw =
                                 reinterpret_cast<const w32_t *>(wgt + off);
@@ -562,7 +584,7 @@ int conv2d_engine(const data_t *in_fm, const data_t *wgt, const bias_t *bias,
                         }
 #else
                         /* ---- 基线（K5_PAD28=0）：每 ic 逐字节读 25 个抽头 ---- */
-                        int off = off_ocb;
+                        int off = off_b;
                         for (int i = 0; i < ocbl; ++i, off += cin_kk) {
                             const data_t *wp = wgt + off;
                             HLS_PRAGMA(HLS PIPELINE II=1)
@@ -578,14 +600,11 @@ int conv2d_engine(const data_t *in_fm, const data_t *wgt, const bias_t *bias,
                         }
 #endif
                     }
-                    off_ocb += cin_kk * OC_BLOCK;       // 下一 OC 块的起始偏移
-                    off_ocb12 += cin * 12 * OC_BLOCK;   // 同上（k=3 的 12 字节容器）
-                    off_ocb28 += cin * 28 * OC_BLOCK;   // 同上（k=5 的 28 字节容器）
 
 #if FUSE_SUM
                     // ECA 融合：本 OC 块在本行的每通道累加和（寄存器，跨 x2 累加，
                     // 行末再一次性加到全局 chsum，避免写回循环里对外部内存做读改写）。
-                    int32_t csum_l[OC_BLOCK];
+                    int32_t csum_l[OC_BLOCK * K1_BLK];
                     HLS_PRAGMA(HLS ARRAY_PARTITION variable=csum_l complete dim=1)
                     for (int i = 0; i < OC_BLOCK; ++i) {
                         HLS_PRAGMA(HLS UNROLL)
@@ -611,7 +630,19 @@ int conv2d_engine(const data_t *in_fm, const data_t *wgt, const bias_t *bias,
                     //
                     // 尾部通道：ocbl < 8 时（cout%8 != 0）8 字节整字会写到补零通道，
                     // 必须显式写 0（PS 侧按 ceil(cout/8)*8 分配缓冲区并期望那里是 0）。
-                    if (ocbl < OC_BLOCK) {
+                    if (ksize == 1) {
+                        // k=1：车道数 K1_LANES，尾部按本 pass 的上界 ocbl1 补零
+                        if (ocbl1 < OC_BLOCK * K1_BLK) {
+                            for (int i = 0; i < OC_BLOCK * K1_BLK; ++i) {
+                                if (i >= ocbl1) {
+                                    HLS_PRAGMA(HLS UNROLL)
+                                    for (int px = 0; px < xn; ++px) {
+                                        wbuf[i][px] = (data_t)0;
+                                    }
+                                }
+                            }
+                        }
+                    } else if (ocbl < OC_BLOCK) {
                         for (int i = 0; i < OC_BLOCK; ++i) {
                             if (i >= ocbl) {
                                 HLS_PRAGMA(HLS UNROLL)
@@ -635,11 +666,17 @@ int conv2d_engine(const data_t *in_fm, const data_t *wgt, const bias_t *bias,
                         // acc0/acc1 仍按 ic 奇偶分两条加法链（缩短依赖）；整数加法
                         // 可交换，求和顺序变化不影响结果（g++/csim/cosim 三重对拍）。
                         if (ksize == 1) {
-                            acc_t acc0[OC_BLOCK];
-                            acc_t acc1[OC_BLOCK];
+                            // ---- 2026-10-23 第十轮：车道 8 → K1_LANES（默认 16）----
+                            // 16 个 oc 共用同一个 `p`（line_buf 每拍仍只读 1 次），所以
+                            // **存储器/填充/k=3/k=5 一行都不用改**，加倍的只有寄存器与乘法器。
+                            // 乘法器按 K1_DSP_LANES 混搭：前 K1_DSP_LANES 条强制进 DSP48
+                            // （第九轮实测：一条 8×8 LUT 乘法 41 LUT → DSP=1、LUT=0），
+                            // 其余留在 LUT 乘法器上，避免把 DSP 预算吃光。
+                            acc_t acc0[K1_LANES];
+                            acc_t acc1[K1_LANES];
                             HLS_PRAGMA(HLS ARRAY_PARTITION variable=acc0 complete dim=1)
                             HLS_PRAGMA(HLS ARRAY_PARTITION variable=acc1 complete dim=1)
-                            for (int i = 0; i < OC_BLOCK; ++i) {
+                            for (int i = 0; i < K1_LANES; ++i) {
                                 HLS_PRAGMA(HLS UNROLL)
                                 acc0[i] = 0;
                                 acc1[i] = 0;
@@ -649,13 +686,25 @@ int conv2d_engine(const data_t *in_fm, const data_t *wgt, const bias_t *bias,
                                 const int32_t p = wide1
                                     ? (int32_t)line_buf[ic][cb >> 6][cb & 63]
                                     : (int32_t)line_buf[ic][0][cb];
-                                for (int i = 0; i < OC_BLOCK; ++i) {
-                                    HLS_PRAGMA(HLS UNROLL factor=K1_OC_UNROLL)
+                                // 前 K1_DSP_LANES 条：BIND_OP 强制 DSP48
+                                for (int i = 0; i < K1_DSP_LANES; ++i) {
+                                    HLS_PRAGMA(HLS UNROLL)
                                     const int32_t t1 = p * (int32_t)wgt1_buf[i][ic];
+                                    HLS_PRAGMA(HLS BIND_OP variable=t1 op=mul impl=DSP)
                                     if (ic & 1) {
                                         acc1[i] += (acc_t)t1;
                                     } else {
                                         acc0[i] += (acc_t)t1;
+                                    }
+                                }
+                                // 其余车道：留在 LUT 乘法器（mul_8s_8s_16，41 LUT/个）
+                                for (int i = K1_DSP_LANES; i < K1_LANES; ++i) {
+                                    HLS_PRAGMA(HLS UNROLL)
+                                    const int32_t t2 = p * (int32_t)wgt1_buf[i][ic];
+                                    if (ic & 1) {
+                                        acc1[i] += (acc_t)t2;
+                                    } else {
+                                        acc0[i] += (acc_t)t2;
                                     }
                                 }
                             }
@@ -678,8 +727,8 @@ int conv2d_engine(const data_t *in_fm, const data_t *wgt, const bias_t *bias,
 // 过一条流水，实测每个 (pixel, ocb) 块有 ~50 拍的固定开销 —— 这部分不是 DDR，
 // 是收尾序列）。改成"常量 8 路 + 谓词"，8 路 shift/relu/saturate/wbuf 存并行。
                             HLS_PRAGMA(HLS UNROLL)
-                            for (int i = 0; i < OC_BLOCK; ++i) {
-                                if (i < ocbl) {
+                            for (int i = 0; i < K1_LANES; ++i) {
+                                if (i < ocbl1) {
                                 const int32_t acc = (int32_t)acc0[i] + (int32_t)acc1[i];
                                 int32_t v = acc + (int32_t)bias_buf[ocb + i];
                                 v = v >> shift;
@@ -908,13 +957,32 @@ int conv2d_engine(const data_t *in_fm, const data_t *wgt, const bias_t *bias,
                             pw[px] = w;
                         }
                     }
+                    // k=1 的 16 车道：本 pass 还算了 ocb+8..ocb+15，它们是**另一段**
+                    // 8 字节（C8 布局里 oc 块号相差 1），所以再用一条同样形态的
+                    // 拷贝循环写出去 —— 每笔事务仍是 8 字节 1-beat，DDR 事务形态不变。
+                    if ((K1_BLK > 1) && (ksize == 1) && (ocb + OC_BLOCK < cpadded)) {
+                        const int obase1 = (int)(OUT_ADDR(ocb + OC_BLOCK, 0, y, x0));
+                        w64_t *pw1 = reinterpret_cast<w64_t *>(out_fm + obase1);
+                        HLS_PRAGMA(HLS PIPELINE II=1)
+                        for (int px = 0; px < xn; ++px) {
+                            w64_t w = (w64_t)(uint8_t)(wbuf[OC_BLOCK + 0][px]);
+                            w |= (w64_t)(uint8_t)(wbuf[OC_BLOCK + 1][px]) << 8;
+                            w |= (w64_t)(uint8_t)(wbuf[OC_BLOCK + 2][px]) << 16;
+                            w |= (w64_t)(uint8_t)(wbuf[OC_BLOCK + 3][px]) << 24;
+                            w |= (w64_t)(uint8_t)(wbuf[OC_BLOCK + 4][px]) << 32;
+                            w |= (w64_t)(uint8_t)(wbuf[OC_BLOCK + 5][px]) << 40;
+                            w |= (w64_t)(uint8_t)(wbuf[OC_BLOCK + 6][px]) << 48;
+                            w |= (w64_t)(uint8_t)(wbuf[OC_BLOCK + 7][px]) << 56;
+                            pw1[px] = w;
+                        }
+                    }
 #endif
 
 #if FUSE_SUM
                     // 本行、本 OC 块的通道和一次性加到全局（chsum 由 PS 侧清零）。
                     // 放在 x2 循环之外：避免在写回流水里对外部内存做读改写。
                     if (chsum != 0) {
-                        for (int i = 0; i < ocbl; ++i) {
+                        for (int i = 0; i < (ksize == 1 ? ocbl1 : ocbl); ++i) {
                             chsum[ocb + i] += csum_l[i];
                         }
                     }
