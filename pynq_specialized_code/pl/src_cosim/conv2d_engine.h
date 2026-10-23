@@ -187,6 +187,26 @@
 #define K3_PAD12 1
 #endif
 
+#ifndef K5_PAD28
+/* k=5 权重的**容器布局**与装载宽度（2026-10-23 第五轮；与 K3_PAD12 同一招）。
+
+   1 = 导出侧把每个 (oc,ic) 的 25 个抽头紧排在前 25 字节、再补 3 个 0，凑成
+       **28 字节 = 7 个 32-bit 字**（抽头 k 在第 k>>2 个字的第 k&3 字节），
+       容器 = [oc][ic][28]。
+       好处与 k=3 的 12 字节容器完全同构：
+         · 每个 (oc,ic) 起点 (oc·cin+ic)·28 恒 4 字节对齐 ⇒ 一笔读 7 个字，
+           事务数从"每字节一笔"降到"每 28 字节一笔"；
+         · 写侧仍是 25 个**编译期常量** bank（wgt_buf 的 dim3/dim4 完全拆分，
+           与改造前逐字相同）⇒ 计算路径的 DSP/FF/LUT 不动；
+         · 没有"cin 是否 4 的倍数"的分支。
+       代价：k=5 权重体积 ×28/25 = 1.12（全网络只有 encoder.conv_first 一层，
+       1.47 MB → 1.65 MB 量级）。
+   0 = 基线：容器 [oc][ic][25]，每字节一笔 1-byte 事务（ARLEN=1）。
+       ⚠️ 与 K3_PAD12 一样，混用配错包**不会报错**只会算出垃圾，
+       由 `check_consistency.py` 上板前拦一道。 */
+#define K5_PAD28 1
+#endif
+
 #ifndef PIPELINE_II
 #define PIPELINE_II 1
 #endif

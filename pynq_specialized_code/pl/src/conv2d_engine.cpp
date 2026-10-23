@@ -391,6 +391,8 @@ int conv2d_engine(const data_t *in_fm, const data_t *wgt, const bias_t *bias,
                 int off_ocb = 0;
                 // k=3（12 字节对齐容器）的块基址递推：每块 +cin*12*OC_BLOCK
                 int off_ocb12 = 0;
+                // k=5（28 字节对齐容器）的块基址递推：每块 +cin*28*OC_BLOCK
+                int off_ocb28 = 0;
                 for (int ocb = 0; ocb < cout; ocb += OC_BLOCK) {
                     const int ocbl = (cout - ocb < OC_BLOCK) ? (cout - ocb) : OC_BLOCK;
 
@@ -492,6 +494,42 @@ int conv2d_engine(const data_t *in_fm, const data_t *wgt, const bias_t *bias,
                         }
 #endif
                     } else {   // ksize == 5（ksize 已被上界校验限制为 1/3/5）
+#if K5_PAD28
+                        /* ---- k=5 权重装载加宽：容器按 28 字节/（oc,ic）补齐 ----
+                           导出侧把每个 (oc,ic) 的 25 个抽头**紧排在前 25 字节**、
+                           再补 3 个 0，凑成 7 个 32-bit 字（抽头 k 在第 k>>2 个
+                           字的第 k&3 字节），于是
+                             · 起点 (oc·cin+ic)·28 恒 4 字节对齐 ⇒ 没有回退路径；
+                             · 一笔逻辑 burst = 28 字节（7 个字），原来是 25 笔
+                               单字节事务（ARLEN=1）；
+                             · 写侧仍是 25 个**编译期常量** bank（wgt_buf 的
+                               dim3/dim4 完全拆分，与改造前逐字相同）⇒ 计算路径的
+                               DSP/FF/LUT 不变，II 也不会退化。
+                           与 k=3 的 12 字节容器是同一招，详见
+                           docs/设计/记录_20261023_k5权重装载宽读.md。 */
+                        const int cin28 = cin * 28;
+                        int off = off_ocb28;            // = ocb*cin*28（递推）
+                        for (int i = 0; i < ocbl; ++i, off += cin28) {
+                            const w32_t *pw =
+                                reinterpret_cast<const w32_t *>(wgt + off);
+                            HLS_PRAGMA(HLS PIPELINE II=1)
+                            for (int ic = 0; ic < cin; ++ic) {
+                                // 容器内字节序：抽头 k = ky*5+kx 落在第 (k>>2)
+                                // 个字的第 (k&3) 字节；k=25..27 是补零。
+                                HLS_PRAGMA(HLS UNROLL)
+                                for (int ky = 0; ky < 5; ++ky) {
+                                    HLS_PRAGMA(HLS UNROLL)
+                                    for (int kx = 0; kx < 5; ++kx) {
+                                        const int kk = ky * 5 + kx;
+                                        const w32_t wv = pw[7 * ic + (kk >> 2)];
+                                        wgt_buf[i][ic][ky][kx] =
+                                            (data_t)(wv >> (8 * (kk & 3)));
+                                    }
+                                }
+                            }
+                        }
+#else
+                        /* ---- 基线（K5_PAD28=0）：每 ic 逐字节读 25 个抽头 ---- */
                         int off = off_ocb;
                         for (int i = 0; i < ocbl; ++i, off += cin_kk) {
                             const data_t *wp = wgt + off;
@@ -506,9 +544,11 @@ int conv2d_engine(const data_t *in_fm, const data_t *wgt, const bias_t *bias,
                                 }
                             }
                         }
+#endif
                     }
                     off_ocb += cin_kk * OC_BLOCK;       // 下一 OC 块的起始偏移
                     off_ocb12 += cin * 12 * OC_BLOCK;   // 同上（k=3 的 12 字节容器）
+                    off_ocb28 += cin * 28 * OC_BLOCK;   // 同上（k=5 的 28 字节容器）
 
 #if FUSE_SUM
                     // ECA 融合：本 OC 块在本行的每通道累加和（寄存器，跨 x2 累加，

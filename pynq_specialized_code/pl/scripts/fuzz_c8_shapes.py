@@ -37,6 +37,9 @@ TB_CHW = os.path.join(ROOT, "build", "tb_engine_c8_chw.exe")
 WORK = os.path.join(ROOT, "build", "fuzz_c8_data")
 C8LIB = os.path.join(REPO, "pynq_specialized_code", "ps", "c8")
 
+# 每个 (oc,ic) 的权重容器字节数（与 conv2d_engine.h 的 K3_PAD12 / K5_PAD28 对应）
+WC = {1: 1, 3: 12, 5: 28}
+
 sys.path.insert(0, C8LIB)
 import c8lib  # noqa: E402  （仓库里已归档的软件实现，逐位验证过 517 算子）
 
@@ -59,8 +62,8 @@ def write_case(d, cin, cout, k, h, w, shift, seed):
     with open(os.path.join(d, "input_c8.bin"), "wb") as f:
         f.write(c8.tobytes(order="C"))
     with open(os.path.join(d, "weight.bin"), "wb") as f:
-        # k=3 的权重容器是 12 字节/(oc,ic)（9 个抽头 + 3 个零，K3_PAD12=1）
-        n_w = cout * cin * (12 if k == 3 else k * k)
+        # k=3 / k=5 的权重容器是 12 / 28 字节每 (oc,ic)（K3_PAD12 / K5_PAD28=1）
+        n_w = cout * cin * WC[k]
         f.write(bytes(bytearray(rng.randint(-128, 127) & 0xFF
                                 for _ in range(n_w))))
     bias = [rng.randint(-100000, 100000) for _ in range(cout)]

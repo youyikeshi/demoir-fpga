@@ -38,7 +38,8 @@ EN_F, EN_I, DE_F, DE_I = 48, 32, 64, 32
 
 
 from img_io import load_image_np        # noqa: E402  （读图拆出去：不依赖 torch）
-from ref_numpy import k3_to_pad12, W_LAYOUT_K3_PAD12, W_LAYOUT_OCIC  # noqa: E402
+from ref_numpy import (k3_to_pad12, k5_to_pad28, W_LAYOUT_K3_PAD12,  # noqa: E402
+                       W_LAYOUT_K5_PAD28, W_LAYOUT_OCIC)
 
 
 def load_image(path, h, w, crop="center", allow_resize=False):
@@ -391,10 +392,15 @@ def main():
             # 3 个 32-bit 字 ⇒ 容器起点 (oc*cin+ic)*12 恒 4 字节对齐，
             # PL 装载一拍读一个字（事务数 ÷9、每笔 12 字节）。
             # 数值语义不变（补的是零），所以 ref_out.bin / 板上 md5 不变；
-            # 代价是 k=3 权重 ×4/3。k=1/k=5 容器不变（[oc][ic][k][k]）。
+            # 代价是 k=3 权重 ×4/3。k=1 容器不变（[oc][ic][1][1]）；k=5 见下。
+            # ---- k=5 的 28 字节容器（2026-10-23 第五轮，同一招）----
+            # 25 个抽头紧排 + 3 个零 = 7 个 32-bit 字 ⇒ 起点恒 4 字节对齐。
             if op["k"] == 3:
                 w_out = k3_to_pad12(w_q)
                 w_layout = W_LAYOUT_K3_PAD12
+            elif op["k"] == 5:
+                w_out = k5_to_pad28(w_q)
+                w_layout = W_LAYOUT_K5_PAD28
             else:
                 w_out = w_q
                 w_layout = W_LAYOUT_OCIC

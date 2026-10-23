@@ -16,7 +16,8 @@ import numpy as np
 import sys
 sys.path.insert(0, os.path.abspath(os.path.join(
     os.path.dirname(os.path.abspath(__file__)), "..", "pynq")))
-from ref_numpy import k3_to_pad12, W_LAYOUT_K3_PAD12, W_LAYOUT_OCIC  # noqa: E402
+from ref_numpy import (k3_to_pad12, k5_to_pad28, W_LAYOUT_K3_PAD12,
+                       W_LAYOUT_K5_PAD28, W_LAYOUT_OCIC)  # noqa: E402
 
 
 def build_mock_pack(manifest_path, out_dir, seed=1234, w_abs=8, b_abs=1000):
@@ -44,9 +45,12 @@ def build_mock_pack(manifest_path, out_dir, seed=1234, w_abs=8, b_abs=1000):
             cin, cout, k = op["cin"], op["cout"], op["k"]
             w = rng.integers(-w_abs, w_abs + 1, size=(cout, cin, k, k)).astype(np.int8)
             b = rng.integers(-b_abs, b_abs + 1, size=(cout,)).astype(np.int32)
-            # 容器：k=3 与 export_network.py 一致用 12 字节/(oc,ic)（9+3 零）
+            # 容器：与 export_network.py 一致 —— k=3 用 12 字节/(oc,ic)（9+3 零）、
+            # k=5 用 28 字节/(oc,ic)（25+3 零）
             if k == 3:
                 w_out, w_layout = k3_to_pad12(w), W_LAYOUT_K3_PAD12
+            elif k == 5:
+                w_out, w_layout = k5_to_pad28(w), W_LAYOUT_K5_PAD28
             else:
                 w_out, w_layout = w, W_LAYOUT_OCIC
             w_off = put(w_out.tobytes())

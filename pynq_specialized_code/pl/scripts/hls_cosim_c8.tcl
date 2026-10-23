@@ -24,6 +24,8 @@ set proj_dir [file normalize "$root/$tag"]
 # /data/work/c8_old_src 复跑同一测试台），排查"拍数变化是源码还是测试台造成的"。
 if {[info exists ::env(SRC_DIR)]} { set src_dir [file normalize $::env(SRC_DIR)] }
 set cflags   "-DUSE_HLS_TYPES -I$src_dir -DC8_LAYOUT=1"
+# EXTRA_CFLAGS：A/B 对照用（例如 -DK5_PAD28=0 复跑同一测试台拿基线拍数）
+if {[info exists ::env(EXTRA_CFLAGS)]} { append cflags " " $::env(EXTRA_CFLAGS) }
 
 # 既有的坑：depth= 与数据集不符时，C 测试台会少载/少写数据，报出来却是
 # "C/RTL co-simulation FAIL / 不一致 N/N"。add_files 之前先对账，对不上直接中止。
@@ -31,7 +33,7 @@ if {[info exists ::env(TB_DATA)]} {
     set dimchk [file join $here "check_cosim_dims.py"]
     if {[file exists $dimchk]} {
         if {[catch {exec python3 $dimchk --cpp $src_dir/conv2d_engine.cpp \
-                         --data $::env(TB_DATA) 2>@1} msg]} {
+                         --data $::env(TB_DATA) --c8-pad 1 2>@1} msg]} {
             puts $msg
             error "cosim 中止：AXI depth= 与数据集不一致（见上表）。先跑 check_cosim_dims.py --write"
         }

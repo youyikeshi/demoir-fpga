@@ -18,12 +18,17 @@ ROOT = os.path.abspath(os.path.join(HERE, ".."))
 TB = os.path.join(ROOT, "build", "tb_engine.exe")
 WORK = os.path.join(ROOT, "build", "fuzz_data")
 
+# 每个 (oc,ic) 的权重容器字节数：k=3 → 12（9+3 零）、k=5 → 28（25+3 零），
+# 其余仍是 k*k。与 conv2d_engine.h 的 K3_PAD12 / K5_PAD28 一一对应。
+WC = {1: 1, 3: 12, 5: 28}
+
 
 def write_case(d, cin, cout, k, h, w, shift, seed):
     os.makedirs(d, exist_ok=True)
     rng = random.Random(seed)
-    # k=3 的权重容器是 12 字节/(oc,ic)（9 个抽头 + 3 个零，K3_PAD12=1）
-    n_in, n_w = cin * h * w, cout * cin * (12 if k == 3 else k * k)
+    # k=3 / k=5 的权重容器是 12 / 28 字节每 (oc,ic)（9+3 / 25+3 个零，
+    # K3_PAD12=1 / K5_PAD28=1，见 conv2d_engine.h）
+    n_in, n_w = cin * h * w, cout * cin * WC[k]
     with open(os.path.join(d, "input.bin"), "wb") as f:
         f.write(bytes(bytearray(rng.randint(-128, 127) & 0xFF
                                 for _ in range(n_in))))

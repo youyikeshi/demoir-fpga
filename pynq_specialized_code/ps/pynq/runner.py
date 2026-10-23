@@ -37,11 +37,16 @@ try:
     import lut_util
     import c8_layout                   # C8 布局判定/分配（2026-10-23）
     import ref_numpy                   # 权重布局标签（k3_plane）/ 金标准 conv
+    import i8_fast                     # int8 拷贝/重定标的 C 内核（可选）
 except ImportError:                    # 仓库里作为 pynq 包时
     from . import pp_ops
     from . import lut_util
     from . import c8_layout
     from . import ref_numpy
+    try:
+        from . import i8_fast
+    except ImportError:
+        i8_fast = None
 
 
 def _env_flag(name):
@@ -57,6 +62,26 @@ def load_pack(pack_dir):
     with open(os.path.join(pack_dir, "weights.bin"), "rb") as f:
         blob = f.read()
     return index, blob
+
+
+def _rescale_pairs(manifest, scales, alias=None):
+    """整网会用到重定标的 (s_from, s_to) 对（预热用）。
+
+    口径取 cat/add/sam_sum 三类汇合算子的输入→输出；alias 组里的 direct/copy
+    段都按这条口径走，所以这就是 `_req` 一族实际会请求的全部组合。
+    """
+    pairs = set()
+    for op in manifest["ops"]:
+        if op["op"] not in ("cat", "add", "sam_sum"):
+            continue
+        so = scales.get(op["out"][0])
+        if so is None:
+            continue
+        for t in op["in"]:
+            st = scales.get(t)
+            if st is not None and float(st) != float(so):
+                pairs.add((float(st), float(so)))
+    return pairs
 
 
 def _w_b(index, blob, key):
@@ -707,6 +732,18 @@ class Runner:
         self.profile_ops = None # 计时用：设成 list 后逐算子记录 (id, name, op, 秒)
         self.hashlog = None     # 调试用：设成 list 后逐算子记录 (name, op, shape, sha1)
         self._luts = {}         # 标度重定标查找表缓存：键 = (s_from, s_to)
+        self._plans = {}        # 同一对标的“怎么重定标”计划缓存（affine / lut）
+        self._fast_on = (i8_fast is not None and i8_fast.available())
+        self.n_fast_calls = 0   # 诊断：走了多少次 C 内核
+        # 一次性把所有 (s_from,s_to) 的"怎么重定标"批量算好（Q15 拟合 + 256 项
+        # 逐项验证）。不预热的话每一对第一次用到时要 4.2 ms，整网 399 对
+        # ⇒ 1.7 s 的一次性开销（实测 cat 3.6 s 里有 1.7 s 是它）。
+        if self._fast_on:
+            self.plan_stat = lut_util.warm_plans(
+                _rescale_pairs(self.m, self.scales, self.alias))
+        else:
+            self.plan_stat = {}
+        self._plans = lut_util._PLAN_CACHE if self._fast_on else {}
         self._fuse_skips = 0    # 调试/验证用：cat 分支实际跳过重定标的段数
         self._fuse_sums = 0     # 调试/验证用：ECA 分支实际用 chsum 代替扫描的次数
         self._fuse_plan_n = 0   # 调试/验证用：conv→cat 配对数
@@ -766,18 +803,85 @@ class Runner:
         """同一个表的 numpy 视图（个别地方需要数组形式）。"""
         return np.frombuffer(self._lut(s_from, s_to), dtype=np.int8)
 
-    def _req(self, t, s_from, s_to):
-        """把 int8 张量从 s_from 标度重定标到 s_to（相等时为恒等）。
+    def _plan(self, s_from, s_to):
+        """重定标计划：('affine', A, S, C) 或 ('lut', 256 字节表)。
 
-        2026-10-21：由"numpy 花式索引查表"改成 `bytes.translate`——后者是
-        CPython 的 C 实现（字节映射循环），在 Cortex-A9 上比 numpy 的 gather
-        快数倍（板端 cat 的重定标原本 27 s）。
+        affine 与查表**逐位等价**（`lut_util.fit_affine` 对全部 256 个 int8
+        逐项验证过才返回），只是快得多：查表在 A9 上要 8 次 vtbl+选择，
+        实测 62 MB/s（算力受限），仿射路线直接跑满内存带宽。
+        """
+        key = (s_from, s_to)
+        p = self._plans.get(key)
+        if p is None:
+            p = lut_util.rescale_plan(s_from, s_to)
+            self._plans[key] = p
+        return p
+
+    def _req(self, t, s_from, s_to):
+        """把 int8 张量从 s_from 标度重定标到 s_to（相等时为恒等），返回新数组。
+
+        2026-10-21：由"numpy 花式索引查表"改成 `bytes.translate` 快数倍；
+        2026-10-23（第六轮）：板端实测 translate 只有 69 MB/s、整条 `_req`
+        42.8 MB/s，而同一块内存 memcpy 是 183 MB/s ⇒ 改成 C 内核：
+           · affine：y = sat8((x*A+C)>>S)（逐位等价，264 MB/s 量级）
+           · 兜底：256 项表查表（同样逐位等价）
+        非 ARM / 无 cc 时静默回落原 numpy 路径。
         """
         if s_from == s_to:
             return t
+        src = np.ascontiguousarray(t)
+        out = np.empty(src.shape, np.int8)
+        if self._fast_on and src.flags.c_contiguous:
+            self._req_into_buf(out, src, s_from, s_to)
+            return out
         tbl = self._lut(s_from, s_to)
-        return np.frombuffer(np.ascontiguousarray(t).tobytes().translate(tbl),
-                             dtype=np.int8).reshape(t.shape)
+        return np.frombuffer(src.tobytes().translate(tbl),
+                             dtype=np.int8).reshape(src.shape)
+
+    def _req_into_buf(self, dst, src, s_from, s_to):
+        """把 src（C 连续）重定标写进 dst（C 连续、同长）。内核不可用时抛错。"""
+        plan = self._plan(s_from, s_to)
+        if plan[0] == "q15":
+            i8_fast.q15_into(dst, src, plan[1], plan[2])
+        elif plan[0] == "affine":
+            i8_fast.scale_into(dst, src, plan[1], plan[2], plan[3])
+        else:
+            i8_fast.lut_into(dst, src, np.frombuffer(plan[1], dtype=np.int8))
+        self.n_fast_calls += 1
+
+    def _req_into(self, dst, src, s_from, s_to):
+        """重定标并**写进已存在的 dst**（cat 的 copy 段用，省一次临时数组）。
+
+        要求 dst/src 都是 C 连续且元素数相同；否则退回 `dst[...] = _req(...)`。
+        """
+        if s_from == s_to:
+            if self._fast_on and dst.flags.c_contiguous and src.flags.c_contiguous:
+                i8_fast.copy_into(dst, src)
+                self.n_fast_calls += 1
+            else:
+                dst[...] = src
+            return
+        if (self._fast_on and dst.flags.c_contiguous
+                and src.flags.c_contiguous and dst.size == src.size):
+            self._req_into_buf(dst, src, s_from, s_to)
+            return
+        dst[...] = self._req(src, s_from, s_to)
+
+    def _req_ip(self, v, s_from, s_to):
+        """**原地**重定标（cat 的 direct 段用：数据已经在组缓冲的目标位置上）。"""
+        if s_from == s_to:
+            return
+        if (self._fast_on and v.flags.c_contiguous and v.flags.writeable):
+            plan = self._plan(s_from, s_to)
+            if plan[0] == "q15":
+                i8_fast.q15_ip(v, plan[1], plan[2])
+            elif plan[0] == "affine":
+                i8_fast.scale_ip(v, plan[1], plan[2], plan[3])
+            else:
+                i8_fast.lut_ip(v, np.frombuffer(plan[1], dtype=np.int8))
+            self.n_fast_calls += 1
+            return
+        v[...] = self._req(v, s_from, s_to)
 
     def _plan_fuse(self):
         """规划"卷积出口直接写目标标度"（FUSE_OUT 融合出口）。
@@ -1137,11 +1241,13 @@ class Runner:
                             # C8 别名组已保证——见 compute_cat_alias）
                             c = self._logical_c(n)
                             dst = c8_layout.ch_slice(out, out8, off, c)
-                            dst[...] = self._req(A.view(n), sn, s_out)
+                            # 2026-10-23 第六轮：直接写进 dst（一次读写），
+                            # 不再"造临时数组再整体赋值"（原来 3 遍内存）。
+                            self._req_into(dst, A.view(n), sn, s_out)
                         elif sn != s_out:
-                            v = A.view(n)
-                            v[...] = np.frombuffer(v.tobytes().translate(
-                                self._lut(sn, s_out)), dtype=np.int8).reshape(v.shape)
+                            # direct 段：生产者已经把数据写在这个位置上，
+                            # 只需**原地**重定标（一次读写）。
+                            self._req_ip(A.view(n), sn, s_out)
                 # C8：非别名路径统一交给 ops_c8.cat（段通道数都对齐 8 时是块级
                 # 拼接，只搬字节、零通道重排；有不对齐的段则由它回退 CHW）。
                 elif self.c8:
@@ -1197,7 +1303,14 @@ class Runner:
                         out8 = self._is_c8(o0)
                         a = c8_layout.as_layout(a, self._is_c8(op["in"][0]), out8)
                         b = c8_layout.as_layout(b, self._is_c8(op["in"][1]), out8)
-                    A.view(o0)[...] = ops.add(a, b)
+                    # 2026-10-23 第六轮：饱和相加改用 C 内核（VQADD.S8 一条指令），
+                    # 原来是 numpy 的 int16 相加 + clip（5 遍内存 + 2 份 int16 临时）。
+                    if (self._fast_on and a.flags.c_contiguous
+                            and b.flags.c_contiguous):
+                        out = A.view(o0)
+                        i8_fast.add_into(out, a, b)
+                    else:
+                        A.view(o0)[...] = ops.add(a, b)
             elif k == "eca":
                 # 2026-10-21：按通道分块算空间均值。原来把整块（144×320×320）
                 # astype 成 float32（59 MB 临时）再求均值；分块后临时数组只有

@@ -17,16 +17,26 @@
 这只影响**容器**（`w_shape=[cout,cin,12]`、`w_len=12*cout*cin`），语义不变：
 下面的 `conv_ref_numpy` 用 (cout,cin,3,3) 的旧形状照常算（`pad12` 里的 9 个
 有效字节就是它），所以 ref_out.bin / 板上 md5 都是同一串答案。
-k=1/k=5 的容器**不变**（[oc][ic][k][k]）。
+
+==== k=5 权重的"28 字节容器"（2026-10-23 第五轮）====
+同一个病、同一招：`encoder.conv_first` 是唯一的 5×5 层（5.40 s，占 conv 10%），
+每个 (oc,ic) 25 字节，25 不是 4 的倍数 ⇒ 装载只能逐字节（`ARLEN=1`）。
+现在把 25 个抽头紧排在前 25 字节、再补 3 个零，凑成 **28 字节 = 7 个 32-bit 字**：
+    offset(oc, ic, ky, kx) = (oc*cin + ic)*28 + ky*5 + kx
+代价只有体积 ×28/25（k=5 全网络只有 1 层，1.47 → 1.65 MB 量级）。
+k=1 的容器**不变**（[oc][ic][1][1]）。
 """
 import numpy as np
 
 # 布局标签（index.json 的 layers[key]["w_layout"]）：
 W_LAYOUT_OCIC = "oc_ic_ky_kx"    # 默认/旧容器 [oc][ic][ky][kx]
 W_LAYOUT_K3_PAD12 = "k3_pad12"   # 仅 k=3：[oc][ic][12]（9 个抽头 + 3 个零）
+W_LAYOUT_K5_PAD28 = "k5_pad28"   # 仅 k=5：[oc][ic][28]（25 个抽头 + 3 个零）
 
 K3_PAD = 12                      # 每个 (oc,ic) 的容器字节数
 K3_PAD_BYTES = 9                 # 其中有效的抽头字节数
+K5_PAD = 28                      # 每个 (oc,ic) 的容器字节数
+K5_PAD_BYTES = 25                # 其中有效的抽头字节数（5×5）
 
 
 def layout_of(entry):
@@ -68,15 +78,51 @@ def k3_from_pad12(w, cout=None, cin=None):
                                 .reshape(w.shape[0], w.shape[1], 3, 3))
 
 
+def k5_to_pad28(w):
+    """(cout,cin,5,5) int8 → (cout,cin,28) int8（C 连续，可直接写进 blob）。
+
+    25 个抽头紧排在前 25 字节、第 25~27 字节补 0 = 7 个 32-bit 字。
+    与 C 侧 `widx() = (oc*cin+ic)*28 + ky*5 + kx`、引擎装载循环同一定义。
+    """
+    w = np.asarray(w, dtype=np.int8)
+    cout, cin, k1, k2 = w.shape
+    assert k1 == 5 and k2 == 5, "k5_to_pad28 只接受 (cout,cin,5,5)"
+    out = np.zeros((cout, cin, K5_PAD), np.int8)
+    out[:, :, :K5_PAD_BYTES] = w.reshape(cout, cin, 25)
+    return np.ascontiguousarray(out)
+
+
+def k5_from_pad28(w, cout=None, cin=None):
+    """(cout,cin,28) → (cout,cin,5,5)（k5_to_pad28 的逆）。
+
+    允许传扁平 buffer 的视图；顺带校验补零的 3 个字节必须为 0。
+    """
+    w = np.asarray(w, dtype=np.int8)
+    if w.ndim == 1:
+        if cout is None or cin is None:
+            raise ValueError("k5_from_pad28: 扁平输入必须给 cout/cin")
+        w = w.reshape(cout, cin, K5_PAD)
+    assert w.shape[2] == K5_PAD, "k5_from_pad28 期望最后一维 %d，得到 %d" % (
+        K5_PAD, w.shape[2])
+    if np.any(w[:, :, K5_PAD_BYTES:]):
+        raise ValueError("k=5 权重容器的补零字节非 0：权重包坏了或布局不匹配")
+    return np.ascontiguousarray(w[:, :, :K5_PAD_BYTES]
+                                .reshape(w.shape[0], w.shape[1], 5, 5))
+
+
 def wgt_as_ocic(w, w_layout=W_LAYOUT_OCIC, k=None):
     """把容器里的权重统一成 (cout,cin,k,k)，供下面的数值计算使用。
 
-    只处理两种合法输入：旧容器的 4 维数组、k3_pad12 的 (cout,cin,12)。
-    其它形状直接报错（宁可炸掉，也别猜错下标 —— 猜错的后果是"两边一起错"）。
+    只处理三种合法输入：旧容器的 4 维数组、k3_pad12 的 (cout,cin,12)、
+    k5_pad28 的 (cout,cin,28)。其它形状直接报错（宁可炸掉，也别猜错下标 ——
+    猜错的后果是"两边一起错"）。
     """
     w = np.asarray(w)
-    if (w_layout or W_LAYOUT_OCIC) == W_LAYOUT_K3_PAD12:
+    lay = w_layout or W_LAYOUT_OCIC
+    if lay == W_LAYOUT_K3_PAD12:
         return k3_from_pad12(w)
+    if lay == W_LAYOUT_K5_PAD28:
+        return k5_from_pad28(w)
     if w.ndim == 4:
         return w
     raise ValueError("wgt_as_ocic: 布局 %s 期望 4 维 (cout,cin,k,k)，收到 %d 维"

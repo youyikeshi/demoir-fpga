@@ -6,6 +6,8 @@
 namespace {
 // k=3 权重容器的下标（2026-10-23 第四轮）：`K3_PAD12=1` 时每个 (oc,ic) 是
 // 12 字节（9 个抽头 + 3 个补零，第 q 个字的低 3 字节 = 抽头 3q..3q+2）。
+// k=5 同理（2026-10-23 第五轮，`K5_PAD28=1`）：28 字节（25 个抽头 + 3 个补零，
+// 第 q 个字的低 4 字节 = 抽头 4q..4q+3，最后一个字只用 1 字节）。
 // **参考实现必须与引擎的装载下标逐字一致**，否则 fuzz 只是"两边一起错"；
 // 更高一层的独立性由"重打包后 ref_out.bin 逐字节不变"保证。
 inline int widx(int ky, int kx, int oc, int ic, int cout, int cin, int ksize) {
@@ -13,6 +15,12 @@ inline int widx(int ky, int kx, int oc, int ic, int cout, int cin, int ksize) {
     if (ksize == 3) {
         (void)cout;
         return (oc * cin + ic) * 12 + ky * 3 + kx;
+    }
+#endif
+#if K5_PAD28
+    if (ksize == 5) {
+        (void)cout;
+        return (oc * cin + ic) * 28 + ky * 5 + kx;
     }
 #endif
     return ((oc * cin + ic) * ksize + ky) * ksize + kx;

@@ -276,9 +276,22 @@ def interp_c8_into(dst, src, num, den):
     a0w = _np.ascontiguousarray(i0w, _np.int32)
     a1w = _np.ascontiguousarray(i1w, _np.int32)
     aww = _np.ascontiguousarray(ww8, _np.int32)
-    fn(s.ctypes.data, d.ctypes.data, blocks, H, W, oH, oW,
-       a0h.ctypes.data, a1h.ctypes.data, awh.ctypes.data,
-       a0w.ctypes.data, a1w.ctypes.data, aww.ctypes.data)
+    # 2026-10-23 第六轮：优先用 i8_fast 的 NEON 版（8 通道一次，int16 车道，
+    # 无分支）—— 标量版每个输出像素要过 8 个通道的乘加 + 半值取偶分支，
+    # 板端约 1200 拍/像素，整网 26 次 interp 共 3.3 s。两者逐位相同（加载时
+    # i8_fast 会用标量版做 81 种权重 × 4096 组像素的自检，不一致就整块弃用）。
+    done = False
+    try:
+        import i8_fast as _i8f
+        if _i8f.available():
+            _i8f.interp(d, s, blocks, H, W, oH, oW, a0h, a1h, awh, a0w, a1w, aww)
+            done = True
+    except Exception:                            # noqa: BLE001
+        done = False
+    if not done:
+        fn(s.ctypes.data, d.ctypes.data, blocks, H, W, oH, oW,
+           a0h.ctypes.data, a1h.ctypes.data, awh.ctypes.data,
+           a0w.ctypes.data, a1w.ctypes.data, aww.ctypes.data)
     _np.copyto(dst.reshape(-1), d)
 
 

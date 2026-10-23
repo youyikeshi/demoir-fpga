@@ -97,7 +97,7 @@ def main():
     for op in m["ops"]:
         if op["op"] == "conv":
             shape_of[op["weights_key"]] = (op["cin"], op["cout"], op["k"])
-    n_k3 = 0
+    n_k3 = n_k5 = 0
     for k, e in layers.items():
         cin, cout, kk = shape_of.get(k, (0, 0, 0))
         lay = e.get("w_layout")
@@ -111,9 +111,26 @@ def main():
                             % (cout, cin, k, e["w_shape"]))
             if e["w_len"] != 12 * cout * cin:
                 errs.append("k=3 层 w_len 应为 12*cout*cin: %s" % k)
+        elif kk == 5:
+            n_k5 += 1
+            if lay != "k5_pad28":
+                errs.append("k=5 层缺 w_layout=k5_pad28: %s（用 "
+                            "ps/tools/repack_k5_pad28.py 重打包）" % k)
+            if list(e["w_shape"]) != [cout, cin, 28]:
+                errs.append("k=5 层 w_shape 应为 [%d,%d,28]: %s = %r"
+                            % (cout, cin, k, e["w_shape"]))
+            if e["w_len"] != 28 * cout * cin:
+                errs.append("k=5 层 w_len 应为 28*cout*cin: %s" % k)
         elif lay not in (None, "oc_ic_ky_kx"):
-            errs.append("非 k=3 层不该声明 w_layout=%s: %s" % (lay, k))
-    print("k=3 的 12 字节容器：%d 层全部声明 k3_pad12" % n_k3 if n_k3 else "无 k=3 层")
+            errs.append("非 k=3/k=5 层不该声明 w_layout=%s: %s" % (lay, k))
+    if n_k3:
+        print("k=3 的 12 字节容器：%d 层全部声明 k3_pad12" % n_k3)
+    else:
+        print("无 k=3 层")
+    if n_k5:
+        print("k=5 的 28 字节容器：%d 层全部声明 k5_pad28" % n_k5)
+    else:
+        print("无 k=5 层")
 
     # 7) 池规划
     pool_bytes, offs = plan_pool(m)
