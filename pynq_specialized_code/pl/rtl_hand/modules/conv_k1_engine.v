@@ -97,6 +97,7 @@ module conv_k1_engine #(
     input  logic [31:0] ctrl_h,
     input  logic [31:0] ctrl_w,
     input  logic        ctrl_start,
+    input  logic        ctrl_relu,     // 运行期 ReLU：1=clamp(v>>shift,0,127)，0=clamp(...,-128,127)
     output logic        ctrl_done,
     output logic        ctrl_busy
 );
@@ -561,7 +562,7 @@ module conv_k1_engine #(
             wire       lane_ok  = (lane_abs < cout_r);
             always_comb begin
                 if (!lane_ok)                   sat_b[gi] = 8'd0;
-                else if (RELU && shf[31])       sat_b[gi] = 8'd0;
+                else if (ctrl_relu && shf[31])  sat_b[gi] = 8'd0;   // 仅 ReLU 时砍负值
                 else if (shf > 32'sd127)        sat_b[gi] = 8'd127;
                 else if (shf < -32'sd128)       sat_b[gi] = 8'd128; // -128
                 else                            sat_b[gi] = shf[7:0];

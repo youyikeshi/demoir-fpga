@@ -53,7 +53,7 @@ def c8_pack(inp, cin, cin_pad, hw):
     return raw
 
 
-def gen_case(driver, d, cin, cout, H, W, shift, inp, wgt, bias):
+def gen_case(driver, d, cin, cout, H, W, shift, inp, wgt, bias, relu=1):
     os.makedirs(d, exist_ok=True)
     hw = H * W
     cin_pad = (cin + 7) // 8 * 8
@@ -67,13 +67,13 @@ def gen_case(driver, d, cin, cout, H, W, shift, inp, wgt, bias):
     open(os.path.join(d, "bias.bin"), "wb").write(
         b"".join(struct.pack("<i", int(bias[oc])) for oc in range(cout)))
     meta = {"cin": cin, "cout": cout, "k": 1, "s": 1, "d": 1, "pad": 0,
-            "H": H, "W": W, "relu": 1}
+            "H": H, "W": W, "relu": relu}
     open(os.path.join(d, "meta.json"), "w").write(
         json.dumps(meta, separators=(",", ":")) + "\n")
     open(os.path.join(d, "shift.txt"), "w").write("%d\n" % shift)
     r = subprocess.run(
         [driver, d, str(cin), str(cout), "1", "1", "1", "0", str(H), str(W),
-         str(shift), "1"],
+         str(shift), str(relu)],
         stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
     if r.returncode != 0:
         die("golden_driver 失败（%s）：\n%s" % (d, r.stdout))
@@ -97,7 +97,7 @@ def gen_diag(driver, out):
 
     def add(name, cin, cout, H, W, shift, inp, wgt, bias):
         man.append(gen_case(driver, os.path.join(out, name),
-                            cin, cout, H, W, shift, inp, wgt, bias))
+                            cin, cout, H, W, shift, inp, wgt, bias, relu=relu))
 
     # 1) bias -> lane/oc/字节序（input=weight=0）
     add("dbg_oc", 8, 64, 1, 1, 0, zeros(8, 1),
@@ -168,7 +168,7 @@ def gen_diag(driver, out):
 # ---------------------------------------------------------------------------
 # 真实形状（覆盖 132 个 k=1 层）：H=2,W=320（与现有 cosim 数据集同尺寸）
 # ---------------------------------------------------------------------------
-def gen_real(driver, out):
+def gen_real(driver, out, relu=1):
     rng = random.Random(20261023)
     man = []
 
@@ -190,7 +190,7 @@ def gen_real(driver, out):
         bias = [0 if val is not None else rng.randint(-100000, 100000)
                 for _ in range(cout)]
         man.append(gen_case(driver, os.path.join(out, name),
-                            cin, cout, H, W, shift, inp, wgt, bias))
+                            cin, cout, H, W, shift, inp, wgt, bias, relu=relu))
 
     add("k1_224x64", 224, 64)          # 最大时间块 19.4%
     add("k1_160x64", 160, 64)          # 10.6%
@@ -207,11 +207,39 @@ def gen_real(driver, out):
     print("real: %d cases -> %s/manifest.txt" % (len(man), out))
 
 
+# ---------------------------------------------------------------------------
+# relu=0（线性 + 有符号饱和）真实 conv_proj 形状
+# ---------------------------------------------------------------------------
+def gen_relu0(driver, out):
+    rng = random.Random(20261024)
+    man = []
+
+    def add(name, cin, cout):
+        H, W = 2, 320
+        hw = H * W
+        inp = [[rng.randint(-128, 127) for _ in range(hw)] for _ in range(cin)]
+        wgt = [[rng.randint(-128, 127) for _ in range(cin)] for _ in range(cout)]
+        bias = [rng.randint(-100000, 100000) for _ in range(cout)]
+        man.append(gen_case(driver, os.path.join(out, name),
+                            cin, cout, H, W, 7, inp, wgt, bias, relu=0))
+
+    add("k1_relu0_160x64", 160, 64)
+    add("k1_relu0_224x96", 224, 96)
+    add("k1_relu0_64x48",   64, 48)
+
+    with open(os.path.join(out, "manifest.txt"), "w") as f:
+        f.write("".join(d + "\n" for d in man))
+    print("relu0: %d cases -> %s/manifest.txt" % (len(man), out))
+
+
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--mode", choices=["diag", "real", "all"], default="all")
+    ap.add_argument("--mode", choices=["diag", "real", "relu0", "all"], default="all")
     ap.add_argument("--out", default="/tmp/k1_dbg", help="诊断 case 输出目录")
     ap.add_argument("--real-out", default="/tmp/k1_real", help="真实形状输出目录")
+    ap.add_argument("--relu-out", default="/tmp/k1_relu0", help="relu=0 真实形状输出目录")
+    ap.add_argument("--relu", type=int, choices=[0, 1], default=1,
+                    help="real 模式的 relu；relu0 模式恒为 0")
     ap.add_argument("--driver", default=DEFAULT_DRIVER)
     args = ap.parse_args()
     if not os.path.isfile(args.driver):
@@ -220,7 +248,9 @@ def main():
     if args.mode in ("diag", "all"):
         gen_diag(args.driver, args.out)
     if args.mode in ("real", "all"):
-        gen_real(args.driver, args.real_out)
+        gen_real(args.driver, args.real_out, relu=args.relu)
+    if args.mode in ("relu0", "all"):
+        gen_relu0(args.driver, args.relu_out)
 
 
 if __name__ == "__main__":

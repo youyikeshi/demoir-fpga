@@ -6,7 +6,7 @@
 > 契约：`docs/rtl_hand/00_SPEC_接口契约.md` §3
 > 依据：`docs/rtl_map/04_mac_array.md`（k=1 现状 16 车道 + 21 拍收尾）、
 > `docs/rtl_map/03_weight_path.md`（每 (y,列块,ocb) 重装 = 237 MB/全网）
-> 最后更新：2026-10-23 21:28（**未综合、未上板；xsim 由主控跑**）
+> 最后更新：2026-10-23 21:52（**未综合、未上板；xsim 由主控跑**）
 
 ---
 
@@ -19,6 +19,7 @@
 | 全网 k=1 估算 | `Σ H·W·⌈cout/32⌉·cin = 5.80e8` 拍 ⇒ **3.87 s @150 MHz / 5.80 s @100 MHz**，对比实测 27.486 s ⇒ **7.1× / 4.7×**（纯计算口径，未含 PS 路由/填充） |
 | DSP | **32**（不随 cout 涨；这是"32 车道 + 多 pass"的直接结果） |
 | **200 组 fuzz（契约 §5）** | ✅ **200/200 PASS**，8,192,000/8,192,000 字节，0 越界 / 0 unknown |
+| **运行期 ReLU（本次）** | ✅ 新增 `ctrl_relu` 输入，收尾按运行期值选 `clamp(v>>shift,0,127)` 或 `clamp(...,-128,127)`；**24 个 `*.conv_proj`（relu=False）现在可路由** ⇒ k=1 覆盖 **132/132 层**（此前 108/132） |
 | 综合 | **未做**；资源/时序都是估算，见 §6 |
 
 > v1 最初错 23.3%，根因是**两个 Verilog 自决定位宽 bug**（part-select 基址里的
@@ -115,8 +116,18 @@
 `04_mac_array.md` §4.3：HLS 的 21 拍来自 `LOOP_730_36`（trip=16 的流水循环）。
 本版 32 路并行：**最后一块拍直接算 `sum27 = acc_e + acc_o + prod_b`**（两条奇偶链
 + 最后一个乘积一次加完，总数与 parity 无关），下一拍 `+bias`，再组合地
-`>>>shift/ReLU/sat8` 并推入输出队列。固定 **2 级收尾**，且与下一块重叠
+`>>>shift` + **运行期 ReLU/饱和**并推入输出队列。固定 **2 级收尾**，且与下一块重叠
 （下一块在上一块最后乘积后 1 拍就开始发射）。
+
+运行期 ReLU 的饱和：
+```verilog
+relu_run = ctrl_relu;                       // 1: clamp(v>>shift, 0, 127)
+if (relu_run && shf[31]) sat = 0;           // 0: 不砍负值，只做有符号饱和
+else if (shf > 127)      sat = 127;
+else if (shf < -128)     sat = -128;
+else                     sat = shf[7:0];
+```
+代价只有每 lane 一个 2 输入 AND（~32 LUT），DSP/BRAM/FF 不变。
 
 > 2026-10-23 的第二版把原来的 `ep_e/ep_o` 快照 + E1 合并这一级删掉了：
 > 省 2×32×26 = 3,328 FF，收尾从 3 级降到 2 级，功能等价（39 例/黄金/200 fuzz
@@ -294,6 +305,8 @@ FF **31,349**、DSP 33、BRAM 0、Fmax 162 MHz、CRITICAL 0。LUT 降了 10.5k�
 | **v1 回归（v2 代码）** | **39/39 + 40960/40960 + 82,561 拍**（0.155×）✅ |
 | **v2 真实形状 9 组** | **9/9 PASS，440,320/440,320 字节**；拍数见表 §4.1（288,721 / 206,257 / 267,667 / 494,923 / 247,657 / 226,831 ×3 边界）✅ |
 | **200 组 fuzz（v1 形状）** | **200/200 PASS，8,192,000/8,192,000 字节**，82,561 拍/组 ✅ |
+| **runtime ReLU 回归（relu=1）** | **39/39 + 40960/40960 + 9/9（440320/440320）** 全过 ✅ |
+| **relu=0 真实 conv_proj 3 组** | **3/3 PASS，133,120/133,120 字节**：(160,64) 206,255 拍、(224,96) 433,072 拍、(64,48) 82,409 拍 ✅ |
 | AXI 越界 / unknown | 0 / 0 ✅ |
 
 ### 7.2 未跑（本版 v2 的验收清单）
@@ -307,6 +320,8 @@ cd pynq_specialized_code/pl/rtl_hand
 ./tools/run_module.sh conv_k1_engine k1_64x64 --fuzz-manifest /tmp/k1_real/manifest.txt
 # 2) 200 组 fuzz（v1 形状）：已跑，200/200 + 8192000/8192000
 ./tools/run_module.sh conv_k1_engine k1_64x64 --fuzz 200
+# 3) relu=0（线性 + 有符号饱和）真实 conv_proj 形状：待跑
+./tools/run_module.sh conv_k1_engine k1_64x64 --fuzz-manifest /tmp/k1_relu0/manifest.txt
 ```
 
 > v2 的 9 组真实形状：`k1_224x64 / 160x64 / 208x48 / 256x96 / 64x192 / 352x32`
@@ -322,7 +337,10 @@ cd pynq_specialized_code/pl/rtl_hand
    留给上板前的一次性长跑。
 2. **cin 必须是 8 的倍数、cin ≥ 8**：权重按 `cin/8` 个 64-bit 字整读。全网络
    132 个 k=1 层已核对满足；但不是架构保证。
-3. **RELU 编译期**：线性 k=1 层需要 `RELU=0` 重新综合一版（契约没有 relu 端口）。
+3. **RELU 现在是运行期**：`ctrl_relu` 输入（1=ReLU，0=线性+有符号饱和）。
+   TB 侧由 golden `meta.json` 的 `relu` 字段驱动（共享 TB 读成 `tb_relu`，
+   模板里 `ctrl_relu = (tb_relu != 0)`），**不需要新的 plusarg**；
+   wrapper 侧是 0x70 寄存器 bit0，复位值 = 编译期参数 `RELU`（默认 1，向后兼容）。
 4. **cout 尾块**：`cout` 非 8 倍数时最后组尾部写 0（契约允许 PS 不读）；
    `cout_pad` 之外不写。
 5. **单拍 8 B 写**：每个 oc 组一笔 AWLEN=0。320×320 层输出 6.55 MB，
@@ -431,9 +449,13 @@ px_sh[b][f_rd*7'd64 +: 64]      // f_rd(4b) × 7'd64(7b) ⇒ 结果 7 位
 ```bash
 cd pynq_specialized_code/pl/rtl_hand
 python3 tools/gen_k1_debug_cases.py --mode all \
-        --out /tmp/k1_dbg --real-out /tmp/k1_real
-# 产出 /tmp/k1_dbg/{dbg_*,manifest.txt} 和 /tmp/k1_real/{k1_*,manifest.txt}
+        --out /tmp/k1_dbg --real-out /tmp/k1_real \
+        --relu-out /tmp/k1_relu0
+# 产出 /tmp/k1_dbg/{dbg_*,manifest.txt}、/tmp/k1_real/{k1_*,manifest.txt}
+#     以及 /tmp/k1_relu0/{k1_relu0_*,manifest.txt}（relu=0，3 组真实 conv_proj 形状）
 ```
+`--mode relu0` 单独生成 relu=0 的 3 组：`k1_relu0_160x64`、`k1_relu0_224x96`、
+`k1_relu0_64x48`（meta 里 `"relu":0`，期望按 `clamp(v>>shift,-128,127)` 算）。
 
 k=3/k=5 可以照抄这个结构：`dbg_*` 每个 case 只放开一个维度（核 tap 位置、
 cin/cout 阶梯、bank、字节序、组号……），失败时按表逐条排除。
@@ -459,7 +481,7 @@ cin/cout 阶梯、bank、字节序、组号……），失败时按表逐条排�
 | 项 | 偏差 | 理由 |
 |---|---|---|
 | 运行期形状 | 实现为运行期 `ctrl_cin/cout/h/w`，编译期参数是上界 | 契约 §3 允许；PS 按层选 IP |
-| RELU | 编译期参数，无 `ctrl` 位 | 契约端口没有 relu；不擅自加端口 |
+| RELU | 新增运行期输入 `ctrl_relu`（契约 §3 原表没有此端口） | 24 个 conv_proj 是 relu=False，必须运行期可配；参数 `RELU` 退化为 wrapper 复位默认值 |
 | 输出写 | 单拍 8 B（AWLEN=0），不是 burst | 第一版优先正确性；带宽已重叠，见 §8.5 |
 | 权重读 | 只支持 `cin%8==0` | 64-bit 整字装；全网络 k=1 层满足 |
 | 权重 ping-pong | v2 改为单 bank + pass 间重装 | 装载只占 pass 的 0.004%；v1 双 bank 的收益同量级，简化后省一半权重 LUTRAM |
@@ -499,6 +521,8 @@ docs/rtl_hand/conv_k1_engine.md                              # 本文件
 | 21:1x | 第三轮综合：LUT 23,493、FF 31,349、DSP 33、BRAM 0、Fmax 162；异步读未推断成 RAM |
 | 21:2x | **像素 RAM 改同步读+预取 `p_word_q`**；lane 加 `keep_hierarchy`；预期 FF≈15k、LUT≈7–8k |
 | 21:17 | 39 例抓出 **cin=8 单 beat 同拍写读**边界（dbg_oc 31/64、dbg_pix64 32/1024）；加 group0 旁路修复 |
+| 21:52 | **RELU 运行期化**：新增 `ctrl_relu`；TB 由 meta 的 `relu` 字段驱动；生成 3 组 relu=0 真实 conv_proj 黄金；覆盖率 132/132 |
+| 21:50 | relu=1 回归（39/黄金/9 形状）全过；**relu=0 3/3 全过**（133120/133120）|
 
 ---
 

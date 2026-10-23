@@ -26,6 +26,11 @@ module tb_conv_k1_engine;
     `define TB_MODULE_NAME "conv_k1_engine"
     `include "tb_common_tasks.vh"
 
+    // 运行期 ReLU：由 golden 的 meta.json 的 relu 字段（共享 TB 读入 tb_relu）驱动。
+    // 所以 relu=0 的用例只需要 meta.json 里 "relu":0，不需要新的 plusarg。
+    logic ctrl_relu;
+    assign ctrl_relu = (tb_relu != 0);
+
     conv_k1_engine #(
         .CIN(64), .COUT(64), .W(320), .H(320),
         .PAD(0), .STRIDE(1), .DIL(1), .RELU(1'b1),
@@ -59,6 +64,7 @@ module tb_conv_k1_engine;
         .ctrl_bias_addr(ctrl_bias_addr), .ctrl_out_addr(ctrl_out_addr),
         .ctrl_shift(ctrl_shift),       .ctrl_cin(ctrl_cin),
         .ctrl_cout(ctrl_cout),         .ctrl_h(ctrl_h), .ctrl_w(ctrl_w),
-        .ctrl_start(ctrl_start),       .ctrl_done(ctrl_done), .ctrl_busy(ctrl_busy)
+        .ctrl_start(ctrl_start),       .ctrl_relu(ctrl_relu),
+        .ctrl_done(ctrl_done),         .ctrl_busy(ctrl_busy)
     );
 endmodule

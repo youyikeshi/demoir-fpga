@@ -36,11 +36,15 @@ def main():
         (os.path.join(ovl, "design_1.bit"), "design_1.bit"),
         (os.path.join(ovl, "design_1.hwh"), "design_1.hwh"),
         (os.path.join(pynq, "test_on_board.py"), "test_on_board.py"),
+        # 单层 A/B：老 HLS 引擎 vs 新手写 K1 IP（逐字节对比，上板 bring-up 第一步）
+        (os.path.join(pynq, "test_k1_on_board.py"), "test_k1_on_board.py"),
         (os.path.join(pynq, "run_network_on_board.py"), "run_network_on_board.py"),
         (os.path.join(pynq, "runner.py"), "runner.py"),
         (os.path.join(pynq, "ops_numpy.py"), "ops_numpy.py"),
         (os.path.join(pynq, "ref_numpy.py"), "ref_numpy.py"),
         (os.path.join(pynq, "conv_engine.py"), "conv_engine.py"),
+        # 手写 k=1 加速器驱动（USE_K1_IP=1 时才实例化；缺了它整网自动回退老引擎）
+        (os.path.join(pynq, "k1_engine.py"), "k1_engine.py"),
         # runner.py 在 import 期就依赖这几个（C8 布局表 + 256 项 LUT + v2 加速器）
         (os.path.join(pynq, "lut_util.py"), "lut_util.py"),
         (os.path.join(pynq, "c8_layout.py"), "c8_layout.py"),
@@ -91,6 +95,9 @@ def main():
   test_on_board.py               第一步自检：5 个单算子用例（含 v3 最坏形状 352×192）
   run_network_on_board.py        第二步：整网推理 + 与 ref_out.bin 对拍
   runner.py / ops_numpy.py / ref_numpy.py / conv_engine.py   运行库
+  k1_engine.py                   手写 k=1 加速器驱动（只有含 k1_wrap 的 bit 才有用；
+                                 --use-k1-ip / USE_K1_IP=1 启用，默认关）
+  test_k1_on_board.py            单层 A/B：老 HLS 引擎 vs K1，逐字节对比（bring-up）
   c8_layout.py / c8lib.py / ops_c8.py    C8 交错布局（环境变量 C8_LAYOUT=1 启用，
                                 默认 0 = 全部 CHW，行为与整合前逐位一致）
   pp_ops.py / pp_engine.py / lut_util.py  v2 层间算子加速器（--pp-ops 启用）
@@ -107,6 +114,12 @@ def main():
   3) sudo python3 run_network_on_board.py --manifest manifest_640.json \\
          --pack weights_pack --input weights_pack/input_q.bin --bit design_1.bit
      预期：“与部署参考对比: 0/N 不一致”
+  3b) 若 bit 里含 k1_wrap（新 k=1 IP），先做单层 A/B：
+         sudo python3 test_k1_on_board.py --bit design_1.bit \\
+             --manifest manifest_640.json --pack weights_pack
+      预期：“K1 单层 A/B: PASS（逐字节相同）”；再整网：
+         sudo python3 run_network_on_board.py --c8 --use-k1-ip ...
+      预期：summary 执行 108 层、0/N 不一致。详见 docs/部署/k1_IP上板验证清单.md
   4) 若第 3 步不一致：先 sudo python3 check_pack_ref.py --pack weights_pack
      看包本身是否完好（应该 0 差异），再查 PL 与内存池。
 

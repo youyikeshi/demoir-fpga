@@ -73,10 +73,38 @@ def main():
                          "引擎按 relu_en 的 bit2+bit3 声明位校验（缺一位即 "
                          "ERR_LAYOUT）。不给则读环境变量，默认关 = 全 CHW。"
                          "注意：全 CHW 只能配 C8_LAYOUT=0 的 bit。")
+    ap.add_argument("--use-k1-ip", action="store_true", default=None,
+                    help="把 k=1 卷积路由到新手写 IP（conv_k1_engine / "
+                         "k1_axi_wrap），等价于环境变量 USE_K1_IP=1。默认关："
+                         "出问题时一行环境变量即可回退老 HLS 引擎。"
+                         "**要求 C8_LAYOUT=1**（新 IP 是纯 C8 构建）。")
+    ap.add_argument("--k1-ip-name", default=None,
+                    help="BD 里 k1 从机的实例名（默认 k1_wrap，也读 K1_IP_NAME）")
+    ap.add_argument("--k1-fclk", type=float, default=None,
+                    help="K1 IP 所在时钟 MHz，仅用于超时估算（默认 150，或读 "
+                         "K1_IP_FCLK_MHZ）")
+    ap.add_argument("--k1-relu", type=int, choices=(0, 1), default=None,
+                    help="该 k1 bit 综合时的 RELU 参数（默认 1；只有 relu 值相同"
+                         "的层会路由。RELU=0 的 bit 才能吃下 conv_proj 线性层）")
+    ap.add_argument("--k1-plan", action="store_true",
+                    help="只预演 K1 路由（哪些层走新 IP / 哪些回退 / 为什么），"
+                         "不执行卷积、不写 K1 寄存器（仍会加载 overlay/分配 arena）")
     a = ap.parse_args()
     # C8 总开关必须在**构造 arena 之前**定下来（arena 按它决定分配/视图形状）
     if a.c8:
         os.environ["C8_LAYOUT"] = "1"
+    # K1 开关同理：必须在构造 PYNQEngine 之前
+    if a.use_k1_ip:
+        os.environ["USE_K1_IP"] = "1"
+    if a.k1_ip_name:
+        os.environ["K1_IP_NAME"] = str(a.k1_ip_name)
+    if a.k1_fclk:
+        os.environ["K1_IP_FCLK_MHZ"] = str(a.k1_fclk)
+    elif a.fclk:
+        # 超时估算跟实际 FCLK 走（--k1-fclk 可单独覆盖）
+        os.environ["K1_IP_FCLK_MHZ"] = str(a.fclk)
+    if a.k1_relu is not None:
+        os.environ["K1_IP_RELU"] = str(a.k1_relu)
 
     import json
     with open(a.manifest, "r", encoding="utf-8") as f:
@@ -116,7 +144,9 @@ def main():
         if parts[0] is None and parts[1] is None:
             ap.error("--fuse-offsets 的两个位置都是 none：没有可写的融合寄存器")
         fuse_offsets = (parts[0], parts[1])
-    engine = PYNQEngine(ol, index, blob, arena, fuse_offsets=fuse_offsets)
+    engine = PYNQEngine(ol, index, blob, arena, fuse_offsets=fuse_offsets,
+                        use_k1=(True if a.use_k1_ip else None),
+                        k1_ip_name=a.k1_ip_name)
     if fuse_offsets is not None:
         print("融合寄存器: out_lut=%s  chsum=%s"
               % ("None（不写）" if fuse_offsets[0] is None else hex(fuse_offsets[0]),
@@ -139,6 +169,24 @@ def main():
               % ("可用" if engine.fuse_out_ok else "本构建没有",
                  "可用" if engine.fuse_sum_ok else "本构建没有"))
 
+    # K1 IP 路由预演（--k1-plan）：只读、不碰硬件、不跑整网。
+    # 上板 bring-up 时先跑这个，确认"该走新 IP 的层真的会走"，再跑整网。
+    k1_plan = None
+    if a.k1_plan:
+        if not engine.use_k1 or engine.k1 is None:
+            print("K1 IP: 未接入（USE_K1_IP=%s）—— 路由预演没有意义"
+                  % ("1" if engine.use_k1 else "0"))
+            return
+        k1_plan = engine.k1_plan(r.ops)
+        n_r, n_c = len(k1_plan["routed"]), k1_plan["n_conv"]
+        print("K1 路由预演: %d/%d 个卷积走 K1 IP，%d 个回退老引擎"
+              "（未计 conv→cat/eca 融合规划，实际只会更少）"
+              % (n_r, n_c, n_c - n_r))
+        for why, n in sorted(k1_plan["reasons"].items(), key=lambda kv: -kv[1]):
+            ex = k1_plan["examples"].get(why) or []
+            print("  - %-56s %3d 层  例: %s" % (why, n, ", ".join(ex[:3]) or "-"))
+        return
+
     # v2 层间算子加速器（可选；--no-pp 可关掉做 A/B 对照）
     if not getattr(a, "no_pp", False):
         try:
@@ -153,10 +201,22 @@ def main():
         except Exception as e:                       # noqa: BLE001
             print("v2 层间算子加速器不可用（%s）：层间算子继续走 numpy" % e)
 
-    est = sum(engine.unit.estimate_seconds(o["h"], o["w"], o["cin"], o["cout"], o["k"], o["s"])
-              for o in r.ops if o["op"] == "conv")
-    print("预计卷积耗时 ≈ %.1f 分钟（150MHz cosim 校准 + 1.5× 余量；层间算子另计）"
-          % (est / 60.0))
+    if engine.use_k1 and engine.k1 is not None:
+        # 分开估算：走 K1 的层用 K1 理论拍数（快 ~7×），其余仍按老引擎
+        plan = k1_plan or engine.k1_plan(r.ops)
+        routed = set(o["id"] for o in plan["routed"])
+        est = sum((engine.k1.estimate_seconds if o["id"] in routed
+                   else engine.unit.estimate_seconds)(
+                       o["h"], o["w"], o["cin"], o["cout"], o["k"], o["s"])
+                  for o in r.ops if o["op"] == "conv")
+        print("预计卷积耗时 ≈ %.1f 分钟（K1 %d 层 / HLS %d 层；层间算子另计）"
+              % (est / 60.0, len(routed), r.n_conv - len(routed)))
+    else:
+        est = sum(engine.unit.estimate_seconds(o["h"], o["w"], o["cin"], o["cout"],
+                                              o["k"], o["s"])
+                  for o in r.ops if o["op"] == "conv")
+        print("预计卷积耗时 ≈ %.1f 分钟（150MHz cosim 校准 + 1.5× 余量；层间算子另计）"
+              % (est / 60.0))
 
     t0 = time.time()
     if a.profile:
@@ -170,6 +230,9 @@ def main():
     out, _ = r.run(img)
     dt = time.time() - t0
     print("整网完成: %.2fs（%d 个算子，%d 个卷积）" % (dt, len(r.ops), r.n_conv))
+    if engine.use_k1:
+        # 逐原因回退统计（A/B 时看这个判断"新 IP 到底接了几层"）
+        print(engine.k1_summary())
     if r.fuse_conv:
         print("融合出口统计: conv→cat %d 段（cat 跳过重定标 %d 段），"
               "conv→eca %d 段（ECA 跳过整块扫描 %d 次）"

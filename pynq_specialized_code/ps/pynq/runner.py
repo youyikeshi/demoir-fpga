@@ -48,6 +48,16 @@ except ImportError:                    # 仓库里作为 pynq 包时
     except ImportError:
         i8_fast = None
 
+# 手写 k=1 加速器驱动（2026-10-23）。单独 try：缺这个文件时 runner 仍可用，
+# 只是 USE_K1_IP 无法生效（构造 PYNQEngine 时打印警告并回退老引擎）。
+try:
+    import k1_engine
+except ImportError:                    # 仓库里作为 pynq 包时
+    try:
+        from . import k1_engine
+    except ImportError:
+        k1_engine = None
+
 
 def _env_flag(name):
     """环境变量开关：未设置 / 空 / 0 / false / off 都算关。"""
@@ -564,6 +574,73 @@ class RefEngine:
         self.arena.view(out_t)[...] = c8_layout.from_chw(y, out8)
 
 
+def k1_route_check(op, entry, c8_in, c8_out, out_lut=None, chsum=None,
+                   relu_capable=1, cin_max=None, cout_max=None):
+    """判断一层 conv 能否交给新手写 K1 IP；返回 ``(ok, reason)``。
+
+    纯函数（不碰硬件、不导入 pynq），本机可以对 manifest 全量预演。
+    硬约束与 ``k1_engine.check_supported`` **同一份实现**；这里额外补三条
+    **容器级**约束：
+
+      1. 权重必须是 ``[cout, cin, 1, 1]`` 的 ``oc_ic_ky_kx`` 连续字节，
+         且 ``w_len == cout*cin``（K1 RTL 的下标是 ``weight[oc*cin + ic]``，
+         不能有 PAD）；
+      2. bias 必须是 ``cout`` 个 int32；
+      3. 本层不能带 ``out_lut`` / ``chsum`` 融合（K1 wrapper 没有这两个出口）。
+
+    ``out_lut`` / ``chsum`` 传的是**本层实际要用的**融合缓冲（None = 不用）。
+    """
+    if k1_engine is None:
+        return False, "k1_engine 模块不可用"
+    if op.get("op") != "conv":
+        return False, "不是 conv"
+    # 先按核型分流：k=3/k=5 是另一条线（未来 conv_k3/k5），不要让它们掉进
+    # "权重容器不匹配"这种噪音原因里（否则每种形状刷一条 WARN）。
+    if int(op.get("k", 0)) != 1:
+        return False, "k=%s ≠ 1（本 IP 只做 1×1）" % (op.get("k"),)
+    if out_lut is not None:
+        return False, "本层启用 out_lut 融合（K1 IP 无该出口）"
+    if chsum is not None:
+        return False, "本层启用 chsum 融合（K1 IP 无该出口）"
+    if entry is None:
+        return False, "index.json 缺少该层权重记录"
+    ws = entry.get("w_shape")
+    wl = entry.get("w_layout") or "oc_ic_ky_kx"
+    try:
+        ws = [int(x) for x in ws]
+    except (TypeError, ValueError):
+        return False, "w_shape 非法：%r" % (ws,)
+    want = [int(op["cout"]), int(op["cin"]), 1, 1]
+    if wl != "oc_ic_ky_kx" or ws != want:
+        return False, ("权重容器不是 [cout,cin,1,1]/oc_ic_ky_kx"
+                       "（w_shape=%r w_layout=%s，应为 %r；K1 按 "
+                       "weight[oc][ic] 逐字节读）" % (ws, wl, want))
+    try:
+        blen = int(entry.get("b_len", -1))
+    except (TypeError, ValueError):
+        blen = -1
+    if blen != 4 * int(op["cout"]):
+        return False, ("bias 长度 %r ≠ 4*cout=%d（应为 int32×cout）"
+                       % (blen, 4 * int(op["cout"])))
+    try:
+        wlen = int(entry.get("w_len", -1))
+    except (TypeError, ValueError):
+        wlen = -1
+    if wlen != int(op["cout"]) * int(op["cin"]):
+        return False, ("w_len %r ≠ cout*cin=%d（K1 按 weight[oc][ic] 逐字节读，"
+                       "不能有 PAD）" % (wlen, int(op["cout"]) * int(op["cin"])))
+    extra = {}
+    if cin_max is not None:
+        extra["cin_max"] = int(cin_max)
+    if cout_max is not None:
+        extra["cout_max"] = int(cout_max)
+    return k1_engine.eligibility(
+        op["h"], op["w"], op["cin"], op["cout"], op["k"], op["s"], op["d"],
+        op["pad"], entry.get("shift"), relu=bool(op.get("relu", True)),
+        c8_in=c8_in, c8_out=c8_out, relu_capable=relu_capable,
+        hout=op.get("hout"), wout=op.get("wout"), **extra)
+
+
 class PYNQEngine:
     """上板真引擎：连续内存池 + Conv2dEngine 驱动（上板联调时启用）。
 
@@ -577,13 +654,46 @@ class PYNQEngine:
     # 支持卷积融合出口，前提是 bit 里真有对应端口且驱动构造时注入了偏移
     supports_fuse = True
 
-    def __init__(self, overlay, index, blob, arena, fuse_offsets=None):
+    def __init__(self, overlay, index, blob, arena, fuse_offsets=None,
+                 use_k1=None, k1_ip_name=None):
         import types
         from pynq import allocate
         from conv_engine import Conv2dEngine
         self.types = types
         self.index, self.arena = index, arena
         self.unit = Conv2dEngine(overlay, fuse_offsets=fuse_offsets)
+        # ---- 手写 k=1 加速器路由（2026-10-23）----
+        # 默认关：USE_K1_IP=1（或构造参数 use_k1=True）才尝试接入。
+        # 接入失败**只警告**、不阻断整网（全部层回退老 HLS 引擎）。
+        # 这样"新 IP 出问题"永远有一条 `USE_K1_IP=0` 的退路。
+        self.use_k1 = (_env_flag("USE_K1_IP") if use_k1 is None
+                       else bool(use_k1))
+        self.k1 = None
+        self.k1_calls = 0            # 实际交给 K1 IP 的层数
+        self.k1_seconds = 0.0        # K1 IP 上累计的墙钟时间
+        self.k1_skip_reasons = {}    # 回退原因 -> 层数
+        self.k1_skip_examples = {}   # 回退原因 -> 例（最多 3 个）
+        if self.use_k1:
+            if k1_engine is None:
+                print("WARN: USE_K1_IP=1 但 k1_engine.py 不可导入 → "
+                      "整网全部回退老 HLS 引擎", flush=True)
+            else:
+                try:
+                    self.k1 = k1_engine.K1Engine(overlay, ip_name=k1_ip_name)
+                    print("K1 IP: 已接入 %s" % self.k1.describe(), flush=True)
+                    print("K1 IP: 路由条件 k=1/s=1/d=1/pad=0、HOUT==H/WOUT==W、"
+                          "输入输出都是 C8、relu=%d、cin∈[8,%d] 且 %%8==0、"
+                          "cout∈[1,%d]、shift∈[1,31]"
+                          % (self.k1.relu_capable, self.k1.cin_max,
+                             self.k1.cout_max), flush=True)
+                    if not any((getattr(self.arena, "layout", None) or {}).values()):
+                        print("WARN: 当前 C8_LAYOUT=0，而 K1 IP 是纯 C8 构建 "
+                              "→ 所有层都会回退老引擎（先加 --c8 / "
+                              "C8_LAYOUT=1 再开 USE_K1_IP）", flush=True)
+                except Exception as exc:                   # noqa: BLE001
+                    print("WARN: USE_K1_IP=1 但 K1 IP 接入失败（%r）→ "
+                          "整网回退老 HLS 引擎" % (exc,), flush=True)
+                    self.k1 = None
         # 哪些融合出口真的可用（Runner 据此决定要不要规划对应链路）
         self.fuse_out_ok = bool(getattr(self.unit, "fuse_out_ok", False))
         self.fuse_sum_ok = bool(getattr(self.unit, "fuse_sum_ok", False))
@@ -631,17 +741,113 @@ class PYNQEngine:
         return self.types.SimpleNamespace(device_address=int(addr),
                                           physical_address=int(addr))
 
+    # ---------------- K1 IP 路由（2026-10-23）----------------
+
+    def _k1_route(self, op, c8_in, c8_out, out_lut=None, chsum=None):
+        """本层该不该走 K1 IP；返回 ``(bool, reason)``（不碰硬件）。"""
+        if not self.use_k1:
+            return False, "USE_K1_IP 未启用"
+        if self.k1 is None:
+            return False, "K1 IP 未接入"
+        e = self.index["layers"].get(op.get("weights_key"))
+        return k1_route_check(op, e, c8_in, c8_out, out_lut=out_lut,
+                              chsum=chsum,
+                              relu_capable=self.k1.relu_capable,
+                              cin_max=self.k1.cin_max,
+                              cout_max=self.k1.cout_max)
+
+    def _k1_note_skip(self, why, op):
+        """记录一次回退；同一原因只打印第一条（避免 132 行刷屏）。"""
+        n = self.k1_skip_reasons.get(why, 0)
+        self.k1_skip_reasons[why] = n + 1
+        ex = self.k1_skip_examples.setdefault(why, [])
+        desc = ("%s(H=%d,W=%d,cin=%d,cout=%d,relu=%s)"
+                % (op["name"], op["h"], op["w"], op["cin"], op["cout"],
+                   bool(op.get("relu", True))))
+        if n == 0:
+            print("WARN: K1 IP 回退老引擎（%s）—— 例: %s；后续同类不再打印"
+                  % (why, desc), flush=True)
+        if len(ex) < 3:
+            ex.append(desc)
+
+    def k1_plan(self, ops):
+        """跑整网前**预演**路由（不碰硬件、不执行卷积）。
+
+        返回 ``dict``：``routed`` = 会走 K1 的 op 列表；``reasons`` = 回退原因
+        -> 层数；``examples`` = 原因 -> 例。注意：这里还不知道 Runner 的
+        conv→cat / conv→eca 融合规划，所以是**上界**（开了融合会再少几层）。
+        """
+        from collections import Counter
+        routed = []
+        reasons = Counter()
+        examples = {}
+        n_conv = 0
+        for op in ops:
+            if op.get("op") != "conv":
+                continue
+            n_conv += 1
+            c8_in = (c8_layout.arena_is_c8(self.arena, op["in"][0])
+                     if op.get("in") else False)
+            c8_out = (c8_layout.arena_is_c8(self.arena, op["out"][0])
+                      if op.get("out") else False)
+            ok, why = self._k1_route(op, c8_in, c8_out)
+            if ok:
+                routed.append(op)
+            else:
+                reasons[why] += 1
+                examples.setdefault(why, []).append(op["name"])
+        return {"routed": routed, "reasons": dict(reasons),
+                "examples": examples, "n_conv": n_conv}
+
+    def k1_summary(self):
+        """一次整网跑完后的 K1 IP 路由小结（board 脚本打印用）。"""
+        if not self.use_k1:
+            return "K1 IP: 未启用（USE_K1_IP=0，全部走老 HLS 引擎）"
+        if self.k1 is None:
+            return "K1 IP: 已请求但接入失败（本次全部走老 HLS 引擎）"
+        n_skip = sum(self.k1_skip_reasons.values())
+        lines = ["K1 IP: 执行 %d 层（K1 累计 %.2fs），回退老引擎 %d 层"
+                 % (self.k1_calls, self.k1_seconds, n_skip)]
+        for why, n in sorted(self.k1_skip_reasons.items(),
+                             key=lambda kv: -kv[1]):
+            ex = self.k1_skip_examples.get(why) or ["-"]
+            lines.append("  - %-56s %3d 层  例: %s" % (why, n, ex[0]))
+        if self.k1_calls == 0 and n_skip:
+            lines.append("WARN: 一层都没走 K1 IP —— 检查 C8_LAYOUT/RELU/开关，"
+                         "不要以为已经提速")
+        return "\n".join(lines)
+
     def conv(self, in_t, out_t, op, out_lut=None, chsum=None):
         e = self.index["layers"][op["weights_key"]]
         waddr = int(self.wpool.device_address) + e["w_off"]
         baddr = int(self.wpool.device_address) + e["b_off"]
         self.n_calls += 1
+        # 布局位（2026-10-23）：relu_en 的 bit2/bit3 = 输入/输出是 C8。
+        # 逐张量判定（不能按层硬编码）：encoder.conv_first 是 12ch(CHW) 进 /
+        # 48ch(C8) 出，decoder_1.out_conv 是 C8 进 / 12ch(CHW) 出。
+        # C8_LAYOUT=0 时两个都是 False ⇒ 只写 bit0，与整合前逐位一致。
+        c8_in = c8_layout.arena_is_c8(self.arena, in_t)
+        c8_out = c8_layout.arena_is_c8(self.arena, out_t)
+
+        # ---- 路由判定：K1 新 IP 还是老 HLS 引擎（纯软件，不碰硬件）----
+        # 只有 k=1/s=1/d=1/pad=0、C8 输入输出、relu 与综合期一致、
+        # cin/cout/shift 在范围内、无融合出口、权重容器匹配时才会走新 IP。
+        # 任何一条不满足 ⇒ 自动回退老引擎并打印一次警告（不静默算错）。
+        route, why = self._k1_route(op, c8_in, c8_out,
+                                    out_lut=out_lut, chsum=chsum)
+
         if self.progress_every and (self.n_calls % self.progress_every == 0):
-            print("  [%d/%d] %-34s H=%d W=%d cin=%d cout=%d k=%d 预计 %.1fs"
+            if route and self.k1 is not None:
+                est = self.k1.estimate_seconds(op["h"], op["w"], op["cin"],
+                                               op["cout"], op["k"], op["s"])
+                tag = "K1"
+            else:
+                est = self.unit.estimate_seconds(op["h"], op["w"], op["cin"],
+                                                 op["cout"], op["k"], op["s"])
+                tag = "HLS"
+            print("  [%d/%d] %-34s H=%d W=%d cin=%d cout=%d k=%d %s 预计 %.2fs"
                   % (self.n_calls, self.n_layers or self.n_calls, op["name"],
-                     op["h"], op["w"], op["cin"], op["cout"], op["k"],
-                     self.unit.estimate_seconds(op["h"], op["w"], op["cin"],
-                                                op["cout"], op["k"], op["s"])),
+                     op["h"], op["w"], op["cin"], op["cout"], op["k"], tag, est),
                   flush=True)
         self.arena.flush()
         lut_buf = self._lut_buf(out_lut) if out_lut is not None else None
@@ -651,21 +857,69 @@ class PYNQEngine:
             f = getattr(chsum, "flush", None)
             if f is not None:
                 f()
-        # 布局位（2026-10-23）：relu_en 的 bit2/bit3 = 输入/输出是 C8。
-        # 逐张量判定（不能按层硬编码）：encoder.conv_first 是 12ch(CHW) 进 /
-        # 48ch(C8) 出，decoder_1.out_conv 是 C8 进 / 12ch(CHW) 出。
-        # C8_LAYOUT=0 时两个都是 False ⇒ 只写 bit0，与整合前逐位一致。
-        c8_in = c8_layout.arena_is_c8(self.arena, in_t)
-        c8_out = c8_layout.arena_is_c8(self.arena, out_t)
-        rc, _ = self.unit.run(self._ns(self.arena.addr(in_t)),
-                              self._ns(waddr), self._ns(baddr),
-                              self._ns(self.arena.addr(out_t)),
-                              op["h"], op["w"], op["cin"], op["cout"],
-                              op["k"], op["s"], op["d"], op["pad"],
-                              e["shift"], relu=bool(op["relu"]),
-                              c8_in=c8_in, c8_out=c8_out,
-                              out_lut=lut_buf, chsum=chsum,
-                              timeout_s=self.timeout_s)
+
+        skip_noted = False
+        if route and self.k1 is not None:
+            try:
+                rc, dt = self.k1.run(
+                    self._ns(self.arena.addr(in_t)),
+                    self._ns(waddr), self._ns(baddr),
+                    self._ns(self.arena.addr(out_t)),
+                    op["h"], op["w"], op["cin"], op["cout"],
+                    op["k"], op["s"], op["d"], op["pad"],
+                    e["shift"], relu=bool(op["relu"]),
+                    c8_in=c8_in, c8_out=c8_out,
+                    timeout_s=self.timeout_s, layer=op["name"])
+                self.k1_calls += 1
+                self.k1_seconds += float(dt)
+            except k1_engine.K1Unsupported as exc:
+                # 纯软件校验失败（**没有碰硬件**）⇒ 可以安全地改走老引擎。
+                # 正常情况下路由判定已经挡住，这里只是防御"两处判定漂移"。
+                # 但**缓冲区地址非法**（0 / >32 位）不是"换引擎就能好"的：
+                # 老引擎用同样的地址只会错得更隐蔽，直接停下。
+                if "缓冲区地址" in str(exc):
+                    print("ERROR: K1 IP 预检发现非法缓冲区地址（layer=%s）：%r"
+                          % (op["name"], exc), flush=True)
+                    raise
+                print("WARN: K1 IP 软件校验拒绝本层（layer=%s），自动回退老引擎：%r"
+                      % (op["name"], exc), flush=True)
+                self._k1_note_skip("K1Engine.run 软件校验拒绝（与路由判定不一致）",
+                                   op)
+                skip_noted = True
+                route = False
+            except Exception as exc:                       # noqa: BLE001
+                # 硬件路径失败（超时/返回码非 0/AXI 异常）：**不再自动回退**。
+                # 失败可能发生在 DMA 中途，PL 也许还在写 DDR；此时再启动老引擎
+                # 会让两个 master 同时写同一块内存。宁可整网停下、带上下文退出。
+                st = getattr(exc, "status", None)
+                rcode = getattr(exc, "return_code", None)
+                stxt = k1_engine.status_text(st) if st is not None else "-"
+                print("ERROR: K1 IP 执行失败 layer=%s H=%d W=%d cin=%d cout=%d "
+                      "k=%d s=%d d=%d pad=%d shift=%s relu=%s\n"
+                      "       return_code=%r  STATUS=%s\n"
+                      "       原因: %r\n"
+                      "       下一步: 先 USE_K1_IP=0 回退整网确认结果，再查 K1 IP"
+                      % (op["name"], op["h"], op["w"], op["cin"], op["cout"],
+                         op["k"], op["s"], op["d"], op["pad"], e["shift"],
+                         bool(op["relu"]), rcode, stxt, exc), flush=True)
+                raise RuntimeError(
+                    "K1 IP 执行失败（layer=%s, H=%d, W=%d, cin=%d, cout=%d, "
+                    "return_code=%r, STATUS=%s）：%r"
+                    % (op["name"], op["h"], op["w"], op["cin"], op["cout"],
+                       rcode, stxt, exc)) from exc
+
+        if not route:
+            if self.use_k1 and self.k1 is not None and not skip_noted:
+                self._k1_note_skip(why, op)
+            rc, _ = self.unit.run(self._ns(self.arena.addr(in_t)),
+                                  self._ns(waddr), self._ns(baddr),
+                                  self._ns(self.arena.addr(out_t)),
+                                  op["h"], op["w"], op["cin"], op["cout"],
+                                  op["k"], op["s"], op["d"], op["pad"],
+                                  e["shift"], relu=bool(op["relu"]),
+                                  c8_in=c8_in, c8_out=c8_out,
+                                  out_lut=lut_buf, chsum=chsum,
+                                  timeout_s=self.timeout_s)
         self.arena.invalidate()
         if chsum is not None:
             # PL 通过 AXI 写进 DDR 的累加和，CPU 读之前必须 invalidate

@@ -184,7 +184,8 @@ module k1_axi_wrap #(
             awaddr_l <= 32'd0; wdata_l <= 32'd0; wstrb_l <= 4'd0;
             r_h <= 32'd0; r_w <= 32'd0; r_hout <= 32'd0; r_wout <= 32'd0;
             r_cin <= 32'd0; r_cout <= 32'd0; r_ksize <= 32'd0; r_stride <= 32'd0;
-            r_dil <= 32'd0; r_pad <= 32'd0; r_shift <= 32'd0; r_relu <= 32'd0;
+            r_dil <= 32'd0; r_pad <= 32'd0; r_shift <= 32'd0;
+            r_relu <= {31'd0, RELU};   // 未写 0x70 时沿用编译期默认
             r_in_lo <= 32'd0; r_in_hi <= 32'd0; r_wgt_lo <= 32'd0; r_wgt_hi <= 32'd0;
             r_bias_lo <= 32'd0; r_bias_hi <= 32'd0; r_out_lo <= 32'd0; r_out_hi <= 32'd0;
             start_req <= 1'b0; done_sticky <= 1'b0; err_sticky <= 1'b0;
@@ -387,6 +388,7 @@ module k1_axi_wrap #(
         .ctrl_h         (r_h),
         .ctrl_w         (r_w),
         .ctrl_start     (start_req),
+        .ctrl_relu      (r_relu[0]),
         .ctrl_done      (ctrl_done),
         .ctrl_busy      (ctrl_busy)
     );
