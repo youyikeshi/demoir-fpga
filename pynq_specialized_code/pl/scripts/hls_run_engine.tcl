@@ -23,6 +23,7 @@ set tb_dir   [file normalize "$here/../tb"]
 set tb_src   "tb_engine.cpp"
 if {[info exists ::env(TB_SRC)]} { set tb_src $::env(TB_SRC) }
 set tag      "engine_v1"
+if {[info exists ::env(TAG)]} { set tag $::env(TAG) }   ;# 允许并跑多个工程（不覆盖在用工程）
 set proj_dir [file normalize "$here/../proj/$tag"]
 set cflags   "-DUSE_HLS_TYPES -I$src_dir"
 if {[info exists ::env(EXTRA_CFLAGS)]} { append cflags " " $::env(EXTRA_CFLAGS) }
