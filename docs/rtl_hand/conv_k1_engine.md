@@ -6,7 +6,7 @@
 > 契约：`docs/rtl_hand/00_SPEC_接口契约.md` §3
 > 依据：`docs/rtl_map/04_mac_array.md`（k=1 现状 16 车道 + 21 拍收尾）、
 > `docs/rtl_map/03_weight_path.md`（每 (y,列块,ocb) 重装 = 237 MB/全网）
-> 最后更新：2026-10-23 21:16（**未综合、未上板；xsim 由主控跑**）
+> 最后更新：2026-10-23 21:28（**未综合、未上板；xsim 由主控跑**）
 
 ---
 
@@ -177,10 +177,34 @@
 ## 5. 输入预取
 
 - 每像素 `⌈cin/8⌉` 笔 1-beat（C8 组步长 `H·W·8`），一次 fetch 一个像素；
-- 4 个像素缓冲 ring，最多领先 3 个像素；每像素计算 `cin` 拍（≥64），
-  预取 `2·⌈cin/8⌉` 拍（cin=64 时 16 拍）⇒ DDR 延迟被藏住；
-- 像素缓冲是 `2816-bit` 移存器（44 组 × 64b），计算时每拍右移 8 bit，
-  最低字节 = 当前 ic 的激活值（32 lane 共用同一根 p 广播）；
+- 4 个像素缓冲 ring，最多领先 3 个像素；每像素计算 `cin` 拍，
+  预取 `2·⌈cin/8⌉` 拍（cin=224 时 56 拍）⇒ DDR 延迟被藏住；
+- 像素缓冲是 **4 × 44 × 64-bit 的简单双口 LUTRAM**，地址 `{buffer, group}`：
+  写 = `{f_pix, f_rd}`（fetch 每拍写一个 64-bit 组字）；读 = **同步预取** `p_word_q`，
+  组内再按 `ic_cur[2:0]` 选字节。**没有 2816-bit 移位、没有环形指针**。
+- **读必须放在 always_ff 里（和写同一个 always）**：一开始写成 continuous assign
+  （异步读），Vivado 不认成 RAM，展开成 16,384 FF + 256:1 的 64-bit 读 mux
+  （第三轮 FF 31,349 / logic LUT 20,741 的根因）。现在 `p_word_q <= px_mem[nxt_addr]`
+  是同步读，`p_word_q` 只有 64 FF（32 lane 共用），RAM 才是真 LUTRAM。
+- 预取地址 `nxt_addr = {nxt_buf, nxt_grp}`：正常 issue 组不变/字节 7 进下一组；
+  最后一块拍切到 `{下一 buffer, 0}`；停顿保持当前组。
+- **RAM 输出寄存器必须单一源**：旁路不能写进 `p_ram_q` 的 always（Vivado 的 RAM
+  模板不接受一个寄存器两个源，会退化成 16,384 FF + 256:1 读 mux——第三轮实测）。
+  正确写法：
+  ```verilog
+  // 纯模板（p_ram_q 只有这一个赋值源）
+  always_ff @(posedge ap_clk) begin
+      if (in_r_hs) px_mem[{f_pix[1:0], f_rd}] <= m_axi_in_rdata;
+      p_ram_q <= px_mem[nxt_addr];
+  end
+  // 旁路寄存一拍，计算侧做组合 mux
+  bp_hit_q  <= bypass_now;   bp_data_q <= m_axi_in_rdata;
+  wire [63:0] p_word = bp_hit_q ? bp_data_q : p_ram_q;
+  ```
+- **cin=8 的单 beat 旁路**：beat 在 t、首次 issue 在 t+1，t+1 时 `in_r_hs` 已是 0，
+  所以旁路**必须寄存**（不能直接在 use 拍组合选 `m_axi_in_rdata`，会晚一拍、数据已失效）。
+  `bypass_now = in_r_hs && f_rd==0 && f_pix[1:0]==nxt_buf && nxt_grp==0`；
+  多 beat 像素时 group0 早已写入 RAM，`bp_hit_q` 只影响等待拍，行为不变。
 - 多 pass 会把输入读 `B` 遍：320×320、(224,64) 时 2×45.9 MB = 92 MB/层，
   以 150 MHz/8B/拍 ≈ 76 ms，相对 306 ms 计算可重叠。
 
@@ -222,6 +246,20 @@ Fmax 预计仍 ≥150 MHz（像素 LUTRAM 的异步读在 p_a 之前，路径 ~1
 **第二轮功能回归（21:10，主控）**：39/39 诊断 + 40960/40960 黄金 + **82,559 拍**
 （0.155×，比第一轮少 2 拍 = 收尾 2 级）PASS —— 像素 LUTRAM + 2 级收尾行为正确。
 
+**第三轮综合（21:1x，主控）**：LUT **23,493**（logic 20,741 + memory 2,752）、
+FF **31,349**、DSP 33、BRAM 0、Fmax 162 MHz、CRITICAL 0。LUT 降了 10.5k，
+但 FF 反涨 2.9k——**根因：`px_mem` 的异步读（continuous assign）没被推断成 RAM**，
+退化成 16,384 FF + 256:1 读 mux。`LUT as Memory` 两轮都是 2,752 不变，就是证据。
+
+**第四轮（21:2x）**：像素 RAM 改成**纯推断模板**：
+- 读寄存器 `p_ram_q` 在专用 always 里**只**由 `px_mem[nxt_addr]` 赋值（写口用
+  write-enable，模板允许）；**禁止**把 cin=8 旁路写进这个 always（主控网表证据：
+  一个寄存器两个源会让 16,384 FF + 256:1 读 mux 复活）；
+- 旁路改成独立寄存器 `bp_hit_q/bp_data_q`（beat 在 t、首次 issue 在 t+1，必须寄存），
+  计算侧 `p_word = bp_hit_q ? bp_data_q : p_ram_q`；
+- lane 阵列加 `(* keep_hierarchy = "yes" *)` 供分层利用率报告。
+预期 FF **≈15.0k**、LUT **≈7–8k**、DSP 33、BRAM 0、Fmax ≥162 MHz。**待主控复测。**
+
 ### 6.1 结构估算（修复后）
 
 | 项 | 估算 | 依据 / 风险 |
@@ -234,9 +272,9 @@ Fmax 预计仍 ≥150 MHz（像素 LUTRAM 的异步读在 p_a 之前，路径 ~1
 | 收尾 | 32×(27b 加 + 32b 加 + 移位/饱和) ≈ 3.0–3.5k LUT；~3.5k FF | |
 | 权重字 | 32 × 64 = 2,048 FF | |
 | 输出队列 | 4 块 × 4 组 × 96 bit = 1,536 FF | |
-| **LUT 合计** | **≈ 3–8k**（第二轮预期） | 红线 12,000；第一轮 24,530、修复后 34,057（移位 mux），第二轮去掉 ~31k 后待复测 |
+| **LUT 合计** | **≈ 5–8k**（第四轮预期） | 红线 12,000；第一轮 24,530、第二轮 34,057、第三轮 23,493（logic 20,741 是 256:1 读 mux）；第四轮去掉后待复测 |
 | **BRAM18** | **0**（权重走分布式） | 红线 30 ✅（前提同上） |
-| **FF** | **≈ 13.4k**（第二轮预期） | 第一轮实测 28,420；去掉像素移位 11,264 + ep_e/ep_o 3,328 + push 384 |
+| **FF** | **≈ 15.0k**（第四轮预期） | 第三轮 31,349（其中 px_mem 异步读退化成 16,384 FF）；同步预取后 −16,320 |
 | **Fmax** | **≈162 MHz**（第一轮，未布线）；第二轮待复测 | 关键路径：像素 LUTRAM 读→字节 mux→p_a，或 DSP 乘→prod_b |
 
 > 对主控问题的直接回答：**DSP 仍是 32，没有涨**。cout 192 是靠 6 个 pass，
@@ -309,6 +347,20 @@ xsim 允许两个 `always_ff` 驱动同一个 reg（同一时间步后写覆盖�
 + 200 fuzz 全过也发现不了**；Vivado 却会说"行为不确定"。修法是**把同一 net 的
 所有写收敛到一个 always_ff**（本版把 shift 并进 fetch、把 ready 清除并进 fetch）。
 教训：**仿真通过 ≠ 综合安全**，多驱动/锁存器/组合环这三类必须在综合报告里清零。
+
+第四个仿真边界：**非阻塞读的“同拍写读”**。同步 RAM 的读是上一拍地址的数据；
+如果预取读和 group0 写发生在同一拍（cin=8 单 beat），读拿到的是写之前的旧值。
+多 beat 像素天然有 1 拍以上间隔，所以这个 bug 只会在 cin=8 的诊断里出现——
+**又是“按维度诊断”抓出来的**。修法是同拍写数据旁路，而不是加气泡。
+
+第三个综合盲区：**RAM 输出寄存器必须单一源**。两次踩坑：
+1. `px_mem` 写成 `wire p_word = px_mem[addr]`（continuous assign 异步读）→ 不推断；
+2. 改成 `p_word_q <= px_mem[addr]` 后，又把 cin=8 的旁路写成
+   `p_word_q <= bypass ? rdata : px_mem[...]` → **一个寄存器两个源**，RAM 模板再次失效，
+   退化回 16,384 FF + 256:1 读 mux（第三轮的 FF 31,407 网表证据）。
+正确做法：RAM 读寄存器 `p_ram_q` 只由 `px_mem` 赋值；旁路用**独立寄存器**
+`bp_hit_q/bp_data_q` 存一拍，计算侧 `p_word = bp_hit_q ? bp_data_q : p_ram_q` 组合选择。
+判断方法：看 `LUT as Memory` 是否随存储容量增长——不涨就是没推断成 RAM。
 
 第二个综合盲区：**“整条移位 + 部分写”的像素缓冲**。`px_sh` 是 4×2816 位，
 每拍右移 8 位，同时 fetch 又写 64 位 slice；Vivado 为每一位综合出
@@ -444,6 +496,9 @@ docs/rtl_hand/conv_k1_engine.md                              # 本文件
 | 21:0x | 复测：CRITICAL 0、FF 28,420、DSP 33、BRAM 0，但 LUT 34,057（px_sh 移位 mux）|
 | 21:1x | **像素缓冲改 `{buffer,group}` LUTRAM**（0 FF/256 LUT/0 BRAM）；收尾 3→2 级、push 数据组合化；预期 FF ≈13.4k、LUT ≤12k |
 | 21:10 | 第二轮功能回归：39/39 + 40960/40960 + **82,559 拍** PASS |
+| 21:1x | 第三轮综合：LUT 23,493、FF 31,349、DSP 33、BRAM 0、Fmax 162；异步读未推断成 RAM |
+| 21:2x | **像素 RAM 改同步读+预取 `p_word_q`**；lane 加 `keep_hierarchy`；预期 FF≈15k、LUT≈7–8k |
+| 21:17 | 39 例抓出 **cin=8 单 beat 同拍写读**边界（dbg_oc 31/64、dbg_pix64 32/1024）；加 group0 旁路修复 |
 
 ---
 

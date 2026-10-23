@@ -1071,6 +1071,9 @@ module conv_k5_engine #(
                                 b_idx <= b_idx + 6'd1;
                             end
                         end else begin
+                            // 低 32-bit 字：地址 b_idx，然后字地址 +1；
+                            // 高 32-bit 字在下一拍用 b_idx+1，写完后才判终值 47。
+                            b_idx  <= b_idx + 6'd1;
                             b_lane <= 1'b1;
                         end
                     end
@@ -1243,6 +1246,62 @@ module conv_k5_engine #(
     assign fill_data  = rd_data;
 
     // 写引擎输出缓冲读地址由写引擎内部驱动（obuf_raddr 已在写引擎 always_ff 中）
+
+    // ==================================================================
+    // 12. 仿真可观测性（综合时由 translate_off 去掉）
+    //     目的：卡死时能看到最后进入的 state / 卡在哪个 AXI 握手。
+    // ==================================================================
+    // synopsys translate_off
+    state_t  dbg_state_d;
+    integer  dbg_cyc;
+    integer  dbg_obuf_wr;
+
+    initial begin
+        dbg_state_d = S_IDLE;
+        dbg_cyc     = 0;
+        dbg_obuf_wr = 0;
+        $display("[K5-CFG] CIN=%0d COUT=%0d W=%0d H=%0d PAD=%0d IC_LAST=%0d X_LAST=%0d Y_LAST=%0d NOB=%0d NGRP=%0d",
+                 CIN, COUT, W, H, PAD, IC_LAST, X_LAST, Y_LAST, NOB, NGRP);
+    end
+
+    always @(posedge ap_clk) begin
+        dbg_cyc <= dbg_cyc + 1;
+        if (obuf_we) dbg_obuf_wr <= dbg_obuf_wr + 1;
+
+        if (!ap_rst_n) begin
+            dbg_state_d <= S_IDLE;
+        end else if (state != dbg_state_d) begin
+            $display("[K5-SM] %0d -> %0d @cyc=%0d y=%0d b=%0d x=%0d s=%0d ic=%0d pre=%0d pre_row=%0d wr_line=%0d sel=%0d,%0d,%0d,%0d,%0d lbv=%b%b%b%b%b wcnt=%0d bidx=%0d rd=%0d wr=%0d",
+                     dbg_state_d, state, dbg_cyc,
+                     y_cnt, b_cnt, x_cnt, s_cnt, ic_cnt, pre_cnt, pre_row, wr_line,
+                     sel[0], sel[1], sel[2], sel[3], sel[4],
+                     lb_valid[4], lb_valid[3], lb_valid[2], lb_valid[1], lb_valid[0],
+                     w_byte_cnt, b_idx, rd_state, wr_state);
+            dbg_state_d <= state;
+        end
+
+        if (dbg_cyc == 2000000)
+            $display("[K5-SM] WATCHDOG 2M cycles: state=%0d y=%0d b=%0d x=%0d s=%0d ic=%0d rd=%0d wr=%0d wcnt=%0d bidx=%0d fill_col=%0d",
+                     state, y_cnt, b_cnt, x_cnt, s_cnt, ic_cnt, rd_state, wr_state,
+                     w_byte_cnt, b_idx, fill_col);
+
+        // 20k 一拍摘要：比 200k 更早暴露卡点；正常 2×320 条带 ~114k 拍
+        if ((dbg_cyc % 20000) == 0) begin
+            $display("[K5-SM] t=%0d state=%0d y=%0d b=%0d x=%0d s=%0d ic=%0d pre=%0d wr_line=%0d lbv=%b%b%b%b%b fill_col=%0d fill_blk=%b wr_beat=%0d wr_left=%0d wr_burst=%0d obuf_wr=%0d",
+                     dbg_cyc, state, y_cnt, b_cnt, x_cnt, s_cnt, ic_cnt, pre_cnt, wr_line,
+                     lb_valid[4], lb_valid[3], lb_valid[2], lb_valid[1], lb_valid[0],
+                     fill_col, fill_blk, wr_beat_q, wr_left_q, wr_burst_q, dbg_obuf_wr);
+            $display("[K5-BIAS] b_idx=%0d b_lane=%b b_word_valid=%b bias_we=%b bias_waddr=%0d",
+                     b_idx, b_lane, b_word_valid, bias_we, bias_waddr);
+            $display("[K5-AXI] in: arv=%b arr=%b rv=%b rr=%b | w: arv=%b arr=%b rv=%b rr=%b | b: arv=%b arr=%b rv=%b rr=%b | out: awv=%b awr=%b wv=%b wr=%b bv=%b br=%b",
+                     m_axi_in_arvalid, m_axi_in_arready, m_axi_in_rvalid, m_axi_in_rready,
+                     m_axi_w_arvalid, m_axi_w_arready, m_axi_w_rvalid, m_axi_w_rready,
+                     m_axi_b_arvalid, m_axi_b_arready, m_axi_b_rvalid, m_axi_b_rready,
+                     m_axi_out_awvalid, m_axi_out_awready, m_axi_out_wvalid, m_axi_out_wready,
+                     m_axi_out_bvalid, m_axi_out_bready);
+        end
+    end
+    // synopsys translate_on
 
 endmodule
 

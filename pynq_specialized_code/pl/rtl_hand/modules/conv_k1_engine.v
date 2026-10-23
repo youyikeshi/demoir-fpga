@@ -153,6 +153,11 @@ module conv_k1_engine #(
     // 这样既不需要 2816-bit 移位（它的“移位值/新数据”二选一 mux 是上一版 31k LUT 的来源），
     // 也不需要环形指针；0 FF、~256 LUT6、0 BRAM、异步读无延迟。
     (* ram_style = "distributed" *) reg [63:0] px_mem [0:255];
+    // RAM 推断模板的读寄存器：**只能**由 px_mem 读赋值（见 §4）。
+    logic [63:0] p_ram_q;
+    // 单 beat 旁路：把“正在写的 group0”寄存一拍，计算侧再做组合 mux。
+    logic        bp_hit_q;
+    logic [63:0] bp_data_q;
 
     assign ctrl_busy   = (state != ST_IDLE);
     assign start_pulse = ctrl_start & ~start_q;
@@ -302,6 +307,17 @@ module conv_k1_engine #(
     wire in_ar_hs = m_axi_in_arvalid && m_axi_in_arready;
     wire in_r_hs  = m_axi_in_rvalid  && m_axi_in_rready;
 
+    // 预取下一拍 issue 要用的 {buffer, group} 组字：
+    //   · 正常 issue：ic 前进 1；当前是字节 7 时组 +1
+    //   · 最后一块拍：下一拍是下一像素的 ic=0 → {下一 buffer, 0}
+    //   · 停顿（issue_en=0）：ic 不前进，组不变
+    wire last_issue = issue_en && (ic_cur == (cin_r - 1'b1));
+    wire [1:0] nxt_buf = last_issue ? (cur_buf + 2'd1) : cur_buf;
+    wire [GW-1:0] nxt_grp = last_issue ? {GW{1'b0}} :
+                            (ic_cur[ICW-1:3] +
+                             {{(GW-1){1'b0}}, (issue_en && (ic_cur[2:0] == 3'd7))});
+    wire [7:0] nxt_addr = {nxt_buf, nxt_grp};
+
     assign m_axi_in_arvalid = f_busy && (f_ar < g_count_r);
     assign m_axi_in_araddr  = f_araddr;
     assign m_axi_in_arlen   = 8'd0;
@@ -342,10 +358,8 @@ module conv_k1_engine #(
                     f_ar     <= f_ar + 6'd1;
                     f_araddr <= f_araddr + hw8_r;
                 end
-                if (in_r_hs) begin
-                    px_mem[{f_pix[1:0], f_rd}] <= m_axi_in_rdata;
+                if (in_r_hs)
                     f_rd <= f_rd + 6'd1;
-                end
                 if (((f_ar + {5'd0, in_ar_hs}) == g_count_r) &&
                     ((f_rd + {5'd0, in_r_hs}) == g_count_r)) begin
                     f_busy                <= 1'b0;
@@ -357,12 +371,37 @@ module conv_k1_engine #(
     end
 
     // ========================================================================
-    // 4. 输入像素缓冲（每像素 44 组 × 64 bit = 2816 bit 移位寄存器）
+    // 4. 输入像素缓冲（4 × 44 × 64-bit，简单双口 RAM）
     // ========================================================================
-    // 读：{buffer, group} 直接寻址，组内按 ic[2:0] 选字节；异步读，同拍可用
-    wire [7:0]  px_raddr = {cur_buf, ic_cur[ICW-1:3]};
-    wire [63:0] p_word   = px_mem[px_raddr];
-    wire [7:0]  p_byte   = p_word[{ic_cur[2:0], 3'b000} +: 8];
+    // !! RAM 推断模板（禁止改）:
+    //   这个 always 里 p_ram_q **只能**由 px_mem 的读赋值；不要给它加 if/else、
+    //   不要做“同拍写数据旁路”——Vivado 的 RAM 模板不接受一个寄存器两个源，
+    //   会退化成 16,384 FF + 256:1 读 mux（第三轮已实测）。
+    //   旁路放在下面的 bp_hit_q/bp_data_q 寄存器 + p_word 组合 mux。
+    always_ff @(posedge ap_clk) begin
+        if (in_r_hs)
+            px_mem[{f_pix[1:0], f_rd}] <= m_axi_in_rdata;
+        p_ram_q <= px_mem[nxt_addr];
+    end
+
+    // 单 beat（cin=8）旁路：把“正在写的 group0”寄存一拍。
+    //   · beat 在 t，首次 issue 在 t+1；t+1 时 in_r_hs 已是 0，所以旁路必须寄存。
+    //   · 多 beat 像素时 group0 早已写入 RAM，bp_hit_q 只在“等待/首次 issue”这一拍
+    //     置 1，随后 p_ram_q 就是新值，行为不变。
+    wire bypass_now = in_r_hs && (f_rd == 6'd0) &&
+                      (f_pix[1:0] == nxt_buf) && (nxt_grp == {GW{1'b0}});
+    always_ff @(posedge ap_clk or negedge ap_rst_n) begin
+        if (!ap_rst_n) begin
+            bp_hit_q  <= 1'b0;
+            bp_data_q <= 64'd0;
+        end else begin
+            bp_hit_q  <= bypass_now;
+            bp_data_q <= m_axi_in_rdata;
+        end
+    end
+
+    wire [63:0] p_word = bp_hit_q ? bp_data_q : p_ram_q;
+    wire [7:0]  p_byte = p_word[{ic_cur[2:0], 3'b000} +: 8];
 
     // ========================================================================
     // 5. 计算流水（3 级，II=1）
@@ -439,6 +478,7 @@ module conv_k1_engine #(
 
     genvar gi;
     generate
+        (* keep_hierarchy = "yes" *)
         for (gi = 0; gi < LANES; gi = gi + 1) begin : g_lane
             (* ram_style = "distributed" *) reg [63:0] wmem [0:GMAX-1];
 
