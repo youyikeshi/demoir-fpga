@@ -62,6 +62,18 @@ SHOT_MAGIC = b"MSHT"
 SHOT_HDR = struct.Struct(">4sIIII")
 
 RESOLUTIONS = [(320, 240), (640, 480), (1280, 720), (1920, 1080)]
+
+# ---- 无损静帧采集（给数据集用）------------------------------------------ #
+# 只放**原生 sensor 档**：GC4653 的官方帧率表是 2560x1440@30 / 1280x720@60|80。
+# 1920x1080 是 ISP 从 2K 缩出来的 —— 缩放会改掉摩尔纹的频率成分，**不能用来采数据**，
+# 所以故意不放进这个列表。1280x720 是另一个原生档，FOV 和频率都与 2K 不同，
+# 同一批数据集里绝对不能混档。
+CAPTURE_MODES = [(2560, 1440), (1280, 720)]
+DEFAULT_CAPTURE_I = 0
+# 开相机后先丢几帧：AEC/AWB 每帧都在动，不收敛的话同一画面两张亮度都不一样。
+CAPTURE_SETTLE_FRAMES = 8
+# 关相机到重开之间必须等的秒数（VI/VPSS 释放有延迟，见 HANDOVER §5.3）
+VI_RELEASE_GAP = 1.5
 CODECS = [("H.264", rtsp.RtspStreamType.RTSP_STREAM_H264),
           ("H.265", rtsp.RtspStreamType.RTSP_STREAM_H265)]
 BITRATES = [(1, 1000000), (2, 2000000), (4, 4000000), (8, 8000000)]
@@ -381,6 +393,8 @@ class Streamer:
         self.cam = None
         self.chan = None
         self._pending_shot = None  # 主循环里待发的截图请求
+        self._pending_capture = None   # 主循环里待做的无损采集（2K 独占）
+        self.cap_i = DEFAULT_CAPTURE_I
         self.server = None
         self.running = False
 
@@ -455,10 +469,95 @@ class Streamer:
         except Exception as e:
             log("按键回调异常:", repr(e))
 
+    # ---------------- 无损静帧采集（2K 独占相机） ---------------- #
+    def request_capture(self, w=None, h=None, tag=""):
+        """PC 发来的采集请求：这里只登记，真正碰相机的活交给主循环。
+
+        相机只允许主线程读（HANDOVER §5.4），所以不能在控制通道的线程里开相机。
+        """
+        if self._pending_capture is not None:
+            self.ctrl.push({"t": "capture", "ok": False, "err": "busy",
+                            "seq": self.shots + 1, "tag": tag,
+                            "req_width": w or 0, "req_height": h or 0})
+            return
+        if not w or not h:
+            w, h = CAPTURE_MODES[self.cap_i]
+        self._pending_capture = {"w": int(w), "h": int(h), "tag": tag or ""}
+
+    def capture_still(self, req):
+        """独占相机取一帧原生像素，经 :8556 推给 PC。
+
+        为什么要停流：MMF_VI_MAX_CHN=2，推流时「主 NV21 + 显示通道」已经占满，
+        再开一路必然报 `mmf get vi channel failed`。停流后两路都释放，只开 1 路 2K。
+        代价：一次约 3~4 s（其中 1.5 s 是等 VI 释放），数据集采集的节奏完全够用。
+        """
+        w, h, tag = req["w"], req["h"], req.get("tag", "")
+        self.shots += 1
+        seq = self.shots
+        was_running = self.running
+
+        # 先停流、再把界面切到「采集中」，否则屏幕上会一直冻着最后一帧视频
+        self.stop_stream(quiet=True)
+        self.flash("采集中 %dx%d…" % (w, h), 8000)
+        try:
+            self._panel = self.render_panel()
+            self._panel_dirty = False
+            self.disp.show(self._panel)
+        except Exception:
+            pass
+
+        gap = max(VI_RELEASE_GAP - (time.monotonic() - self._last_stop_t), 0.0)
+        if gap > 0:
+            time.sleep(gap)
+
+        ok, err, got_w, got_h = False, "", 0, 0
+        cam = None
+        try:
+            cam = camera.Camera(w, h, image.Format.FMT_RGB888)
+        except Exception as e:
+            log("2K RGB888 打不开(%r)，退 NV21" % (e,))
+            try:
+                cam = camera.Camera(w, h, image.Format.FMT_YVU420SP)
+            except Exception as e2:
+                err = "open failed: %r / %r" % (e, e2)
+
+        if cam is not None:
+            try:
+                for _ in range(CAPTURE_SETTLE_FRAMES):   # 丢掉 AEC/AWB 未收敛的帧
+                    cam.read()
+                img = cam.read()
+                got_w, got_h = img.width(), img.height()
+                ok = bool(self.shot_srv.push_image(seq, img))
+                if not ok:
+                    err = "no client on :%d" % SHOT_PORT
+            except Exception as e:
+                err = "read/push failed: %r" % (e,)
+            finally:
+                try:
+                    cam.close()
+                except Exception:
+                    pass
+
+        self._last_stop_t = time.monotonic()
+        if was_running:
+            try:
+                self.start_stream()
+            except Exception as e:
+                log("恢复推流失败: %r" % (e,))
+
+        self.ctrl.push({
+            "t": "capture", "seq": seq, "tag": tag, "ok": ok, "err": err,
+            "width": got_w, "height": got_h, "bytes": got_w * got_h * 3,
+            "req_width": w, "req_height": h,
+        })
+        log("采集 #%d 完成 ok=%s %dx%d tag=%s err=%s"
+            % (seq, ok, got_w, got_h, tag, err))
+        self.flash("采集 #%d %s %dx%d"
+                   % (seq, "完成" if ok else "失败", got_w, got_h), 3000)
+
     # ---------------- 截图（原始 RGB，无视频压缩） ---------------- #
     def do_shot(self, src="?"):
-        """
-        截图流程（关键：绕开 H.264）：
+        """截图流程（关键：绕开 H.264）：
           1. 复用**显示通道**那一帧 RGB888 —— 它本来就没经过编码器，是无压缩像素
              （不能另开通道：MaixCDK 的 `MMF_VI_MAX_CHN = 2`，主 NV21 + 显示通道
               已经占满，第三路 add_channel 会报 "mmf get vi channel failed"）
@@ -540,6 +639,9 @@ class Streamer:
         log("收到 PC 命令:", cmd)
         if cmd == "shot":
             self.do_shot("PC")
+        elif cmd == "capture":
+            # 无损静帧（2K 独占相机），数据集采集用；和 shot 是两条独立的路
+            self.request_capture(msg.get("w"), msg.get("h"), msg.get("tag", ""))
         elif cmd == "start":
             self.start_stream()
         elif cmd == "stop":
@@ -847,6 +949,13 @@ class Streamer:
             last = now
 
             self.handle_touch(self.running)
+
+            # 无损采集会阻塞 3~4 s（停流/重开相机/传输），必须放在主线程里做
+            if self._pending_capture is not None:
+                req, self._pending_capture = self._pending_capture, None
+                self.capture_still(req)
+                last = time.monotonic()
+                continue
 
             if self.running and self.chan is not None:
                 try:

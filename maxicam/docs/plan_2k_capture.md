@@ -1,7 +1,41 @@
 # 2K 无损采集改造方案（MaixCAM Pro → PC）
 
-> 状态：**设计稿，尚未实现**。本文只描述方案；代码只有 `scripts/probe_modes_2k.py`（探针）已落地。
+> 状态：**采集链路已实现**（camera 分支）：
+> - 设备端 `capture_still()`：`apps/maixcam/main.py`，新增 `capture` 命令
+> - PC 端全自动采集：`apps/pc/capture_pairs.py`（Windows 用 `capture_pairs.bat`）
+> - 能力探针：`scripts/probe_modes_2k.py`（先在设备上跑，确认 2K 能开）
 > 目标：用 2560×1440 原生像素采集训练数据，每张图无损落到电脑，并和「屏幕源图」配对。
+
+---
+
+## 0. 怎么跑（Windows）
+
+```bat
+REM 0) 装依赖（若已有 apps/pc 那套环境可跳过）
+pip install -r apps\pc\requirements-capture.txt
+
+REM 1) 先探设备能力（2K 能不能开、要不要退 NV21）
+scp scripts\probe_modes_2k.py root@10.13.149.1:/root/
+ssh root@10.13.149.1 "python3 /root/probe_modes_2k.py"
+
+REM 2) 自检：不连相机，验证显示/命名/断点续采
+apps\pc\capture_pairs.bat --src D:\shots\src --out D:\shots\run01 --dry-run
+
+REM 3) 正式采集
+apps\pc\capture_pairs.bat --src D:\shots\src --out D:\shots\run01 --res 2560x1440 --distance 62
+```
+
+Windows 上设备是 **RNDIS → 10.13.149.1**；不传 `--host` 时脚本两个地址都会试。
+
+产物：
+
+```
+run01/
+├── session.json
+├── pairs/p000001_{cam.png,src.png,json}
+└── index.jsonl
+```
+
 
 ---
 
