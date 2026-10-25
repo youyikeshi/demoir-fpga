@@ -36,6 +36,40 @@ run01/
 └── index.jsonl
 ```
 
+### 0.1 屏幕源图从哪来（`make_src_pages.py`）
+
+**图片只放在电脑上，不需要传给相机**（PC → 相机只有 JSON 命令，没有任何图片文件；
+相机拍的是屏幕的物理画面）。
+
+素材来源，按优先级：
+
+| 来源 | 说明 | 注意 |
+|---|---|---|
+| **UHDM 的 `*_gt.jpg`（干净图）** | 4500 张 4032×3024，在 CP2 移动盘 `uhdm_data/Train/pair_*/` | **绝不能用 `*_moire.jpg`**——那本身就带摩尔纹，再拍一遍 GT 就说不清 |
+| **合成页**（文字/栅格/棋盘/星） | 脚本直接生成，不依赖外部数据 | 文字和细栅格上的摩尔纹最典型；棋盘还能当标定板 |
+| 其它 4K 图库（DIV2K 等） | 需要下载 | 同样只能用干净图 |
+
+```bat
+REM 从 UHDM 干净图里抽 300 张，裁成 2560x1440（原生像素裁切，不重采样）
+python apps\pc\make_src_pages.py --in E:\uhdm\Train --out D:\shots\src ^
+    --w 2560 --h 1440 --limit 300 --pos random
+
+REM 再加 60 张合成页（文字/栅格/棋盘/星）
+python apps\pc\make_src_pages.py --out D:\shots\src --synthetic 60 --w 2560 --h 1440
+
+REM 单独生成一张标定棋盘（80 px 格）
+python apps\pc\make_src_pages.py --out D:\shots\calib --calib --w 2560 --h 1440
+```
+
+- 输出 `0001.png …` + `manifest.csv`（记录每张的来源与裁切偏移），支持增量追加
+- 图比屏幕大 → **原生像素裁切**（随机位置，多样性更好），不做重采样
+- 图比屏幕小 → 居中贴黑底，**不放大**（放大等于替相机造细节）
+- 建议比例：干净照片 2/3 + 合成页 1/3；源图 200~400 张 × 6~8 个距离档 ≈ 1200~3200 对
+
+示意（文字页 / 棋盘 / 西门子星）：
+
+![合成源图示例](assets/src_pages_demo.png)
+
 
 ---
 
