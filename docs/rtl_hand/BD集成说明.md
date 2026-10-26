@@ -3,7 +3,24 @@
 > 对应脚本：`pynq_specialized_code/pl/scripts/bd_add_k1.tcl`
 > 配套适配层：`pynq_specialized_code/pl/rtl_hand/modules/k1_axi_wrap_bd.v`
 > 目标工程：`pynq_specialized_code/pl/vivado/proj_engine/proj_engine.xpr`（Vivado 2025.2.1，`xc7z015clg485-2`）
-> 最后更新：2026-10-23
+> 最后更新：2026-10-26（资源瘦身：k1 对外 **2 个** AXI4 master）
+
+---
+
+## ⚠ 2026-10-26 更新：k1 只剩 2 个 AXI4 master
+
+`k1_axi_wrap` 内部新增了 in/w/b 三路读仲裁（见 `conv_k1_engine.md` §15.2），
+对外端口由 4 个变成 **2 个**：
+
+| 旧 | 新 | smc |
+|---|---|---|
+| `m_axi_in` / `m_axi_w` / `m_axi_b` / `m_axi_out` | **`m_axi_rd`**（合并读，64-bit，2-bit ARID）+ `m_axi_out`（写，不变） | `NUM_SI` **6 → 4**：S02=rd、S03=out |
+
+`k1_axi_wrap_bd.v` 的 `m_axi_rd` 接口参数是 **ID_WIDTH 2**（0=in/1=w/2=b）；
+`m_axi_out` 仍是 ID_WIDTH 1。`bd_add_k1.tcl` 已同步（`SMC_N=4`、配对/地址/汇总），
+若旧 BD 是 6 个 SI，脚本会先删旧 `k1_wrap` 再缩 `NUM_SI`。
+**下面 §2/§3 里“4 个 master / ID_WIDTH 1”的描述是 2026-10-23 的历史版本**，
+端口/连接以本节和脚本为准。
 
 ---
 

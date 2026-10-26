@@ -15,9 +15,9 @@
 //  为什么需要这一层（三条都是对着代码实测出来的，不是猜的）：
 //   1) `k1_axi_wrap` 的端口上**没有** X_INTERFACE_INFO 属性 ⇒ 用
 //      `create_bd_cell -type module -reference k1_axi_wrap` 加进 BD 后，
-//      得到的是一堆**散引脚**（m_axi_in_araddr 等），不是 interface pin；
+//      得到的是一堆**散引脚**（m_axi_rd_araddr 等），不是 interface pin；
 //      散引脚**无法** connect_bd_intf_net 到 `smc/S02_AXI` 这种 interface pin。
-//   2) `k1_axi_wrap` 的 4 个 master 是**精简 AXI4**：只有
+//   2) `k1_axi_wrap` 的 master 是**精简 AXI4**：只有
 //      AR{valid,ready,addr,len} + R{valid,ready,data,last} 和
 //      AW{valid,ready,addr,len} + W{valid,ready,data,strb,last} + B{valid,ready}；
 //      **缺** ARSIZE/ARBURST/ARCACHE/ARPROT/ARID/AW(...)/BRESP/RRESP/BID/RID。
@@ -27,29 +27,29 @@
 //      所以 BD 侧只能接 s_axi_aclk / s_axi_aresetn。
 //
 //  本文件做的事（全部是**引脚级**的，不含任何功能逻辑）：
-//   · 把 4 个精简 AXI4 master 补成**完整 AXI4**（AXI4 64-bit 数据 / 64-bit 地址 /
-//     1-bit ID，与 HLS 引擎的 m_axi_gmem0/1 声明**逐参数对齐**，SmartConnect 不必
-//     为我们的 SI 换一套配置）：
+//   · 把 2 个精简 AXI4 master（合并读 + 输出写）补成**完整 AXI4**
+//     （AXI4 64-bit 数据 / 64-bit 地址；m_axi_rd 是 2-bit ID，m_axi_out 是 1-bit）：
+//       资源瘦身后 in/w/b 已在 k1_axi_wrap 内部仲裁成 1 个 m_axi_rd，
+//       所以本层只剩 m_axi_rd + m_axi_out，smc 的 SI 由 6 个降到 4 个。
 //       - ARSIZE/AWSIZE = 3'b011（每拍 8 字节 = 64-bit）
 //       - ARBURST/AWBURST = 2'b01（INCR；引擎给的是 arlen，语义就是 INCR）
 //       - ARCACHE/AWCACHE = 4'b0011（Modifiable + Bufferable，PS HP 口常规值）
 //       - ARPROT/AWPROT = 3'b000，ARQOS/AWQOS = 4'b0000，ARLOCK/AWLOCK = 1'b0
-//       - ARID/AWID = 1'b0；RID/BID/RRESP/BRESP 从 slave 回来但不使用
+//       - m_axi_rd 的 ARID = 2-bit tag（0=in/1=w/2=b），RID 回到内部做检查；
+//         m_axi_out 的 ARID/AWID 仍是 1'b0，RID/BID/RRESP/BRESP 不使用
 //       - 32 位引擎地址**零扩展**成 64 位（高 32 位恒 0 ⇒ 只能访问 DDR 低 1GB，
 //         与 HLS 引擎的 PS 侧分配一致）
-//   · 每个 master 声明成 READ_WRITE 并**补齐两条通道**：in/w/b 的写通道恒空闲
-//     （awvalid=0, wvalid=0, bready=1），out 的读通道恒空闲（arvalid=0, rready=1）。
-//     这样 4 个 SI 的接口形态统一，SmartConnect 侧不会出现"某 SI 少一条通道"。
+//   · 两个 master 都声明成 READ_WRITE 并**补齐两条通道**：m_axi_rd 的写通道恒空闲
+//     （awvalid=0, wvalid=0, bready=1），m_axi_out 的读通道恒空闲
+//     （arvalid=0, rready=1）。这样 2 个 SI 的接口形态统一。
 //   · 给 AXI4-Lite 从机补上 AWPROT/ARPROT（引擎的 s_axi_ctrl 有这两根，照抄）。
 //   · 顶层加 X_INTERFACE_INFO / X_INTERFACE_PARAMETER 属性，让 BD **推断出**
-//     interface pin：s_axi / m_axi_in / m_axi_w / m_axi_b / m_axi_out。
+//     interface pin：s_axi / m_axi_rd / m_axi_out。
 //
-//  不改 `k1_axi_wrap.v` 一个字符：它是已经跑过 xvlog/sim 的验证对象，
-//  BD 侧的"标准 AXI 外形"放在这一层，两边互不污染。
+//  本文件只做引脚级适配；仲裁/功能全在 k1_axi_wrap.v（SystemVerilog）。
 //
 //  BD 里的连法（见 scripts/bd_add_k1.tcl）：
-//    m_axi_in  → smc/S02_AXI     m_axi_w → smc/S03_AXI
-//    m_axi_b   → smc/S04_AXI     m_axi_out → smc/S05_AXI
+//    m_axi_rd  → smc/S02_AXI     m_axi_out → smc/S03_AXI
 //    s_axi     → axi_ctrl/M02_AXI（128KB 窗口，A[16] 分页）
 //    s_axi_aclk     ← ps7/FCLK_CLK0（与 engine/ap_clk 同一根）
 //    s_axi_aresetn  ← rst_0/peripheral_aresetn（与 engine/ap_rst_n 同一根）
@@ -106,244 +106,85 @@ module k1_axi_wrap_bd (
     input         s_axi_rready,
 
     // ========================================================================
-    // AXI4 master 0：输入（只读；写通道恒空闲）
+    // AXI4 master 0：合并后的读（in/w/b 三路仲裁；只读，写通道恒空闲）
+    //   ID_WIDTH 2：ARID=0/1/2（in/w/b），R 通道按 burst 授权回路由
     // ========================================================================
-    (* X_INTERFACE_INFO = "xilinx.com:interface:aximm:1.0 m_axi_in AWADDR" *)
+    (* X_INTERFACE_INFO = "xilinx.com:interface:aximm:1.0 m_axi_rd AWADDR" *)
     (* X_INTERFACE_MODE = "master" *)
-    (* X_INTERFACE_PARAMETER = "XIL_INTERFACENAME m_axi_in, DATA_WIDTH 64, PROTOCOL AXI4, ID_WIDTH 1, ADDR_WIDTH 64, AWUSER_WIDTH 0, ARUSER_WIDTH 0, WUSER_WIDTH 0, RUSER_WIDTH 0, BUSER_WIDTH 0, READ_WRITE_MODE READ_WRITE, HAS_BURST 1, HAS_LOCK 1, HAS_PROT 1, HAS_CACHE 1, HAS_QOS 1, HAS_REGION 0, HAS_WSTRB 1, HAS_BRESP 1, HAS_RRESP 1, SUPPORTS_NARROW_BURST 0, NUM_READ_OUTSTANDING 16, NUM_WRITE_OUTSTANDING 16, MAX_BURST_LENGTH 256, PHASE 0.0, INSERT_VIP 0" *)
-    output [63:0] m_axi_in_awaddr,
-    (* X_INTERFACE_INFO = "xilinx.com:interface:aximm:1.0 m_axi_in AWLEN" *)
-    output [7:0]  m_axi_in_awlen,
-    (* X_INTERFACE_INFO = "xilinx.com:interface:aximm:1.0 m_axi_in AWSIZE" *)
-    output [2:0]  m_axi_in_awsize,
-    (* X_INTERFACE_INFO = "xilinx.com:interface:aximm:1.0 m_axi_in AWBURST" *)
-    output [1:0]  m_axi_in_awburst,
-    (* X_INTERFACE_INFO = "xilinx.com:interface:aximm:1.0 m_axi_in AWLOCK" *)
-    output [0:0]  m_axi_in_awlock,
-    (* X_INTERFACE_INFO = "xilinx.com:interface:aximm:1.0 m_axi_in AWCACHE" *)
-    output [3:0]  m_axi_in_awcache,
-    (* X_INTERFACE_INFO = "xilinx.com:interface:aximm:1.0 m_axi_in AWPROT" *)
-    output [2:0]  m_axi_in_awprot,
-    (* X_INTERFACE_INFO = "xilinx.com:interface:aximm:1.0 m_axi_in AWQOS" *)
-    output [3:0]  m_axi_in_awqos,
-    (* X_INTERFACE_INFO = "xilinx.com:interface:aximm:1.0 m_axi_in AWID" *)
-    output [0:0]  m_axi_in_awid,
-    (* X_INTERFACE_INFO = "xilinx.com:interface:aximm:1.0 m_axi_in AWVALID" *)
-    output        m_axi_in_awvalid,
-    (* X_INTERFACE_INFO = "xilinx.com:interface:aximm:1.0 m_axi_in AWREADY" *)
-    input         m_axi_in_awready,
-    (* X_INTERFACE_INFO = "xilinx.com:interface:aximm:1.0 m_axi_in WDATA" *)
-    output [63:0] m_axi_in_wdata,
-    (* X_INTERFACE_INFO = "xilinx.com:interface:aximm:1.0 m_axi_in WSTRB" *)
-    output [7:0]  m_axi_in_wstrb,
-    (* X_INTERFACE_INFO = "xilinx.com:interface:aximm:1.0 m_axi_in WLAST" *)
-    output        m_axi_in_wlast,
-    (* X_INTERFACE_INFO = "xilinx.com:interface:aximm:1.0 m_axi_in WVALID" *)
-    output        m_axi_in_wvalid,
-    (* X_INTERFACE_INFO = "xilinx.com:interface:aximm:1.0 m_axi_in WREADY" *)
-    input         m_axi_in_wready,
-    (* X_INTERFACE_INFO = "xilinx.com:interface:aximm:1.0 m_axi_in BID" *)
-    input  [0:0]  m_axi_in_bid,
-    (* X_INTERFACE_INFO = "xilinx.com:interface:aximm:1.0 m_axi_in BRESP" *)
-    input  [1:0]  m_axi_in_bresp,
-    (* X_INTERFACE_INFO = "xilinx.com:interface:aximm:1.0 m_axi_in BVALID" *)
-    input         m_axi_in_bvalid,
-    (* X_INTERFACE_INFO = "xilinx.com:interface:aximm:1.0 m_axi_in BREADY" *)
-    output        m_axi_in_bready,
-    (* X_INTERFACE_INFO = "xilinx.com:interface:aximm:1.0 m_axi_in ARADDR" *)
-    output [63:0] m_axi_in_araddr,
-    (* X_INTERFACE_INFO = "xilinx.com:interface:aximm:1.0 m_axi_in ARLEN" *)
-    output [7:0]  m_axi_in_arlen,
-    (* X_INTERFACE_INFO = "xilinx.com:interface:aximm:1.0 m_axi_in ARSIZE" *)
-    output [2:0]  m_axi_in_arsize,
-    (* X_INTERFACE_INFO = "xilinx.com:interface:aximm:1.0 m_axi_in ARBURST" *)
-    output [1:0]  m_axi_in_arburst,
-    (* X_INTERFACE_INFO = "xilinx.com:interface:aximm:1.0 m_axi_in ARLOCK" *)
-    output [0:0]  m_axi_in_arlock,
-    (* X_INTERFACE_INFO = "xilinx.com:interface:aximm:1.0 m_axi_in ARCACHE" *)
-    output [3:0]  m_axi_in_arcache,
-    (* X_INTERFACE_INFO = "xilinx.com:interface:aximm:1.0 m_axi_in ARPROT" *)
-    output [2:0]  m_axi_in_arprot,
-    (* X_INTERFACE_INFO = "xilinx.com:interface:aximm:1.0 m_axi_in ARQOS" *)
-    output [3:0]  m_axi_in_arqos,
-    (* X_INTERFACE_INFO = "xilinx.com:interface:aximm:1.0 m_axi_in ARID" *)
-    output [0:0]  m_axi_in_arid,
-    (* X_INTERFACE_INFO = "xilinx.com:interface:aximm:1.0 m_axi_in ARVALID" *)
-    output        m_axi_in_arvalid,
-    (* X_INTERFACE_INFO = "xilinx.com:interface:aximm:1.0 m_axi_in ARREADY" *)
-    input         m_axi_in_arready,
-    (* X_INTERFACE_INFO = "xilinx.com:interface:aximm:1.0 m_axi_in RID" *)
-    input  [0:0]  m_axi_in_rid,
-    (* X_INTERFACE_INFO = "xilinx.com:interface:aximm:1.0 m_axi_in RDATA" *)
-    input  [63:0] m_axi_in_rdata,
-    (* X_INTERFACE_INFO = "xilinx.com:interface:aximm:1.0 m_axi_in RRESP" *)
-    input  [1:0]  m_axi_in_rresp,
-    (* X_INTERFACE_INFO = "xilinx.com:interface:aximm:1.0 m_axi_in RLAST" *)
-    input         m_axi_in_rlast,
-    (* X_INTERFACE_INFO = "xilinx.com:interface:aximm:1.0 m_axi_in RVALID" *)
-    input         m_axi_in_rvalid,
-    (* X_INTERFACE_INFO = "xilinx.com:interface:aximm:1.0 m_axi_in RREADY" *)
-    output        m_axi_in_rready,
-
-    // ========================================================================
-    // AXI4 master 1：权重（只读；写通道恒空闲）
-    // ========================================================================
-    (* X_INTERFACE_INFO = "xilinx.com:interface:aximm:1.0 m_axi_w AWADDR" *)
-    (* X_INTERFACE_MODE = "master" *)
-    (* X_INTERFACE_PARAMETER = "XIL_INTERFACENAME m_axi_w, DATA_WIDTH 64, PROTOCOL AXI4, ID_WIDTH 1, ADDR_WIDTH 64, AWUSER_WIDTH 0, ARUSER_WIDTH 0, WUSER_WIDTH 0, RUSER_WIDTH 0, BUSER_WIDTH 0, READ_WRITE_MODE READ_WRITE, HAS_BURST 1, HAS_LOCK 1, HAS_PROT 1, HAS_CACHE 1, HAS_QOS 1, HAS_REGION 0, HAS_WSTRB 1, HAS_BRESP 1, HAS_RRESP 1, SUPPORTS_NARROW_BURST 0, NUM_READ_OUTSTANDING 16, NUM_WRITE_OUTSTANDING 16, MAX_BURST_LENGTH 256, PHASE 0.0, INSERT_VIP 0" *)
-    output [63:0] m_axi_w_awaddr,
-    (* X_INTERFACE_INFO = "xilinx.com:interface:aximm:1.0 m_axi_w AWLEN" *)
-    output [7:0]  m_axi_w_awlen,
-    (* X_INTERFACE_INFO = "xilinx.com:interface:aximm:1.0 m_axi_w AWSIZE" *)
-    output [2:0]  m_axi_w_awsize,
-    (* X_INTERFACE_INFO = "xilinx.com:interface:aximm:1.0 m_axi_w AWBURST" *)
-    output [1:0]  m_axi_w_awburst,
-    (* X_INTERFACE_INFO = "xilinx.com:interface:aximm:1.0 m_axi_w AWLOCK" *)
-    output [0:0]  m_axi_w_awlock,
-    (* X_INTERFACE_INFO = "xilinx.com:interface:aximm:1.0 m_axi_w AWCACHE" *)
-    output [3:0]  m_axi_w_awcache,
-    (* X_INTERFACE_INFO = "xilinx.com:interface:aximm:1.0 m_axi_w AWPROT" *)
-    output [2:0]  m_axi_w_awprot,
-    (* X_INTERFACE_INFO = "xilinx.com:interface:aximm:1.0 m_axi_w AWQOS" *)
-    output [3:0]  m_axi_w_awqos,
-    (* X_INTERFACE_INFO = "xilinx.com:interface:aximm:1.0 m_axi_w AWID" *)
-    output [0:0]  m_axi_w_awid,
-    (* X_INTERFACE_INFO = "xilinx.com:interface:aximm:1.0 m_axi_w AWVALID" *)
-    output        m_axi_w_awvalid,
-    (* X_INTERFACE_INFO = "xilinx.com:interface:aximm:1.0 m_axi_w AWREADY" *)
-    input         m_axi_w_awready,
-    (* X_INTERFACE_INFO = "xilinx.com:interface:aximm:1.0 m_axi_w WDATA" *)
-    output [63:0] m_axi_w_wdata,
-    (* X_INTERFACE_INFO = "xilinx.com:interface:aximm:1.0 m_axi_w WSTRB" *)
-    output [7:0]  m_axi_w_wstrb,
-    (* X_INTERFACE_INFO = "xilinx.com:interface:aximm:1.0 m_axi_w WLAST" *)
-    output        m_axi_w_wlast,
-    (* X_INTERFACE_INFO = "xilinx.com:interface:aximm:1.0 m_axi_w WVALID" *)
-    output        m_axi_w_wvalid,
-    (* X_INTERFACE_INFO = "xilinx.com:interface:aximm:1.0 m_axi_w WREADY" *)
-    input         m_axi_w_wready,
-    (* X_INTERFACE_INFO = "xilinx.com:interface:aximm:1.0 m_axi_w BID" *)
-    input  [0:0]  m_axi_w_bid,
-    (* X_INTERFACE_INFO = "xilinx.com:interface:aximm:1.0 m_axi_w BRESP" *)
-    input  [1:0]  m_axi_w_bresp,
-    (* X_INTERFACE_INFO = "xilinx.com:interface:aximm:1.0 m_axi_w BVALID" *)
-    input         m_axi_w_bvalid,
-    (* X_INTERFACE_INFO = "xilinx.com:interface:aximm:1.0 m_axi_w BREADY" *)
-    output        m_axi_w_bready,
-    (* X_INTERFACE_INFO = "xilinx.com:interface:aximm:1.0 m_axi_w ARADDR" *)
-    output [63:0] m_axi_w_araddr,
-    (* X_INTERFACE_INFO = "xilinx.com:interface:aximm:1.0 m_axi_w ARLEN" *)
-    output [7:0]  m_axi_w_arlen,
-    (* X_INTERFACE_INFO = "xilinx.com:interface:aximm:1.0 m_axi_w ARSIZE" *)
-    output [2:0]  m_axi_w_arsize,
-    (* X_INTERFACE_INFO = "xilinx.com:interface:aximm:1.0 m_axi_w ARBURST" *)
-    output [1:0]  m_axi_w_arburst,
-    (* X_INTERFACE_INFO = "xilinx.com:interface:aximm:1.0 m_axi_w ARLOCK" *)
-    output [0:0]  m_axi_w_arlock,
-    (* X_INTERFACE_INFO = "xilinx.com:interface:aximm:1.0 m_axi_w ARCACHE" *)
-    output [3:0]  m_axi_w_arcache,
-    (* X_INTERFACE_INFO = "xilinx.com:interface:aximm:1.0 m_axi_w ARPROT" *)
-    output [2:0]  m_axi_w_arprot,
-    (* X_INTERFACE_INFO = "xilinx.com:interface:aximm:1.0 m_axi_w ARQOS" *)
-    output [3:0]  m_axi_w_arqos,
-    (* X_INTERFACE_INFO = "xilinx.com:interface:aximm:1.0 m_axi_w ARID" *)
-    output [0:0]  m_axi_w_arid,
-    (* X_INTERFACE_INFO = "xilinx.com:interface:aximm:1.0 m_axi_w ARVALID" *)
-    output        m_axi_w_arvalid,
-    (* X_INTERFACE_INFO = "xilinx.com:interface:aximm:1.0 m_axi_w ARREADY" *)
-    input         m_axi_w_arready,
-    (* X_INTERFACE_INFO = "xilinx.com:interface:aximm:1.0 m_axi_w RID" *)
-    input  [0:0]  m_axi_w_rid,
-    (* X_INTERFACE_INFO = "xilinx.com:interface:aximm:1.0 m_axi_w RDATA" *)
-    input  [63:0] m_axi_w_rdata,
-    (* X_INTERFACE_INFO = "xilinx.com:interface:aximm:1.0 m_axi_w RRESP" *)
-    input  [1:0]  m_axi_w_rresp,
-    (* X_INTERFACE_INFO = "xilinx.com:interface:aximm:1.0 m_axi_w RLAST" *)
-    input         m_axi_w_rlast,
-    (* X_INTERFACE_INFO = "xilinx.com:interface:aximm:1.0 m_axi_w RVALID" *)
-    input         m_axi_w_rvalid,
-    (* X_INTERFACE_INFO = "xilinx.com:interface:aximm:1.0 m_axi_w RREADY" *)
-    output        m_axi_w_rready,
-
-    // ========================================================================
-    // AXI4 master 2：偏置（只读；写通道恒空闲）
-    // ========================================================================
-    (* X_INTERFACE_INFO = "xilinx.com:interface:aximm:1.0 m_axi_b AWADDR" *)
-    (* X_INTERFACE_MODE = "master" *)
-    (* X_INTERFACE_PARAMETER = "XIL_INTERFACENAME m_axi_b, DATA_WIDTH 64, PROTOCOL AXI4, ID_WIDTH 1, ADDR_WIDTH 64, AWUSER_WIDTH 0, ARUSER_WIDTH 0, WUSER_WIDTH 0, RUSER_WIDTH 0, BUSER_WIDTH 0, READ_WRITE_MODE READ_WRITE, HAS_BURST 1, HAS_LOCK 1, HAS_PROT 1, HAS_CACHE 1, HAS_QOS 1, HAS_REGION 0, HAS_WSTRB 1, HAS_BRESP 1, HAS_RRESP 1, SUPPORTS_NARROW_BURST 0, NUM_READ_OUTSTANDING 16, NUM_WRITE_OUTSTANDING 16, MAX_BURST_LENGTH 256, PHASE 0.0, INSERT_VIP 0" *)
-    output [63:0] m_axi_b_awaddr,
-    (* X_INTERFACE_INFO = "xilinx.com:interface:aximm:1.0 m_axi_b AWLEN" *)
-    output [7:0]  m_axi_b_awlen,
-    (* X_INTERFACE_INFO = "xilinx.com:interface:aximm:1.0 m_axi_b AWSIZE" *)
-    output [2:0]  m_axi_b_awsize,
-    (* X_INTERFACE_INFO = "xilinx.com:interface:aximm:1.0 m_axi_b AWBURST" *)
-    output [1:0]  m_axi_b_awburst,
-    (* X_INTERFACE_INFO = "xilinx.com:interface:aximm:1.0 m_axi_b AWLOCK" *)
-    output [0:0]  m_axi_b_awlock,
-    (* X_INTERFACE_INFO = "xilinx.com:interface:aximm:1.0 m_axi_b AWCACHE" *)
-    output [3:0]  m_axi_b_awcache,
-    (* X_INTERFACE_INFO = "xilinx.com:interface:aximm:1.0 m_axi_b AWPROT" *)
-    output [2:0]  m_axi_b_awprot,
-    (* X_INTERFACE_INFO = "xilinx.com:interface:aximm:1.0 m_axi_b AWQOS" *)
-    output [3:0]  m_axi_b_awqos,
-    (* X_INTERFACE_INFO = "xilinx.com:interface:aximm:1.0 m_axi_b AWID" *)
-    output [0:0]  m_axi_b_awid,
-    (* X_INTERFACE_INFO = "xilinx.com:interface:aximm:1.0 m_axi_b AWVALID" *)
-    output        m_axi_b_awvalid,
-    (* X_INTERFACE_INFO = "xilinx.com:interface:aximm:1.0 m_axi_b AWREADY" *)
-    input         m_axi_b_awready,
-    (* X_INTERFACE_INFO = "xilinx.com:interface:aximm:1.0 m_axi_b WDATA" *)
-    output [63:0] m_axi_b_wdata,
-    (* X_INTERFACE_INFO = "xilinx.com:interface:aximm:1.0 m_axi_b WSTRB" *)
-    output [7:0]  m_axi_b_wstrb,
-    (* X_INTERFACE_INFO = "xilinx.com:interface:aximm:1.0 m_axi_b WLAST" *)
-    output        m_axi_b_wlast,
-    (* X_INTERFACE_INFO = "xilinx.com:interface:aximm:1.0 m_axi_b WVALID" *)
-    output        m_axi_b_wvalid,
-    (* X_INTERFACE_INFO = "xilinx.com:interface:aximm:1.0 m_axi_b WREADY" *)
-    input         m_axi_b_wready,
-    (* X_INTERFACE_INFO = "xilinx.com:interface:aximm:1.0 m_axi_b BID" *)
-    input  [0:0]  m_axi_b_bid,
-    (* X_INTERFACE_INFO = "xilinx.com:interface:aximm:1.0 m_axi_b BRESP" *)
-    input  [1:0]  m_axi_b_bresp,
-    (* X_INTERFACE_INFO = "xilinx.com:interface:aximm:1.0 m_axi_b BVALID" *)
-    input         m_axi_b_bvalid,
-    (* X_INTERFACE_INFO = "xilinx.com:interface:aximm:1.0 m_axi_b BREADY" *)
-    output        m_axi_b_bready,
-    (* X_INTERFACE_INFO = "xilinx.com:interface:aximm:1.0 m_axi_b ARADDR" *)
-    output [63:0] m_axi_b_araddr,
-    (* X_INTERFACE_INFO = "xilinx.com:interface:aximm:1.0 m_axi_b ARLEN" *)
-    output [7:0]  m_axi_b_arlen,
-    (* X_INTERFACE_INFO = "xilinx.com:interface:aximm:1.0 m_axi_b ARSIZE" *)
-    output [2:0]  m_axi_b_arsize,
-    (* X_INTERFACE_INFO = "xilinx.com:interface:aximm:1.0 m_axi_b ARBURST" *)
-    output [1:0]  m_axi_b_arburst,
-    (* X_INTERFACE_INFO = "xilinx.com:interface:aximm:1.0 m_axi_b ARLOCK" *)
-    output [0:0]  m_axi_b_arlock,
-    (* X_INTERFACE_INFO = "xilinx.com:interface:aximm:1.0 m_axi_b ARCACHE" *)
-    output [3:0]  m_axi_b_arcache,
-    (* X_INTERFACE_INFO = "xilinx.com:interface:aximm:1.0 m_axi_b ARPROT" *)
-    output [2:0]  m_axi_b_arprot,
-    (* X_INTERFACE_INFO = "xilinx.com:interface:aximm:1.0 m_axi_b ARQOS" *)
-    output [3:0]  m_axi_b_arqos,
-    (* X_INTERFACE_INFO = "xilinx.com:interface:aximm:1.0 m_axi_b ARID" *)
-    output [0:0]  m_axi_b_arid,
-    (* X_INTERFACE_INFO = "xilinx.com:interface:aximm:1.0 m_axi_b ARVALID" *)
-    output        m_axi_b_arvalid,
-    (* X_INTERFACE_INFO = "xilinx.com:interface:aximm:1.0 m_axi_b ARREADY" *)
-    input         m_axi_b_arready,
-    (* X_INTERFACE_INFO = "xilinx.com:interface:aximm:1.0 m_axi_b RID" *)
-    input  [0:0]  m_axi_b_rid,
-    (* X_INTERFACE_INFO = "xilinx.com:interface:aximm:1.0 m_axi_b RDATA" *)
-    input  [63:0] m_axi_b_rdata,
-    (* X_INTERFACE_INFO = "xilinx.com:interface:aximm:1.0 m_axi_b RRESP" *)
-    input  [1:0]  m_axi_b_rresp,
-    (* X_INTERFACE_INFO = "xilinx.com:interface:aximm:1.0 m_axi_b RLAST" *)
-    input         m_axi_b_rlast,
-    (* X_INTERFACE_INFO = "xilinx.com:interface:aximm:1.0 m_axi_b RVALID" *)
-    input         m_axi_b_rvalid,
-    (* X_INTERFACE_INFO = "xilinx.com:interface:aximm:1.0 m_axi_b RREADY" *)
-    output        m_axi_b_rready,
+    (* X_INTERFACE_PARAMETER = "XIL_INTERFACENAME m_axi_rd, DATA_WIDTH 64, PROTOCOL AXI4, ID_WIDTH 2, ADDR_WIDTH 64, AWUSER_WIDTH 0, ARUSER_WIDTH 0, WUSER_WIDTH 0, RUSER_WIDTH 0, BUSER_WIDTH 0, READ_WRITE_MODE READ_WRITE, HAS_BURST 1, HAS_LOCK 1, HAS_PROT 1, HAS_CACHE 1, HAS_QOS 1, HAS_REGION 0, HAS_WSTRB 1, HAS_BRESP 1, HAS_RRESP 1, SUPPORTS_NARROW_BURST 0, NUM_READ_OUTSTANDING 16, NUM_WRITE_OUTSTANDING 16, MAX_BURST_LENGTH 256, PHASE 0.0, INSERT_VIP 0" *)
+    output [63:0] m_axi_rd_awaddr,
+    (* X_INTERFACE_INFO = "xilinx.com:interface:aximm:1.0 m_axi_rd AWLEN" *)
+    output [7:0]  m_axi_rd_awlen,
+    (* X_INTERFACE_INFO = "xilinx.com:interface:aximm:1.0 m_axi_rd AWSIZE" *)
+    output [2:0]  m_axi_rd_awsize,
+    (* X_INTERFACE_INFO = "xilinx.com:interface:aximm:1.0 m_axi_rd AWBURST" *)
+    output [1:0]  m_axi_rd_awburst,
+    (* X_INTERFACE_INFO = "xilinx.com:interface:aximm:1.0 m_axi_rd AWLOCK" *)
+    output [0:0]  m_axi_rd_awlock,
+    (* X_INTERFACE_INFO = "xilinx.com:interface:aximm:1.0 m_axi_rd AWCACHE" *)
+    output [3:0]  m_axi_rd_awcache,
+    (* X_INTERFACE_INFO = "xilinx.com:interface:aximm:1.0 m_axi_rd AWPROT" *)
+    output [2:0]  m_axi_rd_awprot,
+    (* X_INTERFACE_INFO = "xilinx.com:interface:aximm:1.0 m_axi_rd AWQOS" *)
+    output [3:0]  m_axi_rd_awqos,
+    (* X_INTERFACE_INFO = "xilinx.com:interface:aximm:1.0 m_axi_rd AWID" *)
+    output [1:0]  m_axi_rd_awid,
+    (* X_INTERFACE_INFO = "xilinx.com:interface:aximm:1.0 m_axi_rd AWVALID" *)
+    output        m_axi_rd_awvalid,
+    (* X_INTERFACE_INFO = "xilinx.com:interface:aximm:1.0 m_axi_rd AWREADY" *)
+    input         m_axi_rd_awready,
+    (* X_INTERFACE_INFO = "xilinx.com:interface:aximm:1.0 m_axi_rd WDATA" *)
+    output [63:0] m_axi_rd_wdata,
+    (* X_INTERFACE_INFO = "xilinx.com:interface:aximm:1.0 m_axi_rd WSTRB" *)
+    output [7:0]  m_axi_rd_wstrb,
+    (* X_INTERFACE_INFO = "xilinx.com:interface:aximm:1.0 m_axi_rd WLAST" *)
+    output        m_axi_rd_wlast,
+    (* X_INTERFACE_INFO = "xilinx.com:interface:aximm:1.0 m_axi_rd WVALID" *)
+    output        m_axi_rd_wvalid,
+    (* X_INTERFACE_INFO = "xilinx.com:interface:aximm:1.0 m_axi_rd WREADY" *)
+    input         m_axi_rd_wready,
+    (* X_INTERFACE_INFO = "xilinx.com:interface:aximm:1.0 m_axi_rd BID" *)
+    input  [1:0]  m_axi_rd_bid,
+    (* X_INTERFACE_INFO = "xilinx.com:interface:aximm:1.0 m_axi_rd BRESP" *)
+    input  [1:0]  m_axi_rd_bresp,
+    (* X_INTERFACE_INFO = "xilinx.com:interface:aximm:1.0 m_axi_rd BVALID" *)
+    input         m_axi_rd_bvalid,
+    (* X_INTERFACE_INFO = "xilinx.com:interface:aximm:1.0 m_axi_rd BREADY" *)
+    output        m_axi_rd_bready,
+    (* X_INTERFACE_INFO = "xilinx.com:interface:aximm:1.0 m_axi_rd ARADDR" *)
+    output [63:0] m_axi_rd_araddr,
+    (* X_INTERFACE_INFO = "xilinx.com:interface:aximm:1.0 m_axi_rd ARLEN" *)
+    output [7:0]  m_axi_rd_arlen,
+    (* X_INTERFACE_INFO = "xilinx.com:interface:aximm:1.0 m_axi_rd ARSIZE" *)
+    output [2:0]  m_axi_rd_arsize,
+    (* X_INTERFACE_INFO = "xilinx.com:interface:aximm:1.0 m_axi_rd ARBURST" *)
+    output [1:0]  m_axi_rd_arburst,
+    (* X_INTERFACE_INFO = "xilinx.com:interface:aximm:1.0 m_axi_rd ARLOCK" *)
+    output [0:0]  m_axi_rd_arlock,
+    (* X_INTERFACE_INFO = "xilinx.com:interface:aximm:1.0 m_axi_rd ARCACHE" *)
+    output [3:0]  m_axi_rd_arcache,
+    (* X_INTERFACE_INFO = "xilinx.com:interface:aximm:1.0 m_axi_rd ARPROT" *)
+    output [2:0]  m_axi_rd_arprot,
+    (* X_INTERFACE_INFO = "xilinx.com:interface:aximm:1.0 m_axi_rd ARQOS" *)
+    output [3:0]  m_axi_rd_arqos,
+    (* X_INTERFACE_INFO = "xilinx.com:interface:aximm:1.0 m_axi_rd ARID" *)
+    output [1:0]  m_axi_rd_arid,
+    (* X_INTERFACE_INFO = "xilinx.com:interface:aximm:1.0 m_axi_rd ARVALID" *)
+    output        m_axi_rd_arvalid,
+    (* X_INTERFACE_INFO = "xilinx.com:interface:aximm:1.0 m_axi_rd ARREADY" *)
+    input         m_axi_rd_arready,
+    (* X_INTERFACE_INFO = "xilinx.com:interface:aximm:1.0 m_axi_rd RID" *)
+    input  [1:0]  m_axi_rd_rid,
+    (* X_INTERFACE_INFO = "xilinx.com:interface:aximm:1.0 m_axi_rd RDATA" *)
+    input  [63:0] m_axi_rd_rdata,
+    (* X_INTERFACE_INFO = "xilinx.com:interface:aximm:1.0 m_axi_rd RRESP" *)
+    input  [1:0]  m_axi_rd_rresp,
+    (* X_INTERFACE_INFO = "xilinx.com:interface:aximm:1.0 m_axi_rd RLAST" *)
+    input         m_axi_rd_rlast,
+    (* X_INTERFACE_INFO = "xilinx.com:interface:aximm:1.0 m_axi_rd RVALID" *)
+    input         m_axi_rd_rvalid,
+    (* X_INTERFACE_INFO = "xilinx.com:interface:aximm:1.0 m_axi_rd RREADY" *)
+    output        m_axi_rd_rready,
 
     // ========================================================================
     // AXI4 master 3：输出（只写；读通道恒空闲）
@@ -437,7 +278,7 @@ module k1_axi_wrap_bd (
 
     // 引擎的 32 位地址先落到内部线上，再零扩展成 64 位（不能直接驱动端口切片：
     // 那样同一根端口会被实例和 assign 同时驱动）。
-    wire [31:0] k1_addr_in, k1_addr_w, k1_addr_b, k1_addr_out;
+    wire [31:0] k1_addr_rd, k1_addr_out;
 
     // ========================================================================
     // 被包装的引擎（原样例化，一个端口都没改）
@@ -471,26 +312,14 @@ module k1_axi_wrap_bd (
         .s_axi_rvalid  (s_axi_rvalid),
         .s_axi_rready  (s_axi_rready),
 
-        // ---- 输入：AR/R 用真的，写通道恒空闲 ----
-        .m_axi_in_arvalid (m_axi_in_arvalid), .m_axi_in_arready (m_axi_in_arready),
-        .m_axi_in_araddr  (k1_addr_in),
-        .m_axi_in_arlen   (m_axi_in_arlen),
-        .m_axi_in_rvalid  (m_axi_in_rvalid),  .m_axi_in_rready  (m_axi_in_rready),
-        .m_axi_in_rdata   (m_axi_in_rdata),   .m_axi_in_rlast   (m_axi_in_rlast),
-
-        // ---- 权重 ----
-        .m_axi_w_arvalid  (m_axi_w_arvalid),  .m_axi_w_arready  (m_axi_w_arready),
-        .m_axi_w_araddr   (k1_addr_w),
-        .m_axi_w_arlen    (m_axi_w_arlen),
-        .m_axi_w_rvalid   (m_axi_w_rvalid),   .m_axi_w_rready   (m_axi_w_rready),
-        .m_axi_w_rdata    (m_axi_w_rdata),    .m_axi_w_rlast    (m_axi_w_rlast),
-
-        // ---- 偏置 ----
-        .m_axi_b_arvalid  (m_axi_b_arvalid),  .m_axi_b_arready  (m_axi_b_arready),
-        .m_axi_b_araddr   (k1_addr_b),
-        .m_axi_b_arlen    (m_axi_b_arlen),
-        .m_axi_b_rvalid   (m_axi_b_rvalid),   .m_axi_b_rready   (m_axi_b_rready),
-        .m_axi_b_rdata    (m_axi_b_rdata),    .m_axi_b_rlast    (m_axi_b_rlast),
+        // ---- 合并读：AR/R + 2-bit tag 直连；仲裁器在 k1_axi_wrap 内部 ----
+        .m_axi_rd_arvalid (m_axi_rd_arvalid), .m_axi_rd_arready (m_axi_rd_arready),
+        .m_axi_rd_araddr  (k1_addr_rd),
+        .m_axi_rd_arlen   (m_axi_rd_arlen),
+        .m_axi_rd_arid    (m_axi_rd_arid),
+        .m_axi_rd_rvalid  (m_axi_rd_rvalid),  .m_axi_rd_rready  (m_axi_rd_rready),
+        .m_axi_rd_rdata   (m_axi_rd_rdata),   .m_axi_rd_rlast   (m_axi_rd_rlast),
+        .m_axi_rd_rid     (m_axi_rd_rid),
 
         // ---- 输出：AW/W/B 用真的 ----
         .m_axi_out_awvalid(m_axi_out_awvalid),.m_axi_out_awready(m_axi_out_awready),
@@ -508,86 +337,31 @@ module k1_axi_wrap_bd (
     // 所以高 32 位恒 0（与 k1_axi_wrap 里"高字必须为 0"的校验一致）。
     // ========================================================================
 
-    // ---- in：写通道恒空闲 ----
-    assign m_axi_in_awaddr  = 64'd0;
-    assign m_axi_in_awlen   = 8'd0;
-    assign m_axi_in_awsize  = AXI_SIZE;
-    assign m_axi_in_awburst = AXI_BURST;
-    assign m_axi_in_awlock  = 1'b0;
-    assign m_axi_in_awcache = AXI_CACHE;
-    assign m_axi_in_awprot  = AXI_PROT;
-    assign m_axi_in_awqos   = AXI_QOS;
-    assign m_axi_in_awid    = 1'b0;
-    assign m_axi_in_awvalid = 1'b0;
-    assign m_axi_in_wdata   = 64'd0;
-    assign m_axi_in_wstrb   = 8'd0;
-    assign m_axi_in_wlast   = 1'b0;
-    assign m_axi_in_wvalid  = 1'b0;
-    assign m_axi_in_bready  = 1'b1;
+    // ---- rd：写通道恒空闲（本口只读；保留完整 AXI4 外形，SmartConnect 不必换配置）----
+    assign m_axi_rd_awaddr  = 64'd0;
+    assign m_axi_rd_awlen   = 8'd0;
+    assign m_axi_rd_awsize  = AXI_SIZE;
+    assign m_axi_rd_awburst = AXI_BURST;
+    assign m_axi_rd_awlock  = 1'b0;
+    assign m_axi_rd_awcache = AXI_CACHE;
+    assign m_axi_rd_awprot  = AXI_PROT;
+    assign m_axi_rd_awqos   = AXI_QOS;
+    assign m_axi_rd_awid    = 2'd0;
+    assign m_axi_rd_awvalid = 1'b0;
+    assign m_axi_rd_wdata   = 64'd0;
+    assign m_axi_rd_wstrb   = 8'd0;
+    assign m_axi_rd_wlast   = 1'b0;
+    assign m_axi_rd_wvalid  = 1'b0;
+    assign m_axi_rd_bready  = 1'b1;
 
-    // ---- in：读通道（地址零扩展）----
-    assign m_axi_in_araddr  = {32'd0, k1_addr_in};
-    assign m_axi_in_arsize  = AXI_SIZE;
-    assign m_axi_in_arburst = AXI_BURST;
-    assign m_axi_in_arlock  = 1'b0;
-    assign m_axi_in_arcache = AXI_CACHE;
-    assign m_axi_in_arprot  = AXI_PROT;
-    assign m_axi_in_arqos   = AXI_QOS;
-    assign m_axi_in_arid    = 1'b0;
-
-    // ---- w：写通道恒空闲 ----
-    assign m_axi_w_awaddr  = 64'd0;
-    assign m_axi_w_awlen   = 8'd0;
-    assign m_axi_w_awsize  = AXI_SIZE;
-    assign m_axi_w_awburst = AXI_BURST;
-    assign m_axi_w_awlock  = 1'b0;
-    assign m_axi_w_awcache = AXI_CACHE;
-    assign m_axi_w_awprot  = AXI_PROT;
-    assign m_axi_w_awqos   = AXI_QOS;
-    assign m_axi_w_awid    = 1'b0;
-    assign m_axi_w_awvalid = 1'b0;
-    assign m_axi_w_wdata   = 64'd0;
-    assign m_axi_w_wstrb   = 8'd0;
-    assign m_axi_w_wlast   = 1'b0;
-    assign m_axi_w_wvalid  = 1'b0;
-    assign m_axi_w_bready  = 1'b1;
-
-    // ---- w：读通道 ----
-    assign m_axi_w_araddr  = {32'd0, k1_addr_w};
-    assign m_axi_w_arsize  = AXI_SIZE;
-    assign m_axi_w_arburst = AXI_BURST;
-    assign m_axi_w_arlock  = 1'b0;
-    assign m_axi_w_arcache = AXI_CACHE;
-    assign m_axi_w_arprot  = AXI_PROT;
-    assign m_axi_w_arqos   = AXI_QOS;
-    assign m_axi_w_arid    = 1'b0;
-
-    // ---- b：写通道恒空闲 ----
-    assign m_axi_b_awaddr  = 64'd0;
-    assign m_axi_b_awlen   = 8'd0;
-    assign m_axi_b_awsize  = AXI_SIZE;
-    assign m_axi_b_awburst = AXI_BURST;
-    assign m_axi_b_awlock  = 1'b0;
-    assign m_axi_b_awcache = AXI_CACHE;
-    assign m_axi_b_awprot  = AXI_PROT;
-    assign m_axi_b_awqos   = AXI_QOS;
-    assign m_axi_b_awid    = 1'b0;
-    assign m_axi_b_awvalid = 1'b0;
-    assign m_axi_b_wdata   = 64'd0;
-    assign m_axi_b_wstrb   = 8'd0;
-    assign m_axi_b_wlast   = 1'b0;
-    assign m_axi_b_wvalid  = 1'b0;
-    assign m_axi_b_bready  = 1'b1;
-
-    // ---- b：读通道 ----
-    assign m_axi_b_araddr  = {32'd0, k1_addr_b};
-    assign m_axi_b_arsize  = AXI_SIZE;
-    assign m_axi_b_arburst = AXI_BURST;
-    assign m_axi_b_arlock  = 1'b0;
-    assign m_axi_b_arcache = AXI_CACHE;
-    assign m_axi_b_arprot  = AXI_PROT;
-    assign m_axi_b_arqos   = AXI_QOS;
-    assign m_axi_b_arid    = 1'b0;
+    // ---- rd：读通道（32 位引擎地址零扩展；ARID 就是 2-bit tag，直连）----
+    assign m_axi_rd_araddr  = {32'd0, k1_addr_rd};
+    assign m_axi_rd_arsize  = AXI_SIZE;
+    assign m_axi_rd_arburst = AXI_BURST;
+    assign m_axi_rd_arlock  = 1'b0;
+    assign m_axi_rd_arcache = AXI_CACHE;
+    assign m_axi_rd_arprot  = AXI_PROT;
+    assign m_axi_rd_arqos   = AXI_QOS;
 
     // ---- out：读通道恒空闲 ----
     assign m_axi_out_araddr  = 64'd0;

@@ -114,6 +114,10 @@ module conv_k1_engine #(
     localparam int BW      = $clog2(BLKMAX + 1);             // 3
     localparam int NGW     = $clog2(NCGMAX + 1);             // 5
 
+    // 权重 RAM 的“行”= 一个 ic：行内 32 lane 各 1 字节（与 C8 字节顺序一致）。
+    // 行宽 = LANES*8 = 256 bit；深度 = CIN_MAX = 352。BRAM 推断见 §6。
+    localparam int WW      = LANES * 8;                      // 256 bit/行
+
     // ========================================================================
     // 1. 配置锁存 / 派生
     // ========================================================================
@@ -125,6 +129,8 @@ module conv_k1_engine #(
     logic [GW-1:0]  g_count_r;
     logic [BW-1:0]  blk_cnt_r, blk_r;
     logic [NGW-1:0] ncg_r;
+    // 当前 pass 的权重在 w_mem 里的行基址（多 pass 时用“行槽”错开，见 §6/§9）
+    logic [ICW-1:0] row_base_r;
 
     // 16×16 在 assignment 上下文里本该是 32 位；显式拼 32 位，防止再踩自决定位宽
     wire [31:0] hw_mul = {16'd0, ctrl_h[15:0]} * {16'd0, ctrl_w[15:0]};
@@ -188,10 +194,21 @@ module conv_k1_engine #(
     wire block_start = issue_en && (ic_cur == {ICW{1'b0}});
     wire push_ok     = push_vld && (ob_cnt < OBUF_N);
 
-    // 权重装载请求（PASS→NEXT 时给 loader 一个 1 拍脉冲）
+    // 权重装载请求（pass 启动时预装下一 pass；行槽不够时退回 pass 末尾装）
     logic          wl_req_pulse;
     logic [BW-1:0] wl_req_blk;
+    logic [ICW-1:0] wl_req_row;
     logic [BW-1:0] wl_done_blk;   // 前向声明：pass_go 要用（避免先用后声明）
+
+    // ---- 权重“行槽”分配 --------------------------------------------------
+    //  一个 pass 占 cin 行；下一 pass 装到 [row_base+cin, row_base+2*cin)，
+    //  只要 2*cin 还塞得进 CIN_MAX，就能在**本 pass 计算期间后台装载**（不阻塞）。
+    //  塞不下（cin>176，即 CIN_MAX/cin < 2）时 next_row_base 回 0：
+    //  等本 pass 算完再装，退化成原来的“pass 末尾串行重装”。
+    wire [ICW:0] row_base_d = {1'b0, row_base_r} + {1'b0, cin_r};
+    wire         preload_ok = (row_base_d + {1'b0, cin_r}) <= CIN_MAX;
+    wire [ICW-1:0] next_row_base = preload_ok ? row_base_d[ICW-1:0]
+                                              : {ICW{1'b0}};
 
     assign pass_go = ((state == ST_LOAD) && bank_ready && (wl_done_blk == 3'd0) && bias_ready) ||
                      ((state == ST_NEXT) && bank_ready && (wl_done_blk == blk_r) && bias_ready);
@@ -205,6 +222,8 @@ module conv_k1_engine #(
             pass_gbase  <= 32'd0;
             wl_req_pulse<= 1'b0;
             wl_req_blk  <= 3'd0;
+            wl_req_row  <= {ICW{1'b0}};
+            row_base_r  <= {ICW{1'b0}};
             in_base_r   <= 32'd0;
             wgt_base_r  <= 32'd0;
             bias_base_r <= 32'd0;
@@ -217,7 +236,16 @@ module conv_k1_engine #(
             g_count_r   <= 6'd0;
             ncg_r       <= 5'd1;
         end else begin
-            ctrl_done <= 1'b0;
+            ctrl_done    <= 1'b0;
+            wl_req_pulse <= 1'b0;      // 真 1 拍脉冲（loader 在 WL_IDLE 收）
+            // ---- pass 一启动就预装下一 pass 的权重 ----
+            // 行槽够（preload_ok）时 loader 在后台写下一槽，计算照跑；
+            // 不够时这里不发请求，等 ST_PASS→ST_NEXT 再串行装（见下）。
+            if (pass_go && ((blk_r + 3'd1) < blk_cnt_r) && preload_ok) begin
+                wl_req_pulse <= 1'b1;
+                wl_req_blk   <= blk_r + 3'd1;
+                wl_req_row   <= next_row_base;
+            end
             case (state)
                 ST_IDLE: begin
                     if (start_pulse) begin
@@ -235,6 +263,8 @@ module conv_k1_engine #(
                         blk_cnt_r   <= (ctrl_cout[CW-1:0] + 8'd31) >> 5;
                         ncg_r       <= (ctrl_cout[CW-1:0] + 8'd7) >> 3;
                         blk_r       <= 3'd0;
+                        row_base_r  <= {ICW{1'b0}};
+                        wl_req_row  <= {ICW{1'b0}};
                         wl_req_pulse<= 1'b0;
                         state       <= ST_LOAD;
                     end
@@ -246,18 +276,20 @@ module conv_k1_engine #(
                         if ((blk_r + 3'd1) < blk_cnt_r) begin
                             blk_r        <= blk_r + 3'd1;
                             pass_gbase   <= pass_gbase + (hw8_r << 2);
-                            wl_req_pulse <= 1'b1;
-                            wl_req_blk   <= blk_r + 3'd1;
+                            row_base_r   <= next_row_base;
+                            // 没预装（行槽不够）→ 现在串行装下一 pass
+                            if (!preload_ok) begin
+                                wl_req_pulse <= 1'b1;
+                                wl_req_blk   <= blk_r + 3'd1;
+                                wl_req_row   <= next_row_base;
+                            end
                             state        <= ST_NEXT;
                         end else begin
                             state <= ST_DRAIN;
                         end
                     end
                 end
-                ST_NEXT: begin
-                    wl_req_pulse <= 1'b0;
-                    if (pass_go) state <= ST_PASS;
-                end
+                ST_NEXT: if (pass_go) state <= ST_PASS;
                 ST_DRAIN: if ((ob_cnt == 3'd0) && (b_cnt == 8'd0)) state <= ST_DONE;
                 ST_DONE: begin
                     ctrl_done <= 1'b1;
@@ -408,14 +440,12 @@ module conv_k1_engine #(
     // 5. 计算流水（3 级，II=1）
     // ========================================================================
     logic signed [7:0] p_a;
-    logic [2:0]        sel_a;
     logic              par_a, par_b;
     logic              last_a, last_b;
     logic              v_a, v_b;
     logic [31:0]       pixoff_a, pixoff_b;
     logic [BW-1:0]     blk_a, blk_b;
 
-    logic [63:0]        w_word_q [0:LANES-1];
     (* use_dsp = "yes" *) logic signed [15:0] prod_b [0:LANES-1];
     logic signed [25:0] acc_e    [0:LANES-1];
     logic signed [25:0] acc_o    [0:LANES-1];
@@ -431,14 +461,14 @@ module conv_k1_engine #(
 
     always_ff @(posedge ap_clk or negedge ap_rst_n) begin
         if (!ap_rst_n) begin
-            p_a <= 8'sd0; sel_a <= 3'd0;
+            p_a <= 8'sd0;
             par_a <= 1'b0; par_b <= 1'b0;
             last_a <= 1'b0; last_b <= 1'b0;
             v_a <= 1'b0; v_b <= 1'b0;
             pixoff_a <= 32'd0; pixoff_b <= 32'd0;
             blk_a <= 3'd0; blk_b <= 3'd0;
         end else if (start_pulse || pass_go) begin
-            p_a <= 8'sd0; sel_a <= 3'd0;
+            p_a <= 8'sd0;
             par_a <= 1'b0; par_b <= 1'b0;
             last_a <= 1'b0; last_b <= 1'b0;
             v_a <= 1'b0; v_b <= 1'b0;
@@ -446,7 +476,6 @@ module conv_k1_engine #(
             v_a <= issue_en;
             if (issue_en) begin
                 p_a      <= p_byte;
-                sel_a    <= ic_cur[2:0];
                 par_a    <= ic_cur[0];
                 last_a   <= (ic_cur == (cin_r - 1'b1));
                 pixoff_a <= pix_off;
@@ -465,12 +494,51 @@ module conv_k1_engine #(
     end
 
     // ========================================================================
-    // 6. 权重 bank（每 lane 一个 44×64bit ram，地址 = ic>>3）+ 累加器
+    // 6. 权重 RAM：一块 WW(=256)×CIN_MAX 的 **BRAM**（字节写 + 同步读 1 拍）
+    //    行 = 一个 ic；行内 [lane*8 +: 8] = 该 lane 在该 ic 上的 8-bit 权重。
+    //    · 旧版是 32 个 44×64 LUTRAM（3.1k LUTRAM + 每 lane 一个 8:1 字节 mux）；
+    //    · 新版把 32 lane 压进同一行的 32 个字节，容量 90,112 bit，
+    //      Vivado 推断成 **4 × RAMB36**（512×72 的 SDP 4 块，36-bit 组各放 4 个
+    //      8-bit lane，1 bit 空着），约 +4 Block RAM Tile。
+    //    · 读延迟仍是 **1 拍**（和旧 LUTRAM 版一样，旧版 w_word_q 也是寄存器输出）：
+    //        issue 拍：w_rd_addr = row_base_r + ic_cur 打进 BRAM
+    //        下一拍 ：w_row_q 有效，与 p_a（同一个 issue 拍寄存的像素字节）对齐
+    //      所以 II=1 不变、不需要额外补拍。
+    //    · 写口每拍只写 1 字节（一个 lane）；8 字节/beat 要 8 拍。多 pass 时靠
+    //      “行槽”把这段装载藏进上一个 pass 的计算里（见 §2/§9）。
+    //    ⚠ RAM 模板铁律（踩过）：w_row_q **只能**由下面这一个 always 的
+    //      `w_row_q <= w_mem[w_rd_addr]` 赋值——不要加复位、不要旁路、不要第二源，
+    //      否则 Vivado 不推断 BRAM，会退化成 FF + 256:1 读 mux。
     // ========================================================================
-    logic        wl_we;
-    logic [63:0] wl_din;
-    logic [4:0]  wl_we_lane;
-    logic [GW-1:0] wl_we_word;
+    // 写口（由 §9 的装载 FSM 用组合信号驱动；one-hot 字节使能 = 1 个 lane）
+    logic             w_ld_we;
+    logic [LANES-1:0] w_ld_be;
+    logic [ICW-1:0]   w_ld_addr;
+    logic [7:0]       w_ld_data;
+    // 读口
+    logic [ICW-1:0]   w_rd_addr;
+    logic [WW-1:0]    w_row_q;      // 32 lane × 8-bit 的一整行
+
+    assign w_rd_addr = row_base_r + ic_cur;
+
+    (* ram_style = "block" *) reg [WW-1:0] w_mem [0:CIN_MAX-1];
+
+    // 写口：每拍 1 字节。循环展开成 32 个常量 bit-slice 的 if ⇒ Vivado 认成
+    // “宽字 + 字节写使能”的 RAM（不要把地址也拆成 32 个）。
+    always_ff @(posedge ap_clk) begin
+        if (w_ld_we) begin
+            for (int c = 0; c < LANES; c = c + 1) begin
+                if (w_ld_be[c])
+                    w_mem[w_ld_addr][c*8 +: 8] <= w_ld_data;
+            end
+        end
+    end
+
+    // 读口：w_row_q 唯一赋值源（同步读，1 拍；读使能 = issue_en）
+    always_ff @(posedge ap_clk) begin
+        if (issue_en)
+            w_row_q <= w_mem[w_rd_addr];
+    end
 
     // 偏置装载写口（在 generate 之前声明，供每个 lane 的 bias 写解码使用）
     logic             bl_weA, bl_weB;
@@ -481,14 +549,8 @@ module conv_k1_engine #(
     generate
         (* keep_hierarchy = "yes" *)
         for (gi = 0; gi < LANES; gi = gi + 1) begin : g_lane
-            (* ram_style = "distributed" *) reg [63:0] wmem [0:GMAX-1];
-
-            always_ff @(posedge ap_clk) begin
-                if (wl_we && (wl_we_lane == gi[4:0]))
-                    wmem[wl_we_word] <= wl_din;
-                if (issue_en)
-                    w_word_q[gi] <= wmem[ic_cur[ICW-1:3]];
-            end
+            // 本 lane 在该 ic 上的权重字节（w_row_q 的常量切片，纯连线）
+            wire [7:0] w_byte = w_row_q[gi*8 +: 8];
 
             // 偏置：BLKMAX 个 pass 各一份，收尾按 ep_blk_q 选（无读地址 mux）
             always_ff @(posedge ap_clk or negedge ap_rst_n) begin
@@ -508,7 +570,7 @@ module conv_k1_engine #(
             // 乘法器：use_dsp 强制映射到 DSP48；**组合使用**（不启用 DSP 内部
             // A/B/M/P 寄存器），所以 prod_b 仍然只延迟 1 拍，像素/权重对齐不变。
             (* use_dsp = "yes" *) wire signed [15:0] mul_prod =
-                p_a * $signed(w_word_q[gi][{sel_a, 3'b000} +: 8]);
+                p_a * $signed(w_byte);
 
             // B/C 级：乘 + 奇偶双链累加 + 收尾快照
             always_ff @(posedge ap_clk or negedge ap_rst_n) begin
@@ -692,9 +754,23 @@ module conv_k1_engine #(
     end
 
     // ========================================================================
-    // 9. 权重装载（按 oc pass；每次装 32 lane × cin 字节，装完计算）
+    // 9. 权重装载（按 oc pass；写入 §6 的 BRAM，字节粒度）
+    //
+    //  装载量不变：每 pass 32 lane × cin 字节；但写口 1 字节/拍 ⇒ 每 beat
+    //  （8 字节）要 8 拍。为了不把这段时间加到关键路径：
+    //    · pass 启动时（pass_go）就把下一 pass 的请求发给 loader，写进
+    //      next_row_base 那个**行槽**（与当前 pass 的 [row_base,+cin) 不重叠）；
+    //    · 计算期间 loader 在后台慢慢写，pass 结束时早就写完 → ST_NEXT 立刻过；
+    //    · cin > 176（CIN_MAX/cin < 2）塞不下两个行槽时，退回“pass 末尾串行装”，
+    //      这时才多花装载时间（只有黄金 k1_64x64 的 +2% 口径受影响，它 cin=64
+    //      有 5 个行槽，是后台装的）。
+    //
+    //  与输入预取的带宽协调：后台装载只在“输入已领先 ≥2 像素”时才发 AR。
+    //  合并读口上输入是最高优先级（见 k1_axi_wrap.v），权重 burst 只占 1/8 带宽；
+    //  这样既不会把输入 4 缓冲饿死，也不会让权重 burst 挡住 pass 启动。
     // ========================================================================
-    localparam logic [1:0] WL_IDLE = 2'd0, WL_AR = 2'd1, WL_R = 2'd2;
+    localparam logic [1:0] WL_IDLE = 2'd0, WL_AR = 2'd1,
+                           WL_R    = 2'd2, WL_WR = 2'd3;
 
     logic [1:0]  wl_state;
     logic [31:0] wl_addr;
@@ -702,13 +778,36 @@ module conv_k1_engine #(
     logic [GW-1:0] wl_word;
     logic [5:0]  wl_lane_lim;
     logic [BW-1:0] wl_blk;
+    logic [ICW-1:0] wl_row_base;
+    logic [63:0] wl_beat_q;
+    logic [2:0]  wl_bcnt;
+    logic        wl_last_q;
     wire  [GW-1:0] wpl = cin_r[ICW-1:3];
     wire  [7:0]    wl_rem = cout_r - {wl_req_blk, 5'b00000}; // 本 pass 剩余 oc 数
+    // 输入预取领先量（像素）。只有领先 ≥2 才发权重 AR；ST_PASS 以外（ST_LOAD /
+    // ST_NEXT）没有计算，不设门槛。
+    wire  [31:0]   in_lead = f_next - pix_cur;
+    wire           wl_ar_ok = (state != ST_PASS) || (in_lead >= 32'd2);
 
-    assign m_axi_w_arvalid = (wl_state == WL_AR);
+    // 门控一旦放开就必须保持 ARVALID 到 AR 握手（AXI 要求 valid 不得中途撤销；
+    // in_lead 会随计算推进变小，不加 sticky 会违反协议 / 丢事务）。
+    logic           wl_ar_seen;
+    assign m_axi_w_arvalid = (wl_state == WL_AR) && (wl_ar_seen || wl_ar_ok);
     assign m_axi_w_araddr  = wl_addr;
     assign m_axi_w_arlen   = (wpl == 6'd0) ? 8'd0 : (wpl - 6'd1);
-    assign m_axi_w_rready  = (wl_state == WL_R);
+    // 一个 beat 的 8 字节要写 8 拍；只在 WL_R（收 beat）和 WL_WR 最后一拍收下一拍
+    assign m_axi_w_rready  = (wl_state == WL_R) ||
+                             ((wl_state == WL_WR) && (wl_bcnt == 3'd7) && !wl_last_q);
+
+    // ---- RAM 写口（组合；RAM 在时钟沿采样）----
+    assign w_ld_we   = (wl_state == WL_WR);
+    assign w_ld_data = wl_beat_q[{wl_bcnt, 3'b000} +: 8];   // 本拍写第 wl_bcnt 个字节
+    assign w_ld_addr = wl_row_base + {wl_word, 3'b000}
+                       + {{(ICW-3){1'b0}}, wl_bcnt};
+    always_comb begin
+        w_ld_be = {LANES{1'b0}};
+        w_ld_be[wl_lane] = 1'b1;                            // one-hot：一次只写一个 lane
+    end
 
     always_ff @(posedge ap_clk or negedge ap_rst_n) begin
         if (!ap_rst_n) begin
@@ -717,11 +816,12 @@ module conv_k1_engine #(
             wl_lane     <= 5'd0;
             wl_word     <= 6'd0;
             wl_blk      <= 3'd0;
+            wl_row_base <= {ICW{1'b0}};
+            wl_beat_q   <= 64'd0;
+            wl_bcnt     <= 3'd0;
+            wl_last_q   <= 1'b0;
+            wl_ar_seen  <= 1'b0;
             wl_done_blk <= 3'd0;
-            wl_we       <= 1'b0;
-            wl_din      <= 64'd0;
-            wl_we_lane  <= 5'd0;
-            wl_we_word  <= 6'd0;
             wl_lane_lim <= 6'd32;
             bank_ready  <= 1'b0;
         end else if (start_pulse) begin
@@ -730,47 +830,73 @@ module conv_k1_engine #(
             wl_lane     <= 5'd0;
             wl_word     <= 6'd0;
             wl_blk      <= 3'd0;
+            wl_row_base <= {ICW{1'b0}};
+            wl_bcnt     <= 3'd0;
+            wl_last_q   <= 1'b0;
+            wl_ar_seen  <= 1'b0;
             wl_done_blk <= 3'd0;
-            wl_we       <= 1'b0;
             wl_lane_lim <= (ctrl_cout[7:0] > 8'd32) ? 6'd32 : ctrl_cout[5:0];
             bank_ready  <= 1'b0;
         end else begin
-            wl_we <= 1'b0;
             case (wl_state)
                 WL_IDLE: begin
                     if (wl_req_pulse) begin
                         wl_blk      <= wl_req_blk;
+                        wl_row_base <= wl_req_row;
                         wl_lane     <= 5'd0;
                         wl_word     <= 6'd0;
+                        wl_bcnt     <= 3'd0;
+                        wl_ar_seen  <= 1'b0;
                         wl_lane_lim <= (wl_rem > 8'd32) ? 6'd32 : wl_rem[5:0];
                         bank_ready  <= 1'b0;
                         wl_state    <= WL_AR;
                     end
                 end
                 WL_AR: begin
-                    if (m_axi_w_arvalid && m_axi_w_arready)
-                        wl_state <= WL_R;
+                    if (m_axi_w_arvalid && m_axi_w_arready) begin
+                        wl_ar_seen <= 1'b0;
+                        wl_state   <= WL_R;
+                    end else if (wl_ar_ok) begin
+                        wl_ar_seen <= 1'b1;   // 锁住 ARVALID
+                    end
                 end
                 WL_R: begin
                     if (m_axi_w_rvalid && m_axi_w_rready) begin
-                        wl_we      <= 1'b1;
-                        wl_din     <= m_axi_w_rdata;
-                        wl_we_lane <= wl_lane;
-                        wl_we_word <= wl_word;
-                        wl_addr    <= wl_addr + 32'd8;
-                        if ((wl_word + 6'd1) == wpl) begin
+                        wl_beat_q <= m_axi_w_rdata;
+                        wl_addr   <= wl_addr + 32'd8;
+                        wl_bcnt   <= 3'd0;
+                        // 本 beat 是这条 lane 的最后一 beat？
+                        wl_last_q <= (wl_word == (wpl - 6'd1));
+                        wl_state  <= WL_WR;
+                    end
+                end
+                WL_WR: begin
+                    if (wl_bcnt == 3'd7) begin
+                        wl_bcnt <= 3'd0;
+                        if (wl_last_q) begin
+                            // 这一 lane 的 8 个字节写完了
                             wl_word <= 6'd0;
                             if (({1'b0, wl_lane} + 6'd1) == wl_lane_lim) begin
                                 bank_ready  <= 1'b1;
                                 wl_done_blk <= wl_blk;
                                 wl_state    <= WL_IDLE;
                             end else begin
-                                wl_lane  <= wl_lane + 5'd1;
-                                wl_state <= WL_AR;
+                                wl_lane    <= wl_lane + 5'd1;
+                                wl_ar_seen <= 1'b0;
+                                wl_state   <= WL_AR;
                             end
+                        end else if (m_axi_w_rvalid && m_axi_w_rready) begin
+                            // 第 8 个字节写的同一拍收下一 beat ⇒ 8 拍/beat，不是 9
+                            wl_beat_q <= m_axi_w_rdata;
+                            wl_addr   <= wl_addr + 32'd8;
+                            wl_word   <= wl_word + 6'd1;
+                            wl_last_q <= ((wl_word + 6'd1) == (wpl - 6'd1));
                         end else begin
-                            wl_word <= wl_word + 6'd1;
+                            wl_word  <= wl_word + 6'd1;
+                            wl_state <= WL_R;
                         end
+                    end else begin
+                        wl_bcnt <= wl_bcnt + 3'd1;
                     end
                 end
                 default: wl_state <= WL_IDLE;

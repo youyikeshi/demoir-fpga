@@ -6,7 +6,7 @@
 > 契约：`docs/rtl_hand/00_SPEC_接口契约.md` §3
 > 依据：`docs/rtl_map/04_mac_array.md`（k=1 现状 16 车道 + 21 拍收尾）、
 > `docs/rtl_map/03_weight_path.md`（每 (y,列块,ocb) 重装 = 237 MB/全网）
-> 最后更新：2026-10-23 21:52（**未综合、未上板；xsim 由主控跑**）
+> 最后更新：2026-10-26 15:30（**资源瘦身改动；未综合、未上板；xsim 由主控跑**）
 
 ---
 
@@ -549,5 +549,312 @@ HLS 引擎其实有**两个** AXI-Lite bundle（PS 用两个基地址）：
   但置 done 并返回错误码，PS 不会超时。
 - 本构建 `RELU=1` 是编译期参数；RELU 寄存器只做回写显示，写 0 不改变硬件。
   C8 声明位 bit2/bit3 不参与逻辑（C8-only）。
-- 四个 AXI4 master 原样引到 wrapper 顶层，BD 直接连 DDR。
+- 资源瘦身后对外只剩 **2 个 AXI4 master**：`m_axi_rd`（in/w/b 内部仲裁，2-bit tag）
+  + `m_axi_out`；详见 §15。
 - `xvlog -sv`（不带 `--relax`）0 warning / 0 error。
+
+---
+
+## 15. 资源瘦身（2026-10-26）：权重进 BRAM + 三读口合并
+
+> 触发：BD 综合 `k1_wrap` = **20,389 LUT**（17,293 logic + 3,096 LUTRAM）、FF 15,746、
+> DSP 33、BRAM 0；`smc`（6 个 SI）= 7,876 LUT；合计 **55,390** > 器件 46,200（xc7z015）。
+> 本节的两个改动**只动 RTL**，未综合、未仿真（由主控统一跑）。
+
+### 15.1 任务 1：权重存储 LUTRAM → BRAM
+
+#### 15.1.1 为什么不能只把 `ram_style` 改成 `"block"`
+
+旧结构是**每个 lane 一块 44×64 的分布式 RAM**（`g_lane[*].wmem`，synth 里落成
+64×64、22 个 RAM64M/lane）。若只改属性，Vivado 会得到 32 块 512×72 的 RAMB36
+（每 lane 一块，64-bit 读口至少要 2 个 36-bit 组），即 **+32 Block RAM Tile**；
+而芯片上只剩 **8.5 个 Tile**（190 BRAM18 里用了 173）。所以必须换**数据布局**，
+不是换属性。
+
+#### 15.1.2 新布局：一块 256-bit × 352 的 SDP BRAM
+
+```
+w_mem[ic][lane*8 +: 8] = weight[oc = pass*32+lane][ic]     // 行 = 一个 ic
+行宽 WW = LANES*8 = 256 bit；深度 CIN_MAX = 352；总容量 90,112 bit
+```
+
+- 所有 lane 在同一个 `ic` 上**同址**读，天然拼成一行；旧布局那 32 个独立读口
+  其实是同一个地址，压成一行后只剩 **1 个 256-bit 读口**。
+- Vivado 的映射：RAMB36 的 SDP 512×72 里，每 72 bit = 8 个 9-bit 组，
+  每个组放 1 个 lane 的 8 bit（空 1 bit）；256 bit 需要 **4 块 RAMB36**
+  = **4 Block RAM Tile（8 个 RAMB18）**，深度 352 ≤ 512。
+- 写入用**字节使能**：`w_ld_be[wl_lane]` one-hot，每拍只写 1 个 lane 的 1 字节。
+
+RTL（`conv_k1_engine.v` §6）：
+
+```verilog
+(* ram_style = "block" *) reg [WW-1:0] w_mem [0:CIN_MAX-1];
+
+// 写口：每拍 1 字节；32 个常量 bit-slice 的 if ⇒ 字节写使能
+always_ff @(posedge ap_clk) begin
+    if (w_ld_we)
+        for (int c = 0; c < LANES; c = c + 1)
+            if (w_ld_be[c])
+                w_mem[w_ld_addr][c*8 +: 8] <= w_ld_data;
+end
+
+// 读口：w_row_q 只有一个赋值源（不能复位/旁路/第二源）
+always_ff @(posedge ap_clk) begin
+    if (issue_en)
+        w_row_q <= w_mem[w_rd_addr];
+end
+```
+
+**RAM 模板自查**（任务书点名的坑）：
+- `w_row_q` 只有上面这一条赋值，没有复位、没有同拍旁路；写口在另一个 always。
+- 读地址 `w_rd_addr = row_base_r + ic_cur` 是寄存器/计数器的组合，不带复位。
+- 写口没有第二地址，32 个 if 共用 `w_ld_addr`，是标准“宽字 + 字节使能”模板。
+- `px_mem` 的模板一个字没动（仍是 `ram_style="distributed"` 的 4×44×64 LUTRAM）。
+
+#### 15.1.3 读延迟怎么补偿（**关键：不需要补拍**）
+
+先把旧时序写清楚：旧版虽然是 LUTRAM，但读**已经是寄存器输出**：
+
+```verilog
+if (issue_en) w_word_q[gi] <= wmem[ic_cur[ICW-1:3]];   // 旧：1 拍
+```
+
+所以旧版 `w_word_q` 在 issue 拍的**下一拍**才有效，配合同一拍寄存的 `p_a`
+（`p_a <= p_byte`）和 `sel_a`（`<= ic_cur[2:0]`）做乘法。**LUTRAM 的异步读特性
+根本没有被用到**——读延迟本来就是 1 拍。
+
+新版 BRAM 同步读也是 1 拍，且地址在**同一个 issue 拍**给出：
+
+| 拍 | 旧（32×64 LUTRAM） | 新（256-bit BRAM） |
+|---|---|---|
+| t（issue） | `w_word_q[gi] <= wmem[ic_cur>>3]`，`p_a <= p_byte`，`sel_a <= ic_cur[2:0]` | `w_row_q <= w_mem[row_base+ic_cur]`，`p_a <= p_byte` |
+| t+1 | `p_a * w_word_q[gi][{sel_a,3'b0}+:8]` → ic 的权重字节 | `p_a * w_row_q[gi*8+:8]` → **同一个 ic 的权重字节** |
+| t+2 | `prod_b` 进累加 | 同左 |
+
+结论：**读延迟没变（都是 1 拍）、乘法的两个操作数仍在同一拍对齐、II=1 不变**。
+不需要“提前一拍给地址”，也没有加流水级。唯一的变化是去掉了每 lane 的 8:1 字节
+mux（`sel_a` 那级），权重字节直接是 `w_row_q` 的常量切片。
+
+> 再强调一次：`p_word_q`/`bp_hit_q`（像素侧）与权重读**没有任何关系**，这次没动；
+> 它们仍然是“issue 拍读、下一拍用”的同一套对齐。
+
+#### 15.1.4 装载：1 字节/拍 + “行槽”后台预装
+
+写口 1 字节/拍 ⇒ 一个 64-bit beat 要 8 拍（原来是 1 拍）。一个 pass 的装载量
+`32·cin` 字节，45nm 下就是 `32·cin` 拍。为了不把它加到关键路径上：
+
+- 一个 pass 占 `cin` 行；下一 pass 装到 `[row_base+cin, row_base+2·cin)`。
+  只要 `2·cin ≤ CIN_MAX(352)`（即 **cin ≤ 176**），两块行槽不重叠 ⇒
+  **本 pass 计算期间 loader 在后台写下一槽**，pass 结束时早写完了。
+- `pass_go`（本 pass 启动）就发下一 pass 的装载请求；`row_base_r` 在
+  ST_PASS→ST_NEXT 时切到下一槽。代码：
+
+```verilog
+// §2：行槽够不够
+wire [ICW:0] row_base_d   = {1'b0, row_base_r} + {1'b0, cin_r};
+wire         preload_ok   = (row_base_d + {1'b0, cin_r}) <= CIN_MAX;
+wire [ICW-1:0] next_row_base = preload_ok ? row_base_d[ICW-1:0] : 0;
+
+// pass_go 当拍：预装下一 pass
+if (pass_go && ((blk_r + 1) < blk_cnt_r) && preload_ok) begin
+    wl_req_pulse <= 1'b1;
+    wl_req_blk   <= blk_r + 1;
+    wl_req_row   <= next_row_base;
+end
+```
+
+- `cin > 176`（352/cin < 2，塞不下两个行槽）时 `preload_ok=0`：退回原来的
+  “pass 算完再串行装”。这时才多花装载时间；H=2 的真实形状约 +3~4%，
+  全幅 320×320 可忽略（装载/计算 = 32/(H·W)）。
+- **与输入预取的带宽协调**：后台装载只在 `in_lead = f_next - pix_cur ≥ 2`
+  （输入已领先 2 像素）时才发 AR；且 `wl_ar_seen` 把 ARVALID 锁住到握手
+  （AXI 要求 valid 不得中途撤销）。配合 `k1_axi_wrap` 里“输入最高优先级”，
+  权重 burst 不会把 4 像素输入缓冲饿死。
+
+装载 FSM 的关键点（`WL_IDLE/AR/R/WR`）：收一个 beat 后连写 8 拍；第 8 拍
+（`wl_bcnt==7`）若还有下一 beat，就在**同一拍**收下（`rready` 只在 R 和
+WR 最后一拍为高），所以是 8 拍/beat 而不是 9。每 lane 最后一个 beat 由
+`wl_last_q` 记住，写完 8 字节才切下一 lane。
+
+一个 32-lane pass 的装载拍数（对 TB 模型实测）：`lanes·(cin+2)`：
+
+| cin | 8 | 16 | 64 | 160 | 224 | 352 |
+|---|---:|---:|---:|---:|---:|---:|
+| 装载拍（32 lane） | 320 | 576 | 2,112 | 5,184 | 7,232 | 11,328 |
+
+#### 15.1.5 拍数影响（黄金口径）
+
+`k1_64x64`（cin=64，2 pass，80,920 计算拍 + 原 639 装载/启动）：
+
+- 初始装载从 `32·10 = 320` 变成 `32·66 = 2,112`（+1,792）；
+- 第 2 个 pass 的行槽够（2×64=128 ≤ 352）⇒ **完全藏在 pass 0 的 40,960 拍里**，
+  原来的 320 拍装载也省掉；
+- 预测总拍 ≈ 81,920 + 2,112 + 32(bias) − 1 ≈ **84,06x**（+1.8%），
+  在 `+2%`（≤84,210）以内。**以主控实测为准**。
+- 其它形状：cin=64/160 的行槽 ≥2，装载基本藏住；cin=208/224/256/352 一个行槽
+  ⇒ 每次 pass 重装暴露，H=2 形状 +3~4%，但只影响 HLS 基线 1.2× 的宽松口径。
+
+### 15.2 任务 2：三路读 master → 1 路（`m_axi_rd`）+ 输出写不变
+
+`k1_axi_wrap.v` 内部新增仲裁器，外部端口从 4 个 master 变 2 个：
+
+| 旧 | 新 |
+|---|---|
+| `m_axi_in_*` / `m_axi_w_*` / `m_axi_b_*` / `m_axi_out_*` | **`m_axi_rd_*`（合并读，64-bit，2-bit ARID）** + `m_axi_out_*`（不变） |
+
+引擎侧三个读接口（`m_axi_in/w/b_*`）**一个端口都没改**，只是接到内部仲裁器。
+BD 的 `smc` SI 从 6 个降到 **4 个**（S00/S01 原有 + S02=rd + S03=out）。
+
+#### 15.2.1 授权保持（burst 内绝不换人）
+
+```verilog
+localparam logic [1:0] TAG_IN = 2'd0, TAG_W = 2'd1, TAG_B = 2'd2;
+logic [1:0] rd_gnt;    // 当前 burst 的主人（锁存）
+logic       rd_ar_ph;  // 1=等 AR 握手，0=R 数据阶段
+logic       rd_busy;   // 1=有 burst 在飞（一直保持到 RLAST 握手）
+
+always_ff @(posedge s_axi_aclk or negedge s_axi_aresetn) begin
+  if (!s_axi_aresetn) begin rd_gnt<=TAG_IN; rd_ar_ph<=0; rd_busy<=0; end
+  else if (!rd_busy) begin                 // 只在空闲时选人
+      if      (in_arvalid) begin rd_gnt<=TAG_IN; rd_ar_ph<=1; rd_busy<=1; end
+      else if (b_arvalid)  begin rd_gnt<=TAG_B;  rd_ar_ph<=1; rd_busy<=1; end
+      else if (w_arvalid)  begin rd_gnt<=TAG_W;  rd_ar_ph<=1; rd_busy<=1; end
+  end else if (rd_ar_ph) begin             // AR 握手 → 进数据阶段
+      if (m_axi_rd_arvalid && m_axi_rd_arready) rd_ar_ph<=1'b0;
+  end else begin                           // R 数据阶段：只有 RLAST 才放授权
+      if (m_axi_rd_rvalid && m_axi_rd_rlast && m_axi_rd_rready) rd_busy<=1'b0;
+  end
+end
+
+// AR 地址/长度/ID 全由同一个 rd_gnt 一起选，burst 中途不会变
+assign m_axi_rd_araddr = (rd_gnt==TAG_IN) ? in_araddr :
+                         (rd_gnt==TAG_B)  ? b_araddr  : w_araddr;
+assign m_axi_rd_arlen  = ...同左...;
+assign m_axi_rd_arid   = rd_gnt;            // 2-bit tag: 0=in 1=w 2=b
+```
+
+- **一个 burst 内不切换**：`rd_gnt` 只有 `!rd_busy` 时才更新；`rd_busy` 从 AR 握手
+  一直保持到 `RVALID && RLAST && RREADY`。所以同一 burst 的所有 R beat 只会回给
+  同一个通道，ARADDR/ARLEN/ARID 也不会在 burst 中途变。
+- **R 回路由**：按锁存的 `rd_gnt` 选 `in/w/b` 的 `rdata/rlast/rvalid`，
+  `m_axi_rd_rready` 选对应通道的 `rready`；另外两路 `rvalid=0`。
+- **tag**：外部 ARID = grant；从机回来的 RID 不做路由（单 burst 在飞，
+  grant 就是唯一 owner），但仿真期会检查 `RID === rd_gnt`，从机回错会打印 ERROR。
+
+#### 15.2.2 优先级：`in > b > w`（与任务书建议相反，有理由）
+
+任务书建议“权重 > 偏置 > 输入”，前提是“权重装载是启动阻塞点”。改成**行槽后台
+预装**后，这个前提不成立了：
+
+- 启动阶段（ST_LOAD）输入预取**还没开始**，权重自然独占读口——不需要优先级帮忙；
+- 计算阶段（ST_PASS）权重是后台任务，一条 8-beat burst 因 1 字节/拍写口会占住
+  读口 **64 拍**；若权重优先，它会连续 32 条 burst 占满 ~2k 拍，把输入 4 像素
+  缓冲（≈256 拍）饿死 ⇒ 计算停顿，反而多花拍数；
+- 输入是 1-beat burst（ARLEN=0），让它最高只会挡权重 8~16 拍，权重有整个 pass
+  的 4 万拍可用；
+- 偏置只在 start 后装一次（32 拍），那时输入还没开始，放中间无影响。
+
+#### 15.2.3 BD 适配层 / tcl
+
+- `k1_axi_wrap_bd.v`（仍是 **Verilog-2001**）：只留下 `s_axi` / `m_axi_rd` /
+  `m_axi_out` 三个 interface。`m_axi_rd` 的 `X_INTERFACE_PARAMETER` 里
+  **ID_WIDTH 2**（与内部 2-bit tag 对齐），`m_axi_out` 保持 ID_WIDTH 1。
+  `m_axi_rd` 的写通道恒空闲、`m_axi_out` 的读通道恒空闲（保持完整 AXI4 外形，
+  SmartConnect 不用为 SI 换配置）。
+- `scripts/bd_add_k1.tcl`：`SMC_N 6→4`，配对改
+  `m_axi_rd→S02_AXI / m_axi_out→S03_AXI`，接口检查/FREQ_HZ/地址映射/汇总同步改；
+  若旧 BD 是 6 个 SI，脚本会先删掉旧 `k1_wrap` 再缩 `NUM_SI`（旧 cell 本来就要重建）。
+
+### 15.3 预期资源变化（**未综合，静态估算**）
+
+综合前的基线（主控 BD 实测，`design_1_k1_wrap_0_synth_1`）：
+
+| 项 | 值 | 说明 |
+|---|---:|---|
+| Slice LUT | **20,390** | 17,294 logic + 3,096 LUTRAM |
+| LUTRAM 明细 | 3,096 | 权重 `wmem` = **2,816**（704 RAM64M×4），像素 `px_mem` = 280 |
+| FF | 15,746 | 其中 `w_word_q` 32×64 = 2,048 |
+| DSP / BRAM | 33 / 0 | |
+
+任务 1 的增减（逐项）：
+
+| 项 | Δ LUT | Δ FF | Δ BRAM |
+|---|---:|---:|---:|
+| 权重 LUTRAM `wmem` 移除 | **−2,816** | — | — |
+| 每 lane 8:1 权重字节 mux 移除（`mul_prod_i_*` 实测 512 个 LUT cell） | **−512** | — | — |
+| `w_word_q`(32×64) → `w_row_q`(256) | — | **−1,792** | — |
+| `sel_a` 移除 | — | −3 | — |
+| 字节写 FSM/地址/one-hot/beat 寄存器 | ≈ +80 | +80 | — |
+| 权重 RAM | — | — | **+4 Tile（+8 RAMB18）** |
+
+任务 2 的增减：wrapper 里仲裁器 ≈ **+80 LUT / +20 FF**；BD 的 `smc` SI 6→4，
+按其“每端口 2,000–2,500 LUT”口径 **−4,000~−5,000 LUT**（这是 smc 的数字，
+不算在 k1_wrap 里）。
+
+**预期** `k1_wrap` ≈ 20,390 − 2,816 − 512 + 80 + 80 ≈ **17.2k LUT**
+（BRAM 4 Tile、FF ≈14.05k）；`smc` ≈ 2.9–3.9k。合计 ≈ **47.2–48.2k**。
+
+> ⚠ **诚实结论：这两个任务达不到 ≤15,000。** 权重路径总共只有 3,328 LUT
+> （2,816 LUTRAM + 512 mux），而目标要减 5,389。差 ≈2.2k 的硬缺口，
+> `smc` 的节省不改变 `k1_wrap` 的计数。**不要为了凑 15k 把 BRAM 再拆回 LUTRAM。**
+>
+> 下一刀应该砍 `k1_wrap` 里最大的非权重项（对旧网表按信号名统计的 LUT cell）：
+>
+> | 组 | LUT cell | 内容 |
+> |---|---:|---|
+> | `ob_*` | **4,190** | 输出块队列：4 槽 × 4 组 × (32b 地址 + 64b 数据) FF 阵列，4 写口 mux + 16:1 读 mux |
+> | `v32` | 3,492 | E2 的 32b 加 + bias 6:1 mux |
+> | `bias_lane` | 3,288 | 6 个 pass 的 bias FF（6,144 FF）+ 6:1 mux |
+> | `sum27` | 2,535 | 27b 三加 |
+> | `acc_e/acc_o` | 3,409 | 两条 26b 奇偶链 |
+>
+> 最划算的一刀：输出队列改成 **16×96 的简单双口 LUTRAM**（push 的 4 组本来
+> 就每 `cin` 拍才来一次，可以串行 4 拍写进去；队列有 4×cin 拍余量），
+> 预计 **−3.5~−4.0k LUT、−1.1k FF**（只 +~100 LUTRAM）。加上它 `k1_wrap`
+> 可到 **13.2–13.7k**，配合 smc 4 SI 总量约 **43.5–44.5k**，才真正进 46,200。
+> 但这是**第三个任务**，本次按任务书只做前两个，没有动输出队列。
+
+### 15.4 自查记录（本地已做）
+
+- `xvlog --sv`：`conv_k1_engine.v`、`k1_axi_wrap.v` 0 error / 0 warning；
+- `xvlog`（Verilog-2001）：`k1_axi_wrap_bd.v` 0 error / 0 warning；
+- `xelab k1_axi_wrap_bd` 静态展开通过（端口名/位宽/例化一致）；
+- **装载器逐拍模型**（Python，复刻 FSM + TB 从机）：cin=8/16/64/160/224/352
+  全部 `w_mem[ic][lane] == weight[oc][ic]`，0 错；拍数与上表一致；
+- RAM 模板自查：`w_row_q` 单赋值源、写/读分 always、无复位/旁路；
+- **未做**：xsim、综合、上板、git commit（按要求由主控统一跑）。
+
+### 15.5 主控执行清单（验证 + 综合）
+
+```bash
+# ---------- 0. 环境 ----------
+cd pynq_specialized_code/pl
+source /data/xilinx/2025.2/2025.2.1/Vivado/settings64.sh     # 本机路径，按实际
+
+# ---------- 1. 只做语法/展开检查（不跑 xsim）----------
+xvlog --sv -i rtl_hand/modules \
+      rtl_hand/modules/conv_k1_engine.v rtl_hand/modules/k1_axi_wrap.v
+xvlog       -i rtl_hand/modules rtl_hand/modules/k1_axi_wrap_bd.v   # 必须 Verilog-2001
+
+# ---------- 2. 单模块验收（既有 5 套，全部用 conv_k1_engine）----------
+cd rtl_hand
+# 若 /tmp 的 manifest 已丢，先重建（golden_driver 需已存在）：
+#   python3 tools/gen_k1_debug_cases.py --mode all --out /tmp/k1_dbg --real-out /tmp/k1_real
+bash tools/run_module.sh conv_k1_engine k1_64x64 --fuzz-manifest /tmp/k1_dbg/manifest.txt
+bash tools/run_module.sh conv_k1_engine k1_64x64                                  # 黄金
+bash tools/run_module.sh conv_k1_engine k1_64x64 --fuzz-manifest /tmp/k1_real/manifest.txt
+bash tools/run_module.sh conv_k1_engine k1_64x64 --fuzz-manifest /tmp/k1_relu0/manifest.txt
+bash tools/run_module.sh conv_k1_engine k1_64x64 --fuzz 200
+
+# 拍数硬口径：黄金报告 cycles ≤ 84,210（82,559 × 1.02），预期 ≈84.0–84.1k
+grep -h "cycles=" reports/conv_k1_engine_*.md | tail -5
+
+# ---------- 3. BD 重建 + 综合（在 pl/ 下）----------
+cd ..
+vivado -mode batch -source scripts/bd_add_k1.tcl      # 末尾必须打印 BD_INTEGRATION_OK
+# 然后按既有流程综合/实现；重点看两行：
+#   k1_wrap : LUT ≈17.2k、LUTRAM ≈280、FF ≈14.05k、BRAM36 = 4
+#   smc     : LUT 应比 6-SI 版本少 ~4–5k
+# 若 Vivado 报 w_mem 没推断成 BRAM（LUTRAM 仍 ~2.8k），先查“RAM 输出寄存器多源”
+# 和写口是否被拆成多地址；模板见 §15.1.2。
+```

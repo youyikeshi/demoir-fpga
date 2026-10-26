@@ -96,8 +96,9 @@ def gen_diag(driver, out):
     man = []
 
     def add(name, cin, cout, H, W, shift, inp, wgt, bias):
+        # 诊断用例全部是 ReLU=1（与 add() 的调用签名一致；relu0 走 gen_real）
         man.append(gen_case(driver, os.path.join(out, name),
-                            cin, cout, H, W, shift, inp, wgt, bias, relu=relu))
+                            cin, cout, H, W, shift, inp, wgt, bias, relu=1))
 
     # 1) bias -> lane/oc/字节序（input=weight=0）
     add("dbg_oc", 8, 64, 1, 1, 0, zeros(8, 1),

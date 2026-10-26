@@ -43,7 +43,13 @@
 //      本引擎用 32 位地址，start 时高字必须为 0，否则 ERR_SIZE。
 //
 //  时钟/复位：s_axi_aclk / s_axi_aresetn（低有效）同时驱动引擎的 ap_clk/ap_rst_n。
-//  四个 AXI4 master（输入/权重/偏置/输出）原样引到顶层，供 BD 连 DDR。
+//
+//  对外 AXI4 master 从 4 个减到 2 个（BD 里 smc 的 SI 口 6→4，省 ~2k×2 LUT）：
+//    · m_axi_rd_*  ：输入/权重/偏置三个**读**引擎在内部合并成 1 个读口；
+//                    引擎侧三个接口一个都不改，只在外层加仲裁（§3.5）。
+//    · m_axi_out_* ：输出写口，原样不变。
+//  合并读口带 2-bit ARID tag（0=in / 1=w / 2=b），R 通道按锁存的授权回路由，
+//  授权从 AR 握手一直保持到该 burst 的 RLAST 握手（burst 内绝不换人）。
 // ============================================================================
 `timescale 1ns / 1ps
 
@@ -76,23 +82,13 @@ module k1_axi_wrap #(
     output logic        s_axi_rvalid,
     input  logic        s_axi_rready,
 
-    // ---- AXI4 master：输入（C8）----
-    output logic        m_axi_in_arvalid,  input logic m_axi_in_arready,
-    output logic [31:0] m_axi_in_araddr,   output logic [7:0] m_axi_in_arlen,
-    input  logic        m_axi_in_rvalid,   output logic m_axi_in_rready,
-    input  logic [63:0] m_axi_in_rdata,    input logic m_axi_in_rlast,
-
-    // ---- AXI4 master：权重 ----
-    output logic        m_axi_w_arvalid,   input logic m_axi_w_arready,
-    output logic [31:0] m_axi_w_araddr,    output logic [7:0] m_axi_w_arlen,
-    input  logic        m_axi_w_rvalid,    output logic m_axi_w_rready,
-    input  logic [63:0] m_axi_w_rdata,     input logic m_axi_w_rlast,
-
-    // ---- AXI4 master：偏置 ----
-    output logic        m_axi_b_arvalid,   input logic m_axi_b_arready,
-    output logic [31:0] m_axi_b_araddr,    output logic [7:0] m_axi_b_arlen,
-    input  logic        m_axi_b_rvalid,    output logic m_axi_b_rready,
-    input  logic [63:0] m_axi_b_rdata,     input logic m_axi_b_rlast,
+    // ---- AXI4 master：合并后的读（in/w/b 三路仲裁成 1 路；2-bit tag）----
+    output logic        m_axi_rd_arvalid,  input logic m_axi_rd_arready,
+    output logic [31:0] m_axi_rd_araddr,   output logic [7:0] m_axi_rd_arlen,
+    output logic [1:0]  m_axi_rd_arid,
+    input  logic        m_axi_rd_rvalid,   output logic m_axi_rd_rready,
+    input  logic [63:0] m_axi_rd_rdata,    input logic m_axi_rd_rlast,
+    input  logic [1:0]  m_axi_rd_rid,
 
     // ---- AXI4 master：输出 ----
     output logic        m_axi_out_awvalid, input logic m_axi_out_awready,
@@ -345,7 +341,109 @@ module k1_axi_wrap #(
     assign s_axi_rvalid = rvalid;
 
     // ========================================================================
-    // 4. 引擎例化
+    // 3.5 三路读 master → 1 路外部读口（合并 in/w/b）
+    // ------------------------------------------------------------------------
+    //  外部只有 1 个读口 m_axi_rd_*，内部仍保留 3 个独立的“请求→数据”握手。
+    //  · **授权在整个 burst 内保持**：从 AR 握手一直占到这拍 RLAST 握手，
+    //    中途绝不换人 —— 否则会把两个不同 ARADDR/ARLEN 的 beat 混在一起。
+    //    （外部 ARADDR/ARLEN/ARID 全部由锁存的 rd_gnt 一起选，不在 burst 中途变。）
+    //  · 优先级 in > b > w：
+    //      - 输入预取是 4 缓冲的硬实时流（每像素 cin/8 笔、每 64 拍要一笔），最高；
+    //      - 偏置只在 start 后装一次（32 拍），且那时输入还没开始；
+    //      - 权重装载改成“pass 启动时后台预装下一 pass”（见 conv_k1_engine §9），
+    //        只要 ~1/8 带宽；若给它高优先级，一条 burst 会连续占住读口 2k 拍、
+    //        把输入 4 缓冲饿死 ⇒ 计算停顿。所以权重最低。
+    //  · 2-bit tag：ARID=0/1/2；R 通道按**锁存的授权**回路由（burst 级无歧义），
+    //    同时用 RID 做仿真期一致性检查（从机必须原样回 ARID）。
+    // ========================================================================
+    localparam logic [1:0] TAG_IN = 2'd0, TAG_W = 2'd1, TAG_B = 2'd2;
+
+    // 引擎侧三路读 master（保持原来的“精简 AXI4 读”接口，一个都没改）
+    logic        in_arvalid, in_arready, in_rvalid, in_rready;
+    logic [31:0] in_araddr;
+    logic [7:0]  in_arlen;
+    logic [63:0] in_rdata;
+    logic        in_rlast;
+
+    logic        w_arvalid, w_arready, w_rvalid, w_rready;
+    logic [31:0] w_araddr;
+    logic [7:0]  w_arlen;
+    logic [63:0] w_rdata;
+    logic        w_rlast;
+
+    logic        b_arvalid, b_arready, b_rvalid, b_rready;
+    logic [31:0] b_araddr;
+    logic [7:0]  b_arlen;
+    logic [63:0] b_rdata;
+    logic        b_rlast;
+
+    logic [1:0] rd_gnt;      // 当前 burst 的主人（锁存后整 burst 不变）
+    logic       rd_ar_ph;    // 1 = 正在等 AR 握手；0 = R 数据阶段
+    logic       rd_busy;     // 1 = 有 burst 在飞（保持到 RLAST 握手完成）
+
+    always_ff @(posedge s_axi_aclk or negedge s_axi_aresetn) begin
+        if (!s_axi_aresetn) begin
+            rd_gnt   <= TAG_IN;
+            rd_ar_ph <= 1'b0;
+            rd_busy  <= 1'b0;
+        end else if (!rd_busy) begin
+            // 空闲才选人；选完锁存，整个 burst 不再重新仲裁
+            if (in_arvalid) begin
+                rd_gnt <= TAG_IN; rd_ar_ph <= 1'b1; rd_busy <= 1'b1;
+            end else if (b_arvalid) begin
+                rd_gnt <= TAG_B;  rd_ar_ph <= 1'b1; rd_busy <= 1'b1;
+            end else if (w_arvalid) begin
+                rd_gnt <= TAG_W;  rd_ar_ph <= 1'b1; rd_busy <= 1'b1;
+            end
+        end else if (rd_ar_ph) begin
+            if (m_axi_rd_arvalid && m_axi_rd_arready)
+                rd_ar_ph <= 1'b0;                 // 进入 R 数据阶段
+        end else begin
+            // 只有该 burst 最后一拍**完成**握手才释放授权
+            if (m_axi_rd_rvalid && m_axi_rd_rlast && m_axi_rd_rready)
+                rd_busy <= 1'b0;
+        end
+    end
+
+    // ---- AR 通道：地址 / 长度 / ID 由同一个 rd_gnt 一起切换 ----
+    assign m_axi_rd_arvalid = rd_busy && rd_ar_ph;
+    assign m_axi_rd_araddr  = (rd_gnt == TAG_IN) ? in_araddr :
+                              (rd_gnt == TAG_B)  ? b_araddr  : w_araddr;
+    assign m_axi_rd_arlen   = (rd_gnt == TAG_IN) ? in_arlen :
+                              (rd_gnt == TAG_B)  ? b_arlen   : w_arlen;
+    assign m_axi_rd_arid    = rd_gnt;
+
+    // 只有被授权的 master 看到 ARREADY（且与外部 ARREADY 同拍）
+    assign in_arready = rd_busy && rd_ar_ph && (rd_gnt == TAG_IN) && m_axi_rd_arready;
+    assign b_arready  = rd_busy && rd_ar_ph && (rd_gnt == TAG_B)  && m_axi_rd_arready;
+    assign w_arready  = rd_busy && rd_ar_ph && (rd_gnt == TAG_W)  && m_axi_rd_arready;
+
+    // ---- R 通道：只把数据还给授权通道，另外两路 rvalid 恒 0 ----
+    assign in_rvalid = rd_busy && !rd_ar_ph && (rd_gnt == TAG_IN) && m_axi_rd_rvalid;
+    assign b_rvalid  = rd_busy && !rd_ar_ph && (rd_gnt == TAG_B)  && m_axi_rd_rvalid;
+    assign w_rvalid  = rd_busy && !rd_ar_ph && (rd_gnt == TAG_W)  && m_axi_rd_rvalid;
+
+    assign in_rdata = m_axi_rd_rdata;
+    assign b_rdata  = m_axi_rd_rdata;
+    assign w_rdata  = m_axi_rd_rdata;
+    assign in_rlast = m_axi_rd_rlast;
+    assign b_rlast  = m_axi_rd_rlast;
+    assign w_rlast  = m_axi_rd_rlast;
+
+    assign m_axi_rd_rready = (rd_busy && !rd_ar_ph) ?
+                             ((rd_gnt == TAG_IN) ? in_rready :
+                              (rd_gnt == TAG_B)  ? b_rready  : w_rready) : 1'b0;
+
+    // synopsys translate_off
+    always @(posedge s_axi_aclk) begin
+        if (s_axi_aresetn && rd_busy && !rd_ar_ph && m_axi_rd_rvalid &&
+            (m_axi_rd_rid !== rd_gnt))
+            $display("[K1-AXI] ERROR: RID=%0d 与授权 tag=%0d 不一致", m_axi_rd_rid, rd_gnt);
+    end
+    // synopsys translate_on
+
+    // ========================================================================
+    // 4. 引擎例化（三个读引擎的端口与之前完全一致，只是接到内部仲裁器）
     // ========================================================================
     conv_k1_engine #(
         .CIN(64), .COUT(64), .W(320), .H(320), .PAD(0), .STRIDE(1), .DIL(1),
@@ -356,20 +454,20 @@ module k1_axi_wrap #(
         .ap_clk       (s_axi_aclk),
         .ap_rst_n     (s_axi_aresetn),
 
-        .m_axi_in_arvalid (m_axi_in_arvalid), .m_axi_in_arready (m_axi_in_arready),
-        .m_axi_in_araddr  (m_axi_in_araddr),  .m_axi_in_arlen   (m_axi_in_arlen),
-        .m_axi_in_rvalid  (m_axi_in_rvalid),  .m_axi_in_rready  (m_axi_in_rready),
-        .m_axi_in_rdata   (m_axi_in_rdata),   .m_axi_in_rlast   (m_axi_in_rlast),
+        .m_axi_in_arvalid (in_arvalid), .m_axi_in_arready (in_arready),
+        .m_axi_in_araddr  (in_araddr),  .m_axi_in_arlen   (in_arlen),
+        .m_axi_in_rvalid  (in_rvalid),  .m_axi_in_rready  (in_rready),
+        .m_axi_in_rdata   (in_rdata),   .m_axi_in_rlast   (in_rlast),
 
-        .m_axi_w_arvalid  (m_axi_w_arvalid),  .m_axi_w_arready  (m_axi_w_arready),
-        .m_axi_w_araddr   (m_axi_w_araddr),   .m_axi_w_arlen    (m_axi_w_arlen),
-        .m_axi_w_rvalid   (m_axi_w_rvalid),   .m_axi_w_rready   (m_axi_w_rready),
-        .m_axi_w_rdata    (m_axi_w_rdata),    .m_axi_w_rlast    (m_axi_w_rlast),
+        .m_axi_w_arvalid  (w_arvalid),  .m_axi_w_arready  (w_arready),
+        .m_axi_w_araddr   (w_araddr),   .m_axi_w_arlen    (w_arlen),
+        .m_axi_w_rvalid   (w_rvalid),   .m_axi_w_rready   (w_rready),
+        .m_axi_w_rdata    (w_rdata),    .m_axi_w_rlast    (w_rlast),
 
-        .m_axi_b_arvalid  (m_axi_b_arvalid),  .m_axi_b_arready  (m_axi_b_arready),
-        .m_axi_b_araddr   (m_axi_b_araddr),   .m_axi_b_arlen    (m_axi_b_arlen),
-        .m_axi_b_rvalid   (m_axi_b_rvalid),   .m_axi_b_rready   (m_axi_b_rready),
-        .m_axi_b_rdata    (m_axi_b_rdata),    .m_axi_b_rlast    (m_axi_b_rlast),
+        .m_axi_b_arvalid  (b_arvalid),  .m_axi_b_arready  (b_arready),
+        .m_axi_b_araddr   (b_araddr),   .m_axi_b_arlen    (b_arlen),
+        .m_axi_b_rvalid   (b_rvalid),   .m_axi_b_rready   (b_rready),
+        .m_axi_b_rdata    (b_rdata),    .m_axi_b_rlast    (b_rlast),
 
         .m_axi_out_awvalid(m_axi_out_awvalid),.m_axi_out_awready(m_axi_out_awready),
         .m_axi_out_awaddr (m_axi_out_awaddr), .m_axi_out_awlen  (m_axi_out_awlen),

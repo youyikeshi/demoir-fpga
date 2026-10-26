@@ -8,13 +8,13 @@
 #    1. open_project 现有 proj_engine
 #    2. add_files + file_type=SystemVerilog 三个文件（两个引擎文件 + 一个 BD 适配层）
 #    3. open_bd_design design_1
-#    4. smc  : CONFIG.NUM_SI 2 -> 6（S00/S01 保持不动，新加 S02..S05）
+#    4. smc  : CONFIG.NUM_SI -> 4（S00/S01 保持不动，新加 S02=合并读 / S03=输出写）
 #    5. axi_ctrl : CONFIG.NUM_MI 2 -> 3（M00/M01 保持不动，新加 M02）
 #    6. 建 k1_wrap 实例（module reference 指向 k1_axi_wrap_bd，理由见下）
-#    7. 连 4 个 AXI4 master → smc/S02..S05；AXI4-Lite → axi_ctrl/M02；
+#    7. 连 2 个 AXI4 master（m_axi_rd / m_axi_out）→ smc/S02..S03；AXI4-Lite → axi_ctrl/M02；
 #       时钟/复位 → ps7/FCLK_CLK0 + rst_0/peripheral_aresetn（与 engine 同源）
 #    8. 地址：AXI-Lite 128KB @ K1_BASE_ADDR（默认 0x4004_0000，理由见下）；
-#       4 个 master 各映射 1GB DDR @ 0x0
+#       2 个 master 各映射 1GB DDR @ 0x0
 #    9. validate_bd_design / save_bd_design / make_wrapper / update_compile_order
 #   10. 逐步打印结果与告警，最后打印 BD_INTEGRATION_OK
 #
@@ -341,21 +341,34 @@ if {[llength $conflicts]} {
 ok "k1 窗口 [format 0x%08x $K1_BASE_ADDR]..[format 0x%08x [expr {$K1_BASE_ADDR + $K1_RANGE_BYTES - 1}]] 空闲"
 
 # ============================================================================
-#  4. smc: NUM_SI 2 -> 6（原 S00/S01 不动）
+#  4. smc: NUM_SI -> 4（原 S00/S01 不动；k1 只剩合并读 + 输出写 2 个 master）
 # ============================================================================
-step "smc 扩到 6 个从端口（保留 S00/S01）"
-set SMC_N 6
+step "smc 扩到 4 个从端口（保留 S00/S01）"
+set SMC_N 4
 set smc [get_bd_cells smc]
 set cur_si 0
 catch {set cur_si [get_property CONFIG.NUM_SI $smc]}
 note "扩之前：CONFIG.NUM_SI = $cur_si"
+# 资源瘦身后 k1 只有 2 个 AXI master ⇒ smc 需要 4 个 SI（S00/S01 + S02/S03）。
+# 若之前是 6 个（老版 4-master k1），先把旧 k1_wrap 删掉，否则 S04/S05 还连着，
+# NUM_SI 不能缩。旧 cell 在第 6 步本来就要删/重建，提前删不改变结果。
+if {$cur_si > $SMC_N} {
+    foreach c {k1_wrap axi_pc_k1} {
+        if {[llength [get_bd_cells -quiet $c]]} {
+            note "NUM_SI 需要从 $cur_si 缩到 $SMC_N：先删除旧 $c（第 6 步会重建）"
+            delete_bd_objs [get_bd_cells $c]
+        }
+    }
+}
 # 记录原有两条连接（扩端口后要逐一核对）
 set orig_s00 [intf_partner [get_bd_intf_pins smc/S00_AXI]]
 set orig_s01 [intf_partner [get_bd_intf_pins smc/S01_AXI]]
 if {[string length $orig_s00]} { note "扩之前：S00_AXI ← $orig_s00" } else { note "扩之前：S00_AXI ← （空）" }
 if {[string length $orig_s01]} { note "扩之前：S01_AXI ← $orig_s01" } else { note "扩之前：S01_AXI ← （空）" }
-if {$cur_si < $SMC_N} {
-    set_property -dict [list CONFIG.NUM_SI $SMC_N] $smc
+if {$cur_si != $SMC_N} {
+    if {[catch {set_property -dict [list CONFIG.NUM_SI $SMC_N] $smc} err]} {
+        error "smc NUM_SI 改为 $SMC_N 失败：$err（先把 smc 上的旧 k1 连接删掉再试）"
+    }
     catch {set cur_si [get_property CONFIG.NUM_SI $smc]}
 }
 note "扩之后：CONFIG.NUM_SI = $cur_si"
@@ -378,7 +391,7 @@ if {[llength $missing]} {
     ensure_net  [get_bd_pins ps7/FCLK_CLK0]            [get_bd_pins smc/aclk]
     ensure_net  [get_bd_pins $RST_PIN] [get_bd_pins smc/aresetn]
 } else {
-    ok "S02_AXI..S05_AXI 已存在（S00/S01 未重建、连接未动）"
+    ok "S02_AXI..S03_AXI 已存在（S00/S01 未重建、连接未动）"
 }
 
 # 硬校验：S00 必须还是 gmem0，S01 必须还是 gmem1（否则 PS 侧地址逻辑会错）
@@ -455,7 +468,7 @@ ok "create_bd_cell -type module -reference k1_axi_wrap_bd k1_wrap"
 
 # 时钟域属性：模块 reference 出来的接口默认 FREQ_HZ=100000000，
 # 而 smc/axi_ctrl 侧是 ps7/FCLK_CLK0 = 150 MHz。必须显式对齐，否则 validate 报 BD 41-237。
-foreach _ip {s_axi m_axi_in m_axi_w m_axi_b m_axi_out} {
+foreach _ip {s_axi m_axi_rd m_axi_out} {
     set _p [get_bd_intf_pins -quiet k1_wrap/$_ip]
     if {[llength $_p]} {
         catch { set_property CONFIG.FREQ_HZ {150000000} $_p }
@@ -465,7 +478,7 @@ foreach _ip {s_axi m_axi_in m_axi_w m_axi_b m_axi_out} {
 
 # 校验 interface 是否被属性推断出来（推不出来就没法接 SmartConnect）
 set missing_intf {}
-foreach ip {s_axi m_axi_in m_axi_w m_axi_b m_axi_out} {
+foreach ip {s_axi m_axi_rd m_axi_out} {
     if {![llength [get_bd_intf_pins -quiet k1_wrap/$ip]]} { lappend missing_intf $ip }
 }
 if {[llength $missing_intf]} {
@@ -475,7 +488,7 @@ if {[llength $missing_intf]} {
     error "RTL 的 X_INTERFACE_INFO 没生效。检查 k1_axi_wrap_bd.v 是否被 update_compile_order 编进 sources_1，\
            或在 GUI 里对该 module 右键 Refresh Module。"
 }
-ok "interface 推断成功：s_axi / m_axi_in / m_axi_w / m_axi_b / m_axi_out"
+ok "interface 推断成功：s_axi / m_axi_rd / m_axi_out"
 
 # ============================================================================
 #  7. 时钟 / 复位（与 engine 同源）
@@ -510,14 +523,12 @@ if {![catch {ensure_intf $m02 [get_bd_intf_pins k1_wrap/s_axi]} err]} {
 puts "    axi_ctrl/M02_AXI ↔ [intf_partner $m02]"
 
 # ============================================================================
-#  9. 4 个 AXI4 master → smc/S02..S05（in/w/b/out 顺序固定）
+#  9. 2 个 AXI4 master → smc/S02..S03（合并读/输出写 顺序固定）
 # ============================================================================
-step "接 4 个 AXI4 master → smc/S02..S05"
+step "接 2 个 AXI4 master → smc/S02..S03"
 set pairing {
-    m_axi_in  S02_AXI
-    m_axi_w   S03_AXI
-    m_axi_b   S04_AXI
-    m_axi_out S05_AXI
+    m_axi_rd  S02_AXI
+    m_axi_out S03_AXI
 }
 foreach {mpin spin} $pairing {
     ensure_intf [get_bd_intf_pins k1_wrap/$mpin] [get_bd_intf_pins smc/$spin]
@@ -582,10 +593,10 @@ set ctrl_base [format 0x%08x [expr {$K1_BASE_ADDR + 0x10000}]]
 puts "       offs 页（A\[16\]=0）: $k1_base_hex .. [format 0x%08x [expr {$K1_BASE_ADDR + 0xFFFF}]]"
 puts "       ctrl 页（A\[16\]=1）: $ctrl_base .. [format 0x%08x [expr {$K1_BASE_ADDR + 0x1FFFF}]]"
 
-# 4 个 master 各自的地址空间 → DDR 低 1GB
+# 2 个 master 各自的地址空间 → DDR 低 1GB
 set ddr_seg [find_seg "*HP0_DDR_LOWOCM*"]
 if {![string length $ddr_seg]} { error "找不到 ps7/S_AXI_HP0/HP0_DDR_LOWOCM 地址段" }
-foreach mpin {m_axi_in m_axi_w m_axi_b m_axi_out} {
+foreach mpin {m_axi_rd m_axi_out} {
     set sp [get_bd_addr_spaces -quiet -of_objects [get_bd_intf_pins k1_wrap/$mpin]]
     set sp [lindex $sp 0]
     if {![string length $sp]} {
@@ -633,8 +644,8 @@ foreach pair $expect {
     }
 }
 puts ""
-puts "    6 个 SI 端口现状："
-foreach si {S00_AXI S01_AXI S02_AXI S03_AXI S04_AXI S05_AXI} {
+puts "    4 个 SI 端口现状："
+foreach si {S00_AXI S01_AXI S02_AXI S03_AXI} {
     set p [intf_partner [get_bd_intf_pins smc/$si]]
     if {[string length $p]} {
         puts [format "      smc/%-8s → %s" $si $p]
@@ -692,10 +703,8 @@ puts " BD 集成完成：k1（conv_k1_engine）已挂进 design_1"
 puts "------------------------------------------------------------------"
 puts "  实例    : /k1_wrap  (k1_axi_wrap_bd → k1_axi_wrap → conv_k1_engine)"
 puts "  控制    : axi_ctrl/M02_AXI → k1_wrap/s_axi"
-puts "  数据    : k1_wrap/m_axi_in  → smc/S02_AXI"
-puts "            k1_wrap/m_axi_w   → smc/S03_AXI"
-puts "            k1_wrap/m_axi_b   → smc/S04_AXI"
-puts "            k1_wrap/m_axi_out → smc/S05_AXI"
+puts "  数据    : k1_wrap/m_axi_rd  → smc/S02_AXI（in/w/b 内部合并，2-bit tag）"
+puts "            k1_wrap/m_axi_out → smc/S03_AXI"
 puts "            smc/M00_AXI → ps7/S_AXI_HP0（64-bit）"
 puts "  时钟    : ps7/FCLK_CLK0（= engine/ap_clk，150MHz 口径）"
 puts "  复位    : rst_0/peripheral_aresetn（= engine/ap_rst_n）"
