@@ -70,7 +70,13 @@ enum {
     /* C8_LAYOUT=1 的构建只认 C8 布局：调用方必须把 relu_en 的 bit2/bit3 都置 1
        （= "我按 C8 分配了缓冲区"的声明）。声明不符直接报这个错，而不是静默地把
        CHW 数据当 C8 读（那会算出一堆看似正常的垃圾）。 */
-    ERR_LAYOUT = 4
+    ERR_LAYOUT = 4,
+    /* 2026-10-26：k=1 已从 conv2d_engine 移除（改由手写 RTL conv_k1_engine 承担）。
+       K1_IN_HLS=0 的构建收到 ksize==1 时**返回这个码**，而不是落到 k=3/k=5
+       的通路上去静默算错（通用通路只会算 kx=ky=0，输出"看着正常"但整网崩）。
+       只新增枚举值：不新增/不移动任何 AXI-Lite 寄存器，返回码仍在同一个 32 位
+       ap_return 里，PS 侧按"非 0 即错误"处理即可。见 docs/部署/HLS移除k1分支.md。 */
+    ERR_K1_UNSUPPORTED = 5
 };
 
 // HLS 综合目标

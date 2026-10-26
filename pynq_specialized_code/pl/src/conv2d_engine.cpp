@@ -38,10 +38,18 @@ typedef uint64_t w64_t;
 #define W32_BYTE(v, n) ((data_t)(uint8_t)(((v) >> (8 * (n))) & 0xFFu))
 #endif
 
-// k=1 快路径一拍覆盖几个 OC 块（1 = 8 车道，2 = 16 车道，见 conv2d_engine.h 的 K1_LANES）
+// k=1 快路径一拍覆盖几个 OC 块（1 = 8 车道，2 = 16 车道，见 conv2d_engine.h 的 K1_LANES）。
+// **2026-10-26：k=1 已从 HLS 侧移除**（K1_IN_HLS=0，改由手写 RTL conv_k1_engine 承担）。
+// 关掉时 K1_BLK 固定 1 —— 它只剩一个作用：给 wbuf / csum_l 的数组上界；
+// k=3/k=5 本来就是每 pass 8 个 oc，所以上界不变、行为不变。
+// 一键恢复：conv2d_engine.h 里 K1_IN_HLS 改回 1（或 -DK1_IN_HLS=1）。
+#if K1_IN_HLS
 #define K1_BLK (K1_LANES / OC_BLOCK)
 #if (K1_BLK * OC_BLOCK) != K1_LANES
 #error "K1_LANES 必须是 OC_BLOCK 的整数倍"
+#endif
+#else
+#define K1_BLK 1
 #endif
 
 // 输出地址（2026-10-23，**编译期**决定，无运行期选路）。
@@ -134,6 +142,16 @@ int conv2d_engine(const data_t *in_fm, const data_t *wgt, const bias_t *bias,
     if (cin < 1 || cin > CIN_MAX) return ERR_SIZE;
     if (cout < 1 || cout > COUT_MAX) return ERR_SIZE;
     if (ksize != 1 && ksize != 3 && ksize != 5) return ERR_SIZE;
+#if !K1_IN_HLS
+    // ---- 2026-10-26：k=1 已从 HLS 侧移除 ----
+    // k=1 改由手写 RTL 模块 conv_k1_engine 承担（132/132 层、逐字节一致）。
+    // 这里**必须明确报错**：若放过去，ksize==1 会掉进下面的 k=3/k=5 通路，
+    // 通用 25 抽头循环只算到 kx=ky=0，输出"看着正常"但整网精度崩 —— 最难查的一类。
+    // 返回码 5 = ERR_K1_UNSUPPORTED（新增枚举值，不动 AXI-Lite 映射）。
+    // 部署前提：PS 侧 runner.py 必须开 USE_K1_IP=1，把**所有** k==1 层路由到新 IP；
+    // 见 docs/部署/HLS移除k1分支.md。
+    if (ksize == 1) return ERR_K1_UNSUPPORTED;
+#endif
     if (stride < 1 || stride > 2) return ERR_SIZE;
     if (dil < 1 || dil > DMAX) return ERR_SIZE;
     // same padding 检查：pad 必须等于 (k-1)*d/2
@@ -164,18 +182,28 @@ int conv2d_engine(const data_t *in_fm, const data_t *wgt, const bias_t *bias,
     // 不再被多个列块各搬一遍。目标与"宽读 64B/事务"相同（减少每条输入行的
     // 往返次数），但不动 AXI 位宽，因此没有"8 字节写同一 bank → HLS 复制存储器
     // → 布线拥塞"的问题（那次实测 397 个重叠节点）。零额外 BRAM。
+#if K1_IN_HLS
     const bool wide1 = (K1_WIDE_COLS != 0) && (ksize == 1) && (stride == 1);
+#else
+    // 2026-10-26：宽列块只服务 k=1，k=1 移除后恒假 ⇒ bw/bwcol 与 line_buf
+    // 填充里的 >>6 / &63 分支全部被常量折叠（CHW 构建才看得出收益；
+    // C8 构建本来就把 K1_WIDE_COLS 强制成 0，这里无变化）。
+    const bool wide1 = false;
+#endif
     const int bw = wide1 ? (SPAN_MAX * 64) : ((stride == 2) ? 32 : 64);
     const int bwcol = (bw - 1) * stride + span + 2 * pad;
     if (bwcol > (wide1 ? (SPAN_MAX * 64) : BWCOL_MAX)) return ERR_SIZE;
 
     // 权重缓冲：只装当前 OC 块
     data_t wgt_buf[OC_BLOCK][CIN_MAX][KMAX][KMAX];
+#if K1_IN_HLS
     // 1×1 专用权重缓冲（2026-10-21 性能改造）：
     //   k=1 占 132/249 层，走 wgt_buf 时每个 oc 只能串行读（BRAM 双端口），
     //   这里单独放一份，并按输出通道完全分 bank（分布式 RAM，不占 BRAM），
     //   于是每拍可并行读 OC_BLOCK*K1_BLK 个权重 → 每拍同样多个 MAC（第十轮 16 车道）。
+    // 2026-10-26：K1_IN_HLS=0 时整个数组不存在（16 bank LUTRAM = 704 LUT + 256 FF）。
     data_t wgt1_buf[OC_BLOCK * K1_BLK][CIN_MAX];
+#endif
     // 3×3 专用权重缓冲（2026-10-22）：按 oc 完全分 bank，每拍可并行读 8 个 oc。
     // 目的：把 oc 从"串行 8 个"改成"内层展开"，消除每个 oc 重开一次 ic 流水的
     // 气泡（板端实测 k=3 是 6.69 拍/单元，微基准 4.01）。
@@ -200,8 +228,10 @@ int conv2d_engine(const data_t *in_fm, const data_t *wgt, const bias_t *bias,
     data_t wgt3_buf[OC_BLOCK][CIN_MAX][9];
     HLS_PRAGMA(HLS ARRAY_PARTITION variable=wgt_buf complete dim=3)
     HLS_PRAGMA(HLS ARRAY_PARTITION variable=wgt_buf complete dim=4)
+#if K1_IN_HLS
     HLS_PRAGMA(HLS ARRAY_PARTITION variable=wgt1_buf complete dim=1)
     HLS_PRAGMA(HLS BIND_STORAGE variable=wgt1_buf type=RAM_2P impl=LUTRAM)
+#endif
     HLS_PRAGMA(HLS ARRAY_PARTITION variable=wgt3_buf complete dim=1)
     HLS_PRAGMA(HLS ARRAY_PARTITION variable=wgt3_buf complete dim=3)
     HLS_PRAGMA(HLS BIND_STORAGE variable=wgt3_buf type=RAM_2P impl=LUTRAM)
@@ -236,7 +266,13 @@ int conv2d_engine(const data_t *in_fm, const data_t *wgt, const bias_t *bias,
     // 宽度：k=1 的宽列块把 line_buf 的 SPAN_MAX 个 row-bank 当 SPAN_MAX*64 列用，
     // 所以 xn 最大是 448；其余路径 xn ≤ 64。8×448 = 3.5 KB，放 LUTRAM
     // （约 +450~900 LUT），不动已经 90% 的 BRAM。
+    // 2026-10-26：k=1 移除后 xn ≤ 64，bank 数 16→8、每 bank 深度 448→64
+    // （LUTRAM 从 7 个 LUT6/bit 掉到 1 个/bit）。k=3/k=5 的写回代码一字未动。
+#if K1_IN_HLS
     data_t wbuf[OC_BLOCK * K1_BLK][SPAN_MAX * 64];
+#else
+    data_t wbuf[OC_BLOCK][64];
+#endif
     HLS_PRAGMA(HLS ARRAY_PARTITION variable=wbuf complete dim=1)
     HLS_PRAGMA(HLS BIND_STORAGE variable=wbuf type=RAM_2P impl=LUTRAM)
 #endif
@@ -431,24 +467,36 @@ int conv2d_engine(const data_t *in_fm, const data_t *wgt, const bias_t *bias,
                 int off_ocb12 = 0;
                 // k=5（28 字节对齐容器）的块基址递推：每块 +cin*28*OC_BLOCK
                 int off_ocb28 = 0;
-                // 补齐后的通道数（C8 写回按 8 的整块走）
+                // 补齐后的通道数（C8 写回按 8 的整块走）。只有 k=1 的第二段
+                // out_copy 用它；k=1 移除后这个常量也一起消失。
+#if C8_LAYOUT && K1_IN_HLS
                 const int cpadded = ((cout + OC_BLOCK - 1) / OC_BLOCK) * OC_BLOCK;
+#endif
                 for (int ocb = 0; ocb < cout; ocb += OC_BLOCK) {
                     const int ocbl = (cout - ocb < OC_BLOCK) ? (cout - ocb) : OC_BLOCK;
+#if K1_IN_HLS
                     // 本 pass 实际算的通道上界：k=1 是 K1_LANES（两个 OC 块），其余是 OC_BLOCK
                     const int ocbl1 = (cout - ocb < OC_BLOCK * K1_BLK) ? (cout - ocb)
                                                                       : OC_BLOCK * K1_BLK;
+#endif
                     // 三个权重基址递推**先取本块值、再无条件推进**：
                     // k=1 的 16 车道会 `continue` 跳过奇数块，跳过时递推也不能错位。
+                    // off_b 只被"逐字节基线容器"（K3_PAD12=0 / K5_PAD28=0）和 k=1
+                    // 装载器用；默认三开关（PAD12=1/PAD28=1/K1=0）下它没人引用，
+                    // 所以按需声明，避免 HLS/g++ 的 unused 警告。
+#if K1_IN_HLS || (K3_PAD12 == 0) || (K5_PAD28 == 0)
                     const int off_b = off_ocb;
+#endif
                     const int off12_b = off_ocb12;
                     const int off28_b = off_ocb28;
                     off_ocb += cin_kk * OC_BLOCK;       // 下一 OC 块的起始偏移
                     off_ocb12 += cin * 12 * OC_BLOCK;   // 同上（k=3 的 12 字节容器）
                     off_ocb28 += cin * 28 * OC_BLOCK;   // 同上（k=5 的 28 字节容器）
+#if K1_IN_HLS
                     // k=1 的 16 车道一次吃掉两个 OC 块 ⇒ 奇数块整块跳过。
                     // （只对 k=1 生效；k=3/k=5 仍是每块 8 个 oc。）
                     if ((K1_BLK > 1) && (ksize == 1) && ((ocb & OC_BLOCK) != 0)) continue;
+#endif
 
                     // 装当前 OC 块的权重。DDR 里每个 (oc,ic) 的 k×k 权重是连续的；
                     // 先顺序读到寄存器组，再用静态索引摆到 wgt_buf 的 (ky,kx) 位置。
@@ -457,6 +505,7 @@ int conv2d_engine(const data_t *in_fm, const data_t *wgt, const bias_t *bias,
                     // HLS 会试图"展开再流水"，运行期循环次数展开失败后逻辑暴涨
                     // （LUT 19.7k→69k、DSP 66→471），实现直接放不下。
                     if (ksize == 1) {
+#if K1_IN_HLS
                         // 1×1 的权重每个 (oc,ic) 只有 1 字节，单独做一条可流水的
                         // 连续读取；避免通用分支里运行期 k 造成的动态索引和长等待。
                         // 2026-10-23 第三轮：改成 32-bit 读。C8/CHW 两种布局下
@@ -492,6 +541,11 @@ int conv2d_engine(const data_t *in_fm, const data_t *wgt, const bias_t *bias,
                                 }
                             }
                         }
+#else
+                        /* 2026-10-26：k=1 权重装载已移除（wgt1_buf 不存在）。
+                           这一支在函数入口就被 ERR_K1_UNSUPPORTED 拦下，永远不会
+                           执行；留空只为让下面的 else-if 链与 k=3/k=5 逐字不变。 */
+#endif
                     } else if (ksize == 3) {
 #if K3_PAD12
                         /* ---- k=3 权重装载加宽：容器按 12 字节/（oc,ic）补齐 ----
@@ -630,6 +684,7 @@ int conv2d_engine(const data_t *in_fm, const data_t *wgt, const bias_t *bias,
                     //
                     // 尾部通道：ocbl < 8 时（cout%8 != 0）8 字节整字会写到补零通道，
                     // 必须显式写 0（PS 侧按 ceil(cout/8)*8 分配缓冲区并期望那里是 0）。
+#if K1_IN_HLS
                     if (ksize == 1) {
                         // k=1：车道数 K1_LANES，尾部按本 pass 的上界 ocbl1 补零
                         if (ocbl1 < OC_BLOCK * K1_BLK) {
@@ -643,6 +698,10 @@ int conv2d_engine(const data_t *in_fm, const data_t *wgt, const bias_t *bias,
                             }
                         }
                     } else if (ocbl < OC_BLOCK) {
+#else
+                    // 2026-10-26：k=1 的 16 车道补偿零已移除（wbuf 只剩 8 个 bank）
+                    if (ocbl < OC_BLOCK) {
+#endif
                         for (int i = 0; i < OC_BLOCK; ++i) {
                             if (i >= ocbl) {
                                 HLS_PRAGMA(HLS UNROLL)
@@ -666,6 +725,7 @@ int conv2d_engine(const data_t *in_fm, const data_t *wgt, const bias_t *bias,
                         // acc0/acc1 仍按 ic 奇偶分两条加法链（缩短依赖）；整数加法
                         // 可交换，求和顺序变化不影响结果（g++/csim/cosim 三重对拍）。
                         if (ksize == 1) {
+#if K1_IN_HLS
                             // ---- 2026-10-23 第十轮：车道 8 → K1_LANES（默认 16）----
                             // 16 个 oc 共用同一个 `p`（line_buf 每拍仍只读 1 次），所以
                             // **存储器/填充/k=3/k=5 一行都不用改**，加倍的只有寄存器与乘法器。
@@ -745,7 +805,12 @@ int conv2d_engine(const data_t *in_fm, const data_t *wgt, const bias_t *bias,
                             }
                                 }
                             }
-
+#else
+                            /* 2026-10-26：k=1 十六车道计算 + 收尾（对应原 LOOP_684_33 /
+                               LOOP_730_36 两个子模块）已整体移除。入口对 ksize==1
+                               返回 ERR_K1_UNSUPPORTED，所以这一支不可达；留空只为让
+                               下面的 else-if 链与 k=3/k=5 的代码逐字不变。 */
+#endif
                         } else if (ksize == 3) {
                             // ---- 3×3 快路径重排（2026-10-22）：ic 外层流水 + oc 展开 ----
                             // 原结构 oc 在外层串行 → 每算一个输出通道就重开一次 ic 流水，
@@ -846,6 +911,7 @@ int conv2d_engine(const data_t *in_fm, const data_t *wgt, const bias_t *bias,
                                 // 宽画幅实测约 2.41 拍/单元（2×2 小画幅会被权重重装放大）。
                                 // k=1 时 pad=0、span=1，line_buf 只有第 0 行，列下标就是 cb。
                                 if (ksize == 1) {
+#if K1_IN_HLS
                                     for (int ic = 0; ic < cin; ++ic) {
                                         HLS_PRAGMA(HLS PIPELINE II=PIPELINE_II)
                                         const int32_t p = (int32_t)line_buf[ic][0][cb];
@@ -857,6 +923,13 @@ int conv2d_engine(const data_t *in_fm, const data_t *wgt, const bias_t *bias,
                                             acc_even += t1;
                                         }
                                     }
+#else
+                                    /* 2026-10-26：这条"通用循环体里的 1×1 快路径"本来就
+                                       已是死代码（外层 ksize==1 先被上面第 716 行的
+                                       快路径截走），但它照样被综合成 LOOP_849_43
+                                       （csynth: 401 LUT + 304 FF）。k=1 整体移除后
+                                       一并裁掉；入口已拒绝 ksize==1，不可达。 */
+#endif
                                 } else if (ksize == 3) {
                                     // ---- 3×3 专用快路径（2026-10-19）----
                                     // 通用路径按 KMAX=5 展开 25 个抽头，k=3 时仍有 16 个
@@ -957,6 +1030,7 @@ int conv2d_engine(const data_t *in_fm, const data_t *wgt, const bias_t *bias,
                             pw[px] = w;
                         }
                     }
+#if K1_IN_HLS
                     // k=1 的 16 车道：本 pass 还算了 ocb+8..ocb+15，它们是**另一段**
                     // 8 字节（C8 布局里 oc 块号相差 1），所以再用一条同样形态的
                     // 拷贝循环写出去 —— 每笔事务仍是 8 字节 1-beat，DDR 事务形态不变。
@@ -976,13 +1050,19 @@ int conv2d_engine(const data_t *in_fm, const data_t *wgt, const bias_t *bias,
                             pw1[px] = w;
                         }
                     }
+#endif  // K1_IN_HLS：k=1 第二段 out_copy（LOOP_967_51）
 #endif
 
 #if FUSE_SUM
                     // 本行、本 OC 块的通道和一次性加到全局（chsum 由 PS 侧清零）。
                     // 放在 x2 循环之外：避免在写回流水里对外部内存做读改写。
                     if (chsum != 0) {
+#if K1_IN_HLS
                         for (int i = 0; i < (ksize == 1 ? ocbl1 : ocbl); ++i) {
+#else
+                        // k=1 已移除：每个 pass 只有 8 个 oc，上界就是 ocbl
+                        for (int i = 0; i < ocbl; ++i) {
+#endif
                             chsum[ocb + i] += csum_l[i];
                         }
                     }
