@@ -91,11 +91,24 @@ if {$_csopt} {
     }
 }
 
+# 2026-10-26：BD/RTL 改动后 Vivado 不会自动重跑已 100% 的 run（launch_runs 直接跳过），
+# 会导致"构建成功但 bit 还是旧的"。必须显式 reset。
+set _force [expr {[info exists ::env(FORCE_REBUILD)] ? $::env(FORCE_REBUILD) : 0}]
+if {$::env(REBUILD) ne ""} { set _force 1 }
+if {$_force} {
+    puts "== FORCE_REBUILD：reset synth_1 / impl_1 =="
+    reset_run synth_1
+    reset_run impl_1
+}
+if {[get_property PROGRESS [get_runs synth_1]] ne "100%"} {
+    launch_runs synth_1 -jobs $jobs
+    wait_on_run synth_1
+}
 if {[get_property PROGRESS [get_runs impl_1]] ne "100%"} {
     launch_runs impl_1 -to_step write_bitstream -jobs $jobs
     wait_on_run impl_1
 } else {
-    puts "impl_1 已完成，直接收集产物"
+    puts "impl_1 已 100%，且未设 REBUILD/FORCE_REBUILD —— 可能拿到旧 bit"
 }
 
 set st [get_property STATUS [get_runs impl_1]]
