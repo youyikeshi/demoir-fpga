@@ -152,6 +152,20 @@ int conv2d_engine(const data_t *in_fm, const data_t *wgt, const bias_t *bias,
     // 见 docs/部署/HLS移除k1分支.md。
     if (ksize == 1) return ERR_K1_UNSUPPORTED;
 #endif
+#if !K5_IN_HLS
+    // ---- 2026-10-26（第二刀）：k=5 已从 HLS 侧移除 ----
+    // k=5 改由手写 RTL 模块 conv_k5_engine 承担（全网唯一 1 个 k=5 层
+    // encoder.conv_first：320²、cin=12→物理 16、cout=48、pad=2；
+    // 逐字节 30,720/30,720、拍数比 0.055 = 18.2×）。
+    // 与 k=1 完全同一个约定：**宁可报错，绝不静默算错** —— 若放过去，
+    // ksize==5 会掉进下面的通用通路，25 抽头谓词循环只算出一部分，
+    // 输出"看着正常"但整网精度崩，是最难查的一类故障。
+    // 返回码 6 = ERR_K5_UNSUPPORTED（新增枚举值，不动 AXI-Lite 映射）。
+    // 副作用：不读权重、不写输出、不发起任何 m_axi 事务（入口处就返回）。
+    // 部署前提：PS 侧必须把 k==5 层路由到 conv_k5_engine；
+    // 见 docs/部署/HLS再移除k5分支.md。
+    if (ksize == 5) return ERR_K5_UNSUPPORTED;
+#endif
     if (stride < 1 || stride > 2) return ERR_SIZE;
     if (dil < 1 || dil > DMAX) return ERR_SIZE;
     // same padding 检查：pad 必须等于 (k-1)*d/2
@@ -195,7 +209,17 @@ int conv2d_engine(const data_t *in_fm, const data_t *wgt, const bias_t *bias,
     if (bwcol > (wide1 ? (SPAN_MAX * 64) : BWCOL_MAX)) return ERR_SIZE;
 
     // 权重缓冲：只装当前 OC 块
+    // 2026-10-26（第二刀）：wgt_buf **只服务 k=5**。grep 全文件的写/读点只有三处：
+    //   写：下面 ksize==5 的权重装载器（唯一写点）；
+    //   读：同一块 else 里的 25 抽头循环（唯一可达读点）+ 两条**恒不可达**的死分支
+    //       （ksize==1 的一乘一、ksize==3 的 9 抽头 —— 外层 if 链保证进到这块 else
+    //        时 ksize 只能是 5，所以那两条只是 HLS 照样综合出来的死代码）。
+    // k=3 走 wgt3_buf（LUTRAM）、k=1 走 wgt1_buf（LUTRAM），都完全不碰它。
+    // ⇒ K5_IN_HLS=0 时整块消失（csynth: 25 bank × 2 = 50 块 BRAM18K, 0 LUT/FF）。
+    // 详见 docs/部署/HLS再移除k5分支.md §2.3/§2.4。
+#if K5_IN_HLS
     data_t wgt_buf[OC_BLOCK][CIN_MAX][KMAX][KMAX];
+#endif
 #if K1_IN_HLS
     // 1×1 专用权重缓冲（2026-10-21 性能改造）：
     //   k=1 占 132/249 层，走 wgt_buf 时每个 oc 只能串行读（BRAM 双端口），
@@ -226,8 +250,10 @@ int conv2d_engine(const data_t *in_fm, const data_t *wgt, const bias_t *bias,
     // complete 拆分后是 8×9 = 72 个 LUTRAM bank（每个 bank 深度 CIN_MAX），
     // 与改造前逐字等价（[3][3] → [9] 只是展平了下标）。
     data_t wgt3_buf[OC_BLOCK][CIN_MAX][9];
+#if K5_IN_HLS
     HLS_PRAGMA(HLS ARRAY_PARTITION variable=wgt_buf complete dim=3)
     HLS_PRAGMA(HLS ARRAY_PARTITION variable=wgt_buf complete dim=4)
+#endif
 #if K1_IN_HLS
     HLS_PRAGMA(HLS ARRAY_PARTITION variable=wgt1_buf complete dim=1)
     HLS_PRAGMA(HLS BIND_STORAGE variable=wgt1_buf type=RAM_2P impl=LUTRAM)
@@ -465,8 +491,10 @@ int conv2d_engine(const data_t *in_fm, const data_t *wgt, const bias_t *bias,
                 int off_ocb = 0;
                 // k=3（12 字节对齐容器）的块基址递推：每块 +cin*12*OC_BLOCK
                 int off_ocb12 = 0;
+#if K5_IN_HLS
                 // k=5（28 字节对齐容器）的块基址递推：每块 +cin*28*OC_BLOCK
                 int off_ocb28 = 0;
+#endif
                 // 补齐后的通道数（C8 写回按 8 的整块走）。只有 k=1 的第二段
                 // out_copy 用它；k=1 移除后这个常量也一起消失。
 #if C8_LAYOUT && K1_IN_HLS
@@ -482,16 +510,20 @@ int conv2d_engine(const data_t *in_fm, const data_t *wgt, const bias_t *bias,
                     // 三个权重基址递推**先取本块值、再无条件推进**：
                     // k=1 的 16 车道会 `continue` 跳过奇数块，跳过时递推也不能错位。
                     // off_b 只被"逐字节基线容器"（K3_PAD12=0 / K5_PAD28=0）和 k=1
-                    // 装载器用；默认三开关（PAD12=1/PAD28=1/K1=0）下它没人引用，
+                    // 装载器用；默认开关（PAD12=1/PAD28=1/K1=0/K5=0）下它没人引用，
                     // 所以按需声明，避免 HLS/g++ 的 unused 警告。
-#if K1_IN_HLS || (K3_PAD12 == 0) || (K5_PAD28 == 0)
+#if K1_IN_HLS || (K3_PAD12 == 0) || (K5_IN_HLS && (K5_PAD28 == 0))
                     const int off_b = off_ocb;
 #endif
                     const int off12_b = off_ocb12;
+#if K5_IN_HLS
                     const int off28_b = off_ocb28;
+#endif
                     off_ocb += cin_kk * OC_BLOCK;       // 下一 OC 块的起始偏移
                     off_ocb12 += cin * 12 * OC_BLOCK;   // 同上（k=3 的 12 字节容器）
+#if K5_IN_HLS
                     off_ocb28 += cin * 28 * OC_BLOCK;   // 同上（k=5 的 28 字节容器）
+#endif
 #if K1_IN_HLS
                     // k=1 的 16 车道一次吃掉两个 OC 块 ⇒ 奇数块整块跳过。
                     // （只对 k=1 生效；k=3/k=5 仍是每块 8 个 oc。）
@@ -602,6 +634,7 @@ int conv2d_engine(const data_t *in_fm, const data_t *wgt, const bias_t *bias,
                         }
 #endif
                     } else {   // ksize == 5（ksize 已被上界校验限制为 1/3/5）
+#if K5_IN_HLS
 #if K5_PAD28
                         /* ---- k=5 权重装载加宽：容器按 28 字节/（oc,ic）补齐 ----
                            导出侧把每个 (oc,ic) 的 25 个抽头**紧排在前 25 字节**、
@@ -652,6 +685,13 @@ int conv2d_engine(const data_t *in_fm, const data_t *wgt, const bias_t *bias,
                                 }
                             }
                         }
+#endif
+#else
+                        /* 2026-10-26（第二刀）：k=5 权重装载已移除（wgt_buf 不存在）。
+                           这一支在函数入口就被 ERR_K5_UNSUPPORTED 拦下，永远不会执行；
+                           留空只为让 if / else-if 链与 k=3 逐字不变。
+                           ⚠️ K5_PAD28 是**容器约定**，仍然保持 1（手写 RTL conv_k5_engine
+                           读同一个 28 字节容器），只是 HLS 不再消费它。 */
 #endif
                     }
 
@@ -900,6 +940,12 @@ int conv2d_engine(const data_t *in_fm, const data_t *wgt, const bias_t *bias,
                                 }
                             }
                         } else {
+#if K5_IN_HLS
+                        // ================= k=5 通路（K5_IN_HLS=1）=================
+                        // 外层 if 链是 if(ksize==1) / else if(ksize==3) / else，
+                        // 所以**只有 ksize==5 能进到这里**。下面 for i 里的
+                        // if(ksize==1) / else if(ksize==3) 两条子分支因此恒不可达
+                        // （HLS 仍给它们造了 LOOP_849_43 / LOOP_865_44）。
                         for (int i = 0; i < OC_BLOCK; ++i) {
                             if (i < ocbl) {
                                 acc_t acc_even = 0;
@@ -1002,6 +1048,19 @@ int conv2d_engine(const data_t *in_fm, const data_t *wgt, const bias_t *bias,
                             }
                             }
                         }
+#else
+                        /* 2026-10-26（第二刀）：k=5 通路（25 抽头 + 同一块里的两条
+                           恒不可达死分支）已整体移除。入口对 ksize==5 返回
+                           ERR_K5_UNSUPPORTED，所以这一支不可达；留空只为让
+                           上面的 if / else-if 链与 k=3 的快路径逐字不变。
+                           一并消失的 csynth 实例（r9_k1_l16 报告口径）：
+                             · LOOP_892_47  25 抽头主循环  LUT 2,220 / FF 1,903 / DSP 20
+                             · LOOP_865_44  死 k=3 9 抽头  LUT   932 / FF   572 / DSP  5
+                             · LOOP_849_43  死 k=1 一乘一    LUT   401 / FF   304
+                             · wgt_buf 25 bank × 2        BRAM18K 50
+                           k=3 的可达快路径在上一层 else-if（LOOP_764_38 / 819_41），
+                           与 dilation 支持一起**一个字没动**。 */
+#endif
                         }   // end else (ksize != 1)
                     }
 

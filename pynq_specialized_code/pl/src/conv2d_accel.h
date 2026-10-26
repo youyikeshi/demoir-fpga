@@ -76,7 +76,13 @@ enum {
        的通路上去静默算错（通用通路只会算 kx=ky=0，输出"看着正常"但整网崩）。
        只新增枚举值：不新增/不移动任何 AXI-Lite 寄存器，返回码仍在同一个 32 位
        ap_return 里，PS 侧按"非 0 即错误"处理即可。见 docs/部署/HLS移除k1分支.md。 */
-    ERR_K1_UNSUPPORTED = 5
+    ERR_K1_UNSUPPORTED = 5,
+    /* 2026-10-26（第二刀）：k=5 已从 conv2d_engine 移除（改由手写 RTL conv_k5_engine
+       承担，全网只有 1 层：encoder.conv_first）。K5_IN_HLS=0 的构建收到 ksize==5
+       时**返回这个码**，而不是落到通用通路上静默算错。
+       同样只新增枚举值：AXI-Lite 寄存器映射、端口、位宽、函数签名全都不变，
+       返回码仍在同一个 32 位 ap_return 里。见 docs/部署/HLS再移除k5分支.md。 */
+    ERR_K5_UNSUPPORTED = 6
 };
 
 // HLS 综合目标
