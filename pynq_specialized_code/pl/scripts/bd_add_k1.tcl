@@ -247,7 +247,13 @@ step "add_files + file_type（sources_1）"
 proc add_rtl {path ftype} {
     set path [file normalize $path]
     if {![file exists $path]} { error "找不到 RTL 文件：$path" }
-    if {[llength [get_files -quiet $path]] == 0} {
+    # 强制重新读取：RTL 端口变了（如 m_axi_in/w/b → m_axi_rd）时，Vivado 会缓存旧的
+    # 模块定义，导致 create_bd_cell 拿到旧引脚、X_INTERFACE_INFO 推断失败。
+    if {[llength [get_files -quiet $path]]} {
+        catch { remove_files -fileset sources_1 [get_files -quiet $path] }
+        note "强制重读：已从 fileset 移除 $path"
+    }
+    if {1} {
         # 注意：add_files **没有** -sv 选项（2026-10-23 主控实跑：Unknown option '-sv'），
         # 语言类型只能靠 file_type 属性指定。
         add_files -fileset sources_1 -norecurse $path
@@ -531,6 +537,17 @@ set pairing {
     m_axi_out S03_AXI
 }
 foreach {mpin spin} $pairing {
+    # 端口数从 6 缩到 4 后，S02/S03 可能还挂着上一版 k1 的旧 net（m_axi_in 之类，
+    # 那个 cell 已被删除，但 net 还在）。先无条件断开，再连。
+    set _p [get_bd_intf_pins -quiet smc/$spin]
+    if {[llength $_p]} {
+        # 无条件先删：悬空 net（对端 cell 已删）时 intf_partner 返回空，
+        # 用条件判断会漏掉，所以不看 partner，直接删掉这个 pin 上的所有 net。
+        foreach _n [get_bd_intf_nets -quiet -of_objects $_p] {
+            note "清除 smc/$spin 上的旧 net：$_n"
+            catch { delete_bd_objs $_n }
+        }
+    }
     ensure_intf [get_bd_intf_pins k1_wrap/$mpin] [get_bd_intf_pins smc/$spin]
 }
 

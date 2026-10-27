@@ -10,17 +10,28 @@
 //    2. 5 条行缓冲（每条 = 2 个 64-bit bank，对应 C8 的两个 8 通道块）。
 //       每拍只读 1 个地址 => 一列 5 行同时吐出，彻底消掉 HLS 版 II=3 的列口瓶颈。
 //    3. 5×5×16B 窗口移位寄存器：每输出一个像素只移入 1 列（5 行）。
-//    4. 25 抽头 × 4 oc = 100 个 DSP 累加器：
+//    4. 25 抽头 × OC_PER_PASS 个 oc = 25*OC_PER_PASS 个 DSP 累加器：
 //          每个 DSP 负责一个 (oc, tap)，在 12 个 ic 上做 P += a*b。
-//          12 拍后 25 个抽头和再求和 => 每像素每 4-oc 组 12 拍。
-//    5. 权重整层预装进 100 个分布式 RAM（每 (oc_lane,tap) 一个 192×8），
-//       内层 0 次 DDR 权重读。
-//    6. 输出按 C8 布局打包：s=0 组 4 字节 + s=1 组 4 字节 = 一个 64-bit beat。
+//          12 拍后 25 个抽头和再求和 => 每像素每 pass 12 拍。
+//    5. 权重整层预装进 25*OC_PER_PASS 个分布式 RAM
+//          （每 (oc_lane,tap) 一个 NGRP*16 深 × 8 位），内层 0 次 DDR 权重读。
+//    6. 输出按 C8 布局打包：每个 pass 写 OC_PER_PASS 个字节（byte strobe），
+//       一个 8-oc 块的 8 个字节拼满一个 64-bit beat 后再整行写回。
 //
-//  II 说明：
-//    每 (pixel, 4-oc 组) = 12 个 ic 拍，II=1；6 个 oc 块 × 2 组 = 12 组/像素。
-//    计算拍数 = H*W*(COUT/4)*CIN = 320*320*12*12 = 14,745,600 拍 @150MHz = 98.3 ms。
-//    实测（tb 报告）含权重装载/行填充/写回约 15.6 M 拍 ≈ 104 ms。
+//  OC 并行度参数（DSP vs 时间，详见 docs/rtl_hand/conv_k5_engine.md §5.5）：
+//    OC_PER_PASS=4：100 DSP，整层计算 14,745,600 拍（≈98 ms  @150MHz）
+//    OC_PER_PASS=2： 50 DSP，整层计算 29,491,200 拍（≈197 ms）
+//    OC_PER_PASS=1： 25 DSP，整层计算 58,982,400 拍（≈393 ms）  <-- 默认
+//    整机 DSP 预算 160：HLS 92 + k1 33 = 125，只剩 35 个；k5 必须 ≤40 DSP。
+//    k=5 全网只有 1 层（约 4.5% 的 MAC），用 100 DSP 极不划算，故默认 1。
+//
+//  II 说明（默认 OC_PER_PASS=1）：
+//    每 (pixel, pass) = CIN 个 ic 拍，pass 与 pass 背靠背，II=1 不变；
+//    每像素 = (COUT/OC_PER_PASS) 个 pass = 48×12 = 576 拍（原来是 12×12=144）。
+//    计算拍数 = H*W*(COUT/OC_PER_PASS)*CIN = 320*320*48*12 = 58,982,400 拍
+//    @150MHz = 393 ms；加上权重装载/行填充/写回，整层约 0.40 s。
+//    2×320 条带（golden k5_12x48）约 392 k 拍，是旧 115,939 拍的 ~3.4 倍，
+//    相对 HLS 的 3.39 s 仍快约 8.5 倍。
 //
 //  本文件不例化 DSP48E1 原语，而是写「3 级流水 + use_dsp」的可综合行为：
 //      stage1: a_r/b_r（DSP 的 A/B 寄存器）
@@ -35,7 +46,10 @@ module conv_k5_engine #(
     parameter int COUT = 48,
     parameter int W    = 320,
     parameter int H    = 320,
-    parameter int PAD  = 2
+    parameter int PAD  = 2,
+    // 每个 pass 并行计算的 oc 数。必须整除 8（输出按 8-oc beat 拼包）。
+    // 1 => 25 DSP（默认，满足整机 ≤40 DSP 预算）；2/4 仅用于权衡实验。
+    parameter int OC_PER_PASS = 1
 )(
     input  logic         ap_clk,
     input  logic         ap_rst_n,
@@ -114,11 +128,13 @@ module conv_k5_engine #(
     localparam int CPAD     = ((CIN + 7) / 8) * 8;   // 物理通道数：12 -> 16
     localparam int CBLK     = CPAD / 8;              // 输入 8 通道块数：16/8 = 2
     localparam int NTAP     = 25;                    // 5×5
-    localparam int NOC      = 4;                     // 每拍并行 oc 数
-    localparam int NGRP     = COUT / NOC;            // 12 个 4-oc 组
-    localparam int NOB      = COUT / 8;              // 6 个 8-oc 输出块
-    localparam int NWB      = NOC * NTAP;            // 100 个权重 bank
-    localparam int WB_DEPTH = NGRP * 16;             // 192 = 12 组 × 16 ic
+    localparam int NOC      = OC_PER_PASS;           // 每个 pass 并行的 oc 数
+    localparam int NG       = 8 / NOC;               // 拼满一个 64-bit beat 需 NG 个 pass
+    localparam int NGRP     = (COUT + NOC - 1) / NOC;// pass 总数 = ceil(COUT/NOC)
+    localparam int NBLK     = (COUT + 7) / 8;        // 8-oc 输出块数（写回 burst 数/像素）
+    localparam int NWB      = NOC * NTAP;            // 权重 bank 数 = NOC×25
+    localparam int WB_DEPTH = NGRP * CPAD;           // 每 bank 深度 = NGRP×16（1 oc 时 768）
+    localparam int WB_AW    = $clog2(WB_DEPTH);      // 权重地址位宽（768 -> 10）
     localparam int LB_DEPTH = W + 2 * PAD;           // 324 = 320 + 左右各 2
     localparam int WGT_BYTES  = COUT * CIN * 28;     // PAD28 容器
     localparam int BIAS_BYTES = COUT * 4;
@@ -128,16 +144,17 @@ module conv_k5_engine #(
     localparam int IC_LAST    = CIN - 1;
     localparam int X_LAST     = W - 1;
     localparam int Y_LAST     = H - 1;
-    localparam int NOB_LAST   = NOB - 1;
+    localparam int NBLK_LAST  = NBLK - 1;
+    localparam int NG_LAST    = NG - 1;
 
     // 组号 / 块号 / 窗口行号
-    logic [3:0]  grp;        // 0..11：grp = b_cnt*2 + s_cnt
-    logic [2:0]  b_cnt;      // 0..NOB-1：当前 8-oc 输出块
-    logic        s_cnt;      // 0/1：4-oc 组内低/高半
+    logic [5:0]  grp;        // 0..NGRP-1：pass 号 = b_cnt*NG + s_cnt
+    logic [2:0]  b_cnt;      // 0..NBLK-1：当前 8-oc 输出块
+    logic [2:0]  s_cnt;      // 0..NG-1：块内第几个 pass（每 pass = NOC 个 oc）
     logic [3:0]  ic_cnt;     // 0..CIN-1
     logic [9:0]  x_cnt;      // 0..W-1
     logic [8:0]  y_cnt;      // 0..H-1
-    assign grp = {b_cnt, s_cnt};
+    assign grp = b_cnt * NG + s_cnt;
 
     typedef enum logic [5:0] {
         S_IDLE,
@@ -382,18 +399,19 @@ module conv_k5_engine #(
     end
 
     // ==================================================================
-    // 4. 权重 bank：100 个 192×8 分布式 RAM
-    //    bank 下标 j = oc_lane*25 + tap
-    //    地址 a = grp*16 + ic
+    // 4. 权重 bank：NWB = NOC*25 个 WB_DEPTH×8 分布式 RAM
+    //    bank 下标 j = oc_lane*25 + tap（oc_lane = 0..NOC-1）
+    //    地址 a = grp*CPAD + ic（grp = pass 号，0..NGRP-1）
+    //    整层预装：NOC=1 时 25 个 768×8（仍共 153,600 bit，与 100 个 192×8 等量）
     // ==================================================================
     logic [7:0] wgt [0:NWB-1];
-    logic [7:0] wgt_raddr;          // = grp*16 + ic
+    logic [WB_AW-1:0] wgt_raddr;    // = grp*CPAD + ic
     logic       wgt_we;
-    logic [7:0] wgt_waddr;
-    logic [6:0] wgt_widx;
+    logic [WB_AW-1:0] wgt_waddr;
+    logic [6:0] wgt_widx;           // = (oc%NOC)*25 + tap
     logic [7:0] wgt_wdata;
 
-    assign wgt_raddr = {grp, ic_cnt}; // grp 4 bit, ic_cnt 4 bit -> 8 bit
+    assign wgt_raddr = grp * CPAD + ic_cnt;
 
     genvar gj;
     generate
@@ -410,7 +428,7 @@ module conv_k5_engine #(
     endgenerate
 
     // ==================================================================
-    // 5. bias：48×32 分布式 RAM（单读口，每组内分 4 拍读出 4 个 lane）
+    // 5. bias：COUT×32 分布式 RAM（单读口，每 pass 分 NOC 拍读出 NOC 个 lane）
     // ==================================================================
     logic [31:0] bias_rdata;
     logic [5:0]  bias_raddr;
@@ -428,29 +446,29 @@ module conv_k5_engine #(
     );
 
     // ==================================================================
-    // 6. MAC 阵列：25 tap × 4 oc
+    // 6. MAC 阵列：25 tap × NOC 个 oc（DSP 数 = 25*NOC）
     // ==================================================================
-    logic signed [7:0]  a_r  [0:24];        // 像素（DSP A 寄存器）
-    logic signed [7:0]  b_r  [0:3][0:24];   // 权重（DSP B 寄存器）
-    logic signed [15:0] m_r  [0:3][0:24];   // 乘积（DSP M 寄存器）
-    (* use_dsp = "yes" *) logic signed [47:0] p_acc[0:3][0:24]; // 累加（DSP P 寄存器）
+    logic signed [7:0]  a_r  [0:24];          // 像素（DSP A 寄存器）
+    logic signed [7:0]  b_r  [0:NOC-1][0:24]; // 权重（DSP B 寄存器）
+    logic signed [15:0] m_r  [0:NOC-1][0:24]; // 乘积（DSP M 寄存器）
+    (* use_dsp = "yes" *) logic signed [47:0] p_acc[0:NOC-1][0:24]; // 累加（DSP P 寄存器）
 
     logic        pipe_en;                   // MAC 流水使能
     logic        mac_first;                 // 当前 ic==0
     logic        mac_last;                  // 当前 ic==CIN-1
     logic        first_d1, first_d2, last_d3;
-    logic [3:0]  grp_d1, grp_d2, grp_d3;
+    logic [5:0]  grp_d1, grp_d2, grp_d3;
     logic [9:0]  x_d1, x_d2, x_d3;
-    logic        s_d1, s_d2, s_d3;
+    logic [2:0]  s_d1, s_d2, s_d3;
 
     // 流水输入（非计算状态下强制 0，避免 drain 期间引入垃圾）
     logic signed [7:0] mac_pix [0:24];
-    logic signed [7:0] mac_wgt [0:3][0:24];
+    logic signed [7:0] mac_wgt [0:NOC-1][0:24];
     always_comb begin
         for (int j = 0; j < 25; j++) begin
             mac_pix[j] = (state == S_COMPUTE) ? $signed(pix_byte[j]) : 8'sd0;
         end
-        for (int l = 0; l < 4; l++) begin
+        for (int l = 0; l < NOC; l++) begin
             for (int j = 0; j < 25; j++) begin
                 mac_wgt[l][j] = (state == S_COMPUTE) ? $signed(wgt[l*25+j]) : 8'sd0;
             end
@@ -460,7 +478,7 @@ module conv_k5_engine #(
     (* use_dsp = "yes" *) always_ff @(posedge ap_clk) begin
         if (pipe_en) begin
             for (int j = 0; j < 25; j++) a_r[j] <= mac_pix[j];
-            for (int l = 0; l < 4; l++)
+            for (int l = 0; l < NOC; l++)
                 for (int j = 0; j < 25; j++) b_r[l][j] <= mac_wgt[l][j];
 
             first_d1 <= mac_first;
@@ -468,7 +486,7 @@ module conv_k5_engine #(
             x_d1     <= x_cnt;
             s_d1     <= s_cnt;
 
-            for (int l = 0; l < 4; l++)
+            for (int l = 0; l < NOC; l++)
                 for (int j = 0; j < 25; j++)
                     m_r[l][j] <= a_r[j] * b_r[l][j];
 
@@ -477,7 +495,7 @@ module conv_k5_engine #(
             x_d2     <= x_d1;
             s_d2     <= s_d1;
 
-            for (int l = 0; l < 4; l++) begin
+            for (int l = 0; l < NOC; l++) begin
                 for (int j = 0; j < 25; j++) begin
                     if (first_d2) p_acc[l][j] <= $signed(m_r[l][j]);
                     else          p_acc[l][j] <= p_acc[l][j] + $signed(m_r[l][j]);
@@ -505,27 +523,27 @@ module conv_k5_engine #(
     end
 
     // ==================================================================
-    // 7. 抽头和树：capture 时把 100 个 P 值拍进 26-bit，5 级流水求和
+    // 7. 抽头和树：capture 时把 NOC 个 P 值拍进 26-bit，5 级流水求和
     // ==================================================================
     logic        capture;          // 正常组边界
     logic        drain_capture;    // 块结束的最后一次 capture
 
-    logic signed [TW-1:0] ts0 [0:3][0:24];
-    logic signed [TW-1:0] ts1 [0:3][0:12];
-    logic signed [TW-1:0] ts2 [0:3][0:6];
-    logic signed [TW-1:0] ts3 [0:3][0:3];
-    logic signed [TW-1:0] ts4 [0:3][0:1];
-    logic signed [TW-1:0] tsum [0:3];
+    logic signed [TW-1:0] ts0 [0:NOC-1][0:24];
+    logic signed [TW-1:0] ts1 [0:NOC-1][0:12];
+    logic signed [TW-1:0] ts2 [0:NOC-1][0:6];
+    logic signed [TW-1:0] ts3 [0:NOC-1][0:3];
+    logic signed [TW-1:0] ts4 [0:NOC-1][0:1];
+    logic signed [TW-1:0] tsum [0:NOC-1];
 
     always_ff @(posedge ap_clk) begin
         if (capture) begin
-            for (int l = 0; l < 4; l++)
+            for (int l = 0; l < NOC; l++)
                 for (int j = 0; j < 25; j++)
                     ts0[l][j] <= p_acc[l][j][TW-1:0];
         end
 
         // 5 级加法树（每拍一级；capture 间隔 12 拍，远大于 5）
-        for (int l = 0; l < 4; l++) begin
+        for (int l = 0; l < NOC; l++) begin
             for (int j = 0; j < 12; j++) ts1[l][j] <= ts0[l][2*j] + ts0[l][2*j+1];
             ts1[l][12] <= ts0[l][24];
             for (int j = 0; j < 6; j++)  ts2[l][j] <= ts1[l][2*j] + ts1[l][2*j+1];
@@ -539,15 +557,15 @@ module conv_k5_engine #(
 
     // capture 有效延迟 6 拍（ts0 寄存器 + 5 级加法树）-> tsum 有效
     logic [5:0] cap_d;
-    logic [3:0] cap_grp_d [0:5];
-    logic       cap_s_d   [0:5];
+    logic [5:0] cap_grp_d [0:5];
+    logic [2:0] cap_s_d   [0:5];
     logic [9:0] cap_x_d   [0:5];
     always_ff @(posedge ap_clk or negedge ap_rst_n) begin
         if (!ap_rst_n) begin
             cap_d     <= 6'd0;
             for (int i = 0; i < 6; i++) begin
-                cap_grp_d[i] <= 4'd0;
-                cap_s_d[i]   <= 1'b0;
+                cap_grp_d[i] <= 6'd0;
+                cap_s_d[i]   <= 3'd0;
                 cap_x_d[i]   <= 10'd0;
             end
         end else begin
@@ -567,50 +585,50 @@ module conv_k5_engine #(
     end
 
     // ==================================================================
-    // 8. bias 读取（capture 后 4 拍读出 4 个 lane 的 bias）
+    // 8. bias 读取（capture 后 NOC 拍读出 NOC 个 lane 的 bias）
     // ==================================================================
-    logic [1:0]  bias_rd_cnt;
+    logic [2:0]  bias_rd_cnt;
     logic        bias_rd_active;
-    logic [3:0]  bias_rd_grp;
-    logic [31:0] bias_lane [0:3];
+    logic [5:0]  bias_rd_grp;
+    logic [31:0] bias_lane [0:NOC-1];
 
     // bias RAM 是同步读（地址打 1 拍）。capture 拍先给 lane0，
-    // 之后每拍给 lane(cnt+1)，这样 C+1..C+4 依次采到 lane0..lane3。
-    assign bias_raddr = capture ? {grp_d3, 2'd0}
-                                : {bias_rd_grp, bias_rd_cnt + 2'd1};
+    // 之后每拍给 lane(cnt+1)，这样 C+1..C+NOC 依次采到 lane0..lane{NOC-1}。
+    assign bias_raddr = capture ? (grp_d3 * NOC)
+                                : (bias_rd_grp * NOC + bias_rd_cnt + 6'd1);
 
     always_ff @(posedge ap_clk or negedge ap_rst_n) begin
         if (!ap_rst_n) begin
-            bias_rd_grp    <= 4'd0;
-            bias_rd_cnt    <= 2'd0;
+            bias_rd_grp    <= 6'd0;
+            bias_rd_cnt    <= 3'd0;
             bias_rd_active <= 1'b0;
-            for (int l = 0; l < 4; l++) bias_lane[l] <= 32'd0;
+            for (int l = 0; l < NOC; l++) bias_lane[l] <= 32'd0;
         end else if (capture) begin
             bias_rd_grp    <= grp_d3;
-            bias_rd_cnt    <= 2'd0;
+            bias_rd_cnt    <= 3'd0;
             bias_rd_active <= 1'b1;
         end else if (bias_rd_active) begin
             bias_lane[bias_rd_cnt] <= bias_rdata;
-            if (bias_rd_cnt == 2'd3) bias_rd_active <= 1'b0;
-            else                     bias_rd_cnt <= bias_rd_cnt + 2'd1;
+            if (bias_rd_cnt == NOC - 1) bias_rd_active <= 1'b0;
+            else                        bias_rd_cnt <= bias_rd_cnt + 3'd1;
         end
     end
 
     // ==================================================================
     // 9. 量化 + 输出打包 + 输出行缓冲
+    //    NOC=1 时每个 pass 只产出 1 个字节，按 byte strobe 写进 8 字节 beat；
+    //    一个 8-oc 块的 NG 个 pass 都写完后，整行（W 个 64-bit beat）才写回。
     // ==================================================================
     logic [31:0] shift_q;
-    logic signed [31:0] q_v [0:3];
-    logic [7:0]  q_byte [0:3];
+    logic signed [31:0] q_v [0:NOC-1];
+    logic [7:0]  q_byte [0:NOC-1];
     logic        q_valid;
-    logic [3:0]  q_grp;
-    logic        q_s;
+    logic [5:0]  q_grp;
+    logic [2:0]  q_s;
     logic [9:0]  q_x;
-    logic [31:0] out_lo;
-    logic [9:0]  out_lo_x;
 
     always_comb begin
-        for (int l = 0; l < 4; l++) begin
+        for (int l = 0; l < NOC; l++) begin
             q_v[l] = $signed(tsum[l]) + $signed(bias_lane[l]);
             q_v[l] = q_v[l] >>> shift_q;
         end
@@ -618,12 +636,12 @@ module conv_k5_engine #(
     always_ff @(posedge ap_clk or negedge ap_rst_n) begin
         if (!ap_rst_n) begin
             q_valid <= 1'b0;
-            q_s     <= 1'b0;
+            q_s     <= 3'd0;
             q_x     <= 10'd0;
-            q_grp   <= 4'd0;
-            for (int l = 0; l < 4; l++) q_byte[l] <= 8'd0;
+            q_grp   <= 6'd0;
+            for (int l = 0; l < NOC; l++) q_byte[l] <= 8'd0;
         end else if (cap_d[5]) begin
-            for (int l = 0; l < 4; l++) begin
+            for (int l = 0; l < NOC; l++) begin
                 if (q_v[l] < 0)        q_byte[l] <= 8'd0;
                 else if (q_v[l] > 127) q_byte[l] <= 8'd127;
                 else                   q_byte[l] <= q_v[l][7:0];
@@ -642,34 +660,29 @@ module conv_k5_engine #(
     logic        obuf_we;
     logic [9:0]  obuf_waddr;
     logic [63:0] obuf_wdata;
+    logic [7:0]  obuf_wstrb;
     logic [9:0]  obuf_raddr;
     logic [63:0] obuf_rdata;
 
-    always_ff @(posedge ap_clk) begin
-        if (obuf_we) obuf[obuf_waddr] <= obuf_wdata;
-        obuf_rdata <= obuf[obuf_raddr];
+    // 本 pass 的 NOC 个字节放到 64-bit beat 的 [q_s*NOC .. q_s*NOC+NOC-1] 字节位置
+    always_comb begin
+        obuf_wdata = 64'd0;
+        obuf_wstrb = 8'd0;
+        for (int n = 0; n < NOC; n++) begin
+            obuf_wdata[(q_s * NOC + n) * 8 +: 8] = q_byte[n];
+            obuf_wstrb[q_s * NOC + n]            = 1'b1;
+        end
     end
+    assign obuf_we    = q_valid;
+    assign obuf_waddr = q_x;
 
-    always_ff @(posedge ap_clk or negedge ap_rst_n) begin
-        if (!ap_rst_n) begin
-            out_lo    <= 0;
-            out_lo_x  <= 0;
-            obuf_we   <= 1'b0;
-            obuf_waddr<= 0;
-            obuf_wdata<= 0;
-        end else begin
-            obuf_we <= 1'b0;
-            if (q_valid) begin
-                if (q_s == 1'b0) begin
-                    out_lo   <= {q_byte[3], q_byte[2], q_byte[1], q_byte[0]};
-                    out_lo_x <= q_x;
-                end else begin
-                    obuf_we    <= 1'b1;
-                    obuf_waddr <= q_x;
-                    obuf_wdata <= {q_byte[3], q_byte[2], q_byte[1], q_byte[0], out_lo};
-                end
+    always_ff @(posedge ap_clk) begin
+        if (obuf_we) begin
+            for (int k = 0; k < 8; k++) begin
+                if (obuf_wstrb[k]) obuf[obuf_waddr][k*8 +: 8] <= obuf_wdata[k*8 +: 8];
             end
         end
+        obuf_rdata <= obuf[obuf_raddr];
     end
 
     // ==================================================================
@@ -855,10 +868,11 @@ module conv_k5_engine #(
     // 流水使能：计算 + drain 3 拍
     assign pipe_en = (state == S_COMPUTE) || (state == S_DRAIN);
 
-    // 窗口移位
+    // 窗口移位：只在「一个像素的最后一个 pass」且不是本行最后一个像素时移入新列。
+    // 1 oc 时 s_cnt 要数满 0..7，像素之间窗口仍然只移 1 列。
     assign shift_en = ((state == S_PRELOAD) && (pre_cnt >= 3'd1) && (pre_cnt <= 3'd5))
                    || ((state == S_COMPUTE) && (ic_cnt == IC_LAST[3:0]) &&
-                       (s_cnt == 1'b1) && (x_cnt != X_LAST[9:0]));
+                       (s_cnt == NG_LAST[2:0]) && (x_cnt != X_LAST[9:0]));
 
     // 行缓冲读地址
     always_comb begin
@@ -930,7 +944,7 @@ module conv_k5_engine #(
             y_cnt       <= 0;
             b_cnt       <= 0;
             x_cnt       <= 0;
-            s_cnt       <= 1'b0;
+            s_cnt       <= 3'd0;
             ic_cnt      <= 0;
             pre_cnt     <= 0;
             drain_cnt   <= 0;
@@ -998,14 +1012,15 @@ module conv_k5_engine #(
                         drain_cnt <= 0;
                         flush_cnt <= 0;
                         ic_cnt    <= 0;
-                        s_cnt     <= 1'b0;
+                        s_cnt     <= 3'd0;
                         x_cnt     <= 0;
                         state     <= S_WGT_REQ;
                     end
                 end
 
                 // ------------------------------------------------------
-                // 权重装载：PAD28 容器逐字节流式写入 100 个 bank
+                // 权重装载：PAD28 容器逐字节流式写入 NWB 个 bank
+                //   oc 全局下标 -> bank = (oc%NOC)*25 + tap，地址 = (oc/NOC)*CPAD + ic
                 // ------------------------------------------------------
                 S_WGT_REQ: begin
                     if (rd_req_ready) state <= S_WGT_DATA;
@@ -1020,8 +1035,8 @@ module conv_k5_engine #(
                         // 写当前字节（只有 b<25 是有效抽头）
                         if (w_b < 5'd25) begin
                             wgt_we    <= 1'b1;
-                            wgt_widx  <= w_oc[1:0] * 7'd25 + w_b[4:0];
-                            wgt_waddr <= {w_oc[5:2], w_ic};
+                            wgt_widx  <= (w_oc % NOC) * 7'd25 + w_b[4:0];
+                            wgt_waddr <= (w_oc / NOC) * CPAD + w_ic;
                             wgt_wdata <= w_word[{w_lane, 3'b000} +: 8];
                         end
                         // 推进字节计数器
@@ -1163,7 +1178,7 @@ module conv_k5_engine #(
                 S_PRELOAD: begin
                     if (pre_cnt == 3'd5) begin
                         ic_cnt <= 0;
-                        s_cnt  <= 1'b0;
+                        s_cnt  <= 3'd0;
                         x_cnt  <= 0;
                         state  <= S_COMPUTE;
                     end else begin
@@ -1171,11 +1186,13 @@ module conv_k5_engine #(
                     end
                 end
 
+                // 循环顺序：for x { for s=0..NG-1 { for ic=0..CIN-1 { MAC } } shift }
+                // pass 与 pass 背靠背，中间不插气泡 => II 仍为 1。
                 S_COMPUTE: begin
                     if (ic_cnt == IC_LAST[3:0]) begin
                         ic_cnt <= 4'd0;
-                        if (s_cnt == 1'b1) begin
-                            s_cnt <= 1'b0;
+                        if (s_cnt == NG_LAST[2:0]) begin
+                            s_cnt <= 3'd0;
                             if (x_cnt == X_LAST[9:0]) begin
                                 drain_cnt <= 3'd0;
                                 state     <= S_DRAIN;
@@ -1183,7 +1200,7 @@ module conv_k5_engine #(
                                 x_cnt <= x_cnt + 10'd1;
                             end
                         end else begin
-                            s_cnt <= 1'b1;
+                            s_cnt <= s_cnt + 3'd1;
                         end
                     end else begin
                         ic_cnt <= ic_cnt + 4'd1;
@@ -1214,7 +1231,7 @@ module conv_k5_engine #(
                 end
                 S_WR_WAIT: begin
                     if (wr_done) begin
-                        if (b_cnt == NOB_LAST[2:0]) begin
+                        if (b_cnt == NBLK_LAST[2:0]) begin
                             // 一行完成：旋转 sel，进入下一行
                             sel[0] <= sel[1];
                             sel[1] <= sel[2];
@@ -1249,9 +1266,16 @@ module conv_k5_engine #(
 
     // ==================================================================
     // 12. 仿真可观测性（综合时由 translate_off 去掉）
-    //     目的：卡死时能看到最后进入的 state / 卡在哪个 AXI 握手。
+    //     [K5-CFG] 每次启动打一行配置；[K5-SM] 状态转储默认关闭，
+    //     需要时编译加宏：xvlog -d K5_SM_DUMP（run_module.sh 用 --define）。
     // ==================================================================
     // synopsys translate_off
+    initial begin
+        $display("[K5-CFG] CIN=%0d COUT=%0d W=%0d H=%0d PAD=%0d IC_LAST=%0d X_LAST=%0d Y_LAST=%0d NOC=%0d NG=%0d NGRP=%0d NBLK=%0d WB_DEPTH=%0d",
+                 CIN, COUT, W, H, PAD, IC_LAST, X_LAST, Y_LAST, NOC, NG, NGRP, NBLK, WB_DEPTH);
+    end
+
+`ifdef K5_SM_DUMP
     state_t  dbg_state_d;
     integer  dbg_cyc;
     integer  dbg_obuf_wr;
@@ -1260,8 +1284,6 @@ module conv_k5_engine #(
         dbg_state_d = S_IDLE;
         dbg_cyc     = 0;
         dbg_obuf_wr = 0;
-        $display("[K5-CFG] CIN=%0d COUT=%0d W=%0d H=%0d PAD=%0d IC_LAST=%0d X_LAST=%0d Y_LAST=%0d NOB=%0d NGRP=%0d",
-                 CIN, COUT, W, H, PAD, IC_LAST, X_LAST, Y_LAST, NOB, NGRP);
     end
 
     always @(posedge ap_clk) begin
@@ -1280,12 +1302,12 @@ module conv_k5_engine #(
             dbg_state_d <= state;
         end
 
-        if (dbg_cyc == 2000000)
-            $display("[K5-SM] WATCHDOG 2M cycles: state=%0d y=%0d b=%0d x=%0d s=%0d ic=%0d rd=%0d wr=%0d wcnt=%0d bidx=%0d fill_col=%0d",
+        if (dbg_cyc == 8000000)
+            $display("[K5-SM] WATCHDOG 8M cycles: state=%0d y=%0d b=%0d x=%0d s=%0d ic=%0d rd=%0d wr=%0d wcnt=%0d bidx=%0d fill_col=%0d",
                      state, y_cnt, b_cnt, x_cnt, s_cnt, ic_cnt, rd_state, wr_state,
                      w_byte_cnt, b_idx, fill_col);
 
-        // 20k 一拍摘要：比 200k 更早暴露卡点；正常 2×320 条带 ~114k 拍
+        // 20k 一拍摘要：比 8M 更早暴露卡点；正常 2×320 条带 ~392k 拍（1 oc）
         if ((dbg_cyc % 20000) == 0) begin
             $display("[K5-SM] t=%0d state=%0d y=%0d b=%0d x=%0d s=%0d ic=%0d pre=%0d wr_line=%0d lbv=%b%b%b%b%b fill_col=%0d fill_blk=%b wr_beat=%0d wr_left=%0d wr_burst=%0d obuf_wr=%0d",
                      dbg_cyc, state, y_cnt, b_cnt, x_cnt, s_cnt, ic_cnt, pre_cnt, wr_line,
@@ -1301,30 +1323,32 @@ module conv_k5_engine #(
                      m_axi_out_bvalid, m_axi_out_bready);
         end
     end
+`endif
     // synopsys translate_on
 
 endmodule
 
 // ============================================================================
-//  100 个权重 bank 的单 bank：192×8 分布式 RAM（1 写口 + 1 读口，read-first）
+//  权重 bank 的单 bank：DEPTH×8 分布式 RAM（1 写口 + 1 读口，组合读）
+//  OC_PER_PASS=1 时 DEPTH=768；=4 时 DEPTH=192（与原设计一致）
 // ============================================================================
 module k5_wbank #(
     parameter int DEPTH = 192
 )(
-    input  logic       clk,
-    input  logic       we,
-    input  logic [7:0] waddr,
-    input  logic [7:0] wdata,
-    input  logic [7:0] raddr,
-    output logic [7:0] rdata
+    input  logic               clk,
+    input  logic               we,
+    input  logic [$clog2(DEPTH)-1:0] waddr,
+    input  logic [7:0]         wdata,
+    input  logic [$clog2(DEPTH)-1:0] raddr,
+    output logic [7:0]         rdata
 );
     (* ram_style = "distributed" *) logic [7:0] mem [0:DEPTH-1];
     always_ff @(posedge clk) begin
         if (we) mem[waddr] <= wdata;
     end
     // 组合读：权重输出的 ic 必须与同一拍的 pix_byte 的 ic 对齐。
-    // 192:1 的分布式 RAM 读是一条 mux 链（约 3 级 LUT6），与像素 mux 并联
-    // 进 DSP 的 A/B 寄存器，估计 <2 ns，150 MHz 有余量（见 docs 资源估算）。
+    // DEPTH:1 的分布式 RAM 读是一条 mux 链，与像素 mux 并联进 DSP 的
+    // A/B 寄存器。DEPTH=768 比 192 多约 2 级 LUT6（见 docs 时序风险）。
     assign rdata = mem[raddr];
 endmodule
 

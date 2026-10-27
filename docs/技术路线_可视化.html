@@ -1,0 +1,1004 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>749 → 43.55 s ｜ 去摩尔纹加速器 · 技术路线</title>
+<style>
+/* ══════════════════════════════════════════════
+   字体：正文无衬线（可读）＋ 标题/数字用 Noto Serif CJK SC
+   全部为系统中已装字体，页面完全自包含
+   ══════════════════════════════════════════════ */
+:root{
+  --bg:#07080b; --bg2:#0b0d12; --panel:#101319; --panel2:#151922;
+  --line:#232935; --line2:#2f3745;
+  --tx:#eef2f7; --tx2:#9fabb9; --tx3:#5f6b7a;
+  --ps:#63b3ff; --ps-d:#1e5f9e;
+  --pl:#f0b25e; --pl-d:#9a5f14;
+  --acc:#8ef0a5; --acc-d:#1f7a3a;
+  --gold:#e8c47a;
+  --serif:"Noto Serif CJK SC","Noto Serif CJK TC","Songti SC","Source Han Serif SC",Georgia,"Times New Roman",serif;
+  --sans:-apple-system,"Segoe UI","PingFang SC","Noto Sans CJK SC","Microsoft YaHei",sans-serif;
+  --mono:ui-monospace,SFMono-Regular,"JetBrains Mono",Consolas,monospace;
+  --ease:cubic-bezier(.16,.84,.24,1);
+}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{
+  margin:0;background:var(--bg);color:var(--tx);
+  font-family:var(--sans);line-height:1.75;letter-spacing:.01em;
+  -webkit-font-smoothing:antialiased;overflow-x:hidden;
+}
+/* 背景：两团缓慢漂移的辉光 */
+body:before{
+  content:"";position:fixed;inset:-20% -10%;z-index:0;pointer-events:none;
+  background:
+    radial-gradient(46% 38% at 18% 6%, rgba(240,178,94,.10), transparent 70%),
+    radial-gradient(42% 40% at 88% 22%, rgba(99,179,255,.09), transparent 70%),
+    radial-gradient(50% 40% at 50% 96%, rgba(142,240,165,.06), transparent 70%);
+  animation:drift 26s ease-in-out infinite alternate;
+}
+@keyframes drift{
+  0%{transform:translate3d(0,0,0) scale(1)}
+  50%{transform:translate3d(-2%,1.5%,0) scale(1.05)}
+  100%{transform:translate3d(2%,-1%,0) scale(1.02)}
+}
+.wrap{position:relative;z-index:1;max-width:1220px;margin:0 auto;padding:0 24px 120px}
+
+/* 顶部阅读进度 */
+.progress{position:fixed;top:0;left:0;height:2px;width:0;z-index:50;
+  background:linear-gradient(90deg,var(--pl),var(--ps) 55%,var(--acc));
+  box-shadow:0 0 14px rgba(142,240,165,.55);transition:width .12s linear}
+
+/* ── 通用标题 ── */
+h1,h2,h3,.display,.num{font-family:var(--serif);font-weight:300}
+h2{
+  font-size:clamp(24px,3vw,34px);font-weight:250;letter-spacing:.02em;
+  margin:96px 0 10px;position:relative;padding-top:26px;line-height:1.3;
+}
+h2:before{
+  content:"";position:absolute;top:0;left:0;width:46px;height:1px;
+  background:linear-gradient(90deg,var(--gold),transparent);
+}
+h2 .idx{
+  font-family:var(--mono);font-size:12px;font-weight:400;color:var(--gold);
+  letter-spacing:.22em;display:block;margin-bottom:10px;opacity:.9;
+}
+h3{font-size:17px;font-weight:400;margin:26px 0 8px;letter-spacing:.02em}
+.sub{color:var(--tx2);font-size:14.5px;max-width:74ch;font-weight:300}
+.muted{color:var(--tx3);font-size:13px;font-weight:300}
+code{font-family:var(--mono);font-size:.88em;background:#0a0d12;
+  border:1px solid var(--line);border-radius:4px;padding:1px 6px;color:#f3d9a4}
+
+/* ── 揭示动画 ── */
+.rv{opacity:0;transform:translateY(26px);transition:opacity .9s var(--ease),transform .9s var(--ease)}
+.rv.in{opacity:1;transform:none}
+@media(prefers-reduced-motion:reduce){
+  .rv{opacity:1!important;transform:none!important}
+  body:before{animation:none}
+}
+
+/* ══════════ HERO ══════════ */
+.hero{padding:110px 0 0;position:relative}
+.eyebrow{
+  font-family:var(--mono);font-size:11.5px;letter-spacing:.34em;color:var(--gold);
+  text-transform:uppercase;margin-bottom:26px;opacity:.85;
+}
+.hero h1{
+  font-size:clamp(40px,7.2vw,86px);font-weight:200;line-height:1.06;
+  letter-spacing:-.01em;margin:0 0 8px;
+  background:linear-gradient(168deg,#ffffff 8%,#dfe8f3 42%,#8e9dae 100%);
+  -webkit-background-clip:text;background-clip:text;color:transparent;
+}
+.hero h1 em{font-style:normal;color:var(--gold);
+  background:linear-gradient(168deg,#ffe9bd,#e8c47a 60%,#b98f45);
+  -webkit-background-clip:text;background-clip:text;color:transparent}
+.hero .lead{color:var(--tx2);font-size:15.5px;font-weight:300;max-width:70ch;margin-top:18px}
+
+/* 大数对比 */
+.duel{
+  display:grid;grid-template-columns:1fr auto 1fr auto;gap:clamp(12px,3vw,44px);
+  align-items:end;margin:54px 0 0;padding:34px 0 30px;
+  border-top:1px solid var(--line);border-bottom:1px solid var(--line);
+}
+@media(max-width:820px){.duel{grid-template-columns:1fr;gap:20px;text-align:left}}
+.duel .lab{font-family:var(--mono);font-size:11px;letter-spacing:.26em;color:var(--tx3);
+  text-transform:uppercase;margin-bottom:6px}
+.num{font-size:clamp(48px,8.6vw,104px);line-height:.95;font-weight:200;
+  font-variant-numeric:tabular-nums;letter-spacing:-.02em}
+.num .u{font-size:.26em;font-weight:300;color:var(--tx3);margin-left:.16em;letter-spacing:0}
+.num.dim{color:var(--tx3);opacity:.55}
+.num.gold{
+  background:linear-gradient(172deg,#f6f9fc,#8ef0a5 55%,#3fb950);
+  -webkit-background-clip:text;background-clip:text;color:transparent;
+  filter:drop-shadow(0 0 26px rgba(142,240,165,.22));
+}
+.duel .sep{font-family:var(--serif);font-size:30px;color:var(--tx3);padding-bottom:18px}
+.duel .meta{display:flex;flex-direction:column;gap:10px;padding-bottom:14px}
+.pill{
+  display:inline-flex;align-items:center;gap:7px;font-family:var(--mono);font-size:12px;
+  border:1px solid var(--line2);border-radius:999px;padding:5px 12px;color:var(--tx2);
+  white-space:nowrap;background:rgba(16,19,25,.6)
+}
+.pill b{color:var(--acc);font-weight:600}
+.pill.g{border-color:#1d4128;color:#b7e7c1}
+.pill.p{border-color:#1e3f66;color:#bcdcff}
+.pill.o{border-color:#5a3a12;color:#ffd9a8}
+.dotp{width:5px;height:5px;border-radius:50%;background:currentColor;
+  box-shadow:0 0 8px currentColor;animation:pulse 2.4s ease-in-out infinite}
+@keyframes pulse{0%,100%{opacity:.45;transform:scale(.8)}50%{opacity:1;transform:scale(1.25)}}
+
+/* ══════════ 曲线（SVG）══════════ */
+.chartbox{margin-top:26px;position:relative}
+.chartbox svg{width:100%;height:auto;overflow:visible}
+.chartbox .grid line{stroke:var(--line);stroke-width:1;stroke-dasharray:2 5;opacity:.5}
+.chartbox .axis text{fill:var(--tx3);font-family:var(--mono);font-size:10.5px;letter-spacing:.1em}
+.path-main{
+  fill:none;stroke:url(#gline);stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round;
+  filter:drop-shadow(0 2px 10px rgba(240,178,94,.28));
+  stroke-dasharray:var(--len);stroke-dashoffset:var(--len);
+  transition:stroke-dashoffset 2.6s var(--ease);
+}
+.chartbox.in .path-main{stroke-dashoffset:0}
+.pt{fill:var(--bg);stroke:var(--pl);stroke-width:1.6;opacity:0;
+  transition:opacity .45s ease,transform .45s var(--ease);transform-box:fill-box;
+  transform-origin:center;cursor:pointer}
+.chartbox.in .pt{opacity:1}
+.pt:hover{transform:scale(1.9)}
+.pt.final{stroke:var(--acc);stroke-width:2.4;fill:var(--acc)}
+.pt.early{stroke:#5f7183}
+.pt.ps{stroke:var(--ps)}
+.plab{fill:var(--tx2);font-family:var(--mono);font-size:10px;opacity:0;
+  transition:opacity .5s ease}
+.chartbox.in .plab{opacity:.75}
+.tip{
+  position:absolute;pointer-events:none;opacity:0;transform:translate(-50%,-140%);
+  background:#0a0d12;border:1px solid var(--line2);border-radius:8px;
+  padding:7px 11px;font-size:12px;white-space:nowrap;transition:opacity .18s;
+  box-shadow:0 10px 30px rgba(0,0,0,.6);z-index:5;
+}
+.tip b{font-family:var(--serif);font-size:15px;color:var(--gold)}
+
+/* ══════════ 架构 ══════════ */
+.arch{display:grid;grid-template-columns:1fr 78px 1fr;gap:0;align-items:stretch;margin-top:26px}
+@media(max-width:900px){.arch{grid-template-columns:1fr;gap:14px}}
+.zone{border-radius:14px;padding:18px 20px;border:1px solid var(--line);
+  background:linear-gradient(180deg,rgba(16,19,25,.9),rgba(10,13,18,.9));
+  position:relative;overflow:hidden;transition:border-color .5s,transform .5s var(--ease)}
+.zone:hover{transform:translateY(-3px)}
+.zone:before{content:"";position:absolute;inset:0 0 auto 0;height:1px;opacity:.75}
+.zone.ps:before{background:linear-gradient(90deg,transparent,var(--ps),transparent)}
+.zone.pl:before{background:linear-gradient(90deg,transparent,var(--pl),transparent)}
+.zone.ps:hover{border-color:#1e3f66} .zone.pl:hover{border-color:#5a3a12}
+.zone h4{margin:0 0 3px;font-size:15px;font-family:var(--serif);font-weight:400;
+  display:flex;justify-content:space-between;align-items:center;letter-spacing:.02em}
+.zone.ps h4{color:var(--ps)} .zone.pl h4{color:var(--pl)}
+.zone .meta{font-family:var(--mono);font-size:10.5px;letter-spacing:.06em;
+  color:var(--tx3);margin-bottom:14px}
+.blk{background:rgba(7,8,11,.72);border:1px solid var(--line);border-radius:9px;
+  padding:9px 12px;margin:8px 0;font-size:13px;transition:border-color .35s,background .35s}
+.blk:hover{border-color:var(--line2);background:rgba(12,15,21,.9)}
+.blk b{font-weight:500}
+.blk .d{color:var(--tx3);font-size:11.5px;display:block;margin-top:3px;font-weight:300}
+.axi{display:flex;flex-direction:column;justify-content:center;align-items:center;gap:8px;
+  color:var(--tx3);font-family:var(--mono);font-size:10px;letter-spacing:.14em;text-align:center}
+@media(max-width:900px){.axi{flex-direction:row;padding:8px 0}}
+.axi .bar{width:1px;height:100%;min-height:80px;
+  background:repeating-linear-gradient(180deg,var(--tx3) 0 4px,transparent 4px 9px);
+  animation:flow 1.6s linear infinite}
+@keyframes flow{to{background-position:0 13px}}
+@media(max-width:900px){.axi .bar{width:100%;height:1px;min-height:0;
+  background:repeating-linear-gradient(90deg,var(--tx3) 0 4px,transparent 4px 9px);
+  animation:flowx 1.6s linear infinite}}
+@keyframes flowx{to{background-position:13px 0}}
+
+/* ══════════ 阶段 / 时间线 ══════════ */
+.era{margin-top:44px}
+.era-h{display:flex;align-items:center;gap:16px;flex-wrap:wrap;margin-bottom:26px}
+.era-h .line{flex:1;height:1px;background:linear-gradient(90deg,var(--line2),transparent)}
+.era-h .t{font-family:var(--serif);font-size:18px;font-weight:300;letter-spacing:.03em}
+.era-h .m{font-family:var(--mono);font-size:10.5px;letter-spacing:.14em;
+  color:var(--tx3);text-transform:uppercase}
+.era-h .sw{width:9px;height:9px;border-radius:2px;transform:rotate(45deg)}
+
+.tl{position:relative;padding-left:34px}
+.tl:before{content:"";position:absolute;left:8px;top:10px;bottom:10px;width:1px;
+  background:linear-gradient(180deg,transparent,var(--line2) 6%,var(--line2) 94%,transparent)}
+.step{position:relative;margin-bottom:30px}
+.step:before{
+  content:"";position:absolute;left:-30px;top:9px;width:9px;height:9px;border-radius:50%;
+  background:var(--bg);border:1.5px solid var(--tx3);transition:all .4s var(--ease);
+}
+.step:hover:before{transform:scale(1.5);box-shadow:0 0 0 5px rgba(240,178,94,.10)}
+.step.ps2:before{border-color:var(--ps)}
+.step.pl2:before{border-color:var(--pl)}
+.step.mix:before{border-color:var(--acc)}
+.step:hover.ps2:before{box-shadow:0 0 0 5px rgba(99,179,255,.13)}
+.step:hover.pl2:before{box-shadow:0 0 0 5px rgba(240,178,94,.13)}
+.step:hover.mix:before{box-shadow:0 0 0 5px rgba(142,240,165,.13)}
+.step .head{display:flex;flex-wrap:wrap;gap:9px;align-items:baseline}
+.step .t{font-family:var(--serif);font-size:16.5px;font-weight:400;letter-spacing:.02em}
+.step .v{margin-left:auto;font-family:var(--serif);font-size:21px;font-weight:300;
+  font-variant-numeric:tabular-nums;color:var(--acc);letter-spacing:-.01em}
+.step .delta{font-family:var(--mono);font-size:11.5px;color:var(--ok,#3fb950);
+  letter-spacing:.04em}
+.step .body{color:var(--tx2);font-size:13.8px;font-weight:300;margin-top:6px;max-width:80ch}
+.step .body em{font-style:normal;color:var(--tx);background:rgba(10,13,18,.9);
+  border:1px solid var(--line);border-radius:4px;padding:0 5px}
+.tag{display:inline-block;font-family:var(--mono);font-size:10px;letter-spacing:.16em;
+  padding:2px 8px;border-radius:3px;border:1px solid var(--line2);color:var(--tx3);
+  text-transform:uppercase;transition:all .35s}
+.tag.ps{color:var(--ps);border-color:#1e3f66;background:rgba(30,95,158,.10)}
+.tag.pl{color:var(--pl);border-color:#5a3a12;background:rgba(154,95,20,.10)}
+.tag.ok{color:var(--acc);border-color:#1d4128;background:rgba(31,122,58,.10)}
+
+/* ══════════ 柱状图 ══════════ */
+.bars{display:flex;flex-direction:column;gap:8px;margin-top:16px}
+.barrow{display:grid;grid-template-columns:158px 1fr 104px;gap:12px;align-items:center;font-size:13px}
+.barrow .lab{color:var(--tx2);text-align:right;font-size:12.5px;font-weight:300;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.barrow .track{background:rgba(10,13,18,.85);border-radius:4px;height:16px;position:relative;
+  overflow:hidden;border:1px solid rgba(35,41,53,.6)}
+.barrow .fill{height:100%;width:0;border-radius:3px;
+  transition:width 1.5s var(--ease);position:relative;overflow:hidden}
+.barrow .fill:after{content:"";position:absolute;inset:0;
+  background:linear-gradient(90deg,transparent,rgba(255,255,255,.28),transparent);
+  transform:translateX(-100%);animation:shine 2.6s ease-in-out infinite}
+@keyframes shine{0%,55%{transform:translateX(-100%)}100%{transform:translateX(220%)}}
+.barrow .val{text-align:right;font-family:var(--serif);font-size:14px;
+  font-variant-numeric:tabular-nums;color:var(--tx)}
+.barrow.hl .val{color:var(--acc);font-size:16px}
+.barrow .val .dd{font-family:var(--mono);font-size:10px;color:var(--tx3);margin-left:5px}
+
+/* ══════════ 表格 ══════════ */
+.tw{overflow-x:auto;margin-top:16px;border:1px solid var(--line);border-radius:12px}
+table{width:100%;border-collapse:collapse;font-size:13.5px;
+  font-variant-numeric:tabular-nums;min-width:640px}
+th,td{text-align:left;padding:11px 14px;border-bottom:1px solid var(--line);vertical-align:top}
+th{color:var(--tx2);font-weight:400;font-size:11.5px;letter-spacing:.1em;text-transform:uppercase;
+  background:rgba(10,13,18,.7);font-family:var(--mono);white-space:nowrap}
+td.r,th.r{text-align:right}
+tr:last-child td{border-bottom:0}
+tbody tr{transition:background .3s}
+tbody tr:hover td{background:rgba(20,25,33,.7)}
+.g{color:var(--acc)} .b{color:#ff8f88} .w{color:var(--pl)} .mm{color:var(--tx3)}
+tr.best td{background:rgba(31,122,58,.10)}
+
+/* ══════════ 卡片 / 提示 ══════════ */
+.card{background:linear-gradient(180deg,rgba(16,19,25,.92),rgba(10,13,18,.92));
+  border:1px solid var(--line);border-radius:14px;padding:20px 22px;
+  transition:border-color .4s,transform .4s var(--ease)}
+.card:hover{border-color:var(--line2);transform:translateY(-2px)}
+.kpi{display:grid;grid-template-columns:repeat(auto-fit,minmax(168px,1fr));gap:14px;margin-top:22px}
+.kpi .c{background:rgba(16,19,25,.9);border:1px solid var(--line);border-radius:12px;
+  padding:16px 18px;transition:border-color .4s,transform .4s var(--ease)}
+.kpi .c:hover{border-color:var(--line2);transform:translateY(-3px)}
+.kpi .c .v{font-family:var(--serif);font-size:26px;font-weight:300;letter-spacing:-.01em;
+  font-variant-numeric:tabular-nums;line-height:1.2}
+.kpi .c .k{font-size:11.5px;color:var(--tx3);margin-top:5px;font-weight:300}
+.fml{background:rgba(7,8,11,.9);border:1px solid var(--line);border-radius:12px;
+  padding:20px 24px;margin:22px 0;text-align:center;font-family:var(--serif);
+  font-size:17px;font-weight:300;overflow-x:auto;line-height:2}
+.fml .vv{font-style:italic}
+.fml sub{font-size:.68em}
+.fml .note{display:block;font-size:12px;color:var(--tx3);margin-top:10px;
+  font-family:var(--sans);font-style:normal;font-weight:300;line-height:1.7}
+.note-box{border-left:2px solid var(--pl);background:rgba(240,178,94,.05);
+  border-radius:0 10px 10px 0;padding:14px 18px;margin:18px 0;
+  font-size:13.8px;color:#e4d9bf;font-weight:300}
+.note-box.bad{border-color:#f85149;background:rgba(248,81,73,.05);color:#f0c5c2}
+.note-box.ok{border-color:var(--acc);background:rgba(142,240,165,.05);color:#c3e8cc}
+.note-box b{font-weight:500;color:var(--tx)}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:16px}
+@media(max-width:900px){.grid2{grid-template-columns:1fr}}
+.legend{display:flex;gap:20px;font-size:11.5px;color:var(--tx3);margin-top:14px;
+  flex-wrap:wrap;font-family:var(--mono);letter-spacing:.08em}
+.legend i{display:inline-block;width:9px;height:3px;border-radius:2px;margin-right:6px;
+  vertical-align:middle}
+
+footer{margin-top:110px;padding-top:22px;border-top:1px solid var(--line);
+  color:var(--tx3);font-size:12px;font-weight:300;line-height:2}
+footer .sig{font-family:var(--serif);font-size:15px;color:var(--tx2);margin-bottom:10px;
+  letter-spacing:.02em}
+</style>
+</head>
+<body>
+<div class="progress" id="prog"></div>
+
+<div class="wrap">
+
+  <!-- ══════════ HERO ══════════ -->
+  <header class="hero">
+    <div class="eyebrow rv">AX7015B · XC7Z015 · PYNQ · 640×640 单张推理</div>
+    <h1 class="rv">从 <em>749</em> 秒<br>到 <em>43.55</em> 秒</h1>
+    <p class="lead rv">
+      一个去摩尔纹加速器的完整优化历程：16 个里程碑，517 个算子，247 层卷积。
+      每一步都在板上实测、都验证到 <b>0 / 1,228,800</b> 像素不一致 ——
+      最终与 FP32 参考的输出 <b>逐字节相同</b>。
+    </p>
+
+    <div class="duel rv">
+      <div>
+        <div class="lab">建仓首版上板</div>
+        <div class="num dim"><span data-count="749" data-dec="0">0</span><span class="u">s</span></div>
+      </div>
+      <div class="sep">→</div>
+      <div>
+        <div class="lab" style="color:var(--acc)">最终交付</div>
+        <div class="num gold"><span data-count="43.55" data-dec="2">0</span><span class="u">s</span></div>
+      </div>
+      <div class="meta">
+        <div class="pill g"><span class="dotp"></span>加速 <b><span data-count="17.2" data-dec="1">0</span>×</b></div>
+        <div class="pill p">精度零损失 · md5 一致</div>
+        <div class="pill o">−94.2% 耗时</div>
+      </div>
+    </div>
+
+    <!-- SVG 曲线 -->
+    <div class="chartbox rv" id="chart">
+      <svg viewBox="0 0 1080 300" preserveAspectRatio="xMidYMid meet" id="svgc">
+        <defs>
+          <linearGradient id="gline" x1="0" y1="0" x2="1" y2="0">
+            <stop offset="0%" stop-color="#5f7183"/>
+            <stop offset="42%" stop-color="#63b3ff"/>
+            <stop offset="76%" stop-color="#f0b25e"/>
+            <stop offset="100%" stop-color="#8ef0a5"/>
+          </linearGradient>
+          <linearGradient id="gfill" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stop-color="#f0b25e" stop-opacity=".16"/>
+            <stop offset="100%" stop-color="#f0b25e" stop-opacity="0"/>
+          </linearGradient>
+        </defs>
+        <g class="grid" id="grid"></g>
+        <path id="area" fill="url(#gfill)" d=""></path>
+        <path class="path-main" id="line" d=""></path>
+        <g id="pts"></g>
+        <g class="axis" id="axis"></g>
+      </svg>
+      <div class="tip" id="tip"></div>
+    </div>
+    <div class="legend">
+      <span><i style="background:#5f7183"></i>① 让它跑对</span>
+      <span><i style="background:#63b3ff"></i>② 挪到 PS / 开满片内存储</span>
+      <span><i style="background:#f0b25e"></i>③ 榨访存带宽</span>
+      <span><i style="background:#8ef0a5"></i>④ 加并行度</span>
+    </div>
+  </header>
+
+  <!-- ══════════ 1 ══════════ -->
+  <h2 class="rv"><span class="idx">01 / ARCHITECTURE</span>PS 与 PL 各做什么</h2>
+  <p class="sub rv">一条 32 位的 AXI 通道连接两侧。<b>PS 负责“层与层之间”，PL 负责“卷积本身”</b>
+    —— 这个分工不是一开始就有的，而是在把层间算子从 PL 挪到 PS 之后才定型。</p>
+
+  <div class="arch rv">
+    <div class="zone ps">
+      <h4>PS · ARM Cortex-A9 <span class="tag ps">Software</span></h4>
+      <div class="meta">PYNQ LINUX · 667 MHz · 单核 · 无 float64 SIMD</div>
+      <div class="blk"><b>runner.py</b> 517 个算子的调度与切块
+        <span class="d">按 manifest 逐层调用，决定什么在 PL、什么在 PS</span></div>
+      <div class="blk"><b>conv_engine.py</b> 寄存器级驱动 + m_axi DMA
+        <span class="d">写 ctrl、准备物理缓冲、轮询 done</span></div>
+      <div class="blk"><b>c8_layout.py / ops_c8.py</b> C8 交错布局
+        <span class="d">addr = ⌊c/8⌋·H·W·8 + y·W·8 + x·8 + (c%8)</span></div>
+      <div class="blk"><b>NEON C 内核</b>
+        <span class="d">sam_sum(精确 float64) · cat(Q15) · interp · add · eca</span></div>
+      <div class="blk"><b>board_safe_run.sh</b> 板端安全壳
+        <span class="d">清理残留 · CMA 预检 · flock 互斥 · timeout 兜底</span></div>
+    </div>
+
+    <div class="axi">
+      <div>AXI</div><div class="bar"></div><div>HP0<br>32 bit</div>
+    </div>
+
+    <div class="zone pl">
+      <h4>PL · XC7Z015 <span class="tag pl">Hardware</span></h4>
+      <div class="meta">160 DSP48E1 · 190 BRAM18K · 46,200 LUT · 150 MHz</div>
+      <div class="blk"><b>conv2d_engine</b>（HLS）卷积核
+        <span class="d">k=1 / k=3 / k=5 三条快路径 + 一条通用路径</span></div>
+      <div class="blk"><b>line_buf</b> 7 个行 bank（BRAM）
+        <span class="d">跨 y 行复用：算第 y 行只需下移 1 行</span></div>
+      <div class="blk"><b>wgt1_buf / wgt3_buf</b>（LUTRAM）
+        <span class="d">bank 索引必须是编译期常量，否则不流水且 LUT 爆</span></div>
+      <div class="blk"><b>PAD12 / PAD28 容器</b>
+        <span class="d">9 抽头补 3 零 = 3 字；25 抽头补 3 零 = 7 字 → 可宽读</span></div>
+      <div class="blk"><b>wbuf + 64-bit 写回</b>
+        <span class="d">8 bank 同址读 → 拼 64 bit → 独立纯拷贝循环写出</span></div>
+      <div class="blk"><b>k=1 十六车道</b> 8 DSP + 8 LUT 乘法器
+        <span class="d">混搭 ⇒ DSP +0、BRAM +0、Fmax 不掉</span></div>
+    </div>
+  </div>
+
+  <!-- ══════════ 2 ══════════ -->
+  <h2 class="rv"><span class="idx">02 / ROADMAP</span>十六个里程碑</h2>
+  <p class="sub rv">按四个阶段归类。每个数字都是板端实测，每次改动都过了完整验证阶梯
+    （fuzz 30/30、C8 fuzz 23/23、PAD12 8/8、PAD28 9/9、regmap 21 项、整网 md5）。</p>
+
+  <div class="tl">
+
+    <div class="era">
+      <div class="era-h rv">
+        <span class="sw" style="background:#5f7183"></span>
+        <span class="t">① 让它跑对</span>
+        <span class="m">749 → 187.41 s</span>
+        <span class="line"></span>
+      </div>
+
+      <div class="step rv">
+        <div class="head"><span class="t">首版上板</span>
+          <span class="tag pl">PL</span><span class="tag ps">PS</span>
+          <span class="v">749 s</span></div>
+        <div class="body">125 MHz、单引擎、PS 侧 numpy 逐算子。首次上板 <b>PL 输出全 0</b>，
+        真根因不是 RTL 而是 <em>BD 的 DDR 解码范围只配了 512 MB</em>，大张量写到未映射区域。
+        另有 PYNQ 3.1 的 32 位兼容问题与 BOOT.BIN 重建。<br>
+        <span class="muted">conv 562 s，占 75%。</span></div>
+      </div>
+
+      <div class="step ps2 rv">
+        <div class="head"><span class="t">PS 侧重写：内存池复用 + m_axi 参数修正</span>
+          <span class="tag ps">PS</span>
+          <span class="delta">−404.8 s</span><span class="v">344.25 s</span></div>
+        <div class="body">PS 耗时 <em>176 s → 85 s</em>，内存池 <em>84.8 → 66.8 MB</em>
+        （板子只有 256 MB CMA）。同时改对 m_axi 接口参数，让 PL 能发出正常 burst。
+        <span class="muted">2.18×，全场第二大单步收益。</span></div>
+      </div>
+
+      <div class="step rv">
+        <div class="head"><span class="t">访存保持仿射 + 补零段独立循环</span>
+          <span class="tag ps">PS</span><span class="tag pl">PL</span>
+          <span class="delta">−30.2 s</span><span class="v">314.03 s</span></div>
+        <div class="body">把补零段拆成独立循环、所有访问保持仿射。
+        <span class="muted">收益不大，但它把“哪段才是瓶颈”彻底暴露了出来。</span></div>
+      </div>
+    </div>
+
+    <div class="era">
+      <div class="era-h rv">
+        <span class="sw" style="background:#63b3ff"></span>
+        <span class="t">② 开满片内存储、削掉整流量的浪费</span>
+        <span class="m">314 → 187.41 s</span>
+        <span class="line"></span>
+      </div>
+
+      <div class="step pl2 rv">
+        <div class="head"><span class="t">提频 125 → 150 MHz</span>
+          <span class="tag pl">PL</span>
+          <span class="delta">−37.3 s</span><span class="v">276.74 s</span></div>
+        <div class="body">Fmax 恰好够 150 MHz。之后所有版本的 WNS 都在 ±0.4 ns 之间波动 ——
+        这也是为什么最后一版把 WNS 收正到 <b>+0.005</b> 值得单独记一笔。</div>
+      </div>
+
+      <div class="step pl2 rv">
+        <div class="head"><span class="t">行缓冲跨 y 复用</span>
+          <span class="tag pl">PL</span>
+          <span class="delta">−11.7 s</span><span class="v">265.07 s</span></div>
+        <div class="body">算第 y 行时只下移 1 行、读入 1 行，而不是整块重填：
+        <em>填充 105 s → 50 s</em>。<span class="muted">前提是 line_buf 的 7 个行 bank 常量化。</span></div>
+      </div>
+
+      <div class="step pl2 rv">
+        <div class="head"><span class="t">k=3 快路径</span>
+          <span class="tag pl">PL</span>
+          <span class="delta">−66.3 s</span><span class="v">198.81 s</span></div>
+        <div class="body">为 k=3 单独做一条 <em>4 车道 × 9 抽头</em>的快路径（WNS +0.217），conv 141.1 s。
+        <span class="muted">全项目第一次为特定核型开专用通路 —— 也是单步收益最大的一次。</span></div>
+      </div>
+
+      <div class="step pl2 rv">
+        <div class="head"><span class="t">k=1 宽列块</span>
+          <span class="tag pl">PL</span>
+          <span class="delta">−5.4 s</span><span class="v">193.37 s</span></div>
+        <div class="body">k=1 时把 line_buf 的多个行 bank 当“宽列块”用，一块算更多列（conv 136 s）。</div>
+      </div>
+
+      <div class="step pl2 rv">
+        <div class="head"><span class="t">单引擎重构建</span>
+          <span class="tag pl">PL</span>
+          <span class="delta">−6.0 s</span><span class="v">187.41 s</span></div>
+        <div class="body">WNS −0.067、150 MHz、conv 129.8 s —— <b>单引擎最终交付版</b>。
+        <span class="muted">同期还试过“双引擎（conv + pp 并跑）”，做到 173.53 s，
+        但因 pp 的 Q16 定点与 float64 在 rint(.5) 边界分岔、被网络混沌放大成 72 万像素差异，
+        无法逐位一致而放弃。</span></div>
+      </div>
+    </div>
+
+    <div class="era">
+      <div class="era-h rv">
+        <span class="sw" style="background:#f0b25e"></span>
+        <span class="t">③ 榨访存带宽：把“每字节一笔事务”改成宽读</span>
+        <span class="m">187.41 → 52.40 s</span>
+        <span class="line"></span>
+      </div>
+
+      <div class="step pl2 rv">
+        <div class="head"><span class="t">激活改 C8 交错布局</span>
+          <span class="tag pl">PL</span><span class="tag ps">PS</span>
+          <span class="delta">−2.4 s</span><span class="v">185.0 s</span></div>
+        <div class="body">8 个通道打进一个 8 字节字，所有 int8 张量补齐到 8 的倍数（3ch→8、12ch→16），
+        <b>纯编译期、无运行期 mux</b>。<br>
+        <span class="muted">时间只赚 2.4 s，但资源净赚（DSP 131→104、LUT −1.5k）。
+        更重要的是它暴露出：C8 只减少“逻辑读次数”、不减少字节数 ——
+        <b>瓶颈在事务形态，不在字节数</b>。</span></div>
+      </div>
+
+      <div class="step ps2 rv">
+        <div class="head"><span class="t">层间算子改 ARM NEON C 内核</span>
+          <span class="tag ps">PS</span>
+          <span class="delta">−40.1 s</span><span class="v">144.89 s</span></div>
+        <div class="body">sam_sum、cat(224 次)、interp、eca、add 全部换成手写 C，用
+        <em>-mfpu=neon -mfloat-abi=hard</em> 编译并做运行时自检。<br>
+        <span class="muted">两个陷阱：板端 <code>cc</code> 默认<b>不开 NEON</b>，标量兜底访问非缓存内存
+        只有 6.4 MB/s（cat 一度从 5.66 s 恶化到 65.6 s）；CMA 必须按 64 字节成块处理。</span></div>
+      </div>
+
+      <div class="step pl2 rv">
+        <div class="head"><span class="t">填充与 k=1 权重装载改 32-bit 宽读</span>
+          <span class="tag pl">PL</span>
+          <span class="delta">−38.2 s</span><span class="v">106.69 s</span></div>
+        <div class="body">看生成的 RTL 才发现真相：<em>ARLEN=1</em> 的含义是“抓 4 字节、只用 1 个”
+        —— 即<b>每 1 字节付一笔 AXI 事务</b>。之前所有“加爆长”的 pragma 都是白设。
+        <span class="muted">全场最大的单点收获：一眼 RTL，省 38 s。</span></div>
+      </div>
+
+      <div class="step pl2 rv">
+        <div class="head"><span class="t">k=3 权重按 12 字节容器重排（PAD12）</span>
+          <span class="tag pl">PL</span><span class="tag ps">PS 打包</span>
+          <span class="delta">−38.3 s</span><span class="v">68.40 s</span></div>
+        <div class="body">9 个抽头 + 3 个零 = 3 个字，于是能一次读 4 字节。
+        但真正决定成败的是：<em>写 bank 号必须是编译期常量</em>。<br>
+        <span class="muted">试过拉平成一个大数组 → 9 抽头共用一个 bank → 需要 9 个读口 → LUT 82%→91%，否决；
+        试过 9 平面拆分 → bank 号变运行期 → HLS 不流水、cosim +38%，否决。</span></div>
+      </div>
+
+      <div class="step rv">
+        <div class="head"><span class="t">k=5 用 PAD28 + cat/interp/add 再内核化</span>
+          <span class="tag pl">PL</span><span class="tag ps">PS</span>
+          <span class="delta">−8.5 s</span><span class="v">59.87 s</span></div>
+        <div class="body">25 个抽头 + 3 零 = 7 个字（对齐后 LUT 反而 −4,585）；
+        PS 侧把 cat 的 <em>tobytes + translate</em>（42.8 MB/s）换成 memcpy 级内核（183 MB/s）。</div>
+      </div>
+
+      <div class="step pl2 rv">
+        <div class="head"><span class="t">写回改独立 64-bit 拷贝循环 + 修掉“白写的零”</span>
+          <span class="tag pl">PL</span>
+          <span class="delta">−7.5 s</span><span class="v">52.40 s</span></div>
+        <div class="body">计算照旧 → 写 <em>wbuf[8][448]</em>（8 个编译期 bank）→ 循环结束后一条
+        <b>独立纯拷贝循环</b>同址读 8 bank、拼 64-bit、连续写。写回成本 17.4 → 8.3 拍/字节。<br>
+        <span class="muted">同时发现填充里 <em>624.7 MB / 4.2 s</em> 是<b>白写的右补零</b>
+        （C8 宽列块按 448 列分配，320 宽层每行多写 128 列）——
+        CHW 分支早就有这个判断，C8 分支漏了。</span></div>
+      </div>
+    </div>
+
+    <div class="era">
+      <div class="era-h rv">
+        <span class="sw" style="background:#8ef0a5"></span>
+        <span class="t">④ 加并行度</span>
+        <span class="m">52.40 → 43.55 s</span>
+        <span class="line"></span>
+      </div>
+
+      <div class="step mix rv">
+        <div class="head"><span class="t">删掉退役的 pp IP</span>
+          <span class="tag pl">PL</span><span class="tag ps">PS</span>
+          <span class="delta">−0.2 s</span><span class="v">52.22 s</span></div>
+        <div class="body">pp 在 C8 下一次都不会被调用（PS 侧 <code>ppen = set() if self.c8</code> 强制清空白名单），
+        删掉后 <em>LUT 78.8% → 56.0%、DSP 145 → 115、BRAM 88.5 → 86.5</em>。<br>
+        <b>时间几乎不变，但预算彻底改写</b> —— 后面 k=1 上十六车道，花的就是这笔钱。</div>
+      </div>
+
+      <div class="step pl2 rv">
+        <div class="head"><span class="t">k=1 的乘法从 LUT 搬进 DSP48</span>
+          <span class="tag pl">PL</span>
+          <span class="delta">0 s</span><span class="v">WNS 转正</span></div>
+        <div class="body">csynth 显示 k=1 快路径的 8 个乘法器是 <b>LUT 乘法器</b>
+        （<code>mul_8s_8s_16</code>，41 LUT/个，<b>DSP=0</b>）—— 这就是为什么 DSP 预算一直空着、
+        而 WNS 最差路径恰好是“8×8 LUT 乘法 → 26 位加法 → 累加寄存器”。
+        用 <code>HLS BIND_OP impl=DSP</code> 搬进去后：<b>WNS −0.184 → +0.005（setup 收正）</b>、
+        LUT −328、cosim 拍数<b>逐拍相同</b>（只换实现，不改调度）。<br>
+        <span class="muted">phys_opt 阶段直接报 <code>Design worst setup slack >= 0.000 ns</code>：
+        布局完就收正，没靠物理优化硬压 —— 因果对上了。</span></div>
+      </div>
+
+      <div class="step pl2 rv">
+        <div class="head"><span class="t">k=1 上十六车道（8 DSP + 8 LUT 混搭）</span>
+          <span class="tag pl">PL</span>
+          <span class="delta">−8.7 s</span><span class="v">43.55 s</span></div>
+        <div class="body">k=1 占 conv 的 33.6%，而且已经贴着 8 车道跑（cosim 证明 II=1、零 stall、
+        车道填充率 100%），唯一出路是<b>加车道</b>。十六车道让<b>块数直接减半</b>，
+        每块固定开销也跟着减半。<br>
+        <span class="muted">改动被严格限制在 k=1 分支 + wgt1_buf/wbuf 加倍 + 一条同形态 8 字节拷贝循环：
+        <b>line_buf / 填充 / k=3 / k=5 / C8 地址公式 / PS 侧 / 权重包一行未动</b>
+        ⇒ BRAM +0、DSP +0、Fmax 一点没掉。</span></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════════ 3 ══════════ -->
+  <h2 class="rv"><span class="idx">03 / WATERFALL</span>每个里程碑的耗时</h2>
+  <p class="sub rv">条形长度 = 该版本整网耗时；右侧为相对上一步的变化。</p>
+  <div class="bars rv" id="waterfall"></div>
+  <div class="legend">
+    <span><i style="background:#5f7183"></i>早期</span>
+    <span><i style="background:#63b3ff"></i>PS 主导</span>
+    <span><i style="background:#f0b25e"></i>PL 主导</span>
+    <span><i style="background:#8ef0a5"></i>最终</span>
+  </div>
+  <div class="note-box ok rv">
+    <b>注意形状：</b>前 7 步把 749 压到 187.41（吃掉 562 s，占全部收益的 80%），
+    后 9 步把 187.41 压到 43.55（再吃 144 s，又快了 4.3 倍）。
+    <b>两段的工作性质完全不同</b> —— 前半段是“让它跑对 + 别浪费”，
+    后半段是“看清 RTL 里的真实机制”。
+  </div>
+
+  <!-- ══════════ 4 ══════════ -->
+  <h2 class="rv"><span class="idx">04 / BREAKDOWN</span>43.55 秒花在哪</h2>
+  <div class="grid2">
+    <div class="card rv">
+      <h3 style="margin-top:0">整网 · 517 个算子</h3>
+      <div class="bars" id="netops"></div>
+    </div>
+    <div class="card rv">
+      <h3 style="margin-top:0">conv 内部 · 成本模型拆解
+        <span class="muted" style="font-weight:300">（52.4 s 版实测）</span></h3>
+      <div class="bars" id="convops"></div>
+    </div>
+  </div>
+  <div class="fml rv">
+    <span class="vv">t</span>/pixel = 0.488 + 1.7619·<span class="vv">c</span><sub>in</sub>
+      + 5.2537·<span class="vv">c</span><sub>out</sub> + 0.21097·<span class="vv">c</span><sub>in</sub>·<span class="vv">c</span><sub>out</sub>
+    <span class="note">单位：拍 @150 MHz。24 点 (c<sub>in</sub>×c<sub>out</sub>) 网格拟合，回算 247 层误差 <b>−1.74%</b>。<br>
+      第一项 = 每像素固定成本（仅 0.49 拍）· 第二项 = 填充（拍/输入字节）·
+      第三项 = 写回（拍/输出字节）· 第四项 = 计算 + 权重重装</span>
+  </div>
+  <div class="note-box bad rv">
+    <b>这张成本模型也纠正过我们三次。</b>「每像素固定 700 拍」其实是 c<sub>in</sub>=64 时的填充项
+    （c<sub>in</sub> 降到 8 就掉 8 倍，外推崩坏 4.6 倍）；「k=1 只有 5.96 MAC/拍 = II 1.34」也是切分假象
+    —— RTL 里 k=1 流水零 stall、II=1，真实是 1.276× 理想，多出来的 28% 是每 (pixel, ocb) 块的
+    prologue/epilogue。
+  </div>
+
+  <!-- ══════════ 5 ══════════ -->
+  <h2 class="rv"><span class="idx">05 / RESOURCES</span>资源与时序怎么变的</h2>
+  <div class="tw rv">
+    <table>
+      <thead><tr><th>版本</th><th class="r">整网</th><th class="r">LUT</th><th class="r">DSP</th>
+        <th class="r">BRAM tile</th><th class="r">WNS @150MHz</th><th>关键动作</th></tr></thead>
+      <tbody>
+        <tr><td>首版</td><td class="r">749</td><td class="r mm">—</td><td class="r mm">—</td>
+          <td class="r mm">—</td><td class="r mm">—</td><td>125 MHz 单引擎</td></tr>
+        <tr><td>单引擎最终版</td><td class="r">187.41</td><td class="r mm">—</td><td class="r">131</td>
+          <td class="r mm">—</td><td class="r b">−0.067</td><td>提频 + 行复用 + k=3/k=1 快路径</td></tr>
+        <tr><td>C8 布局后</td><td class="r">185.0</td><td class="r mm">—</td><td class="r">104</td>
+          <td class="r mm">—</td><td class="r mm">—</td><td>C8 交错（资源净赚）</td></tr>
+        <tr><td><code>32f74144</code></td><td class="r">59.87</td>
+          <td class="r">36,414 <span class="mm">78.8%</span></td><td class="r">145</td>
+          <td class="r">88.5 <span class="mm">93.2%</span></td><td class="r b">−0.229</td>
+          <td>PAD12/PAD28 完成、pp 还在</td></tr>
+        <tr><td><code>3b345bc3</code></td><td class="r">52.40</td>
+          <td class="r">25,913 <span class="mm">56.0%</span></td><td class="r">115</td>
+          <td class="r">86.5 <span class="mm">91.1%</span></td><td class="r b">−0.184</td>
+          <td>删 pp + 收尾展开</td></tr>
+        <tr><td><code>88534456</code></td><td class="r">52.22</td>
+          <td class="r">25,665 <span class="mm">55.6%</span></td><td class="r">112</td>
+          <td class="r">86.5 <span class="mm">91.1%</span></td><td class="r g">+0.005</td>
+          <td>k=1 乘法迁 DSP48</td></tr>
+        <tr class="best"><td><code>d388264c</code> ★</td><td class="r g"><b>43.55</b></td>
+          <td class="r">35,520* <span class="mm">76.9%</span></td><td class="r">108</td>
+          <td class="r"><b>86.5</b> <span class="mm">91.1%</span></td><td class="r b">−0.062</td>
+          <td>k=1 十六车道</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p class="muted rv" style="margin-top:10px">* 最后一版为 HLS csynth 口径，其余为 impl 布线后口径。
+    <b>BRAM 91.1% 是全程唯一真正紧的资源</b> —— 所有“双缓冲 / 乒乓”类想法被否都是因为它
+    （只剩 17 个 BRAM18K，而乒乓要 +32）。</p>
+
+  <!-- ══════════ 6 ══════════ -->
+  <h2 class="rv"><span class="idx">06 / ACCURACY</span>精度：最不需要解释的一节</h2>
+  <div class="kpi rv">
+    <div class="c"><div class="v g">0 / 1,228,800</div><div class="k">与参考不一致的像素</div></div>
+    <div class="c"><div class="v" style="font-size:15px;word-break:break-all">97f5a094…</div>
+      <div class="k">输出 md5 ≡ ref_out.bin</div></div>
+    <div class="c"><div class="v g">17.2×</div><div class="k">整网加速比</div></div>
+    <div class="c"><div class="v">16</div><div class="k">里程碑，全部上板验证</div></div>
+  </div>
+  <div class="note-box ok rv">
+    所有优化都是<b>数值保真</b>的：定点化、布局重排、访问加宽、存储容器重排、并行度提升，
+    只改“怎么算”、不改“算什么”。所以整网输出与 FP32 参考的定点结果<b>逐字节相同</b>
+    —— 不是 PSNR 接近，是 md5 相同。
+  </div>
+
+  <h3 class="rv">如果将来还要再压：可选的精度-速度交换（已实测，未启用）</h3>
+  <div class="tw rv">
+    <table>
+      <thead><tr><th>方案</th><th class="r">ΔPSNR</th><th class="r">SSIM 中位</th><th>结论</th></tr></thead>
+      <tbody>
+        <tr class="best"><td>当前交付：int8 权重 + int8 激活</td>
+          <td class="r g">0（逐字节相同）</td><td class="r">0.8143</td><td class="g">✓ 已采用</td></tr>
+        <tr><td>混合精度 E-g64（k≥3 用 int4，权重压缩 4.96×）</td>
+          <td class="r g">+0.24 dB</td><td class="r">0.8135</td>
+          <td class="w">可用，但 38% 的块变差、p05 −1.56 dB</td></tr>
+        <tr><td>纯 int4 权重（group-64）</td><td class="r b">−1.50 dB</td><td class="r b">0.7391</td>
+          <td class="b">✗ 文字肉眼可见糊</td></tr>
+        <tr><td>int4 激活（per-tensor）</td><td class="r b">−6.10 dB</td><td class="r b">0.5507</td>
+          <td class="b">✗ QAT 800 步还发散（−11.13 dB）</td></tr>
+        <tr><td>稠密 → 深度卷积（裁非对角）</td><td class="r b">−4.18 dB</td><td class="r b">0.7626</td>
+          <td class="b">✗ 非对角能量占 94.3%</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- ══════════ 7 ══════════ -->
+  <h2 class="rv"><span class="idx">07 / DEAD ENDS</span>被实测否掉的方向</h2>
+  <p class="sub rv">一个 17 倍提速项目的价值，一半在于“知道前面哪里没有路”。</p>
+  <div class="tw rv">
+    <table>
+      <thead><tr><th>假设 / 方向</th><th>实测结果</th><th>为什么错</th></tr></thead>
+      <tbody>
+        <tr><td>双引擎并行（conv + pp 同跑）</td><td class="r b">能到 173.53 s，无法逐位一致</td>
+          <td>pp 的 Q16 定点与 float64 在 <code>rint(.5)</code> 边界分岔，被网络<b>混沌放大</b>成
+            72 万像素差异（翻一个像素 → 721,977 个不同）</td></tr>
+        <tr><td><code>num_write_outstanding</code> 16→64</td><td class="r b">13 个微基准逐项一致</td>
+          <td>AW 请求 FIFO <code>USER_MAXREQS</code> 只有 4 深，内核每块只发 1 笔就等 B</td></tr>
+        <tr><td><code>component.xml</code> 的 <code>HAS_BURST=0</code></td><td class="r b">零收益</td>
+          <td>RTL 监视器实测内核本来就在发 <code>AWLEN=63</code> 的 512 B burst；
+            之前 grep 到的 <code>AWLEN=0</code> 是流水模块的<b>死输出</b></td></tr>
+        <tr><td>填充/权重 4→8 字节加宽</td><td class="r b">AR 笔数 201 → 15,416，净亏 27%</td>
+          <td><code>in_fm/wgt/bias</code> 共用 <code>bundle=gmem0</code>，任一 64-bit 读会把整条端口加宽，
+            而 PAD 容器只保证 4 字节对齐 ⇒ burst 全崩</td></tr>
+        <tr><td>收尾 8 通道串行</td><td class="r b">13 个微基准相同到 0.01 ms</td>
+          <td>HLS 早已把它流水掉了</td></tr>
+        <tr><td><code>K1_OC_UNROLL</code> / <code>K3_LANES</code> 等宏</td>
+          <td class="r b">csynth 一个数都不差</td>
+          <td><b>空转宏</b>：k=1 快路径本来就是 8 乘法器 + II=1，factor 被完全展开</td></tr>
+        <tr><td>车道填充率浪费</td><td class="r b">浪费 0.00%</td>
+          <td>132 层的 c<sub>out</sub> 全是 8 的倍数（MAC 加权 1.0000）</td></tr>
+        <tr><td>跨行软件流水 / 2 像素 16 车道</td><td class="r b">不可行</td>
+          <td><code>line_buf</code> 是 <code>RAM_2P</code>（1 读 1 写）非双读口；
+            乒乓要 +32 BRAM18K 而只剩 17；旋转行缓冲会让 bank 号变运行期</td></tr>
+        <tr><td>把 <code>wgt3_buf</code> 拉平成一个大数组</td><td class="r b">LUT 82% → 91%，否决</td>
+          <td>9 个抽头共用 1 个 bank ⇒ 需要 9 个读口</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <div class="note-box bad rv">
+    <b>共同教训：</b>「有效的均值」不等于「某个具体硬件结构」。
+    我们曾用一组拟合系数（X = 700 拍/像素）去推“某段代码串行”，结果它在 c<sub>in</sub>=8 处崩坏 4.6 倍。
+    <b>优化必须看生成的 RTL（<code>ARLEN/AWLEN/WSTRB</code>、<code>II</code>、乘法器实现），
+    不能只看 C 代码、注释或拍数。</b>
+  </div>
+
+  <!-- ══════════ 8 ══════════ -->
+  <h2 class="rv"><span class="idx">08 / DELIVERY</span>交付物与复现</h2>
+  <div class="tw rv">
+    <table>
+      <thead><tr><th>项</th><th>值</th></tr></thead>
+      <tbody>
+        <tr><td>比特流</td><td><code>d388264c…</code>（+ 同名 <code>.hwh</code>，必须成对）</td></tr>
+        <tr><td>权重包</td><td><code>ab33c237…</code>（容器格式与八车道版完全相同，PS 侧零改动）</td></tr>
+        <tr><td>整网 / conv</td><td><b>43.55 s</b>（两次 43.63 / 43.55） / <b>35.43 s</b></td></tr>
+        <tr><td>正确性</td><td>0 / 1,228,800，输出 md5 ≡ <code>ref_out.bin</code></td></tr>
+        <tr><td>资源</td><td>BRAM 86.5/95（91.1%）· DSP 108/160（70%）· LUT 35,520（76.9%）· Fmax 172.97 MHz</td></tr>
+        <tr><td>代码分支</td><td><code>release/v43s</code>（源码 + bit + PS + 文档，57 个文件）</td></tr>
+        <tr><td>历史比特流</td><td>16 代归档于 <code>/data/work/bits_archive/</code>，可逐级回退</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="fml rv" style="text-align:left;font-size:14px">
+    <b style="font-family:var(--sans);font-weight:400">板端一条命令</b>
+    <code style="display:block;margin-top:12px;padding:12px;white-space:pre-wrap;font-size:12.5px">C8_LAYOUT=1 ./board_safe_run.sh 900 run_network_on_board.py \
+  --manifest manifest_640.json --pack weights_pack \
+  --input weights_pack/input_q.bin --bit design_1.bit --c8 --profile</code>
+    <span class="note"><code>C8_LAYOUT=1</code> 与 <code>--c8</code> 缺一不可：
+      配错会返回 <code>ERR_LAYOUT(4)</code> 并抛异常（故意如此，比静默算错好）。</span>
+  </div>
+
+  <footer class="rv">
+    <div class="sig">749 → 43.55 s ｜ 16 个里程碑 ｜ 零精度损失</div>
+    全部耗时均为板端实测（AX7015B / PYNQ，FCLK0 报 125 MHz，跨版本可比）。<br>
+    每一步都经过 <code>fuzz_shapes 30/30</code>、<code>fuzz_c8_shapes 23/23</code>、
+    <code>check_src_sync</code>、<code>check_regmap</code>、<code>check_k3_pad12</code>、
+    <code>check_k5_pad28</code> 与整网 md5 比对。
+  </footer>
+</div>
+
+<script>
+/* ══════════ 数据 ══════════ */
+const STEPS = [
+  {lab:"749 s · 首版上板",           t:749.0,  d:"",        era:1},
+  {lab:"344.25 s · PS 内存池+m_axi",  t:344.25, d:"−404.8",  era:1},
+  {lab:"314.03 s · 访存保持仿射",     t:314.03, d:"−30.2",   era:1},
+  {lab:"276.74 s · 提频 150 MHz",     t:276.74, d:"−37.3",   era:2},
+  {lab:"265.07 s · 行缓冲跨 y 复用",  t:265.07, d:"−11.7",   era:2},
+  {lab:"198.81 s · k=3 快路径",       t:198.81, d:"−66.3",   era:2},
+  {lab:"193.37 s · k=1 宽列块",       t:193.37, d:"−5.4",    era:2},
+  {lab:"187.41 s · 单引擎重构建",     t:187.41, d:"−6.0",    era:2},
+  {lab:"185.0 s · C8 交错布局",       t:185.0,  d:"−2.4",    era:3},
+  {lab:"144.89 s · ARM NEON 内核",    t:144.89, d:"−40.1",   era:3},
+  {lab:"106.69 s · 32-bit 宽读",      t:106.69, d:"−38.2",   era:3},
+  {lab:"68.40 s · k=3 PAD12",         t:68.40,  d:"−38.3",   era:3},
+  {lab:"59.87 s · k=5 PAD28+内核化",  t:59.87,  d:"−8.5",    era:3},
+  {lab:"52.40 s · 写回拷贝循环",       t:52.40,  d:"−7.5",    era:3},
+  {lab:"52.22 s · 删 pp+乘法迁 DSP",  t:52.22,  d:"−0.2",    era:4},
+  {lab:"43.55 s · k=1 十六车道",       t:43.55,  d:"−8.7",    era:4, final:true},
+];
+const NETOPS = [
+  {lab:"conv",            t:35.43, c:"pl"},
+  {lab:"sam_sum",         t:3.59,  c:"ps"},
+  {lab:"cat",             t:1.79,  c:"ps"},
+  {lab:"interp",          t:1.04,  c:"ps"},
+  {lab:"eca",             t:0.64,  c:"ps"},
+  {lab:"add",             t:0.37,  c:"ps"},
+  {lab:"pixel_unshuffle", t:0.25,  c:"ps"},
+  {lab:"pixel_shuffle",   t:0.24,  c:"ps"},
+];
+const CONVOPS = [
+  {lab:"k=1 计算",      t:14.58, c:"pl"},
+  {lab:"填充读 DDR",     t:5.92,  c:"pl"},
+  {lab:"k=3 计算",      t:5.12,  c:"pl"},
+  {lab:"写回 DDR",       t:4.98,  c:"pl"},
+  {lab:"k=1 权重装",    t:4.36,  c:"pl"},
+  {lab:"k=5 计算",      t:3.01,  c:"pl"},
+  {lab:"k=3 权重装",    t:2.43,  c:"pl"},
+  {lab:"k=3 行缓冲下移", t:1.99,  c:"pl"},
+  {lab:"补零 / 其他",    t:0.86,  c:"pl"},
+];
+const GRAD = {
+  1:"linear-gradient(90deg,#3c4854,#66788a)",
+  2:"linear-gradient(90deg,#1e5f9e,#63b3ff)",
+  3:"linear-gradient(90deg,#9a5f14,#f0b25e)",
+  4:"linear-gradient(90deg,#1f7a3a,#8ef0a5)",
+  ps:"linear-gradient(90deg,#1e5f9e,#63b3ff)",
+  pl:"linear-gradient(90deg,#9a5f14,#f0b25e)",
+};
+const STROKE = {1:"#66788a",2:"#63b3ff",3:"#f0b25e",4:"#8ef0a5"};
+
+/* ══════════ 顶部进度条 ══════════ */
+const prog = document.getElementById('prog');
+addEventListener('scroll', ()=>{
+  const h = document.documentElement;
+  prog.style.width = (h.scrollTop / (h.scrollHeight - h.clientHeight) * 100) + '%';
+}, {passive:true});
+
+/* ══════════ 数字滚动 ══════════ */
+function countUp(el){
+  const target = parseFloat(el.dataset.count);
+  const dec = parseInt(el.dataset.dec || "0", 10);
+  const dur = 1500, t0 = performance.now();
+  function tick(t){
+    const p = Math.min(1, (t - t0) / dur);
+    const e = 1 - Math.pow(1 - p, 3);           /* easeOutCubic */
+    el.textContent = (target * e).toFixed(dec);
+    if (p < 1) requestAnimationFrame(tick);
+    else el.textContent = target.toFixed(dec);
+  }
+  requestAnimationFrame(tick);
+}
+
+/* ══════════ 揭示观察器 ══════════ */
+const io = new IntersectionObserver((ents)=>{
+  ents.forEach((e,i)=>{
+    if(!e.isIntersecting) return;
+    const el = e.target;
+    setTimeout(()=> el.classList.add('in'), i * 70);
+    io.unobserve(el);
+  });
+},{threshold:.12, rootMargin:"0px 0px -8% 0px"});
+document.querySelectorAll('.rv').forEach(el=>io.observe(el));
+
+/* 数字：进入视口才跑 */
+const ioNum = new IntersectionObserver((ents)=>{
+  ents.forEach(e=>{
+    if(!e.isIntersecting) return;
+    e.target.querySelectorAll('[data-count]').forEach((n,i)=>setTimeout(()=>countUp(n), i*120));
+    ioNum.unobserve(e.target);
+  });
+},{threshold:.4});
+document.querySelectorAll('[data-count]').forEach(n=>{
+  const host = n.closest('.rv') || n;
+  ioNum.observe(host);
+});
+
+/* ══════════ 柱状图 ══════════ */
+function makeBars(elId, data, max, showDelta){
+  const box = document.getElementById(elId);
+  if(!box) return;
+  data.forEach((d,idx)=>{
+    const row = document.createElement('div');
+    row.className = 'barrow' + (d.final ? ' hl' : '');
+    const w = Math.max(1.2, 100 * d.t / max);
+    const g = d.c ? GRAD[d.c] : GRAD[d.era] || GRAD[2];
+    const dd = (showDelta && d.d) ? `<span class="dd">${d.d}</span>` : '';
+    row.innerHTML =
+      `<div class="lab" title="${d.lab}">${d.lab}</div>
+       <div class="track"><div class="fill" style="background:${g}"></div></div>
+       <div class="val">${d.t.toFixed(d.t < 100 ? 2 : 1)}s${dd}</div>`;
+    box.appendChild(row);
+    const fill = row.querySelector('.fill');
+    const ioB = new IntersectionObserver((es)=>{
+      es.forEach(e=>{
+        if(!e.isIntersecting) return;
+        setTimeout(()=>{ fill.style.width = w + '%'; }, idx * 55);
+        ioB.unobserve(e.target);
+      });
+    },{threshold:.25});
+    ioB.observe(row);
+  });
+}
+makeBars('waterfall', STEPS, 749.0, true);
+makeBars('netops', NETOPS, 40, false);
+makeBars('convops', CONVOPS, 15, false);
+
+/* ══════════ SVG 曲线（对数刻度）══════════ */
+(function(){
+  const W = 1080, H = 300, PADL = 54, PADR = 26, PADT = 22, PADB = 34;
+  const svg = document.getElementById('svgc');
+  const maxV = 749, minV = 40;
+  const lgMax = Math.log10(maxV), lgMin = Math.log10(minV);
+  const n = STEPS.length;
+  const X = i => PADL + (W - PADL - PADR) * i / (n - 1);
+  const Y = v => PADT + (H - PADT - PADB) *
+                 (1 - (Math.log10(v) - lgMin) / (lgMax - lgMin));
+
+  /* 网格 + 刻标 */
+  const grid = document.getElementById('grid'), axis = document.getElementById('axis');
+  [700, 400, 200, 100, 50].forEach(v=>{
+    const y = Y(v);
+    const l = document.createElementNS('http://www.w3.org/2000/svg','line');
+    l.setAttribute('x1',PADL); l.setAttribute('x2',W-PADR);
+    l.setAttribute('y1',y); l.setAttribute('y2',y);
+    grid.appendChild(l);
+    const t = document.createElementNS('http://www.w3.org/2000/svg','text');
+    t.setAttribute('x',PADL-12); t.setAttribute('y',y+3.5);
+    t.setAttribute('text-anchor','end'); t.setAttribute('fill','#5f6b7a');
+    t.setAttribute('font-size','10.5'); t.setAttribute('font-family','ui-monospace,monospace');
+    t.textContent = v + 's';
+    axis.appendChild(t);
+  });
+
+  /* 折线 */
+  let d = '';
+  STEPS.forEach((s,i)=>{ d += (i ? ' L' : 'M') + X(i).toFixed(1) + ' ' + Y(s.t).toFixed(1); });
+  const line = document.getElementById('line');
+  line.setAttribute('d', d);
+  const len = line.getTotalLength();
+  line.style.setProperty('--len', len);
+  line.style.strokeDasharray = len;
+  line.style.strokeDashoffset = len;
+
+  /* 面积 */
+  const area = document.getElementById('area');
+  area.setAttribute('d', d + ` L${X(n-1).toFixed(1)} ${H-PADB} L${X(0).toFixed(1)} ${H-PADB} Z`);
+
+  /* 点 + 悬停提示 */
+  const pts = document.getElementById('pts');
+  const tip = document.getElementById('tip');
+  const chart = document.getElementById('chart');
+  STEPS.forEach((s,i)=>{
+    const c = document.createElementNS('http://www.w3.org/2000/svg','circle');
+    c.setAttribute('cx',X(i)); c.setAttribute('cy',Y(s.t)); c.setAttribute('r', s.final?5.5:3.4);
+    c.setAttribute('class','pt' + (s.final ? ' final' : s.era===1 ? ' early' :
+      s.era===2 ? ' ps' : ''));
+    c.style.transitionDelay = (0.35 + i*0.075) + 's';
+    pts.appendChild(c);
+
+    c.addEventListener('mouseenter', ()=>{
+      const r = c.getBoundingClientRect(), cr = chart.getBoundingClientRect();
+      tip.innerHTML = `${s.lab}${s.d ? ' · <span style="color:#8ef0a5">'+s.d+' s</span>' : ''}`;
+      tip.style.left = (r.left - cr.left + r.width/2) + 'px';
+      tip.style.top  = (r.top  - cr.top) + 'px';
+      tip.style.opacity = 1;
+    });
+    c.addEventListener('mouseleave', ()=>{ tip.style.opacity = 0; });
+  });
+
+  /* 起播 */
+  const ioC = new IntersectionObserver((es)=>{
+    es.forEach(e=>{ if(e.isIntersecting){ chart.classList.add('in'); ioC.unobserve(e.target); } });
+  },{threshold:.2});
+  ioC.observe(chart);
+})();
+</script>
+</body>
+</html>

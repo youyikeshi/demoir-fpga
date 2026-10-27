@@ -17,9 +17,16 @@
 //    2. 收尾 3 拍完全并行：acc0+acc1 → +bias → >>>shift/ReLU/sat8，且与下一块重叠；
 //    3. 稳态每 (pixel, 32-oc 块) = cin 拍；
 //    4. 输入按 C8 整 8 字节读，4 像素缓冲预取；
-//    5. 权重按 pass 常驻 32 lane × cin 字节（cin=352 时 90 kbit，分 32 个
-//       44×64bit LUTRAM）；每个 pass 的装载量 = 32·cin 字节，
-//       相对该 pass 的 H·W·cin 拍可忽略（见文档）。
+//    5. 权重按 pass 常驻 32 lane × cin 字节（cin=352 时 90 kbit，**4 块 RAMB36**）；
+//       每个 pass 的装载量 = 32·cin 字节，相对该 pass 的 H·W·cin 拍可忽略（见文档）。
+//
+//  第三轮瘦身（2026-10-26，见 docs/rtl_hand/conv_k1_engine.md §16）：
+//    A. 输出块队列 ob_*：4 槽×4 组×(32b+64b) 寄存器阵列（1,536 FF + 4,190 LUT cell）
+//       → **16×96 简单双口 LUTRAM**（push 的 4 组串行 4 拍写，cin≥8 有余量）；
+//    B. 偏置 bias_lane：32 lane × 6 pass × 32b FF 阵列 + 6:1 mux（6,144 FF + 3,288
+//       LUT cell）→ **每 lane 一块 6×32 分布式 RAM**（1 写口 + 组合读口）。
+//    两处都遵守“RAM 输出寄存器单一赋值源、无复位、无旁路”的推断铁律。
+//    权重 BRAM（§6）与像素 LUTRAM（§4）**一个字没动**（上一轮已全套验证）。
 //
 //  Verilog 位宽铁律（本版踩过的坑，务必保留注释）：
 //    **part-select 基址 [expr +: W] 里的 expr 是自决定表达式**，`a*b` 的结果位宽
@@ -55,7 +62,7 @@ module conv_k1_engine #(
     parameter int CIN_MAX  = 352,  // 全网络 k=1 最大 cin
     parameter int COUT_MAX = 192,  // 全网络 k=1 最大 cout（6 个 pass）
     parameter int NBUF     = 4,    // 输入像素缓冲数
-    parameter int OBUF_N   = 4     // 输出块队列深度（每块 4 个 oc 组）
+    parameter int OBUF_N   = 4     // 输出块队列深度（每块 4 个 oc 组；LUTRAM 4 槽 × 4 条）
 )(
     input  logic        ap_clk,
     input  logic        ap_rst_n,
@@ -452,7 +459,9 @@ module conv_k1_engine #(
     logic signed [26:0] sum27    [0:LANES-1];
     logic signed [31:0] v32      [0:LANES-1];
     logic [7:0]         sat_b    [0:LANES-1];
-    logic signed [31:0] bias_lane [0:LANES-1][0:BLKMAX-1];
+    // 第三轮瘦身 B：bias 不再是“32 lane × 6 pass 的 32b FF 阵列 + 6:1 mux”
+    // （网表 bias_lane 占 3,288 LUT cell / 6,144 FF），改成**每 lane 一块
+    // BLKMAX×32 的分布式 RAM**，声明在下面 generate 的 g_lane 里（见 §10 注释）。
 
     // 收尾流水 valid / 块信息（供 generate 与 E1/E2/E3 共用）
     logic          e1_vld, e2_vld;
@@ -544,6 +553,15 @@ module conv_k1_engine #(
     logic             bl_weA, bl_weB;
     logic [7:0]       bl_idxA, bl_idxB;
     logic signed [31:0] bl_dataA, bl_dataB;
+    // 第三轮瘦身 B：一个 64-bit beat 载着两个 int32（ocA=2i、ocB=2i+1）。
+    //   · oc 偶 ⇒ lane 偶，oc 奇 ⇒ lane 奇（lane=oc[4:0]）；
+    //   · 所以 **A 路只写偶 lane、B 路只写奇 lane**，两者永不写同一个 lane；
+    //   · 于是每个 lane 的 bias RAM 仍然只有 **一个写口**（偶数 lane 接 A、奇数 lane
+    //     接 B，在 generate 里按 gi 的奇偶硬选择），既不用 2 写口，也不用合并丢数据。
+    wire [4:0] bl_wlaneA = bl_idxA[4:0];   // = 2i mod 32（偶）
+    wire [2:0] bl_wpassA = bl_idxA[7:5];   // = oc/32
+    wire [4:0] bl_wlaneB = bl_idxB[4:0];   // = (2i+1) mod 32（奇）
+    wire [2:0] bl_wpassB = bl_idxB[7:5];
 
     genvar gi;
     generate
@@ -552,20 +570,32 @@ module conv_k1_engine #(
             // 本 lane 在该 ic 上的权重字节（w_row_q 的常量切片，纯连线）
             wire [7:0] w_byte = w_row_q[gi*8 +: 8];
 
-            // 偏置：BLKMAX 个 pass 各一份，收尾按 ep_blk_q 选（无读地址 mux）
-            always_ff @(posedge ap_clk or negedge ap_rst_n) begin
-                if (!ap_rst_n) begin
-                    for (int kk = 0; kk < BLKMAX; kk++)
-                        bias_lane[gi][kk] <= 32'sd0;
-                end else begin
-                    for (int kk = 0; kk < BLKMAX; kk++) begin
-                        if (bl_weA && (bl_idxA == (gi + 32*kk)))
-                            bias_lane[gi][kk] <= bl_dataA;
-                        if (bl_weB && (bl_idxB == (gi + 32*kk)))
-                            bias_lane[gi][kk] <= bl_dataB;
-                    end
+            // ---- 偏置：每个 lane 一块 BLKMAX×32 的**分布式 RAM**（第三轮瘦身 B）----
+            //  旧版：bias_lane[gi][kk] 是 6 个 32b FF（全模块 6,144 FF），收尾时用
+            //  6:1 mux 选 pass ⇒ 网表 bias_lane 占 3,288 个 LUT cell。
+            //  新版：6 条 × 32 bit 的 LUTRAM（写 1 口 + 组合读 1 口），
+            //    · 写口：偶数 lane 只接 A 路、奇数 lane 只接 B 路（见上面 `bl_wlaneA`/`bl_wlaneB` 的说明），
+            //      所以这个数组**只有一条写语句** = 真正的单写口 RAM 模板；
+            //    · 读口：E2 拍**组合读** `bias_mem[ep_blk_q]`（地址 ep_blk_q 在 E1 前
+            //      就已稳定，组合读不增加延迟，也省掉 32×32 输出 FF）；
+            //    · **无复位**（RAM 一旦带复位就不推断），未装载的尾部 lane 读到 X，
+            //      但 E3 的 lane_ok 会把它强制成 0，绝不会进输出（见 §10）。
+            (* ram_style = "distributed" *) reg signed [31:0] bias_mem [0:BLKMAX-1];
+
+            if ((gi % 2) == 0) begin : g_bias_wre
+                always_ff @(posedge ap_clk) begin
+                    if (bl_weA && (bl_wlaneA == gi))
+                        bias_mem[bl_wpassA] <= bl_dataA;
+                end
+            end else begin : g_bias_wro
+                always_ff @(posedge ap_clk) begin
+                    if (bl_weB && (bl_wlaneB == gi))
+                        bias_mem[bl_wpassB] <= bl_dataB;
                 end
             end
+
+            wire signed [31:0] bias_rd;
+            assign bias_rd = bias_mem[ep_blk_q];
 
             // 乘法器：use_dsp 强制映射到 DSP48；**组合使用**（不启用 DSP 内部
             // A/B/M/P 寄存器），所以 prod_b 仍然只延迟 1 拍，像素/权重对齐不变。
@@ -613,8 +643,7 @@ module conv_k1_engine #(
                 end else if (start_pulse || pass_go) begin
                     v32[gi] <= 32'sd0;
                 end else if (e1_vld) begin
-                    v32[gi] <= $signed({{5{sum27[gi][26]}}, sum27[gi]}) +
-                               bias_lane[gi][ep_blk_q];
+                    v32[gi] <= $signed({{5{sum27[gi][26]}}, sum27[gi]}) + bias_rd;
                 end
             end
 
@@ -677,63 +706,143 @@ module conv_k1_engine #(
     end
 
     // ========================================================================
-    // 8. 输出块队列与 AXI4 写排空
+    // 8. 输出块队列：16 条 × 96 bit 的**简单双口分布式 RAM** + AXI4 写排空
+    //
+    //  旧版（第一/二轮）：4 槽 × 4 组 × (32b 地址 + 64b 数据) 的**寄存器阵列**
+    //      = 1,536 FF，外加写侧 4 个写口的 mux + 读侧 16:1 读 mux；
+    //      网表里 ob_* 占 **4,190 个 LUT cell**，是全模块最大的一刀（docs §15.3）。
+    //  新版：16 条 × 96 bit = {addr[31:0], data[63:0]}，地址 = {槽[1:0], 组[1:0]}。
+    //      · 容量 1,536 bit ⇒ LUTRAM 约 50–150 个 LUT（`ram_style="distributed"`，1,536 bit ÷ 16–32 bit/LUT）；
+    //      · 只有 **1 个写口** ⇒ push 的 4 组必须**串行 4 拍**写入（余量见下）；
+    //      · 只有 1 个读口 + **1 拍寄存器输出**，用 wd_rdy_q 保证“地址稳一拍”
+    //        之后才允许发 AW/W（AXI 上 AWADDR/WDATA 必须与 valid 同拍有效）。
+    //
+    //  ⚠ RAM 推断铁律（和 px_mem 一模一样，这个模块已经踩过三次）：
+    //     写口和读口在**同一个 always_ff** 里；读寄存器 ob_q **只有**
+    //     `ob_q <= ob_mem[...]` 这一个赋值源：**不复位、不旁路、不加第二源**。
+    //     写口用 `if (ob_we)` 作写使能，是 RAM 模板允许的形式。
+    //     判据：综合后 `LUT as Memory` 应随这 1,536 bit 增长（~50–150），
+    //           FF 应从 1,536 降到 ~400；若 FF 没降就是没推断成 RAM。
+    //
+    //  ⚠ 串行写入的余量（为什么不会反压计算）：
+    //    · 一个 push = 一个输出块 = 4 条记录；写口 1 条/拍 ⇒ 占用 **4 拍**；
+    //    · 同一 pass 内相邻块 start 间隔 = **cin 个 issue 拍**，push 也间隔 cin 拍
+    //      （push 比块尾晚固定 3 拍，间隔不变）；
+    //    · 契约保证 cin ≥ 8（cin%8==0），所以**最坏** cin=8 时写口占用率 = 4/8 = 50%，
+    //      cin=64 时 6.25%，cin=352 时 1.1% —— 写口永远在下一块 push 前 4 拍空闲；
+    //    · 队列 4 槽 = 16 条 ≥ 一块的 4 条，且 cin=8 时仍有 4 拍空档，所以
+    //      ob_stg 不会被下一块覆盖（仿真期断言 `push_ok && ob_wr_busy` 会报错）；
+    //    · pass 边界：push 拍就把 4 条**快照**进 ob_stg（4×96 FF），所以紧接着的
+    //      pass_go 把 v32/out_word 清 0 也不影响这 4 拍写（这是必须快照的原因）；
+    //      pass_go **不**清 ob_wr_busy/ob_wg/ob_wr/ob_rd——4 拍写完照常提交。
     // ========================================================================
-    logic [1:0]  ob_wr, ob_rd;
-    logic [2:0]  ob_n [0:OBUF_N-1];
-    logic [31:0] ob_addr [0:OBUF_N-1][0:3];
-    logic [63:0] ob_data [0:OBUF_N-1][0:3];
-    logic        wr_pop;
+    localparam int OB_W  = 96;           // 一条记录 = {addr[31:0], data[63:0]}
+    localparam int OB_DP = OBUF_N * 4;   // 16 条 = 4 槽 × 4 组
 
+    (* ram_style = "distributed" *) reg [OB_W-1:0] ob_mem [0:OB_DP-1];
+
+    logic [1:0]        ob_wr, ob_rd;      // 槽指针
+    logic [2:0]        ob_n [0:OBUF_N-1]; // 每槽有效组数（1..4）——普通 FF，4×3
+    logic [OBUF_N-1:0] ob_rdy;            // 每槽 4 条都写完（提交标志），4 FF
+    logic              ob_wr_busy;        // 4 拍串行写进行中
+    logic [1:0]        ob_wg;             // 串行写的组号 0..3
+    logic [OB_W-1:0]   ob_stg [0:3];      // push 拍快照（4×96 = 384 FF）
+    logic [2:0]        ob_n_stg;
+    logic              wr_pop;
+
+    logic [1:0]        wd_j;
+    logic              wd_aw, wd_w;
+    logic              wd_rdy_q;          // 读数据对齐（地址稳 1 拍）
+
+    wire [3:0]      ob_waddr = {ob_wr, ob_wg};
+    wire [OB_W-1:0] ob_wdata = ob_stg[ob_wg];
+    wire            ob_we    = ob_wr_busy;
+
+    // ---- RAM 本体：写口 + 读寄存器（read-first 简单双口，唯一赋值源）----
+    logic [OB_W-1:0] ob_q;
+    always_ff @(posedge ap_clk) begin
+        if (ob_we) ob_mem[ob_waddr] <= ob_wdata;      // 写口：1 条/拍
+        ob_q <= ob_mem[{ob_rd, wd_j}];                // 读口：唯一源，无复位/旁路
+    end
+
+    // ---- 队列记账：push 拍快照 → 4 拍串行写 → 提交 ob_rdy ----
     always_ff @(posedge ap_clk or negedge ap_rst_n) begin
         if (!ap_rst_n) begin
             ob_wr <= 2'd0; ob_rd <= 2'd0; ob_cnt <= 3'd0;
+            ob_rdy <= '0; ob_wr_busy <= 1'b0; ob_wg <= 2'd0; ob_n_stg <= 3'd0;
+            for (jj = 0; jj < 4; jj = jj + 1) ob_stg[jj] <= {OB_W{1'b0}};
         end else if (start_pulse) begin
             ob_wr <= 2'd0; ob_rd <= 2'd0; ob_cnt <= 3'd0;
+            ob_rdy <= '0; ob_wr_busy <= 1'b0; ob_wg <= 2'd0; ob_n_stg <= 3'd0;
         end else begin
             if (push_ok) begin
-                // ep_gbase / out_word 在 push 这一拍稳定，直接组合写入，省 384 FF
-                for (jj = 0; jj < 4; jj = jj + 1) begin
-                    ob_addr[ob_wr][jj] <= ep_gbase + jj * hw8_r;
-                    ob_data[ob_wr][jj] <= out_word[jj];
+                // ep_gbase / out_word 在 push 这一拍稳定；README：这里**必须**快照，
+                // 因为下一个 pass 的 pass_go 会把 v32 清 0，而 4 拍写还没写完。
+                for (jj = 0; jj < 4; jj = jj + 1)
+                    ob_stg[jj] <= {ep_gbase + jj * hw8_r, out_word[jj]};
+                ob_n_stg   <= push_n;
+                ob_wr_busy <= 1'b1;
+                ob_wg      <= 2'd0;
+            end else if (ob_wr_busy) begin
+                if (ob_wg == 2'd3) begin
+                    // 第 4 条写完 ⇒ 本槽提交，指针前进
+                    ob_wr_busy   <= 1'b0;
+                    ob_wg        <= 2'd0;
+                    ob_n[ob_wr]  <= ob_n_stg;
+                    ob_rdy[ob_wr] <= 1'b1;
+                    ob_wr        <= ob_wr + 2'd1;
+                end else begin
+                    ob_wg <= ob_wg + 2'd1;
                 end
-                ob_n[ob_wr] <= push_n;
-                ob_wr       <= ob_wr + 2'd1;
             end
-            if (wr_pop) ob_rd <= ob_rd + 2'd1;
+            if (wr_pop) begin
+                ob_rd           <= ob_rd + 2'd1;
+                ob_rdy[ob_rd]   <= 1'b0;
+            end
             ob_cnt <= ob_cnt + {2'd0, push_ok} - {2'd0, wr_pop};
         end
     end
 
-    logic [1:0] wd_j;
-    logic       wd_aw, wd_w;
-    wire        wr_ent = (ob_cnt != 3'd0) && ({1'b0, wd_j} < ob_n[ob_rd]);
+    // ---- 排空：只读**已提交**的槽；地址稳一拍后（wd_rdy_q）才发 AW/W ----
+    wire cur_blk = (ob_cnt != 3'd0) && ob_rdy[ob_rd];
+    wire wr_ent  = cur_blk && wd_rdy_q;
 
     assign m_axi_out_awvalid = wr_ent && !wd_aw;
-    assign m_axi_out_awaddr  = ob_addr[ob_rd][wd_j];
+    assign m_axi_out_awaddr  = ob_q[95:64];
     assign m_axi_out_awlen   = 8'd0;
     assign m_axi_out_wvalid  = wr_ent && !wd_w;
-    assign m_axi_out_wdata   = ob_data[ob_rd][wd_j];
+    assign m_axi_out_wdata   = ob_q[63:0];
     assign m_axi_out_wstrb   = 8'hFF;
     assign m_axi_out_wlast   = 1'b1;
     assign m_axi_out_bready  = 1'b1;
 
     wire out_aw_hs = m_axi_out_awvalid && m_axi_out_awready;
     wire out_w_hs  = m_axi_out_wvalid  && m_axi_out_wready;
+    // 本组 AW 与 W 都握手 ⇒ 前进到下一组（或弹出一个槽）
+    wire grp_adv   = wr_ent && (wd_aw || out_aw_hs) && (wd_w || out_w_hs);
 
     always_ff @(posedge ap_clk or negedge ap_rst_n) begin
         if (!ap_rst_n) begin
             wd_j <= 2'd0; wd_aw <= 1'b0; wd_w <= 1'b0; wr_pop <= 1'b0;
+            wd_rdy_q <= 1'b0;
         end else if (start_pulse) begin
             wd_j <= 2'd0; wd_aw <= 1'b0; wd_w <= 1'b0; wr_pop <= 1'b0;
+            wd_rdy_q <= 1'b0;
         end else begin
-            wr_pop <= 1'b0;
-            if (!wr_ent) begin
+            wr_pop   <= 1'b0;
+            // 读地址（ob_rd/wd_j）变了 ⇒ 下一拍 ob_q 还不对，先不许发 AW/W。
+            // ⚠ 必须同时盖住 **grp_adv 和 wr_pop 两拍**：wr_pop 是**寄存**的，
+            //   换组（wd_j 变）在 grp_adv 那一拍，弹槽（ob_rd 变）却晚一拍。
+            //   只盖 grp_adv 会在“弹槽后立刻有下一块已提交”时（cin=8、队列积 2+ 块）
+            //   用旧槽的 ob_q 发出一拍**错地址**（数据对、地址旧）——2026-10-26 实测
+            //   dbg_pix64/dbg_ones 就栽在这里（pixel 1 的数据被写到 pixel 0 的地址）。
+            wd_rdy_q <= ~(grp_adv || wr_pop);
+            if (!cur_blk) begin
                 wd_j <= 2'd0; wd_aw <= 1'b0; wd_w <= 1'b0;
-            end else begin
+            end else if (wr_ent) begin
                 if (out_aw_hs) wd_aw <= 1'b1;
                 if (out_w_hs)  wd_w  <= 1'b1;
-                if ((wd_aw || out_aw_hs) && (wd_w || out_w_hs)) begin
+                if (grp_adv) begin
                     if (({1'b0, wd_j} + 3'd1) == ob_n[ob_rd]) begin
                         wd_j <= 2'd0; wd_aw <= 1'b0; wd_w <= 1'b0;
                         wr_pop <= 1'b1;
@@ -979,6 +1088,13 @@ module conv_k1_engine #(
             $display("[K1] WARNING: cout=%0d 超过 COUT_MAX=%0d", ctrl_cout, COUT_MAX);
         if (ap_rst_n && push_vld && (ob_cnt >= OBUF_N))
             $display("[K1] ERROR: 输出块队列溢出（ob_cnt=%0d）", ob_cnt);
+        // 第三轮瘦身的串行写前提：push 之间必须 ≥4 拍（cin≥8 保证）。
+        // 真出现说明 ctrl_cin<8 或新的块调度打破了“一块=cin 拍”，队列会丢数据。
+        if (ap_rst_n && push_ok && ob_wr_busy)
+            $display("[K1] ERROR: 4 拍串行写未完成又来 push（cin=%0d？LUTRAM 写口丢块）",
+                     cin_r);
+        if (ap_rst_n && push_ok && (ob_rdy[ob_wr] != 1'b0))
+            $display("[K1] ERROR: 写到未弹出的槽（ob_wr=%0d ob_rd=%0d）", ob_wr, ob_rd);
     end
     // synopsys translate_on
 
