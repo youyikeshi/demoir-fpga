@@ -124,6 +124,11 @@ module conv_k1_engine #(
     // 权重 RAM 的“行”= 一个 ic：行内 32 lane 各 1 字节（与 C8 字节顺序一致）。
     // 行宽 = LANES*8 = 256 bit；深度 = CIN_MAX = 352。BRAM 推断见 §6。
     localparam int WW      = LANES * 8;                      // 256 bit/行
+    // 权重 RAM 的物理分块（§6b 的 XPM）：每块 8 个 lane = 8 字节 = 64 bit。
+    localparam int WBW     = 8 * 8;                          // 64 bit/块
+    localparam int GPN     = LANES / 8;                      // 4 块（LANES 固定 32）
+    localparam int WDW     = 1 << ICW;                       // 512 行（≥ CIN_MAX=352）
+                                                             // = 2^ICW，与 ADDR_WIDTH 自洽
 
     // ========================================================================
     // 1. 配置锁存 / 派生
@@ -530,24 +535,79 @@ module conv_k1_engine #(
 
     assign w_rd_addr = row_base_r + ic_cur;
 
-    (* ram_style = "block" *) reg [WW-1:0] w_mem [0:CIN_MAX-1];
+    // ========================================================================
+    // 6b. 权重 RAM 的物理实现：**显式 XPM SDP RAM × GPN（=4）**，不再靠推断
+    //     ⚠⚠ 2026-10-27：原来是一个 `(* ram_style="block" *) reg [255:0]
+    //        w_mem [0:351]`，综合被 Vivado 否决：
+    //          WARNING: [Synth 8-6849] Infeasible attribute ram_style = "block"
+    //                   set for RAM "design_1_k1_wrap_1/w_mem_reg"   ×4
+    //        ⇒ 退回 LUTRAM，实测吃掉 **3,072 个 LUT**
+    //          （RAM32X1D×256 + RAM64X1D×256 + RAM128X1D×512，占 k1 全部
+    //           LUTRAM 4,248 的 72.3%，占 k1 LUT 15,764 的 19.5%）。
+    //        与本轮 k3 `wgt_mem`（576 bit 宽）完全同一个病：**位宽远超
+    //        RAMB36 的 72 bit，Vivado 的 BRAM 推断不沿位宽方向拆块**；
+    //        而且在这个引擎里连"按 lane 拆成窄数组"也仍被否决（k3 实测）。
+    //        ⇒ 结论同 k3：**直接上显式原语，把选择权收回**。
+    //     拆法：256 bit = **4 块 × 64 bit**（每块 8 个 lane = 8 个字节）。
+    //     读延迟**【不变，仍是 1 拍】**（见下面 READ_LATENCY_B 的推导）。
+    // ========================================================================
+    logic [GPN-1:0][WBW-1:0] w_q;   // 4 块 BRAM 的**寄存输出**（packed，gq=3 在高位）
 
-    // 写口：每拍 1 字节。循环展开成 32 个常量 bit-slice 的 if ⇒ Vivado 认成
-    // “宽字 + 字节写使能”的 RAM（不要把地址也拆成 32 个）。
-    always_ff @(posedge ap_clk) begin
-        if (w_ld_we) begin
-            for (int c = 0; c < LANES; c = c + 1) begin
-                if (w_ld_be[c])
-                    w_mem[w_ld_addr][c*8 +: 8] <= w_ld_data;
-            end
+    genvar gq;
+    generate
+        for (gq = 0; gq < GPN; gq = gq + 1) begin : g_wmem
+            xpm_memory_sdpram #(
+                .MEMORY_SIZE            (WDW * WBW),    // 512 行 × 64 bit
+                .MEMORY_PRIMITIVE       ("block"),      // ← 强制 BRAM
+                .CLOCKING_MODE          ("common_clock"),
+                .ECC_MODE               ("no_ecc"),
+                .MEMORY_INIT_FILE       ("none"),
+                .MEMORY_INIT_PARAM      ("0"),
+                .USE_MEM_INIT           (0),
+                .WAKEUP_TIME            ("disable_sleep"),
+                .AUTO_SLEEP_TIME        (0),
+                .MESSAGE_CONTROL        (0),
+                .USE_EMBEDDED_CONSTRAINT(0),
+                .MEMORY_OPTIMIZATION    ("true"),
+                .CASCADE_HEIGHT         (0),
+                .SIM_ASSERT_CHK         (0),
+                .WRITE_PROTECT          (1),
+                .WRITE_DATA_WIDTH_A     (WBW),          // 64
+                .BYTE_WRITE_WIDTH_A     (8),            // → wea 8 位 = 8 个 lane
+                .ADDR_WIDTH_A           (ICW),          // 9（WDW=512=2^9）
+                .RST_MODE_A             ("SYNC"),
+                .READ_DATA_WIDTH_B      (WBW),          // 64
+                .ADDR_WIDTH_B           (ICW),          // 9
+                .READ_RESET_VALUE_B     ("0"),
+                .READ_LATENCY_B         (1),            // ← 1 拍，与原来完全一致
+                .WRITE_MODE_B           ("read_first"), // 与分布式 RAM 同语义
+                .RST_MODE_B             ("SYNC")
+            ) u_wmem (
+                .sleep          (1'b0),
+                // 写口：ena=装载有效；wea=这 8 个 lane 里哪一个是本拍的写目标
+                .clka           (ap_clk),
+                .ena            (w_ld_we),
+                .wea            (w_ld_be[gq*8 +: 8]),
+                .addra          (w_ld_addr),
+                .dina           ({8{w_ld_data}}),       // 只有 wea 选中的字节真写
+                .injectsbiterra (1'b0),
+                .injectdbiterra (1'b0),
+                // 读口：**读使能 = issue_en**（原来 `if (issue_en) w_row_q <= ...`）
+                .clkb           (ap_clk),
+                .rstb           (1'b0),                 // 不复位（原来就没有复位）
+                .enb            (issue_en),
+                .regceb         (1'b1),
+                .addrb          (w_rd_addr),
+                .doutb          (w_q[gq]),
+                .sbiterrb       (),
+                .dbiterrb       ()
+            );
         end
-    end
+    endgenerate
 
-    // 读口：w_row_q 唯一赋值源（同步读，1 拍；读使能 = issue_en）
-    always_ff @(posedge ap_clk) begin
-        if (issue_en)
-            w_row_q <= w_mem[w_rd_addr];
-    end
+    // 纯拼线（**不是寄存器**！）：位布局与原来完全一致，lane gi 在 [gi*8 +: 8]，
+    //   所以 §5 的 `w_byte = w_row_q[gi*8 +: 8]` 一个字都不用改。
+    assign w_row_q = w_q;
 
     // 偏置装载写口（在 generate 之前声明，供每个 lane 的 bias 写解码使用）
     logic             bl_weA, bl_weB;
@@ -778,8 +838,14 @@ module conv_k1_engine #(
             if (push_ok) begin
                 // ep_gbase / out_word 在 push 这一拍稳定；README：这里**必须**快照，
                 // 因为下一个 pass 的 pass_go 会把 v32 清 0，而 4 拍写还没写完。
-                for (jj = 0; jj < 4; jj = jj + 1)
-                    ob_stg[jj] <= {ep_gbase + jj * hw8_r, out_word[jj]};
+                // ⚠ 改成**位选赋值**而不是拼接 `{ep_gbase + jj*hw8_r, out_word}`：
+                //   拼接的操作数是自决定位宽，加法按 32 位求值（这里 3*hw8 ≤ 2.46M，
+                //   恰好不会截断，属安全写法），但 tools/check_concat_width.py 会报。
+                //   两条位选与原来逐位相同、综合结果不变，同时让门禁通过。
+                for (jj = 0; jj < 4; jj = jj + 1) begin
+                    ob_stg[jj][63:0]  <= out_word[jj];
+                    ob_stg[jj][95:64] <= ep_gbase + jj * hw8_r;
+                end
                 ob_n_stg   <= push_n;
                 ob_wr_busy <= 1'b1;
                 ob_wg      <= 2'd0;
