@@ -45,6 +45,13 @@ def main():
         (os.path.join(pynq, "conv_engine.py"), "conv_engine.py"),
         # 手写 k=1 加速器驱动（USE_K1_IP=1 时才实例化；缺了它整网自动回退老引擎）
         (os.path.join(pynq, "k1_engine.py"), "k1_engine.py"),
+        # 手写 k=3 / k=5 加速器驱动（2026-10-27；USE_K3_IP/USE_K5_IP 默认开。
+        # 缺文件时 k=3/k=5 层会在 conv() 里直接报错，不会静默算错）
+        (os.path.join(pynq, "k3_engine.py"), "k3_engine.py"),
+        (os.path.join(pynq, "k5_engine.py"), "k5_engine.py"),
+        # 上板前的路由覆盖预演（只读；需要 manifest + weights_pack）
+        (os.path.join(FPGA, "ps", "tools", "ip_route_coverage.py"),
+         "ip_route_coverage.py"),
         # runner.py 在 import 期就依赖这几个（C8 布局表 + 256 项 LUT + v2 加速器）
         (os.path.join(pynq, "lut_util.py"), "lut_util.py"),
         (os.path.join(pynq, "c8_layout.py"), "c8_layout.py"),
@@ -97,6 +104,11 @@ def main():
   runner.py / ops_numpy.py / ref_numpy.py / conv_engine.py   运行库
   k1_engine.py                   手写 k=1 加速器驱动（只有含 k1_wrap 的 bit 才有用；
                                  --use-k1-ip / USE_K1_IP=1 启用，默认关）
+  k3_engine.py / k5_engine.py    手写 k=3 / k=5 加速器驱动（k3_wrap @0x4006_0000；
+                                 k5 尚未进 BD）。USE_K3_IP/USE_K5_IP **默认开**，
+                                 路由失败直接报错（新 bit 已删除 HLS 引擎）
+  ip_route_coverage.py           上板前先跑：python3 ip_route_coverage.py
+                                 （打印每个卷积会落到哪个引擎 + 哪些层无 IP 可用）
   test_k1_on_board.py            单层 A/B：老 HLS 引擎 vs K1，逐字节对比（bring-up）
   c8_layout.py / c8lib.py / ops_c8.py    C8 交错布局（环境变量 C8_LAYOUT=1 启用，
                                 默认 0 = 全部 CHW，行为与整合前逐位一致）
@@ -111,6 +123,11 @@ def main():
 操作（PYNQ 板上）
   1) 确认 FCLK0 = 150 MHz（脚本会打印）
   2) sudo python3 test_on_board.py          预期：5 用例全过
+  2b) 上板前先看路由覆盖（只读，不碰硬件）：
+         python3 ip_route_coverage.py --manifest manifest_640.json \
+             --pack weights_pack/index.json --hwh design_1.hwh --use-k1 1
+      预期：k=3 全部 114 层可路由；k=1 的 24 个 relu=False 层会列为"无 IP 可用"；
+            k=5 需要先把 k5 IP 加进 BD
   3) sudo python3 run_network_on_board.py --manifest manifest_640.json \\
          --pack weights_pack --input weights_pack/input_q.bin --bit design_1.bit
      预期：“与部署参考对比: 0/N 不一致”

@@ -6,8 +6,13 @@
 > 历史基线：`OC_PER_PASS=4` 版本（100 DSP）已通过 30,720/30,720 黄金验收，实测 115,939 拍。
 > 本文件记录结构、oc 并行度取舍、拍数推导、资源估算、验证状态和已知限制。
 > 代码：
-> - RTL：`pynq_specialized_code/pl/rtl_hand/modules/conv_k5_engine.v`
-> - TB：`pynq_specialized_code/pl/rtl_hand/tb/tb_conv_k5_engine.v`（接统一验收设施）
+> - RTL（引擎本体）：`pynq_specialized_code/pl/rtl_hand/modules/conv_k5_engine.v`
+> - RTL（AXI-Lite 包装层，见 §11）：`pynq_specialized_code/pl/rtl_hand/modules/k5_axi_wrap.v`
+>   + `k5_cfg_check.v`（配置校验）
+> - RTL（BD 适配层，Verilog-2001）：`pynq_specialized_code/pl/rtl_hand/modules/k5_axi_wrap_bd.v`
+> - TB（引擎）：`pynq_specialized_code/pl/rtl_hand/tb/tb_conv_k5_engine.v`（接统一验收设施）
+> - TB（包装层）：`pynq_specialized_code/pl/rtl_hand/tb/tb_k5_axi_wrap.v`
+> - BD 集成脚本：`pynq_specialized_code/pl/scripts/bd_add_k5.tcl`
 > - 参考模型：`pynq_specialized_code/pl/rtl_hand/tools/gen_k5_data.py`
 
 ---
@@ -23,7 +28,7 @@
 | 含装载/填充/写回（整层） | **≈59.9 M 拍 ≈ 0.40 s** | 推导 |
 | 相对 HLS 3.39 s | **≈8.5×** | 推导 |
 | 2×320 条带拍数（golden） | **≈392 k 拍**（旧 115,939 的 3.38×） | 推导，待实测 |
-| 资源（估计） | **DSP 25** / BRAM18 ≈22 / LUT ≈6.4 k / FF ≈6.5 k | 估计，未综合 |
+| 资源（**实测过一次，踩到大坑**） | 第一次综合：LUT **70,527** / FF **213,562** / BRAM **0** ❌（2D 数组没进 BRAM）；修复后预期 DSP 25 / BRAM≈10 / LUT≈8 k / FF≈9 k | 见 §5.6 |
 | `xvlog --sv` | 0 error / 0 warning | 已跑 |
 | `xelab` 参数展开 | 通过（DEPTH=768, OC_PER_PASS=1） | 已跑（未跑 xsim） |
 | RTL 功能 golden / fuzz / 实测拍数 | 待父 agent 跑 `run_module.sh` | **未跑（按任务要求不跑仿真）** |
@@ -261,7 +266,7 @@ bias     = 24 beat × 3 ≈ 72 拍
 | 资源 | 估计 | 依据 |
 |---|---:|---|
 | DSP48E1 | **25** | 25 tap × 1 oc；`(* use_dsp="yes" *)` 3 级流水 |
-| BRAM18 | **≈22** | 行缓冲 5×2 bank×2 = 20；输出行缓冲 2（与旧版相同） |
+| BRAM | **≈10 块 BRAM36**（20 个 BRAM18 当量） | 行缓冲 10 个 324×64 各 1 块；输出行缓冲 1 块（W×64） |
 | 分布式 RAM（LUTRAM） | **≈2,400 LUT6** | 25 bank × 768×8 = 153,600 bit；与旧版 100 × 192×8 **等量** |
 | LUT 合计 | **≈6,000 ~ 6,500** | LUTRAM 2,400；窗口字节 mux ≈800；加法树 ≈700（1 路）；控制/AXI ≈2,000；杂项 ≈400 |
 | FF | **≈6,500** | 窗口 3,200；a/b/m 流水 ≈800；加法树 ≈1,400；cap/bias/控制 ≈1,100；p_acc 1,200 在 DSP 内 |
@@ -349,6 +354,62 @@ k=5 全网只有 1 层（`encoder.conv_first`，1.47 GMAC，约占全网 4.5%）
   另外 bias 在 capture 后只有 6 拍窗口（`cap_d[5]`）可读，支持 1/2/4；
   `OC_PER_PASS=8` 需要把 bias 读取推迟到 `cap_d[7]`，未实现。
 
+---
+
+## 5.6 【踩坑复盘】二维数组不会被推断成 BRAM ⇒ 213,562 个触发器
+
+**现象（2026-10-27，k5 第一次进 BD 的综合）**：
+
+```
+k5_wrap_0:  Slice LUTs 70,527 (152.66%)   Slice Registers 213,562 (231.13%)   Block RAM Tile 0
+整机 DRC:   ERROR [DRC UTLZ-1] FDRE over-utilized: requires 223,633 but only 92,850 available
+```
+
+**根因**：行缓冲写成了**二维**数组
+
+```verilog
+(* ram_style = "block" *) logic [63:0] lb_lo [0:4][0:LB_DEPTH-1];   // ❌ 2D
+(* ram_style = "block" *) logic [63:0] lb_hi [0:4][0:LB_DEPTH-1];
+```
+
+Vivado 的 RAM 推断**只支持一维 unpacked 数组**；二维数组即使标了 `ram_style="block"`
+也**不会**映射成 BRAM，而是把每个比特摊成一个触发器：
+5×324×64×2 = 207,360 bit ≈ 213 k FF，正好对上 213,562。
+隔离实验（同容量、同标注）：`2D ⇒ RAMB=0 / FDRE=81,984`；`1D ⇒ RAMB=4 / FDRE=0`。
+
+**修法**：拆成 **10 个一维数组**（5 条行缓冲 × lo/hi 两个 bank），每个 324×64 = 20,736 bit
+⇒ 1 块 BRAM36，合计 10 块。写口用 `case ({fill_line, fill_blk})` 选一个**静态**数组
+（动态基址的 `mem[a][base +: 64]` 推断不出来，所以没合成一个 324×640 的大数组——
+那样只要 6 块，但会退回触发器）。
+
+**关键核对：读延迟没变。** 本文件的读口从第一版起就是同步读模板
+
+```verilog
+always_ff @(posedge ap_clk) lb_rd[i] <= {lb_hi_i[lb_raddr], lb_lo_i[lb_raddr]};
+```
+
+这正是 BRAM 的标准写法（地址打一拍、数据下一拍出）⇒
+"寄存器组（0 拍组合读）→ BRAM（1 拍同步读）"**不改变任何相位**：
+`lb_rd` 相对 `lb_raddr` 原来晚 1 拍，现在仍晚 1 拍；配套寄存的 `lb_raddr_d1`
+（喂 `col_ok`）也天然对齐。改完包装层 TB 仍 **36/36 PASS**（行为不变）。
+
+**通用规律（写进项目教训）**：
+
+> **要进 BRAM/LUTRAM 的存储数组必须是一维。** `ram_style` 只决定"用哪种 RAM"，
+> 不决定"是否用 RAM"；二维 `[0:A][0:B]` 在 Vivado 里等价于 A×B 个独立寄存器。
+> 一维之后，**读口写法决定延迟**：`assign d = mem[a]` 是 0 拍（分布式 ROM/LUTRAM），
+> `always_ff d <= mem[a]` 是 1 拍（BRAM / 带输出寄存的 LUTRAM）。
+> 换存储介质前，先数清楚消费侧等了几拍。
+
+**其它二维数组保持不动**（它们本来就该是寄存器，不是存储）：
+`win[0:4][0:4]`（25×128 窗口移位寄存器，3,200 FF）、`b_r/m_r/p_acc/mac_wgt`
+（DSP 的 A/B/M/P 流水寄存器）、`ts0..ts4`（加法树流水，51×26 ≈1,326 FF）。
+它们没有 `ram_style`，综合会正常展开成触发器；拍平对资源/时序零影响，只会增加改错风险。
+**FF 预算**（lb 归 0 后）：3,200(win) + 1,326(ts) + 1,200(p_acc，实际落在 DSP 内)
++ 640(lb_rd) + 其它 ≈ **6~9 k**，满足 ≤12 k。
+
+---
+
 ## 6. 验证
 
 ### 6.1 已完成的检查
@@ -360,7 +421,7 @@ k=5 全网只有 1 层（`encoder.conv_first`，1.47 GMAC，约占全网 4.5%）
 | `xvlog --sv`（旧版 + 本次改动的 1 oc 版） | **0 error / 0 warning** | DUT + TB + `common/eq_checker.v`，按 `run_module.sh` 的宏 |
 | `xelab` 参数展开（1 oc 版） | **PASS** | `k5_wbank(DEPTH=768)`、`conv_k5_engine` 例化成功 |
 | 旧版 RTL golden（4 oc） | **PASS 30,720/30,720，115,939 拍** | `run_module.sh conv_k5_engine k5_12x48`（2026-10-26 报告） |
-| 新版 RTL golden（1 oc） | **未跑（本次任务明确不跑仿真）** | 父 agent 跑 `run_module.sh` 回填 |
+| 新版 RTL golden（1 oc，**行缓冲拍平之后**） | **PASS 30,720/30,720，392,419 拍，axi_errors=0** | 2026-10-27 实跑（`xvlog/xelab/xsim` + `golden/k5_12x48`，见 §6.4） |
 
 ### 6.2 testbench
 
@@ -422,11 +483,15 @@ bash tools/run_module.sh conv_k5_engine k5_12x48 --define K5_SM_DUMP
 
 | 项 | 期望 | 实际 |
 |---|---|---|
-| 2×320 golden 逐字节 | 30,720/30,720 | 待父 agent 跑 |
+| 2×320 golden 逐字节 | 30,720/30,720 | ✅ **30,720/30,720**（0 / 30720 字节不一致） |
 | 200 组 fuzz | 200/200 PASS | 待父 agent 跑 |
-| 2×320 拍数（1 oc） | **≈392 k**（≤464 k 验收线） | 待回填 |
-| 320×320 整层拍数（1 oc） | **≈59.9 M ≈0.40 s** | 待回填 |
-| 资源/Fmax | DSP **25** / BRAM 22 / LUT ≈6.5 k / Fmax ≥150 MHz（待确认） | 待综合 |
+| 2×320 拍数（1 oc） | **≈392 k**（≤464 k 验收线） | ✅ **392,419 拍**（与推导的 ≈392 k 吻合） |
+| 320×320 整层拍数（1 oc） | **≈59.9 M ≈0.40 s** | 推导值（§4.1：58,982,400 计算 + 外围）；条带实测与条带推导一致 ⇒ 可信 |
+| 资源/Fmax | DSP **25** / BRAM ≈10 / LUT ≈8 k / FF ≈9 k / Fmax ≥150 MHz（**修掉 2D 数组后**，待复测） | 父 agent 复测 |
+
+> 注：条带实测 392,419 拍与 §4.3 的条带推导（≈392 k）一致；整层请用 §4.1 的
+> 58,982,400 + 外围 ≈59.9 M 拍，**不要**拿条带乘 100 去推（条带里权重装载/预载
+> 占 4.6%，整层里不到 0.1%）。
 
 ---
 
@@ -500,3 +565,186 @@ bash tools/run_module.sh conv_k5_engine k5_12x48 --define K5_SM_DUMP
 ```
 
 > 本文的「待回填」项在父 agent 跑完后更新；如果 fuzz 失败，优先看字节号是否集中在某个 oc 块/某个 s 半区，那通常指向 `grp`/`s_cnt` 或输出拼包，而不是 MAC 本身。
+
+---
+
+## 11. AXI 包装层（`k5_axi_wrap` / `k5_axi_wrap_bd`）
+
+> 状态（2026-10-27）：**RTL/脚本已落盘，`xvlog` 语法检查通过；未跑 xelab/xsim/综合，
+> 未进 BD、未上板**。寄存器表与 k3 逐条一致（PS 侧 `ps/pynq/k5_engine.py` 直接可用）。
+
+### 11.1 为什么需要两层（和 k1/k3 完全同构）
+
+| 层 | 文件 | 语言 | 职责 |
+|---|---|---|---|
+| 包装层 | `k5_axi_wrap.v` | SystemVerilog | AXI4-Lite 从口 + 寄存器表 + 配置校验 + 地址窗口 + **三读合并成一读** + sticky 越界灯 |
+| BD 适配层 | `k5_axi_wrap_bd.v` | **Verilog-2001** | 纯引脚级：把 2 个精简 AXI4 master 补成**完整 AXI4**（SIZE/BURST/CACHE/PROT/QOS/ID）并挂 `X_INTERFACE_INFO`，让 BD 推断出 interface pin |
+| 配置校验 | `k5_cfg_check.v` | Verilog-2001 | 启动前比对"本次综合的常量"，非法则拒绝启动 |
+
+适配层必须是 Verilog-2001：`create_bd_cell -type module -reference` 的**顶层文件**
+不接受 SystemVerilog（`[filemgmt 56-195]` / `[BD 41-1690]`，k1 上实测踩到）。
+限制只针对 reference 的顶层文件，内部例化的 SV 模块没问题。
+
+### 11.2 寄存器表（与 k3 完全一致）
+
+| offs 页（A[16]=0） | 寄存器 | 说明 |
+|---|---|---|
+| 0x10 / 0x14 | IN_ADDR lo/hi | 输入张量（C8 布局）；hi 被丢弃（PS 必须写 0） |
+| 0x1C / 0x20 | WGT_ADDR lo/hi | 权重（PAD28 容器） |
+| 0x28 / 0x2C | BIAS_ADDR lo/hi | bias（int32 × cout） |
+| 0x34 / 0x38 | OUT_ADDR lo/hi | 输出（C8 布局） |
+
+| ctrl 页（A[16]=1） | 寄存器 | 读写 | k5 里做什么 |
+|---|---|---|---|
+| 0x00 | AP_CTRL | W: bit0=start（自清） R: [1]done [2]idle [3]ready | 写 1 → `start_pend` |
+| 0x10 | AP_RETURN | R | 0=成功；1..9=`k5_cfg_check` 错误码；0xA=窗口越界 |
+| 0x18 / 0x20 | H / W | RW | **参与校验**（必须 =320） |
+| 0x28 / 0x30 | HOUT / WOUT | RW | **只回显**（Hout/Wout 由 H/W 派生，stride=1） |
+| 0x38 / 0x40 | CIN / COUT | RW | **参与校验**（必须 =12 / =48） |
+| 0x48 | KSIZE | RW | **参与校验**（必须 =5，归到错误码 5） |
+| 0x50 / 0x58 | STRIDE / DIL | RW | **参与校验**（必须 =1 / =1） |
+| 0x60 | PAD | RW | **参与校验**（必须 =2，归到错误码 5） |
+| 0x68 | SHIFT | RW | **参与校验**（≤31）并下传引擎 |
+| 0x70 | RELU | RW | **只回显**（k5 的 ReLU 是硬连线；与 k1 的做法一致） |
+| 0x94 | STATUS | R | [0]done [1]busy [2]err [7:4]err_code [8]idle [9]sticky_oob |
+| 0x98 / 0x9C | WIN_LO / WIN_HI | RW | 四区地址窗口（默认 0 / 0xFFFF_FFFF） |
+| 0xA0 / 0xA4 | STALL_FILL / STALL_MAC | R | **总线反压拍数**（语义与 k3 不同，见 11.4-2） |
+| 0xA8 | 自检 | R | {26'd0, win_ok[5], ok[4], err[3:0]} |
+| 0xAC | 四区窗口 | R | {28'd0, ok_ou[3], ok_bi[2], ok_wg[1], ok_in[0]} |
+| 0xB0 | bytes_in | R | ⌈cin/8⌉·8·H·W·8 = **13,107,200**（0x00C8_0000） |
+
+`bytes_*` 的口径（与 `k5_cfg_check` / 引擎记账逐条对齐）：
+
+| 量 | 公式 | 真实层（12/48/320/320） |
+|---|---|---|
+| `bytes_in` | ⌈cin/8⌉·8·H·W·8 | 16·320·320·8 = 13,107,200 |
+| `bytes_wgt` | cout·cin·28（PAD28） | 48·12·28 = 16,128 |
+| `bytes_bias` | cout·4 | 192 |
+| `bytes_out` | ⌈cout/8⌉·8·Hout·Wout·8 | 48·320·320·8 = **39,321,600** |
+
+> ⚠ 这三个公式里的 `·8` 是 **k1/k3/k5 共同的记账口径**（PS 侧 `buffer_bytes()` 逐字同式），
+> 所以窗口/钳制用的上界比真实张量大 8 倍。它**必须与 PS 保持一致**（PS 用同一组数算
+> `win_lo/win_hi` 并分配缓冲区），不要"顺手修正"成真实字节数——那样窗口检查会全拒。
+
+### 11.3 错误码（沿用 k3 语义）
+
+| 码 | 含义 | k5 本版会不会命中 |
+|---|---|---|
+| 0x1 | cin ≠ 12 | 会（PS 写错） |
+| 0x2 | cout ≠ 48 | 会 |
+| 0x3 | stride ≠ 1 | 会 |
+| 0x4 | dilation ≠ 1 | 会 |
+| 0x5 | **H/W/pad/ksize** 与本次综合的常量不一致 | 会（★ 比 k3 多含 pad/ksize） |
+| 0x6 | Hout/Wout 非正 | 恒不命中（H/W 已被 5 固定；码位保留） |
+| 0x7 | shift > 31 | 会 |
+| 0x8 | 槽容量保守上界 ⌈cin/8⌉·W·(d≠1?2:1) > CAP_B | 恒不命中（真实层 640 ≤ 4608；码位保留 + 改参数时兜底） |
+| 0x9 | stride≠1 且 dilation≠1 | 恒不命中（两者都固定 1；码位保留） |
+| 0xA | 四区没有整体落在 [WIN_LO, WIN_HI] 内 | 会 |
+
+### 11.4 与 k3 包装层的差异清单（每条都是"k5 引擎端口不同"逼出来的）
+
+| # | k3 | k5 | 为什么 |
+|---|---|---|---|
+| 1 | 引擎有 `ctrl_dil/ctrl_relu` 端口 | k5 引擎**没有** `ctrl_dil/ctrl_relu/ctrl_pad/ctrl_ksize` | k5 的 d/ReLU/pad/ksize 是编译期常量。寄存器仍存在（PS 契约不变），但只喂 `k5_cfg_check` 做拒绝判定 —— "PS 写 d=2 而硬件按 d=1 算"必须报错，不能静默算错 |
+| 2 | `dbg_stall_fill/dbg_stall_mac` 由引擎导出（等填充/等抽头分类） | 引擎**没有**这两个端口 ⇒ 包装层在**总线边界**统计 | k5 FSM 顺序执行、无填充 FIFO/抽头仲裁，取不到内部分类。k5 的 STALL_FILL = 读 AR 未被接受 或 R 该给数没给 的拍数；STALL_MAC = 写 AW/W 未被接受的拍数。**语义是"互连/DDR 反压"，不能与 k3 的数值直接比较**，但判读方式一样（与时间线性增长 ⇒ 供数不足）。⚠ 底噪：每个读 burst 的固有 AR→首拍 R 延迟（1~3 拍）会计入 STALL_FILL，整层约几千拍（相对 59 M 拍 < 0.1%），**不要期望它恰好为 0** |
+| 3 | 参数 `(LANES, CAP_B)` | 参数 `(CIN, COUT, W, H, PAD, OC_PER_PASS)` + `CAP_B` | 这 6 个原样下传引擎，同时作为 `k5_cfg_check` 的"合法集合"（不另设一份常量，避免两处不一致） |
+| 4 | `HOUT/WOUT` 由 `(X-1)>>(S-1)+1` 派生（有移位器） | 直接 `Hout=H, Wout=W` | stride 被校验固定为 1 ⇒ 不需要移位器，也避开"移位量写成 `stride[0]`"那个已踩过的坑（k3 §18.2c 修复 #4） |
+| 5 | `bytes_wgt` 用 `cout·cin·12`（PAD12） | `cout·cin·28`（PAD28），用 `x·32 − x·4` 两条移位 + 一次减法 | 28 字节/ic 是 PAD28 容器；用移位避免乘法器抢 DSP |
+| 6 | 三路 `rlast` 恒接 `1'b0`（引擎不消费） | 同 k3：恒接 `1'b0` | k5 引擎按自己的 beat 计数收 burst（`rd_rlast` 只被赋值、从未被读），所以包装层不需要把 rlast 接进引擎；合并读口的 burst 结束判据用**从机的** RLAST（与 k3 逐行相同） |
+
+**相同（刻意照抄、逐行未改）**：Lite 读写时序与分页、`start_pend → cfg_settle[3] → eng_start`
+两级启动、`bytes_*` 三级流水与位宽纪律、四区 33 位窗口比较、`ok_in/ok_wg/ok_bi/ok_ou` 钳制 +
+`sticky_oob`、合并读的 2-bit tag 仲裁与 R 通道路由、`0xA8/0xAC/0xB0` 自检口径。
+
+### 11.5 为什么启动要走"两级"（时序关键，别改回去）
+
+```verilog
+// ❌ 曾经（k3 上的 BD 综合 WNS −43 ns / 101 级逻辑的根因）
+.ctrl_start (do_start && cfg_ok && cfg_win_ok)     // 配置检查+窗口比较 ≈70 级组合
+// ✅ 现在
+start_pend → (等 cfg_settle[3]，≥8 拍) → eng_start（单拍脉冲，寄存器输出）
+```
+
+原则：**给 IP 的每个输入都应该是寄存器输出**。配置检查/地址窗口这类"慢逻辑"
+只能驱动寄存器，不能直接驱动被包装模块的控制端口。代价是 PS 看到 start 晚 2 拍
+（13 ns），而 PS 本来就在轮询 done ⇒ 语义不变。
+
+### 11.6 BD 里怎么接（`scripts/bd_add_k5.tcl`）
+
+| 项 | 值 |
+|---|---|
+| BD cell 名 | `k5_wrap`（`create_bd_cell -type module -reference k5_axi_wrap_bd`） |
+| AXI-Lite | `axi_ctrl/M04_AXI → k5_wrap/s_axi`，**128KB @ 0x4008_0000**（A[16] 分页：offs 页 0x4008_0000、ctrl 页 0x4009_0000） |
+| 合并读 | `k5_wrap/m_axi_rd → smc/S06_AXI`（in/wgt/bias 在包装层内部合并，2-bit tag） |
+| 输出写 | `k5_wrap/m_axi_out → smc/S07_AXI` |
+| 时钟/复位 | `ps7/FCLK_CLK0`（= engine/ap_clk）、`rst_0/peripheral_aresetn`（= engine/ap_rst_n），150 MHz 口径 |
+| 地址空间 | 2 个 master 各映射 DDR 低 1GB @ 0x0 |
+
+三条硬约束（脚本里逐条注释）：
+1. **绝不缩 `smc` 的 NUM_SI**（已是 8；缩了会重排 SI 编号，k1 的 S02/S03、k3 的 S04/S05 全错位）。
+2. **扩 `axi_ctrl` 的 NUM_MI 到 5 后，必须接 `M04_ACLK` / `M04_ARESETN`**，否则 `validate` 报 BD 41-758。
+3. **`delete_bd_objs` 只删 cell，绝不删 net** —— 删 net 会连带删掉 `FCLK_CLK0` 等共用网络，
+   之后 validate 报一片时钟悬空。上一版脚本在连 master 前"无条件删该 pin 上的 net"，
+   实跑证明会踩这个坑；本版改成只对**悬空**的 interface net 调 `disconnect_bd_intf_net`，
+   并在连完后断言时钟/复位网仍在。
+
+### 11.7 包装层的 TB（`tb_k5_axi_wrap.v`）
+
+T1..T5 与 `tb_k3_axi_wrap.v` 同构，但 DUT 用**小形状**（CIN=12/COUT=8/W=8/H=2；CIN 必须让 CPAD=16，原因见 RTL 注释）：
+
+| 用例 | 内容 | 期望 |
+|---|---|---|
+| T1 | Lite 寄存器回环（形状 + 4 组 64 位地址 + 窗口） | 全部读回一致 |
+| T2 | 拒绝 cin=16 / H=1 / stride=2 / shift=32 | AP_RETURN = 1 / 5 / 3 / 7，done 自打，**引擎 0 次启动** |
+| T3 | 抬高 WIN_LO 使**只有 in 区**越界 | AP_RETURN = 0xA；0xAC = 0xE（ok_in=0） |
+| T4 | 正常启动（H=2/W=8/cin=12/cout=8） | AP_RETURN=0、done=1、`eng_start` 恰好 1 次、7 个 AR、16 个写 beat |
+| T5 | 运行期不变量 | STATUS[9]（sticky_oob）恒 0 |
+
+为什么用小形状：k5 引擎形状是**编译期参数**，真实层整层 5,900 万拍，仿真跑不动；
+小形状走的是同一套包装逻辑（被测对象），而 H=2 与真实 golden 条带 `k5_12x48` 行数一致
+（pad 行也走到），`cout=8 + OC_PER_PASS=1` 的 8 个 pass 刚好拼满一个 64-bit beat
+⇒ 输出写回路径也被覆盖。
+
+**实跑结果（2026-10-27，本文件作者跑）**：`xvlog → xelab → xsim` **36/36 PASS**，
+T4 全程 5,110 拍（`S_COMPUTE` 768 拍 = 8 像素 × 8 pass × 12 ic，与理论一致），
+7 个读 AR（权重 256+80 两段、bias 4 拍、行填充 4 段）+ 2 个写 burst（每行 8 拍）：
+
+```
+[TB-DBG] AR id=1 addr=0x10020000 len=255     # 权重第 1 段（256 beat）
+[TB-DBG] AR id=1 addr=0x10020800 len=79      # 第 2 段：地址 +2048、段长按剩余重算
+[TB-DBG] AR id=2 addr=0x10040000 len=3       # bias 4 beat = 32 B
+[TB-DBG] AR id=0 addr=0x10000000 len=7       # 行填充：row0 blk0
+[TB-DBG] AR id=0 addr=0x10000080 len=7       #           row0 blk1（+BLK_BYTES=128）
+[TB-DBG] AR id=0 addr=0x10000040 len=7       #           row1 blk0（+ROW_BYTES=64）
+[TB-DBG] AR id=0 addr=0x100000c0 len=7       #           row1 blk1
+[TB-DBG] AW addr=0x10060000 len=7            # 写回 row0（8 beat）
+[TB-DBG] AW addr=0x10060040 len=7            # 写回 row1（+ROW_BYTES）
+```
+
+> ⚠ **TB 的从机模型踩过的坑（2026-10-27，值一条复盘）**：读从机的 `RLAST` 一开始写成
+> 寄存器 `rd_rlast <= (rs_cnt == rs_len)`，比数据**晚一拍** ⇒ RLAST 只出现在"最后一个
+> beat 之后的那一拍"（那拍 RVALID 已掉）。后果：包装层的 `rd_busy` 靠
+> `rvalid && rready && rlast` 清零，于是一直为 1、后续 AR 全被挡住、引擎卡在
+> `S_FILL_DATA`（busy=1 / done=0 / 零写 beat）。
+> **为什么只有行填充挂、权重/bias 反而"侥幸跑过"**：权重/bias 的 `rd_ready = !w_word_valid`
+> 会周期性反压，最后一个 beat 被**拖住一拍**，晚一拍的 RLAST 恰好赶上；
+> 行填充 `rd_ready=1` 恒接受，末拍立刻走完 ⇒ RLAST 永远赶不上。
+> 修法：`assign rd_rlast = rs_busy && (rs_cnt == rs_len);`（组合、与**本拍**给出的 beat 对齐）。
+> 教训与 k3 §18.2c「门控要跟着数据延几级」同源：**握手侧的控制信号必须与数据同拍，
+> 不能用"晚一拍的寄存器"去标末拍**。同一个从机模型在 `tb_k3_axi_wrap.v` 里也存在
+> （那个 TB 写好后从未跑过），本文不改 k3 的文件，**建议父 agent 顺手同步修掉**。
+
+### 11.8 验证状态（诚实版）
+
+| 项 | 状态 |
+|---|---|
+| `xvlog`（`k5_axi_wrap.v` / `k5_axi_wrap_bd.v` / `tb_k5_axi_wrap.v`，含/不含 `-d K5_WRAP_DBG`） | ✅ 0 error / 0 warning |
+| `k5_axi_wrap_bd.v` + `k5_cfg_check.v` 按 Verilog-2001 单独分析（不加 `--sv`） | ✅ 通过 |
+| `xelab` / `xsim`（`tb_k5_axi_wrap`） | ✅ **36/36 PASS**（2026-10-27，修掉从机 RLAST bug 后；见 §11.7 的复盘） |
+| `bd_add_k5.tcl` | ⏳ 未执行（会改 BD 工程；`tclsh info complete` 通过、与 k3 的命令集 diff 无新增） |
+| 综合/Fmax/资源 | ⏳ 未跑（约束：包装层 + 引擎一起综合才作数，见 k3 §18.2d） |
+| 上板 | ⏳ 未做 |
+
+调试：`xvlog -d K5_WRAP_DBG` 后 TB 会逐次打印引擎状态迁移
+（`[K5-SM] cyc=? S_IDLE->S_WGT_REQ ... busy/done/AR/R/W/y/b/x/s/ic/wr/lbv`），
+并在**连续 2000 拍没有任何握手**时打印 `⚠` 告警——死锁定位靠这两行就够。

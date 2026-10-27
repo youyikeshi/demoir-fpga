@@ -198,20 +198,26 @@ def main():
               and mmio.read(k1_engine.B_OUT_FM + 4) == (exp_out >> 32))
         check("运行后 invalidate 内存池", arena.invalidates >= 1)
 
-        # ---- 2) relu=False：自动回退老引擎并打印原因 ----
+        # ---- 2) relu=False：**现在由 K1 IP 直接执行**（运行期 ReLU）----
+        #   2026-10-27：0x70 bit0 → ctrl_relu，RTL 三处齐全 + 仿真 relu=0 通过
+        k1_before = eng.k1_calls
+        old.calls.clear()
         op_lin = _op("ut.lin", 48, 16, False, "w_lin")
         eng.conv("a", "b", op_lin)
-        check("relu=False 回退老引擎",
-              eng.k1_calls == 1 and len(old.calls) == 1,
+        check("relu=False 由 K1 IP 执行（不回退）",
+              eng.k1_calls == k1_before + 1 and len(old.calls) == 0,
               "k1=%d old=%d" % (eng.k1_calls, len(old.calls)))
-        check("回退原因已记录", any("relu" in k for k in eng.k1_skip_reasons),
-              repr(eng.k1_skip_reasons))
+        check("0x70 写入了 relu=0",
+              mmio.read(k1_engine.R_RELU) & 1 == 0,
+              "R_RELU=0x%x" % mmio.read(k1_engine.R_RELU))
 
         # ---- 3) 融合出口：自动回退老引擎（K1 无 out_lut/chsum）----
         old.calls.clear()
+        k1_before = eng.k1_calls
         eng.conv("a", "b", op_ok, out_lut=np.zeros(256, np.int8))
-        check("out_lut 层回退老引擎", len(old.calls) == 1 and eng.k1_calls == 1,
-              "old=%d k1=%d" % (len(old.calls), eng.k1_calls))
+        check("out_lut 层回退老引擎",
+              len(old.calls) == 1 and eng.k1_calls == k1_before,
+              "old=%d k1=%d(+0)" % (len(old.calls), eng.k1_calls))
 
         # ---- 4) CHW：全部回退老引擎 ----
         arena_chw = _Arena({"a": False, "b": False})
@@ -240,8 +246,9 @@ def main():
 
         # ---- 6) k1_summary 输出可读 ----
         summary = eng.k1_summary()
+        # 2026-10-27：relu=False 现在也由 K1 执行 ⇒ 执行 2 层（op_ok + op_lin）
         check("k1_summary 含执行/回退统计",
-              "执行 1 层" in summary and "回退老引擎" in summary, summary)
+              "执行 2 层" in summary, summary)
 
         # ---- 7) 开关关闭：完全不构造 K1Engine ----
         eng_off = runner.PYNQEngine(overlay, index, blob, arena, use_k1=False)

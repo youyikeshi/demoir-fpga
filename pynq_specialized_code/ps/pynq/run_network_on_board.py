@@ -83,6 +83,26 @@ def main():
     ap.add_argument("--k1-fclk", type=float, default=None,
                     help="K1 IP 所在时钟 MHz，仅用于超时估算（默认 150，或读 "
                          "K1_IP_FCLK_MHZ）")
+    ap.add_argument("--use-k3-ip", action="store_true", default=None,
+                    help="k=3 层走新手写 IP（conv_k3_engine / k3_wrap）。"
+                         "**默认就是开**（USE_K3_IP 默认 1）：新 BD 已删除 HLS "
+                         "引擎，k=3 没有退路。这个开关只是把默认值说清楚")
+    ap.add_argument("--no-k3-ip", action="store_true",
+                    help="显式关掉 k=3 路由（USE_K3_IP=0）：只在旧 bit 的 HLS 仍"
+                         "支持 k=3 时才有意义。关掉后 k=3 层走 HLS")
+    ap.add_argument("--k3-ip-name", default=None,
+                    help="BD 里 k3 从机的实例名（默认 k3_wrap，也读 K3_IP_NAME）")
+    ap.add_argument("--use-k5-ip", action="store_true", default=None,
+                    help="k=5 层走新手写 IP（conv_k5_engine / k5_wrap）。"
+                         "**默认就是开**（USE_K5_IP 默认 1）")
+    ap.add_argument("--no-k5-ip", action="store_true",
+                    help="显式关掉 k=5 路由（USE_K5_IP=0）：新 bit 的 HLS 对 k=5 "
+                         "返回 6，回退只会得到错误")
+    ap.add_argument("--k5-ip-name", default=None,
+                    help="BD 里 k5 从机的实例名（默认 k5_wrap，也读 K5_IP_NAME）")
+    ap.add_argument("--ip-plan", action="store_true",
+                    help="只预演**三个**手写 IP 的整体路由（k1/k3/k5 各能接多少层、"
+                         "哪些层**没有任何 IP 可用**），不执行卷积。上板前先跑这个")
     ap.add_argument("--k1-relu", type=int, choices=(0, 1), default=None,
                     help="该 k1 bit 综合时的 RELU 参数（默认 1；只有 relu 值相同"
                          "的层会路由。RELU=0 的 bit 才能吃下 conv_proj 线性层）")
@@ -105,6 +125,22 @@ def main():
         os.environ["K1_IP_FCLK_MHZ"] = str(a.fclk)
     if a.k1_relu is not None:
         os.environ["K1_IP_RELU"] = str(a.k1_relu)
+    # k3/k5：默认开；--no-kX-ip 显式关（等价 USE_KX_IP=0），--use-kX-ip 只是
+    # 把"默认开"写成显式（两者同时给时报错，避免"我到底开没开"的歧义）
+    if a.use_k3_ip and a.no_k3_ip:
+        ap.error("--use-k3-ip 与 --no-k3-ip 不能同时给")
+    if a.use_k5_ip and a.no_k5_ip:
+        ap.error("--use-k5-ip 与 --no-k5-ip 不能同时给")
+    use_k3 = (True if a.use_k3_ip else (False if a.no_k3_ip else None))
+    use_k5 = (True if a.use_k5_ip else (False if a.no_k5_ip else None))
+    if use_k3 is not None:
+        os.environ["USE_K3_IP"] = "1" if use_k3 else "0"
+    if use_k5 is not None:
+        os.environ["USE_K5_IP"] = "1" if use_k5 else "0"
+    if a.k3_ip_name:
+        os.environ["K3_IP_NAME"] = str(a.k3_ip_name)
+    if a.k5_ip_name:
+        os.environ["K5_IP_NAME"] = str(a.k5_ip_name)
 
     import json
     with open(a.manifest, "r", encoding="utf-8") as f:
@@ -146,7 +182,9 @@ def main():
         fuse_offsets = (parts[0], parts[1])
     engine = PYNQEngine(ol, index, blob, arena, fuse_offsets=fuse_offsets,
                         use_k1=(True if a.use_k1_ip else None),
-                        k1_ip_name=a.k1_ip_name)
+                        k1_ip_name=a.k1_ip_name,
+                        use_k3=use_k3, k3_ip_name=a.k3_ip_name,
+                        use_k5=use_k5, k5_ip_name=a.k5_ip_name)
     if fuse_offsets is not None:
         print("融合寄存器: out_lut=%s  chsum=%s"
               % ("None（不写）" if fuse_offsets[0] is None else hex(fuse_offsets[0]),
@@ -187,6 +225,31 @@ def main():
             print("  - %-56s %3d 层  例: %s" % (why, n, ", ".join(ex[:3]) or "-"))
         return
 
+    # 三个手写 IP 的整体路由预演（--ip-plan）：只读、不跑整网。
+    # 与 --k1-plan 的区别：这里把 k1/k3/k5 一起算，并明确列出"没有任何 IP
+    # 可用"的层 —— 那些层会让整网直接停下，是上板前必须先解决的事。
+    if a.ip_plan:
+        plan = engine.ip_plan(r.ops)
+        print("=" * 74)
+        print("IP 路由预演：%d 个卷积  K1 %d / K3 %d / K5 %d"
+              % (plan["n_conv"], plan["by_k"].get(1, 0),
+                 plan["by_k"].get(3, 0), plan["by_k"].get(5, 0)))
+        for tag in ("k1", "k3", "k5"):
+            p = plan[tag]
+            n = plan["by_k"].get({"k1": 1, "k3": 3, "k5": 5}[tag], 0)
+            print("  %s: 可路由 %d / %d 层" % (tag.upper(), len(p["routed"]), n))
+            for why, cnt in sorted(p["reasons"].items(), key=lambda kv: -kv[1]):
+                ex = (p["examples"].get(why) or ["-"])[0]
+                print("     - %-52s %3d 层  例: %s" % (why, cnt, ex))
+        if plan["unroutable"]:
+            print("!! 无 IP 可用 %d 层（整网会在这里停下）："
+                  % len(plan["unroutable"]))
+            for op, why, tag in plan["unroutable"]:
+                print("   - %-44s k=%-2s %s"
+                      % (op["name"], op.get("k"), why))
+        print("=" * 74)
+        return
+
     # v2 层间算子加速器（可选；--no-pp 可关掉做 A/B 对照）
     if not getattr(a, "no_pp", False):
         try:
@@ -201,22 +264,30 @@ def main():
         except Exception as e:                       # noqa: BLE001
             print("v2 层间算子加速器不可用（%s）：层间算子继续走 numpy" % e)
 
-    if engine.use_k1 and engine.k1 is not None:
-        # 分开估算：走 K1 的层用 K1 理论拍数（快 ~7×），其余仍按老引擎
-        plan = k1_plan or engine.k1_plan(r.ops)
-        routed = set(o["id"] for o in plan["routed"])
-        est = sum((engine.k1.estimate_seconds if o["id"] in routed
-                   else engine.unit.estimate_seconds)(
-                       o["h"], o["w"], o["cin"], o["cout"], o["k"], o["s"])
-                  for o in r.ops if o["op"] == "conv")
-        print("预计卷积耗时 ≈ %.1f 分钟（K1 %d 层 / HLS %d 层；层间算子另计）"
-              % (est / 60.0, len(routed), r.n_conv - len(routed)))
-    else:
-        est = sum(engine.unit.estimate_seconds(o["h"], o["w"], o["cin"], o["cout"],
-                                              o["k"], o["s"])
-                  for o in r.ops if o["op"] == "conv")
-        print("预计卷积耗时 ≈ %.1f 分钟（150MHz cosim 校准 + 1.5× 余量；层间算子另计）"
-              % (est / 60.0))
+    # 预估：按每层**实际会被谁接**挑估算函数（k1/k3/k5 各用自己的拍数公式）。
+    # 没有 HLS 引擎（新 bit）时，落到 HLS 的层按 0 计（它们本来就会报错）。
+    ip_est = {"k1": engine.k1, "k3": engine.k3, "k5": engine.k5}
+    n_by = {"k1": 0, "k3": 0, "k5": 0, "hls": 0}
+    est = 0.0
+    for o in r.ops:
+        if o["op"] != "conv":
+            continue
+        tag, _why = engine._conv_route(
+            o,
+            engine.arena.is_c8(o["in"][0]) if o.get("in") else False,
+            engine.arena.is_c8(o["out"][0]) if o.get("out") else False)
+        n_by[tag] += 1
+        eng = ip_est.get(tag)
+        if eng is None and tag == "hls" and engine.unit is not None:
+            eng = engine.unit
+        if eng is not None:
+            est += eng.estimate_seconds(o["h"], o["w"], o["cin"], o["cout"],
+                                        o["k"], o["s"])
+    print("预计卷积耗时 ≈ %.1f 分钟（K1 %d / K3 %d / K5 %d / HLS %d 层；"
+          "层间算子另计）"
+          % (est / 60.0, n_by["k1"], n_by["k3"], n_by["k5"], n_by["hls"]))
+    if engine.unit is None:
+        print("（本 bit 没有老 HLS 引擎；任何 HLS 层的估算按 0 计）")
 
     t0 = time.time()
     if a.profile:
@@ -233,6 +304,10 @@ def main():
     if engine.use_k1:
         # 逐原因回退统计（A/B 时看这个判断"新 IP 到底接了几层"）
         print(engine.k1_summary())
+    if engine.use_k3:
+        print(engine.k3_summary())
+    if engine.use_k5:
+        print(engine.k5_summary())
     if r.fuse_conv:
         print("融合出口统计: conv→cat %d 段（cat 跳过重定标 %d 段），"
               "conv→eca %d 段（ECA 跳过整块扫描 %d 次）"

@@ -38,7 +38,7 @@ HLS 引擎占满；``K1_STEAL_ENGINE=1`` 时才放 0x4000_0000）。所以驱动
 已知限制（详见 ``docs/部署/k1_IP接入.md``）
 --------------------------------------------
 * **只支持 C8 交错布局**（输入/输出都必须是 C8）；CHW 下必须回退老引擎。
-* ``RELU`` 是综合期参数（本版 RELU=1），线性层（``relu=False``）不能走本 IP。
+* ``RELU``：**运行期可控**（0x70 bit0 → ctrl_relu），``relu=False`` 的线性层也能走本 IP。
 * 没有 ``out_lut`` / ``chsum`` 融合出口；开了融合的层必须回退老引擎。
 * 权重容器必须是 ``[cout, cin, 1, 1]`` 的 ``oc_ic_ky_kx`` 连续字节。
 """
@@ -279,9 +279,16 @@ def check_supported(H, W, cin, cout, k, s, d, pad, shift, relu=True,
     if shift < K1_SHIFT_MIN or shift > K1_SHIFT_MAX:
         reasons.append("shift=%d 不在 [%d,%d]"
                        % (shift, K1_SHIFT_MIN, K1_SHIFT_MAX))
-    if bool(relu) != bool(int(relu_capable)):
-        reasons.append("relu=%s 与 IP 综合期 RELU=%d 不符（RELU 是编译期参数，"
-                       "运行期寄存器只回显）" % (bool(relu), int(relu_capable)))
+    # ReLU 是**运行期**可控的：wrapper 把 0x70 bit0 接到 k1_axi_wrap.v:489
+    # 的 .ctrl_relu(r_relu[0])，引擎在 conv_k1_engine.v:656 用它决定是否 clamp。
+    # 复位默认 = 编译期 RELU 参数，但驱动每次 run() 都会写 0x70（k1_engine.py:638
+    # → relu_flags()），所以 relu=True/False 都支持。
+    #   2026-10-27 由父 agent 核实：RTL 有 r_relu 寄存器（写入/复位/接线三处齐全），
+    #   且仿真里 relu=0 的 3 个用例逐字节通过（133120/133120）。
+    #   放松此判定使 k1 可路由层数 108 → 132（整网 24 个 conv_proj 是 relu=False）。
+    # relu_capable 仅保留为「编译期默认值」的说明，不再作为硬门槛。
+    if bool(relu) is False and int(relu_capable) == 0:
+        pass   # 同为 0：一致，放行（无需提示）
     if not bool(c8_in):
         reasons.append("输入不是 C8 布局（本 IP 只支持 C8 交错布局）")
     if not bool(c8_out):

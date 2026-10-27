@@ -101,6 +101,10 @@ module conv_k3_engine #(
     localparam int BW  = 13;                 // 行缓冲地址 0..8191
     localparam int WW  = LANES * 9 * 8;      // 576 bit
     localparam int WB  = 72;                 // 一行 72 字节 = 9×LANES
+    localparam int LW  = 9 * 8;              // 72 bit = 一个 lane 的 9 个抽头 =
+                                             // RAMB36「x72」模式的原生位宽（见 §7）
+    localparam int WD  = 1 << $clog2(CIN_MAX); // 权重 RAM 深度（192 ⇒ 256），让 8 位地址自洽
+    localparam int BL  = LW / 8;             // 9 字节/lane ⇒ 权重 RAM 的 wea 宽度
 
     // ========================================================================
     // 1. 配置 / 派生
@@ -431,10 +435,27 @@ module conv_k3_engine #(
 
     // ========================================================================
     // 7. 权重 RAM：576 bit × CIN_MAX（行 = ic，行内字节 = 9*lane + tap）
-    //    ⚠ 读寄存器 w_row_q 单一赋值源、无复位。
     // ========================================================================
-    (* ram_style = "block" *) logic [WW-1:0] wgt_mem [0:CIN_MAX-1];
-    logic [WW-1:0] w_row_q;
+    //  ⚠⚠ 2026-10-27 历史（两轮，都是血的教训，别再往回改）：
+    //    ① 最初是**一个 576 bit 宽的数组** + `(* ram_style="block" *)`：
+    //       综合报 [Synth 8-6849] Infeasible ⇒ 退回 LUTRAM 3,456 个 LUT
+    //       （RAM64X1D×576 + RAM128X1D×576，占 k3 全部 LUTRAM 3,588 的 96%）。
+    //    ② 第 1 轮修法：按 lane 拆成 8 个 72 bit 数组（每块 = 一个 RAMB36
+    //       的原生位宽）。**仍然失败**：8-6849 从 4 条变 32 条，LUTRAM 还是
+    //       3,588。注意报告里 Inference 列写的是 "Implied" —— 是 Vivado 先
+    //       自己决定走分布式，然后才说"你要的 block 不可行"。
+    //       主控做了 6 组隔离实验：**同一段代码孤立综合能进 16 块 BRAM**
+    //       （caseK/caseL），装进引擎就退化 ⇒ 是完整上下文里的推断启发式
+    //       问题，不是写法问题。
+    //    ⇒ 结论：**这一块不再让工具"选择"，用显式 XPM 原语把决定权收回**。
+    //       `MEMORY_PRIMITIVE="block"` 直接生成 RAMB36E1，没有推断环节。
+    //       代价 8~16 块 RAMB36（48 → 56~64 / 95）。
+    //   语义**零变化**：w_row_q 位布局不变（lane0 tap0 在 [7:0]，
+    //    (9*lane+tap)*8 的切片全部照旧），读延迟仍是 **1 拍**（见下面的
+    //    READ_LATENCY_B 说明），字节写使能仍是 w_be 的单热片。
+    // ========================================================================
+    logic [LANES-1:0][LW-1:0] wgt_q;         // 8 块 BRAM 的**寄存输出**（packed，lane7 在高位）
+    logic [WW-1:0] w_row_q;                 // 纯拼线（不加寄存器！见下）
     logic [7:0]    w_rd_ic;                 // ic = 8*组号 + 字节号（0..191）
     logic          w_ld_we;
     logic [7:0]    w_wr_ic;
@@ -443,15 +464,71 @@ module conv_k3_engine #(
 
     wire [WB-1:0] w_be = {WB{1'b1}} << w_ld_byte;    // 单字节写使能
 
-    always_ff @(posedge ap_clk) begin
-        if (w_ld_we) begin
-            for (int c = 0; c < WB; c = c + 1) begin
-                if (w_be[c])
-                    wgt_mem[w_wr_ic][c*8 +: 8] <= w_ld_data;
-            end
+    // ------------------------------------------------------------------
+    // 显式 XPM SDP RAM × LANES。**不要改回推断写法**：第 1 轮证明了
+    // `(* ram_style="block" *)`（哪怕按 lane 拆成 8×72）在完整引擎里
+    // 仍被 8-6849 否决，退回 3,456 个 LUT。XPM 的 MEMORY_PRIMITIVE="block"
+    // 直接生成 RAMB36E1，没有"推断"这一步可被否决。
+    //   ⚠ READ_LATENCY_B=1 已含 BRAM 内嵌输出寄存器 ⇒ addrb 到 doutb = 1 拍。
+    //   这与原来 `w_row_q <= wgt_mem[w_rd_ic]` 的 1 拍**完全一致**，
+    //   所以下面只允许把 doutb 拼成 wire，**绝不能再套一个 always_ff 寄存器**
+    //   （套了就 2 拍，数据全错——本项目已栽过 3 次的同一类错）。
+    // ------------------------------------------------------------------
+    genvar gw;
+    generate
+        for (gw = 0; gw < LANES; gw = gw + 1) begin : g_wgt
+            xpm_memory_sdpram #(
+                .MEMORY_SIZE            (WD * LW),      // 256 行 × 72 bit
+                .MEMORY_PRIMITIVE       ("block"),      // ← 强制 BRAM
+                .CLOCKING_MODE          ("common_clock"),
+                .ECC_MODE               ("no_ecc"),
+                .MEMORY_INIT_FILE       ("none"),
+                .MEMORY_INIT_PARAM      ("0"),
+                .USE_MEM_INIT           (0),
+                .WAKEUP_TIME            ("disable_sleep"),
+                .AUTO_SLEEP_TIME        (0),
+                .MESSAGE_CONTROL        (0),
+                .USE_EMBEDDED_CONSTRAINT(0),
+                .MEMORY_OPTIMIZATION    ("true"),
+                .CASCADE_HEIGHT         (0),
+                .SIM_ASSERT_CHK         (0),
+                .WRITE_PROTECT          (1),
+                .WRITE_DATA_WIDTH_A     (LW),           // 72
+                .BYTE_WRITE_WIDTH_A     (8),            // → wea 9 位 = 9 个抽头
+                .ADDR_WIDTH_A           (8),
+                .RST_MODE_A             ("SYNC"),
+                .READ_DATA_WIDTH_B      (LW),           // 72
+                .ADDR_WIDTH_B           (8),
+                .READ_RESET_VALUE_B     ("0"),
+                .READ_LATENCY_B         (1),            // ← 1 拍，与原来一致
+                .WRITE_MODE_B           ("read_first"), // 与分布式 RAM 同语义
+                .RST_MODE_B             ("SYNC")
+            ) u_wgt_ram (
+                .sleep          (1'b0),
+                // 写口：ena=装载有效，wea=这 9 个字节里哪一个是本拍的抽头
+                .clka           (ap_clk),
+                .ena            (w_ld_we),
+                .wea            (w_be[gw*BL +: BL]),
+                .addra          (w_wr_ic),
+                .dina           ({BL{w_ld_data}}),       // 只有 wea 选中的字节真写
+                .injectsbiterra (1'b0),
+                .injectdbiterra (1'b0),
+                // 读口：原来是无条件读 ⇒ enb/regceb 恒 1
+                .clkb           (ap_clk),
+                .rstb           (1'b0),                 // 不复位（复位会挡推断/多余逻辑）
+                .enb            (1'b1),
+                .regceb         (1'b1),
+                .addrb          (w_rd_ic),
+                .doutb          (wgt_q[gw]),
+                .sbiterrb       (),
+                .dbiterrb       ()
+            );
         end
-        w_row_q <= wgt_mem[w_rd_ic];
-    end
+    endgenerate
+
+    // 纯拼线（**不是寄存器**！）：位布局与原来完全一致，lane0 tap0 在 [7:0]，
+    //   lane7 tap8 在 [575:568]，(9*lane+tap)*8 的所有切片照旧可用。
+    assign w_row_q = wgt_q;          // packed 数组 ⇒ 一条 assign 就是纯连线，无 mux
 
     // ========================================================================
     // 8. 偏置 RAM（COUT_MAX × 32 分布式）
@@ -1642,22 +1719,18 @@ module conv_k3_engine #(
     // ========================================================================
     // synopsys translate_off
 `ifdef K3_DUMP
-    integer dw_i, dw_c;
-    integer dw_wgt_done = 0;
     integer dw_mac_cnt   = 0;
 
-    // (a) 权重装载完成后：lane0 每 ic 的 9 个字节（可直接与 weight.bin 对照）
-    always @(posedge ap_clk) begin
-        if (ap_rst_n && wl_done && (state == ST_WLOAD) && (dw_wgt_done == 0)) begin
-            dw_wgt_done = 1;
-            for (dw_i = 0; dw_i < 8; dw_i = dw_i + 1) begin
-                $write("[K3-WGT] ic=%0d lane0:", dw_i);
-                for (dw_c = 0; dw_c < 9; dw_c = dw_c + 1)
-                    $write(" %0d", $signed(wgt_mem[dw_i][dw_c*8 +: 8]));
-                $write("\n");
-            end
-        end
-    end
+    // (a) 【已删除】原来这里在一个 for 循环里**异步**读 8 个地址
+    //     （`wgt_mem0[dw_i][dw_c*8 +: 8]`）来打印 lane0 的权重。
+    //     改成 XPM/BRAM 后只有**一个同步读口、1 拍延迟**，"一拍读 8 个地址"
+    //     在物理上不存在；要保留就得给 addrb 加一个调试 mux，而 addrb 在
+    //     真实时序路径上 ⇒ 不为调试功能污染数据通路。
+    //     〖替代〗(b) 的 [K3-MAC] 已经同时打印 wb0 / wb4（= w_row_q 的
+    //     lane0/tap0 与 lane0/tap4 字节），"权重装载错 vs 抽头/字节选错"
+    //     这个判据完全够用（(b) 的注释写的就是这个用途）。
+    //     真要逐 ic 核对 weight.bin 时，够用的话可以临时把
+    //     w_rd_ic 停在某个 ic 上看 doutb —— 或直接看 (b) 的 wb* 列。
 
     // (b) 前 32 个 issue 拍：当前 ic、tap4 的像素字节、lane0/tap4 的权重
     //     若 pb4 全 7 而 wb4 不对 ⇒ 权重装载；若 wb4 对而 pb4 不对 ⇒ 抽头/字节选

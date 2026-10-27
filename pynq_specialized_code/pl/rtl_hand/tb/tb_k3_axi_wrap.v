@@ -131,13 +131,15 @@ module tb_k3_axi_wrap;
     logic        rs_busy = 1'b0;
     logic [7:0]  rs_cnt  = 8'd0;
 
+    assign rd_rlast = rs_busy && rd_rvalid && (rs_cnt == rs_len);
+
     always_ff @(posedge clk or negedge rst_n) begin
         if (!rst_n) begin
             rd_arready <= 1'b1; rd_rvalid <= 1'b0; rd_rdata <= 64'd0;
-            rd_rlast <= 1'b0;   rs_busy <= 1'b0;  rs_cnt <= 8'd0;
+            rs_busy <= 1'b0;  rs_cnt <= 8'd0;
         end else begin
             if (!rs_busy) begin
-                rd_rvalid <= 1'b0; rd_rlast <= 1'b0;
+                rd_rvalid <= 1'b0;
                 if (rd_arvalid && rd_arready) begin
                     rs_len  <= rd_arlen;
                     rs_cnt  <= 8'd0;
@@ -147,10 +149,9 @@ module tb_k3_axi_wrap;
             end else begin
                 rd_rvalid <= 1'b1;
                 rd_rdata  <= {8{8'h00}};
-                rd_rlast  <= (rs_cnt == rs_len);
                 if (rd_rvalid && rd_rready) begin
                     if (rs_cnt == rs_len) begin
-                        rs_busy <= 1'b0; rd_rvalid <= 1'b0; rd_rlast <= 1'b0;
+                        rs_busy <= 1'b0; rd_rvalid <= 1'b0;
                         rd_arready <= 1'b1;
                     end else begin
                         rs_cnt <= rs_cnt + 8'd1;

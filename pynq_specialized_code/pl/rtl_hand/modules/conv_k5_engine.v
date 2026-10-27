@@ -324,39 +324,87 @@ module conv_k5_engine #(
     end
 
     // ==================================================================
-    // 2. 行缓冲（5 条 × 2 个 64-bit bank）
+    // 2. 行缓冲（5 条 × 2 个 64-bit bank = **10 个独立的一维简单双口 RAM**）
     //    每条行缓冲 324 深：物理列 0..1 = 左 pad，2..W+1 = 真实输入，
     //    W+2..W+3 = 右 pad。pad 列靠读侧 col_ok 强制 0，不写。
+    //
+    //  ★★ 数组必须是**一维**，否则 Vivado 不会推断成 BRAM ★★（2026-10-27 实测）
+    //     原来写的是二维：`logic [63:0] lb_lo [0:4][0:LB_DEPTH-1]`，
+    //     即使标了 ram_style="block"，综合也**一块 BRAM 都不给**，而是把每个比特
+    //     摊成一个触发器：5×324×64×2 = 207,360 bit ⇒ 213,562 FF / 70,527 LUT，
+    //     整机 DRC 直接 UTLZ-1 失败（xc7z015 只有 92,400 FF）。
+    //     隔离实验（同容量、同标注）：2D ⇒ RAMB=0 / FDRE=81,984；1D ⇒ RAMB=4 / FDRE=0。
+    //     ⇒ 拆成 10 个一维数组：每个 324×64 = 20,736 bit ⇒ 1 块 BRAM36，合计 10 块。
+    //
+    //  ★ 为什么不合成一个 324×640 的大数组（那样只要 6 块）：
+    //     写数据得按 fill_line 动态选 64-bit 切片（`mem[a][base +: 64] <= d`，
+    //     base 是变量）——Vivado 的 RAM 推断不认"动态基址的 part-select 写"，
+    //     会退回触发器/分布式 RAM。10 个**静态**数组是最稳的形状，多花 4 块 BRAM
+    //     换"必然推断成功"，在 95 块 BRAM 的器件上不心疼。
+    //
+    //  ★ 读延迟**与改之前完全相同**（这条最关键，别改）：
+    //     本文件从第一版起就是**同步读**模板
+    //         always_ff: lb_rd[i] <= {lb_hi_i[lb_raddr], lb_lo_i[lb_raddr]};
+    //     这正是 BRAM 的标准写法（地址打一拍、数据下一拍出），所以
+    //     "寄存器组(0 拍组合读) → BRAM(1 拍同步读)" **不改变任何相位**：
+    //     原来 lb_rd 相对 lb_raddr 就晚 1 拍，现在仍然晚 1 拍；
+    //     消费侧配对的 lb_raddr_d1（喂 col_ok）也天然对齐。
     // ==================================================================
-    (* ram_style = "block" *) logic [63:0] lb_lo [0:4][0:LB_DEPTH-1];
-    (* ram_style = "block" *) logic [63:0] lb_hi [0:4][0:LB_DEPTH-1];
+    (* ram_style = "block" *) logic [63:0] lb_lo_0 [0:LB_DEPTH-1];
+    (* ram_style = "block" *) logic [63:0] lb_lo_1 [0:LB_DEPTH-1];
+    (* ram_style = "block" *) logic [63:0] lb_lo_2 [0:LB_DEPTH-1];
+    (* ram_style = "block" *) logic [63:0] lb_lo_3 [0:LB_DEPTH-1];
+    (* ram_style = "block" *) logic [63:0] lb_lo_4 [0:LB_DEPTH-1];
+    (* ram_style = "block" *) logic [63:0] lb_hi_0 [0:LB_DEPTH-1];
+    (* ram_style = "block" *) logic [63:0] lb_hi_1 [0:LB_DEPTH-1];
+    (* ram_style = "block" *) logic [63:0] lb_hi_2 [0:LB_DEPTH-1];
+    (* ram_style = "block" *) logic [63:0] lb_hi_3 [0:LB_DEPTH-1];
+    (* ram_style = "block" *) logic [63:0] lb_hi_4 [0:LB_DEPTH-1];
     logic [4:0] lb_valid;              // 每条行缓冲当前装的是有效行？
     logic [2:0] wr_line;               // 当前要填充的行缓冲号 (r % 5)
     logic [2:0] sel [0:4];             // 窗口第 r 行 -> 行缓冲号
 
-    // 行缓冲读端口
+    // 行缓冲读端口：5 条行缓冲**同一个列地址**（窗口要一列 5 行同时出）
     logic [9:0]   lb_raddr;
     logic [9:0]   lb_raddr_d1;
     logic [127:0] lb_rd [0:4];
 
     always_ff @(posedge ap_clk) begin
         lb_raddr_d1 <= lb_raddr;
-        for (int i = 0; i < 5; i++) begin
-            lb_rd[i] <= {lb_hi[i][lb_raddr], lb_lo[i][lb_raddr]};
-        end
+        lb_rd[0] <= {lb_hi_0[lb_raddr], lb_lo_0[lb_raddr]};
+        lb_rd[1] <= {lb_hi_1[lb_raddr], lb_lo_1[lb_raddr]};
+        lb_rd[2] <= {lb_hi_2[lb_raddr], lb_lo_2[lb_raddr]};
+        lb_rd[3] <= {lb_hi_3[lb_raddr], lb_lo_3[lb_raddr]};
+        lb_rd[4] <= {lb_hi_4[lb_raddr], lb_lo_4[lb_raddr]};
     end
 
-    // 行缓冲写端口（填充时每拍 1 个 64-bit beat）
+    // 行缓冲写端口（填充时每拍 1 个 64-bit beat，只写 10 个 RAM 中的一个）
     logic        fill_we;
     logic [2:0]  fill_line;
     logic        fill_blk;
     logic [9:0]  fill_col;             // 0..W-1
     logic [63:0] fill_data;
+    // 物理列 = 逻辑列 + PAD（左 pad 占 0..PAD-1）。位宽显式 10 位：
+    //   PAD[9:0] 是参数常量，fill_col ≤ 319 ⇒ 和 ≤ 323，10 位足够。
+    wire  [9:0]  lb_waddr = fill_col + PAD[9:0];
 
     always_ff @(posedge ap_clk) begin
         if (fill_we) begin
-            if (fill_blk == 1'b0) lb_lo[fill_line][fill_col + PAD] <= fill_data;
-            else                  lb_hi[fill_line][fill_col + PAD] <= fill_data;
+            // 4 位选择 = {行号[2:0], bank}；每个分支写一个**静态**数组 ⇒ 干净的
+            // "1 写口 + 1 读口"简单双口 RAM 模板。
+            case ({fill_line, fill_blk})
+                4'd0: lb_lo_0[lb_waddr] <= fill_data;
+                4'd1: lb_hi_0[lb_waddr] <= fill_data;
+                4'd2: lb_lo_1[lb_waddr] <= fill_data;
+                4'd3: lb_hi_1[lb_waddr] <= fill_data;
+                4'd4: lb_lo_2[lb_waddr] <= fill_data;
+                4'd5: lb_hi_2[lb_waddr] <= fill_data;
+                4'd6: lb_lo_3[lb_waddr] <= fill_data;
+                4'd7: lb_hi_3[lb_waddr] <= fill_data;
+                4'd8: lb_lo_4[lb_waddr] <= fill_data;
+                4'd9: lb_hi_4[lb_waddr] <= fill_data;
+                default: ;
+            endcase
         end
     end
 
@@ -676,12 +724,19 @@ module conv_k5_engine #(
     assign obuf_we    = q_valid;
     assign obuf_waddr = q_x;
 
-    always_ff @(posedge ap_clk) begin
+    // ★ obuf 本来就是**一维**（[0:W-1]），但为了让 Vivado 100% 认出
+    //   "简单双口 RAM"模板，写口和读口**分成两个 always_ff**（这是最规范的写法；
+    //   写读混在一个块里时，某些版本会因为 byte-enable 的 for 循环而放弃推断）。
+    //   读仍然是 1 拍（写引擎的 2 级预取就是按 1 拍写的，别改成组合读）。
+    always_ff @(posedge ap_clk) begin           // 写口：8 个 byte enable
         if (obuf_we) begin
             for (int k = 0; k < 8; k++) begin
                 if (obuf_wstrb[k]) obuf[obuf_waddr][k*8 +: 8] <= obuf_wdata[k*8 +: 8];
             end
         end
+    end
+
+    always_ff @(posedge ap_clk) begin           // 读口：同步读，1 拍
         obuf_rdata <= obuf[obuf_raddr];
     end
 

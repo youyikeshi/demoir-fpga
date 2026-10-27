@@ -278,7 +278,7 @@ if [[ "$COMPILE_ONLY" -eq 1 ]]; then
 fi
 
 echo "=== 2/3 展开（xelab）==="
-timeout -k 5 "$TIMEOUT" xelab -debug typical --relax -s "snap_$MOD" "$TOP" > "$WORK/xelab.log" 2>&1
+timeout -k 5 "$TIMEOUT" xelab -debug typical --relax -L xpm -s "snap_$MOD" "$TOP" > "$WORK/xelab.log" 2>&1
 XELAB_RC=$?
 if [[ $XELAB_RC -ne 0 ]]; then
   if [[ $XELAB_RC -eq 124 ]]; then

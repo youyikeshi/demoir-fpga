@@ -291,7 +291,8 @@ def main():
 
     # 5b) relu 不匹配 / CHW / cin 越界 都不碰硬件
     for label, kwargs in [
-        ("relu=False 被挡住", dict(relu=False, c8_in=True, c8_out=True)),
+        # relu=False 已不再被挡（运行期 ReLU，见 k1_engine.check_supported 的注释）
+
         ("CHW 被挡住", dict(relu=True, c8_in=False, c8_out=False)),
         ("cin=12 被挡住", dict(relu=True, c8_in=True, c8_out=True)),
     ]:
@@ -358,10 +359,10 @@ def main():
                 routed += 1
             else:
                 reasons[why] = reasons.get(why, 0) + 1
-        check("manifest C8 路由 108 层（24 个 relu=False 回退）",
-              routed == 108
-              and reasons.get("relu=False 与 IP 综合期 RELU=1 不符"
-                              "（RELU 是编译期参数，运行期寄存器只回显）") == 24,
+        # 2026-10-27：ReLU 改为运行期可控（0x70 bit0 → ctrl_relu，RTL 三处齐全，
+        #   仿真 relu=0 的三个用例逐字节通过）⇒ 24 个 conv_proj 也能路由
+        check("manifest C8 路由 132 层（含 24 个 relu=False）",
+              routed == 132,
               "routed=%d reasons=%r" % (routed, reasons))
         check("k=3 全部回退（单条原因）",
               reasons.get("k=3 ≠ 1（本 IP 只做 1×1）") == 114, repr(reasons))
