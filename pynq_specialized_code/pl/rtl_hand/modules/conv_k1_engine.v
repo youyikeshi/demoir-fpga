@@ -167,12 +167,20 @@ module conv_k1_engine #(
     logic [7:0]   b_cnt;
     logic [2:0]   ob_cnt;
     logic         push_vld;
-    // 像素缓冲：{buffer[1:0], group[5:0]} 直接寻址的简单双口 LUTRAM（1 写 + 1 异步读）。
-    // 读地址 = {cur_buf, ic_cur[8:3]}，组内按 ic_cur[2:0] 选字节。
+    // 像素缓冲：{buffer[1:0], group[5:0]} 直接寻址，256 × 64 bit。
+    // 读地址 = {nxt_buf, nxt_grp}（组内按 ic_cur[2:0] 选字节）。
     // 这样既不需要 2816-bit 移位（它的“移位值/新数据”二选一 mux 是上一版 31k LUT 的来源），
-    // 也不需要环形指针；0 FF、~256 LUT6、0 BRAM、异步读无延迟。
-    (* ram_style = "distributed" *) reg [63:0] px_mem [0:255];
-    // RAM 推断模板的读寄存器：**只能**由 px_mem 读赋值（见 §4）。
+    // 也不需要环形指针。
+    //
+    // ⚠⚠ 2026-10-27 第 2 轮：**LUTRAM → 显式 XPM（BRAM）**，−336 个 LUT。
+    //   原文里"1 写 + 1 异步读 / 异步读无延迟 / 0 BRAM"那段注释是**历史残留**
+    //   （第三轮把它改成推断模板时就变成同步读了），照它判断会得出错误结论。
+    //   代码事实：`always_ff: p_ram_q <= px_mem[nxt_addr];` —— **同步读、1 拍、无复位、
+    //   唯一来源**；写口在同一个 always 里；`bp_hit_q/bp_data_q` 旁路在 RAM **外面**。
+    //   ⇒ 换 BRAM 后读延迟**仍是 1 拍**（XPM 的 READ_LATENCY_B=1 就是这个寄存器），
+    //     相位零变化、消费者 `p_word` 一行都不用改。
+    logic [63:0] px_dout;                   // XPM 的寄存输出（= 原来的 p_ram_q 值）
+    // 读数据（纯连线，保持原变量名，消费者不用改）
     logic [63:0] p_ram_q;
     // 单 beat 旁路：把“正在写的 group0”寄存一拍，计算侧再做组合 mux。
     logic        bp_hit_q;
@@ -416,18 +424,66 @@ module conv_k1_engine #(
     end
 
     // ========================================================================
-    // 4. 输入像素缓冲（4 × 44 × 64-bit，简单双口 RAM）
+    // 4. 输入像素缓冲：256 × 64 bit，**显式 XPM SDP RAM（1 块 RAMB36）**
     // ========================================================================
-    // !! RAM 推断模板（禁止改）:
-    //   这个 always 里 p_ram_q **只能**由 px_mem 的读赋值；不要给它加 if/else、
-    //   不要做“同拍写数据旁路”——Vivado 的 RAM 模板不接受一个寄存器两个源，
-    //   会退化成 16,384 FF + 256:1 读 mux（第三轮已实测）。
-    //   旁路放在下面的 bp_hit_q/bp_data_q 寄存器 + p_word 组合 mux。
-    always_ff @(posedge ap_clk) begin
-        if (in_r_hs)
-            px_mem[{f_pix[1:0], f_rd}] <= m_axi_in_rdata;
-        p_ram_q <= px_mem[nxt_addr];
-    end
+    //  ⚠ 2026-10-27 第 2 轮：原 `(* ram_style="distributed" *) reg [63:0]
+    //    px_mem [0:255]`（RAM64M×84 = **336 个 LUT**）改成显式 XPM。
+    //    读延迟**前后都是 1 拍**，证据：
+    //      改前 437: always_ff @(posedge ap_clk) p_ram_q <= px_mem[nxt_addr];
+    //                ⇒ 同步读 = 1 拍（写口同 always；RAM 无复位、p_ram_q 单源）
+    //      改后 XPM .READ_LATENCY_B(1) ⇒ doutb 就是同一个寄存器位置，
+    //                `assign p_ram_q = px_dout;` 纯连线
+    //    ⇒ 消费者 `p_word = bp_hit_q ? bp_data_q : p_ram_q` 与相位完全不变。
+    //    写口是**整字写**（64 bit 一次），所以 BYTE_WRITE_WIDTH_A=64 ⇒ wea 1 位，
+    //    用 ena 做写使能，语义与原来 `if (in_r_hs) px_mem[..] <= rdata` 等价。
+    xpm_memory_sdpram #(
+        .MEMORY_SIZE            (256 * 64),     // 16,384 bit
+        .MEMORY_PRIMITIVE       ("block"),      // ← 强制 BRAM
+        .CLOCKING_MODE          ("common_clock"),
+        .ECC_MODE               ("no_ecc"),
+        .MEMORY_INIT_FILE       ("none"),
+        .MEMORY_INIT_PARAM      ("0"),
+        .USE_MEM_INIT           (0),
+        .WAKEUP_TIME            ("disable_sleep"),
+        .AUTO_SLEEP_TIME        (0),
+        .MESSAGE_CONTROL        (0),
+        .USE_EMBEDDED_CONSTRAINT(0),
+        .MEMORY_OPTIMIZATION    ("true"),
+        .CASCADE_HEIGHT         (0),
+        .SIM_ASSERT_CHK         (0),
+        .WRITE_PROTECT          (1),
+        .WRITE_DATA_WIDTH_A     (64),
+        .BYTE_WRITE_WIDTH_A     (64),           // 整字写 ⇒ wea 1 位
+        .ADDR_WIDTH_A           (8),
+        .RST_MODE_A             ("SYNC"),
+        .READ_DATA_WIDTH_B      (64),
+        .ADDR_WIDTH_B           (8),
+        .READ_RESET_VALUE_B     ("0"),
+        .READ_LATENCY_B         (1),            // ← 1 拍，与原来一致
+        .WRITE_MODE_B           ("read_first"), // 同址同拍读旧值，与原来 nonblocking 一致
+        .RST_MODE_B             ("SYNC")
+    ) u_pxmem (
+        .sleep          (1'b0),
+        // 写口：地址 = {f_pix[1:0], f_rd}（= 原来的拼接，8 位）
+        .clka           (ap_clk),
+        .ena            (in_r_hs),
+        .wea            (1'b1),
+        .addra          ({f_pix[1:0], f_rd}),
+        .dina           (m_axi_in_rdata),
+        .injectsbiterra (1'b0),
+        .injectdbiterra (1'b0),
+        // 读口：原来是无条件读 ⇒ enb/regceb 恒 1
+        .clkb           (ap_clk),
+        .rstb           (1'b0),
+        .enb            (1'b1),
+        .regceb         (1'b1),
+        .addrb          (nxt_addr),
+        .doutb          (px_dout),
+        .sbiterrb       (),
+        .dbiterrb       ()
+    );
+
+    assign p_ram_q = px_dout;      // 纯连线（原来的 always_ff 已删除）
 
     // 单 beat（cin=8）旁路：把“正在写的 group0”寄存一拍。
     //   · beat 在 t，首次 issue 在 t+1；t+1 时 in_r_hs 已是 0，所以旁路必须寄存。
