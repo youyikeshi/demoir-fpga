@@ -11,7 +11,12 @@ from tensorboardX import SummaryWriter
 import torch.optim as optim
 import os
 from model.model import model_fn_decorator
-from model.nets_student import my_model
+# 二值化实验分支：DEMOIR_BIN=1 时换成 BinaryDemoire（W1A1 + MABG/SGRA），
+# 不设该变量则与上游完全一致。见 docs/训练/执行文档_BinaryDemoire复现.md。
+if os.environ.get('DEMOIR_BIN'):
+    from model.binary_esdnet import my_model
+else:
+    from model.nets_student import my_model
 from model.nets_teacher import T_my_model
 from model import *
 from dataset.load_data import *
