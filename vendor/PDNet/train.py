@@ -11,7 +11,10 @@ from tensorboardX import SummaryWriter
 import torch.optim as optim
 import os
 from model.model import model_fn_decorator
-from model.nets_student import my_model
+if os.environ.get('DEMOIR_BIN'):
+    from model.binary_esdnet import my_model
+else:
+    from model.nets_student import my_model
 from model.nets_teacher import T_my_model
 from model import *
 from dataset.load_data import *

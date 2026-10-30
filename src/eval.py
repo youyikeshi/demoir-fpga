@@ -53,7 +53,10 @@ import paths                            # noqa: E402
 import vendor_boot                      # noqa: E402
 
 paths.add_vendor_pdnet_to_path()
-from model.nets_student import my_model      # noqa: E402
+if os.environ.get('DEMOIR_BIN'):           # noqa: E402
+    from model.binary_esdnet import my_model
+else:
+    from model.nets_student import my_model  # noqa: E402
 from model.nets_teacher import T_my_model    # noqa: E402
 from utils.common import PSNR, SSIM, img_pad  # noqa: E402
 

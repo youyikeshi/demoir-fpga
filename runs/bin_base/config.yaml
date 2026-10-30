@@ -1,0 +1,42 @@
+USE_TEACHER: false
+GENERAL:
+  GPU_ID: 0
+  SEED: 123
+  WORKER: 12
+  SAVE_PREFIX: /media/felix/Data/coding/demoir-fpga/runs/bin_base
+  EXP_NAME: ''
+  RUN: bin_base
+DATA:
+  DATA_TYPE: UHDM
+  TRAIN_DATASET: /media/felix/Data/coding/demoir-fpga/datasets/uhdm_full/train
+  TEST_DATASET: /media/felix/Data/coding/demoir-fpga/datasets/uhdm/eval
+MODEL:
+  EN_FEATURE_NUM: 48
+  EN_INTER_NUM: 64
+  DE_FEATURE_NUM: 64
+  DE_INTER_NUM: 96
+  SAM_NUMBER: 1
+TRAIN:
+  BATCH_SIZE: 2
+  LOADER: crop
+  CROP_SIZE: 384
+  RESIZE_SIZE: 384
+  SAVE_ITER: 5000
+  SAVE_EPOCH: 5
+  LOAD_EPOCH: 115
+  LAM: 1
+  LAM_P: 1
+TEST:
+  TEST_EPOCH: auto
+  SAVE_IMG: false
+  LOAD_PATH: false
+  EVALUATION_METRIC: true
+  EVALUATION_TIME: false
+  EVALUATION_COST: false
+SOLVER:
+  EPOCHS: 150
+  T_0: 50
+  T_MULT: 1
+  ETA_MIN: 1.0e-06
+  BASE_LR: 0.0002
+TEACHER_MODEL: {}

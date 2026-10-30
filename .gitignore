@@ -41,6 +41,9 @@ datasets/*
 #   注意：训练过程中的 checkpoint（runs/*/net_checkpoints/，31 个 x 18.3MB ≈ 570MB）
 #   **仍然全部排除**，那条约定不变。
 !weights/student/uhdm4k_s640_ep150.tar
+# 二值模型（W1A1）发布版权重，2026-10-30。23.4MB，同样低于 100MB 上限。
+# 它需要 DEMOIR_MODE=base 才能构造出匹配的结构，见 docs/训练/记录_20261030_二值化复现与评估.md 第 6 节。
+!weights/student/binary_demoire_base_ep150.tar
 
 # ---------------------------------------------------------------------------
 # ★ 训练产物
@@ -121,3 +124,8 @@ pynq_specialized_code/pl/build/
 
 # 板端首次运行时由 ops_numpy._sam_sum_c() 现场编译（不出版本库）
 pynq_specialized_code/ps/pynq/sam_sum_fast_*.so
+
+# 手写 RTL 验证设施：仿真工作目录/临时日志（golden、reports 仍入库）
+pynq_specialized_code/pl/rtl_hand/build/
+pynq_specialized_code/pl/rtl_hand/xsim.dir/
+pynq_specialized_code/pl/rtl_hand/xvlog.*

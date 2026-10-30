@@ -31,8 +31,27 @@ weights/
 ├── README.md                           # 本文件（进 git）
 ├── teacher/
 │   └── ghost_34large_UHDM_ep150.tar    # 论文作者训的 teacher，4.396 M 参数
-└── student/
-    └── uhdm4k_s512_ep30.tar            # 我们的 student，1.562 M 参数
+├── student/
+│   ├── uhdm4k_s640_ep150.tar           # ★ 稠密 student 发布版，1.562 M 参数
+│   ├── uhdm4k_s512_ep30.tar            # 早期对照基线
+│   └── binary_demoire_base_ep150.tar   # ★ 二值模型（W1A1），5.960 M 参数 / 二值等价 0.303 M
+```
+
+二值模型这一条**必须用 `tools/bin_loader.py` 加载**，不能直接 `my_model(...)`：
+
+```python
+from bin_loader import load_binary
+net = load_binary('weights/student/binary_demoire_base_ep150.tar')
+```
+
+原因：`vendor/PDNet/model/binary_esdnet.py` 在 **import 时**读 `DEMOIR_MODE`
+决定结构（是否插入 MABG/SGRA 子模块）。先 import 再设变量，`load_state_dict(strict=True)`
+会报一长串 missing keys —— 正是本文件开头那段"权重对了结构错了"的老坑。
+权重文件里自带它需要的 `env` 字段，加载器负责先设变量再 import。
+
+```bash
+# 自检（不需要显卡）
+python tools/bin_loader.py
 ```
 
 `*.tar` 由根目录 `.gitignore` 排除（二进制、体积大、且有单文件 100MB 的推送限制），

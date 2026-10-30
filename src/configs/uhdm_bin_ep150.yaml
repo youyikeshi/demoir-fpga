@@ -1,0 +1,80 @@
+# ---------------------------------------------------------------------------
+# BinaryDemoire 复现：1-bit 权重 + 1-bit 激活（W1A1）的去摩尔纹训练
+#
+# 用法（档位走环境变量，不进 yaml —— vendor 的 config 解析不接受嵌套新键，
+# 而模型在 import 期就要知道档位）：
+#
+#   DEMOIR_BIN=1 DEMOIR_MODE=full DEMOIR_RDB=1 \
+#     python src/train.py --config uhdm_bin_ep150 --name bin_full
+#
+#   DEMOIR_MODE     fp | base | mabg | sgra | full    五级阶梯，见执行文档 §1
+#   DEMOIR_RDB      1 = ESDNet(RDB) 5.96M；0 = Ghost 版 2.15M
+#   DEMOIR_MABG_SCOPE  boundary | all
+#   DEMOIR_SGRA     1 | 0
+#
+# DEMOIR_BIN=1 是必须的：它让 vendor/PDNet/train.py 与 test.py 走
+# model/binary_esdnet.py 而不是 nets_student.py。不设这个变量，本配置
+# 会退回成"训一个 5.96M 的普通 ESDNet"，也就是 L0，不是二值化。
+#
+# 为什么 MODEL 的宽度和 uhdm_4k_s_ep150 不同：论文的 backbone 是 ESDNet(RDB)
+# 5.934M，而本仓库 student 是 Ghost 版 1.565M，直接套用会得到"参数量只有论文
+# 四分之一"的伪复现。EN_INTER_NUM=64 + DE_INTER_NUM=96 给出 5.961M FP /
+# 0.305M 二值等价（论文 5.93M / 0.31M）。标定过程见执行文档 §1 的对照表。
+#
+# 没有 GENERAL.RUN：五级阶梯要跑五个不同的 runs/ 目录，用 --name 指定
+# （bin_fp / bin_base / bin_mabg / bin_sgra / bin_full）。锁定 RUN 只适合
+# 续训场景，届时把 --name 指向原目录即可。
+# ---------------------------------------------------------------------------
+USE_TEACHER: False
+
+GENERAL:
+  GPU_ID: 0
+  SEED: 123
+  WORKER: 12
+
+DATA:
+  DATA_TYPE: UHDM
+  # 官方全量训练集：4500 对，原生 4032x3024，按 pair_NN / pair_mi_NN 分 28 个子目录。
+  # 不设 DATA.DATASET —— 设了它会覆盖下面两条显式路径（见 src/vendor_boot.py 的
+  # _resolve_dataset），而 uhdm 这个名字指向的是 400 张的小划分。
+  TRAIN_DATASET: datasets/uhdm_full/train
+  # 评估集复用 uhdm 的官方 test 划分（100 张，与训练集无重叠）
+  TEST_DATASET: datasets/uhdm/eval
+
+MODEL:
+  EN_FEATURE_NUM: 48
+  EN_INTER_NUM: 64      # 默认值 32 会让 FP 掉到 2.15M
+  DE_FEATURE_NUM: 64
+  DE_INTER_NUM: 96
+  SAM_NUMBER: 1         # 1 = ESDNet；2 = ESDNet-L，不是这篇
+
+TRAIN:
+  BATCH_SIZE: 2
+  LOADER: crop
+  # 官方是 768，12GB 卡放不下（768+batch2 实测 96% 显存、吞吐崩到 0.04 it/s）。
+  # 640 与 512 挂钟时间几乎相同，且都保持 2250 步/epoch，所以取 640。
+  # 相对论文的这处偏离必须在 run README 里写明。
+  CROP_SIZE: 640
+  RESIZE_SIZE: 384
+  SAVE_ITER: 5000
+  # 150/5 = 30 个 checkpoint x 约 18MB，中断代价最多 5 epoch
+  SAVE_EPOCH: 5
+  LOAD_EPOCH: False
+  LAM: 1
+  LAM_P: 1
+
+TEST:
+  TEST_EPOCH: 'auto'
+  SAVE_IMG: False
+  LOAD_PATH: False
+  EVALUATION_METRIC: True
+  EVALUATION_TIME: False
+  EVALUATION_COST: False
+
+SOLVER:
+  # 论文量级：150 epoch x 2250 步 = 337500 步
+  EPOCHS: 150
+  T_0: 50
+  T_MULT: 1
+  ETA_MIN: 0.000001
+  BASE_LR: 0.0002

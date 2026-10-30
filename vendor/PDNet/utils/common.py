@@ -57,6 +57,16 @@ class CosineAnnealingWarmRestarts(_LRScheduler):
         self.eta_min = eta_min
 
         self.T_cur = 0 if last_epoch < 0 else last_epoch
+        # COMPAT: 续训时 train.py 传入 last_epoch=LOAD_EPOCH-1（例如 104），而它
+        # 是**绝对 epoch 索引**、不是当前 warm-restart 周期内的相位。原实现直接
+        # 把它当 T_cur 用，step() 里只减一次 T_i，于是 T_cur（105-50=55）仍然
+        # >= T_i=50，get_lr() 算出的 cos(π*55/50) 落在周期尾部 -> 续训的第一个
+        # epoch 拿到接近 eta_min 的 lr（实测 ep106: 5.9e-6，应为 1.95e-4），
+        # 与“--load-epoch 不打断 T_0=50 周期”的承诺相反。这里按 restart 语义
+        # 把绝对索引折进周期，续训的第一个 epoch 就与不中断时完全一致。
+        while self.T_cur >= self.T_i:
+            self.T_cur = self.T_cur - self.T_i
+            self.T_i = self.T_i * self.T_mult
         # COMPAT: torch >= 2.0 dropped the `verbose` argument from
         # _LRScheduler.__init__, so the original call
         #   super().__init__(optimizer, last_epoch, verbose)

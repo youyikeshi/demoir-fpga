@@ -49,3 +49,20 @@ student:
     note: >-
       早期 student，30 epoch / 6000 步，只用了 UHDM test 划分出的 400 张图。
       评估 Δ +2.50 dB。**已被上面的 uhdm4k_s640_ep150 取代**，保留作为对照基线。
+
+binary:
+  # ★ 二值模型（W1A1，BinaryDemoire 复现）发布版
+  #   加载必须用 tools/bin_loader.py —— 结构由**环境变量在 import 时**决定，
+  #   直接 my_model(...) 再 load_state_dict(strict=True) 会因 MODE 不对报 missing keys。
+  binary_demoire_base_ep150:
+    file: student/binary_demoire_base_ep150.tar
+    arch: {en: 48, en_i: 64, de: 64, de_i: 96, sam: 1}
+    env: {DEMOIR_BIN: '1', DEMOIR_MODE: base, DEMOIR_RDB: '1'}
+    run: bin_base
+    note: >-
+      我们的二值 student（base 档：纯 W1A1，**未启用** MABG/SGRA），官方全量训练集 4500 对
+      跑满 150 epoch / 337500 步。23.4 MB / 5.960 M 参数（二值等价 0.303 M，227 个二值层）。
+      评估（400 块，口径同 dense）：均值 17.9809 / 中位 17.8438 / SSIM 中位 0.7771；
+      相对 dense 基线 19.7995/19.1906/0.8144 掉 -1.82 dB / -1.35 dB / -0.037，
+      **只有论文掉幅（-2.76 dB）的 66%**。
+      训练与评估全过程见 docs/训练/记录_20261030_二值化复现与评估.md。
