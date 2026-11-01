@@ -4346,3 +4346,26 @@ $$\Rightarrow\ \text{本项目的桶名}\textbf{不代表归属}：\texttt{pl\_s
 $$\Rightarrow\ \textbf{纪律}：\text{任何"某单元占比"必须先问"这个墙钟包住了哪一行"；}$$
 $$\quad\ \text{判据} = \text{同一事件的}\textbf{纯硬件拍数}（\text{DBG\_CYC}）\text{与}\textbf{墙钟}\text{两路对账，差就是软件开销}$$
 $$\Rightarrow\ \text{本项目的教训链：§58（把 PS 时间记进 PL）}\to\text{今夜（同一错误换了个桶名）}\Rightarrow \textbf{这是同一个病根，犯过两次}$$
+
+### 70.9 ⚠ T-23 反手推翻 70.8 的关键数：那 0.802 ms/命令 **不是板端数字**（2026-11-02 02:35）
+
+$$\Rightarrow\ \texttt{runs/e1e2\_driver/verify\_e1e2.json}\ \text{的 } \texttt{c.run\_all.seconds}=0.7791\ \text{来自}$$
+$$\quad\ \texttt{ps/tools/verify\_e1e2\_path.py}\ \text{的 } \texttt{part\_c()}\ \Rightarrow\ \textbf{FakeE1E2Unit}\ \text{（寄存器级模型，用 numpy 真搬 19 MB）}$$
+$$\Rightarrow\ \textbf{它是主机的模拟墙钟，与板端 MMIO 无关}$$
+$$\Rightarrow\ \text{连带 } \texttt{pack 纯 PL } 0.1462\ \text{s}\ \text{来自 } \texttt{cycles\_exp}\ \text{（解析常数），板端 } \texttt{E1E2\_DBG}\ \text{默认为 0} \Rightarrow \textbf{DBG\_CYC 一次都没读}$$
+$$\Rightarrow\ \Rightarrow\ \textbf{70.8 的 "握手 0.861 s / 38.8\%" 必须降级为"待定"},\ \text{它不是实测}\ \text{——它是"实测墙钟 − 模型"}$$
+
+**但方向的证据还在，而且指向另一件事：**
+$$\Rightarrow\ \text{把板端真数字反解（pack } 0.970/698 = 1.39\ \text{ms/命令，conv } 0.226/227 = 0.997\ \text{ms/job）}$$
+$$\quad\ \text{配合结构量（真实访问 } \approx 7\sim11\ \text{次/命令）}\Rightarrow \textbf{单次访问} \approx 90\sim100\ \mu s$$
+$$\Rightarrow\ \text{而空闲态实测只有 } 30.4\ \mu s \Rightarrow \textbf{引擎在跑时 AXI-Lite 被 AXI-HP 流量饿死}$$
+$$\Rightarrow\ \Rightarrow\ \text{Python/C fast-path 只能省单次访问里的 } 3\sim5\ \mu s \Rightarrow \textbf{≤0.03 s}\ \text{（数学上达不到原定 0.15 s）}$$
+$$\Rightarrow\ \textbf{真正的杠杆是"减少访问次数"}：\text{命令数 } 698\to227\ \text{（E1E2 在 RTL 内部遍历组）}$$
+$$\quad\ \text{或"描述符链 + 一次启动"——这两条都要新位流} \Rightarrow \text{归 T-19 后半/RTL 线，不再当软件任务推}$$
+
+**第 74 条纪律（今夜第二次同类错误）**
+$$\Rightarrow\ \textbf{模型/模拟器的墙钟不能当板端实测}：\text{凡是 } \texttt{*.json}\ \text{里的 }\texttt{seconds}\ \text{，必须能追溯到}$$
+$$\quad\ \text{① 真板 run 的产物，或 ② 明确标注"模拟"}；\text{两者的差别在本项目是 } \mathbf{30\sim100\ \mu s/次}$$
+$$\Rightarrow\ \text{配合第 73 条（桶名不代表归属）} \Rightarrow \textbf{任何"某单元占比"的结论必须三项齐备}：$$
+$$\quad\ \text{哪台机器测的} + \text{墙钟包住哪一行} + \text{有没有纯硬件拍数交叉}
+$$
