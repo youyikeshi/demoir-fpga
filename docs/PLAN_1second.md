@@ -4369,3 +4369,37 @@ $$\quad\ \text{① 真板 run 的产物，或 ② 明确标注"模拟"}；\text{
 $$\Rightarrow\ \text{配合第 73 条（桶名不代表归属）} \Rightarrow \textbf{任何"某单元占比"的结论必须三项齐备}：$$
 $$\quad\ \text{哪台机器测的} + \text{墙钟包住哪一行} + \text{有没有纯硬件拍数交叉}
 $$
+
+### 70.10 ★★★ 定案：pack 的 0.970 s **主要是真 PL 工作量**，不是握手（2026-11-02 03:05）
+
+T-23 把三条口径逐个钉死（`4.22 写 + 2.00 读 = 6.22 次访问/命令`，从 698 条命令逐条数出来的），
+再用板端已归档的单次访问成本做算术：
+
+$$698 \times 6.22 \times 30.37\ \mu s = 0.132\ \text{s（软件上界）}
+\Rightarrow \text{PL 真工作量} = 0.970 - 0.132 \approx \mathbf{0.838}\ \text{s}$$
+
+$$\Rightarrow\ \textbf{所以 "握手 0.861 s / 38.8\%" 作废}：\text{软件侧整段只有 } \mathbf{0.13\sim0.20}\ \text{s}$$
+$$\quad\ \text{（即使按"忙时 100 µs"假设也只到 } 0.43\ \text{s，仍不到一半）}$$
+
+$$\Rightarrow\ \textbf{连带两条一起改}：$$
+$$\quad\ \text{① } \texttt{pack 纯 PL }0.1462\ \text{s 来自 } \texttt{cycles\_exp}\ \text{解析常数，}\textbf{低估 4~6 倍}$$
+$$\quad\ \text{② } \text{"pack 已贴 AXI 87\%"也基于同一常数} \Rightarrow \textbf{未证实}，\text{实测 } \texttt{E1E2\_DBG=1} \text{ 之前不许引用}$$
+
+**修正后的 PL 账（这才是当前最可信的版本）**
+$$\text{pl\_s } 2.222 = \underbrace{0.970}_{\text{pack：PL 0.84 + 软件 0.13}} + \underbrace{1.252}_{\text{conv}}$$
+$$\text{conv } 1.252 = \underbrace{0.377}_{\text{算力地板}} + \underbrace{0.023}_{\text{握手}} + \underbrace{\mathbf{0.852}}_{\text{读通路 stall（d=2 占 0.465）}}$$
+
+$$\Rightarrow\ \Rightarrow\ \textbf{真 PL 工作量 } \approx 1.36\ \text{s}\ \text{里，两块各占一半：pack } 0.84 + \text{conv stall } 0.85$$
+$$\Rightarrow\ \text{两者都}\textbf{只能靠 RTL/架构}\text{解决（融合 or 读通路改造）}\Rightarrow \text{软件路线到此为止}$$
+$$\Rightarrow\ \text{T-23 的 L3 设计 A（698→227 条命令）只省 } 0.02\sim0.07\ \text{s} \Rightarrow \textbf{不值得单独重综合}$$
+$$\quad\ \text{但可搭 T-34 的一次 build 顺带上车（LUT +<300）}$$
+
+### 70.11 第 75 条纪律：**"实测 − 模型"不是测量**
+$$\Rightarrow\ \text{今夜同一个位置翻车三次（§58 把 PS 记进 PL、T-19 把 }\texttt{实测−模型}\text{ 当握手、T-23 自己先踩后纠）}$$
+$$\Rightarrow\ \textbf{规矩}：\text{任何"某开销 = 墙钟 − 模型"的数，只能叫}\textbf{上界/待定}\text{，不许写成占比}$$
+$$\Rightarrow\ \text{要把它变成测量，必须有一条}\textbf{同进程、同一次 run}\text{ 的硬件计数器（本项目 = } \texttt{DBG\_CYC}）$$
+$$\quad\ \Rightarrow\ \text{而 } \texttt{DBG\_CYC}\ \text{默认不读（} \texttt{E1E2\_DBG=0}\text{）} \Rightarrow \textbf{下一次板端 session 必须开它跑一次}$$
+
+**顺带记一个真 bug（T-23 发现，未修）**
+$$\Rightarrow\ \texttt{E1E2Engine.fclk\_mhz}\ \text{默认 } \mathbf{100.0}\ \text{，而设计跑 } 150 \Rightarrow \texttt{run\_one}\ \text{的 timeout 与拍数估计全部偏保守 } 1.5\times$$
+$$\Rightarrow\ \text{影响：超时判定与 } \texttt{BIN\_MMIO\_POLL=est}\ \text{的睡眠下界} \Rightarrow \text{归 T-30（测量口径收口）一起修}$$
