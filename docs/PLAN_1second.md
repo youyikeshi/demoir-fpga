@@ -4403,3 +4403,34 @@ $$\quad\ \Rightarrow\ \text{而 } \texttt{DBG\_CYC}\ \text{默认不读（} \tex
 **顺带记一个真 bug（T-23 发现，未修）**
 $$\Rightarrow\ \texttt{E1E2Engine.fclk\_mhz}\ \text{默认 } \mathbf{100.0}\ \text{，而设计跑 } 150 \Rightarrow \texttt{run\_one}\ \text{的 timeout 与拍数估计全部偏保守 } 1.5\times$$
 $$\Rightarrow\ \text{影响：超时判定与 } \texttt{BIN\_MMIO\_POLL=est}\ \text{的睡眠下界} \Rightarrow \text{归 T-30（测量口径收口）一起修}$$
+
+### 70.12 ★★★ pack 的账**又翻了一次**：字节只能解释 ≤0.42 s，≥0.55 s 未归因（2026-11-02 03:30）
+
+T-35 把 698 条命令的描述符逐条算成字节（`runs/t35_pack/pack_bytes_per_cmd.csv`，可复算）：
+
+$$X = \underbrace{152.67}_{\text{读}} + \underbrace{19.07}_{\text{写}} = \mathbf{171.74\ MB}
+\Rightarrow \frac{X}{0.84\ \text{s}} = \mathbf{204.5\ MB/s}$$
+
+$$\Rightarrow\ \text{远低于 PL 侧实测 } 413\ \text{MB/s} \Rightarrow \textbf{pack 不是带宽受限}$$
+$$\Rightarrow\ \text{把能离线算的都加起来}：\text{RTL 拍数模型 } 0.143 + \text{软件下限 } 0.124\sim0.211 + \text{字节 } 0.072\sim0.416$$
+$$\Rightarrow\ \textbf{残差 } 0.55\sim 0.70\ \text{s}\ \text{仍未归因} \Rightarrow \textbf{70.10 的"定案"必须挂起}$$
+
+**三个候选机制，各由一条探针判决（`runs/t35_pack/probe_pack_dbg.py`，一次 session）**
+
+| 候选 | 若成立，pack 的结构是什么 | 判决量 |
+|---|---|---|
+| ① 每条命令固定开销大（~1.2 ms）| 698 条是病根 ⇒ **698→227**（+3 个寄存器，等差自增）省 ≈0.5 s | 逐命令 `dt` vs `DBG_CYC` |
+| ② PL 读停拍（cyc/字从 9 变 ~60）| 取数方式病根 ⇒ 改 E1E2 读 | `cnt_e_cyc / cnt_e_rdst` |
+| ③ 层间 flush/invalidate | PS 侧一致性动作 | ΔMMIO 计数 + 时间线 |
+
+$$\Rightarrow\ \textbf{不依赖任何候选的免费项（无论结果如何都对）}：$$
+$$\quad\ \text{① 空 lane 提前跳 DRAIN（} \texttt{lanes\_real} \text{）：省 } 15.41\ \text{MB（9\%），小层省 } 25\sim50\%\ \text{拍，改动 = } \texttt{ST\_DRAIN}\ \text{一个条件}$$
+$$\quad\ \text{② 698→227：写寄存器 } 2945\to681 \text{，且 } \texttt{E\_DESC/E\_OUT/E\_GROUP}\ \text{严格等差 ⇒ 3 个寄存器即可}$$
+
+**⚠ 第 76 条纪律：主机假单元的结构量不能当板端结构量**
+$$\Rightarrow\ \text{T-23 的"6.22 次访问/命令"（写 } 5585=698\times8\text{、读 } 4886=698\times7\text{）}$$
+$$\quad\ \text{是}\textbf{精确整数倍} \Rightarrow \text{这是寄存器级假单元（FakeE1E2Unit）的特征，不是板端真值}$$
+$$\Rightarrow\ \text{板端 } \texttt{wait()}\ \text{在一次 0.2 ms 的命令上不可能只读 1 次}$$
+$$\Rightarrow\ \textbf{判据}：\text{凡"}N\ \text{次操作"}这类结构量，必须给出来源是}\textbf{代码路径}\text{还是}\textbf{假单元}；$$
+$$\quad\ \text{整数倍 + 与耗时线性无关} \Rightarrow \text{先怀疑假单元}$$
+$$\Rightarrow\ \text{今夜这个坑的第三次（§58 桶名、70.9 模型墙钟、76 假单元结构量）} \Rightarrow \textbf{同一个病根：把模拟当测量}$$
