@@ -121,7 +121,7 @@ def to_c8_blocked(q, block_bytes=32 << 10, mode="slice"):
 _C8_IMPL = os.environ.get("Q8_C8_IMPL", "").strip().lower() or "blocked"
 
 
-def quantize_leaf_c8(x_f, fs_in, impl=None):
+def quantize_leaf_c8(x_f, fs_in, impl=None, out=None):
     """(C,H,W) float32 → C8 交错 int8（**逐字节 == pack_segments 的 f32 段**）。
 
     实现优先级：
@@ -129,6 +129,11 @@ def quantize_leaf_c8(x_f, fs_in, impl=None):
          S1 的 `prepare_segments` 也用它 ⇒ 与热路径**同一字节定义**）；
       2. `Q8_C8_IMPL` 指定的纯 numpy 变体（padded/fast/blocked/blocked_t）。
     `BIN_Q8_FUSED=0` 可强制走 2（A/B / 内核不可用时）。
+
+    ★ T-16 B：`out=` 给了就**直接写进去**（融合内核支持时）。未命中时缓存槽就是
+      目标 ⇒ 省掉"量化到临时 → 拷进 arena"的那一次全量拷贝（§67.3② 实测这条
+      多花 1.35~1.45× 内联单价）。`out` 必须可写、容量 ≥ C*H*W 的 uint8 扁平数组；
+      尾部（补齐到 8 的倍数那几位）不动。
     """
     from bin_engine import quantize_int8, _q8
     x = np.asarray(x_f, np.float32)
@@ -141,21 +146,32 @@ def quantize_leaf_c8(x_f, fs_in, impl=None):
         try:
             qm = _q8()
             if qm is not None and C % 8 == 0:
-                out = np.empty(C * H * W, np.uint8)
-                got = qm.c8_into(x, int(fs_in), out, C, H, W)
-                if got is not None:
-                    return out
+                if out is not None:
+                    got = qm.c8_into(x, int(fs_in), out[:C * H * W], C, H, W)
+                    if got is not None:
+                        return out
+                else:
+                    buf = np.empty(C * H * W, np.uint8)
+                    got = qm.c8_into(x, int(fs_in), buf, C, H, W)
+                    if got is not None:
+                        return buf
         except Exception:                  # noqa: BLE001
             pass
     q = quantize_int8(x, int(fs_in))
     if how in ("fast", "ascontig"):
-        return to_c8_fast(q)
-    if how in ("blocked", "block"):
-        return to_c8_blocked(q, mode="slice")
-    if how in ("blocked_t", "block_t"):
-        return to_c8_blocked(q, mode="t")
-    from e1e2_sim import to_c8_padded
-    return np.frombuffer(to_c8_padded(q, pad_to=C), np.uint8)
+        r = to_c8_fast(q)
+    elif how in ("blocked", "block"):
+        r = to_c8_blocked(q, mode="slice")
+    elif how in ("blocked_t", "block_t"):
+        r = to_c8_blocked(q, mode="t")
+    else:
+        from e1e2_sim import to_c8_padded
+        r = np.frombuffer(to_c8_padded(q, pad_to=C), np.uint8)
+    if out is not None:
+        flat = np.asarray(r).reshape(-1)
+        out[:int(flat.size)] = flat
+        return out
+    return r
 
 
 class QuantLeafCache:
@@ -173,6 +189,14 @@ class QuantLeafCache:
         self.verify = bool(verify)
         self.on_stale = on_stale
         self.name = name
+        # ★ T-16 B 两个加固开关（都在 `Q8CACHE=1` 之下，默认关时整段代码不执行）
+        #   _fill_direct：未命中时把量化**直接写进缓存槽**（省一次全量拷贝）
+        #   _keep       ：条目**强引用源张量** ⇒ id()/data_ptr 不可能被别的张量复用
+        #                 （这是"地址复用陈旧性"的结构性防线，不靠调用方记得失效）
+        self._fill_direct = os.environ.get("Q8CACHE_FILL", "1").strip().lower() \
+            not in ("0", "off", "false", "no")
+        self._keep = os.environ.get("Q8CACHE_KEEP", "1").strip().lower() \
+            not in ("0", "off", "false", "no")
         self._m = OrderedDict()                 # key -> entry
         self._by_qid = {}                       # id(obj) -> set(keys)
         self.hits = 0
@@ -308,12 +332,11 @@ class QuantLeafCache:
                 return e["buf"], e["pa"], k, True
 
         self.misses += 1
-        raw = quantize_leaf_c8(data, fs_in)
-        raw_flat = np.asarray(raw).reshape(-1)
-        n = int(raw_flat.size)
+        C, H, W = (int(v) for v in data.shape)
+        n = C * H * W
         if n > self.max_bytes:
             self.skips += 1
-            return raw_flat, 0, k, False
+            return np.asarray(quantize_leaf_c8(data, fs_in)).reshape(-1), 0, k, False
         while self._m and self.bytes + n > self.max_bytes:
             k0 = next(iter(self._m))
             self._drop(k0)
@@ -321,17 +344,27 @@ class QuantLeafCache:
         place = self._place(n)
         if place is None:                  # arena 用尽 ⇒ 不常驻（回落 f32 段，正确优先）
             self.skips += 1
-            return raw_flat, 0, k, False
-        if place is None:
-            self.skips += 1
-            return raw_flat, 0, k, False
+            return np.asarray(quantize_leaf_c8(data, fs_in)).reshape(-1), 0, k, False
         buf, pa = place
-        buf[:] = raw_flat
+        # ★ T-16 B：直写缓存槽（融合内核一趟完成"量化+C8布局+落位"）；
+        #   内核不可用/形状不支持时才走"临时缓冲 + 拷贝"。
+        wrote = None
+        if self._fill_direct and C % 8 == 0:
+            try:
+                wrote = quantize_leaf_c8(data, fs_in, out=buf)
+            except Exception:                           # noqa: BLE001
+                wrote = None
+        if wrote is None:
+            raw_flat = np.asarray(quantize_leaf_c8(data, fs_in)).reshape(-1)
+            buf[:] = raw_flat[:n]
         self._flush(self._arena)
         ent = dict(buf=buf, pa=pa, off=int(pa - self._arena_pa),
                    nbytes=n, qid=id(data),
                    h=(hashlib.sha1(np.ascontiguousarray(data).tobytes()).digest()
-                      if self.verify else None))
+                      if self.verify else None),
+                   # ★ 强引用源张量：只要条目在，id()/data_ptr 就不可能被复用 ⇒
+                   #   "同一地址换了内容却命中旧量化结果"在结构上不可能发生。
+                   keep=(data if self._keep else None))
         self._m[k] = ent
         self._by_qid.setdefault(id(data), set()).add(k)
         self.bytes += n

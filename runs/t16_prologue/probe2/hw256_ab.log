@@ -1,0 +1,29 @@
+== T-16 换序 A/B：hw=256，臂序列 = off1, A1, A2, off2, B2, off3, C2, off4, ABC, ABC, off5 ==
+[DEPS] q8=fast c8deq=fast bpack=fast e1e2=fast catpack=fast safe=fast  ⇒ deps_closure_ok=True
+  [LAZY_DEQ] IN/OUT 槽数 = 24（BIN_LAZY_SLOTS）
+  [PERF] 本跑含一次性内核装载（q8/c8deq/bpack 的 load+自检）⇒ 口径 a，门槛按热态语义**不判**（下一次跑才是稳态；要一次到位就先调 BE.load_kernels()）
+  off1  prologue 0.1924  epi 0.0176  nonconv 0.2836  q8 0.1019  desc 0.0052 views 0.0018  armhit/miss 0/0  seghit/miss 0/0  q8c None/None/None  mmio 5927 reads 3128  sha 392d1ae02761
+  [LAZY_DEQ] IN/OUT 槽数 = 24（BIN_LAZY_SLOTS）
+  A1    prologue 0.1204  epi 0.0107  nonconv 0.2310  q8 0.0632  desc 0.0104 views 0.0012  armhit/miss 0/227  seghit/miss 0/200  q8c None/None/None  mmio 5927 reads 1312  sha 392d1ae02761
+  [LAZY_DEQ] IN/OUT 槽数 = 24（BIN_LAZY_SLOTS）
+  A2    prologue 0.1117  epi 0.0126  nonconv 0.2241  q8 0.0681  desc 0.0045 views 0.0013  armhit/miss 227/0  seghit/miss 200/0  q8c None/None/None  mmio 5927 reads 1312  sha 392d1ae02761
+  [LAZY_DEQ] IN/OUT 槽数 = 24（BIN_LAZY_SLOTS）
+  off2  prologue 0.1133  epi 0.0117  nonconv 0.2150  q8 0.0609  desc 0.0056 views 0.002  armhit/miss 0/0  seghit/miss 0/0  q8c None/None/None  mmio 5927 reads 3128  sha 392d1ae02761
+  [LAZY_DEQ] IN/OUT 槽数 = 24（BIN_LAZY_SLOTS）
+  B2    prologue 0.0894  epi 0.0107  nonconv 0.2248  q8 None  desc 0.0099 views 0.0019  armhit/miss 0/0  seghit/miss 0/0  q8c 71/41/14.67  mmio 5927 reads 3128  sha 392d1ae02761
+  [LAZY_DEQ] IN/OUT 槽数 = 24（BIN_LAZY_SLOTS）
+  off3  prologue 0.1102  epi 0.0104  nonconv 0.2289  q8 0.0584  desc 0.0055 views 0.002  armhit/miss 0/0  seghit/miss 0/0  q8c None/None/None  mmio 5927 reads 3128  sha 392d1ae02761
+  [LAZY_DEQ] IN/OUT 槽数 = 24（BIN_LAZY_SLOTS）
+  C2    prologue 0.1137  epi 0.0100  nonconv 0.2334  q8 0.0688  desc 0.0059 views 0.0024  armhit/miss 0/0  seghit/miss 0/0  q8c None/None/None  mmio 6115 reads 3197  sha 392d1ae02761
+  [LAZY_DEQ] IN/OUT 槽数 = 24（BIN_LAZY_SLOTS）
+  off4  prologue 0.1137  epi 0.0109  nonconv 0.2365  q8 0.0616  desc 0.0056 views 0.002  armhit/miss 0/0  seghit/miss 0/0  q8c None/None/None  mmio 5927 reads 3128  sha 392d1ae02761
+  [LAZY_DEQ] IN/OUT 槽数 = 24（BIN_LAZY_SLOTS）
+  ABC   prologue 0.0949  epi 0.0096  nonconv 0.2379  q8 None  desc 0.0105 views 0.0013  armhit/miss 227/0  seghit/miss 0/227  q8c 89/50/17.59  mmio 6115 reads 1381  sha 392d1ae02761
+  [LAZY_DEQ] IN/OUT 槽数 = 24（BIN_LAZY_SLOTS）
+  ABC   prologue 0.0764  epi 0.0099  nonconv 0.2235  q8 None  desc 0.004 views 0.0015  armhit/miss 227/0  seghit/miss 227/0  q8c 89/50/17.59  mmio 6115 reads 1381  sha 392d1ae02761
+  [LAZY_DEQ] IN/OUT 槽数 = 24（BIN_LAZY_SLOTS）
+  off5  prologue 0.1085  epi 0.0105  nonconv 0.2471  q8 0.0587  desc 0.0056 views 0.0018  armhit/miss 0/0  seghit/miss 0/0  q8c None/None/None  mmio 5927 reads 3128  sha 392d1ae02761
+  ✓ 全部 11 臂 sha1 逐位相同：('392d1ae02761', '7f68fb00d2b5', 'aa03751a2d1c')
+  ✓ 等于冻结常量 392d1ae02761（默认 BLAS 线程口径）
+== PASS ==
+rc=0

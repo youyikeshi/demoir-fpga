@@ -1281,7 +1281,16 @@ class BinConvEngine:
         return len(src)
 
     def arm(self, L, in_buf, out_buf, verify_canary=True, cfg_only=False):
-        """写配置 + 基址（可提前调用）。cfg_only=True 时不查尺寸（只写寄存器）。"""
+        """写配置 + 基址（可提前调用）。cfg_only=True 时不查尺寸（只写寄存器）。
+
+        ★ T-16 A（`BIN_PRECOMP=1`，默认关）：把 config+set_bases 的 (offset, value)
+          序列按 `(层, 输入/输出物理地址, 权重容器)` 缓存成表，之后逐条重放。
+          键含**喂给这两个函数的全部输入** ⇒ 地址一变必 miss、必重跑 guard_layer。
+        """
+        if not cfg_only and precomp_on():
+            _r = self._arm_cached(L, in_buf, out_buf, verify_canary)
+            if _r is not None:
+                return _r
         if cfg_only:
             in_pa = int(getattr(in_buf, "physical_address", 0))
             out_pa = int(getattr(out_buf, "physical_address", 0))
@@ -1292,6 +1301,89 @@ class BinConvEngine:
         self.config(L)
         self.set_bases(L, in_pa=in_pa, out_pa=out_pa)
         return need_out
+
+    # ---------------------------------------------------------------- T-16 A
+    def _arm_key(self, L, in_pa, out_pa):
+        """喂给 config+set_bases 的**全部**输入 ⇒ 任何一个变了就不可能命中。"""
+        e = L.d
+        return (int(self.blob_pa or 0), str(L.name), int(L.cin), int(L.cout),
+                int(L.k), int(L.s), int(L.dil), int(L.pad), int(L.shift),
+                int(L.alpha_shift), int(L.slope_shift), int(L.H), int(L.W),
+                int(in_pa), int(out_pa),
+                int(e["off_wgt"]), int(e["off_alpha"]), int(e["off_bias"]),
+                int(e["off_zeta"]), int(e["off_gamma"]), int(e["off_slope"]))
+
+    def arm_plan(self, L, in_pa, out_pa):
+        """**不写寄存器**：只生成 arm() 会写的那串 `(offset, value)`。
+
+        值、顺序与 `config(L)` + `set_bases(L, in_pa, out_pa)` **逐条一致**
+        （config 的 14 条按 `L.regs()` 顺序，set_bases 的 8 个基址按
+        IN/WGT/ALPHA/BIAS/ZETA/GAMMA/SLOPE/OUT 顺序，带高字槽的再补一条 0）。
+        """
+        w = [(CFG + BIN_REG[_n], int(_v) & 0xFFFFFFFF) for _n, _v in L.regs()]
+        e = L.d
+        blob_pa = int(self.blob_pa)
+        for _n, _pa in (("IN", int(in_pa)),
+                        ("WGT", blob_pa + int(e["off_wgt"])),
+                        ("ALPHA", blob_pa + int(e["off_alpha"])),
+                        ("BIAS", blob_pa + int(e["off_bias"])),
+                        ("ZETA", blob_pa + int(e["off_zeta"])),
+                        ("GAMMA", blob_pa + int(e["off_gamma"])),
+                        ("SLOPE", blob_pa + int(e["off_slope"])),
+                        ("OUT", int(out_pa))):
+            BinGuard.check_pa(_pa, "B_" + _n)      # 与 set_base 里同一条护栏
+            w.append((CFG + BIN_REG["B_" + _n], _pa & 0xFFFFFFFF))
+            if _n in HIGH_WORD:
+                w.append((CFG + HIGH_WORD[_n], 0))
+        return tuple(w)
+
+    def _arm_cached(self, L, in_buf, out_buf, verify_canary=True):
+        """命中 ⇒ 逐条重放（走 `_wr` ⇒ 影子寄存器跳过逻辑与原来逐位相同）。"""
+        try:
+            in_pa = int(getattr(in_buf, "physical_address", 0))
+            out_pa = int(getattr(out_buf, "physical_address", 0))
+            key = self._arm_key(L, in_pa, out_pa)
+            ent = _ARM_PLANS.get(key)
+            if ent is None:
+                # 首次：guard_layer 的全部护栏照跑（尺寸/对齐/白名单/权重区）
+                g_in, g_out, need_out = self.guard_layer(
+                    L, in_buf, out_buf, verify_canary=verify_canary)
+                if int(g_in) != in_pa or int(g_out) != out_pa:
+                    return None            # 护栏看到的地址与键不符 ⇒ 不缓存
+                ent = (self.arm_plan(L, g_in, g_out), need_out)
+                if len(_ARM_PLANS) >= _PRECOMP_MAX:
+                    precomp_clear()
+                    _PRECOMP_STATS["cleared"] += 1
+                _ARM_PLANS[key] = ent
+                _PRECOMP_STATS["arm_miss"] += 1
+            else:
+                _PRECOMP_STATS["arm_hit"] += 1
+            writes, need_out = ent
+            # 逐条重放。**不用** `self._wr()`：函数调用在 A53 上 ~3~5 µs，
+            # 22 条 × 227 层就是 ~20 ms。这里把 `_wr` 的三件事（掩码已在建表时做完、
+            # 影子寄存器比较、计数）内联，语义与 `_wr` 逐条相同（含两个计数器）。
+            _sh = self._shadow
+            _mw = self.mmio.write
+            _nw = 0
+            _ns = 0
+            for _off, _val in writes:
+                if _sh.get(_off, None) != _val:
+                    _mw(_off, _val)
+                    _sh[_off] = _val
+                    _nw += 1
+                else:
+                    _ns += 1
+            self._writes += _nw
+            self._writes_skipped += _ns
+            # `config()` 的**唯一**副作用（`kick()` 要用它估拍数/超时）
+            self.cfg = L
+            # 注：原路径的 `set_bases()` 末尾还会 `bases_now()` 回读 8 个基址
+            #     （8 次 MMIO 读，板端 25 µs/次 ⇒ 227 层 ≈ 45 ms）——纯回读、无副作用、
+            #     返回值被 `arm()` 丢弃 ⇒ 快路径不再回读。这一点在本文件头注释里写明。
+            return need_out
+        except Exception as _ex:           # noqa: BLE001
+            _precomp_fallback("arm", _ex)
+            return None
 
     def kick(self, timeout=None):
         """发 start，立即返回（不等 done）。返回 (t0, timeout)。"""
@@ -2073,6 +2165,26 @@ class E1E2Engine:
 
         need = al(need_in) + al(need_out) + al(need_thr) + al(need_desc)
         if self._pbuf is None or len(self._pbuf) < need:
+            # ★ T-16 A：这块 pack arena 的**物理地址必须跨帧稳定**，否则
+            #   thr_pa/vdesc_pa/vin_pa 每帧都变 ⇒ 预计算表每帧全 miss（A 白干）。
+            #   板端 `run_net()` 每帧都新建 engine ⇒ 原逻辑每帧都重新 CMA 分配。
+            #   ⇒ `BIN_PRECOMP=1` 时按 (need) 做**进程级复用**：同一尺寸只有一个实例。
+            #   前提：整网 run 是同步的（同一时刻只有一个 engine 在跑），与本仓现状一致。
+            if precomp_on():
+                # 键含**分配器的身份**：同一块"内存脊"（板端 = 同一个 pynq 分配函数/
+                # 同一个 CMA 池）里同尺寸的视图才能复用；测试里每跑一次换一个
+                # SubAlloc ⇒ 键自然不同 ⇒ 不会跨"已释放的映射"复用（那是假的）。
+                _sh = _PVIEWS_SHARED.get((id(_pynq_allocate), int(need)))
+                if _sh is not None:
+                    _buf, _views, _vpn = _sh
+                    self._pbuf, self._pviews, self._pn = _buf, _views, _vpn
+                    try:
+                        _pa = int(_buf.physical_address)
+                        if not any(int(_r[0]) == _pa for _r in self.core._regions):
+                            self.core.add_region(_buf, "e1e2_pack")
+                    except Exception:              # noqa: BLE001
+                        pass
+                    return self._pviews
             if _pynq_allocate is None:
                 raise RuntimeError("没有 pynq：请给 pack_int8(bufs=...) 显式缓冲")
             buf = _pynq_allocate(shape=(need,), dtype=np.uint8)
@@ -2087,6 +2199,11 @@ class E1E2Engine:
                 o += al(n)
             self._pviews = views
             self._pn = (need_in, need_out, need_thr, need_desc)
+            if precomp_on():
+                if len(_PVIEWS_SHARED) >= 4:
+                    _PVIEWS_SHARED.clear()
+                _PVIEWS_SHARED[(id(_pynq_allocate), int(need))] = (
+                    self._pbuf, self._pviews, self._pn)
         return self._pviews
 
     def pack_int8(self, x_q, t_q, H=None, W=None, bufs=None, restore=True,
@@ -2185,6 +2302,13 @@ class E1E2Engine:
         cin, H, W = int(L.cin), int(L.H), int(L.W)
         hw = H * W
         cb = (cin + 63) // 64
+        # ★ T-16 A（`BIN_PRECOMP=1`，默认关）：段表/阈值/描述符/视图只算一次。
+        #   键 = (层名, cin/H/W, fs_in, vin_pa, thr_pa, vdesc_pa, 逐段 (kind,C,H,W,fs,pa))
+        #   ⇒ 任何运行时地址变化都会 miss ⇒ 重算（不会读到陈旧表）。
+        if precomp_on() and bufs is None:
+            _r = self._prepare_segments_cached(segs, L, t_q, plan)
+            if _r is not None:
+                return _r
         if t_q is None:
             if getattr(self.core, "host_blob", None) is None:
                 raise RuntimeError("prepare_segments 需要 t_q 或 core.host_blob")
@@ -2286,6 +2410,164 @@ class E1E2Engine:
         return dict(cin=cin, H=H, W=W, views=views, descs=descs, thr=thr,
                     need_in=need_in, n_f32=sum(1 for _s, _o, _c in lay
                                                if _s.get("kind") != "i8"))
+
+    # ---------------------------------------------------------------- T-16 A
+    @staticmethod
+    def _seg_sig(segs):
+        """段表的**全部信息**（含逐个物理地址）：任何一个变了就不可能命中。
+
+        只放 `(C, H, W, fs, pa)`：`kind` 被 `(pa==0)` 蕴含（i8 段必须有 pa，
+        查不到 pa 就直接 return None）。**字符串化与 int() 全部去掉**
+        —— 在 A53 上"每层建一次键"的成本里这两样占大头，而它们不是信息。
+        """
+        return tuple((s["C"], s["H"], s["W"], s.get("fs") or 0,
+                      s.get("pa") or 0) for s in segs)
+
+    def _prepare_segments_cached(self, segs, L, t_q, plan):
+        """`prepare_segments` 的预计算版：命中 ⇒ 只做"f32 段量化落 vin"这一段数据活。
+
+        与 `prepare_segments` **逐字节等价**：命中的只是与数据无关的三件事
+        （`t_q` 取用 / `_seg_layout` / 阈值+描述符组装 / `_pack_views`），
+        真正写 vin 的 f32 量化循环与原来逐句相同。
+        任何异常 ⇒ 返回 None（调用方走原路径），并打一行原因。
+        """
+        try:
+            cin, H, W = int(L.cin), int(L.H), int(L.W)
+            hw = H * W
+            cb = (cin + 63) // 64
+            fs_in = int(L.d["act_fs_in"])
+            need_in = cb * 64 * hw
+            _pf = {} if _PROF else None
+            _t = time.perf_counter() if _PROF else 0.0
+            # `_pack_views` 的返回值对全层是**同一组视图**（尺寸取命令表最大值
+            # `pmax`），所以"有效需求 == 上次切块时的需求"⇒ 直接复用，等价于调用。
+            _v = getattr(self, "_pviews", None)
+            _pm = getattr(self, "_pmax", None)
+            _pn = getattr(self, "_pn", None)
+            if (_v is not None and _pm is not None and _pn is not None
+                    and (max(need_in, _pm[0]), max(cb * hw * 8, _pm[1]),
+                         max(cb * 64 * 2, _pm[2]),
+                         max(cb * 64, _pm[3])) == _pn):
+                views = _v
+            else:
+                try:
+                    views = self._pack_views(need_in=need_in, need_out=cb * hw * 8,
+                                             need_thr=cb * 64 * 2,
+                                             need_desc=cb * 64)
+                except Exception:              # noqa: BLE001
+                    return None
+            if _pf is not None:
+                _pf["views"] = time.perf_counter() - _t
+            vin, vout, vthr, vdesc = views
+            vin_pa = int(getattr(vin, "physical_address", 0) or 0)
+            thr_pa = int(getattr(vthr, "physical_address", 0) or 0)
+            vdesc_pa = int(getattr(vdesc, "physical_address", 0) or 0)
+            if vin_pa == 0 or thr_pa == 0:
+                return None
+            sig = getattr(segs, "sig", None)
+            if sig is None or len(sig) != len(segs):
+                sig = self._seg_sig(segs)
+            key = (str(L.name), cin, H, W, fs_in, vin_pa, thr_pa, vdesc_pa, sig)
+            ent = _SEG_PLANS.get(key)
+            if ent is None:
+                _t = time.perf_counter() if _PROF else 0.0
+                if t_q is None:
+                    if getattr(self.core, "host_blob", None) is None:
+                        raise RuntimeError("prepare_segments 需要 t_q 或 core.host_blob")
+                    t_q = self.core.host_blob.t_q(L.d)
+                t = np.asarray(t_q, np.int64).reshape(-1)
+                if t.size != cin:
+                    raise ValueError("t_q 长度 %d != cin %d" % (t.size, cin))
+                lay = self._seg_layout(segs, cin, H, W)
+                if lay is None:
+                    return None
+                for (s_, _o, _c) in lay:
+                    if s_.get("kind") == "i8" and int(s_.get("pa") or 0) == 0:
+                        return None
+                fast = None
+                if plan is not None:
+                    kinds = tuple("i8" if s_.get("kind") == "i8" else "f32"
+                                  for s_, _o, _c in lay)
+                    if kinds == plan["kinds"]:
+                        fast = plan
+                if fast is not None:
+                    thr = fast["thr"]
+                    lanes2 = fast["lanes2"]
+                    pas = np.asarray([int(s_["pa"]) if s_.get("kind") == "i8"
+                                      else int(vin_pa)
+                                      for s_ in (x[0] for x in lay)], np.int64)
+                    src = pas[fast["si"]] + fast["lane_off"]
+                    if fast["fill"] is not None:
+                        src = src[fast["fill"]]
+                    tp = (int(thr_pa) + lanes2).astype(np.uint64)
+                    descs = (tp << np.uint64(32)) | src.astype(np.uint64)
+                else:
+                    thr, descs = self._build_desc(L, lay, t, cin, H, W,
+                                                  vin_pa, 0, thr_pa)
+                if thr is None:
+                    return None
+                n_f32 = sum(1 for _s, _o, _c in lay if _s.get("kind") != "i8")
+                ent = (tuple((str(s_.get("kind")), int(o), int(c))
+                             for s_, o, c in lay),
+                       np.ascontiguousarray(thr, np.int16),
+                       np.ascontiguousarray(descs, np.uint64),
+                       int(need_in), int(n_f32))
+                if len(_SEG_PLANS) >= _PRECOMP_MAX:
+                    precomp_clear()
+                    _PRECOMP_STATS["cleared"] += 1
+                _SEG_PLANS[key] = ent
+                _PRECOMP_STATS["seg_miss"] += 1
+            else:
+                _PRECOMP_STATS["seg_hit"] += 1
+            if _pf is not None:
+                _pf["desc"] = time.perf_counter() - _t
+            lay_k, thr, descs, need_in, n_f32 = ent
+            if len(lay_k) != len(segs):
+                return None                    # 防御：结构不符就不缓存命中
+            # ---- 数据相关部分：f32 段量化 + C8 布局落 vin（逐句同原路径）----
+            _t = time.perf_counter() if _PROF else 0.0
+            for (kind, off, C), s_ in zip(lay_k, segs):
+                if kind == "i8":
+                    continue
+                data = s_.get("data")
+                if data is None:
+                    return None
+                x = np.asarray(data, np.float32)
+                if x.shape != (C, H, W):
+                    raise ValueError("f32 段形状 %s != (%d,%d,%d)"
+                                     % (x.shape, C, H, W))
+                _tq = time.perf_counter() if _PROF else 0.0
+                o = (off // C8) * hw * C8
+                mv = np.frombuffer(_u8(vin), np.uint8)
+                qm = _q8()
+                done = False
+                if qm is not None:
+                    try:
+                        got = qm.c8_into(x, fs_in, mv[o:o + C * hw], C, H, W)
+                        done = got is not None
+                    except Exception:          # noqa: BLE001
+                        done = False
+                if not done:
+                    q = quantize_int8(x, fs_in).reshape(C, hw)
+                    cg = C // C8
+                    dst = mv[o:o + C * hw].reshape(cg, H, W, C8)
+                    np.copyto(dst, q.reshape(cg, C8, H, W).transpose(0, 2, 3, 1)
+                              .view(np.uint8), casting="unsafe")
+                    del q
+                del x
+                _flush(vin)
+                if _pf is not None:
+                    _pf["q8"] = _pf.get("q8", 0.0) + (time.perf_counter() - _tq)
+                    _pf["q8b"] = _pf.get("q8b", 0) + int(C * hw * 4)
+                    _pf["q8n"] = _pf.get("q8n", 0) + 1
+            if _pf is not None:
+                _pf["f32"] = time.perf_counter() - _t
+                self._prof_add(_pf)
+            return dict(cin=cin, H=H, W=W, views=views, descs=descs, thr=thr,
+                        need_in=need_in, n_f32=n_f32)
+        except Exception as _ex:               # noqa: BLE001
+            _precomp_fallback("prepare_segments", _ex)
+            return None
 
     def run_prepared(self, job, out_buf=None, restore=True, timeout=None):
         """把 `prepare_segments` 造好的 job 启起来（同步等 done）。"""
@@ -3763,6 +4045,82 @@ def deps_require_error(deps=None):
           "    ③ 校验：python3 ps/tools/deps_closure.py --check --dir <冻结点目录>",
           "  注意：只拷 .py 不够 —— q8/c8deq/bpack/bilinear_c 还要各自的 .c 才编得出 .so。"]
     return RuntimeError("\n".join(L))
+
+
+# ============================================================================
+# 6.5 ★ T-16 A：形状+地址预计算表（`BIN_PRECOMP=1`，**默认关**）
+# ============================================================================
+# 为什么：227 层的 cfg / 阈值 / 描述符 / 视图 **只由 (形状, 槽地址, 权重容器) 决定，
+# 与数据无关**，但原来每帧都用 Python 重算一遍。板端实测这一族 = 621 ms
+# （cfg 350 + desc 85.5 + views 61.3 + prepare_segments 入口 42.9 + 段表 glue 81.8），
+# 其中只有 86.9 ms 是 MMIO 本体（2861 次写 × 30.37 µs）的硬底
+# ⇒ 剩下 ~530 ms 全是 Python 组装（证据：runs/t16_prologue/REPORT_attribution.md）。
+#
+# 正确性的**结构性**保证（不靠"人记得 invalidate"）：
+#   · arm 的键含 `(blob_pa, 层名, cin/cout/k/s/dil/pad/shift/两个 shift, H, W,
+#     in_pa, out_pa, 六个权重区偏移)` —— 即**喂给 config+set_bases 的全部输入**；
+#   · prepare_segments 的键含 `(层名, cin/H/W, fs_in, vin_pa, thr_pa, vdesc_pa,
+#     逐段的 (kind, C, H, W, fs, pa))` —— 即**喂给 _build_desc 的全部输入**；
+#   ⇒ 任何一个运行时地址变化 ⇒ 键变 ⇒ 必 miss ⇒ 重算（并重跑全部护栏）。
+#   ⇒ 表里只有整数/小数组，**不持有任何缓冲的强引用** ⇒ 不拖住 arena 内存。
+#
+# 护栏不减：`guard_layer()` 的全部检查（尺寸/对齐/白名单/权重区）在**miss 时**照跑；
+#   hit 时跳过是因为"同一组地址 + 同一层 + 同一权重容器"已经验证过一次。
+_PRECOMP_MAX = 8192                    # 表的条数上限（超了整表清空，行为确定）
+_PRECOMP_STATS = dict(arm_hit=0, arm_miss=0, seg_hit=0, seg_miss=0,
+                      cleared=0, falls=0)
+_PVIEWS_SHARED = {}                    # need_bytes -> (pbuf, views, pn)：跨帧复用
+_ARM_PLANS = {}                        # key -> (writes, need_out)
+_SEG_PLANS = {}                        # key -> (lay_k, thr, descs, need_in, n_f32)
+_PRECOMP_NOTE = {}
+
+
+_ON_VALS = {"1": True, "on": True, "true": True, "yes": True}
+
+
+def precomp_on():
+    """`BIN_PRECOMP=1/on/true/yes` ⇒ 开（默认关；关时一个字节的路径都不变）。"""
+    return _ON_VALS.get(os.environ.get("BIN_PRECOMP", "").strip().lower(), False)
+
+
+def precomp_clear():
+    _ARM_PLANS.clear()
+    _SEG_PLANS.clear()
+    _PVIEWS_SHARED.clear()
+
+
+def precomp_stats():
+    d = dict(_PRECOMP_STATS)
+    d["arm_n"] = len(_ARM_PLANS)
+    d["seg_n"] = len(_SEG_PLANS)
+    d["on"] = bool(precomp_on())
+    return d
+
+
+def precomp_reset_stats():
+    for k in _PRECOMP_STATS:
+        _PRECOMP_STATS[k] = 0
+
+
+def precomp_print_stats(st=None):
+    """只在 `BIN_PRECOMP_STATS=1` 时被调用（正常 stdout 逐字不变）。"""
+    d = precomp_stats() if st is None else dict(st)
+    print("[PRECOMP] arm hit/miss = %d/%d  seg hit/miss = %d/%d  表 %d/%d 条"
+          "  清表 %d  回落 %d"
+          % (d.get("arm_hit", 0), d.get("arm_miss", 0),
+             d.get("seg_hit", 0), d.get("seg_miss", 0),
+             d.get("arm_n", 0), d.get("seg_n", 0),
+             d.get("cleared", 0), d.get("falls", 0)), flush=True)
+
+
+def _precomp_fallback(where, ex):
+    """异常**静默回落**原路径 + 打一行原因（每进程每处只打一次）。"""
+    _PRECOMP_STATS["falls"] += 1
+    k = str(where)
+    if k not in _PRECOMP_NOTE:
+        _PRECOMP_NOTE[k] = 1
+        print("  ⚠ BIN_PRECOMP=1 但在 %s 上失败（%s: %s）⇒ 该处回落原路径"
+              % (k, type(ex).__name__, ex), flush=True)
 
 
 def perf_gate(q8_s=None, epilogue_s=None, hw=None):

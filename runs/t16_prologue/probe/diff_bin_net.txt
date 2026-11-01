@@ -1,0 +1,61 @@
+--- baseline-v3/ps/pynq/bin_net.py
++++ probe/bin_net_instr.py
+@@ -35,2 +35,3 @@
+ from __future__ import annotations
++PROBE_OUT = {}
+ 
+@@ -908,2 +909,5 @@
+         """非阻塞：done 了就记下时刻（一次 MMIO 读，25 µs）。"""
++        _PR = PROBE_OUT.get("pr")
++        if _PR is not None:
++            _PR["poll_n"] = _PR.get("poll_n", 0) + 1
+         if task.t_done is not None:
+@@ -1602,3 +1606,3 @@
+ 
+-    def run(self, x0, pipeline=True, nbuf=2, verify=False, arena=None):
++    def run(self, x0, pipeline=True, nbuf=2, verify=False, arena=None):  # PROBE-INSTR
+         """x0: float (3,H,W)。返回 (dict 各级输出, 统计)。
+@@ -1609,2 +1613,6 @@
+         t_all = time.time()
++        import json as _json
++        _PR = dict(mark={}, poll_n=0, loop_it=0)
++        PROBE_OUT["pr"] = _PR
++        _PR["mark"]["m_enter"] = time.perf_counter()
+         t = np.asarray(x0, np.float32)
+@@ -1633,3 +1641,6 @@
+         _deps_warm = BE.deps_warm()
++        _t = time.perf_counter()
+         g, outs, tin = self.build_graph(t)
++        _PR["mark"]["build_graph"] = time.perf_counter() - _t
++        _t = time.perf_counter()
+         self._graph = g
+@@ -1706,3 +1717,7 @@
+                   flush=True)
++        _PR["mark"]["pre_analyze"] = time.perf_counter() - _t
++        _t = time.perf_counter()
+         self._analyze_lazy(g, outs)
++        _PR["mark"]["analyze_lazy"] = time.perf_counter() - _t
++        _t = time.perf_counter()
+         if self._lazy_deq:
+@@ -1811,3 +1826,6 @@
+ 
++        _PR["mark"]["setup_to_loop"] = time.perf_counter() - _t
++        _t = time.perf_counter()
+         while n_done < n_ops:
++            _PR["loop_it"] += 1
+             # ---- ① PL 跑完就立刻收（收得越早，下一层的 prologue 越早能开始）----
+@@ -1899,2 +1917,4 @@
+ 
++        _PR["mark"]["loop"] = time.perf_counter() - _t
++        _t = time.perf_counter()
+         dur = time.time() - t_all
+@@ -1984,3 +2004,8 @@
+                           pipeline=True, backend=("PL" if self.engine else "ref"))
+-        return {k: self._materialize(t.val) for k, t in outs.items()}, self.stats
++        _PR["mark"]["post_loop_stats"] = time.perf_counter() - _t
++        _t = time.perf_counter()
++        _r = {k: self._materialize(t_.val) for k, t_ in outs.items()}
++        _PR["mark"]["out_materialize"] = time.perf_counter() - _t
++        _PR["mark"]["run_total"] = time.perf_counter() - _PR["mark"]["m_enter"]
++        return _r, self.stats
+ 

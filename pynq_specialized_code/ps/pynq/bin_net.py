@@ -651,6 +651,22 @@ class _Task:
 
 
 _DBG_PREP = os.environ.get("BIN_LAZY_DEBUG", "") not in ("", "0", "false", "False")
+# ★ T-16：统计开关（默认关 ⇒ stdout 逐字不变）
+_ON_VALS = {"1": True, "on": True, "true": True, "yes": True}
+
+
+def _env_on(name):
+    return _ON_VALS.get(os.environ.get(name, "").strip().lower(), False)
+
+
+class _SegList(list):
+    """段表 + **建表时顺手算好的签名**（`(C,H,W,fs,pa)` 逐段）。
+
+    为什么要它：T-16 A 的缓存键必须含全部段物理地址，而"事后遍历 segs 建键"是
+    纯 Python（A53 上每层 ~0.2-0.3 ms）。`_segments()` 本来就在遍历叶子、
+    本来就要取 `a.pa`/`a.C`/`a.fs_out` ⇒ 顺手 append 一条签名，边际成本≈0。
+    """
+    __slots__ = ("sig",)
 
 
 class _PlBackend:
@@ -726,28 +742,36 @@ class _PlBackend:
         段 = (kind, C, H, W, fs|None, pa|None, data|None)。
         """
         arrs = v.arrays if isinstance(v, _CatLazy) else [v]
-        segs = []
+        segs, sig = [], []
+        _fs_in = int(L.d["act_fs_in"])
         for a in arrs:
             if isinstance(a, BE.C8Tensor):
                 if a.is_int8:
                     segs.append(dict(kind="i8", C=int(a.C), H=int(a.H),
                                      W=int(a.W), fs=int(a.fs_out),
                                      pa=int(a.pa)))
+                    sig.append((int(a.C), int(a.H), int(a.W), int(a.fs_out),
+                                int(a.pa)))
                 else:
                     # 该句柄已被迫物化（槽不够时的回落）⇒ 当 f32 段用，别整层放弃
                     segs.append(dict(kind="f32", C=int(a.C), H=int(a.H),
                                      W=int(a.W), fs=int(a.fs_out),
                                      data=a.materialize()))
+                    sig.append((int(a.C), int(a.H), int(a.W), int(a.fs_out), 0))
             elif isinstance(a, np.ndarray) and a.dtype == np.float32 and a.ndim == 3:
                 segs.append(dict(kind="f32", C=int(a.shape[0]), H=int(a.shape[1]),
-                                 W=int(a.shape[2]), fs=int(L.d["act_fs_in"]),
+                                 W=int(a.shape[2]), fs=_fs_in,
                                  data=a))
+                sig.append((int(a.shape[0]), int(a.shape[1]), int(a.shape[2]),
+                            _fs_in, 0))
             else:
                 return None
         for s in segs:
             if (s["H"], s["W"]) != (int(L.H), int(L.W)):
                 return None
-        return segs
+        _sl = _SegList(segs)
+        _sl.sig = tuple(sig)
+        return _sl
 
     def prepare(self, op):
         """prologue：量化/描述符 → （必要时）写 IN → 写配置页 → 布金丝雀。
@@ -835,6 +859,32 @@ class _PlBackend:
                     print("  [prepare] %-46s C8Tensor 直读失败 ⇒ 物化"
                           % (L.name[-46:],), flush=True)
                 dep.val = dep.val.materialize()
+        elif (getattr(self.net, "_f32direct", False) and lazy
+              and isinstance(dep.val, np.ndarray) and dep.val.ndim == 3
+              and dep.val.dtype == np.float32):
+            # ★ T-16 C（`BIN_F32DIRECT=1`，默认关）：f32 输入张量**直接当 f32 段**
+            #   交给 prepare_segments（q8_c8 融合"量化+C8 布局"，板端 232 MB/s），
+            #   而不是走 `pack_input`（quantize_int8 + to_c8_padded，板端 ~120 MB/s）
+            #   再 `push_input` 拷一次。
+            #   为什么逐字节相同：两条路都产出 `sat8(rint(x·2^fs_in)) + t_q > 0`
+            #   （f32 段 ⇒ d = fs_in - fs_in = 0），C8 落位由同一个 `_seg_layout`
+            #   的 C8 规则决定；且 E1E2 的 job 只是**推迟到 kick 再跑**（与直读层
+            #   一致），数据/寄存器序列不变。任何一段做不到 ⇒ 原路 pack_input。
+            segs = self._segments(dep.val, L)
+            if segs:
+                segs, _q8chg = self.net._q8_segments(segs, L, op)
+                kinds = tuple("i8" if s_.get("kind") == "i8" else "f32"
+                              for s_ in segs)
+                plan = (self.net._lane_plan_q8.get(op.id)
+                        if kinds == ("i8",) * len(kinds)
+                        else self.net._lane_plan.get(op.id))
+                job = ee.prepare_segments(segs, L, plan=plan)
+            if job is not None:
+                self.net._lazy_stats["direct_layers"] += 1
+                self.net._lazy_stats["f32_bytes"] += int(dep.val.shape[0]) * L.H * L.W
+            elif _DBG_PREP:
+                print("  [prepare] %-46s f32 段直读失败 ⇒ 回落 pack_input"
+                      % (L.name[-46:],), flush=True)
         if _DBG_PREP:
             self.net._prep_prof["job"] = self.net._prep_prof.get("job", 0.0) + (time.perf_counter() - _tt)
             _tt = time.perf_counter()
@@ -1290,10 +1340,15 @@ class BinNet:
         tid = id(a)
         prev = self._q8_fs_seen.get(tid)
         if prev is not None and prev != fs:
-            # 同一个 f32 张量被不同 fs_in 的消费者读：阈值不同。缓存 key 本来就含
-            # fs（不会错），但保守起见该张量不走缓存，回落到 S1 的现场量化。
+            # ★ T-16 B（`Q8CACHE_MULTIFS=0` 可关回旧行为）：
+            #   旧逻辑是"先到先占 ⇒ 这个张量整块踢出缓存"，而缓存键本身**已经含 fs**
+            #   （不同 fs 是不同量化结果，绝不会串味）⇒ 纯保守、纯粹浪费：
+            #   §67.3① 实测 14 个唯一 f32 叶子里有 8 个被 2~3 种 fs_in 读，
+            #   白扔 26~30% 字节，且让命中数在 54/61/62/65 之间抖动（收益 ±10%）。
+            #   现在改成：同一张量允许多条 (tensor, fs) 条目（`_by_qid` 本来就是 set）。
             self._cat_stats["q8_fs_conflict"] += 1
-            return None
+            if not self._q8_multifs:
+                return None
         self._q8_fs_seen[tid] = fs
         try:
             _buf, pa, _k, hit = c.get_c8(a, fs)
@@ -1689,10 +1744,17 @@ class BinNet:
                             else bool(self._lazy_deq
                                       and _cf in ("1", "on", "true", "yes")))
         self._cat_strict = bool(_cs in ("1", "on", "true", "yes"))
+        # ★ T-16 C（`BIN_F32DIRECT=1`，默认关）：f32 输入走"f32 段直读"（q8_c8 融合）
+        #   而不是 pack_input + push_input。默认关 ⇒ 一个字节的路径都不变。
+        self._f32direct = os.environ.get("BIN_F32DIRECT", "").strip().lower() in (
+            "1", "on", "true", "yes")
         self._cat_stats = self._new_cat_stats()
         self._cat_class = {}
         self._q8_fs_seen = {}
         self._q8_hits = 0
+        # ★ T-16 B：`(tensor, fs)` 多条目（默认开；`Q8CACHE_MULTIFS=0` 可关回旧行为）
+        self._q8_multifs = os.environ.get("Q8CACHE_MULTIFS", "1").strip().lower() \
+            not in ("0", "off", "false", "no")
         self._qcache = None
         _qc = os.environ.get("Q8CACHE", "0").strip().lower()
         if self._cat_fusion and _qc in ("1", "on", "true", "yes"):
@@ -1991,6 +2053,25 @@ class BinNet:
                           #   桶里不是热态值；基线表只收 perf_warm=True 的行。
                           perf_warm=bool(_deps_warm), perf_note=_perf_note,
                           pipeline=True, backend=("PL" if self.engine else "ref"))
+        # ★ T-16：缓存统计**默认不输出**（正常 stdout 逐字不变）；
+        #   要证据时开 `BIN_PRECOMP_STATS=1` / `Q8CACHE_STATS=1`（各自独立）。
+        if BE.precomp_on() and _env_on("BIN_PRECOMP_STATS"):
+            BE.precomp_print_stats()
+        if self._qcache is not None and _env_on("Q8CACHE_STATS"):
+            _qs = self._qcache.stats()
+            print("[Q8CACHE] hit/miss = %d/%d  stale %d  逐出 %d  skip %d  "
+                  "常驻 %.2f/%.2f MB  直写 %s  强引用 %s  multifs %s"
+                  % (_qs["hits"], _qs["misses"], _qs["stale"],
+                     _qs["evictions"], _qs["skips"],
+                     _qs["bytes"] / 1e6, _qs["max_bytes"] / 1e6,
+                     getattr(self._qcache, "_fill_direct", "?"),
+                     getattr(self._qcache, "_keep", "?"), self._q8_multifs),
+                  flush=True)
+        if _env_on("BIN_F32DIRECT_STATS") and getattr(self, "_f32direct", False):
+            _ls = self._lazy_stats
+            print("[F32DIRECT] direct_layers=%d f32_bytes=%.2f MB"
+                  % (_ls.get("direct_layers", 0), _ls.get("f32_bytes", 0) / 1e6),
+                  flush=True)
         return {k: self._materialize(t.val) for k, t in outs.items()}, self.stats
 
     def _run_serial(self, g, outs, be, t_all):
