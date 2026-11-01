@@ -4321,13 +4321,12 @@ $$\Rightarrow\ \text{五项账（与 } \texttt{pl\_s}=2.2215\ \text{逐位相等
 | 项 | 秒 | 性质 | 谁的问题 |
 |---|---:|---|---|
 | conv 算力（512 MAC/拍） | 0.3773 | 硬件在算（地板） | — |
-| conv 读通路 stall | 0.6481 | 硬件在等（其中 d=2 的 42 层占 0.465） | RTL/访存 |
-| **conv 每 job 握手** | **0.2262** | 227 job × 0.997 ms | **PS 的 MMIO** |
+| conv 读通路 stall（**残差**）| **0.8368** [0.8085, 0.8652] | 硬件在等（d=2 的 42 层占 0.4650；每笔线填充 122 拍，d1=73 / **d2=351**；读 101.7 MB 仅占端口 8.3%）| RTL/访存 |
+| conv 每 job 握手 | **0.0375** [0.0091, 0.0658] | 227 job × 40~290 µs | PS 的 MMIO |
 | pack 纯 PL | 0.1462 | 硬件在搬（已贴 AXI 87%） | — |
 | **pack 每命令握手** | **0.8237** | 698 条命令 × 1.180 ms | **PS 的 MMIO** |
 
-$$\Rightarrow\ \textbf{握手合计 } 1.0499\ \text{s} = pl\_s\ \text{的 } 47.3\%,\ \text{总时间的 } 16\%
-\Rightarrow\ \text{真正的 PL 工作量只有 } \mathbf{1.172}\ \text{s}$$
+$$\Rightarrow\ \textbf{握手合计 } \mathbf{0.861}\ \text{s}（0.8237+0.0375）= pl\_s\ \text{的 } 38.8\%,\ \text{总时间的 } 13.3\% \Rightarrow\ \text{真实 PL } \mathbf{1.360}\ \text{s}$$
 
 $$\Rightarrow\ \text{单次访问成本（板端实测）：MMIO 写 } \mathbf{30.4\ \mu s}\ /\ \text{读 } 25\ \mu s
 \Rightarrow\ \text{每命令约 } 17\ \text{次写} \Rightarrow\ \text{这就是 } 1.18\ \text{ms 的来源}$$
