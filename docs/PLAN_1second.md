@@ -4434,3 +4434,42 @@ $$\Rightarrow\ \text{板端 } \texttt{wait()}\ \text{在一次 0.2 ms 的命令�
 $$\Rightarrow\ \textbf{判据}：\text{凡"}N\ \text{次操作"}这类结构量，必须给出来源是}\textbf{代码路径}\text{还是}\textbf{假单元}；$$
 $$\quad\ \text{整数倍 + 与耗时线性无关} \Rightarrow \text{先怀疑假单元}$$
 $$\Rightarrow\ \text{今夜这个坑的第三次（§58 桶名、70.9 模型墙钟、76 假单元结构量）} \Rightarrow \textbf{同一个病根：把模拟当测量}$$
+
+### 70.13 ★★★★ conv stall 的真机制找到了：**预取太晚**，修法只有 4 个参数（2026-11-02 04:00）
+
+T-34 用 xsim 把 `u_ce=0` 的冻结逐周期归类，结论**不是容量问题，是时机问题**：
+
+$$\Rightarrow\ \text{冻结 } \mathbf{100\%}\ \text{落在同一个分支}\ \texttt{rd\_miss \&\& !alloc\_en}
+\Rightarrow\ \text{需求读撞上}\textbf{正在回填的同一 set}\ \Rightarrow\ \text{既不能命中，也不许分配}$$
+$$\Rightarrow\ 98.3\%\ \text{的填充是}\textbf{预取} \Rightarrow \textbf{不是"填得贵"，是"填得太晚"}$$
+$$\Rightarrow\ \text{放大律（xsim 实测）}：\text{曝光}\propto\Delta L^{2.6} \Rightarrow \text{同形状 } L=55/300/600\ \text{给出 } 0.016/0.066/\mathbf{0.551}\ \text{cyc/term}$$
+$$\Rightarrow\ \Delta L\ \text{只要高 } 2.6\times\ \text{（好层 } L\approx580\text{、坏层 } L\approx1490\text{）}\ \text{就够} \Rightarrow \textbf{这解释了"为什么只有 4 层坏"}$$
+
+**四条候选机制全部被逐条证伪（这张表比结论更值钱）**
+
+| 候选 | 判定 | 证据 |
+|---|---|---|
+| (a) CAM 16 路装不下 | **证伪** | 现在**没有 CAM**（512 条直接映射）；且 cb=1/128² 实测 1.51 cyc/term（若 16 路会 ≥5.6）|
+| (b) d=2 使突发变窄 | **证伪** | `arlen=ARLEN_C=15` 是 localparam，与 d 无通路；AR 数 = 填充数 |
+| (c) 16 路串行扫描 | **证伪** | `rd_hit` 同拍（组合 0 拍）；L=55 实测 1.016 cyc/term，零每-term 开销 |
+| (d) 预取深度 1 / 命中率掉 | **命中率版证伪 / 超前量版成立** | fills/term 恒 = 1/144 = 几何最小（命中率没掉）；但超前量不足 |
+
+**修法：纯参数，零逻辑改动**
+$$\texttt{PF\_AHEAD } 1\to2,\quad \texttt{PF\_DEPTH } 4\to8,\quad \texttt{PF\_MAX } 4\to6,\quad \texttt{AR\_SLOTS } 4\to8$$
+$$\Rightarrow\ L=600：1{,}372{,}252 \to \mathbf{985{,}132}\ \text{拍（}\mathbf{-28.2\%}\text{）}，\text{冻结} -80\%$$
+$$\Rightarrow\ L=55：899{,}306\to898{,}500（\mathbf{-0.09\%}，\text{不退化}）,\ \text{读量} +0.4\%$$
+$$\Rightarrow\ \textbf{预期 total } -0.40\sim-0.66\ \text{s（conv } 1.25\to0.55\sim0.60\text{）}$$
+
+**⚠ 三条必须更正的旧结论**
+$$\Rightarrow\ \text{① "d=2 = 351 拍/填充 vs d=1 = 73"（T-19）}\textbf{不是实测}：\texttt{cnt\_fill}\ \text{是 16 位，探针按模型解回绕}$$
+$$\quad\ \text{4 个坏层里 2 个的读量}\textbf{低于几何下界}（0.706\ \text{MB vs } 4.72\ \text{MB 下界}）\Rightarrow \textbf{可证明错}$$
+$$\quad\ \Rightarrow\ \text{能继续用的只有}\ \texttt{cyc/term}；\text{要钉死"拍/填充"必须加}\textbf{32 位}\ \text{计数器}$$
+$$\Rightarrow\ \text{② v39 的 wrapper md5 是 } \mathbf{0cf68b2e}\（\texttt{build\_v39\_manifest.txt:10}），\text{T-19 写的 } \texttt{f4ba0655}\ \text{属 v40/v41}$$
+$$\quad\ \text{两者只差三个 } \texttt{(* max\_fanout *)}\ \text{属性（功能 0 差异）} \Rightarrow \text{仿真合法，但"v39 改过散列/预取"这句是错的}$$
+$$\Rightarrow\ \text{③ } \texttt{PF\_DEPTH}\ /\ \texttt{AR\_SLOTS}\ \textbf{必须是 2 的幂}：\text{取 12/6 会越界读 X 直接挂死}
+\Rightarrow \text{必须加 elaboration/仿真期断言}$$
+
+**第 77 条纪律：计数器位宽会伪造出"机制"**
+$$\Rightarrow\ \text{16 位计数器 + 模型解回绕} \Rightarrow \text{读出比几何下界还小的字节数} \Rightarrow \text{却被用来论证"351 拍/填充"}$$
+$$\Rightarrow\ \textbf{判据}：\text{任何逐事件的拍数/字节数，必须先过}\textbf{几何下界检查}（读量 ≥ 最小必需读量）$$
+$$\quad\ \text{过不了就是计数器溢出或口径错，}\textbf{不许进入结论}——本次它让一条"看起来极有说服力"的机制解释活了一整轮$$
