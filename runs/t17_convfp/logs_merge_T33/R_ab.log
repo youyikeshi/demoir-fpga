@@ -1,0 +1,34 @@
+
+== A) 改动 1/2/3 的逐字节性（4 层全覆盖）==
+  基准（全关）sha1：1543a7da4b17 ba1d79f30169 d3aeb561a2c2 192e87dc58f6
+    ✓ NOPAD=0 FUSE=0 POOL=1        sha 一致=True
+    ✓ NOPAD=0 FUSE=1 POOL=0        sha 一致=True
+    ✓ NOPAD=0 FUSE=1 POOL=1        sha 一致=True
+    ✓ NOPAD=1 FUSE=0 POOL=0        sha 一致=True
+    ✓ NOPAD=1 FUSE=0 POOL=1        sha 一致=True
+    ✓ NOPAD=1 FUSE=1 POOL=0        sha 一致=True
+    ✓ NOPAD=1 FUSE=1 POOL=1        sha 一致=True
+  => A PASS
+
+== J1) C 内核 vs 串行参考（逐字节 0 差；k/pad/cin/cout 全覆盖）==
+  convpf_c 状态： {'on': False, 'ok': True, 'variant': 1, 'why': '四个形状 × (标量 vs 参考) + (向量 vs 标量) 全部逐字节相同', 'so': '/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/ps/pynq/convpf_c_x86_64.so', 'arch': 'x86_64'}
+    ✓ encoder.conv_first.0       (48, 13, 14)   k=5 pad=2 cin=12 cout=48 sha_ref=ba25be8b0ae3 sha_c=ba25be8b0ae3
+    ✓ decoder.decoder_3.conv     (12, 9, 10)    k=3 pad=1 cin=64 cout=12 sha_ref=b5a0ca46b25c sha_c=b5a0ca46b25c
+    ✓ decoder.decoder_2.conv     (12, 9, 10)    k=3 pad=1 cin=64 cout=12 sha_ref=d46d1f81bab3 sha_c=d46d1f81bab3
+    ✓ decoder.decoder_1.conv     (12, 9, 10)    k=3 pad=1 cin=64 cout=12 sha_ref=56192c6a810f sha_c=56192c6a810f
+
+== C) 量化：C 内核 vs 主机 BLAS（numpy `@`）—— 仅供参考，不是判据 ==
+    encoder.conv_first.0       equal=False n_diff=644602 /786432  最大绝对差=1.335e-05  最大相对差=3.19e+00
+    decoder.decoder_3.conv     equal=False n_diff=10990  /12288  最大绝对差=2.146e-06  最大相对差=1.23e-03
+    decoder.decoder_2.conv     equal=False n_diff=44117  /49152  最大绝对差=2.861e-06  最大相对差=5.45e-03
+    decoder.decoder_1.conv     equal=False n_diff=178356 /196608  最大绝对差=4.053e-06  最大相对差=3.16e-02
+  => J1 PASS
+
+== J1b) 全画幅（256² 真实形状、逐像素）：C 向量 vs C 标量 ==
+    ✓ encoder.conv_first.0       (48, 128, 128) 像素=786432  sha=e5418586a723
+    ✓ decoder.decoder_3.conv     (12, 32, 32)   像素=12288  sha=3e2b3a1918dc
+    ✓ decoder.decoder_2.conv     (12, 64, 64)   像素=49152  sha=150a1a386794
+    ✓ decoder.decoder_1.conv     (12, 128, 128) 像素=196608  sha=1a169ed036a8
+  => J1b PASS
+
+== 总判：A=PASS J1=PASS J1b=PASS（明细 /media/felix/Data/coding/demoir-fpga/pynq_specialized_code/ps/tools/_t17_gate.json）==

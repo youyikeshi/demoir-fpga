@@ -1,0 +1,12 @@
+neonsim 版本 = 1
+
+-- 4 个真实层（全画幅）--
+   ✓ encoder.conv_first.0       k=5 pad=2 cin=12 cout=48  128x128
+   ✓ decoder.decoder_3.conv     k=3 pad=1 cin=64 cout=12  32x32
+   ✓ decoder.decoder_2.conv     k=3 pad=1 cin=64 cout=12  64x64
+   ✓ decoder.decoder_1.conv     k=3 pad=1 cin=64 cout=12  128x128
+
+-- 随机形状扫（W 覆盖 NR=8 的尾块；pad/k/cin/cout 全组合抽样）--
+   跑了 249 个形状 × 2 个 variant
+
+== J1c PASS（249 形状 × 2 variant，逐字节）==

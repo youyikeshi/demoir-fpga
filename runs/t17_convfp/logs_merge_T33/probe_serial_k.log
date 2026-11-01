@@ -1,0 +1,51 @@
+== T-17 / J3：板端 BLAS 的 sgemm 是否 K 方向纯串行 ==
+  机器：x86_64   numpy 2.2.6
+  env： OMP=(unset) OPENBLAS=(unset) MKL=(unset) BIN_GEMM_THREADS=(unset)
+  ⚠ 本探针**不要**加 OMP_NUM_THREADS=1：要验的是**真实运行点**的 BLAS。
+  gemm_threads() = 2（>1 时真实路径会沿 M 切，所以下面两种形状都测）
+
+-- K=300  (M=48, N=16384) --
+    整块 np.dot：11.1 ms（21.29 GMAC/s）
+      ✗ [dot 整块 M=48] (i=26,j=16303) serial=4.88801289 dot=4.88801384  差 -2 ulp
+      ✗ [dot 整块 M=48] (i=20,j=8456) serial=17.3607864 dot=17.3607826  差 +2 ulp
+      ✗ [dot 整块 M=48] (i=7,j=13230) serial=21.3565617 dot=21.3565598  差 +1 ulp
+    ✗ dot 整块 M=48            抽样 512 个元素，串行参考耗时 0.16 s ⇒ FAIL（438/512 不同）
+      ✗ [dot 子块 M[0:24)] (i=14,j=1352) serial=-2.27717566 dot=-2.27717733  差 -7 ulp
+      ✗ [dot 子块 M[0:24)] (i=3,j=10463) serial=16.3562717 dot=16.3562679  差 +2 ulp
+      ✗ [dot 子块 M[0:24)] (i=7,j=4658) serial=-9.19061565 dot=-9.19061661  差 -1 ulp
+    ✗ dot 子块 M[0:24)         抽样 256 个元素，串行参考耗时 0.11 s ⇒ FAIL（204/256 不同）
+      ✗ [dot 子块 M[24:48)] (i=16,j=7697) serial=-0.776976824 dot=-0.776977897  差 -18 ulp
+      ✗ [dot 子块 M[24:48)] (i=1,j=2851) serial=-0.812501788 dot=-0.812501907  差 -2 ulp
+      ✗ [dot 子块 M[24:48)] (i=16,j=2894) serial=-0.364296317 dot=-0.364296138  差 +6 ulp
+    ✗ dot 子块 M[24:48)        抽样 256 个元素，串行参考耗时 0.09 s ⇒ FAIL（207/256 不同）
+
+-- K=576  (M=12, N=16384) --
+    整块 np.dot：15.5 ms（7.31 GMAC/s）
+      ✗ [dot 整块 M=12] (i=3,j=6746) serial=-3.45980453 dot=-3.45980787  差 -14 ulp
+      ✗ [dot 整块 M=12] (i=8,j=6118) serial=13.3124905 dot=13.3125  差 -10 ulp
+      ✗ [dot 整块 M=12] (i=5,j=5299) serial=-3.07740164 dot=-3.07740259  差 -4 ulp
+    ✗ dot 整块 M=12            抽样 512 个元素，串行参考耗时 0.23 s ⇒ FAIL（463/512 不同）
+      ✗ [dot 子块 M[0:6)] (i=3,j=10999) serial=-10.2099104 dot=-10.2099152  差 -5 ulp
+      ✗ [dot 子块 M[0:6)] (i=3,j=14278) serial=-12.198205 dot=-12.1982069  差 -2 ulp
+      ✗ [dot 子块 M[0:6)] (i=0,j=8779) serial=22.8335514 dot=22.8335533  差 -1 ulp
+    ✗ dot 子块 M[0:6)          抽样 256 个元素，串行参考耗时 0.13 s ⇒ FAIL（228/256 不同）
+      ✗ [dot 子块 M[6:12)] (i=4,j=176) serial=-1.1572758 dot=-1.15727472  差 +9 ulp
+      ✗ [dot 子块 M[6:12)] (i=1,j=5596) serial=-4.75682306 dot=-4.75682497  差 -4 ulp
+      ✗ [dot 子块 M[6:12)] (i=4,j=4840) serial=3.38249278 dot=3.38249207  差 +3 ulp
+    ✗ dot 子块 M[6:12)         抽样 256 个元素，串行参考耗时 0.13 s ⇒ FAIL（232/256 不同）
+
+-- C 内核 vs 串行参考（同一批串行判据）--
+    convpf_c：{'on': False, 'ok': True, 'variant': 1, 'why': '四个形状 × (标量 vs 参考) + (向量 vs 标量) 全部逐字节相同', 'so': '/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/ps/pynq/convpf_c_x86_64.so', 'arch': 'x86_64'}
+    ✓ C 内核 cout=48 k=5 pad=2：抽样 96 个输出像素 ⇒ PASS
+    ✓ C 内核 cout=12 k=3 pad=1：抽样 96 个输出像素 ⇒ PASS
+
+==== 结论 ====
+  K=300 M=48 : FAIL
+  K=300 M=24 : FAIL
+  K=300 M=24 : FAIL
+  K=576 M=12 : FAIL
+  K=576 M=6 : FAIL
+  K=576 M=6 : FAIL
+  ⇒ **FAIL**：板端 sgemm 的 K 方向不是纯串行（或用了 FMA/多累加器）。
+     ⇒ 对**现存板端 sha1** 而言逐字节不可达。按 T-17 约定：停下来上报，
+        不放宽容差。备选：改走 PL floatconv，或接受有损 + 误差表。

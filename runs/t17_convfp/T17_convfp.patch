@@ -1,0 +1,246 @@
+--- a/pynq_specialized_code/ps/pynq/bin_ref_numpy.py
++++ b/pynq_specialized_code/ps/pynq/bin_ref_numpy.py
+@@ -834,6 +834,56 @@
+     return np.add(a, b)
+ 
+ 
++# ---------------------------------------------------------------- T-17 开关
++# 四个都是 **opt-in（默认关）**；全关时 `conv2d_f32` 与改动前**逐字节相同**。
++# 口径：见 runs/t17_convfp/REPORT_attr*.md；A/B 各自独立开关，可任意组合。
++def _env_on(name):
++    return os.environ.get(name, "").strip().lower() in ("1", "on", "true", "yes")
++
++
++CONVPF_NOPAD = _env_on("BIN_CONVPF_NOPAD")     # 改动 1：np.pad 不物化
++CONVPF_FUSE = _env_on("BIN_CONVPF_FUSE")       # 改动 2：bias/relu 就地
++GEMM_POOL = _env_on("BIN_GEMM_POOL")           # 改动 3：gemm 线程池
++CONVPF_C = _env_on("BIN_CONVPF_C")             # 改动 4：直接卷积 C 内核
++
++_cpf_why = None          # C 路径回落原因（只打印一次，不污染正常输出）
++
++
++def _convpf_c_try(x, w, b, cout, cin, k, H, W, Ho, Wo, pad, dil):
++    """调 C 内核；**任何异常/自检不过/形状不支持 ⇒ 返回 None 并记原因**（静默回落）。"""
++    global _cpf_why
++    if b is None or dil != 1:
++        _cpf_note("不支持 b=None 或 dil!=1")
++        return None
++    try:
++        import convpf_c
++        y = convpf_c.conv_direct(x, w, np.asarray(b, np.float32), cout, cin, k,
++                                 H, W, Ho, Wo, pad)
++        if y is None:
++            _cpf_note(convpf_c.state().get("why") or "conv_direct 返回 None")
++        return y
++    except Exception as _ex:                      # noqa: BLE001
++        _cpf_note("C 内核异常：%r" % (_ex,))
++        return None
++
++
++def _cpf_note(why):
++    """回落原因**只打印一次**（不污染正常输出，也不在 227 层里刷屏）。"""
++    global _cpf_why
++    if _cpf_why != why:
++        _cpf_why = why
++        print("  [CONVPF_C] %s ⇒ 回落 numpy 路径（结果不变）" % why, flush=True)
++
++
++def convpf_c_status():
++    """给报告/门禁用：(是否启用, 是否可用, 原因)。"""
++    try:
++        import convpf_c
++        return convpf_c.state()
++    except Exception as _ex:                      # noqa: BLE001
++        return dict(on=bool(CONVPF_C), ok=False, why="import convpf_c 失败：%r" % (_ex,))
++
++
+ def conv2d_f32(x, w, b=None, stride=1, pad=0, dil=1, row_tile=0):
+     """float32 卷积（NCHW 单图），im2col + 一次 gemm。与 `bin_net.conv2d_f32` 等价。
+ 
+@@ -845,14 +895,23 @@
+          因为参考 BLAS 的 gemm 把 K 也分块，cols 本来就不是主要瓶颈，多调用
+          反而摊薄了 gemm 的效率。**所以默认 row_tile=0（不分块）**。
+       板端 4 个真实层实测：**64.8+7.2+22.6+78.4 = 173 → 48.6+4.0+13.3+38.6 = 104.5 ms（1.66×）**。
++
++    T-17 的四个 opt-in 加速（**默认全关；全关时与旧路径逐字节相同**）
++      · `BIN_CONVPF_NOPAD=1`  不物化 `np.pad`，边界 tap 直接把 +0.0 写进 cols
++      · `BIN_CONVPF_FUSE=1`   `bias` 用 `out=` 就地加（relu 的在 `bin_net._fp_conv`）
++      · `BIN_GEMM_POOL=1`     线程池代替每次新建 Thread（见 `gemm_split_m`）
++      · `BIN_CONVPF_C=1`      **im2col-free 直接卷积 C 内核**（见 `convpf_c.py`）
+     """
+     x = np.asarray(x, np.float32)
+     w = np.asarray(w, np.float32)
+     cout, cin, k, _ = w.shape
+     H, W = x.shape[1], x.shape[2]
+-    if pad:
++    # NOPAD / C 内核只在 stride=1 & dil=1 时走（本网 4 层全部如此）；其他情况保持原路径。
++    simple = bool((CONVPF_NOPAD or CONVPF_C) and stride == 1 and dil == 1)
++    nopad = bool(simple and pad > 0)
++    if pad and not nopad:
+         x = np.pad(x, ((0, 0), (pad, pad), (pad, pad)), mode="constant")
+-    Hp, Wp = x.shape[1], x.shape[2]
++    Hp, Wp = (H + 2 * pad, W + 2 * pad) if nopad else (x.shape[1], x.shape[2])
+     Ho = (Hp - dil * (k - 1) - 1) // stride + 1
+     Wo = (Wp - dil * (k - 1) - 1) // stride + 1
+     w2 = w.reshape(cout, cin * k * k)
+@@ -861,23 +920,61 @@
+ 
+     def _cols(r0, r1):
+         c = np.empty((cin, k, k, r1 - r0, Wo), np.float32)
++        if not nopad:
++            for ky in range(k):
++                for kx in range(k):
++                    c[:, ky, kx] = x[:, ys[ky], xs[kx]][:, r0:r1]
++            return c.reshape(cin * k * k, (r1 - r0) * Wo)
++        # ★ NOPAD：直接从**未填充**的 x 取内部，越界部分写 +0.0。
++        #   数值与 np.pad 逐字节相同（constant 模式填的就是 +0.0），省掉
++        #   一次 (cin,Hp,Wp) 的写 + 一次 (cin,H,W) 的读。
+         for ky in range(k):
++            h0 = ky - pad
++            rlo = max(r0, -h0, 0)
++            rhi = min(r1, H - h0, Ho)
+             for kx in range(k):
+-                c[:, ky, kx] = x[:, ys[ky], xs[kx]][:, r0:r1]
++                w0 = kx - pad
++                pl = c[:, ky, kx]                      # (cin, r1-r0, Wo)
++                clo = max(0, -w0)
++                chi = min(Wo, W - w0)
++                if rhi <= rlo or chi <= clo:
++                    pl[...] = 0.0
++                    continue
++                pl[:, rlo - r0:rhi - r0, clo:chi] = \
++                    x[:, h0 + rlo:h0 + rhi, w0 + clo:w0 + chi]
++                if rlo > r0:
++                    pl[:, :rlo - r0, :] = 0.0
++                if rhi < r1:
++                    pl[:, rhi - r0:, :] = 0.0
++                if clo > 0:
++                    pl[:, rlo - r0:rhi - r0, :clo] = 0.0
++                if chi < Wo:
++                    pl[:, rlo - r0:rhi - r0, chi:] = 0.0
+         return c.reshape(cin * k * k, (r1 - r0) * Wo)
+ 
++    y = None
+     if row_tile and Ho > row_tile:
+         y = np.empty((cout, Ho * Wo), np.float32)
+         for r0 in range(0, Ho, row_tile):
+             r1 = min(r0 + row_tile, Ho)
+             y[:, r0 * Wo:r1 * Wo] = w2 @ _cols(r0, r1)
+-    else:
++    elif CONVPF_C and simple:
++        # ★ T-17 主菜：im2col-free 直接卷积 C 内核（K 方向严格串行累加）。
++        #   任何异常 ⇒ 记 `_cpf_why` 并**静默回落**下面的 numpy 路径（结果不变）。
++        y = _convpf_c_try(x, w, b, cout, cin, k, H, W, Ho, Wo, pad, dil)
++        if y is not None:
++            return y.reshape(cout, Ho, Wo)            # 内核已含 bias
++    if y is None:
+         # ★ 2026-10-31：沿 M(=cout) 切两线程算 gemm —— **逐位相同**（见 gemm_split_m）。
+         #   只改这一行；row_tile 那条路原样保留（板上实测它更慢，别删也别默认开）。
+         #   关掉：BIN_GEMM_THREADS=1
+         y = gemm_split_m(w2, _cols(0, Ho))
+-    if b is not None:
+-        y = y + np.asarray(b, np.float32).reshape(-1, 1)
++        if b is not None:
++            bb = np.asarray(b, np.float32).reshape(-1, 1)
++            if CONVPF_FUSE:
++                y += bb        # 就地：与 `y = y + bb` 逐字节相同（同一 ufunc、同一操作数）
++            else:
++                y = y + bb
+     return y.reshape(cout, Ho, Wo)
+ 
+ 
+@@ -917,6 +1014,12 @@
+     沿 K 分块累加会改变求和顺序 ⇒ 不再是逐位相同（历史上 `eca` 就是这么翻车的）
+ 
+     失败/单核时**静默回落**单线程，结果不变。
++
++    `BIN_GEMM_POOL=1`（T-17 改动 3，默认关）：把"每次调用新建 n 个 `Thread`"换成
++    一个**常驻 `ThreadPoolExecutor`**。提交的仍是同一批
++    `np.dot(a[r0:r1], b, out=out[r0:r1])`（同样的切片、同样的 BLAS 调用）
++    ⇒ 逐字节相同，只是省掉 4 层 × 2 次线程创建/销毁（A9 上 ~0.3~0.5 ms/次）。
++    池子在**首次成功**后常驻；`num` 变了就重建。
+     """
+     nth = gemm_threads()
+     m = a.shape[0]
+@@ -925,6 +1028,18 @@
+     if out is None:
+         out = np.empty((m, b.shape[1]), np.float32)
+     edges = [(m * i) // nth for i in range(nth + 1)]
++
++    if GEMM_POOL:
++        try:
++            ex = _gemm_pool(nth)
++            futs = [ex.submit(_gemm_slice, a, b, out, edges[i], edges[i + 1])
++                    for i in range(nth) if edges[i + 1] > edges[i]]
++            bad = [f.result() for f in futs]
++            if not any(bad):
++                return out
++        except Exception:                     # noqa: BLE001
++            pass                              # 池子出问题 ⇒ 落到下面的老路径（结果不变）
++
+     err = []
+     ths = []
+ 
+@@ -949,6 +1064,35 @@
+     return out
+ 
+ 
++# ---- 常驻线程池（BIN_GEMM_POOL=1）----
++_GEMM_EX = None
++_GEMM_EX_N = 0
++_GEMM_EX_LOCK = threading.Lock()
++
++
++def _gemm_pool(n):
++    """取/建常驻线程池。**不在持锁时做 dot**（只需保护创建）。"""
++    global _GEMM_EX, _GEMM_EX_N
++    if _GEMM_EX is not None and _GEMM_EX_N == n:
++        return _GEMM_EX
++    with _GEMM_EX_LOCK:
++        if _GEMM_EX is None or _GEMM_EX_N != n:
++            import concurrent.futures as _cf
++            _GEMM_EX = _cf.ThreadPoolExecutor(max_workers=n,
++                                              thread_name_prefix="gemm")
++            _GEMM_EX_N = n
++        return _GEMM_EX
++
++
++def _gemm_slice(a, b, out, r0, r1):
++    """池里的任务体：与老路径**同一个表达式**。返回 False=成功，True=出错。"""
++    try:
++        np.dot(a[r0:r1], b, out=out[r0:r1])
++        return False
++    except BaseException:                        # noqa: BLE001
++        return True
++
++
+ # ----------------------------------------------------------------------------
+ # cat（沿"源段"切 2 线程）—— **默认关闭**，留给板端一键 A/B
+ # ----------------------------------------------------------------------------
+--- a/pynq_specialized_code/ps/pynq/bin_net.py
++++ b/pynq_specialized_code/ps/pynq/bin_net.py
+@@ -59,6 +59,8 @@
+     # ★ 非卷积快速内核（bin_ref_numpy 侧提供，逐字节等价；见各函数 docstring）
+     bilinear_f32, eca_attn_f32, conv2d_f32 as conv2d_f32_np,
+     sam_mix_f32, add_f32, cat_last, tune_malloc,
++    # ★ T-17：opt-in 开关（默认全关）
++    CONVPF_FUSE,
+ )
+ 
+ # 非卷积算子快不快，取决于用哪一套内核；FAST_NONCONV=False 可退回本文件的历史实现
+@@ -1359,7 +1361,14 @@
+         f = self.plan.fp[name]
+         w = self.blob.fp_layer(name)[0]
+         y = conv2d_f32(x, w, f.get("bias"), stride=stride, pad=pad)
+-        return np.maximum(y, 0) if relu else y
++        if not relu:
++            return y
++        # ★ T-17 改动 2（`BIN_CONVPF_FUSE=1`，默认关）：relu 就地做，省一次
++        #   (cout,Ho,Wo) 的读 + 写。`np.maximum(y, 0, out=y)` 与 `np.maximum(y, 0)`
++        #   逐字节相同（同一 ufunc、同一输入），且 y 是本函数刚分配的新数组（无别名）。
++        if CONVPF_FUSE:
++            return np.maximum(y, 0, out=y)
++        return np.maximum(y, 0)
+ 
+     # ------------------------------------------------------------------
+     # 3.1 建图：把 run() 的递归改成"建节点"。**拓扑与运算顺序与原实现一一对应**

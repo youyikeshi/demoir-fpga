@@ -59,6 +59,8 @@ from bin_ref_numpy import (                     # noqa: E402
     # ★ 非卷积快速内核（bin_ref_numpy 侧提供，逐字节等价；见各函数 docstring）
     bilinear_f32, eca_attn_f32, conv2d_f32 as conv2d_f32_np,
     sam_mix_f32, add_f32, cat_last, tune_malloc,
+    # ★ T-17：opt-in 开关（默认全关）
+    CONVPF_FUSE,
 )
 
 # 非卷积算子快不快，取决于用哪一套内核；FAST_NONCONV=False 可退回本文件的历史实现
@@ -1359,7 +1361,14 @@ class BinNet:
         f = self.plan.fp[name]
         w = self.blob.fp_layer(name)[0]
         y = conv2d_f32(x, w, f.get("bias"), stride=stride, pad=pad)
-        return np.maximum(y, 0) if relu else y
+        if not relu:
+            return y
+        # ★ T-17 改动 2（`BIN_CONVPF_FUSE=1`，默认关）：relu 就地做，省一次
+        #   (cout,Ho,Wo) 的读 + 写。`np.maximum(y, 0, out=y)` 与 `np.maximum(y, 0)`
+        #   逐字节相同（同一 ufunc、同一输入），且 y 是本函数刚分配的新数组（无别名）。
+        if CONVPF_FUSE:
+            return np.maximum(y, 0, out=y)
+        return np.maximum(y, 0)
 
     # ------------------------------------------------------------------
     # 3.1 建图：把 run() 的递归改成"建节点"。**拓扑与运算顺序与原实现一一对应**
