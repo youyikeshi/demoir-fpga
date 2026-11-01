@@ -96,6 +96,22 @@ DECL = {
         kind="热/opt-in（interp；`BIN_BILINEAR_C=1` 才加载 .so，默认关）",
         role="双线性插值 C 内核（逐字节等价 numpy 版）",
         src="bilinear_c.c"),
+    # ★ 2026-11-02（T-41）：T-17 的 `convpf_c` 随 `613a117` 合进 main、被
+    #   `bin_ref_numpy.py:859/883`（`try: import convpf_c`，静默回落）依赖，
+    #   但 DECL 一直没补 ⇒ `--gen` 直接拒绝生成、`--check` 在 main `b84232c`
+    #   上**物理上不可能** rc=0（T-39 板端实测，runs/board_t39/REPORT.md §1.1）。
+    #   ⇒ 这是"门禁坏掉"，不是"清单过期"。
+    "convpf_c": dict(
+        kind="热/opt-in（`BIN_CONVPF_C=1` 且在 ARM 上才启用；缺 ⇒ 静默回落 numpy im2col，结果等价）",
+        role="im2col-free 直接卷积 C/NEON 内核（逐字节等价比串行标量参考；T-17）",
+        src="convpf_c.c"),
+    # ⚠ `convpf_neon_shim.h` **故意不进清单**（不是漏了）：
+    #   它只在 `-DCPF_FAKE_NEON` 的**主机测试构建**里被 include（`convpf_c.c` 的
+    #   `#if defined(CPF_FAKE_NEON)` 分支，引擎 `ps/tools/convpf_neon_sim.py`），
+    #   板端/主机**正式**构建走 `#include <arm_neon.h>` 或标量分支，从不 include 它。
+    #   板端 `cc -O3 ... -o convpf_c_armv7l.so convpf_c.c` 只喂一个 .c ⇒ 头文件不在
+    #   编译输入里；把它列进 md5 清单只会让"冻结点少拷一个测试头"变成假 FAIL
+    #   （判据只该管**板端跑得起来**所需的文件，见本文件 §2 的定位）。
     "qcache": dict(
         kind="冷/可选（`Q8CACHE=1`，默认关）",
         role="f32 叶子量化缓存（按 C8 字节常驻，省重复量化）",
