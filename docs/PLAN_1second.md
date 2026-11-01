@@ -4530,3 +4530,15 @@ $$\Rightarrow\ \text{同一个 MMIO 读：空闲 15.72 µs，引擎忙时 33.5 �
 $$\Rightarrow\ \text{原因：AXI-Lite 与 AXI-HP 共用互连，引擎在搬数据时控制通路被饿}$$
 $$\Rightarrow\ \textbf{判据}：\text{任何"每命令成本"的预算，必须在}\textbf{引擎实际在跑}\text{的条件下测；}$$
 $$\quad\ \text{用空闲值会把收益低估 } 2\times\ \text{以上（今晚 T-23 就是这么低估的）}$$
+
+### 70.16 ⚠ 口径更正：T-39 的 6.584 / 6.179 **含** `bilinear_c` 一次性装载，不能直接与 6.489 比（2026-11-02 07:47）
+
+T-40 在核 `runs/board_t39/arms2.log` 时发现：T-39 的 `p1_base` 里 `interp 0.994 s` **包含了
+`bilinear_c` 的一次性现场编译/装载 0.712 s**。⇒
+
+$$\Rightarrow\ \text{base } 6.584\ \text{与 } \text{ALL3 } 6.179\ \textbf{同进程同口径} \Rightarrow \text{相对差 } -0.405\ \text{可信}$$
+$$\Rightarrow\ \text{但两者}\textbf{绝对值都含那 } 0.712\ \text{s} \text{（至少第一个臂含）} \Rightarrow \textbf{不许拿去跟冻结基线 } 6.489\ \text{比}$$
+$$\Rightarrow\ \textbf{纪律（并入第 75 条）}：\text{"首次装载"必须显式打出并移出计时，否则}\textbf{所有绝对秒数都不可比}$$
+
+$$\Rightarrow\ \text{待 T-40 用"装载移到计时外"的口径重测，那个数才是新锚点}$$
+$$\Rightarrow\ \text{若复核落在 } 6.5\sim6.6\ \text{，说明}\textbf{三刀的真实收益}= \text{相对差 } -0.405\ \text{，而基线本身在冷 boot 下会浮 } +0.1\sim0.3$$

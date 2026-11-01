@@ -37,11 +37,15 @@ BOARD_TAG=BASE BOARD_ALLOW_LOAD=1 tools/boardlock.sh bash -c \
 - **测量协议**：同进程重复 N 次，取**第 2 次起**的中位/最好；首跑永远偏大（一次性内核装载 3.377 s）。
 - 对照基线：**6.489 s（C）/ 8.480 s（numpy）**（`docs/baselines.md`）。
 
-## 3. 收尾（不许省）
+## 3. 收尾（★ 2026-11-02 改：**别自动关机**）
 ```bash
-sync; sync; poweroff
+sync                      # 一定要 sync；但【不要】自动 poweroff
 ```
-硬断电会让 ext4 走 journal recovery。**在改完任何东西之前**先确认 `git status` 干净、产物已拷回主机。
+**理由（当晚踩到）**：T-39 按旧规矩在 session 末尾 `poweroff`，正好把紧接着的 T-40 的整网 A/B 撞掉——
+板子每次开机都要人按电源，而人不在时这一整天就废了。
+- **用户在场 / 当天还要继续跑 ⇒ 只 `sync`，保持开机**（PL 计时不受影响，新 boot 反而有冷启动偏差）。
+- **当天收工 / 用户要走 ⇒ 才 `sync; sync; poweroff`**，硬断电会让 ext4 走 journal recovery。
+- 关机前必须：产物已拷回主机、`git status` 干净、写清"已断电/仍开机"。
 
 ## 4. 候选补丁的 A/B 顺序（只跑已合进 main 的）
 1. `BIN_DESC_CACHE` 一类的**帧间预计算**（T-16 A）
