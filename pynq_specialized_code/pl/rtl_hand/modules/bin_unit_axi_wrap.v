@@ -340,11 +340,24 @@ module bin_unit_axi_wrap #(
     //   收完之前它的条目不会被重新分配）⇒ **AXI_ID_W 保持 4、BD/端口不动**。
     //   实测 BD：S_AXI_HP0_ID_WIDTH=6，而 S_AXI_HP0_ARID 是 4 位零扩展
     //   ⇒ 只有 ID ≥ 16 才会撞上扩展，我们永远用不到。
-    parameter int  AR_SLOTS     = 4,      // AR 队列深度（= 已决定↔已握手之间最多几笔）
+    parameter int  AR_SLOTS     = 8,      // AR 队列深度（= 已决定↔已握手之间最多几笔）
+    //   ★ T-34（2026-11-02）：4→8。理由见 PF_* 那段；**必须是 2 的幂**（arq_wp 位宽 = clog2，
+    //     非 2 的幂会让 arq_wp 越界写/读 arq_addr[]，xsim 直接读到 X 并死锁）。
     parameter int  PF_EN        = 1,      // 预取总开关（0 = 退回纯需求缺失）
-    parameter int  PF_AHEAD     = 1,      // 预取目标 = 当前观察到的线号 + PF_AHEAD
-    parameter int  PF_DEPTH     = 4,      // 预取请求队列深度（提前排队的线号个数）
-    parameter int  PF_MAX       = 4,      // 同时在飞的**预取**笔数上限（需求缺失不受限）
+    parameter int  PF_AHEAD     = 2,      // 预取目标 = 当前观察到的线号 + PF_AHEAD
+    //   ★ T-34（2026-11-02 实测）：1→2。
+    //     一条线供 RD_WIN_WORDS 个像素，每像素 cb·k² 个 term ⇒ 超前量 =
+    //     PF_AHEAD · RD_WIN_WORDS · cb·k²（本网络 cb=3,k=3 ⇒ 432 拍/档）。
+    //     板端有效读延迟 ≈ 500~600 拍 ⇒ PF_AHEAD=1 的超前量**不够**，需求读到达时
+    //     那条线还在飞 ⇒ `fill_rd` 闸门把单元 CE 冻住（T-34 §5：冻结 100% 在这个分支）。
+    //     xsim（64²/cb3/8 组，L=600）：1,372,252 → 985,132 拍（−28.2%），冻结 −80%；
+    //     L=55：899,306 → 898,500（−0.09%，不退化）。再往上（=3）开始过冲（填线 +1%）。
+    parameter int  PF_DEPTH     = 8,      // 预取请求队列深度（提前排队的线号个数）
+    //   ★ T-34：4→8，配合 PF_AHEAD=2。**必须是 2 的幂**（pq_idx = pf_rp + cp3 直接当下标，
+    //     非 2 的幂越界读 pf_tag[] ⇒ X ⇒ 死锁，实测 PF_DEPTH=12 直接把仿真挂死）。
+    parameter int  PF_MAX       = 6,      // 同时在飞的**预取**笔数上限（需求缺失不受限）
+    //   ★ T-34：4→6。容量下限 = 需求率 × 延迟：本网络 1 填/(194 拍)、L≈600 ⇒ 至少 4 笔才能
+    //     跟上，取 6 留余量。**上限 7**（PF_MAX3 只有 3 位；取 8 会截成 0 ⇒ 预取永不发射）。
     // ---- 写侧 ----
     parameter int  WR_BUF_BEATS = 16,     // beat FIFO 深度（= 描述符 FIFO 深度）
     // ★ 2026-10-31（写回路径 ①②）：16 → **8**。
@@ -703,6 +716,15 @@ module bin_unit_axi_wrap #(
     logic [2:0]              pf_busy;              // 在飞的预取笔数
     logic [TAG_W-1:0]        obs_tag_q;            // 上一次被消费的读的线号
     logic [15:0]             cnt_pf;               // 预取填充计数（只诊断，0xF4）
+    // ---- ★ T-34：读侧 32 位诊断计数器（只读 0x250..0x25C，写 0x25C 清零）----
+    //   为什么必须 32 位：16 位的 cnt_fill 在 128² 上回绕 18 次，探针只能按"模型期望"解，
+    //   而模型在颠簸层不成立 ⇒ T-19 的"351 拍/填充"就是这么错的（runs/t34_stall §4）。
+    //   ★ 默认不打印、PS 不读 ⇒ 不影响任何计时口径；面积约 +130 FF / +130 LUT（见 T-34 §7-P4）。
+    logic [31:0]             cnt_t34_cyc;          // run_active 拍数
+    logic [31:0]             cnt_t34_frz;          // 读冻结拍数（rd_want && !rd_hit）
+    logic [31:0]             cnt_t34_fd;           // 需求缺失发起的填充笔数
+    logic [31:0]             cnt_t34_fa;           // 全部填充笔数（需求+预取）
+    logic                    clr_t34;              // 1 拍清零脉冲（start_fire / 写 0x25C）
     logic                    pf_inq, pf_head_known;
     logic                    pf_push, pf_issue, pf_drop;
     logic [TAG_W-1:0]        pf_tgt, pf_head;
@@ -844,7 +866,7 @@ module bin_unit_axi_wrap #(
             // 调试计数器 / 标志（cnt_*、flg_*）**不在本块复位**：
             // 它们各自只在自己的 always_ff 里被驱动（多块驱动同一个信号
             // 不可综合，也会在仿真里"谁后写谁算"）。本块只驱动清零脉冲。
-            clr_cnt_rd <= 1'b0; clr_cnt_wr <= 1'b0; clr_flg <= 1'b0;
+            clr_cnt_rd <= 1'b0; clr_cnt_wr <= 1'b0; clr_flg <= 1'b0; clr_t34 <= 1'b0;
         end else begin
             start_req <= 1'b0;              // start 只维持 1 拍
             start_fire <= 1'b0;
@@ -852,6 +874,7 @@ module bin_unit_axi_wrap #(
             clr_cnt_wr <= 1'b0;
             clr_flg    <= 1'b0;
             clr_e_dbg  <= 1'b0;
+            clr_t34    <= 1'b0;
 
             if (aw_hs) begin awaddr_l <= s_axi_awaddr; aw_done <= 1'b1; end
             if (w_hs)  begin wdata_l <= s_axi_wdata; wstrb_l <= s_axi_wstrb; w_done <= 1'b1; end
@@ -937,6 +960,8 @@ module bin_unit_axi_wrap #(
                         10'h214: r_e_hi_bad[1] <= (wr_data != 32'd0);
                         // E1E2 DBG 清零（写 0x230 把 5 个计数器一起清）
                         10'h230: clr_e_dbg <= 1'b1;
+                        // T-34 读侧计数器清零（也可由 start_fire 自动清）
+                        10'h25C: clr_t34 <= 1'b1;
                         default: ;
                         endcase
                     end
@@ -981,6 +1006,7 @@ module bin_unit_axi_wrap #(
                     //   start_req 与 run_unit_q 同拍更新 ⇒ start 脉冲那一拍 mux 已选对。
                     run_unit_q  <= (UNIT == 4) ? 3'd4 : run_unit;
                     clr_e_dbg   <= 1'b1;        // 每次启动清 DBG 吞吐计数器
+                    clr_t34     <= 1'b1;        // T-34：每次启动清读侧计数器（一 job 一窗口）
                     unit_done_q <= 1'b0;
                     done_sticky <= 1'b0;
                     err_code    <= 8'd0;
@@ -1006,6 +1032,30 @@ module bin_unit_axi_wrap #(
     //   等不到 B 响应 ⇒ 整机卡死（性能文档 ①）。这里把 Lite 的输出全部显式驱动。
     assign s_axi_bvalid = bvalid;
     assign s_axi_bresp  = 2'b00;
+
+    // ========================================================================
+    // 6.12 ★ T-34：读侧 32 位诊断计数器（只读，默认不打印）
+    //   这三个/四个数就是下轮上板把"ΔL^2.6 定律"变成实测的最小集合：
+    //     cyc = 拍数、frz = 读冻结、fd/fa = 需求/全部填充
+    //   ⇒ "拍/填充" 与 "冻结占比" 从此不再靠 16 位解回绕。
+    //   全部都是独立 always_ff：u_ce / rd_hit 的组合锥**一个门都没碰**。
+    // ========================================================================
+    always_ff @(posedge s_axi_aclk or negedge s_axi_aresetn) begin
+        if (!s_axi_aresetn) begin
+            cnt_t34_cyc <= 32'd0; cnt_t34_frz <= 32'd0;
+            cnt_t34_fd  <= 32'd0; cnt_t34_fa  <= 32'd0;
+        end else if (clr_t34) begin
+            cnt_t34_cyc <= 32'd0; cnt_t34_frz <= 32'd0;
+            cnt_t34_fd  <= 32'd0; cnt_t34_fa  <= 32'd0;
+        end else begin
+            if (run_active)                                cnt_t34_cyc <= cnt_t34_cyc + 32'd1;
+            if (run_active && rd_want && !rd_hit)          cnt_t34_frz <= cnt_t34_frz + 32'd1;
+            if (do_alloc) begin
+                cnt_t34_fa <= cnt_t34_fa + 32'd1;
+                if (!al_pf) cnt_t34_fd <= cnt_t34_fd + 32'd1;
+            end
+        end
+    end
 
     // ========================================================================
     // 3. 启动前校验（§7.3 两条约束 = ERR_ALIGN / ERR_LAYOUT）
@@ -2603,6 +2653,11 @@ module bin_unit_axi_wrap #(
                 10'h238: rd_mux = cnt_e_rdst;
                 10'h23C: rd_mux = cnt_e_wrst;
                 10'h240: rd_mux = cnt_e_wr;
+                // ★ T-34 读侧（conv 也有效，与 run_unit 无关；只读）
+                10'h250: rd_mux = cnt_t34_cyc;     // 本 job 的 run_active 拍数
+                10'h254: rd_mux = cnt_t34_frz;     // 其中读冻结的拍数
+                10'h258: rd_mux = cnt_t34_fd;      // 需求填充笔数
+                10'h25C: rd_mux = cnt_t34_fa;      // 全部填充笔数（预取 = 差）
                 default: rd_mux = 32'd0;
                 endcase
             end
@@ -2638,6 +2693,30 @@ module bin_unit_axi_wrap #(
                    RD_WIN_WORDS);
         if (HIW <= 0)
             $fatal(1, "[BIN-WRAP] 散列高位宽 HIW=%0d 必须 > 0", HIW);
+        // ★ T-34：预取/AR 队列的参数契约。这四条不是"好看"，是**配错就死锁**：
+        //   PF_DEPTH 非 2 的幂 ⇒ pq_idx = pf_rp+cp3 越界读 pf_tag[] ⇒ X ⇒ 死锁；
+        //   AR_SLOTS 非 2 的幂 ⇒ arq_wp 越界写 arq_addr[] ⇒ X ⇒ 死锁；
+        //   PF_MAX > 7 ⇒ PF_MAX3 截断（取 8 得 0 ⇒ 预取永不发射，静默退化成 PF_EN=0）；
+        //   PF_AHEAD ≥ PF_DEPTH ⇒ 目标总在队列里被 pf_inq 去重掉 ⇒ 等于没预取。
+        if ((PF_DEPTH < 2) || ((PF_DEPTH & (PF_DEPTH - 1)) != 0))
+            $fatal(1, "[BIN-WRAP] PF_DEPTH(%0d) 必须是 >=2 的 2 的幂（否则越界读 pf_tag[] 死锁）",
+                   PF_DEPTH);
+        if ((AR_SLOTS < 2) || ((AR_SLOTS & (AR_SLOTS - 1)) != 0))
+            $fatal(1, "[BIN-WRAP] AR_SLOTS(%0d) 必须是 >=2 的 2 的幂（否则越界写 arq_addr[] 死锁）",
+                   AR_SLOTS);
+        if (PF_MAX > 7)
+            $fatal(1, "[BIN-WRAP] PF_MAX(%0d) > 7：PF_MAX3 只有 3 位，取 8 会被截成 0（预取永不发射）",
+                   PF_MAX);
+        if (PF_AHEAD >= PF_DEPTH)
+            $fatal(1, "[BIN-WRAP] PF_AHEAD(%0d) >= PF_DEPTH(%0d)：目标会被 pf_inq 去重掉，等于没预取",
+                   PF_AHEAD, PF_DEPTH);
+        if (PF_MAX > NSLOT)
+            $fatal(1, "[BIN-WRAP] PF_MAX(%0d) > NSLOT(%0d)：填充槽不够", PF_MAX, NSLOT);
+        if (AR_SLOTS > NSLOT)
+            $fatal(1, "[BIN-WRAP] AR_SLOTS(%0d) > NSLOT(%0d)：队列里每条 AR 都已占一个槽",
+                   AR_SLOTS, NSLOT);
+        $display("[BIN-WRAP] T-34 预取参数：PF_AHEAD=%0d PF_DEPTH=%0d PF_MAX=%0d AR_SLOTS=%0d (LC_N=%0d)",
+                 PF_AHEAD, PF_DEPTH, PF_MAX, AR_SLOTS, LC_N);
         $display("[BIN-WRAP] 步骤④ 直接映射线缓存：LC_N=%0d（%0d KB, %0d 位散列, 槽=%0d）",
                  LC_N, (LC_N * RD_WIN_WORDS * 8) / 1024, LC_IW, NSLOT);
     end

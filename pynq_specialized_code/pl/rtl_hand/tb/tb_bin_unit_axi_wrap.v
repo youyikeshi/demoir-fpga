@@ -85,6 +85,8 @@
 //    +MAXCYC=           done 轮询上限（默认 20_000_000 拍）
 //    +WBM=              期望的 WR_BURST_MAX（默认 8，只用于 AWLEN 上限检查）
 //    +NOSTOP=1          失败时也跑完（默认失败即 $fatal 结束）
+//    +DUMPFILE=<f>      把 DUT 写出的 C8 输出区逐字节落盘（每行 1 个 %02x 字节），
+//                       供"改前 vs 改后"落盘对拷（T-38 加；默认不开，/dev/null 语义）
 //
 //  ⚠ 本 TB 只判"功能/协议"，不判性能；性能看 DBG_RD/DBG_WR（本 TB 会打印）。
 // ============================================================================
@@ -1265,6 +1267,26 @@ module tb_bin_unit_axi_wrap;
         if (n_over != 0) begin
             $display("[TB] FAIL 输出区尾部（%0d..%0d）被写过 %0d 字节", total, total+255, n_over);
             n_fail = n_fail + 1;
+        end
+
+        // ---- 输出区落盘（+DUMPFILE=<f>）----------------------------------
+        //  T-38 回灌（2026-11-02）：做"改前 vs 改后"的**逐字节对拷**时，仓内 golden
+        //  只覆盖 12 个形状，探针形状没有权威参考 ⇒ 只能 ref 落盘 / new 落盘 互拷。
+        //  默认**不开**（不给 +DUMPFILE 就完全不执行），所以对既有 T0~T6 判据与
+        //  拍数零影响（T-38 §2.1 的 24 组 0 差就是这么得到的）。
+        //  落盘格式：每行一个字节（`%02x`），顺序 = mem[B_OUT .. B_OUT+total-1]。
+        begin : t38_dump_blk
+            string dfile_; int fd_; int dd_;
+            if ($value$plusargs("DUMPFILE=%s", dfile_)) begin
+                fd_ = $fopen(dfile_, "w");
+                if (fd_ == 0) $display("[TB] WARN DUMPFILE 打不开 %0s", dfile_);
+                else begin
+                    for (dd_ = 0; dd_ < total; dd_ = dd_ + 1)
+                        $fwrite(fd_, "%02x\n", mem[B_OUT + dd_]);
+                    $fclose(fd_);
+                    $display("[TB] DUMP 落盘 %0s bytes=%0d", dfile_, total);
+                end
+            end
         end
 
         // ------------------------------------------------------------------

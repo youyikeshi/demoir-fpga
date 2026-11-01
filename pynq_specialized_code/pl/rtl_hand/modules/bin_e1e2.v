@@ -54,6 +54,47 @@
 //      · 每个 always_ff 都带 ap_ce（P3 同步时钟使能约定）。
 //      · 转置缓冲 acc 的 always_ff **不带复位**（带复位的数组 Vivado 不推断 RAM，
 //        会溶解成 2^ACC_AW 个 FF）。
+//
+// ============================================================================
+//  ★★ T-36（2026-11-02）：两个**互相独立、各自可单独开关**的改进
+// ----------------------------------------------------------------------------
+//  都被上游取证判为"无论哪个融合假设成立都对"：不依赖板端探针判决即可上车。
+//
+//  ① E1E2_SKIP_EMPTY_LANE —— 空 lane 提前跳 DRAIN
+//     现状：lane 0→7 **无条件全扫**（ST_DRAIN 里 `lane==7` 才去 FLUSH），`en_q`
+//           只掩 bcmp 的 bit、**不省读** ⇒ 每个字组为 8−lanes_real 条空通道白读
+//           8·HW 拍。
+//     改法：ST_CHK 里算出本组真实 lane 数
+//             nlanes = clamp(ceil((cfg_c − 64·grp0)/8), 0, 8)
+//           扫到 lane == nlanes−1 就在 ST_DRAIN 直接去 ST_FLUSH；nlanes==0 时
+//           连一次读都不发（ST_LINI 直接跳 ST_FLUSH）。
+//     ⚠ 必须同时做的一件事：**空 lane 的输出字节必须强制为 0**。
+//       旧行为里空 lane 也被扫过，acc_b[k] 被写成全 0；不扫之后 acc_b[k] 留的是
+//       上一 tile 的残值（仿真里甚至是 X）。所以 §4 的写数据通路加了
+//       `nl_ok[k] ? acc_b[k][..] : 8'd0`（8×8 位与门，~16 LUT）。
+//       **漏了这一步 = 输出字节错**，这是本改动唯一的真实风险点。
+//     签名：输出**逐字节不变**；读拍数下降 Σ(8−lanes_real)·HW（= 15.412 MB，
+//           与 T-35 `runs/t35_pack/REPORT_pack_bytes.md` 的 C 类逐位相同）。
+//
+//  ② E1E2_GRP_LOOP —— 一条命令自增遍历 cb 个字组（698 → 227 条命令）
+//     现状：一条命令只产出一个 64 位字组，而一层的二值张量有 cb=ceil(cin/64) 个
+//           字组 ⇒ 每层要发 cb 条命令，471/698 条（67%）是"同一层重复遍历"。
+//     依据（T-35 §3.2 逐层断言过）：相邻命令之间
+//             E_DESC += 64（= 8 字 × 8 B）、E_OUT += HW·8、E_GROUP += 1
+//           **严格等差**，C/H/W 完全相同 ⇒ 三个自增完全可以在 RTL 里做。
+//     改法：ST_DONE 里如果还有组要跑就**不抬 done**，当场把
+//             desc_q += 64、out_q += hw<<3、grp_q += 1、ngrp_q −= 1
+//           再回 ST_CHK 做**逐组重校验**。done 只在最后一组抬一次。
+//     ★ 拍数：**工作拍数逐拍不变**——每组仍然走 CHK(1)+DESC(16)+…+DONE(1)，
+//       描述符每组的 16 拍重读也照旧（E_DESC 每组确实是 8 个新字），只是省掉了
+//       "PS 重新发一条命令"的外部周转（模块内 1 个 IDLE 拍；包装层还要 512 拍
+//       tag 冲刷 + 若干次 MMIO）。⇒ 判据是"读/写拍数逐位相等 + busy 拍数逐位
+//       相等"，不是"差不多"。
+//     ⚠ 中途出错必须**立刻**抬 done：ST_CHK 是**每组**都过的，错误（组号越界 /
+//       输出区间越过 32 位）在那一拍就进 ST_DONE ⇒ 下一拍 done、err_code 有效，
+//       **绝不会把剩下 7 组跑完**（否则会踩脏 7 段输出内存）。
+//     ⚠ 与 PS 的契约（见 §1 的 cfg_group 位域）：ngrp 的**默认值等价于 1 组**，
+//       旧驱动（cmds.bin 里 cfg_group ∈ 0..8）写不写它行为逐位相同。
 // ============================================================================
 `timescale 1ns/1ps
 
@@ -73,7 +114,21 @@ module bin_e1e2 #(
     input  logic [15:0] cfg_c,          // 逻辑通道数（= 下一层的 cin）
     input  logic [15:0] cfg_h,
     input  logic [15:0] cfg_w,
-    input  logic [15:0] cfg_group,      // 本命令产出第几个 64 位字组（0..8）
+    // ★ T-36 ②：cfg_group 这一个 16 位字段被切成两段复用（**不新增寄存器地址**，
+    //   ⇒ 包装层 `bin_unit_axi_wrap.v` 一行都不用改；PS 侧只改 E_GROUP 的写法）：
+    //       cfg_group[3:0]  = grp0   起始字组号（0..8，**旧驱动写的就是这个值**）
+    //       cfg_group[7:4]  = ngrp   本次命令连续遍历的组数（1..9；**0 定义成 1**）
+    //       cfg_group[15:8] = 保留，必须 0（非 0 ⇒ ERR_UNIT）
+    //   为什么这样切而不是新开 R_E_NGRP（0x218）：本轮的硬约束是"只许改
+    //   bin_e1e2.v"。0x218 在白名单之外（包装层 decode 里没有它），而
+    //   `r_egrp[15:0]` 已经整字送到本模块 ⇒ 用高半字节即可，且 cmds.bin 的
+    //   cfg_group 本来就是 u8，`(ngrp<<4)|grp0` 恰好塞满一个字节。
+    //   **向后兼容的证明**：旧驱动的 cfg_group ∈ 0..8 ⇒ [7:4]==0 ⇒ ngrp=1 ⇒
+    //   走的还是"一条命令一个组"的老路；且 ST_CHK 对 0..8 之外的接受集合
+    //   与改动前**完全相同**（见 ST_CHK 的注释）。
+    //   ⚠ 若将来要换成 0x218 的独立寄存器：只需把下面 §1 的 ngrp_c/grp0_c 改成
+    //     新端口，本模块其余部分一行不用动（自增逻辑与字段编码解耦）。
+    input  logic [15:0] cfg_group,      // {ngrp[3:0], grp0[3:0]}，见上
     input  logic [31:0] base_desc,      // 描述符表（8 个字，每字 {thr_base, src_base}）
     input  logic [31:0] base_out,       // 本字组输出基址（= OUT + group*HW*8）
 
@@ -96,6 +151,16 @@ module bin_e1e2 #(
 
     localparam int ADEPTH = 1 << ACC_AW;
     localparam logic [15:0] DEPTH16 = ADEPTH[15:0];
+
+    // ========================================================================
+    // ★ T-36：两个改进的**独立开关**（P6 用四组组合 00/10/01/11 证明互不干扰）。
+    //   交付默认值都是 1（= 打开）。关掉时该路径被常量折叠掉，行为逐位回到
+    //   改动前（这一点由 P1「关掉 = 与 HEAD 版逐字节 0 差」直接证明）。
+    //   A/B 用法（不改本文件）：
+    //     sed -i "s/localparam bit E1E2_GRP_LOOP *= 1'b1;/…= 1'b0;/" modules/bin_e1e2.v
+    // ========================================================================
+    localparam bit E1E2_SKIP_EMPTY_LANE = 1'b1;   // ① 空 lane 提前跳 DRAIN
+    localparam bit E1E2_GRP_LOOP       = 1'b1;    // ② 单命令自增遍历 cb 个字组
 
     // ========================================================================
     // 1. 状态
@@ -140,6 +205,32 @@ module bin_e1e2 #(
     logic [3:0]  ph;               // DESC/THR 的相位
     logic [15:0] p;                // tile 内像素号
     logic [15:0] run_len;
+
+    // ========================================================================
+    // ★ T-36 §1b：两个改进的状态（4 个 FF 级 + 组合辅助）
+    // ------------------------------------------------------------------------
+    //  ① 空 lane：
+    //     nlanes_q   本组真实 lane 数（0..8），ST_CHK 每组装一次（grp_q 变才变）
+    //     nl_ok      逐 lane 有效位 = (k < nlanes_q)，**只喂写数据 mux**（不进读锥）
+    //     last_lane  = nlanes_q − 1（3 位，nlanes=8 ⇒ 7，与旧 `lane==7` 逐位相同）
+    //     d17_c      = max(cfg_c − 64·grp0, 0)（17 位：c ≤ C_MAX=4096）
+    //  ② 组循环：
+    //     ngrp_q     剩余组数（含当前组，1..9）；ST_CHK 每组 −1 之前先校验
+    //     cb_c       = ceil(cfg_c/64)，用来挡住"ngrp 比这一层真正的组数还大"
+    //                  （否则会把后面的 buffer 当成输出写烂）
+    //     hw8_c      = hw << 3 = 每组 E_OUT 的步长（= T-35 逐层断言过的 HW·8）
+    //     out_end    = out_q + hw8_c（35 位），每组进 ST_DESC 前查一次溢出
+    // ========================================================================
+    logic [3:0]  ngrp_q;
+    logic [3:0]  nlanes_q;
+    logic [7:0]  nl_ok;
+    logic [2:0]  last_lane_c;
+    logic [16:0] c17_c, gb17_c, d17_c;
+    logic [3:0]  nlanes_c;
+    logic [3:0]  grp0_c, ngrp_c;
+    logic [15:0] cb_c;
+    logic [34:0] hw8_c;
+    logic        ovf_c;
 
     // ★ 时序刀 7（v40，2026-10-31）：SWEEP 期的读使能改成**寄存的倒计数器**
     // ------------------------------------------------------------------------
@@ -255,6 +346,41 @@ module bin_e1e2 #(
     assign chan0_c = ({10'd0, grp_q[5:0]} << 6) + {10'd0, lane, 3'd0};   // 64*group + 8*lane
     assign room_c  = $signed({1'b0, c_q}) - $signed({1'b0, chan0_c});    // c_q - chan0
 
+    // ========================================================================
+    // ★ T-36 §2a：本组真实 lane 数 / 组数 / 输出区间（全部由**寄存器**喂，组合）
+    // ------------------------------------------------------------------------
+    //  nlanes = clamp(ceil((c - 64·grp0)/8), 0, 8)
+    //     · d17_c ≤ 0 ⇒ 0（本组一个真实通道都没有；旧设计会白扫 8 条空 lane）
+    //     · d17_c > 64 ⇒ 8（剩下 ≥8 条满 lane，与旧设计逐位相同）
+    //     · 否则 (d+7)>>3 ∈ 1..8
+    //  等价性（与旧 `en_q` 掩码的对照）：旧 en_q[j] = (c - 64·grp0 - 8·lane > j)，
+    //  所以"lane 至少有一个通道" ⟺ c - 64·grp0 - 8·lane ≥ 1 ⟺ lane < ceil(d/8)
+    //  ⇒ nlanes 就是"en_q 非全 0 的 lane 个数"，两种写法在同一条整数轴上。
+    // ========================================================================
+    assign c17_c  = {1'b0, c_q};
+    assign gb17_c = {11'd0, grp_q[5:0]} << 6;                    // 64·grp0 ≤ 64·8 = 512
+    assign d17_c  = (c17_c > gb17_c) ? (c17_c - gb17_c) : 17'd0;
+
+    always_comb begin
+        if (d17_c == 17'd0)       nlanes_c = 4'd0;
+        else if (d17_c > 17'd64)  nlanes_c = 4'd8;
+        else                      nlanes_c = 4'((d17_c + 17'd7) >> 3);
+    end
+
+    assign last_lane_c = nlanes_q[2:0] - 3'd1;   // nlanes_q==8 ⇒ 7（与旧 `lane==3'd7` 相同）
+
+    always_comb begin
+        for (int k = 0; k < 8; k++) nl_ok[k] = (k < nlanes_q);
+    end
+
+    // ---- ② 组循环：字段解码 + 上界 + 步长 + 溢出
+    assign grp0_c = cfg_group[3:0];
+    assign ngrp_c = (cfg_group[7:4] == 4'd0) ? 4'd1 : cfg_group[7:4];   // 0 ⇒ 1 组（向后兼容）
+    assign cb_c   = (c_q + 16'd63) >> 6;                               // ceil(c/64) ≤ 64
+    assign hw8_c  = {3'd0, hw_q} << 3;                                  // = HW·8（E_OUT 步长）
+    // 本组的输出区间 [out_q, out_q + HW·8) 必须整个落在 32 位地址空间里
+    assign ovf_c  = (({3'd0, out_q} + hw8_c) > 35'h1_0000_0000);
+
     // bit_j = en_j && (src_byte_j + THR_j > 0)
     always_comb begin
         for (int j = 0; j < 8; j++) begin
@@ -320,6 +446,7 @@ module bin_e1e2 #(
         if (!ap_rst_n) begin
             state     <= ST_IDLE;
             c_q <= '0; h_q <= '0; w_q <= '0; grp_q <= '0;
+            ngrp_q <= 4'd1;  nlanes_q <= 4'd8;
             desc_q <= '0; out_q <= '0; hw_q <= '0; tile_q <= '0;
             lane <= '0; ph <= '0; p <= '0; run_len <= '0;
             rem <= '0;  sw_act_q <= 1'b0;
@@ -338,7 +465,11 @@ module bin_e1e2 #(
             // ---------------------------------------------------------------
             ST_IDLE: if (ctrl_start) begin
                 c_q   <= cfg_c;  h_q <= cfg_h;  w_q <= cfg_w;
-                grp_q <= cfg_group;
+                // ★ T-36 ②：字段解码见端口表。旧驱动（0..8）⇒ grp0=原值、ngrp=1，
+                //   与改动前逐位相同。
+                grp_q <= {12'd0, cfg_group[3:0]};
+                ngrp_q <= (E1E2_GRP_LOOP && (cfg_group[7:4] != 4'd0))
+                          ? cfg_group[7:4] : 4'd1;
                 desc_q<= base_desc;  out_q <= base_out;
                 hw_q  <= {16'd0, cfg_h} * {16'd0, cfg_w};
                 err_code <= ERR_OK;
@@ -358,8 +489,25 @@ module bin_e1e2 #(
                     err_code <= ERR_NULL;  state <= ST_DONE;
                 end else if ((base_desc[2:0] != 3'd0) || (base_out[2:0] != 3'd0)) begin
                     err_code <= ERR_ALIGN; state <= ST_DONE;
+                // ------------------------------------------------------------------
+                // ★ T-36 ②：下面两条**只在 ngrp>1 时可能为真**。
+                //   旧驱动 ngrp≡1 ⇒ 两条都是 0 ⇒ 接受/拒绝的集合与改动前**逐位相同**
+                //   （包括 err_code 的取值与优先级顺序：新检查排在老的 5 条之后）。
+                //   ⚠ 这一段是本改动唯一的"会写坏内存"风险，所以必须在**第一组进
+                //     ST_DESC 之前**就挡住，而不是靠事后发现。
+                // ------------------------------------------------------------------
+                end else if (E1E2_GRP_LOOP && (ngrp_q > 4'd1) &&
+                             (({12'd0, grp_q[3:0]} + {12'd0, ngrp_q}) > {12'd0, cb_c})) begin
+                    // grp0 + ngrp 越过本层真正的组数 ceil(c/64) ⇒ 后面那段不是本层
+                    // 的输出（是别的 buffer）⇒ 一个字节都不许写。
+                    err_code <= ERR_UNIT;  state <= ST_DONE;
+                end else if (E1E2_GRP_LOOP && (ngrp_q > 4'd1) && ovf_c) begin
+                    // 本组输出区间越过 32 位地址空间（只可能出现在畸形 base_out/H/W）。
+                    err_code <= ERR_SIZE;  state <= ST_DONE;
                 end else begin
                     lane  <= '0;  ph <= '0;
+                    // ★ T-36 ①：本组真实 lane 数（关掉改进时恒 8 = 旧行为）
+                    nlanes_q <= E1E2_SKIP_EMPTY_LANE ? nlanes_c : 4'd8;
                     state <= ST_DESC;
                 end
             end
@@ -393,7 +541,18 @@ module bin_e1e2 #(
                 src_base_q<= desc_rd_q[31:0];
                 p     <= '0;
                 ph    <= '0;
-                state <= ST_THR;
+                // ★ T-36 ①：本组一条真实 lane 都没有（nlanes==0）⇒ 一次读都不发，
+                //   直接去 FLUSH 把这一组（"全空 lane"组）的**全零**输出写出去。
+                //   旧设计在这里会把 8 条空 lane 扫一遍（8·run_len 次白读）再写同样
+                //   的全零；输出逐字节相同，只有读拍数不同。
+                //   nlanes_q==0 只可能来自畸形命令（grp0 ≥ ceil(c/64)），正常驱动
+                //   不会发；但它必须被正确实现，否则 acc_b 的残值会被写出去。
+                if (nlanes_q == 4'd0) begin
+                    wp_q  <= '0;
+                    state <= ST_FLUSH;
+                end else begin
+                    state <= ST_THR;
+                end
             end
             // ---------------------------------------------------------------
             ST_THR: begin
@@ -446,7 +605,9 @@ module bin_e1e2 #(
             // ---------------------------------------------------------------
             ST_DRAIN: begin
                 // 收最后一拍（数据写进 acc_b 在独立的无复位 always_ff 里）
-                if (lane == 3'd7) begin
+                // ★ T-36 ①：退出条件从常数 `lane==7` 改成 `lane==nlanes−1`。
+                //   nlanes==8 时 last_lane_c 逐位等于 3'd7 ⇒ 关掉改进 = 旧代码。
+                if (lane == last_lane_c) begin
                     wp_q  <= '0;
                     ph    <= '0;
                     state <= ST_FLUSH;
@@ -477,9 +638,35 @@ module bin_e1e2 #(
                 end
             end
             // ---------------------------------------------------------------
+            // ---------------------------------------------------------------
+            // ★ T-36 ②：本组收尾。若还有组要跑 ⇒ **不抬 done**，当场自增后回 ST_CHK。
+            //   为什么自增放在这里而不是新增一个 ST_GADV 状态：
+            //   旧流程"跑完一组"的 busy 拍序列是 ……FLUSH → LAST(1) → DONE(1) → [IDLE(1)]
+            //   → CHK(1) → DESC(16)，IDLE 那一拍是 **PS/包装层的外部周转**，不属于
+            //   单元的 busy 拍。放在 ST_DONE 里自增 ⇒ busy 拍序列变成
+            //   ……LAST(1) → DONE(1) → CHK(1) → DESC(16)：**每组的工作拍数与旧流程
+            //   逐拍相同**（这正是 P2 判据"总拍数不变"要的），而省掉的 IDLE 那一拍
+            //   本来就属于"重新发一条命令"的外部开销。
+            //   自增的 3 个字段是 T-35 逐层断言过的严格等差：+64 / +HW·8 / +1。
+            // ---------------------------------------------------------------
             ST_DONE: begin
-                ctrl_done <= 1'b1;
-                state     <= ST_IDLE;
+                // ⚠ **错误必须当场收工**：`err_code != 0` 就是"这一组已经判死了"，
+                //   绝不能再自增到下一组。首版漏了这一条（只判 ngrp_q），实测被
+                //   err_ngrp_ovf 用例抓到：ngrp=9 且越界时，它把 8 个组的 ST_CHK
+                //   全跑完、还真的把最后一组写进了输出（71 拍 / 35 笔写），
+                //   正是任务书点名禁止的"等跑完 8 组"。
+                if (E1E2_GRP_LOOP && (err_code == ERR_OK) && (ngrp_q > 4'd1)) begin
+                    ngrp_q <= ngrp_q - 4'd1;
+                    desc_q <= desc_q + 32'd64;            // E_DESC += 64
+                    out_q  <= out_q  + hw8_c[31:0];       // E_OUT  += HW·8
+                    grp_q  <= grp_q  + 16'd1;             // E_GROUP += 1
+                    // lane/ph/tile_q/run_len 由下面的 ST_CHK→ST_DESC(ph=15) 重新装载，
+                    // 与"新来一条命令"走的是同一条装载路径（没有第二处初始化点）。
+                    state  <= ST_CHK;
+                end else begin
+                    ctrl_done <= 1'b1;
+                    state     <= ST_IDLE;
+                end
             end
             default: state <= ST_IDLE;
             endcase
@@ -583,14 +770,22 @@ module bin_e1e2 #(
             if (pend_v) begin
                 wa_q        <= pend_a;
                 // 8 个字节阵列同地址并行读，纯拼接 ⇒ 0 级 64-bit mux
-                wr_data_c[7:0]   <= acc_b[0][pend_p[ACC_AW-1:0]];
-                wr_data_c[15:8]  <= acc_b[1][pend_p[ACC_AW-1:0]];
-                wr_data_c[23:16] <= acc_b[2][pend_p[ACC_AW-1:0]];
-                wr_data_c[31:24] <= acc_b[3][pend_p[ACC_AW-1:0]];
-                wr_data_c[39:32] <= acc_b[4][pend_p[ACC_AW-1:0]];
-                wr_data_c[47:40] <= acc_b[5][pend_p[ACC_AW-1:0]];
-                wr_data_c[55:48] <= acc_b[6][pend_p[ACC_AW-1:0]];
-                wr_data_c[63:56] <= acc_b[7][pend_p[ACC_AW-1:0]];
+                //
+                // ★ T-36 ①：**空 lane 的字节必须强制 0**。
+                //   旧设计把空 lane 也扫了一遍、bcmp 恒 0 写进 acc_b[k]，所以直接
+                //   拼 acc_b 就是对的；现在空 lane 不再被扫 ⇒ acc_b[k] 里是上一 tile
+                //   的残值（仿真里甚至是 X）⇒ 必须在这里按 nl_ok 掩掉。
+                //   nl_ok 来自寄存器 nlanes_q（本组内恒定），所以这是"寄存器 → 8 个
+                //   与门 → 寄存器"，0 级加法/比较、不进任何读写使能锥。
+                //   关掉改进时 nl_ok ≡ 8'hFF，综合器把 8 个与门折叠成直连。
+                wr_data_c[7:0]   <= nl_ok[0] ? acc_b[0][pend_p[ACC_AW-1:0]] : 8'd0;
+                wr_data_c[15:8]  <= nl_ok[1] ? acc_b[1][pend_p[ACC_AW-1:0]] : 8'd0;
+                wr_data_c[23:16] <= nl_ok[2] ? acc_b[2][pend_p[ACC_AW-1:0]] : 8'd0;
+                wr_data_c[31:24] <= nl_ok[3] ? acc_b[3][pend_p[ACC_AW-1:0]] : 8'd0;
+                wr_data_c[39:32] <= nl_ok[4] ? acc_b[4][pend_p[ACC_AW-1:0]] : 8'd0;
+                wr_data_c[47:40] <= nl_ok[5] ? acc_b[5][pend_p[ACC_AW-1:0]] : 8'd0;
+                wr_data_c[55:48] <= nl_ok[6] ? acc_b[6][pend_p[ACC_AW-1:0]] : 8'd0;
+                wr_data_c[63:56] <= nl_ok[7] ? acc_b[7][pend_p[ACC_AW-1:0]] : 8'd0;
             end
         end
     end
@@ -630,6 +825,20 @@ module bin_e1e2 #(
     //   `synthesis translate_off` ⇒ 综合完全看不到（不占面积、不进时序、不进 8-4767）。
     // ========================================================================
     // synthesis translate_off
+    // ---- T-36 断言的影子寄存器（**不受 ap_ce 门控**：包装层停 CE 时状态不变，
+    //      影子跟着冻结，才不会把"CE 冻了 3 拍"误判成"自增错"）----
+    state_t      s_state;
+    logic [15:0] s_grp_q, s_ngrp_q;
+    logic [31:0] s_desc_q, s_out_q, s_hw_q;
+    always_ff @(posedge ap_clk) begin
+        s_state  <= state;
+        s_grp_q  <= grp_q;
+        s_ngrp_q <= {12'd0, ngrp_q};
+        s_desc_q <= desc_q;
+        s_out_q  <= out_q;
+        s_hw_q   <= hw_q;
+    end
+
     always_ff @(posedge ap_clk) begin
         if (ap_rst_n && ap_ce) begin
             if (state == ST_SWEEP) begin
@@ -660,6 +869,59 @@ module bin_e1e2 #(
                 if (run_len == 16'd0) begin
                     $error("[E1E2-ASRT] 即将进 SWEEP 但 run_len=0（(E) 会空转）");
                 end
+            end
+
+            // ================================================================
+            // ★ T-36 的不变量（只仿真）。为什么需要：①"少读"和"少写"是两种不同
+            //   的错误，逐字节 A/B 抓不到"读少了但输出恰好还对"；②"组自增走错"
+            //   会安静地把下一层的数据写进上一层。所以把这两条钉成逐拍断言。
+            // ================================================================
+            if (E1E2_SKIP_EMPTY_LANE) begin
+                // (F) 只许扫真实 lane：SWEEP/THR 期 lane 必须 < nlanes_q
+                if (((state == ST_SWEEP) || (state == ST_THR)) && (lane >= nlanes_q)) begin
+                    $error("[E1E2-ASRT] T36① state=%0d 扫到 lane=%0d ≥ nlanes=%0d（多读了空 lane）",
+                           state, lane, nlanes_q);
+                end
+                // (G) DRAIN 只能停在最后一条真实 lane 上
+                if ((state == ST_DRAIN) && (lane >= nlanes_q)) begin
+                    $error("[E1E2-ASRT] T36① DRAIN 的 lane=%0d ≥ nlanes=%0d", lane, nlanes_q);
+                end
+                // (H) **写出的空 lane 字节必须全 0**（这是"跳读"能成立的前提：
+                //     acc_b[k] 里留着上一 tile 的残值/仿真 X）
+                if (mem_wr_en) begin
+                    for (int k = 0; k < 8; k++) begin
+                        if (!nl_ok[k] && (mem_wr_data[k*8 +: 8] !== 8'd0)) begin
+                            $error("[E1E2-ASRT] T36① 空 lane k=%0d 写出了非 0 字节 %02h（acc 残值泄漏）",
+                                   k, mem_wr_data[k*8 +: 8]);
+                        end
+                    end
+                end
+            end
+            // (I) 越过 ceil(c/64) 的组**只能**是"一个真实通道都没有"的零组
+            //    （那种组不读不写真实通道，只写全零；P1 的 en_q 全 0 边界就是它）。
+            //    若越界组还有真实 lane，说明"写到别人 buffer 上"了 ⇒ 必须报。
+            //    ⚠ 首版这条写成了"无条件 grp<cb"，把 en_q 全 0 的合法边界用例打成
+            //      误报（c64_h5w7_g5 用例 16 次）⇒ 2026-11-02 放宽为下面这条。
+            //    ⚠ 用 nlanes_c（= 真实 lane 数）而不是 nlanes_q：后者在
+            //      E1E2_SKIP_EMPTY_LANE=0 时被强制成 8（"全扫"的语义），
+            //      拿它判越界会对合法用例误报（c64_h5w7_g5 用例上翻过车）。
+            if ((state == ST_DESC) && (grp_q >= cb_c) && (nlanes_c != 4'd0)) begin
+                $error("[E1E2-ASRT] T36② grp=%0d >= cb=ceil(c/64)=%0d 且本组有 %0d 条真实 lane（输出区间不属于本层）", grp_q, cb_c, nlanes_c);
+            end
+            // (J) 组自增的三条等差（T-35 §3.2 的 +64 / +HW·8 / +1），在**进入
+            //     ST_CHK 的那一拍**逐条核对；只有"上一拍是 ST_DONE"才查
+            if (E1E2_GRP_LOOP && (state == ST_CHK) && (s_state == ST_DONE)) begin
+                if (grp_q !== (s_grp_q + 16'd1))
+                    $error("[E1E2-ASRT] T36② grp 自增错：%0d → %0d", s_grp_q, grp_q);
+                if (ngrp_q !== (s_ngrp_q - 4'd1))
+                    $error("[E1E2-ASRT] T36② ngrp 自减错：%0d → %0d", s_ngrp_q, ngrp_q);
+                if (desc_q !== (s_desc_q + 32'd64))
+                    $error("[E1E2-ASRT] T36② E_DESC 步长不是 64：%08h → %08h", s_desc_q, desc_q);
+                if (out_q !== (s_out_q + (s_hw_q << 3)))
+                    $error("[E1E2-ASRT] T36② E_OUT 步长不是 HW*8：%08h → %08h (hw=%0d)",
+                           s_out_q, out_q, s_hw_q);
+                if (ngrp_q == 4'd0)
+                    $error("[E1E2-ASRT] T36② ngrp 下溢");
             end
         end
     end

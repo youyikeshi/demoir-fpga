@@ -4542,3 +4542,28 @@ $$\Rightarrow\ \textbf{纪律（并入第 75 条）}：\text{"首次装载"必�
 
 $$\Rightarrow\ \text{待 T-40 用"装载移到计时外"的口径重测，那个数才是新锚点}$$
 $$\Rightarrow\ \text{若复核落在 } 6.5\sim6.6\ \text{，说明}\textbf{三刀的真实收益}= \text{相对差 } -0.405\ \text{，而基线本身在冷 boot 下会浮 } +0.1\sim0.3$$
+
+---
+
+### 70.12 第 80 条纪律：**"日志全绿"不等于"比过了"**
+
+$$\Rightarrow\ \textbf{事故}：\text{T-36 那一轮的 E1E2 "逐字节 PASS" 是}\textbf{假的}$$
+$$\quad\ \text{它的 } \texttt{run\_all.sh} \text{ 传 } \texttt{+OUTBASE=0x3f0}\text{，而 TB 用 } \texttt{\$value\$plusargs("OUTBASE=\%h")}\text{ 解析}$$
+$$\quad\ \Rightarrow\ \textbf{xsim 不认 }\texttt{0x}\textbf{ 前缀，静默解析成 0}\ \text{（不报错、不告警）}$$
+$$\quad\ \Rightarrow\ \text{落盘的是地址 0 的未初始化内存（一排 } \texttt{x}\text{），下游 } \texttt{check}\ \text{ 抛 } \texttt{ValueError}$$
+$$\quad\ \Rightarrow\ \text{而那个 } \texttt{ValueError}\ \text{ 被 } \texttt{tail -1}\ \text{ 吞掉了}$$
+$$\quad\ \Rightarrow\ \Rightarrow\ \text{它跑了一整轮，}\textbf{package 层面一次都没真正比过}\text{，日志却"全绿"（}\texttt{nerr=0 asrt=0}\text{）}$$
+
+$$\Rightarrow\ \textbf{同一轮的第二个坑（TB 自身）}：\texttt{tb\_bin\_e1e2\_t36.v}\ \text{ 的 } \texttt{MEMAW = 18}$$
+$$\quad\ \text{模型内存按 } \texttt{memq[addr[MEMAW-1:3]]}\ \text{ 索引} \Rightarrow [17:3] = 15\ \text{位} \Rightarrow \text{窗口只有 } \mathbf{256\ KB}$$
+$$\quad\ \Rightarrow\ \text{任何 } \ge 256\ \text{KB 的地址}\textbf{静默别名}\text{回 } \texttt{0x000000}\text{（不回绕、不报错、不 } \texttt{\$fatal}\text{）}$$
+$$\quad\ \Rightarrow\ \text{表现：} \texttt{c64\_h128}\ \text{（src/out 在 } 1.0\sim1.4\ \text{MB）}\textbf{连 ref 自己都差 } 130932/131072\ \text{字节}$$
+$$\quad\ \Rightarrow\ \textbf{所以"ref 也挂了"必须先怀疑测试资产，不是 RTL}\text{（T-38 就是这样把 } \texttt{c64\_h128} \text{ 定位到 TB 的）}$$
+$$\quad\ \Rightarrow\ \text{修法：} \texttt{MEMAW = 21} \Rightarrow [20:3] = 2\ \text{MB 字节 = } \texttt{MAXW}\ \text{ 字} \Rightarrow \texttt{c64\_h128}\ \text{ 自我一致}$$
+
+$$\Rightarrow\ \textbf{纪律（两条，都写完）}：$$
+$$\quad\ \text{① }\textbf{判据脚本的返回值必须被真正检查}\text{：}\texttt{set -o pipefail}\ \text{ 是默认，}\textbf{不许用 } \texttt{tail -1} \text{ 吞错误}$$
+$$\quad\ \quad\ \text{要么判 } \texttt{rc}\text{，要么把 stderr 单独落盘；"最后一行看着对"不是判据}$$
+$$\quad\ \text{② }\textbf{parity 必须打印"参与比较的字节数"}\text{（}\texttt{bytes=N}\text{）并核对期望值}$$
+$$\quad\ \quad\ \texttt{nerr=0 / asrt=0 / status=PASS}\ \text{ 在不曾真正比对时同样为"绿"（}\texttt{0} \text{ 字节参与比较也是 } 0\ \text{ 错）}$$
+$$\quad\ \Rightarrow\ \text{配套：TB 的地址窗口必须有判据（越界要 } \texttt{\$fatal}\text{，不许静默别名）}$$
