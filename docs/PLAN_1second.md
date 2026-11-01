@@ -4313,3 +4313,37 @@ $$\Rightarrow\ \text{否则会出现"两侧逐位相同、脚本却自判 FAIL"�
 
 $$\Rightarrow\ \textbf{推论（对长期项目的意义）}：\text{任何"冻结常量"都必须连}\textbf{跑点}\text{一起冻（线程数 / 频率 / 槽数 / 位流 / 开关）}$$
 $$\quad\ \text{只冻数字不冻跑点} \Rightarrow \text{半年后没人能复现，只会得到"它坏了"的结论}$$
+
+### 70.8 ★★★ T-19 取证：`pl_s` 的 47% 根本不是 PL 在干活（2026-11-02 02:10）
+
+$$\Rightarrow\ \text{五项账（与 } \texttt{pl\_s}=2.2215\ \text{逐位相等，无残差）}：$$
+
+| 项 | 秒 | 性质 | 谁的问题 |
+|---|---:|---|---|
+| conv 算力（512 MAC/拍） | 0.3773 | 硬件在算（地板） | — |
+| conv 读通路 stall | 0.6481 | 硬件在等（其中 d=2 的 42 层占 0.465） | RTL/访存 |
+| **conv 每 job 握手** | **0.2262** | 227 job × 0.997 ms | **PS 的 MMIO** |
+| pack 纯 PL | 0.1462 | 硬件在搬（已贴 AXI 87%） | — |
+| **pack 每命令握手** | **0.8237** | 698 条命令 × 1.180 ms | **PS 的 MMIO** |
+
+$$\Rightarrow\ \textbf{握手合计 } 1.0499\ \text{s} = pl\_s\ \text{的 } 47.3\%,\ \text{总时间的 } 16\%
+\Rightarrow\ \text{真正的 PL 工作量只有 } \mathbf{1.172}\ \text{s}$$
+
+$$\Rightarrow\ \text{单次访问成本（板端实测）：MMIO 写 } \mathbf{30.4\ \mu s}\ /\ \text{读 } 25\ \mu s
+\Rightarrow\ \text{每命令约 } 17\ \text{次写} \Rightarrow\ \text{这就是 } 1.18\ \text{ms 的来源}$$
+
+**⚠ 更正在 70.2 写的两条判断（保留原文，禁止照旧引用）：**
+
+$$\Rightarrow\ \text{① 原写"PL 里最贵的不是算，是 pack（0.970）"}\ \Rightarrow\ \textbf{错一半}：$$
+$$\quad\ \text{pack 的 } 0.970 = \underbrace{0.146}_{\text{真 PL}} + \underbrace{0.824}_{\text{PS 握手}} \Rightarrow \text{它}\textbf{不是} \text{PL 的成本，是 PS 的成本}$$
+$$\Rightarrow\ \text{② 原写"conv 离算力地板 3.2 倍，缺口在停顿"}\ \Rightarrow\ \textbf{对，且现在有归因}：$$
+$$\quad\ 3.2\times \text{的 } 1.25\ \text{s} = 0.377\ \text{算力} + 0.648\ \text{读通路 stall} + 0.226\ \text{握手}$$
+
+$$\Rightarrow\ \Rightarrow\ \textbf{新的第一优先级不是任何算法优化，而是"把 MMIO 往返干掉"}（T-23）：$$
+$$\quad\ \text{纯软件、无新位流、预期 } -0.7\sim-1.0\ \text{s} \Rightarrow 6.489 \to 5.5\sim5.8\ \text{s}$$
+
+**⚠ 同时更正一个方法论（第 73 条纪律）**
+$$\Rightarrow\ \text{本项目的桶名}\textbf{不代表归属}：\texttt{pl\_s}\ \text{里混着 PS 的 MMIO}、\texttt{prologue}\ \text{里可能混着握手}$$
+$$\Rightarrow\ \textbf{纪律}：\text{任何"某单元占比"必须先问"这个墙钟包住了哪一行"；}$$
+$$\quad\ \text{判据} = \text{同一事件的}\textbf{纯硬件拍数}（\text{DBG\_CYC}）\text{与}\textbf{墙钟}\text{两路对账，差就是软件开销}$$
+$$\Rightarrow\ \text{本项目的教训链：§58（把 PS 时间记进 PL）}\to\text{今夜（同一错误换了个桶名）}\Rightarrow \textbf{这是同一个病根，犯过两次}$$
