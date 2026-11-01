@@ -4473,3 +4473,21 @@ $$\Rightarrow\ \text{③ } \texttt{PF\_DEPTH}\ /\ \texttt{AR\_SLOTS}\ \textbf{�
 $$\Rightarrow\ \text{16 位计数器 + 模型解回绕} \Rightarrow \text{读出比几何下界还小的字节数} \Rightarrow \text{却被用来论证"351 拍/填充"}$$
 $$\Rightarrow\ \textbf{判据}：\text{任何逐事件的拍数/字节数，必须先过}\textbf{几何下界检查}（读量 ≥ 最小必需读量）$$
 $$\quad\ \text{过不了就是计数器溢出或口径错，}\textbf{不许进入结论}——本次它让一条"看起来极有说服力"的机制解释活了一整轮$$
+
+### 70.14 ⚠ 三个子代理在 03:03 同时死亡（2026-11-02 07:10 复盘）
+
+$$\Rightarrow\ \text{T-34（预取参数+32 位计数器）、T-36（E1E2 两项）、T-18（小算子归因）三个会话}\textbf{无收尾消息即消失}$$
+$$\Rightarrow\ \text{它们}\textbf{最后都在跑重活}：\text{两个 } \texttt{xsim}\ \text{并行} + \text{一个准备综合}$$
+$$\Rightarrow\ \textbf{主机无 swap}（30 GB），且当时 available 只剩 ~8 GB \Rightarrow \text{这是最可能的自伤}$$
+
+**第 78 条纪律：重活必须全局串行 + 阶段产物必须落盘**
+$$\Rightarrow\ \text{① 同一时刻只允许}\textbf{一个}\ \text{重活（} \texttt{xsim} / \texttt{synth\_design} / \texttt{impl} / \text{大数组基准）}$$
+$$\quad\ \text{开工前 } \texttt{free -g}\ \text{看 available，低于 8 GB 就等；不许"我这边很小"}$$
+$$\Rightarrow\ \text{② 子代理每完成一个阶段就}\textbf{落盘产物}（patch/报告/原始数据），\text{不许攒到最后一起写}$$
+$$\quad\ \text{本轮 T-34 的 RTL 之所以能救回来，只因为它}\textbf{改完就写在 worktree 里}；\text{如果它先跑完再写，就全丢了}$$
+$$\Rightarrow\ \text{③ 主代理在子代理消失后，第一步是}\textbf{从 worktree 取证}，\text{不是重跑一遍}$$
+
+$$\Rightarrow\ \textbf{救回的资产}：$$
+$$\quad\ \text{A } \texttt{bin\_unit\_axi\_wrap.v}：\texttt{AR\_SLOTS 8 / PF\_AHEAD 2 / PF\_DEPTH 8 / PF\_MAX 6} + \text{4 个 32 位诊断计数器（} \texttt{0x250..0x25C} \text{）}$$
+$$\quad\ \text{B } \texttt{bin\_e1e2.v}：\text{空 lane 跳 DRAIN + 698→227（292 行 diff）}$$
+$$\quad\ \Rightarrow\ \text{两者都还差}\textbf{逐字节 parity 与一次综合} \Rightarrow \text{已派 T-38 串行收口}$$
