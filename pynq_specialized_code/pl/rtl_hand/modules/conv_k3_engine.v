@@ -37,7 +37,8 @@
 module conv_k3_engine #(
     parameter int LANES    = 8,
     parameter int CIN_MAX  = 192,
-    parameter int COUT_MAX = 192,
+    // 2026-10-28 瘦身：二值网的 k=3 只有 decoder 的 64->12，cout 远小于 192
+    parameter int COUT_MAX = 32,
     parameter int W_MAX    = 320,
     parameter int H_MAX    = 320,
     parameter int CAP_B    = 4608
@@ -228,8 +229,11 @@ module conv_k3_engine #(
     //     正解不是"地址再多提前一个"（那样第一拍会错），而是**把像素字节也打一拍**，
     //     让 pb_r 与 w_row_q 天然同相 —— 这也是 k1 的做法（p_a 与 w_row_q 同相）。
     wire [NGW-1:0] icg_nxt = (icg_r == ngrp_m1) ? {NGW{1'b0}} : (icg_r + 1'b1);
+    // ⚠ 拼接内的加法是自决定位宽（tools/check_concat_width.py 会报）；
+    //   先赋 3 位 wire 再拼。b_r==7 走上面那一支，所以这里的 +1 不会溢出。
+    wire [2:0]     b_r_inc = b_r + 3'd1;
     wire [7:0]     ic_nxt  = (b_r == 3'd7) ? {icg_nxt, 3'd0}
-                                           : {icg_r, (b_r + 3'd1)};
+                                           : {icg_r, b_r_inc};
 
     // ========================================================================
     // 3. 小函数（全部放在使用它们之前）
@@ -279,6 +283,20 @@ module conv_k3_engine #(
     // 4. 行缓冲：3 bank × (1 读 + 1 写)
     //    槽 s → bank (s mod 3)，槽内偏移 (s/3)*NGRP*W。
     //    ⚠ 读寄存器 lb_q* 只在本 always 里由 mem 赋值（不复位/无旁路/单源）。
+    //
+    //    ⚠⚠ 2026-10-27 试过把它换成 xpm_memory_sdpram（想 48→27 块 BRAM）——**失败，已回退**：
+    //      实测每个数组仍是 16 块 RAMB36，k3 的 Block RAM Tile 前后都是 60。
+    //      原因不是原语选择，而是**深度被按地址空间铺满**：
+    //        ADDR_WIDTH = BW = 13 ⇒ 工具按 2^13 = 8192 深实现，
+    //        而数组只有 CAP_B = 4608 深 ⇒ 深度方向虚耗 78%；
+    //        x72(512×72) 铺 8192 深 = 16 块/数组 × 3 = 48 块。
+    //      要真降到 27（9 块/数组 = 512×9 = 4608）必须让深度不再按 2^13 铺，
+    //      而那要求把 CAP_B 降到 4096 以内（12 位地址）——**CAP_B 是按真实层形状
+    //      调过的容量参数**，在拿到"所有 k3 层里 max(NGRP×W) 到底多少"之前不能动。
+    //      ⚠ 顺带发现待查：BW=13 只能表达 0..8191，而
+    //        sl_base(≤NGRP×W) + pg_off(≤NGRP×W) + pf_col(≤319) 在最坏形状下会超 8191
+    //        ⇒ 大 W 且大 NGRP 的组合可能有地址回绕。当前 48+12 用例没踩到（大 W 的
+    //        层 cin 都小），但**下一版加层时这是第一个要查的点**。
     // ========================================================================
     (* ram_style = "block" *) logic [63:0] lb_mem0 [0:CAP_B-1];
     (* ram_style = "block" *) logic [63:0] lb_mem1 [0:CAP_B-1];

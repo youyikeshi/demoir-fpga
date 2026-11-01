@@ -1,0 +1,138 @@
+Copyright 1986-2022 Xilinx, Inc. All Rights Reserved. Copyright 2022-2026 Advanced Micro Devices, Inc. All Rights Reserved.
+------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+| Tool Version : Vivado v.2025.2.1 (lin64) Build 6403652 Thu Mar 19 13:47:00 MDT 2026
+| Date         : Sat Oct 31 16:28:35 2026
+| Host         : 2 running 64-bit Ubuntu 22.04.5 LTS
+| Command      : report_timing -max_paths 1 -nworst 1 -setup -path_type full_clock -input_pins -significant_digits 3 -file scripts/timing_out_v37/detail_worst_full.rpt
+| Design       : design_1_wrapper
+| Device       : 7z015-clg485
+| Speed File   : -2  PRODUCTION 1.12 2019-11-22
+| Design State : Physopt postRoute
+------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+Timing Report
+
+Slack (VIOLATED) :        -4.466ns  (required time - arrival time)
+  Source:                 design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_pack/desc_ram_reg/CLKARDCLK
+                            (rising edge-triggered cell RAMB36E1 clocked by FCLK_CLK0  {rise@0.000ns fall@5.000ns period=10.000ns})
+  Destination:            design_1_i/bin_unit_0/inst/u_bin_unit/bf_data_reg[5][13]/D
+                            (rising edge-triggered cell FDRE clocked by FCLK_CLK0  {rise@0.000ns fall@5.000ns period=10.000ns})
+  Path Group:             FCLK_CLK0
+  Path Type:              Setup (Max at Slow Process Corner)
+  Requirement:            10.000ns  (FCLK_CLK0 rise@10.000ns - FCLK_CLK0 rise@0.000ns)
+  Data Path Delay:        14.184ns  (logic 5.862ns (41.328%)  route 8.322ns (58.672%))
+  Logic Levels:           21  (CARRY4=9 LUT2=1 LUT4=1 LUT5=2 LUT6=6 MUXF7=1 RAMD64E=1)
+  Clock Path Skew:        -0.084ns (DCD - SCD + CPR)
+    Destination Clock Delay (DCD):    1.303ns = ( 11.303 - 10.000 ) 
+    Source Clock Delay      (SCD):    1.483ns
+    Clock Pessimism Removal (CPR):    0.096ns
+  Clock Uncertainty:      0.035ns  ((TSJ^2 + TIJ^2)^1/2 + DJ) / 2 + PE
+    Total System Jitter     (TSJ):    0.071ns
+    Total Input Jitter      (TIJ):    0.000ns
+    Discrete Jitter          (DJ):    0.000ns
+    Phase Error              (PE):    0.000ns
+
+    Location             Delay type                Incr(ns)  Path(ns)    Netlist Resource(s)
+  -------------------------------------------------------------------    -------------------
+                         (clock FCLK_CLK0 rise edge)
+                                                      0.000     0.000 r  
+    BUFGCTRL_X0Y17       BUFG                         0.000     0.000 r  design_1_i/ps7/inst/buffer_fclk_clk_0.FCLK_CLK_0_BUFG/O
+                         net (fo=17695, routed)       1.483     1.483    design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_pack/CLK
+    RAMB36_X1Y4          RAMB36E1                                     r  design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_pack/desc_ram_reg/CLKARDCLK
+  -------------------------------------------------------------------    -------------------
+    RAMB36_X1Y4          RAMB36E1 (Prop_ramb36e1_CLKARDCLK_DOBDO[6])
+                                                      2.125     3.608 r  design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_pack/desc_ram_reg/DOBDO[6]
+                         net (fo=1, routed)           0.946     4.554    design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_pack/desc_ram_reg_n_61
+    SLICE_X32Y23                                                      r  design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_pack/lc_tag_reg_r2_0_63_0_2_i_35/S[0]
+    SLICE_X32Y23         CARRY4 (Prop_carry4_S[0]_CO[3])
+                                                      0.545     5.099 r  design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_pack/lc_tag_reg_r2_0_63_0_2_i_35/CO[3]
+                         net (fo=1, routed)           0.000     5.099    design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_pack/lc_tag_reg_r2_0_63_0_2_i_35_n_0
+    SLICE_X32Y24                                                      r  design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_pack/obs_tag_q_reg[6]_i_3/CI
+    SLICE_X32Y24         CARRY4 (Prop_carry4_CI_CO[3])
+                                                      0.098     5.197 r  design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_pack/obs_tag_q_reg[6]_i_3/CO[3]
+                         net (fo=1, routed)           0.008     5.205    design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_pack/obs_tag_q_reg[6]_i_3_n_0
+    SLICE_X32Y25                                                      r  design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_pack/obs_tag_q_reg[7]_i_3/CI
+    SLICE_X32Y25         CARRY4 (Prop_carry4_CI_CO[3])
+                                                      0.098     5.303 r  design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_pack/obs_tag_q_reg[7]_i_3/CO[3]
+                         net (fo=1, routed)           0.000     5.303    design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_pack/obs_tag_q_reg[7]_i_3_n_0
+    SLICE_X32Y26                                                      r  design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_pack/obs_tag_q_reg[14]_i_3/CI
+    SLICE_X32Y26         CARRY4 (Prop_carry4_CI_CO[3])
+                                                      0.098     5.401 r  design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_pack/obs_tag_q_reg[14]_i_3/CO[3]
+                         net (fo=1, routed)           0.000     5.401    design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_pack/obs_tag_q_reg[14]_i_3_n_0
+    SLICE_X32Y27                                                      r  design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_pack/obs_tag_q_reg[17]_i_4/CI
+    SLICE_X32Y27         CARRY4 (Prop_carry4_CI_CO[3])
+                                                      0.098     5.499 r  design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_pack/obs_tag_q_reg[17]_i_4/CO[3]
+                         net (fo=1, routed)           0.000     5.499    design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_pack/obs_tag_q_reg[17]_i_4_n_0
+    SLICE_X32Y28                                                      r  design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_pack/obs_tag_q_reg[21]_i_6/CI
+    SLICE_X32Y28         CARRY4 (Prop_carry4_CI_CO[3])
+                                                      0.098     5.597 r  design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_pack/obs_tag_q_reg[21]_i_6/CO[3]
+                         net (fo=1, routed)           0.000     5.597    design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_pack/obs_tag_q_reg[21]_i_6_n_0
+    SLICE_X32Y29                                                      r  design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_pack/obs_tag_q_reg[23]_i_5/CI
+    SLICE_X32Y29         CARRY4 (Prop_carry4_CI_O[1])
+                                                      0.265     5.862 r  design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_pack/obs_tag_q_reg[23]_i_5/O[1]
+                         net (fo=1, routed)           0.875     6.737    design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_pack/issue_addr0[31]
+    SLICE_X51Y32                                                      r  design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_pack/lc_tag_reg_r2_0_63_0_2_i_10_comp/I5
+    SLICE_X51Y32         LUT6 (Prop_lut6_I5_O)        0.250     6.987 r  design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_pack/lc_tag_reg_r2_0_63_0_2_i_10_comp/O
+                         net (fo=8, routed)           0.481     7.468    design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_pack/rd_addr_q_reg[31]_1[20]
+    SLICE_X50Y29                                                      r  design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_pack/lc_tag_reg_r2_0_63_0_2_i_2/I3
+    SLICE_X50Y29         LUT5 (Prop_lut5_I3_O)        0.105     7.573 r  design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_pack/lc_tag_reg_r2_0_63_0_2_i_2/O
+                         net (fo=96, routed)          0.749     8.321    design_1_i/bin_unit_0/inst/u_bin_unit/lc_tag_reg_r2_64_127_0_2/ADDRC4
+    SLICE_X58Y27                                                      r  design_1_i/bin_unit_0/inst/u_bin_unit/lc_tag_reg_r2_64_127_0_2/RAMC/RADR4
+    SLICE_X58Y27         RAMD64E (Prop_ramd64e_RADR4_O)
+                                                      0.105     8.426 r  design_1_i/bin_unit_0/inst/u_bin_unit/lc_tag_reg_r2_64_127_0_2/RAMC/O
+                         net (fo=1, routed)           0.818     9.245    design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_pack/win_q_reg_0_i_183_2
+    SLICE_X56Y35                                                      r  design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_pack/win_q_reg_0_i_224/I3
+    SLICE_X56Y35         LUT6 (Prop_lut6_I3_O)        0.105     9.350 r  design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_pack/win_q_reg_0_i_224/O
+                         net (fo=1, routed)           0.000     9.350    design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_pack/win_q_reg_0_i_224_n_0
+    SLICE_X56Y35                                                      r  design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_pack/win_q_reg_0_i_183/I1
+    SLICE_X56Y35         MUXF7 (Prop_muxf7_I1_O)      0.206     9.556 r  design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_pack/win_q_reg_0_i_183/O
+                         net (fo=1, routed)           0.633    10.189    design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_pack/win_q_reg_0_i_183_n_0
+    SLICE_X52Y30                                                      r  design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_pack/win_q_reg_0_i_163/I2
+    SLICE_X52Y30         LUT6 (Prop_lut6_I2_O)        0.250    10.439 r  design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_pack/win_q_reg_0_i_163/O
+                         net (fo=1, routed)           0.000    10.439    design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_pack/win_q_reg_0_i_163_n_0
+    SLICE_X52Y30                                                      r  design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_pack/win_q_reg_0_i_147/S[0]
+    SLICE_X52Y30         CARRY4 (Prop_carry4_S[0]_CO[3])
+                                                      0.440    10.879 r  design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_pack/win_q_reg_0_i_147/CO[3]
+                         net (fo=1, routed)           0.000    10.879    design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_pack/win_q_reg_0_i_147_n_0
+    SLICE_X52Y31                                                      r  design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_pack/win_q_reg_0_i_69/CI
+    SLICE_X52Y31         CARRY4 (Prop_carry4_CI_CO[2])
+                                                      0.190    11.069 r  design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_pack/win_q_reg_0_i_69/CO[2]
+                         net (fo=5, routed)           0.414    11.482    design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_pack/rd_hit1
+    SLICE_X49Y30                                                      r  design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_pack/be_word[28]_i_3_comp_5/I2
+    SLICE_X49Y30         LUT5 (Prop_lut5_I2_O)        0.261    11.743 r  design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_pack/be_word[28]_i_3_comp_5/O
+                         net (fo=96, routed)          0.591    12.334    design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_pack/be_word[28]_i_3_n_0
+    SLICE_X37Y30                                                      r  design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_pack/be_data[55]_i_15/I1
+    SLICE_X37Y30         LUT2 (Prop_lut2_I1_O)        0.105    12.439 f  design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_pack/be_data[55]_i_15/O
+                         net (fo=7, routed)           0.803    13.242    design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_pack/be_data[55]_i_15_n_0
+    SLICE_X22Y37                                                      f  design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_pack/bf_data[0][31]_i_5_comp/I5
+    SLICE_X22Y37         LUT6 (Prop_lut6_I5_O)        0.105    13.347 f  design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_pack/bf_data[0][31]_i_5_comp/O
+                         net (fo=3, routed)           0.285    13.632    design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_pack/bf_data[0][31]_i_5_n_0
+    SLICE_X20Y38                                                      f  design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_pack/bf_data[0][15]_i_3/I0
+    SLICE_X20Y38         LUT6 (Prop_lut6_I0_O)        0.105    13.737 f  design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_pack/bf_data[0][15]_i_3/O
+                         net (fo=15, routed)          0.749    14.486    design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_pack/bf_data[0][15]_i_3_n_0
+    SLICE_X19Y42                                                      f  design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_pack/bf_data[0][13]_i_2/I2
+    SLICE_X19Y42         LUT6 (Prop_lut6_I2_O)        0.105    14.591 f  design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_pack/bf_data[0][13]_i_2/O
+                         net (fo=16, routed)          0.589    15.180    design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_pack/bf_data[0][13]_i_2_n_0
+    SLICE_X18Y45                                                      f  design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_pack/bf_data[5][13]_i_1/I0
+    SLICE_X18Y45         LUT4 (Prop_lut4_I0_O)        0.105    15.285 r  design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_pack/bf_data[5][13]_i_1/O
+                         net (fo=1, routed)           0.381    15.667    design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_pack_n_409
+    SLICE_X18Y46         FDRE                                         r  design_1_i/bin_unit_0/inst/u_bin_unit/bf_data_reg[5][13]/D
+  -------------------------------------------------------------------    -------------------
+
+                         (clock FCLK_CLK0 rise edge)
+                                                     10.000    10.000 r  
+    BUFGCTRL_X0Y17       BUFG                         0.000    10.000 r  design_1_i/ps7/inst/buffer_fclk_clk_0.FCLK_CLK_0_BUFG/O
+                         net (fo=17695, routed)       1.303    11.303    design_1_i/bin_unit_0/inst/u_bin_unit/CLK
+    SLICE_X18Y46         FDRE                                         r  design_1_i/bin_unit_0/inst/u_bin_unit/bf_data_reg[5][13]/C
+                         clock pessimism              0.096    11.399    
+                         clock uncertainty           -0.035    11.364    
+    SLICE_X18Y46         FDRE (Setup_fdre_C_D)       -0.163    11.201    design_1_i/bin_unit_0/inst/u_bin_unit/bf_data_reg[5][13]
+  -------------------------------------------------------------------
+                         required time                         11.201    
+                         arrival time                         -15.667    
+  -------------------------------------------------------------------
+                         slack                                 -4.466    
+
+
+
+

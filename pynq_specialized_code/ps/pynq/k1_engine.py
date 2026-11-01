@@ -210,13 +210,19 @@ def theoretical_cycles(H, W, cin, cout, lanes=DEFAULT_LANES, k=1):
 def timeout_for(H, W, cin, cout, k=1, s=1, lanes=DEFAULT_LANES):
     """单层等待上限（秒）= 理论拍数 × 系数 / FCLK + 余量。
 
-    系数默认 3.0、余量默认 1.0 s（环境变量 K1_IP_TIMEOUT_FACTOR /
-    K1_IP_TIMEOUT_EXTRA_S）。最坏一层 (320,320,cin=352,cout=192) 在 150 MHz
-    下约 1.44 s ⇒ 默认 5.3 s，比老 HLS 引擎的估算小一个数量级，但仍留 3 倍
-    DDR 抖动余量。
+    系数默认 12.0、余量默认 1.0 s（环境变量 ``K1_IP_TIMEOUT_FACTOR`` /
+    ``K1_IP_TIMEOUT_EXTRA_S``）。
+
+    系数为何从 3.0 提到 12.0（2026-10-27 上板实测）：
+    ``theoretical_cycles`` 算的是**算力**下界（每拍一次 MAC），而本 IP 的输入
+    预取是 ``m_axi_in_arlen = 0`` 的**单拍读**：一层 (320,320,cin=144,cout=48)
+    要发 3.2M 笔 8 字节读，实测耗时是理论值的 **6 倍以上**（理论 0.276 s，
+    3 倍系数给到 1.83 s 仍然超时；放到 30 倍才通过）。也就是说此时瓶颈是
+    AXI 单拍事务而不是 MAC。系数 12 在实测 6× 之上再留一倍余量；它只影响
+    「真挂死时要等多久才报错」，不影响正常情况下任何一层的判定。
     """
     del s  # 本 IP 只支持 stride=1；留着参数是为了与老引擎签名一致
-    factor = _env_float("K1_IP_TIMEOUT_FACTOR", 3.0)
+    factor = _env_float("K1_IP_TIMEOUT_FACTOR", 12.0)
     extra = _env_float("K1_IP_TIMEOUT_EXTRA_S", 1.0)
     cycles = theoretical_cycles(H, W, cin, cout, lanes=lanes, k=k)
     return max(0.05, factor * cycles / max(fclk_hz(), 1.0) + extra)

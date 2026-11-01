@@ -19,7 +19,7 @@ ROOT="$(cd "$HERE/.." && pwd)"
 SELF="$HERE/selftest"
 TS="$(date +%Y%m%d_%H%M%S)"
 EVID="$ROOT/reports/selftest_${TS}.md"
-TMP="$(mktemp -d /tmp/rtl_hand_selftest.XXXXXX)"
+TMP="$(mktemp -d "${EDA_TMPDIR:-/media/felix/Data/tmp}/rtl_hand_selftest.XXXXXX")"
 trap 'rm -rf "$TMP"' EXIT
 
 fail() { echo "❌ 自测失败：$*" >&2; exit 1; }

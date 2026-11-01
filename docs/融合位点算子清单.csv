@@ -1,0 +1,396 @@
+seq,owner,kind,name,in_shapes,out_shape,elems_in,elems_out,bytes_f32,bytes_cur,time_std_s,time_int_s,note
+0,PS,unshuffle,input:pixel_unshuffle(2),"[[3, 256, 256]]","[12, 128, 128]",196608,196608,1572864,393216,0.004891,0.005,
+1,PS,convfp,encoder.conv_first.0,"[[12, 128, 128]]","[48, 128, 128]",196608,786432,3932160,3932160,0.783279,0.581507,
+2,PS,cat,encoder.encoder_1.rdb.conv_layers.0:cat,"[[64, 128, 128], [48, 128, 128]]","[112, 128, 128]",1835008,1835008,14680064,3670016,0.022217,0.001958,
+3,PS,cat,encoder.encoder_1.rdb.conv_layers.1:cat,"[[64, 128, 128], [112, 128, 128]]","[176, 128, 128]",2883584,2883584,23068672,5767168,0.035203,0.003103,
+4,PS,cat,encoder.encoder_1.rdb.conv_layers.2:cat,"[[64, 128, 128], [176, 128, 128]]","[240, 128, 128]",3932160,3932160,31457280,7864320,0.046265,0.004078,
+5,PS,add,encoder.encoder_1.rdb:residual,"[[48, 128, 128], [48, 128, 128]]","[48, 128, 128]",1572864,786432,9437184,2359296,0.01763,0.022464,
+6,PS,interp,encoder.encoder_1.sam_blocks.0:x2,"[[48, 128, 128]]","[48, 64, 64]",786432,196608,3932160,983040,0.078939,0.057897,
+7,PS,interp,encoder.encoder_1.sam_blocks.0:x4,"[[48, 128, 128]]","[48, 32, 32]",786432,49152,3342336,835584,0.022527,0.016523,
+8,PS,cat,encoder.encoder_1.sam_blocks.0.b0.ghost_layers.0:cat_prev,"[[32, 128, 128], [32, 128, 128], [48, 128, 128]]","[112, 128, 128]",1835008,1835008,14680064,3670016,0.022949,0.002023,
+9,PS,cat,encoder.encoder_1.sam_blocks.0.b0.ghost_layers.1:cat_prev,"[[32, 128, 128], [32, 128, 128], [112, 128, 128]]","[176, 128, 128]",2883584,2883584,23068672,5767168,0.036652,0.003231,
+10,PS,cat,encoder.encoder_1.sam_blocks.0.b0.ghost_layers.2:cat_prev,"[[32, 128, 128], [32, 128, 128], [176, 128, 128]]","[240, 128, 128]",3932160,3932160,31457280,7864320,0.047815,0.004215,
+11,PS,cat,encoder.encoder_1.sam_blocks.0.b0.ghost_layers.3:cat_prev,"[[32, 128, 128], [32, 128, 128], [240, 128, 128]]","[304, 128, 128]",4980736,4980736,39845888,9961472,0.061413,0.005413,
+12,PS,cat,encoder.encoder_1.sam_blocks.0.b0.ghost_layers.4:cat_prev,"[[32, 128, 128], [32, 128, 128], [304, 128, 128]]","[368, 128, 128]",6029312,6029312,48234496,12058624,0.069627,0.006138,
+13,PS,cat,encoder.encoder_1.sam_blocks.0.b2.ghost_layers.0:cat_prev,"[[32, 64, 64], [32, 64, 64], [48, 64, 64]]","[112, 64, 64]",458752,458752,3670016,917504,0.005588,0.000493,
+14,PS,cat,encoder.encoder_1.sam_blocks.0.b2.ghost_layers.1:cat_prev,"[[32, 64, 64], [32, 64, 64], [112, 64, 64]]","[176, 64, 64]",720896,720896,5767168,1441792,0.008468,0.000746,
+15,PS,cat,encoder.encoder_1.sam_blocks.0.b2.ghost_layers.2:cat_prev,"[[32, 64, 64], [32, 64, 64], [176, 64, 64]]","[240, 64, 64]",983040,983040,7864320,1966080,0.012098,0.001066,
+16,PS,cat,encoder.encoder_1.sam_blocks.0.b2.ghost_layers.3:cat_prev,"[[32, 64, 64], [32, 64, 64], [240, 64, 64]]","[304, 64, 64]",1245184,1245184,9961472,2490368,0.014682,0.001294,
+17,PS,cat,encoder.encoder_1.sam_blocks.0.b2.ghost_layers.4:cat_prev,"[[32, 64, 64], [32, 64, 64], [304, 64, 64]]","[368, 64, 64]",1507328,1507328,12058624,3014656,0.017546,0.001547,
+18,PS,cat,encoder.encoder_1.sam_blocks.0.b4.ghost_layers.0:cat_prev,"[[32, 32, 32], [32, 32, 32], [48, 32, 32]]","[112, 32, 32]",114688,114688,917504,229376,0.001428,0.000126,
+19,PS,cat,encoder.encoder_1.sam_blocks.0.b4.ghost_layers.1:cat_prev,"[[32, 32, 32], [32, 32, 32], [112, 32, 32]]","[176, 32, 32]",180224,180224,1441792,360448,0.002027,0.000179,
+20,PS,cat,encoder.encoder_1.sam_blocks.0.b4.ghost_layers.2:cat_prev,"[[32, 32, 32], [32, 32, 32], [176, 32, 32]]","[240, 32, 32]",245760,245760,1966080,491520,0.003031,0.000267,
+21,PS,cat,encoder.encoder_1.sam_blocks.0.b4.ghost_layers.3:cat_prev,"[[32, 32, 32], [32, 32, 32], [240, 32, 32]]","[304, 32, 32]",311296,311296,2490368,622592,0.003788,0.000334,
+22,PS,cat,encoder.encoder_1.sam_blocks.0.b4.ghost_layers.4:cat_prev,"[[32, 32, 32], [32, 32, 32], [304, 32, 32]]","[368, 32, 32]",376832,376832,3014656,753664,0.004621,0.000407,
+23,PS,interp,encoder.encoder_1.sam_blocks.0:b2_up,"[[48, 64, 64]]","[48, 128, 128]",196608,786432,3932160,983040,0.260783,0.191269,
+24,PS,interp,encoder.encoder_1.sam_blocks.0:b4_up,"[[48, 32, 32]]","[48, 128, 128]",49152,786432,3342336,835584,0.258212,0.189384,
+25,PS,cat,encoder.encoder_1.sam_blocks.0:cat3,"[[48, 128, 128], [48, 128, 128], [48, 128, 128]]","[144, 128, 128]",2359296,2359296,18874368,4718592,0.02717,0.002395,
+26,PS,eca,encoder.encoder_1.sam_blocks.0.fusion,"[[144, 128, 128]]","[144, 1, 1]",2359296,144,9437760,2359440,0.026134,0.012276,
+27,PS,sam,encoder.encoder_1.sam_blocks.0:weighted_sum,"[[48, 128, 128], [48, 128, 128], [48, 128, 128], [48, 128, 128], [144, 1, 1]]","[48, 128, 128]",3145872,786432,15729216,3932304,0.093371,0.065774,
+28,PS,cat,encoder.encoder_2.rdb.conv_layers.0:cat,"[[64, 64, 64], [96, 64, 64]]","[160, 64, 64]",655360,655360,5242880,1310720,0.007885,0.000695,
+29,PS,cat,encoder.encoder_2.rdb.conv_layers.1:cat,"[[64, 64, 64], [160, 64, 64]]","[224, 64, 64]",917504,917504,7340032,1835008,0.011354,0.001001,
+30,PS,cat,encoder.encoder_2.rdb.conv_layers.2:cat,"[[64, 64, 64], [224, 64, 64]]","[288, 64, 64]",1179648,1179648,9437184,2359296,0.01332,0.001174,
+31,PS,add,encoder.encoder_2.rdb:residual,"[[96, 64, 64], [96, 64, 64]]","[96, 64, 64]",786432,393216,4718592,1179648,0.006844,0.00872,
+32,PS,interp,encoder.encoder_2.sam_blocks.0:x2,"[[96, 64, 64]]","[96, 32, 32]",393216,98304,1966080,491520,0.04031,0.029565,
+33,PS,interp,encoder.encoder_2.sam_blocks.0:x4,"[[96, 64, 64]]","[96, 16, 16]",393216,24576,1671168,417792,0.011299,0.008287,
+34,PS,cat,encoder.encoder_2.sam_blocks.0.b0.ghost_layers.0:cat_prev,"[[32, 64, 64], [32, 64, 64], [96, 64, 64]]","[160, 64, 64]",655360,655360,5242880,1310720,0.007677,0.000677,
+35,PS,cat,encoder.encoder_2.sam_blocks.0.b0.ghost_layers.1:cat_prev,"[[32, 64, 64], [32, 64, 64], [160, 64, 64]]","[224, 64, 64]",917504,917504,7340032,1835008,0.010942,0.000965,
+36,PS,cat,encoder.encoder_2.sam_blocks.0.b0.ghost_layers.2:cat_prev,"[[32, 64, 64], [32, 64, 64], [224, 64, 64]]","[288, 64, 64]",1179648,1179648,9437184,2359296,0.012964,0.001143,
+37,PS,cat,encoder.encoder_2.sam_blocks.0.b0.ghost_layers.3:cat_prev,"[[32, 64, 64], [32, 64, 64], [288, 64, 64]]","[352, 64, 64]",1441792,1441792,11534336,2883584,0.018316,0.001615,
+38,PS,cat,encoder.encoder_2.sam_blocks.0.b0.ghost_layers.4:cat_prev,"[[32, 64, 64], [32, 64, 64], [352, 64, 64]]","[416, 64, 64]",1703936,1703936,13631488,3407872,0.019368,0.001707,
+39,PS,cat,encoder.encoder_2.sam_blocks.0.b2.ghost_layers.0:cat_prev,"[[32, 32, 32], [32, 32, 32], [96, 32, 32]]","[160, 32, 32]",163840,163840,1310720,327680,0.001973,0.000174,
+40,PS,cat,encoder.encoder_2.sam_blocks.0.b2.ghost_layers.1:cat_prev,"[[32, 32, 32], [32, 32, 32], [160, 32, 32]]","[224, 32, 32]",229376,229376,1835008,458752,0.002716,0.000239,
+41,PS,cat,encoder.encoder_2.sam_blocks.0.b2.ghost_layers.2:cat_prev,"[[32, 32, 32], [32, 32, 32], [224, 32, 32]]","[288, 32, 32]",294912,294912,2359296,589824,0.0035,0.000309,
+42,PS,cat,encoder.encoder_2.sam_blocks.0.b2.ghost_layers.3:cat_prev,"[[32, 32, 32], [32, 32, 32], [288, 32, 32]]","[352, 32, 32]",360448,360448,2883584,720896,0.00444,0.000391,
+43,PS,cat,encoder.encoder_2.sam_blocks.0.b2.ghost_layers.4:cat_prev,"[[32, 32, 32], [32, 32, 32], [352, 32, 32]]","[416, 32, 32]",425984,425984,3407872,851968,0.005283,0.000466,
+44,PS,cat,encoder.encoder_2.sam_blocks.0.b4.ghost_layers.0:cat_prev,"[[32, 16, 16], [32, 16, 16], [96, 16, 16]]","[160, 16, 16]",40960,40960,327680,81920,0.000373,3.3e-05,
+45,PS,cat,encoder.encoder_2.sam_blocks.0.b4.ghost_layers.1:cat_prev,"[[32, 16, 16], [32, 16, 16], [160, 16, 16]]","[224, 16, 16]",57344,57344,458752,114688,0.000627,5.5e-05,
+46,PS,cat,encoder.encoder_2.sam_blocks.0.b4.ghost_layers.2:cat_prev,"[[32, 16, 16], [32, 16, 16], [224, 16, 16]]","[288, 16, 16]",73728,73728,589824,147456,0.000824,7.3e-05,
+47,PS,cat,encoder.encoder_2.sam_blocks.0.b4.ghost_layers.3:cat_prev,"[[32, 16, 16], [32, 16, 16], [288, 16, 16]]","[352, 16, 16]",90112,90112,720896,180224,0.001026,9e-05,
+48,PS,cat,encoder.encoder_2.sam_blocks.0.b4.ghost_layers.4:cat_prev,"[[32, 16, 16], [32, 16, 16], [352, 16, 16]]","[416, 16, 16]",106496,106496,851968,212992,0.001364,0.00012,
+49,PS,interp,encoder.encoder_2.sam_blocks.0:b2_up,"[[96, 32, 32]]","[96, 64, 64]",98304,393216,1966080,491520,0.129575,0.095036,
+50,PS,interp,encoder.encoder_2.sam_blocks.0:b4_up,"[[96, 16, 16]]","[96, 64, 64]",24576,393216,1671168,417792,0.130778,0.095918,
+51,PS,cat,encoder.encoder_2.sam_blocks.0:cat3,"[[96, 64, 64], [96, 64, 64], [96, 64, 64]]","[288, 64, 64]",1179648,1179648,9437184,2359296,0.014048,0.001238,
+52,PS,eca,encoder.encoder_2.sam_blocks.0.fusion,"[[288, 64, 64]]","[288, 1, 1]",1179648,288,4719744,1179936,0.029612,0.013909,
+53,PS,sam,encoder.encoder_2.sam_blocks.0:weighted_sum,"[[96, 64, 64], [96, 64, 64], [96, 64, 64], [96, 64, 64], [288, 1, 1]]","[96, 64, 64]",1573152,393216,7865472,1966368,0.055743,0.039268,
+54,PS,cat,encoder.encoder_3.rdb.conv_layers.0:cat,"[[64, 32, 32], [192, 32, 32]]","[256, 32, 32]",262144,262144,2097152,524288,0.003085,0.000272,
+55,PS,cat,encoder.encoder_3.rdb.conv_layers.1:cat,"[[64, 32, 32], [256, 32, 32]]","[320, 32, 32]",327680,327680,2621440,655360,0.004194,0.00037,
+56,PS,cat,encoder.encoder_3.rdb.conv_layers.2:cat,"[[64, 32, 32], [320, 32, 32]]","[384, 32, 32]",393216,393216,3145728,786432,0.004645,0.000409,
+57,PS,add,encoder.encoder_3.rdb:residual,"[[192, 32, 32], [192, 32, 32]]","[192, 32, 32]",393216,196608,2359296,589824,0.003489,0.004445,
+58,PS,interp,encoder.encoder_3.sam_blocks.0:x2,"[[192, 32, 32]]","[192, 16, 16]",196608,49152,983040,245760,0.019967,0.014645,
+59,PS,interp,encoder.encoder_3.sam_blocks.0:x4,"[[192, 32, 32]]","[192, 8, 8]",196608,12288,835584,208896,0.005791,0.004247,
+60,PS,cat,encoder.encoder_3.sam_blocks.0.b0.ghost_layers.0:cat_prev,"[[32, 32, 32], [32, 32, 32], [192, 32, 32]]","[256, 32, 32]",262144,262144,2097152,524288,0.003231,0.000285,
+61,PS,cat,encoder.encoder_3.sam_blocks.0.b0.ghost_layers.1:cat_prev,"[[32, 32, 32], [32, 32, 32], [256, 32, 32]]","[320, 32, 32]",327680,327680,2621440,655360,0.003857,0.00034,
+62,PS,cat,encoder.encoder_3.sam_blocks.0.b0.ghost_layers.2:cat_prev,"[[32, 32, 32], [32, 32, 32], [320, 32, 32]]","[384, 32, 32]",393216,393216,3145728,786432,0.00441,0.000389,
+63,PS,cat,encoder.encoder_3.sam_blocks.0.b0.ghost_layers.3:cat_prev,"[[32, 32, 32], [32, 32, 32], [384, 32, 32]]","[448, 32, 32]",458752,458752,3670016,917504,0.006134,0.000541,
+64,PS,cat,encoder.encoder_3.sam_blocks.0.b0.ghost_layers.4:cat_prev,"[[32, 32, 32], [32, 32, 32], [448, 32, 32]]","[512, 32, 32]",524288,524288,4194304,1048576,0.006625,0.000584,
+65,PS,cat,encoder.encoder_3.sam_blocks.0.b2.ghost_layers.0:cat_prev,"[[32, 16, 16], [32, 16, 16], [192, 16, 16]]","[256, 16, 16]",65536,65536,524288,131072,0.000703,6.2e-05,
+66,PS,cat,encoder.encoder_3.sam_blocks.0.b2.ghost_layers.1:cat_prev,"[[32, 16, 16], [32, 16, 16], [256, 16, 16]]","[320, 16, 16]",81920,81920,655360,163840,0.000913,8.1e-05,
+67,PS,cat,encoder.encoder_3.sam_blocks.0.b2.ghost_layers.2:cat_prev,"[[32, 16, 16], [32, 16, 16], [320, 16, 16]]","[384, 16, 16]",98304,98304,786432,196608,0.001207,0.000106,
+68,PS,cat,encoder.encoder_3.sam_blocks.0.b2.ghost_layers.3:cat_prev,"[[32, 16, 16], [32, 16, 16], [384, 16, 16]]","[448, 16, 16]",114688,114688,917504,229376,0.001343,0.000118,
+69,PS,cat,encoder.encoder_3.sam_blocks.0.b2.ghost_layers.4:cat_prev,"[[32, 16, 16], [32, 16, 16], [448, 16, 16]]","[512, 16, 16]",131072,131072,1048576,262144,0.001639,0.000144,
+70,PS,cat,encoder.encoder_3.sam_blocks.0.b4.ghost_layers.0:cat_prev,"[[32, 8, 8], [32, 8, 8], [192, 8, 8]]","[256, 8, 8]",16384,16384,131072,32768,0.000169,1.5e-05,
+71,PS,cat,encoder.encoder_3.sam_blocks.0.b4.ghost_layers.1:cat_prev,"[[32, 8, 8], [32, 8, 8], [256, 8, 8]]","[320, 8, 8]",20480,20480,163840,40960,0.000193,1.7e-05,
+72,PS,cat,encoder.encoder_3.sam_blocks.0.b4.ghost_layers.2:cat_prev,"[[32, 8, 8], [32, 8, 8], [320, 8, 8]]","[384, 8, 8]",24576,24576,196608,49152,0.000209,1.8e-05,
+73,PS,cat,encoder.encoder_3.sam_blocks.0.b4.ghost_layers.3:cat_prev,"[[32, 8, 8], [32, 8, 8], [384, 8, 8]]","[448, 8, 8]",28672,28672,229376,57344,0.000241,2.1e-05,
+74,PS,cat,encoder.encoder_3.sam_blocks.0.b4.ghost_layers.4:cat_prev,"[[32, 8, 8], [32, 8, 8], [448, 8, 8]]","[512, 8, 8]",32768,32768,262144,65536,0.000299,2.6e-05,
+75,PS,interp,encoder.encoder_3.sam_blocks.0:b2_up,"[[192, 16, 16]]","[192, 32, 32]",49152,196608,983040,245760,0.064457,0.047275,
+76,PS,interp,encoder.encoder_3.sam_blocks.0:b4_up,"[[192, 8, 8]]","[192, 32, 32]",12288,196608,835584,208896,0.064375,0.047215,
+77,PS,cat,encoder.encoder_3.sam_blocks.0:cat3,"[[192, 32, 32], [192, 32, 32], [192, 32, 32]]","[576, 32, 32]",589824,589824,4718592,1179648,0.007256,0.00064,
+78,PS,eca,encoder.encoder_3.sam_blocks.0.fusion,"[[576, 32, 32]]","[576, 1, 1]",589824,576,2361600,590400,0.046642,0.021909,
+79,PS,sam,encoder.encoder_3.sam_blocks.0:weighted_sum,"[[192, 32, 32], [192, 32, 32], [192, 32, 32], [192, 32, 32], [576, 1, 1]]","[192, 32, 32]",787008,196608,3934464,983616,0.029304,0.020643,
+80,PS,cat,decoder.decoder_3.rdb.conv_layers.0:cat,"[[96, 32, 32], [64, 32, 32]]","[160, 32, 32]",163840,163840,1310720,327680,0.002102,0.000185,
+81,PS,cat,decoder.decoder_3.rdb.conv_layers.1:cat,"[[96, 32, 32], [160, 32, 32]]","[256, 32, 32]",262144,262144,2097152,524288,0.003192,0.000281,
+82,PS,cat,decoder.decoder_3.rdb.conv_layers.2:cat,"[[96, 32, 32], [256, 32, 32]]","[352, 32, 32]",360448,360448,2883584,720896,0.004826,0.000425,
+83,PS,add,decoder.decoder_3.rdb:residual,"[[64, 32, 32], [64, 32, 32]]","[64, 32, 32]",131072,65536,786432,196608,0.001203,0.001533,
+84,PS,interp,decoder.decoder_3.sam_blocks.0:x2,"[[64, 32, 32]]","[64, 16, 16]",65536,16384,327680,81920,0.006704,0.004917,
+85,PS,interp,decoder.decoder_3.sam_blocks.0:x4,"[[64, 32, 32]]","[64, 8, 8]",65536,4096,278528,69632,0.00213,0.001562,
+86,PS,cat,decoder.decoder_3.sam_blocks.0.b0.ghost_layers.0:cat_prev,"[[48, 32, 32], [48, 32, 32], [64, 32, 32]]","[160, 32, 32]",163840,163840,1310720,327680,0.001866,0.000164,
+87,PS,cat,decoder.decoder_3.sam_blocks.0.b0.ghost_layers.1:cat_prev,"[[48, 32, 32], [48, 32, 32], [160, 32, 32]]","[256, 32, 32]",262144,262144,2097152,524288,0.002989,0.000263,
+88,PS,cat,decoder.decoder_3.sam_blocks.0.b0.ghost_layers.2:cat_prev,"[[48, 32, 32], [48, 32, 32], [256, 32, 32]]","[352, 32, 32]",360448,360448,2883584,720896,0.0044,0.000388,
+89,PS,cat,decoder.decoder_3.sam_blocks.0.b0.ghost_layers.3:cat_prev,"[[48, 32, 32], [48, 32, 32], [352, 32, 32]]","[448, 32, 32]",458752,458752,3670016,917504,0.005213,0.00046,
+90,PS,cat,decoder.decoder_3.sam_blocks.0.b0.ghost_layers.4:cat_prev,"[[48, 32, 32], [48, 32, 32], [448, 32, 32]]","[544, 32, 32]",557056,557056,4456448,1114112,0.006295,0.000555,
+91,PS,cat,decoder.decoder_3.sam_blocks.0.b2.ghost_layers.0:cat_prev,"[[48, 16, 16], [48, 16, 16], [64, 16, 16]]","[160, 16, 16]",40960,40960,327680,81920,0.000363,3.2e-05,
+92,PS,cat,decoder.decoder_3.sam_blocks.0.b2.ghost_layers.1:cat_prev,"[[48, 16, 16], [48, 16, 16], [160, 16, 16]]","[256, 16, 16]",65536,65536,524288,131072,0.000648,5.7e-05,
+93,PS,cat,decoder.decoder_3.sam_blocks.0.b2.ghost_layers.2:cat_prev,"[[48, 16, 16], [48, 16, 16], [256, 16, 16]]","[352, 16, 16]",90112,90112,720896,180224,0.000958,8.4e-05,
+94,PS,cat,decoder.decoder_3.sam_blocks.0.b2.ghost_layers.3:cat_prev,"[[48, 16, 16], [48, 16, 16], [352, 16, 16]]","[448, 16, 16]",114688,114688,917504,229376,0.001406,0.000124,
+95,PS,cat,decoder.decoder_3.sam_blocks.0.b2.ghost_layers.4:cat_prev,"[[48, 16, 16], [48, 16, 16], [448, 16, 16]]","[544, 16, 16]",139264,139264,1114112,278528,0.001651,0.000146,
+96,PS,cat,decoder.decoder_3.sam_blocks.0.b4.ghost_layers.0:cat_prev,"[[48, 8, 8], [48, 8, 8], [64, 8, 8]]","[160, 8, 8]",10240,10240,81920,20480,0.000121,1.1e-05,
+97,PS,cat,decoder.decoder_3.sam_blocks.0.b4.ghost_layers.1:cat_prev,"[[48, 8, 8], [48, 8, 8], [160, 8, 8]]","[256, 8, 8]",16384,16384,131072,32768,0.000161,1.4e-05,
+98,PS,cat,decoder.decoder_3.sam_blocks.0.b4.ghost_layers.2:cat_prev,"[[48, 8, 8], [48, 8, 8], [256, 8, 8]]","[352, 8, 8]",22528,22528,180224,45056,0.000198,1.7e-05,
+99,PS,cat,decoder.decoder_3.sam_blocks.0.b4.ghost_layers.3:cat_prev,"[[48, 8, 8], [48, 8, 8], [352, 8, 8]]","[448, 8, 8]",28672,28672,229376,57344,0.000248,2.2e-05,
+100,PS,cat,decoder.decoder_3.sam_blocks.0.b4.ghost_layers.4:cat_prev,"[[48, 8, 8], [48, 8, 8], [448, 8, 8]]","[544, 8, 8]",34816,34816,278528,69632,0.000314,2.8e-05,
+101,PS,interp,decoder.decoder_3.sam_blocks.0:b2_up,"[[64, 16, 16]]","[64, 32, 32]",16384,65536,327680,81920,0.021178,0.015533,
+102,PS,interp,decoder.decoder_3.sam_blocks.0:b4_up,"[[64, 8, 8]]","[64, 32, 32]",4096,65536,278528,69632,0.021004,0.015405,
+103,PS,cat,decoder.decoder_3.sam_blocks.0:cat3,"[[64, 32, 32], [64, 32, 32], [64, 32, 32]]","[192, 32, 32]",196608,196608,1572864,393216,0.002529,0.000223,
+104,PS,eca,decoder.decoder_3.sam_blocks.0.fusion,"[[192, 32, 32]]","[192, 1, 1]",196608,192,787200,196800,0.016949,0.007961,
+105,PS,sam,decoder.decoder_3.sam_blocks.0:weighted_sum,"[[64, 32, 32], [64, 32, 32], [64, 32, 32], [64, 32, 32], [192, 1, 1]]","[64, 32, 32]",262336,65536,1311488,327872,0.01041,0.007333,
+106,PS,convfp,decoder.decoder_3.conv,"[[64, 32, 32]]","[12, 32, 32]",65536,12288,311296,311296,0.038627,0.028677,
+107,PS,shuffle,decoder.decoder_3:pixel_shuffle(2),"[[12, 32, 32]]","[3, 64, 64]",12288,12288,98304,24576,0.00075,0.000729,
+108,PS,interp,decoder.decoder_3:feat_up,"[[64, 32, 32]]","[64, 64, 64]",65536,262144,1310720,327680,0.089073,0.06533,
+109,PS,cat,decoder.preconv_2:cat,"[[96, 64, 64], [64, 64, 64]]","[160, 64, 64]",655360,655360,5242880,1310720,0.008183,0.000721,
+110,PS,cat,decoder.decoder_2.rdb.conv_layers.0:cat,"[[96, 64, 64], [64, 64, 64]]","[160, 64, 64]",655360,655360,5242880,1310720,0.00876,0.000772,
+111,PS,cat,decoder.decoder_2.rdb.conv_layers.1:cat,"[[96, 64, 64], [160, 64, 64]]","[256, 64, 64]",1048576,1048576,8388608,2097152,0.0124,0.001093,
+112,PS,cat,decoder.decoder_2.rdb.conv_layers.2:cat,"[[96, 64, 64], [256, 64, 64]]","[352, 64, 64]",1441792,1441792,11534336,2883584,0.018399,0.001622,
+113,PS,add,decoder.decoder_2.rdb:residual,"[[64, 64, 64], [64, 64, 64]]","[64, 64, 64]",524288,262144,3145728,786432,0.004732,0.006029,
+114,PS,interp,decoder.decoder_2.sam_blocks.0:x2,"[[64, 64, 64]]","[64, 32, 32]",262144,65536,1310720,327680,0.026657,0.019551,
+115,PS,interp,decoder.decoder_2.sam_blocks.0:x4,"[[64, 64, 64]]","[64, 16, 16]",262144,16384,1114112,278528,0.007267,0.00533,
+116,PS,cat,decoder.decoder_2.sam_blocks.0.b0.ghost_layers.0:cat_prev,"[[48, 64, 64], [48, 64, 64], [64, 64, 64]]","[160, 64, 64]",655360,655360,5242880,1310720,0.008016,0.000707,
+117,PS,cat,decoder.decoder_2.sam_blocks.0.b0.ghost_layers.1:cat_prev,"[[48, 64, 64], [48, 64, 64], [160, 64, 64]]","[256, 64, 64]",1048576,1048576,8388608,2097152,0.011936,0.001052,
+118,PS,cat,decoder.decoder_2.sam_blocks.0.b0.ghost_layers.2:cat_prev,"[[48, 64, 64], [48, 64, 64], [256, 64, 64]]","[352, 64, 64]",1441792,1441792,11534336,2883584,0.016539,0.001458,
+119,PS,cat,decoder.decoder_2.sam_blocks.0.b0.ghost_layers.3:cat_prev,"[[48, 64, 64], [48, 64, 64], [352, 64, 64]]","[448, 64, 64]",1835008,1835008,14680064,3670016,0.022453,0.001979,
+120,PS,cat,decoder.decoder_2.sam_blocks.0.b0.ghost_layers.4:cat_prev,"[[48, 64, 64], [48, 64, 64], [448, 64, 64]]","[544, 64, 64]",2228224,2228224,17825792,4456448,0.02735,0.002411,
+121,PS,cat,decoder.decoder_2.sam_blocks.0.b2.ghost_layers.0:cat_prev,"[[48, 32, 32], [48, 32, 32], [64, 32, 32]]","[160, 32, 32]",163840,163840,1310720,327680,0.002002,0.000176,
+122,PS,cat,decoder.decoder_2.sam_blocks.0.b2.ghost_layers.1:cat_prev,"[[48, 32, 32], [48, 32, 32], [160, 32, 32]]","[256, 32, 32]",262144,262144,2097152,524288,0.003101,0.000273,
+123,PS,cat,decoder.decoder_2.sam_blocks.0.b2.ghost_layers.2:cat_prev,"[[48, 32, 32], [48, 32, 32], [256, 32, 32]]","[352, 32, 32]",360448,360448,2883584,720896,0.004334,0.000382,
+124,PS,cat,decoder.decoder_2.sam_blocks.0.b2.ghost_layers.3:cat_prev,"[[48, 32, 32], [48, 32, 32], [352, 32, 32]]","[448, 32, 32]",458752,458752,3670016,917504,0.005582,0.000492,
+125,PS,cat,decoder.decoder_2.sam_blocks.0.b2.ghost_layers.4:cat_prev,"[[48, 32, 32], [48, 32, 32], [448, 32, 32]]","[544, 32, 32]",557056,557056,4456448,1114112,0.00651,0.000574,
+126,PS,cat,decoder.decoder_2.sam_blocks.0.b4.ghost_layers.0:cat_prev,"[[48, 16, 16], [48, 16, 16], [64, 16, 16]]","[160, 16, 16]",40960,40960,327680,81920,0.000355,3.1e-05,
+127,PS,cat,decoder.decoder_2.sam_blocks.0.b4.ghost_layers.1:cat_prev,"[[48, 16, 16], [48, 16, 16], [160, 16, 16]]","[256, 16, 16]",65536,65536,524288,131072,0.00064,5.6e-05,
+128,PS,cat,decoder.decoder_2.sam_blocks.0.b4.ghost_layers.2:cat_prev,"[[48, 16, 16], [48, 16, 16], [256, 16, 16]]","[352, 16, 16]",90112,90112,720896,180224,0.00101,8.9e-05,
+129,PS,cat,decoder.decoder_2.sam_blocks.0.b4.ghost_layers.3:cat_prev,"[[48, 16, 16], [48, 16, 16], [352, 16, 16]]","[448, 16, 16]",114688,114688,917504,229376,0.001342,0.000118,
+130,PS,cat,decoder.decoder_2.sam_blocks.0.b4.ghost_layers.4:cat_prev,"[[48, 16, 16], [48, 16, 16], [448, 16, 16]]","[544, 16, 16]",139264,139264,1114112,278528,0.001696,0.000149,
+131,PS,interp,decoder.decoder_2.sam_blocks.0:b2_up,"[[64, 32, 32]]","[64, 64, 64]",65536,262144,1310720,327680,0.091325,0.066982,
+132,PS,interp,decoder.decoder_2.sam_blocks.0:b4_up,"[[64, 16, 16]]","[64, 64, 64]",16384,262144,1114112,278528,0.089176,0.065406,
+133,PS,cat,decoder.decoder_2.sam_blocks.0:cat3,"[[64, 64, 64], [64, 64, 64], [64, 64, 64]]","[192, 64, 64]",786432,786432,6291456,1572864,0.010328,0.00091,
+134,PS,eca,decoder.decoder_2.sam_blocks.0.fusion,"[[192, 64, 64]]","[192, 1, 1]",786432,192,3146496,786624,0.020228,0.009502,
+135,PS,sam,decoder.decoder_2.sam_blocks.0:weighted_sum,"[[64, 64, 64], [64, 64, 64], [64, 64, 64], [64, 64, 64], [192, 1, 1]]","[64, 64, 64]",1048768,262144,5243648,1310912,0.037288,0.026267,
+136,PS,convfp,decoder.decoder_2.conv,"[[64, 64, 64]]","[12, 64, 64]",262144,49152,1245184,1245184,0.145088,0.107713,
+137,PS,shuffle,decoder.decoder_2:pixel_shuffle(2),"[[12, 64, 64]]","[3, 128, 128]",49152,49152,393216,98304,0.002788,0.00271,
+138,PS,interp,decoder.decoder_2:feat_up,"[[64, 64, 64]]","[64, 128, 128]",262144,1048576,5242880,1310720,0.344064,0.252351,
+139,PS,cat,decoder.preconv_1:cat,"[[48, 128, 128], [64, 128, 128]]","[112, 128, 128]",1835008,1835008,14680064,3670016,0.023537,0.002075,
+140,PS,cat,decoder.decoder_1.rdb.conv_layers.0:cat,"[[96, 128, 128], [64, 128, 128]]","[160, 128, 128]",2621440,2621440,20971520,5242880,0.033188,0.002926,
+141,PS,cat,decoder.decoder_1.rdb.conv_layers.1:cat,"[[96, 128, 128], [160, 128, 128]]","[256, 128, 128]",4194304,4194304,33554432,8388608,0.05157,0.004546,
+142,PS,cat,decoder.decoder_1.rdb.conv_layers.2:cat,"[[96, 128, 128], [256, 128, 128]]","[352, 128, 128]",5767168,5767168,46137344,11534336,0.079188,0.00698,
+143,PS,add,decoder.decoder_1.rdb:residual,"[[64, 128, 128], [64, 128, 128]]","[64, 128, 128]",2097152,1048576,12582912,3145728,0.019469,0.024808,
+144,PS,interp,decoder.decoder_1.sam_blocks.0:x2,"[[64, 128, 128]]","[64, 64, 64]",1048576,262144,5242880,1310720,0.108584,0.07964,
+145,PS,interp,decoder.decoder_1.sam_blocks.0:x4,"[[64, 128, 128]]","[64, 32, 32]",1048576,65536,4456448,1114112,0.031003,0.022739,
+146,PS,cat,decoder.decoder_1.sam_blocks.0.b0.ghost_layers.0:cat_prev,"[[48, 128, 128], [48, 128, 128], [64, 128, 128]]","[160, 128, 128]",2621440,2621440,20971520,5242880,0.030393,0.002679,
+147,PS,cat,decoder.decoder_1.sam_blocks.0.b0.ghost_layers.1:cat_prev,"[[48, 128, 128], [48, 128, 128], [160, 128, 128]]","[256, 128, 128]",4194304,4194304,33554432,8388608,0.051425,0.004533,
+148,PS,cat,decoder.decoder_1.sam_blocks.0.b0.ghost_layers.2:cat_prev,"[[48, 128, 128], [48, 128, 128], [256, 128, 128]]","[352, 128, 128]",5767168,5767168,46137344,11534336,0.068379,0.006028,
+149,PS,cat,decoder.decoder_1.sam_blocks.0.b0.ghost_layers.3:cat_prev,"[[48, 128, 128], [48, 128, 128], [352, 128, 128]]","[448, 128, 128]",7340032,7340032,58720256,14680064,0.085884,0.007571,
+150,PS,cat,decoder.decoder_1.sam_blocks.0.b0.ghost_layers.4:cat_prev,"[[48, 128, 128], [48, 128, 128], [448, 128, 128]]","[544, 128, 128]",8912896,8912896,71303168,17825792,0.099767,0.008794,
+151,PS,cat,decoder.decoder_1.sam_blocks.0.b2.ghost_layers.0:cat_prev,"[[48, 64, 64], [48, 64, 64], [64, 64, 64]]","[160, 64, 64]",655360,655360,5242880,1310720,0.007715,0.00068,
+152,PS,cat,decoder.decoder_1.sam_blocks.0.b2.ghost_layers.1:cat_prev,"[[48, 64, 64], [48, 64, 64], [160, 64, 64]]","[256, 64, 64]",1048576,1048576,8388608,2097152,0.012541,0.001105,
+153,PS,cat,decoder.decoder_1.sam_blocks.0.b2.ghost_layers.2:cat_prev,"[[48, 64, 64], [48, 64, 64], [256, 64, 64]]","[352, 64, 64]",1441792,1441792,11534336,2883584,0.016655,0.001468,
+154,PS,cat,decoder.decoder_1.sam_blocks.0.b2.ghost_layers.3:cat_prev,"[[48, 64, 64], [48, 64, 64], [352, 64, 64]]","[448, 64, 64]",1835008,1835008,14680064,3670016,0.022312,0.001967,
+155,PS,cat,decoder.decoder_1.sam_blocks.0.b2.ghost_layers.4:cat_prev,"[[48, 64, 64], [48, 64, 64], [448, 64, 64]]","[544, 64, 64]",2228224,2228224,17825792,4456448,0.02525,0.002226,
+156,PS,cat,decoder.decoder_1.sam_blocks.0.b4.ghost_layers.0:cat_prev,"[[48, 32, 32], [48, 32, 32], [64, 32, 32]]","[160, 32, 32]",163840,163840,1310720,327680,0.001952,0.000172,
+157,PS,cat,decoder.decoder_1.sam_blocks.0.b4.ghost_layers.1:cat_prev,"[[48, 32, 32], [48, 32, 32], [160, 32, 32]]","[256, 32, 32]",262144,262144,2097152,524288,0.003181,0.00028,
+158,PS,cat,decoder.decoder_1.sam_blocks.0.b4.ghost_layers.2:cat_prev,"[[48, 32, 32], [48, 32, 32], [256, 32, 32]]","[352, 32, 32]",360448,360448,2883584,720896,0.004027,0.000355,
+159,PS,cat,decoder.decoder_1.sam_blocks.0.b4.ghost_layers.3:cat_prev,"[[48, 32, 32], [48, 32, 32], [352, 32, 32]]","[448, 32, 32]",458752,458752,3670016,917504,0.005687,0.000501,
+160,PS,cat,decoder.decoder_1.sam_blocks.0.b4.ghost_layers.4:cat_prev,"[[48, 32, 32], [48, 32, 32], [448, 32, 32]]","[544, 32, 32]",557056,557056,4456448,1114112,0.00671,0.000591,
+161,PS,interp,decoder.decoder_1.sam_blocks.0:b2_up,"[[64, 64, 64]]","[64, 128, 128]",262144,1048576,5242880,1310720,0.339929,0.249318,
+162,PS,interp,decoder.decoder_1.sam_blocks.0:b4_up,"[[64, 32, 32]]","[64, 128, 128]",65536,1048576,4456448,1114112,0.334959,0.245673,
+163,PS,cat,decoder.decoder_1.sam_blocks.0:cat3,"[[64, 128, 128], [64, 128, 128], [64, 128, 128]]","[192, 128, 128]",3145728,3145728,25165824,6291456,0.038096,0.003358,
+164,PS,eca,decoder.decoder_1.sam_blocks.0.fusion,"[[192, 128, 128]]","[192, 1, 1]",3145728,192,12583680,3145920,0.032875,0.015443,
+165,PS,sam,decoder.decoder_1.sam_blocks.0:weighted_sum,"[[64, 128, 128], [64, 128, 128], [64, 128, 128], [64, 128, 128], [192, 1, 1]]","[64, 128, 128]",4194496,1048576,20972288,5243072,0.124518,0.087715,
+166,PS,convfp,decoder.decoder_1.conv,"[[64, 128, 128]]","[12, 128, 128]",1048576,196608,4980736,4980736,0.582034,0.432103,
+167,PS,shuffle,decoder.decoder_1:pixel_shuffle(2),"[[12, 128, 128]]","[3, 256, 256]",196608,196608,1572864,393216,0.010864,0.010561,
+168,PL(E1E2),conv,encoder.encoder_1.rdb.conv_layers.0.conv,"[48, 128, 128]","[64, 128, 128]",786432,1048576,7340032,1179648,0.0,0.001004,k=3 cmds=1
+169,PL(E1E2),conv,encoder.encoder_1.rdb.conv_layers.1.conv,"[112, 128, 128]","[128, 128, 128]",1835008,2097152,15728640,2359296,0.0,0.002009,k=3 cmds=2
+170,PL(E1E2),conv,encoder.encoder_1.rdb.conv_layers.2.conv,"[176, 128, 128]","[192, 128, 128]",2883584,3145728,24117248,3538944,0.0,0.003013,k=3 cmds=3
+171,PL(E1E2),conv,encoder.encoder_1.rdb.conv_post.conv,"[240, 128, 128]","[256, 128, 128]",3932160,4194304,32505856,4718592,0.0,0.004018,k=1 cmds=4
+172,PL(E1E2),conv,encoder.encoder_1.sam_blocks.0.b0.ghost_layers.0.primary_conv.conv,"[48, 128, 128]","[32, 128, 128]",786432,524288,5242880,1179648,0.0,0.001004,k=1 cmds=1
+173,PL(E1E2),conv,encoder.encoder_1.sam_blocks.0.b0.ghost_layers.0.cheap_operation.conv,"[32, 128, 128]","[64, 128, 128]",524288,1048576,6291456,1179648,0.0,0.001004,k=3 cmds=1
+174,PL(E1E2),conv,encoder.encoder_1.sam_blocks.0.b0.ghost_layers.1.primary_conv.conv,"[112, 128, 128]","[32, 128, 128]",1835008,524288,9437184,2359296,0.0,0.002009,k=1 cmds=2
+175,PL(E1E2),conv,encoder.encoder_1.sam_blocks.0.b0.ghost_layers.1.cheap_operation.conv,"[32, 128, 128]","[64, 128, 128]",524288,1048576,6291456,1179648,0.0,0.001004,k=3 cmds=1
+176,PL(E1E2),conv,encoder.encoder_1.sam_blocks.0.b0.ghost_layers.2.primary_conv.conv,"[176, 128, 128]","[32, 128, 128]",2883584,524288,13631488,3538944,0.0,0.003013,k=1 cmds=3
+177,PL(E1E2),conv,encoder.encoder_1.sam_blocks.0.b0.ghost_layers.2.cheap_operation.conv,"[32, 128, 128]","[64, 128, 128]",524288,1048576,6291456,1179648,0.0,0.001004,k=3 cmds=1
+178,PL(E1E2),conv,encoder.encoder_1.sam_blocks.0.b0.ghost_layers.3.primary_conv.conv,"[240, 128, 128]","[32, 128, 128]",3932160,524288,17825792,4718592,0.0,0.004018,k=1 cmds=4
+179,PL(E1E2),conv,encoder.encoder_1.sam_blocks.0.b0.ghost_layers.3.cheap_operation.conv,"[32, 128, 128]","[64, 128, 128]",524288,1048576,6291456,1179648,0.0,0.001004,k=3 cmds=1
+180,PL(E1E2),conv,encoder.encoder_1.sam_blocks.0.b0.ghost_layers.4.primary_conv.conv,"[304, 128, 128]","[32, 128, 128]",4980736,524288,22020096,5898240,0.0,0.005022,k=1 cmds=5
+181,PL(E1E2),conv,encoder.encoder_1.sam_blocks.0.b0.ghost_layers.4.cheap_operation.conv,"[32, 128, 128]","[64, 128, 128]",524288,1048576,6291456,1179648,0.0,0.001004,k=3 cmds=1
+182,PL(E1E2),conv,encoder.encoder_1.sam_blocks.0.b0.conv.conv,"[368, 128, 128]","[384, 128, 128]",6029312,6291456,49283072,7077888,0.0,0.006027,k=1 cmds=6
+183,PL(E1E2),conv,encoder.encoder_1.sam_blocks.0.b2.ghost_layers.0.primary_conv.conv,"[48, 64, 64]","[32, 64, 64]",196608,131072,1310720,294912,0.0,0.000251,k=1 cmds=1
+184,PL(E1E2),conv,encoder.encoder_1.sam_blocks.0.b2.ghost_layers.0.cheap_operation.conv,"[32, 64, 64]","[64, 64, 64]",131072,262144,1572864,294912,0.0,0.000251,k=3 cmds=1
+185,PL(E1E2),conv,encoder.encoder_1.sam_blocks.0.b2.ghost_layers.1.primary_conv.conv,"[112, 64, 64]","[32, 64, 64]",458752,131072,2359296,589824,0.0,0.000502,k=1 cmds=2
+186,PL(E1E2),conv,encoder.encoder_1.sam_blocks.0.b2.ghost_layers.1.cheap_operation.conv,"[32, 64, 64]","[64, 64, 64]",131072,262144,1572864,294912,0.0,0.000251,k=3 cmds=1
+187,PL(E1E2),conv,encoder.encoder_1.sam_blocks.0.b2.ghost_layers.2.primary_conv.conv,"[176, 64, 64]","[32, 64, 64]",720896,131072,3407872,884736,0.0,0.000754,k=1 cmds=3
+188,PL(E1E2),conv,encoder.encoder_1.sam_blocks.0.b2.ghost_layers.2.cheap_operation.conv,"[32, 64, 64]","[64, 64, 64]",131072,262144,1572864,294912,0.0,0.000251,k=3 cmds=1
+189,PL(E1E2),conv,encoder.encoder_1.sam_blocks.0.b2.ghost_layers.3.primary_conv.conv,"[240, 64, 64]","[32, 64, 64]",983040,131072,4456448,1179648,0.0,0.001005,k=1 cmds=4
+190,PL(E1E2),conv,encoder.encoder_1.sam_blocks.0.b2.ghost_layers.3.cheap_operation.conv,"[32, 64, 64]","[64, 64, 64]",131072,262144,1572864,294912,0.0,0.000251,k=3 cmds=1
+191,PL(E1E2),conv,encoder.encoder_1.sam_blocks.0.b2.ghost_layers.4.primary_conv.conv,"[304, 64, 64]","[32, 64, 64]",1245184,131072,5505024,1474560,0.0,0.001256,k=1 cmds=5
+192,PL(E1E2),conv,encoder.encoder_1.sam_blocks.0.b2.ghost_layers.4.cheap_operation.conv,"[32, 64, 64]","[64, 64, 64]",131072,262144,1572864,294912,0.0,0.000251,k=3 cmds=1
+193,PL(E1E2),conv,encoder.encoder_1.sam_blocks.0.b2.conv.conv,"[368, 64, 64]","[384, 64, 64]",1507328,1572864,12320768,1769472,0.0,0.001507,k=1 cmds=6
+194,PL(E1E2),conv,encoder.encoder_1.sam_blocks.0.b4.ghost_layers.0.primary_conv.conv,"[48, 32, 32]","[32, 32, 32]",49152,32768,327680,73728,0.0,6.3e-05,k=1 cmds=1
+195,PL(E1E2),conv,encoder.encoder_1.sam_blocks.0.b4.ghost_layers.0.cheap_operation.conv,"[32, 32, 32]","[64, 32, 32]",32768,65536,393216,73728,0.0,6.3e-05,k=3 cmds=1
+196,PL(E1E2),conv,encoder.encoder_1.sam_blocks.0.b4.ghost_layers.1.primary_conv.conv,"[112, 32, 32]","[32, 32, 32]",114688,32768,589824,147456,0.0,0.000126,k=1 cmds=2
+197,PL(E1E2),conv,encoder.encoder_1.sam_blocks.0.b4.ghost_layers.1.cheap_operation.conv,"[32, 32, 32]","[64, 32, 32]",32768,65536,393216,73728,0.0,6.3e-05,k=3 cmds=1
+198,PL(E1E2),conv,encoder.encoder_1.sam_blocks.0.b4.ghost_layers.2.primary_conv.conv,"[176, 32, 32]","[32, 32, 32]",180224,32768,851968,221184,0.0,0.000189,k=1 cmds=3
+199,PL(E1E2),conv,encoder.encoder_1.sam_blocks.0.b4.ghost_layers.2.cheap_operation.conv,"[32, 32, 32]","[64, 32, 32]",32768,65536,393216,73728,0.0,6.3e-05,k=3 cmds=1
+200,PL(E1E2),conv,encoder.encoder_1.sam_blocks.0.b4.ghost_layers.3.primary_conv.conv,"[240, 32, 32]","[32, 32, 32]",245760,32768,1114112,294912,0.0,0.000252,k=1 cmds=4
+201,PL(E1E2),conv,encoder.encoder_1.sam_blocks.0.b4.ghost_layers.3.cheap_operation.conv,"[32, 32, 32]","[64, 32, 32]",32768,65536,393216,73728,0.0,6.3e-05,k=3 cmds=1
+202,PL(E1E2),conv,encoder.encoder_1.sam_blocks.0.b4.ghost_layers.4.primary_conv.conv,"[304, 32, 32]","[32, 32, 32]",311296,32768,1376256,368640,0.0,0.000314,k=1 cmds=5
+203,PL(E1E2),conv,encoder.encoder_1.sam_blocks.0.b4.ghost_layers.4.cheap_operation.conv,"[32, 32, 32]","[64, 32, 32]",32768,65536,393216,73728,0.0,6.3e-05,k=3 cmds=1
+204,PL(E1E2),conv,encoder.encoder_1.sam_blocks.0.b4.conv.conv,"[368, 32, 32]","[384, 32, 32]",376832,393216,3080192,442368,0.0,0.000377,k=1 cmds=6
+205,PL(E1E2),conv,encoder.encoder_1.down.conv,"[48, 128, 128]","[96, 128, 128]",786432,1572864,9437184,1179648,0.0,0.001004,k=3 cmds=1
+206,PL(E1E2),conv,encoder.encoder_2.rdb.conv_layers.0.conv,"[96, 64, 64]","[128, 64, 64]",393216,524288,3670016,589824,0.0,0.000502,k=3 cmds=2
+207,PL(E1E2),conv,encoder.encoder_2.rdb.conv_layers.1.conv,"[160, 64, 64]","[192, 64, 64]",655360,786432,5767168,884736,0.0,0.000754,k=3 cmds=3
+208,PL(E1E2),conv,encoder.encoder_2.rdb.conv_layers.2.conv,"[224, 64, 64]","[256, 64, 64]",917504,1048576,7864320,1179648,0.0,0.001005,k=3 cmds=4
+209,PL(E1E2),conv,encoder.encoder_2.rdb.conv_post.conv,"[288, 64, 64]","[320, 64, 64]",1179648,1310720,9961472,1474560,0.0,0.001256,k=1 cmds=5
+210,PL(E1E2),conv,encoder.encoder_2.sam_blocks.0.b0.ghost_layers.0.primary_conv.conv,"[96, 64, 64]","[32, 64, 64]",393216,131072,2097152,589824,0.0,0.000502,k=1 cmds=2
+211,PL(E1E2),conv,encoder.encoder_2.sam_blocks.0.b0.ghost_layers.0.cheap_operation.conv,"[32, 64, 64]","[64, 64, 64]",131072,262144,1572864,294912,0.0,0.000251,k=3 cmds=1
+212,PL(E1E2),conv,encoder.encoder_2.sam_blocks.0.b0.ghost_layers.1.primary_conv.conv,"[160, 64, 64]","[32, 64, 64]",655360,131072,3145728,884736,0.0,0.000754,k=1 cmds=3
+213,PL(E1E2),conv,encoder.encoder_2.sam_blocks.0.b0.ghost_layers.1.cheap_operation.conv,"[32, 64, 64]","[64, 64, 64]",131072,262144,1572864,294912,0.0,0.000251,k=3 cmds=1
+214,PL(E1E2),conv,encoder.encoder_2.sam_blocks.0.b0.ghost_layers.2.primary_conv.conv,"[224, 64, 64]","[32, 64, 64]",917504,131072,4194304,1179648,0.0,0.001005,k=1 cmds=4
+215,PL(E1E2),conv,encoder.encoder_2.sam_blocks.0.b0.ghost_layers.2.cheap_operation.conv,"[32, 64, 64]","[64, 64, 64]",131072,262144,1572864,294912,0.0,0.000251,k=3 cmds=1
+216,PL(E1E2),conv,encoder.encoder_2.sam_blocks.0.b0.ghost_layers.3.primary_conv.conv,"[288, 64, 64]","[32, 64, 64]",1179648,131072,5242880,1474560,0.0,0.001256,k=1 cmds=5
+217,PL(E1E2),conv,encoder.encoder_2.sam_blocks.0.b0.ghost_layers.3.cheap_operation.conv,"[32, 64, 64]","[64, 64, 64]",131072,262144,1572864,294912,0.0,0.000251,k=3 cmds=1
+218,PL(E1E2),conv,encoder.encoder_2.sam_blocks.0.b0.ghost_layers.4.primary_conv.conv,"[352, 64, 64]","[32, 64, 64]",1441792,131072,6291456,1769472,0.0,0.001507,k=1 cmds=6
+219,PL(E1E2),conv,encoder.encoder_2.sam_blocks.0.b0.ghost_layers.4.cheap_operation.conv,"[32, 64, 64]","[64, 64, 64]",131072,262144,1572864,294912,0.0,0.000251,k=3 cmds=1
+220,PL(E1E2),conv,encoder.encoder_2.sam_blocks.0.b0.conv.conv,"[416, 64, 64]","[448, 64, 64]",1703936,1835008,14155776,2064384,0.0,0.001758,k=1 cmds=7
+221,PL(E1E2),conv,encoder.encoder_2.sam_blocks.0.b2.ghost_layers.0.primary_conv.conv,"[96, 32, 32]","[32, 32, 32]",98304,32768,524288,147456,0.0,0.000126,k=1 cmds=2
+222,PL(E1E2),conv,encoder.encoder_2.sam_blocks.0.b2.ghost_layers.0.cheap_operation.conv,"[32, 32, 32]","[64, 32, 32]",32768,65536,393216,73728,0.0,6.3e-05,k=3 cmds=1
+223,PL(E1E2),conv,encoder.encoder_2.sam_blocks.0.b2.ghost_layers.1.primary_conv.conv,"[160, 32, 32]","[32, 32, 32]",163840,32768,786432,221184,0.0,0.000189,k=1 cmds=3
+224,PL(E1E2),conv,encoder.encoder_2.sam_blocks.0.b2.ghost_layers.1.cheap_operation.conv,"[32, 32, 32]","[64, 32, 32]",32768,65536,393216,73728,0.0,6.3e-05,k=3 cmds=1
+225,PL(E1E2),conv,encoder.encoder_2.sam_blocks.0.b2.ghost_layers.2.primary_conv.conv,"[224, 32, 32]","[32, 32, 32]",229376,32768,1048576,294912,0.0,0.000252,k=1 cmds=4
+226,PL(E1E2),conv,encoder.encoder_2.sam_blocks.0.b2.ghost_layers.2.cheap_operation.conv,"[32, 32, 32]","[64, 32, 32]",32768,65536,393216,73728,0.0,6.3e-05,k=3 cmds=1
+227,PL(E1E2),conv,encoder.encoder_2.sam_blocks.0.b2.ghost_layers.3.primary_conv.conv,"[288, 32, 32]","[32, 32, 32]",294912,32768,1310720,368640,0.0,0.000314,k=1 cmds=5
+228,PL(E1E2),conv,encoder.encoder_2.sam_blocks.0.b2.ghost_layers.3.cheap_operation.conv,"[32, 32, 32]","[64, 32, 32]",32768,65536,393216,73728,0.0,6.3e-05,k=3 cmds=1
+229,PL(E1E2),conv,encoder.encoder_2.sam_blocks.0.b2.ghost_layers.4.primary_conv.conv,"[352, 32, 32]","[32, 32, 32]",360448,32768,1572864,442368,0.0,0.000377,k=1 cmds=6
+230,PL(E1E2),conv,encoder.encoder_2.sam_blocks.0.b2.ghost_layers.4.cheap_operation.conv,"[32, 32, 32]","[64, 32, 32]",32768,65536,393216,73728,0.0,6.3e-05,k=3 cmds=1
+231,PL(E1E2),conv,encoder.encoder_2.sam_blocks.0.b2.conv.conv,"[416, 32, 32]","[448, 32, 32]",425984,458752,3538944,516096,0.0,0.00044,k=1 cmds=7
+232,PL(E1E2),conv,encoder.encoder_2.sam_blocks.0.b4.ghost_layers.0.primary_conv.conv,"[96, 16, 16]","[32, 16, 16]",24576,8192,131072,36864,0.0,3.2e-05,k=1 cmds=2
+233,PL(E1E2),conv,encoder.encoder_2.sam_blocks.0.b4.ghost_layers.0.cheap_operation.conv,"[32, 16, 16]","[64, 16, 16]",8192,16384,98304,18432,0.0,1.6e-05,k=3 cmds=1
+234,PL(E1E2),conv,encoder.encoder_2.sam_blocks.0.b4.ghost_layers.1.primary_conv.conv,"[160, 16, 16]","[32, 16, 16]",40960,8192,196608,55296,0.0,4.7e-05,k=1 cmds=3
+235,PL(E1E2),conv,encoder.encoder_2.sam_blocks.0.b4.ghost_layers.1.cheap_operation.conv,"[32, 16, 16]","[64, 16, 16]",8192,16384,98304,18432,0.0,1.6e-05,k=3 cmds=1
+236,PL(E1E2),conv,encoder.encoder_2.sam_blocks.0.b4.ghost_layers.2.primary_conv.conv,"[224, 16, 16]","[32, 16, 16]",57344,8192,262144,73728,0.0,6.3e-05,k=1 cmds=4
+237,PL(E1E2),conv,encoder.encoder_2.sam_blocks.0.b4.ghost_layers.2.cheap_operation.conv,"[32, 16, 16]","[64, 16, 16]",8192,16384,98304,18432,0.0,1.6e-05,k=3 cmds=1
+238,PL(E1E2),conv,encoder.encoder_2.sam_blocks.0.b4.ghost_layers.3.primary_conv.conv,"[288, 16, 16]","[32, 16, 16]",73728,8192,327680,92160,0.0,7.9e-05,k=1 cmds=5
+239,PL(E1E2),conv,encoder.encoder_2.sam_blocks.0.b4.ghost_layers.3.cheap_operation.conv,"[32, 16, 16]","[64, 16, 16]",8192,16384,98304,18432,0.0,1.6e-05,k=3 cmds=1
+240,PL(E1E2),conv,encoder.encoder_2.sam_blocks.0.b4.ghost_layers.4.primary_conv.conv,"[352, 16, 16]","[32, 16, 16]",90112,8192,393216,110592,0.0,9.5e-05,k=1 cmds=6
+241,PL(E1E2),conv,encoder.encoder_2.sam_blocks.0.b4.ghost_layers.4.cheap_operation.conv,"[32, 16, 16]","[64, 16, 16]",8192,16384,98304,18432,0.0,1.6e-05,k=3 cmds=1
+242,PL(E1E2),conv,encoder.encoder_2.sam_blocks.0.b4.conv.conv,"[416, 16, 16]","[448, 16, 16]",106496,114688,884736,129024,0.0,0.000111,k=1 cmds=7
+243,PL(E1E2),conv,encoder.encoder_2.down.conv,"[96, 64, 64]","[192, 64, 64]",393216,786432,4718592,589824,0.0,0.000502,k=3 cmds=2
+244,PL(E1E2),conv,encoder.encoder_3.rdb.conv_layers.0.conv,"[192, 32, 32]","[192, 32, 32]",196608,196608,1572864,221184,0.0,0.000189,k=3 cmds=3
+245,PL(E1E2),conv,encoder.encoder_3.rdb.conv_layers.1.conv,"[256, 32, 32]","[256, 32, 32]",262144,262144,2097152,294912,0.0,0.000252,k=3 cmds=4
+246,PL(E1E2),conv,encoder.encoder_3.rdb.conv_layers.2.conv,"[320, 32, 32]","[320, 32, 32]",327680,327680,2621440,368640,0.0,0.000314,k=3 cmds=5
+247,PL(E1E2),conv,encoder.encoder_3.rdb.conv_post.conv,"[384, 32, 32]","[384, 32, 32]",393216,393216,3145728,442368,0.0,0.000377,k=1 cmds=6
+248,PL(E1E2),conv,encoder.encoder_3.sam_blocks.0.b0.ghost_layers.0.primary_conv.conv,"[192, 32, 32]","[32, 32, 32]",196608,32768,917504,221184,0.0,0.000189,k=1 cmds=3
+249,PL(E1E2),conv,encoder.encoder_3.sam_blocks.0.b0.ghost_layers.0.cheap_operation.conv,"[32, 32, 32]","[64, 32, 32]",32768,65536,393216,73728,0.0,6.3e-05,k=3 cmds=1
+250,PL(E1E2),conv,encoder.encoder_3.sam_blocks.0.b0.ghost_layers.1.primary_conv.conv,"[256, 32, 32]","[32, 32, 32]",262144,32768,1179648,294912,0.0,0.000252,k=1 cmds=4
+251,PL(E1E2),conv,encoder.encoder_3.sam_blocks.0.b0.ghost_layers.1.cheap_operation.conv,"[32, 32, 32]","[64, 32, 32]",32768,65536,393216,73728,0.0,6.3e-05,k=3 cmds=1
+252,PL(E1E2),conv,encoder.encoder_3.sam_blocks.0.b0.ghost_layers.2.primary_conv.conv,"[320, 32, 32]","[32, 32, 32]",327680,32768,1441792,368640,0.0,0.000314,k=1 cmds=5
+253,PL(E1E2),conv,encoder.encoder_3.sam_blocks.0.b0.ghost_layers.2.cheap_operation.conv,"[32, 32, 32]","[64, 32, 32]",32768,65536,393216,73728,0.0,6.3e-05,k=3 cmds=1
+254,PL(E1E2),conv,encoder.encoder_3.sam_blocks.0.b0.ghost_layers.3.primary_conv.conv,"[384, 32, 32]","[32, 32, 32]",393216,32768,1703936,442368,0.0,0.000377,k=1 cmds=6
+255,PL(E1E2),conv,encoder.encoder_3.sam_blocks.0.b0.ghost_layers.3.cheap_operation.conv,"[32, 32, 32]","[64, 32, 32]",32768,65536,393216,73728,0.0,6.3e-05,k=3 cmds=1
+256,PL(E1E2),conv,encoder.encoder_3.sam_blocks.0.b0.ghost_layers.4.primary_conv.conv,"[448, 32, 32]","[32, 32, 32]",458752,32768,1966080,516096,0.0,0.00044,k=1 cmds=7
+257,PL(E1E2),conv,encoder.encoder_3.sam_blocks.0.b0.ghost_layers.4.cheap_operation.conv,"[32, 32, 32]","[64, 32, 32]",32768,65536,393216,73728,0.0,6.3e-05,k=3 cmds=1
+258,PL(E1E2),conv,encoder.encoder_3.sam_blocks.0.b0.conv.conv,"[512, 32, 32]","[512, 32, 32]",524288,524288,4194304,589824,0.0,0.000503,k=1 cmds=8
+259,PL(E1E2),conv,encoder.encoder_3.sam_blocks.0.b2.ghost_layers.0.primary_conv.conv,"[192, 16, 16]","[32, 16, 16]",49152,8192,229376,55296,0.0,4.7e-05,k=1 cmds=3
+260,PL(E1E2),conv,encoder.encoder_3.sam_blocks.0.b2.ghost_layers.0.cheap_operation.conv,"[32, 16, 16]","[64, 16, 16]",8192,16384,98304,18432,0.0,1.6e-05,k=3 cmds=1
+261,PL(E1E2),conv,encoder.encoder_3.sam_blocks.0.b2.ghost_layers.1.primary_conv.conv,"[256, 16, 16]","[32, 16, 16]",65536,8192,294912,73728,0.0,6.3e-05,k=1 cmds=4
+262,PL(E1E2),conv,encoder.encoder_3.sam_blocks.0.b2.ghost_layers.1.cheap_operation.conv,"[32, 16, 16]","[64, 16, 16]",8192,16384,98304,18432,0.0,1.6e-05,k=3 cmds=1
+263,PL(E1E2),conv,encoder.encoder_3.sam_blocks.0.b2.ghost_layers.2.primary_conv.conv,"[320, 16, 16]","[32, 16, 16]",81920,8192,360448,92160,0.0,7.9e-05,k=1 cmds=5
+264,PL(E1E2),conv,encoder.encoder_3.sam_blocks.0.b2.ghost_layers.2.cheap_operation.conv,"[32, 16, 16]","[64, 16, 16]",8192,16384,98304,18432,0.0,1.6e-05,k=3 cmds=1
+265,PL(E1E2),conv,encoder.encoder_3.sam_blocks.0.b2.ghost_layers.3.primary_conv.conv,"[384, 16, 16]","[32, 16, 16]",98304,8192,425984,110592,0.0,9.5e-05,k=1 cmds=6
+266,PL(E1E2),conv,encoder.encoder_3.sam_blocks.0.b2.ghost_layers.3.cheap_operation.conv,"[32, 16, 16]","[64, 16, 16]",8192,16384,98304,18432,0.0,1.6e-05,k=3 cmds=1
+267,PL(E1E2),conv,encoder.encoder_3.sam_blocks.0.b2.ghost_layers.4.primary_conv.conv,"[448, 16, 16]","[32, 16, 16]",114688,8192,491520,129024,0.0,0.000111,k=1 cmds=7
+268,PL(E1E2),conv,encoder.encoder_3.sam_blocks.0.b2.ghost_layers.4.cheap_operation.conv,"[32, 16, 16]","[64, 16, 16]",8192,16384,98304,18432,0.0,1.6e-05,k=3 cmds=1
+269,PL(E1E2),conv,encoder.encoder_3.sam_blocks.0.b2.conv.conv,"[512, 16, 16]","[512, 16, 16]",131072,131072,1048576,147456,0.0,0.000126,k=1 cmds=8
+270,PL(E1E2),conv,encoder.encoder_3.sam_blocks.0.b4.ghost_layers.0.primary_conv.conv,"[192, 8, 8]","[32, 8, 8]",12288,2048,57344,13824,0.0,1.3e-05,k=1 cmds=3
+271,PL(E1E2),conv,encoder.encoder_3.sam_blocks.0.b4.ghost_layers.0.cheap_operation.conv,"[32, 8, 8]","[64, 8, 8]",2048,4096,24576,4608,0.0,4e-06,k=3 cmds=1
+272,PL(E1E2),conv,encoder.encoder_3.sam_blocks.0.b4.ghost_layers.1.primary_conv.conv,"[256, 8, 8]","[32, 8, 8]",16384,2048,73728,18432,0.0,1.7e-05,k=1 cmds=4
+273,PL(E1E2),conv,encoder.encoder_3.sam_blocks.0.b4.ghost_layers.1.cheap_operation.conv,"[32, 8, 8]","[64, 8, 8]",2048,4096,24576,4608,0.0,4e-06,k=3 cmds=1
+274,PL(E1E2),conv,encoder.encoder_3.sam_blocks.0.b4.ghost_layers.2.primary_conv.conv,"[320, 8, 8]","[32, 8, 8]",20480,2048,90112,23040,0.0,2.1e-05,k=1 cmds=5
+275,PL(E1E2),conv,encoder.encoder_3.sam_blocks.0.b4.ghost_layers.2.cheap_operation.conv,"[32, 8, 8]","[64, 8, 8]",2048,4096,24576,4608,0.0,4e-06,k=3 cmds=1
+276,PL(E1E2),conv,encoder.encoder_3.sam_blocks.0.b4.ghost_layers.3.primary_conv.conv,"[384, 8, 8]","[32, 8, 8]",24576,2048,106496,27648,0.0,2.6e-05,k=1 cmds=6
+277,PL(E1E2),conv,encoder.encoder_3.sam_blocks.0.b4.ghost_layers.3.cheap_operation.conv,"[32, 8, 8]","[64, 8, 8]",2048,4096,24576,4608,0.0,4e-06,k=3 cmds=1
+278,PL(E1E2),conv,encoder.encoder_3.sam_blocks.0.b4.ghost_layers.4.primary_conv.conv,"[448, 8, 8]","[32, 8, 8]",28672,2048,122880,32256,0.0,3e-05,k=1 cmds=7
+279,PL(E1E2),conv,encoder.encoder_3.sam_blocks.0.b4.ghost_layers.4.cheap_operation.conv,"[32, 8, 8]","[64, 8, 8]",2048,4096,24576,4608,0.0,4e-06,k=3 cmds=1
+280,PL(E1E2),conv,encoder.encoder_3.sam_blocks.0.b4.conv.conv,"[512, 8, 8]","[512, 8, 8]",32768,32768,262144,36864,0.0,3.4e-05,k=1 cmds=8
+281,PL(E1E2),conv,decoder.preconv_3.conv,"[192, 32, 32]","[64, 32, 32]",196608,65536,1048576,221184,0.0,0.000189,k=3 cmds=3
+282,PL(E1E2),conv,decoder.decoder_3.rdb.conv_layers.0.conv,"[64, 32, 32]","[64, 32, 32]",65536,65536,524288,73728,0.0,6.3e-05,k=3 cmds=1
+283,PL(E1E2),conv,decoder.decoder_3.rdb.conv_layers.1.conv,"[160, 32, 32]","[192, 32, 32]",163840,196608,1441792,221184,0.0,0.000189,k=3 cmds=3
+284,PL(E1E2),conv,decoder.decoder_3.rdb.conv_layers.2.conv,"[256, 32, 32]","[256, 32, 32]",262144,262144,2097152,294912,0.0,0.000252,k=3 cmds=4
+285,PL(E1E2),conv,decoder.decoder_3.rdb.conv_post.conv,"[352, 32, 32]","[384, 32, 32]",360448,393216,3014656,442368,0.0,0.000377,k=1 cmds=6
+286,PL(E1E2),conv,decoder.decoder_3.sam_blocks.0.b0.ghost_layers.0.primary_conv.conv,"[64, 32, 32]","[48, 32, 32]",65536,49152,458752,73728,0.0,6.3e-05,k=1 cmds=1
+287,PL(E1E2),conv,decoder.decoder_3.sam_blocks.0.b0.ghost_layers.0.cheap_operation.conv,"[48, 32, 32]","[64, 32, 32]",49152,65536,458752,73728,0.0,6.3e-05,k=3 cmds=1
+288,PL(E1E2),conv,decoder.decoder_3.sam_blocks.0.b0.ghost_layers.1.primary_conv.conv,"[160, 32, 32]","[48, 32, 32]",163840,49152,851968,221184,0.0,0.000189,k=1 cmds=3
+289,PL(E1E2),conv,decoder.decoder_3.sam_blocks.0.b0.ghost_layers.1.cheap_operation.conv,"[48, 32, 32]","[64, 32, 32]",49152,65536,458752,73728,0.0,6.3e-05,k=3 cmds=1
+290,PL(E1E2),conv,decoder.decoder_3.sam_blocks.0.b0.ghost_layers.2.primary_conv.conv,"[256, 32, 32]","[48, 32, 32]",262144,49152,1245184,294912,0.0,0.000252,k=1 cmds=4
+291,PL(E1E2),conv,decoder.decoder_3.sam_blocks.0.b0.ghost_layers.2.cheap_operation.conv,"[48, 32, 32]","[64, 32, 32]",49152,65536,458752,73728,0.0,6.3e-05,k=3 cmds=1
+292,PL(E1E2),conv,decoder.decoder_3.sam_blocks.0.b0.ghost_layers.3.primary_conv.conv,"[352, 32, 32]","[48, 32, 32]",360448,49152,1638400,442368,0.0,0.000377,k=1 cmds=6
+293,PL(E1E2),conv,decoder.decoder_3.sam_blocks.0.b0.ghost_layers.3.cheap_operation.conv,"[48, 32, 32]","[64, 32, 32]",49152,65536,458752,73728,0.0,6.3e-05,k=3 cmds=1
+294,PL(E1E2),conv,decoder.decoder_3.sam_blocks.0.b0.ghost_layers.4.primary_conv.conv,"[448, 32, 32]","[48, 32, 32]",458752,49152,2031616,516096,0.0,0.00044,k=1 cmds=7
+295,PL(E1E2),conv,decoder.decoder_3.sam_blocks.0.b0.ghost_layers.4.cheap_operation.conv,"[48, 32, 32]","[64, 32, 32]",49152,65536,458752,73728,0.0,6.3e-05,k=3 cmds=1
+296,PL(E1E2),conv,decoder.decoder_3.sam_blocks.0.b0.conv.conv,"[544, 32, 32]","[576, 32, 32]",557056,589824,4587520,663552,0.0,0.000566,k=1 cmds=9
+297,PL(E1E2),conv,decoder.decoder_3.sam_blocks.0.b2.ghost_layers.0.primary_conv.conv,"[64, 16, 16]","[48, 16, 16]",16384,12288,114688,18432,0.0,1.6e-05,k=1 cmds=1
+298,PL(E1E2),conv,decoder.decoder_3.sam_blocks.0.b2.ghost_layers.0.cheap_operation.conv,"[48, 16, 16]","[64, 16, 16]",12288,16384,114688,18432,0.0,1.6e-05,k=3 cmds=1
+299,PL(E1E2),conv,decoder.decoder_3.sam_blocks.0.b2.ghost_layers.1.primary_conv.conv,"[160, 16, 16]","[48, 16, 16]",40960,12288,212992,55296,0.0,4.7e-05,k=1 cmds=3
+300,PL(E1E2),conv,decoder.decoder_3.sam_blocks.0.b2.ghost_layers.1.cheap_operation.conv,"[48, 16, 16]","[64, 16, 16]",12288,16384,114688,18432,0.0,1.6e-05,k=3 cmds=1
+301,PL(E1E2),conv,decoder.decoder_3.sam_blocks.0.b2.ghost_layers.2.primary_conv.conv,"[256, 16, 16]","[48, 16, 16]",65536,12288,311296,73728,0.0,6.3e-05,k=1 cmds=4
+302,PL(E1E2),conv,decoder.decoder_3.sam_blocks.0.b2.ghost_layers.2.cheap_operation.conv,"[48, 16, 16]","[64, 16, 16]",12288,16384,114688,18432,0.0,1.6e-05,k=3 cmds=1
+303,PL(E1E2),conv,decoder.decoder_3.sam_blocks.0.b2.ghost_layers.3.primary_conv.conv,"[352, 16, 16]","[48, 16, 16]",90112,12288,409600,110592,0.0,9.5e-05,k=1 cmds=6
+304,PL(E1E2),conv,decoder.decoder_3.sam_blocks.0.b2.ghost_layers.3.cheap_operation.conv,"[48, 16, 16]","[64, 16, 16]",12288,16384,114688,18432,0.0,1.6e-05,k=3 cmds=1
+305,PL(E1E2),conv,decoder.decoder_3.sam_blocks.0.b2.ghost_layers.4.primary_conv.conv,"[448, 16, 16]","[48, 16, 16]",114688,12288,507904,129024,0.0,0.000111,k=1 cmds=7
+306,PL(E1E2),conv,decoder.decoder_3.sam_blocks.0.b2.ghost_layers.4.cheap_operation.conv,"[48, 16, 16]","[64, 16, 16]",12288,16384,114688,18432,0.0,1.6e-05,k=3 cmds=1
+307,PL(E1E2),conv,decoder.decoder_3.sam_blocks.0.b2.conv.conv,"[544, 16, 16]","[576, 16, 16]",139264,147456,1146880,165888,0.0,0.000142,k=1 cmds=9
+308,PL(E1E2),conv,decoder.decoder_3.sam_blocks.0.b4.ghost_layers.0.primary_conv.conv,"[64, 8, 8]","[48, 8, 8]",4096,3072,28672,4608,0.0,4e-06,k=1 cmds=1
+309,PL(E1E2),conv,decoder.decoder_3.sam_blocks.0.b4.ghost_layers.0.cheap_operation.conv,"[48, 8, 8]","[64, 8, 8]",3072,4096,28672,4608,0.0,4e-06,k=3 cmds=1
+310,PL(E1E2),conv,decoder.decoder_3.sam_blocks.0.b4.ghost_layers.1.primary_conv.conv,"[160, 8, 8]","[48, 8, 8]",10240,3072,53248,13824,0.0,1.3e-05,k=1 cmds=3
+311,PL(E1E2),conv,decoder.decoder_3.sam_blocks.0.b4.ghost_layers.1.cheap_operation.conv,"[48, 8, 8]","[64, 8, 8]",3072,4096,28672,4608,0.0,4e-06,k=3 cmds=1
+312,PL(E1E2),conv,decoder.decoder_3.sam_blocks.0.b4.ghost_layers.2.primary_conv.conv,"[256, 8, 8]","[48, 8, 8]",16384,3072,77824,18432,0.0,1.7e-05,k=1 cmds=4
+313,PL(E1E2),conv,decoder.decoder_3.sam_blocks.0.b4.ghost_layers.2.cheap_operation.conv,"[48, 8, 8]","[64, 8, 8]",3072,4096,28672,4608,0.0,4e-06,k=3 cmds=1
+314,PL(E1E2),conv,decoder.decoder_3.sam_blocks.0.b4.ghost_layers.3.primary_conv.conv,"[352, 8, 8]","[48, 8, 8]",22528,3072,102400,27648,0.0,2.6e-05,k=1 cmds=6
+315,PL(E1E2),conv,decoder.decoder_3.sam_blocks.0.b4.ghost_layers.3.cheap_operation.conv,"[48, 8, 8]","[64, 8, 8]",3072,4096,28672,4608,0.0,4e-06,k=3 cmds=1
+316,PL(E1E2),conv,decoder.decoder_3.sam_blocks.0.b4.ghost_layers.4.primary_conv.conv,"[448, 8, 8]","[48, 8, 8]",28672,3072,126976,32256,0.0,3e-05,k=1 cmds=7
+317,PL(E1E2),conv,decoder.decoder_3.sam_blocks.0.b4.ghost_layers.4.cheap_operation.conv,"[48, 8, 8]","[64, 8, 8]",3072,4096,28672,4608,0.0,4e-06,k=3 cmds=1
+318,PL(E1E2),conv,decoder.decoder_3.sam_blocks.0.b4.conv.conv,"[544, 8, 8]","[576, 8, 8]",34816,36864,286720,41472,0.0,3.9e-05,k=1 cmds=9
+319,PL(E1E2),conv,decoder.preconv_2.conv,"[160, 64, 64]","[64, 64, 64]",655360,262144,3670016,884736,0.0,0.000754,k=3 cmds=3
+320,PL(E1E2),conv,decoder.decoder_2.rdb.conv_layers.0.conv,"[64, 64, 64]","[64, 64, 64]",262144,262144,2097152,294912,0.0,0.000251,k=3 cmds=1
+321,PL(E1E2),conv,decoder.decoder_2.rdb.conv_layers.1.conv,"[160, 64, 64]","[192, 64, 64]",655360,786432,5767168,884736,0.0,0.000754,k=3 cmds=3
+322,PL(E1E2),conv,decoder.decoder_2.rdb.conv_layers.2.conv,"[256, 64, 64]","[256, 64, 64]",1048576,1048576,8388608,1179648,0.0,0.001005,k=3 cmds=4
+323,PL(E1E2),conv,decoder.decoder_2.rdb.conv_post.conv,"[352, 64, 64]","[384, 64, 64]",1441792,1572864,12058624,1769472,0.0,0.001507,k=1 cmds=6
+324,PL(E1E2),conv,decoder.decoder_2.sam_blocks.0.b0.ghost_layers.0.primary_conv.conv,"[64, 64, 64]","[48, 64, 64]",262144,196608,1835008,294912,0.0,0.000251,k=1 cmds=1
+325,PL(E1E2),conv,decoder.decoder_2.sam_blocks.0.b0.ghost_layers.0.cheap_operation.conv,"[48, 64, 64]","[64, 64, 64]",196608,262144,1835008,294912,0.0,0.000251,k=3 cmds=1
+326,PL(E1E2),conv,decoder.decoder_2.sam_blocks.0.b0.ghost_layers.1.primary_conv.conv,"[160, 64, 64]","[48, 64, 64]",655360,196608,3407872,884736,0.0,0.000754,k=1 cmds=3
+327,PL(E1E2),conv,decoder.decoder_2.sam_blocks.0.b0.ghost_layers.1.cheap_operation.conv,"[48, 64, 64]","[64, 64, 64]",196608,262144,1835008,294912,0.0,0.000251,k=3 cmds=1
+328,PL(E1E2),conv,decoder.decoder_2.sam_blocks.0.b0.ghost_layers.2.primary_conv.conv,"[256, 64, 64]","[48, 64, 64]",1048576,196608,4980736,1179648,0.0,0.001005,k=1 cmds=4
+329,PL(E1E2),conv,decoder.decoder_2.sam_blocks.0.b0.ghost_layers.2.cheap_operation.conv,"[48, 64, 64]","[64, 64, 64]",196608,262144,1835008,294912,0.0,0.000251,k=3 cmds=1
+330,PL(E1E2),conv,decoder.decoder_2.sam_blocks.0.b0.ghost_layers.3.primary_conv.conv,"[352, 64, 64]","[48, 64, 64]",1441792,196608,6553600,1769472,0.0,0.001507,k=1 cmds=6
+331,PL(E1E2),conv,decoder.decoder_2.sam_blocks.0.b0.ghost_layers.3.cheap_operation.conv,"[48, 64, 64]","[64, 64, 64]",196608,262144,1835008,294912,0.0,0.000251,k=3 cmds=1
+332,PL(E1E2),conv,decoder.decoder_2.sam_blocks.0.b0.ghost_layers.4.primary_conv.conv,"[448, 64, 64]","[48, 64, 64]",1835008,196608,8126464,2064384,0.0,0.001758,k=1 cmds=7
+333,PL(E1E2),conv,decoder.decoder_2.sam_blocks.0.b0.ghost_layers.4.cheap_operation.conv,"[48, 64, 64]","[64, 64, 64]",196608,262144,1835008,294912,0.0,0.000251,k=3 cmds=1
+334,PL(E1E2),conv,decoder.decoder_2.sam_blocks.0.b0.conv.conv,"[544, 64, 64]","[576, 64, 64]",2228224,2359296,18350080,2654208,0.0,0.002261,k=1 cmds=9
+335,PL(E1E2),conv,decoder.decoder_2.sam_blocks.0.b2.ghost_layers.0.primary_conv.conv,"[64, 32, 32]","[48, 32, 32]",65536,49152,458752,73728,0.0,6.3e-05,k=1 cmds=1
+336,PL(E1E2),conv,decoder.decoder_2.sam_blocks.0.b2.ghost_layers.0.cheap_operation.conv,"[48, 32, 32]","[64, 32, 32]",49152,65536,458752,73728,0.0,6.3e-05,k=3 cmds=1
+337,PL(E1E2),conv,decoder.decoder_2.sam_blocks.0.b2.ghost_layers.1.primary_conv.conv,"[160, 32, 32]","[48, 32, 32]",163840,49152,851968,221184,0.0,0.000189,k=1 cmds=3
+338,PL(E1E2),conv,decoder.decoder_2.sam_blocks.0.b2.ghost_layers.1.cheap_operation.conv,"[48, 32, 32]","[64, 32, 32]",49152,65536,458752,73728,0.0,6.3e-05,k=3 cmds=1
+339,PL(E1E2),conv,decoder.decoder_2.sam_blocks.0.b2.ghost_layers.2.primary_conv.conv,"[256, 32, 32]","[48, 32, 32]",262144,49152,1245184,294912,0.0,0.000252,k=1 cmds=4
+340,PL(E1E2),conv,decoder.decoder_2.sam_blocks.0.b2.ghost_layers.2.cheap_operation.conv,"[48, 32, 32]","[64, 32, 32]",49152,65536,458752,73728,0.0,6.3e-05,k=3 cmds=1
+341,PL(E1E2),conv,decoder.decoder_2.sam_blocks.0.b2.ghost_layers.3.primary_conv.conv,"[352, 32, 32]","[48, 32, 32]",360448,49152,1638400,442368,0.0,0.000377,k=1 cmds=6
+342,PL(E1E2),conv,decoder.decoder_2.sam_blocks.0.b2.ghost_layers.3.cheap_operation.conv,"[48, 32, 32]","[64, 32, 32]",49152,65536,458752,73728,0.0,6.3e-05,k=3 cmds=1
+343,PL(E1E2),conv,decoder.decoder_2.sam_blocks.0.b2.ghost_layers.4.primary_conv.conv,"[448, 32, 32]","[48, 32, 32]",458752,49152,2031616,516096,0.0,0.00044,k=1 cmds=7
+344,PL(E1E2),conv,decoder.decoder_2.sam_blocks.0.b2.ghost_layers.4.cheap_operation.conv,"[48, 32, 32]","[64, 32, 32]",49152,65536,458752,73728,0.0,6.3e-05,k=3 cmds=1
+345,PL(E1E2),conv,decoder.decoder_2.sam_blocks.0.b2.conv.conv,"[544, 32, 32]","[576, 32, 32]",557056,589824,4587520,663552,0.0,0.000566,k=1 cmds=9
+346,PL(E1E2),conv,decoder.decoder_2.sam_blocks.0.b4.ghost_layers.0.primary_conv.conv,"[64, 16, 16]","[48, 16, 16]",16384,12288,114688,18432,0.0,1.6e-05,k=1 cmds=1
+347,PL(E1E2),conv,decoder.decoder_2.sam_blocks.0.b4.ghost_layers.0.cheap_operation.conv,"[48, 16, 16]","[64, 16, 16]",12288,16384,114688,18432,0.0,1.6e-05,k=3 cmds=1
+348,PL(E1E2),conv,decoder.decoder_2.sam_blocks.0.b4.ghost_layers.1.primary_conv.conv,"[160, 16, 16]","[48, 16, 16]",40960,12288,212992,55296,0.0,4.7e-05,k=1 cmds=3
+349,PL(E1E2),conv,decoder.decoder_2.sam_blocks.0.b4.ghost_layers.1.cheap_operation.conv,"[48, 16, 16]","[64, 16, 16]",12288,16384,114688,18432,0.0,1.6e-05,k=3 cmds=1
+350,PL(E1E2),conv,decoder.decoder_2.sam_blocks.0.b4.ghost_layers.2.primary_conv.conv,"[256, 16, 16]","[48, 16, 16]",65536,12288,311296,73728,0.0,6.3e-05,k=1 cmds=4
+351,PL(E1E2),conv,decoder.decoder_2.sam_blocks.0.b4.ghost_layers.2.cheap_operation.conv,"[48, 16, 16]","[64, 16, 16]",12288,16384,114688,18432,0.0,1.6e-05,k=3 cmds=1
+352,PL(E1E2),conv,decoder.decoder_2.sam_blocks.0.b4.ghost_layers.3.primary_conv.conv,"[352, 16, 16]","[48, 16, 16]",90112,12288,409600,110592,0.0,9.5e-05,k=1 cmds=6
+353,PL(E1E2),conv,decoder.decoder_2.sam_blocks.0.b4.ghost_layers.3.cheap_operation.conv,"[48, 16, 16]","[64, 16, 16]",12288,16384,114688,18432,0.0,1.6e-05,k=3 cmds=1
+354,PL(E1E2),conv,decoder.decoder_2.sam_blocks.0.b4.ghost_layers.4.primary_conv.conv,"[448, 16, 16]","[48, 16, 16]",114688,12288,507904,129024,0.0,0.000111,k=1 cmds=7
+355,PL(E1E2),conv,decoder.decoder_2.sam_blocks.0.b4.ghost_layers.4.cheap_operation.conv,"[48, 16, 16]","[64, 16, 16]",12288,16384,114688,18432,0.0,1.6e-05,k=3 cmds=1
+356,PL(E1E2),conv,decoder.decoder_2.sam_blocks.0.b4.conv.conv,"[544, 16, 16]","[576, 16, 16]",139264,147456,1146880,165888,0.0,0.000142,k=1 cmds=9
+357,PL(E1E2),conv,decoder.preconv_1.conv,"[112, 128, 128]","[64, 128, 128]",1835008,1048576,11534336,2359296,0.0,0.002009,k=3 cmds=2
+358,PL(E1E2),conv,decoder.decoder_1.rdb.conv_layers.0.conv,"[64, 128, 128]","[64, 128, 128]",1048576,1048576,8388608,1179648,0.0,0.001004,k=3 cmds=1
+359,PL(E1E2),conv,decoder.decoder_1.rdb.conv_layers.1.conv,"[160, 128, 128]","[192, 128, 128]",2621440,3145728,23068672,3538944,0.0,0.003013,k=3 cmds=3
+360,PL(E1E2),conv,decoder.decoder_1.rdb.conv_layers.2.conv,"[256, 128, 128]","[256, 128, 128]",4194304,4194304,33554432,4718592,0.0,0.004018,k=3 cmds=4
+361,PL(E1E2),conv,decoder.decoder_1.rdb.conv_post.conv,"[352, 128, 128]","[384, 128, 128]",5767168,6291456,48234496,7077888,0.0,0.006027,k=1 cmds=6
+362,PL(E1E2),conv,decoder.decoder_1.sam_blocks.0.b0.ghost_layers.0.primary_conv.conv,"[64, 128, 128]","[48, 128, 128]",1048576,786432,7340032,1179648,0.0,0.001004,k=1 cmds=1
+363,PL(E1E2),conv,decoder.decoder_1.sam_blocks.0.b0.ghost_layers.0.cheap_operation.conv,"[48, 128, 128]","[64, 128, 128]",786432,1048576,7340032,1179648,0.0,0.001004,k=3 cmds=1
+364,PL(E1E2),conv,decoder.decoder_1.sam_blocks.0.b0.ghost_layers.1.primary_conv.conv,"[160, 128, 128]","[48, 128, 128]",2621440,786432,13631488,3538944,0.0,0.003013,k=1 cmds=3
+365,PL(E1E2),conv,decoder.decoder_1.sam_blocks.0.b0.ghost_layers.1.cheap_operation.conv,"[48, 128, 128]","[64, 128, 128]",786432,1048576,7340032,1179648,0.0,0.001004,k=3 cmds=1
+366,PL(E1E2),conv,decoder.decoder_1.sam_blocks.0.b0.ghost_layers.2.primary_conv.conv,"[256, 128, 128]","[48, 128, 128]",4194304,786432,19922944,4718592,0.0,0.004018,k=1 cmds=4
+367,PL(E1E2),conv,decoder.decoder_1.sam_blocks.0.b0.ghost_layers.2.cheap_operation.conv,"[48, 128, 128]","[64, 128, 128]",786432,1048576,7340032,1179648,0.0,0.001004,k=3 cmds=1
+368,PL(E1E2),conv,decoder.decoder_1.sam_blocks.0.b0.ghost_layers.3.primary_conv.conv,"[352, 128, 128]","[48, 128, 128]",5767168,786432,26214400,7077888,0.0,0.006027,k=1 cmds=6
+369,PL(E1E2),conv,decoder.decoder_1.sam_blocks.0.b0.ghost_layers.3.cheap_operation.conv,"[48, 128, 128]","[64, 128, 128]",786432,1048576,7340032,1179648,0.0,0.001004,k=3 cmds=1
+370,PL(E1E2),conv,decoder.decoder_1.sam_blocks.0.b0.ghost_layers.4.primary_conv.conv,"[448, 128, 128]","[48, 128, 128]",7340032,786432,32505856,8257536,0.0,0.007031,k=1 cmds=7
+371,PL(E1E2),conv,decoder.decoder_1.sam_blocks.0.b0.ghost_layers.4.cheap_operation.conv,"[48, 128, 128]","[64, 128, 128]",786432,1048576,7340032,1179648,0.0,0.001004,k=3 cmds=1
+372,PL(E1E2),conv,decoder.decoder_1.sam_blocks.0.b0.conv.conv,"[544, 128, 128]","[576, 128, 128]",8912896,9437184,73400320,10616832,0.0,0.00904,k=1 cmds=9
+373,PL(E1E2),conv,decoder.decoder_1.sam_blocks.0.b2.ghost_layers.0.primary_conv.conv,"[64, 64, 64]","[48, 64, 64]",262144,196608,1835008,294912,0.0,0.000251,k=1 cmds=1
+374,PL(E1E2),conv,decoder.decoder_1.sam_blocks.0.b2.ghost_layers.0.cheap_operation.conv,"[48, 64, 64]","[64, 64, 64]",196608,262144,1835008,294912,0.0,0.000251,k=3 cmds=1
+375,PL(E1E2),conv,decoder.decoder_1.sam_blocks.0.b2.ghost_layers.1.primary_conv.conv,"[160, 64, 64]","[48, 64, 64]",655360,196608,3407872,884736,0.0,0.000754,k=1 cmds=3
+376,PL(E1E2),conv,decoder.decoder_1.sam_blocks.0.b2.ghost_layers.1.cheap_operation.conv,"[48, 64, 64]","[64, 64, 64]",196608,262144,1835008,294912,0.0,0.000251,k=3 cmds=1
+377,PL(E1E2),conv,decoder.decoder_1.sam_blocks.0.b2.ghost_layers.2.primary_conv.conv,"[256, 64, 64]","[48, 64, 64]",1048576,196608,4980736,1179648,0.0,0.001005,k=1 cmds=4
+378,PL(E1E2),conv,decoder.decoder_1.sam_blocks.0.b2.ghost_layers.2.cheap_operation.conv,"[48, 64, 64]","[64, 64, 64]",196608,262144,1835008,294912,0.0,0.000251,k=3 cmds=1
+379,PL(E1E2),conv,decoder.decoder_1.sam_blocks.0.b2.ghost_layers.3.primary_conv.conv,"[352, 64, 64]","[48, 64, 64]",1441792,196608,6553600,1769472,0.0,0.001507,k=1 cmds=6
+380,PL(E1E2),conv,decoder.decoder_1.sam_blocks.0.b2.ghost_layers.3.cheap_operation.conv,"[48, 64, 64]","[64, 64, 64]",196608,262144,1835008,294912,0.0,0.000251,k=3 cmds=1
+381,PL(E1E2),conv,decoder.decoder_1.sam_blocks.0.b2.ghost_layers.4.primary_conv.conv,"[448, 64, 64]","[48, 64, 64]",1835008,196608,8126464,2064384,0.0,0.001758,k=1 cmds=7
+382,PL(E1E2),conv,decoder.decoder_1.sam_blocks.0.b2.ghost_layers.4.cheap_operation.conv,"[48, 64, 64]","[64, 64, 64]",196608,262144,1835008,294912,0.0,0.000251,k=3 cmds=1
+383,PL(E1E2),conv,decoder.decoder_1.sam_blocks.0.b2.conv.conv,"[544, 64, 64]","[576, 64, 64]",2228224,2359296,18350080,2654208,0.0,0.002261,k=1 cmds=9
+384,PL(E1E2),conv,decoder.decoder_1.sam_blocks.0.b4.ghost_layers.0.primary_conv.conv,"[64, 32, 32]","[48, 32, 32]",65536,49152,458752,73728,0.0,6.3e-05,k=1 cmds=1
+385,PL(E1E2),conv,decoder.decoder_1.sam_blocks.0.b4.ghost_layers.0.cheap_operation.conv,"[48, 32, 32]","[64, 32, 32]",49152,65536,458752,73728,0.0,6.3e-05,k=3 cmds=1
+386,PL(E1E2),conv,decoder.decoder_1.sam_blocks.0.b4.ghost_layers.1.primary_conv.conv,"[160, 32, 32]","[48, 32, 32]",163840,49152,851968,221184,0.0,0.000189,k=1 cmds=3
+387,PL(E1E2),conv,decoder.decoder_1.sam_blocks.0.b4.ghost_layers.1.cheap_operation.conv,"[48, 32, 32]","[64, 32, 32]",49152,65536,458752,73728,0.0,6.3e-05,k=3 cmds=1
+388,PL(E1E2),conv,decoder.decoder_1.sam_blocks.0.b4.ghost_layers.2.primary_conv.conv,"[256, 32, 32]","[48, 32, 32]",262144,49152,1245184,294912,0.0,0.000252,k=1 cmds=4
+389,PL(E1E2),conv,decoder.decoder_1.sam_blocks.0.b4.ghost_layers.2.cheap_operation.conv,"[48, 32, 32]","[64, 32, 32]",49152,65536,458752,73728,0.0,6.3e-05,k=3 cmds=1
+390,PL(E1E2),conv,decoder.decoder_1.sam_blocks.0.b4.ghost_layers.3.primary_conv.conv,"[352, 32, 32]","[48, 32, 32]",360448,49152,1638400,442368,0.0,0.000377,k=1 cmds=6
+391,PL(E1E2),conv,decoder.decoder_1.sam_blocks.0.b4.ghost_layers.3.cheap_operation.conv,"[48, 32, 32]","[64, 32, 32]",49152,65536,458752,73728,0.0,6.3e-05,k=3 cmds=1
+392,PL(E1E2),conv,decoder.decoder_1.sam_blocks.0.b4.ghost_layers.4.primary_conv.conv,"[448, 32, 32]","[48, 32, 32]",458752,49152,2031616,516096,0.0,0.00044,k=1 cmds=7
+393,PL(E1E2),conv,decoder.decoder_1.sam_blocks.0.b4.ghost_layers.4.cheap_operation.conv,"[48, 32, 32]","[64, 32, 32]",49152,65536,458752,73728,0.0,6.3e-05,k=3 cmds=1
+394,PL(E1E2),conv,decoder.decoder_1.sam_blocks.0.b4.conv.conv,"[544, 32, 32]","[576, 32, 32]",557056,589824,4587520,663552,0.0,0.000566,k=1 cmds=9

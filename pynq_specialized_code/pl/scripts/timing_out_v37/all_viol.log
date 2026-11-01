@@ -1,0 +1,216 @@
+
+****** Vivado v2025.2.1 (64-bit)
+  **** SW Build 6403652 on Thu Mar 19 13:47:00 MDT 2026
+  **** IP Build 6403511 on Thu Mar 19 12:41:45 MDT 2026
+  **** SharedData Build 6403650 on Thu Mar 19 14:02:13 MDT 2026
+  **** Start of session at: Sat Oct 31 16:34:03 2026
+    ** Copyright 1986-2022 Xilinx, Inc. All Rights Reserved.
+    ** Copyright 2022-2026 Advanced Micro Devices, Inc. All Rights Reserved.
+
+source scripts/all_viol.tcl
+# open_checkpoint [lindex $argv 0]
+Command: open_checkpoint ../board/overlay_engine_150mhz/design_1_150v37_routed.dcp
+
+Starting open_checkpoint Task
+
+Time (s): cpu = 00:00:00.05 ; elapsed = 00:00:00.02 . Memory (MB): peak = 1516.363 ; gain = 0.000 ; free physical = 5809 ; free virtual = 13930
+INFO: [Device 21-403] Loading part xc7z015clg485-2
+Netlist sorting complete. Time (s): cpu = 00:00:00.12 ; elapsed = 00:00:00.12 . Memory (MB): peak = 1831.645 ; gain = 0.000 ; free physical = 5511 ; free virtual = 13670
+INFO: [Netlist 29-17] Analyzing 3266 Unisim elements for replacement
+INFO: [Netlist 29-28] Unisim Transformation completed in 0 CPU seconds
+INFO: [Project 1-479] Netlist was created with Vivado 2025.2.1
+INFO: [Project 1-570] Preparing netlist for logic optimization
+Read ShapeDB Complete: Time (s): cpu = 00:00:00.04 ; elapsed = 00:00:00.04 . Memory (MB): peak = 1932.551 ; gain = 4.250 ; free physical = 5278 ; free virtual = 13514
+INFO: [Timing 38-478] Restoring timing data from binary archive.
+INFO: [Timing 38-479] Binary timing data restore complete.
+INFO: [Project 1-856] Restoring constraints from binary archive.
+INFO: [Constraints 18-5170] The checkpoint was created with non-default parameter values which do not match the current Vivado settings.  Mismatching parameters are:
+  general.maxThreads
+INFO: [Project 1-853] Binary constraint restore complete.
+INFO: [Designutils 20-5722] Start Reading Physical Databases.
+Reading placement.
+Read Netlist Cache: Time (s): cpu = 00:00:00.03 ; elapsed = 00:00:00.03 . Memory (MB): peak = 2548.582 ; gain = 0.000 ; free physical = 4693 ; free virtual = 12907
+Reading placer database...
+Read Device Cache: Time (s): cpu = 00:00:00.01 ; elapsed = 00:00:00.01 . Memory (MB): peak = 2548.582 ; gain = 0.000 ; free physical = 4693 ; free virtual = 12907
+Read PlaceDB: Time (s): cpu = 00:00:00 ; elapsed = 00:00:00 . Memory (MB): peak = 2548.582 ; gain = 0.000 ; free physical = 4693 ; free virtual = 12907
+Read placeStorage: Time (s): cpu = 00:00:00.56 ; elapsed = 00:00:00.57 . Memory (MB): peak = 2566.582 ; gain = 18.000 ; free physical = 4676 ; free virtual = 12891
+Read PulsedLatchDB: Time (s): cpu = 00:00:00 ; elapsed = 00:00:00 . Memory (MB): peak = 2566.582 ; gain = 0.000 ; free physical = 4676 ; free virtual = 12891
+Reading routing.
+Read RouteStorage: Time (s): cpu = 00:00:00.58 ; elapsed = 00:00:00.19 . Memory (MB): peak = 2586.824 ; gain = 20.242 ; free physical = 4654 ; free virtual = 12869
+Read Physdb Files: Time (s): cpu = 00:00:01 ; elapsed = 00:00:00.81 . Memory (MB): peak = 2586.824 ; gain = 38.242 ; free physical = 4654 ; free virtual = 12869
+Restored from archive | CPU: 1.250000 secs | Memory: 35.569366 MB |
+Finished XDEF File Restore: Time (s): cpu = 00:00:01 ; elapsed = 00:00:00.84 . Memory (MB): peak = 2586.824 ; gain = 46.180 ; free physical = 4654 ; free virtual = 12869
+Netlist sorting complete. Time (s): cpu = 00:00:00 ; elapsed = 00:00:00 . Memory (MB): peak = 2597.207 ; gain = 0.000 ; free physical = 4645 ; free virtual = 12858
+INFO: [Project 1-111] Unisim Transformation Summary:
+  A total of 201 instances were transformed.
+  RAM32M => RAM32M (RAMD32(x6), RAMS32(x2)): 5 instances
+  RAM32X1D => RAM32X1D (RAMD32(x2)): 4 instances
+  RAM64M => RAM64M (RAMD64E(x4)): 168 instances
+  RAM64X1D => RAM64X1D (RAMD64E(x2)): 24 instances
+
+INFO: [Project 1-604] Checkpoint was created with Vivado v2025.2.1 (64-bit) build 6403652
+open_checkpoint: Time (s): cpu = 00:00:15 ; elapsed = 00:00:10 . Memory (MB): peak = 2605.242 ; gain = 1088.879 ; free physical = 4645 ; free virtual = 12858
+# set vps [get_timing_paths -max_paths 1200 -nworst 1 -setup -slack_lesser_than 0]
+# puts "=== unique-endpoint violating paths: [llength $vps] ==="
+=== unique-endpoint violating paths: 1200 ===
+# array set cnt {}
+# set rows {}
+# foreach vp $vps {
+#     set e [get_property ENDPOINT_PIN $vp]
+#     set s [get_property SLACK $vp]
+#     set l [get_property LOGIC_LEVELS $vp]
+#     set d [get_property DATAPATH_DELAY $vp]
+#     set sp [get_property STARTPOINT_PIN $vp]
+#     # 端点归类：取 bin_unit / conv_uni 等顶层，再取寄存器名
+#     set key "other"
+#     foreach m {bf_data bf_strb df_addr be_data be_word u_rd_data ax_ lc_tag win_q fs_ p_valid pw_valid bu_ pend} {
+#         if {[string match *$m* $e]} { set key "WR:$m"; break }
+#     }
+#     if {$key eq "other"} {
+#         if {[string match *bin_unit* $e]} { set key "BIN:other" } \
+#         elseif {[string match *conv_uni* $e]} { set key "CONVUNI:other" } \
+#         else { set key "TOP:other" }
+#     }
+#     if {[info exists cnt($key)]} { incr cnt($key) } else { set cnt($key) 1 }
+#     lappend rows [list $s $key $l $d $sp $e]
+# }
+# puts "\n--- 按端点族聚类 ---"
+
+--- 按端点族聚类 ---
+# foreach k [lsort [array names cnt]] { puts [format "  %-18s %5d" $k $cnt($k)] }
+  BIN:other            539
+  WR:bf_data           491
+  WR:bf_strb            41
+  WR:df_addr           129
+# puts "\n--- 每族最差一条（前 40 条按 slack 排序）---"
+
+--- 每族最差一条（前 40 条按 slack 排序）---
+# set rows [lsort -real -index 0 $rows]
+# set i 0
+# foreach r $rows {
+#     incr i
+#     if {$i > 40} break
+#     puts [format "  %7.3f  %-16s lvl=%2d delay=%6.3f\n      from %s\n      to   %s" \
+#         [lindex $r 0] [lindex $r 1] [lindex $r 2] [lindex $r 3] [lindex $r 4] [lindex $r 5]]
+# }
+   -4.466  WR:bf_data       lvl=21 delay=14.184
+      from design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_pack/desc_ram_reg/CLKARDCLK
+      to   design_1_i/bin_unit_0/inst/u_bin_unit/bf_data_reg[5][13]/D
+   -4.457  WR:bf_data       lvl=21 delay=14.128
+      from design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_pack/desc_ram_reg/CLKARDCLK
+      to   design_1_i/bin_unit_0/inst/u_bin_unit/bf_data_reg[3][8]/D
+   -4.457  WR:bf_data       lvl=20 delay=14.176
+      from design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_pack/desc_ram_reg/CLKARDCLK
+      to   design_1_i/bin_unit_0/inst/u_bin_unit/bf_data_reg[15][2]/D
+   -4.455  WR:bf_data       lvl=21 delay=14.143
+      from design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_pack/desc_ram_reg/CLKARDCLK
+      to   design_1_i/bin_unit_0/inst/u_bin_unit/bf_data_reg[7][58]/D
+   -4.452  WR:bf_data       lvl=21 delay=14.141
+      from design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_pack/desc_ram_reg/CLKARDCLK
+      to   design_1_i/bin_unit_0/inst/u_bin_unit/bf_data_reg[1][8]/D
+   -4.445  WR:bf_data       lvl=23 delay=14.096
+      from design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_pack/desc_ram_reg/CLKARDCLK
+      to   design_1_i/bin_unit_0/inst/u_bin_unit/bf_data_reg[5][17]/D
+   -4.440  WR:bf_data       lvl=23 delay=14.140
+      from design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_pack/desc_ram_reg/CLKARDCLK
+      to   design_1_i/bin_unit_0/inst/u_bin_unit/bf_data_reg[5][16]/D
+   -4.438  WR:bf_data       lvl=21 delay=14.149
+      from design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_pack/desc_ram_reg/CLKARDCLK
+      to   design_1_i/bin_unit_0/inst/u_bin_unit/bf_data_reg[9][32]/D
+   -4.435  WR:bf_data       lvl=22 delay=14.220
+      from design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_pack/desc_ram_reg/CLKARDCLK
+      to   design_1_i/bin_unit_0/inst/u_bin_unit/bf_data_reg[1][3]/D
+   -4.424  BIN:other        lvl=20 delay=14.003
+      from design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_pack/desc_ram_reg/CLKARDCLK
+      to   design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_unit/u_eng/kx_q_reg[5]/CE
+   -4.424  BIN:other        lvl=20 delay=14.003
+      from design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_pack/desc_ram_reg/CLKARDCLK
+      to   design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_unit/u_eng/kx_q_reg[6]/CE
+   -4.424  BIN:other        lvl=20 delay=14.003
+      from design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_pack/desc_ram_reg/CLKARDCLK
+      to   design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_unit/u_eng/kx_q_reg[7]/CE
+   -4.424  BIN:other        lvl=20 delay=14.003
+      from design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_pack/desc_ram_reg/CLKARDCLK
+      to   design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_unit/u_eng/kx_q_reg[8]/CE
+   -4.424  BIN:other        lvl=20 delay=14.003
+      from design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_pack/desc_ram_reg/CLKARDCLK
+      to   design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_unit/u_eng/kx_q_reg[9]/CE
+   -4.421  WR:bf_data       lvl=20 delay=14.115
+      from design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_pack/desc_ram_reg/CLKARDCLK
+      to   design_1_i/bin_unit_0/inst/u_bin_unit/bf_data_reg[7][2]/D
+   -4.419  WR:bf_data       lvl=21 delay=14.132
+      from design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_pack/desc_ram_reg/CLKARDCLK
+      to   design_1_i/bin_unit_0/inst/u_bin_unit/bf_data_reg[9][30]/D
+   -4.419  WR:bf_data       lvl=21 delay=14.250
+      from design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_pack/desc_ram_reg/CLKARDCLK
+      to   design_1_i/bin_unit_0/inst/u_bin_unit/bf_data_reg[13][9]/D
+   -4.418  WR:bf_data       lvl=21 delay=14.106
+      from design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_pack/desc_ram_reg/CLKARDCLK
+      to   design_1_i/bin_unit_0/inst/u_bin_unit/bf_data_reg[15][30]/D
+   -4.416  WR:bf_data       lvl=22 delay=14.088
+      from design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_pack/desc_ram_reg/CLKARDCLK
+      to   design_1_i/bin_unit_0/inst/u_bin_unit/bf_data_reg[6][12]/D
+   -4.413  WR:bf_data       lvl=23 delay=14.066
+      from design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_pack/desc_ram_reg/CLKARDCLK
+      to   design_1_i/bin_unit_0/inst/u_bin_unit/bf_data_reg[1][17]/D
+   -4.410  WR:bf_data       lvl=23 delay=14.082
+      from design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_pack/desc_ram_reg/CLKARDCLK
+      to   design_1_i/bin_unit_0/inst/u_bin_unit/bf_data_reg[11][23]/D
+   -4.408  WR:bf_data       lvl=20 delay=14.066
+      from design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_pack/desc_ram_reg/CLKARDCLK
+      to   design_1_i/bin_unit_0/inst/u_bin_unit/bf_data_reg[7][62]/D
+   -4.404  BIN:other        lvl=20 delay=14.092
+      from design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_pack/desc_ram_reg/CLKARDCLK
+      to   design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_unit/u_eng/ix_q_reg[19]/CE
+   -4.399  WR:bf_data       lvl=21 delay=14.102
+      from design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_pack/desc_ram_reg/CLKARDCLK
+      to   design_1_i/bin_unit_0/inst/u_bin_unit/bf_data_reg[11][10]/D
+   -4.396  WR:bf_data       lvl=21 delay=14.068
+      from design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_pack/desc_ram_reg/CLKARDCLK
+      to   design_1_i/bin_unit_0/inst/u_bin_unit/bf_data_reg[5][30]/D
+   -4.395  BIN:other        lvl=20 delay=13.973
+      from design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_pack/desc_ram_reg/CLKARDCLK
+      to   design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_unit/u_eng/xbase_q_reg[7]/CE
+   -4.395  BIN:other        lvl=20 delay=13.973
+      from design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_pack/desc_ram_reg/CLKARDCLK
+      to   design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_unit/u_eng/ybase_q_reg[7]/CE
+   -4.394  BIN:other        lvl=20 delay=13.974
+      from design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_pack/desc_ram_reg/CLKARDCLK
+      to   design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_unit/u_eng/kx_q_reg[0]/CE
+   -4.394  BIN:other        lvl=20 delay=13.974
+      from design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_pack/desc_ram_reg/CLKARDCLK
+      to   design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_unit/u_eng/kx_q_reg[1]/CE
+   -4.394  BIN:other        lvl=20 delay=13.974
+      from design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_pack/desc_ram_reg/CLKARDCLK
+      to   design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_unit/u_eng/kx_q_reg[2]/CE
+   -4.394  BIN:other        lvl=20 delay=13.974
+      from design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_pack/desc_ram_reg/CLKARDCLK
+      to   design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_unit/u_eng/kx_q_reg[3]/CE
+   -4.394  BIN:other        lvl=20 delay=14.133
+      from design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_pack/desc_ram_reg/CLKARDCLK
+      to   design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_unit/u_eng/kx_q_reg[4]/D
+   -4.393  WR:bf_data       lvl=20 delay=14.026
+      from design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_pack/desc_ram_reg/CLKARDCLK
+      to   design_1_i/bin_unit_0/inst/u_bin_unit/bf_data_reg[11][53]/D
+   -4.393  WR:bf_data       lvl=23 delay=14.030
+      from design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_pack/desc_ram_reg/CLKARDCLK
+      to   design_1_i/bin_unit_0/inst/u_bin_unit/bf_data_reg[7][18]/D
+   -4.392  WR:bf_data       lvl=22 delay=14.043
+      from design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_pack/desc_ram_reg/CLKARDCLK
+      to   design_1_i/bin_unit_0/inst/u_bin_unit/bf_data_reg[15][20]/D
+   -4.391  WR:bf_data       lvl=23 delay=14.050
+      from design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_pack/desc_ram_reg/CLKARDCLK
+      to   design_1_i/bin_unit_0/inst/u_bin_unit/bf_data_reg[11][21]/D
+   -4.387  WR:bf_data       lvl=23 delay=14.065
+      from design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_pack/desc_ram_reg/CLKARDCLK
+      to   design_1_i/bin_unit_0/inst/u_bin_unit/bf_data_reg[13][18]/D
+   -4.387  WR:bf_data       lvl=23 delay=14.038
+      from design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_pack/desc_ram_reg/CLKARDCLK
+      to   design_1_i/bin_unit_0/inst/u_bin_unit/bf_data_reg[1][18]/D
+   -4.384  WR:bf_data       lvl=21 delay=14.066
+      from design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_pack/desc_ram_reg/CLKARDCLK
+      to   design_1_i/bin_unit_0/inst/u_bin_unit/bf_data_reg[9][36]/D
+   -4.381  WR:bf_data       lvl=23 delay=14.012
+      from design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_pack/desc_ram_reg/CLKARDCLK
+      to   design_1_i/bin_unit_0/inst/u_bin_unit/bf_data_reg[5][21]/D
+INFO: [Common 17-206] Exiting Vivado at Sat Oct 31 16:34:18 2026...

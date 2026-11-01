@@ -33,7 +33,7 @@ fi
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT="$(cd "$HERE/.." && pwd)"
 GOLDEN_DIR="${GOLDEN_DIR:-$ROOT/golden_rtl}"
-WORK="${WORK:-/tmp/xsim_$MOD}"
+WORK="${WORK:-${EDA_TMPDIR:-/media/felix/Data/tmp}/xsim_$MOD}"
 TIMEOUT="${TIMEOUT:-300}"
 
 TB="$ROOT/tb/tb_$MOD.v"
@@ -77,7 +77,7 @@ fi
 tail -5 "$WORK/xvlog.log"
 
 echo "=== 2/3 展开 ==="
-timeout -k 5 "$TIMEOUT" xelab -debug typical --relax -s "sim_$MOD" "tb_$MOD" > "$WORK/xelab.log" 2>&1
+timeout -k 5 "$TIMEOUT" xelab -debug off --relax -s "sim_$MOD" "tb_$MOD" > "$WORK/xelab.log" 2>&1
 if [[ $? -ne 0 ]]; then
   echo "展开失败（$WORK/xelab.log）" >&2; tail -30 "$WORK/xelab.log" >&2; exit 1
 fi

@@ -247,8 +247,132 @@ def _io_bufs(n):
     return tuple(b[:n] for b in _IO_BUF["bufs"])
 
 
-def interp_c8_into(dst, src, num, den):
-    """C8 视图的双线性插值（原地写 dst），与 ops.interp 的整数路径逐位一致。"""
+# ── 跨算子私有缓冲（SAM 块融合用）─────────────────────────────────────────
+# 板端池是 CMA 非缓存映射：整块 memcpy 有 183~570 MB/s，而逐字节算子在池上
+# 只有 ~6 MB/s，所以"池 → 私有 → 算 → 写回池"是必须的（不是冗余）。真正
+# 冗余的是**同一批字节被搬了多趟**：SAM 块里 cat 写一遍、eca 读一遍、
+# sam_sum 再搬一遍。下面这两个函数让"暂存/交接"只发生一次。
+_HANDOFF = {}       # key -> 私有 int8 缓冲（容量按需增长，跨算子存活）
+
+
+def handoff_buf(key, n):
+    """取一块**跨算子存活**的私有 int8 缓冲（按 key 复用，只增不减）。
+
+    用途（runner 的 SAM 块融合计划）：上游 interp 把输出直接算进这块缓冲，
+    下游 sam_sum 直接从它读 —— 省掉"写回池 + 再从池读回"两趟整块搬运。
+    缓冲不在 `_io_bufs` 里，所以中途经过别的算子也不会被覆盖；
+    生命周期由计划的"单一消费者"判定保证（同一时刻只有一个持有者）。
+    """
+    b = _HANDOFF.get(key)
+    n = int(n)
+    if b is None or b.size < n:
+        b = _np.empty(n, _np.int8)
+        _HANDOFF[key] = b
+    return b[:n]
+
+
+def sam_scratch(n):
+    """SAM 块融合用的第 4 块私有缓冲（bx 槽）：eca 阶段拿它做 LUT 映射的落点。
+
+    `sam_stage` 最多只占前 3 块（3 路 y），第 4 块在 eca 阶段一定是空的；
+    sam_sum 晚一步才用它装 x，所以这里复用不会打架。
+    """
+    return _io_bufs(int(n))[3]
+
+
+def chsum_private(src, nc):
+    """**已在私有缓冲里**的 C8 视图 → 逐通道 int64 精确和（不再搬一遍）。
+
+    与 `chsum_c8` 同一个 C 内核，只是跳过"池 → 私有"那趟拷贝（调用方已经
+    把数据放在私有缓冲里了，例如刚用 LUT 映射出来的结果）。C 内核不可用时
+    回落成纯 numpy 的分块整型归约（逐位相同，只是慢）。
+    """
+    blocks, h, wd, last = src.shape
+    if last != 8:
+        raise ValueError("chsum_private 需要 (blocks,H,W,8) 视图")
+    lib = _ensure_lib()
+    fn = lib.get("fn_sum")
+    if fn is not None:
+        sums = _np.empty(blocks * 8, _np.int64)
+        fn(src.ctypes.data, blocks, h * wd, sums.ctypes.data)
+        return sums[:int(nc)]
+    a = _np.asarray(src)
+    if blocks == 1:
+        return a.reshape(-1, 8).sum(axis=0, dtype=_np.int64)[:int(nc)]
+    return _np.concatenate([a[b].reshape(-1, 8).sum(axis=0, dtype=_np.int64)
+                            for b in range(blocks)])[:int(nc)]
+
+
+def sam_stage(segs):
+    """把 SAM 的 3 路 y 输入整块搬进私有缓冲，返回 token（供 sam_sum 复用）。
+
+    ``segs`` 是 ``[(数组, 已就绪标记)]``：标记为 True 的那一路**已经在私有
+    缓冲里**（例如上游 interp 直接写进 handoff 缓冲），不再重复搬一次；
+    其余各占用一块 `_io_bufs` 缓冲（b0/b2/b4，bx/bo 留给 x 与输出）。
+
+    返回的 token 交给 ``sam_sum_c8_into(..., pre_staged=tok)``：C 内核是
+    逐字节标量循环，在非缓存池上实测 3.65 s/op，而私有数组 0.75 s/op，
+    所以必须整块搬进来算；但"eca 已经搬过一次了"这件事必须被复用 ——
+    这正是 sam_sum 里那 5 处 copyto 中唯一真冗余的 3 处。
+    """
+    segs = list(segs)
+    if not segs:
+        raise ValueError("sam_stage 需要至少一段")
+    n = max(int(_np.asarray(a).size) for a, _ready in segs)
+    free = list(_io_bufs(n)[:4])       # 第 5 块（bo）永远留给输出
+    out = []
+    for a, ready in segs:
+        a = _np.asarray(a)
+        size = int(a.size)
+        if ready:
+            # 已在私有缓冲里：零拷贝，只把形状记下来（内核按一维指针收）
+            out.append((a.reshape(-1), a.shape))
+        else:
+            if not free:
+                raise ValueError("sam_stage 暂存槽不够（最多 3 段 + x）")
+            d = free.pop(0)[:size]
+            _np.copyto(d, a.reshape(-1))
+            out.append((d, a.shape))
+    return {"arrays": tuple(x[0] for x in out),
+            "shapes": tuple(x[1] for x in out), "n": n}
+
+
+def chsum_lut(staged, shapes, luts, nc):
+    """Σ_pixels LUT(v) 的逐通道**精确 int64** 和（不拼出整块再扫）。
+
+    `staged` 是已在私有缓冲里的 int8 一维视图，`shapes` 是对应形状
+    （(blocks,H,W,8)），`luts` 是每段对应的 256 字节表（runner._lut 的产物，
+    与 _req 逐位等价），`nc` 是这些段拼起来的逻辑通道数。
+
+    数值上等于 ``chsum_c8(LUT(cat(segs)))``：逐通道整数求和，无舍入，
+    所以 ECA 的 mean/attn 完全不变；但少掉"把整块 LUT 结果写回池、再从池
+    读一遍"的两趟搬运（那正是原来的 cat + eca 扫描）。
+
+    实现刻意**不用 np.bincount**：它内部会 `astype(intp)`，每个通道白搬
+    8 倍字节（ARM 上 L2 装不下，等于又变成 DDR 流量）。这里就是
+    "查表映射一段 + 沿轴 0 整型累加"，共 3 趟私有缓冲（都在缓存里）。
+    """
+    sums = _np.zeros(int(nc), _np.int64)
+    c0 = 0
+    for arr, shape, tab in zip(staged, shapes, luts):
+        a = _np.asarray(arr).reshape(shape)
+        lut = _np.frombuffer(tab, _np.int8)
+        blocks = a.shape[0]
+        for b in range(blocks):
+            # (H,W,8) 查表 -> (H*W,8)，再沿像素轴整型累加得到 8 个通道和
+            m = lut[a[b].view(_np.uint8)]
+            sums[c0 + b * 8:c0 + b * 8 + 8] = m.reshape(-1, 8).sum(
+                axis=0, dtype=_np.int64)
+        c0 += blocks * 8
+    return sums
+
+
+def interp_c8_into(dst, src, num, den, handoff=None):
+    """C8 视图的双线性插值（原地写 dst），与 ops.interp 的整数路径逐位一致。
+
+    ``handoff`` 给定且够大时，结果直接算进这块**私有**缓冲并返回它，
+    ``dst`` 一次都不写（供融合计划里的下游算子直接消费）；否则写 dst。
+    """
     lib = _ensure_lib()
     fn = lib.get("fn_interp")
     if fn is None:
@@ -265,7 +389,11 @@ def interp_c8_into(dst, src, num, den):
     n_dst = int(blocks) * oH * oW * 8
     bufs = _io_bufs(max(n_src, n_dst))
     s = bufs[0][:n_src]
-    d = bufs[1][:n_dst]
+    if handoff is not None and int(_np.asarray(handoff).size) >= n_dst:
+        # 融合路径：结果直接算进交接缓冲，池视图 dst 一次都不写
+        d = _np.asarray(handoff)[:n_dst]
+    else:
+        d = bufs[1][:n_dst]
     _np.copyto(s, _np.asarray(src).reshape(-1))
     # 注意：这些 int32 数组必须**先绑定到局部变量**再取 ctypes.data——
     # 写成 np.ascontiguousarray(...).ctypes.data 时临时数组在取完指针后就被
@@ -292,7 +420,9 @@ def interp_c8_into(dst, src, num, den):
         fn(s.ctypes.data, d.ctypes.data, blocks, H, W, oH, oW,
            a0h.ctypes.data, a1h.ctypes.data, awh.ctypes.data,
            a0w.ctypes.data, a1w.ctypes.data, aww.ctypes.data)
-    _np.copyto(dst.reshape(-1), d)
+    if handoff is None or int(_np.asarray(handoff).size) < n_dst:
+        _np.copyto(dst.reshape(-1), d)
+    return d
 
 
 def chsum_c8(src, nc):
@@ -312,11 +442,17 @@ def chsum_c8(src, nc):
     return sums[:nc]
 
 
-def sam_sum_c8_into(out, y0, y2, y4, attn, x, s0, s2, s4, sx, s_out):
+def sam_sum_c8_into(out, y0, y2, y4, attn, x, s0, s2, s4, sx, s_out,
+                    pre_staged=None):
     """C8 交错布局的 SAM 融合（原地写 out，逐位一致）。
 
     视图一律是 (blocks, H, W, 8)；C 内核不可用时抛 RuntimeError，
     调用方回落到 _sam_sum_c8 里的 numpy 循环。
+
+    ``pre_staged``：``ops.sam_stage()`` 的 token。给了就复用里面**已经在私有
+    缓冲里**的 3 路 y（SAM 块融合时它们的 eca 阶段刚搬过），跳过 3 处 copyto。
+    这是这 5 处 copyto 里唯一真冗余的部分 —— 剩下的 x 进、out 出两处是
+    非缓存 CMA 上的必需搬运（板端实测：直接读池 3.65 s/op，私有数组 0.75 s/op）。
     """
     fn = _sam_sum_c8_c()
     if fn is None:
@@ -331,15 +467,26 @@ def sam_sum_c8_into(out, y0, y2, y4, attn, x, s0, s2, s4, sx, s_out):
         raise ValueError("C8 输入不是连续 int8 视图")
     n = int(blocks) * h * wd * 8
     b0, b2, b4, bx, bo = _io_bufs(n)
-    _np.copyto(b0, srcs[0].reshape(-1))
-    _np.copyto(b2, srcs[1].reshape(-1))
-    _np.copyto(b4, srcs[2].reshape(-1))
+    if pre_staged is not None:
+        ys = [np.asarray(v) for v in pre_staged["arrays"]]
+        if (len(ys) == 3 and int(pre_staged["n"]) == n
+                and all(v.size == n and v.dtype == np.int8
+                        and v.flags.c_contiguous for v in ys)):
+            s0b, s2b, s4b = ys            # 0 次搬运：eca 阶段已经搬过了
+        else:
+            raise ValueError("pre_staged 与本次 sam_sum 的形状/大小不匹配")
+    else:
+        s0b, s2b, s4b = b0, b2, b4
+        _np.copyto(b0, srcs[0].reshape(-1))
+        _np.copyto(b2, srcs[1].reshape(-1))
+        _np.copyto(b4, srcs[2].reshape(-1))
     _np.copyto(bx, srcs[3].reshape(-1))
-    fn(b0.ctypes.data, b2.ctypes.data, b4.ctypes.data,
+    fn(s0b.ctypes.data, s2b.ctypes.data, s4b.ctypes.data,
        bx.ctypes.data, a.ctypes.data, blocks, h * wd,
        float(s0), float(s2), float(s4), float(sx), float(s_out),
        bo.ctypes.data)
     _np.copyto(out.reshape(-1), bo)
+    return out
 
 
 def _q(t):

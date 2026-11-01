@@ -1,0 +1,389 @@
+
+****** Vivado v2025.2.1 (64-bit)
+  **** SW Build 6403652 on Thu Mar 19 13:47:00 MDT 2026
+  **** IP Build 6403511 on Thu Mar 19 12:41:45 MDT 2026
+  **** SharedData Build 6403650 on Thu Mar 19 14:02:13 MDT 2026
+  **** Start of session at: Sat Oct 31 19:28:15 2026
+    ** Copyright 1986-2022 Xilinx, Inc. All Rights Reserved.
+    ** Copyright 2022-2026 Advanced Micro Devices, Inc. All Rights Reserved.
+
+source pl/scripts/synth_e1e2_check.tcl
+# source [file join [file dirname [info script]] _guard_build.tcl]
+## set _guard_root [file normalize [file join [file dirname [file normalize [info script]]] ../../..]]
+## set _owner_file [expr {[info exists ::env(DSH_BUILD_OWNER_FILE)] \
+##                         ? $::env(DSH_BUILD_OWNER_FILE) \
+##                         : [file join $_guard_root runs resguard BUILD_OWNER]}]
+## set _ttl [expr {[info exists ::env(BUILD_OWNER_TTL)] ? $::env(BUILD_OWNER_TTL) : 21600}]
+## proc _guard_fail {msg} {
+##     puts stderr "\n==========================================================================="
+##     puts stderr "  ⛔ 构建被资源闸门拒绝：$msg"
+##     puts stderr "==========================================================================="
+##     puts stderr "  本机 SwapTotal=0，必须串行构建。请改用它启动："
+##     puts stderr ""
+##     puts stderr "    cd /media/felix/Data/coding/demoir-fpga/pynq_specialized_code"
+##     puts stderr "    tools/memgate.sh <预估峰值GB> -- \\"
+##     puts stderr "        pl/scripts/vrun.sh scripts/build_final_150v39.tcl runs/xxx.log"
+##     puts stderr ""
+##     puts stderr "  预估峰值：综合约 4 GB，中小实现约 8 GB，大实现 16 GB。"
+##     puts stderr "  说明见 runs/resguard/RESOURCE.md"
+##     puts stderr "===========================================================================\n"
+##     error "_GUARD_REJECTED: $msg"
+## }
+## if {![info exists ::env(DSH_BUILD_TOKEN)]} {
+##     _guard_fail "缺少 DSH_BUILD_TOKEN 环境变量（不是通过 memgate.sh 启动的）"
+## }
+## if {![file readable $_owner_file]} {
+##     _guard_fail "找不到 BUILD_OWNER（$_owner_file）—— 没有构建正在进行，或已过期被清理"
+## }
+## set _fh [open $_owner_file r]
+## set _raw [read $_fh]
+## close $_fh
+## array set _own {token "" pid "" ts "" lock "" cmd ""}
+## foreach _line [split $_raw "\n"] {
+##     if {[regexp {^([a-zA-Z_]+)=(.*)$} $_line -> _k _v]} {
+##         set _own($_k) $_v
+##     }
+## }
+## if {$_own(token) eq ""} {
+##     _guard_fail "BUILD_OWNER 内容不合法（缺 token）"
+## }
+## if {$_own(token) ne $::env(DSH_BUILD_TOKEN)} {
+##     _guard_fail "令牌不匹配：env=$::env(DSH_BUILD_TOKEN) owner=$_own(token)（另有构建在跑，抢锁失败）"
+## }
+## set _age [expr {[clock seconds] - int($_own(ts))}]
+## if {$_age > $_ttl} {
+##     _guard_fail "BUILD_OWNER 已过期 ${_age}s > TTL ${_ttl}s（多半是上次构建异常中断留下的）"
+## }
+## if {$_age < 0} {
+##     _guard_fail "BUILD_OWNER 时间戳在未来（时钟异常）"
+## }
+## if {$_own(lock) ne "bypassed"} {
+##     set _lk [expr {[info exists _own(lockfile)] && $_own(lockfile) ne "" ? $_own(lockfile) : "/tmp/dsh_vivado.lock"}]
+##     if {[file readable $_lk]} {
+##         # 锁空闲 ⇒ flock 能拿到 ⇒ 说明没人持锁，本进程不是受控启动
+##         if {![catch {exec flock -n $_lk -c true} _out]} {
+##             _guard_fail "单实例锁 $_lk 处于空闲状态（预期被 memgate 持有）"
+##         }
+##     }
+## }
+## puts "\[guard\] ✅ 构建闸门通过  owner_pid=$_own(pid)  age=${_age}s  lock=$_own(lock)"
+[guard] ✅ 构建闸门通过  owner_pid=2138314  age=3s  lock=held
+## puts "\[guard\]    token=$_own(token)"
+[guard]    token=1793446094-2138314-2650332097
+## puts "\[guard\]    cmd=$_own(cmd)"
+[guard]    cmd=pl/scripts/vrun.sh pl/scripts/synth_e1e2_check.tcl /media/felix/Data/coding/demoir-fpga/runs/timing_v40/e1e2_synth_v39.log 900
+# set_param general.maxThreads 2
+# set src $::env(E1E2_SRC)
+# set tag $::env(E1E2_TAG)
+# puts "== E1E2 out-of-context 综合指纹：tag=$tag  src=$src"
+== E1E2 out-of-context 综合指纹：tag=v39  src=/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/rtl_hand/.snapshots/pre_v40_timing/bin_e1e2.v
+# read_verilog -sv $src
+# synth_design -top bin_e1e2 -mode out_of_context -part xc7z015clg485-2
+Command: synth_design -top bin_e1e2 -mode out_of_context -part xc7z015clg485-2
+Starting synth_design
+Attempting to get a license for feature 'Synthesis' and/or device 'xc7z015'
+INFO: [Common 17-349] Got license for feature 'Synthesis' and/or device 'xc7z015'
+INFO: [Synth 8-7079] Multithreading enabled for synth_design using a maximum of 2 processes.
+INFO: [Synth 8-7078] Launching helper process for spawning children vivado processes
+INFO: [Synth 8-7075] Helper process launched with PID 2138672
+---------------------------------------------------------------------------------
+Starting Synthesize : Time (s): cpu = 00:00:03 ; elapsed = 00:00:03 . Memory (MB): peak = 2041.852 ; gain = 484.645 ; free physical = 961 ; free virtual = 12280
+---------------------------------------------------------------------------------
+INFO: [Synth 8-6157] synthesizing module 'bin_e1e2' [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/rtl_hand/.snapshots/pre_v40_timing/bin_e1e2.v:60]
+INFO: [Synth 8-6155] done synthesizing module 'bin_e1e2' (0#1) [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/rtl_hand/.snapshots/pre_v40_timing/bin_e1e2.v:60]
+WARNING: [Synth 8-6014] Unused sequential element wv_q_reg was removed.  [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/rtl_hand/.snapshots/pre_v40_timing/bin_e1e2.v:289]
+WARNING: [Synth 8-7137] Register en_q_reg in module bin_e1e2 has both Set and reset with same priority. This may cause simulation mismatches. Consider rewriting code  [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/rtl_hand/.snapshots/pre_v40_timing/bin_e1e2.v:349]
+WARNING: [Synth 8-7137] Register thr_q_reg[0] in module bin_e1e2 has both Set and reset with same priority. This may cause simulation mismatches. Consider rewriting code  [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/rtl_hand/.snapshots/pre_v40_timing/bin_e1e2.v:367]
+WARNING: [Synth 8-7137] Register thr_q_reg[1] in module bin_e1e2 has both Set and reset with same priority. This may cause simulation mismatches. Consider rewriting code  [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/rtl_hand/.snapshots/pre_v40_timing/bin_e1e2.v:367]
+WARNING: [Synth 8-7137] Register thr_q_reg[2] in module bin_e1e2 has both Set and reset with same priority. This may cause simulation mismatches. Consider rewriting code  [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/rtl_hand/.snapshots/pre_v40_timing/bin_e1e2.v:367]
+WARNING: [Synth 8-7137] Register thr_q_reg[3] in module bin_e1e2 has both Set and reset with same priority. This may cause simulation mismatches. Consider rewriting code  [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/rtl_hand/.snapshots/pre_v40_timing/bin_e1e2.v:367]
+WARNING: [Synth 8-7137] Register thr_q_reg[4] in module bin_e1e2 has both Set and reset with same priority. This may cause simulation mismatches. Consider rewriting code  [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/rtl_hand/.snapshots/pre_v40_timing/bin_e1e2.v:367]
+WARNING: [Synth 8-7137] Register thr_q_reg[5] in module bin_e1e2 has both Set and reset with same priority. This may cause simulation mismatches. Consider rewriting code  [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/rtl_hand/.snapshots/pre_v40_timing/bin_e1e2.v:367]
+WARNING: [Synth 8-7137] Register thr_q_reg[6] in module bin_e1e2 has both Set and reset with same priority. This may cause simulation mismatches. Consider rewriting code  [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/rtl_hand/.snapshots/pre_v40_timing/bin_e1e2.v:367]
+WARNING: [Synth 8-7137] Register thr_q_reg[7] in module bin_e1e2 has both Set and reset with same priority. This may cause simulation mismatches. Consider rewriting code  [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/rtl_hand/.snapshots/pre_v40_timing/bin_e1e2.v:367]
+---------------------------------------------------------------------------------
+Finished Synthesize : Time (s): cpu = 00:00:04 ; elapsed = 00:00:05 . Memory (MB): peak = 2140.820 ; gain = 583.613 ; free physical = 860 ; free virtual = 12172
+---------------------------------------------------------------------------------
+---------------------------------------------------------------------------------
+Finished Constraint Validation : Time (s): cpu = 00:00:05 ; elapsed = 00:00:05 . Memory (MB): peak = 2152.695 ; gain = 595.488 ; free physical = 838 ; free virtual = 12183
+---------------------------------------------------------------------------------
+---------------------------------------------------------------------------------
+Start Loading Part and Timing Information
+---------------------------------------------------------------------------------
+Loading part: xc7z015clg485-2
+---------------------------------------------------------------------------------
+Finished Loading Part and Timing Information : Time (s): cpu = 00:00:05 ; elapsed = 00:00:05 . Memory (MB): peak = 2152.695 ; gain = 595.488 ; free physical = 843 ; free virtual = 12188
+---------------------------------------------------------------------------------
+INFO: [Device 21-403] Loading part xc7z015clg485-2
+INFO: [Synth 8-7082] The signal desc_ram_reg is implemented as Block RAM but is better mapped onto distributed LUT RAM for the following reason(s): The depth (3 address bits) is shallow. Please use attribute (* ram_style = "distributed" *) to instruct Vivado to infer distributed LUT RAM.
+---------------------------------------------------------------------------------
+Finished RTL Optimization Phase 2 : Time (s): cpu = 00:00:05 ; elapsed = 00:00:05 . Memory (MB): peak = 2166.641 ; gain = 609.434 ; free physical = 857 ; free virtual = 12176
+---------------------------------------------------------------------------------
+No constraint files found.
+---------------------------------------------------------------------------------
+Start RTL Component Statistics 
+---------------------------------------------------------------------------------
+Detailed RTL Component Info : 
++---Adders : 
+	   2 Input   32 Bit       Adders := 15    
+	   4 Input   32 Bit       Adders := 1     
+	   3 Input   17 Bit       Adders := 1     
+	   2 Input   16 Bit       Adders := 3     
+	   2 Input    4 Bit       Adders := 1     
+	   2 Input    3 Bit       Adders := 1     
++---Registers : 
+	               64 Bit    Registers := 2     
+	               32 Bit    Registers := 11    
+	               16 Bit    Registers := 15    
+	                8 Bit    Registers := 12    
+	                4 Bit    Registers := 2     
+	                3 Bit    Registers := 1     
+	                1 Bit    Registers := 5     
++---RAMs : 
+	               2K Bit	(256 X 8 bit)          RAMs := 8     
+	              512 Bit	(8 X 64 bit)          RAMs := 1     
++---Muxes : 
+	  11 Input   32 Bit        Muxes := 2     
+	   2 Input   32 Bit        Muxes := 5     
+	   4 Input   32 Bit        Muxes := 1     
+	  11 Input   16 Bit        Muxes := 3     
+	   2 Input   16 Bit        Muxes := 3     
+	  11 Input    8 Bit        Muxes := 1     
+	  11 Input    4 Bit        Muxes := 1     
+	   2 Input    4 Bit        Muxes := 4     
+	   6 Input    4 Bit        Muxes := 1     
+	  11 Input    3 Bit        Muxes := 1     
+	   2 Input    3 Bit        Muxes := 3     
+	   5 Input    3 Bit        Muxes := 1     
+	   2 Input    2 Bit        Muxes := 1     
+	  11 Input    1 Bit        Muxes := 11    
+	   2 Input    1 Bit        Muxes := 15    
+	   4 Input    1 Bit        Muxes := 1     
+	   5 Input    1 Bit        Muxes := 1     
+---------------------------------------------------------------------------------
+Finished RTL Component Statistics 
+---------------------------------------------------------------------------------
+---------------------------------------------------------------------------------
+Start Part Resource Summary
+---------------------------------------------------------------------------------
+Part Resources:
+DSPs: 160 (col length:60)
+BRAMs: 190 (col length: RAMB18 60 RAMB36 30)
+---------------------------------------------------------------------------------
+Finished Part Resource Summary
+---------------------------------------------------------------------------------
+No constraint files found.
+---------------------------------------------------------------------------------
+Start Cross Boundary and Area Optimization
+---------------------------------------------------------------------------------
+DSP Report: Generating DSP hw_q0, operation Mode is: A*B.
+DSP Report: operator hw_q0 is absorbed into DSP hw_q0.
+INFO: [Synth 8-7082] The signal desc_ram_reg is implemented as Block RAM but is better mapped onto distributed LUT RAM for the following reason(s): The depth (3 address bits) is shallow. Please use attribute (* ram_style = "distributed" *) to instruct Vivado to infer distributed LUT RAM.
+---------------------------------------------------------------------------------
+Finished Cross Boundary and Area Optimization : Time (s): cpu = 00:00:09 ; elapsed = 00:00:09 . Memory (MB): peak = 2329.641 ; gain = 772.434 ; free physical = 683 ; free virtual = 12007
+---------------------------------------------------------------------------------
+ Sort Area is  hw_q0_0 : 0 0 : 1946 1946 : Used 1 time 0
+---------------------------------------------------------------------------------
+Start ROM, RAM, DSP, Shift Register and Retiming Reporting
+---------------------------------------------------------------------------------
+
+Block RAM: Preliminary Mapping Report (see note below)
++------------+-----------------+------------------------+---+---+------------------------+---+---+------------------+--------+--------+
+|Module Name | RTL Object      | PORT A (Depth x Width) | W | R | PORT B (Depth x Width) | W | R | Ports driving FF | RAMB18 | RAMB36 | 
++------------+-----------------+------------------------+---+---+------------------------+---+---+------------------+--------+--------+
+|bin_e1e2    | desc_ram_reg    | 8 x 64(READ_FIRST)     | W |   | 8 x 64(WRITE_FIRST)    |   | R | Port A and B     | 0      | 1      | 
+|bin_e1e2    | acc_b_reg[0][0] | 256 x 8(READ_FIRST)    | W |   | 256 x 8(WRITE_FIRST)   |   | R | Port A and B     | 1      | 0      | 
+|bin_e1e2    | acc_b_reg[1][0] | 256 x 8(READ_FIRST)    | W |   | 256 x 8(WRITE_FIRST)   |   | R | Port A and B     | 1      | 0      | 
+|bin_e1e2    | acc_b_reg[2][0] | 256 x 8(READ_FIRST)    | W |   | 256 x 8(WRITE_FIRST)   |   | R | Port A and B     | 1      | 0      | 
+|bin_e1e2    | acc_b_reg[3][0] | 256 x 8(READ_FIRST)    | W |   | 256 x 8(WRITE_FIRST)   |   | R | Port A and B     | 1      | 0      | 
+|bin_e1e2    | acc_b_reg[4][0] | 256 x 8(READ_FIRST)    | W |   | 256 x 8(WRITE_FIRST)   |   | R | Port A and B     | 1      | 0      | 
+|bin_e1e2    | acc_b_reg[5][0] | 256 x 8(READ_FIRST)    | W |   | 256 x 8(WRITE_FIRST)   |   | R | Port A and B     | 1      | 0      | 
+|bin_e1e2    | acc_b_reg[6][0] | 256 x 8(READ_FIRST)    | W |   | 256 x 8(WRITE_FIRST)   |   | R | Port A and B     | 1      | 0      | 
+|bin_e1e2    | acc_b_reg[7][0] | 256 x 8(READ_FIRST)    | W |   | 256 x 8(WRITE_FIRST)   |   | R | Port A and B     | 1      | 0      | 
++------------+-----------------+------------------------+---+---+------------------------+---+---+------------------+--------+--------+
+
+Note: The table above is a preliminary report that shows the Block RAMs at the current stage of the synthesis flow. Some Block RAMs may be reimplemented as non Block RAM primitives later in the synthesis flow. Multiple instantiated Block RAMs are reported only once. 
+
+DSP: Preliminary Mapping Report (see note below. The ' indicates corresponding REG is set)
++------------+-------------+--------+--------+--------+--------+--------+------+------+------+------+-------+------+------+
+|Module Name | DSP Mapping | A Size | B Size | C Size | D Size | P Size | AREG | BREG | CREG | DREG | ADREG | MREG | PREG | 
++------------+-------------+--------+--------+--------+--------+--------+------+------+------+------+-------+------+------+
+|bin_e1e2    | A*B         | 16     | 16     | -      | -      | 32     | 0    | 0    | -    | -    | -     | 0    | 0    | 
++------------+-------------+--------+--------+--------+--------+--------+------+------+------+------+-------+------+------+
+
+Note: The table above is a preliminary report that shows the DSPs inferred at the current stage of the synthesis flow. Some DSP may be reimplemented as non DSP primitives later in the synthesis flow. Multiple instantiated DSPs are reported only once.
+---------------------------------------------------------------------------------
+Finished ROM, RAM, DSP, Shift Register and Retiming Reporting
+---------------------------------------------------------------------------------
+No constraint files found.
+---------------------------------------------------------------------------------
+Start Timing Optimization
+---------------------------------------------------------------------------------
+---------------------------------------------------------------------------------
+Finished Timing Optimization : Time (s): cpu = 00:00:09 ; elapsed = 00:00:09 . Memory (MB): peak = 2332.609 ; gain = 775.402 ; free physical = 682 ; free virtual = 12006
+---------------------------------------------------------------------------------
+---------------------------------------------------------------------------------
+Start ROM, RAM, DSP, Shift Register and Retiming Reporting
+---------------------------------------------------------------------------------
+
+Block RAM: Final Mapping Report
++------------+-----------------+------------------------+---+---+------------------------+---+---+------------------+--------+--------+
+|Module Name | RTL Object      | PORT A (Depth x Width) | W | R | PORT B (Depth x Width) | W | R | Ports driving FF | RAMB18 | RAMB36 | 
++------------+-----------------+------------------------+---+---+------------------------+---+---+------------------+--------+--------+
+|bin_e1e2    | desc_ram_reg    | 8 x 64(READ_FIRST)     | W |   | 8 x 64(WRITE_FIRST)    |   | R | Port A and B     | 0      | 1      | 
+|bin_e1e2    | acc_b_reg[0][0] | 256 x 8(READ_FIRST)    | W |   | 256 x 8(WRITE_FIRST)   |   | R | Port A and B     | 1      | 0      | 
+|bin_e1e2    | acc_b_reg[1][0] | 256 x 8(READ_FIRST)    | W |   | 256 x 8(WRITE_FIRST)   |   | R | Port A and B     | 1      | 0      | 
+|bin_e1e2    | acc_b_reg[2][0] | 256 x 8(READ_FIRST)    | W |   | 256 x 8(WRITE_FIRST)   |   | R | Port A and B     | 1      | 0      | 
+|bin_e1e2    | acc_b_reg[3][0] | 256 x 8(READ_FIRST)    | W |   | 256 x 8(WRITE_FIRST)   |   | R | Port A and B     | 1      | 0      | 
+|bin_e1e2    | acc_b_reg[4][0] | 256 x 8(READ_FIRST)    | W |   | 256 x 8(WRITE_FIRST)   |   | R | Port A and B     | 1      | 0      | 
+|bin_e1e2    | acc_b_reg[5][0] | 256 x 8(READ_FIRST)    | W |   | 256 x 8(WRITE_FIRST)   |   | R | Port A and B     | 1      | 0      | 
+|bin_e1e2    | acc_b_reg[6][0] | 256 x 8(READ_FIRST)    | W |   | 256 x 8(WRITE_FIRST)   |   | R | Port A and B     | 1      | 0      | 
+|bin_e1e2    | acc_b_reg[7][0] | 256 x 8(READ_FIRST)    | W |   | 256 x 8(WRITE_FIRST)   |   | R | Port A and B     | 1      | 0      | 
++------------+-----------------+------------------------+---+---+------------------------+---+---+------------------+--------+--------+
+
+---------------------------------------------------------------------------------
+Finished ROM, RAM, DSP, Shift Register and Retiming Reporting
+---------------------------------------------------------------------------------
+---------------------------------------------------------------------------------
+Start Technology Mapping
+---------------------------------------------------------------------------------
+INFO: [Synth 8-7052] The timing for the instance desc_ram_reg (implemented as a Block RAM) might be sub-optimal as no optional output register could be merged into the ram block. Providing additional output register may help in improving timing.
+INFO: [Synth 8-7052] The timing for the instance acc_b_reg[0][0] (implemented as a Block RAM) might be sub-optimal as no optional output register could be merged into the ram block. Providing additional output register may help in improving timing.
+INFO: [Synth 8-7052] The timing for the instance acc_b_reg[1][0] (implemented as a Block RAM) might be sub-optimal as no optional output register could be merged into the ram block. Providing additional output register may help in improving timing.
+INFO: [Synth 8-7052] The timing for the instance acc_b_reg[2][0] (implemented as a Block RAM) might be sub-optimal as no optional output register could be merged into the ram block. Providing additional output register may help in improving timing.
+INFO: [Synth 8-7052] The timing for the instance acc_b_reg[3][0] (implemented as a Block RAM) might be sub-optimal as no optional output register could be merged into the ram block. Providing additional output register may help in improving timing.
+INFO: [Synth 8-7052] The timing for the instance acc_b_reg[4][0] (implemented as a Block RAM) might be sub-optimal as no optional output register could be merged into the ram block. Providing additional output register may help in improving timing.
+INFO: [Synth 8-7052] The timing for the instance acc_b_reg[5][0] (implemented as a Block RAM) might be sub-optimal as no optional output register could be merged into the ram block. Providing additional output register may help in improving timing.
+INFO: [Synth 8-7052] The timing for the instance acc_b_reg[6][0] (implemented as a Block RAM) might be sub-optimal as no optional output register could be merged into the ram block. Providing additional output register may help in improving timing.
+INFO: [Synth 8-7052] The timing for the instance acc_b_reg[7][0] (implemented as a Block RAM) might be sub-optimal as no optional output register could be merged into the ram block. Providing additional output register may help in improving timing.
+---------------------------------------------------------------------------------
+Finished Technology Mapping : Time (s): cpu = 00:00:09 ; elapsed = 00:00:09 . Memory (MB): peak = 2332.609 ; gain = 775.402 ; free physical = 672 ; free virtual = 12012
+---------------------------------------------------------------------------------
+---------------------------------------------------------------------------------
+Start IO Insertion
+---------------------------------------------------------------------------------
+---------------------------------------------------------------------------------
+Start Flattening Before IO Insertion
+---------------------------------------------------------------------------------
+---------------------------------------------------------------------------------
+Finished Flattening Before IO Insertion
+---------------------------------------------------------------------------------
+---------------------------------------------------------------------------------
+Start Final Netlist Cleanup
+---------------------------------------------------------------------------------
+---------------------------------------------------------------------------------
+Finished Final Netlist Cleanup
+---------------------------------------------------------------------------------
+---------------------------------------------------------------------------------
+Finished IO Insertion : Time (s): cpu = 00:00:12 ; elapsed = 00:00:12 . Memory (MB): peak = 2498.422 ; gain = 941.215 ; free physical = 514 ; free virtual = 11848
+---------------------------------------------------------------------------------
+---------------------------------------------------------------------------------
+Start Renaming Generated Instances
+---------------------------------------------------------------------------------
+---------------------------------------------------------------------------------
+Finished Renaming Generated Instances : Time (s): cpu = 00:00:12 ; elapsed = 00:00:12 . Memory (MB): peak = 2498.422 ; gain = 941.215 ; free physical = 511 ; free virtual = 11849
+---------------------------------------------------------------------------------
+---------------------------------------------------------------------------------
+Start Rebuilding User Hierarchy
+---------------------------------------------------------------------------------
+---------------------------------------------------------------------------------
+Finished Rebuilding User Hierarchy : Time (s): cpu = 00:00:12 ; elapsed = 00:00:12 . Memory (MB): peak = 2498.422 ; gain = 941.215 ; free physical = 512 ; free virtual = 11850
+---------------------------------------------------------------------------------
+---------------------------------------------------------------------------------
+Start Renaming Generated Ports
+---------------------------------------------------------------------------------
+---------------------------------------------------------------------------------
+Finished Renaming Generated Ports : Time (s): cpu = 00:00:12 ; elapsed = 00:00:12 . Memory (MB): peak = 2498.422 ; gain = 941.215 ; free physical = 512 ; free virtual = 11851
+---------------------------------------------------------------------------------
+---------------------------------------------------------------------------------
+Start Handling Custom Attributes
+---------------------------------------------------------------------------------
+---------------------------------------------------------------------------------
+Finished Handling Custom Attributes : Time (s): cpu = 00:00:12 ; elapsed = 00:00:12 . Memory (MB): peak = 2501.391 ; gain = 944.184 ; free physical = 523 ; free virtual = 11855
+---------------------------------------------------------------------------------
+---------------------------------------------------------------------------------
+Start Renaming Generated Nets
+---------------------------------------------------------------------------------
+---------------------------------------------------------------------------------
+Finished Renaming Generated Nets : Time (s): cpu = 00:00:12 ; elapsed = 00:00:12 . Memory (MB): peak = 2501.391 ; gain = 944.184 ; free physical = 513 ; free virtual = 11851
+---------------------------------------------------------------------------------
+---------------------------------------------------------------------------------
+Start Writing Synthesis Report
+---------------------------------------------------------------------------------
+
+DSP Final Report (the ' indicates corresponding REG is set)
++------------+-------------+--------+--------+--------+--------+--------+------+------+------+------+-------+------+------+
+|Module Name | DSP Mapping | A Size | B Size | C Size | D Size | P Size | AREG | BREG | CREG | DREG | ADREG | MREG | PREG | 
++------------+-------------+--------+--------+--------+--------+--------+------+------+------+------+-------+------+------+
+|bin_e1e2    | (A*B)'      | 16     | 16     | -      | -      | 32     | 0    | 0    | -    | -    | -     | 0    | 1    | 
++------------+-------------+--------+--------+--------+--------+--------+------+------+------+------+-------+------+------+
+
+
+Report BlackBoxes: 
++-+--------------+----------+
+| |BlackBox name |Instances |
++-+--------------+----------+
++-+--------------+----------+
+
+Report Cell Usage: 
++------+---------+------+
+|      |Cell     |Count |
++------+---------+------+
+|1     |CARRY4   |   183|
+|2     |DSP48E1  |     1|
+|3     |LUT1     |    84|
+|4     |LUT2     |   625|
+|5     |LUT3     |    82|
+|6     |LUT4     |    85|
+|7     |LUT5     |    92|
+|8     |LUT6     |   117|
+|9     |RAMB18E1 |     8|
+|10    |RAMB36E1 |     1|
+|11    |FDCE     |   531|
+|12    |FDRE     |   136|
++------+---------+------+
+
+Report Instance Areas: 
++------+---------+-------+------+
+|      |Instance |Module |Cells |
++------+---------+-------+------+
+|1     |top      |       |  1945|
++------+---------+-------+------+
+---------------------------------------------------------------------------------
+Finished Writing Synthesis Report : Time (s): cpu = 00:00:12 ; elapsed = 00:00:12 . Memory (MB): peak = 2501.391 ; gain = 944.184 ; free physical = 523 ; free virtual = 11847
+---------------------------------------------------------------------------------
+Synthesis finished with 0 errors, 0 critical warnings and 10 warnings.
+Synthesis Optimization Runtime : Time (s): cpu = 00:00:12 ; elapsed = 00:00:12 . Memory (MB): peak = 2501.391 ; gain = 944.184 ; free physical = 496 ; free virtual = 11851
+Synthesis Optimization Complete : Time (s): cpu = 00:00:12 ; elapsed = 00:00:12 . Memory (MB): peak = 2501.398 ; gain = 944.184 ; free physical = 496 ; free virtual = 11851
+INFO: [Project 1-571] Translating synthesized netlist
+Netlist sorting complete. Time (s): cpu = 00:00:00.01 ; elapsed = 00:00:00.01 . Memory (MB): peak = 2514.266 ; gain = 0.000 ; free physical = 683 ; free virtual = 12021
+INFO: [Netlist 29-17] Analyzing 193 Unisim elements for replacement
+INFO: [Netlist 29-28] Unisim Transformation completed in 0 CPU seconds
+WARNING: [Netlist 29-101] Netlist 'bin_e1e2' is not ideal for floorplanning, since the cellview 'bin_e1e2' contains a large number of primitives.  Please consider enabling hierarchy in synthesis if you want to do floorplanning.
+INFO: [Project 1-570] Preparing netlist for logic optimization
+INFO: [Opt 31-138] Pushed 0 inverter(s) to 0 load pin(s).
+Netlist sorting complete. Time (s): cpu = 00:00:00 ; elapsed = 00:00:00 . Memory (MB): peak = 2625.863 ; gain = 0.000 ; free physical = 571 ; free virtual = 11895
+INFO: [Project 1-111] Unisim Transformation Summary:
+No Unisim elements were transformed.
+
+Synth Design complete | Checksum: bb644d29
+INFO: [Common 17-83] Releasing license: Synthesis
+25 Infos, 11 Warnings, 0 Critical Warnings and 0 Errors encountered.
+synth_design completed successfully
+synth_design: Time (s): cpu = 00:00:16 ; elapsed = 00:00:14 . Memory (MB): peak = 2625.898 ; gain = 1074.664 ; free physical = 545 ; free virtual = 11870
+INFO: [Common 17-2834] synth_design peak Physical Memory [PSS] (MB): overall = 1846.784; main = 1846.784; forked = 293.936
+INFO: [Common 17-2834] synth_design peak Virtual Memory [VSS] (MB): overall = 3371.363; main = 2625.867; forked = 1024.750
+# set nlut [llength [get_cells -hier -quiet -filter {REF_NAME =~ LUT*}]]
+# set nff  [llength [get_cells -hier -quiet -filter {IS_SEQUENTIAL}]]
+# set ncarry [llength [get_cells -hier -quiet -filter {REF_NAME =~ CARRY4}]]
+# set nold [llength [get_cells -hier -quiet -filter {NAME =~ *issue_en0_carry*}]]
+# set nrem [llength [get_cells -hier -quiet -filter {NAME =~ *rem_reg*}]]
+# set nsw  [llength [get_cells -hier -quiet -filter {NAME =~ *sw_act_q_reg*}]]
+# set nlat [llength [get_cells -hier -quiet -filter {REF_NAME == LDCE || REF_NAME == LDPE}]]
+# puts "FINGERPRINT\ttag=$tag\tLUT=$nlut\tFF=$nff\tCARRY4=$ncarry\tissue_en0_carry=$nold\trem=$nrem\tsw_act_q=$nsw\tlatch=$nlat"
+FINGERPRINT	tag=v39	LUT=1085	FF=677	CARRY4=183	issue_en0_carry=0	rem=0	sw_act_q=0	latch=0
+# if {$nold == 0 && $nrem > 0 && $nsw > 0} { puts "VERDICT\ttag=$tag\tV40_SHAPE_OK" } else { puts "VERDICT\ttag=$tag\tSHAPE_CHECK" }
+VERDICT	tag=v39	SHAPE_CHECK
+# puts "== DONE_E1E2_SYNTH =="
+== DONE_E1E2_SYNTH ==
+INFO: [Common 17-206] Exiting Vivado at Sat Oct 31 19:28:34 2026...

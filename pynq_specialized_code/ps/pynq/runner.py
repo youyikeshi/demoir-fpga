@@ -603,7 +603,8 @@ class RefEngine:
                            op["k"], op["s"], op["d"], op["pad"],
                            e["shift"],
                            relu=bool(op["relu"]),
-                           w_layout=ref_numpy.layout_of(e))
+                           w_layout=ref_numpy.layout_of(e),
+                           w_tap=e.get("tap"))
         if out_lut is not None:
             # 与 RTL 逐位等价：v8 = sat8(acc) 之后查表
             y = lut_util.apply_out_lut(y, out_lut)
@@ -921,7 +922,9 @@ class PYNQEngine:
         from pynq import allocate
         from conv_engine import Conv2dEngine
         self.types = types
+        # numpy 兜底要用权重包原始字节（2026-10-28）
         self.index, self.arena = index, arena
+        self.blob = blob
         # ---- 老 HLS 引擎（2026-10-27 起是**可选**的）----
         # 新 BD 只留 k1_wrap + k3_wrap；没有 HLS 时不能让构造失败（否则一段
         # 都跑不了），但要大声警告：落到 HLS 的层会在 conv() 里明确报错。
@@ -1070,6 +1073,7 @@ class PYNQEngine:
         self.timeout_s = None
         self.n_calls = 0
         self.n_layers = 0
+        self._numpy_fb_noted = False   # numpy 兜底只提示一次
         self.progress_every = 0      # >0：每 N 个卷积打印一行
         size = max(1, (len(blob) + 63) // 64 * 64)
         self.wpool = allocate(shape=(size,), dtype=np.uint8)
@@ -1556,18 +1560,32 @@ class PYNQEngine:
             if k in (3, 5) and not self._ip_enabled_for(k):
                 self._note_skip("k3" if k == 3 else "k5", why, op)
             if self.unit is None:
-                hint = ""
-                if out_lut is not None or chsum is not None:
-                    hint = ("本层还被融合规划（out_lut/chsum）挡在手写 IP 之外 —— "
-                            "融合出口只有老 HLS 引擎有，新 bit 请关掉 PP_FUSE_CONV。")
-                raise RuntimeError(
-                    "本 bit 没有老 HLS 卷积引擎（conv2d_engine），而 layer=%s "
-                    "(k=%d) 也没有被任何手写 IP 接住：%s。%s%s"
-                    % (op["name"], k, why,
-                       "k=1 层请设 USE_K1_IP=1" if k == 1
-                       else ("k=3 层请设 USE_K3_IP=1 并确认 k3_wrap 在 bit 里"
-                             if k == 3
-                             else "k=5 层需要先把 k5 IP 加进 BD"), hint))
+                # ---- numpy 兜底（2026-10-28）--------------------------------
+                # 新 bit 已删掉老 HLS 引擎。若某层被**显式禁用**手写 IP
+                # （USE_K5_IP=0 之类）或逐层不可路由，就一个引擎都没有。
+                # 这里用 ref_numpy 的参考实现兜住，目的是**把 IP 的问题隔离
+                # 出来**：整网能跑出正确结果，再单独查那个 IP。
+                # 代价是这一层走 ARM（k=5 的单层约几秒），只适合少量层。
+                _src = np.asarray(self.arena.t[in_t])
+                _chw = c8_layout.to_chw(_src, c8_in, int(op["cin"]))
+                _w = np.frombuffer(self.blob, np.int8, int(e["w_len"]),
+                                   int(e["w_off"])).reshape(e["w_shape"])
+                _b = np.frombuffer(self.blob, np.int32,
+                                   int(e["b_len"]) // 4, int(e["b_off"]))
+                _res = ref_numpy.conv_ref_numpy(
+                    np.asarray(_chw, dtype=np.int8).reshape(
+                        int(op["cin"]), int(op["h"]), int(op["w"])),
+                    _w, _b, k, int(op["s"]), int(op["d"]), int(op["pad"]),
+                    int(e["shift"]), relu=bool(op["relu"]),
+                    w_layout=e.get("w_layout", "oc_ic_ky_kx"),
+                    w_tap=e.get("tap"))
+                self.arena.t[out_t][...] = c8_layout.from_chw(_res, c8_out)
+                self.arena.flush()
+                if not self._numpy_fb_noted:
+                    self._numpy_fb_noted = True
+                    print("WARN: layer=%s 走 numpy 兜底（%s）—— 结果正确但很慢，"
+                          "仅用于把 IP 问题隔离出来" % (op["name"], why), flush=True)
+                return
             rc, _ = self.unit.run(self._ns(self.arena.addr(in_t)),
                                   self._ns(waddr), self._ns(baddr),
                                   self._ns(self.arena.addr(out_t)),
@@ -1690,6 +1708,14 @@ class Runner:
         self.chsum_probe = None
         self._chsum_probe_n = 0
         self._chsum_probe_bad = 0
+        # ---- SAM 块（cat→eca→sam_sum）三算子融合（C8 专用，2026-10-27）----
+        # 见 _plan_sam_block：t84 = cat(y0,y2,y4) 只喂 eca 的通道均值，而均值
+        # 只依赖"每段的 LUT 通道和" ⇒ 整块不必物化，sam_sum 复用同一批暂存。
+        self._sam_fuse, self._sam_skip, self._handoff_plan = self._plan_sam_block()
+        self._sam_staged = {}    # sam_sum op id -> ops.sam_stage() 的 token（运行时）
+        self._handoff_live = {}  # 张量名 -> 私有交接缓冲（运行时，仅本轮有效）
+        self._sam_fuse_n = 0     # 诊断：本轮实际走了几次融合
+        self._sam_handoff_n = 0  # 诊断：本轮有几路走了交接缓冲
 
     # 标度辅助
     def _s(self, name, dflt=1.0):
@@ -1945,6 +1971,100 @@ class Runner:
             plan[op["id"]] = (t, cout)
         return plan
 
+    def _plan_sam_block(self):
+        """规划 SAM 块的 cat→eca→sam_sum **三算子融合**（C8 专用，默认开）。
+
+        本网络的 6 个 SAM 块都是同一个拓扑（`tools/build_manifest.py` 的 sam()）::
+
+            t84  = cat(y0, y2, y4)          # 唯一消费者是 eca
+            attn = eca(t84)                 # 唯一消费者是 sam_sum
+            out  = sam_sum(y0, y2, y4, attn, x)
+
+        t84 存在的唯一目的是给 eca 提供**逐通道空间均值**，而均值只依赖通道和：
+            mean_c = (Σ_{y,x} LUT_{s(seg)→s(t84)}(v)) × s(t84) / (H·W)
+        LUT 是逐字节映射 ⇒ 这组和在**每段自己的数据上**就能精确累出来
+        （`_sam_lut_chsum` / `ops.chsum_lut`：查表映射 + 整型累加，无舍入），
+        根本不必把 14.7 MB 的 t84 真拼出来再整块扫一遍。
+
+        融合后（每块省 3 趟整块搬运）：
+          · cat **整条跳过** —— t84 一次都不写；
+          · eca 只做"3 段搬进私有缓冲 + 按段求 LUT 通道和"（非缓存池上少 2 趟）；
+          · sam_sum 用 `pre_staged` 复用同一批暂存 ⇒ 它的 5 处 copyto 只剩 2 处
+            （x 进、out 出，这两处在非缓存 CMA 上是必需的，见 ops_numpy）；
+          · 若某段的唯一消费者就是本 sam_sum 且它是 interp 的产物，则让那个
+            interp **直接算进交接缓冲**（连"写回池 + 从池读回"都省掉）。
+
+        硬条件（任一条不满足 ⇒ 整块不融合，行为逐位不变）：
+          ① cat/eca/sam_sum 的 op id 连续（cat.id+1 == eca.id == sam_sum.id-1）；
+          ② t84 的消费者恰好只有这个 eca；attn 的消费者恰好只有这个 sam_sum；
+          ③ sam_sum 的 y0/y2/y4 依次就是 cat 的三个输入、attn 是第 4 个；
+          ④ 全是 C8 int8 视图，段的逻辑通道数都对齐 8、总通道数 == t84 的；
+          ⑤ 没开 conv 融合出口（FUSE_OUT 会让生产者直接在 cat 目标标度上写池，
+             与"按段自身标度求 LUT 和"冲突）；record/hashlog 调试模式在 run()
+             里另有一道闸（它们要 t84 的真值）。
+
+        返回 (plan, skip, hand)：
+            plan[eca_op_id] = {cat, sam, segs, out, attn}
+            skip            = 要跳过的 cat op id 集合
+            hand            = 张量名 -> 块内槽位号（0/1/2），可改写成交接缓冲
+        """
+        plan, skip, hand = {}, set(), {}
+        if not self.c8:
+            return plan, skip, hand
+        if not _env_default_on("SAM_BLOCK_FUSE"):
+            return plan, skip, hand
+        prod, cons = self._prod_cons_map()
+        by_id = {op["id"]: op for op in self.ops}
+        bufs = self.m["buffers"]
+        for op in self.ops:
+            if op["op"] != "eca":
+                continue
+            cat = by_id.get(op["id"] - 1)
+            ss = by_id.get(op["id"] + 1)
+            if cat is None or ss is None:
+                continue
+            if cat["op"] != "cat" or ss["op"] != "sam_sum":
+                continue
+            if len(cat["out"]) != 1 or len(op["out"]) != 1:
+                continue
+            t84, attn = cat["out"][0], op["out"][0]
+            segs, ins = list(cat["in"]), list(ss["in"])
+            if len(segs) != 3 or len(ins) != 5 or ins[:3] != segs or ins[3] != attn:
+                continue
+            if len(cons.get(t84, [])) != 1 or len(cons.get(attn, [])) != 1:
+                continue
+            if not all(self._is_c8(t) for t in segs + [t84]):
+                continue
+            if any(bufs[t]["dtype"] != "int8" for t in segs + [t84]):
+                continue
+            if any(int(bufs[t]["c"]) % c8_layout.C8 for t in segs):
+                continue
+            if sum(int(bufs[t]["c"]) for t in segs) != int(bufs[t84]["c"]):
+                continue
+            # 段不能是 conv 融合出口的写回目标：那种情况下池里存的是**目标标度**
+            # 的值（conv 直接把 LUT 应用在写回上），这里再套一次 LUT 就错了。
+            # 判据与 _plan_fuse 同源：生产者是 conv 且唯一消费者就是这个 cat。
+            # 本网络的 SAM 段都还有 sam_sum 这个第二消费者 ⇒ 恒不触发。
+            if any(prod.get(t, {}).get("op") == "conv" and len(cons.get(t, [])) == 1
+                   for t in segs):
+                continue
+            plan[op["id"]] = {"cat": cat["id"], "sam": ss["id"], "segs": segs,
+                              "out": t84, "attn": attn}
+            skip.add(cat["id"])
+        # 交接缓冲：段的消费者只有"被跳过的 cat + 本 sam_sum"，且生产者是 interp。
+        # 值 = 块内槽位号（0/1/2）：6 个块在时间上不重叠，所以槽位可以跨块复用
+        # ⇒ 只需要"每块最多 3 块缓冲"，而不是"每个张量一块"（省 ~21 MB）。
+        for _eid, p in plan.items():
+            for slot, t in enumerate(p["segs"]):
+                cs = cons.get(t, [])
+                if sorted(c["id"] for c in cs) != sorted((p["cat"], p["sam"])):
+                    continue
+                pr = prod.get(t)
+                if pr is None or pr["op"] != "interp":
+                    continue
+                hand[t] = slot
+        return plan, skip, hand
+
     def _verify_chsum(self, sums, tname, tag):
         """把 chsum 与"拿特征图重算的通道和"逐位对拍，返回不一致的通道数。
 
@@ -1968,6 +2088,38 @@ class Runner:
                   "（首处 c=%d chsum=%d 重算=%d，%s）"
                   % (bad, nc, c0, int(got[c0]), int(ref[c0]), tag), flush=True)
         return bad
+
+    def _sam_lut_chsum(self, tok, segs, s_target, nc):
+        """SAM 块融合用：Σ_pixels LUT_{s(seg)→s(target)}(v) 的逐通道 int64 精确和。
+
+        与 ``chsum_c8(cat(segs))`` 的整数和**逐位相同**（LUT 是逐字节映射、
+        求和是整数运算，没有舍入），所以 ECA 的 mean/attn 完全不变。
+
+        快路径：用 `_req_into_buf`（i8_fast 的仿射/查表内核，板端 264 MB/s）
+        把每段映射到私有 scratch，再用 `chsum_private`（同一个 C 内核，但
+        跳过池→私有那趟拷贝）。整条链路都已在私有缓冲里，池上只读一次。
+        标度相同的段直接跳过映射（映射是恒等）。i8_fast 不可用时回落到纯
+        numpy 的 `ops.chsum_lut`。
+        """
+        arrays, shapes = tok["arrays"], tok["shapes"]
+        if not self._fast_on:
+            luts = [self._lut(self._s(t), s_target) for t in segs]
+            return ops.chsum_lut(arrays, shapes, luts, nc)
+        scratch = ops.sam_scratch(tok["n"])
+        sums = np.empty(int(nc), np.int64)
+        c0 = 0
+        for t, arr, shape in zip(segs, arrays, shapes):
+            nseg = int(arr.size)
+            sv = self._s(t)
+            if sv == s_target:
+                buf = np.asarray(arr).reshape(shape)          # 恒等映射
+            else:
+                self._req_into_buf(scratch[:nseg], arr, sv, s_target)
+                buf = scratch[:nseg].reshape(shape)
+            k = int(buf.shape[0]) * c8_layout.C8
+            sums[c0:c0 + k] = ops.chsum_private(buf, k)
+            c0 += k
+        return sums
 
     def _resolve_probe(self):
         """把 chsum_probe（op id / 卷积名，可逗号分隔多个）解析成 op id 集合。"""
@@ -1999,7 +2151,8 @@ class Runner:
         return ids
 
     @staticmethod
-    def _sam_sum_c8(out, y0, y2, y4, attn, x, s0, s2, s4, sx, s_out, nc, c8=None):
+    def _sam_sum_c8(out, y0, y2, y4, attn, x, s0, s2, s4, sx, s_out, nc, c8=None,
+                    pre_staged=None):
         """sam_sum 的 C8 原地实现（纯逐元素，与 CHW 路径逐位相同）。
 
         out/y0/y2/y4/x 都是 (C/8,H,W,8) 视图；attn 永远是 fp32 CHW 的 (3C,1,1)。
@@ -2007,6 +2160,9 @@ class Runner:
         通道 8**，不是新插的一维）——写成 ``[:, None, None, None]`` 会把 8 顶到
         新轴上，得到 (块,块,H,W,8) 而报 broadcast 错（2026-10-23 踩过一次）。
         分块 = 2 个通道块（16 通道），与 CHW 路径的分块宽度一致。
+
+        ``pre_staged``：SAM 块融合的暂存 token（y0/y2/y4 已在私有缓冲里，
+        见 ``Runner._plan_sam_block``）。给了就跳过那 3 处 copyto。
         """
         C8 = int(c8 or c8_layout.C8)
         if int(nc) % C8:
@@ -2018,10 +2174,16 @@ class Runner:
         # C 内核快路径（与下面 numpy 循环逐元素同序；自检不过会抛异常回落）
         try:
             ops.sam_sum_c8_into(out, y0, y2, y4, attn, x,
-                                s0, s2, s4, sx, s_out)
+                                s0, s2, s4, sx, s_out, pre_staged=pre_staged)
             return out
         except Exception:
             pass
+        if pre_staged is not None:
+            # 融合路径下 y 的**池副本可能是旧的**（上游 interp 直接算进了交接
+            # 缓冲，池里那份根本没写）。回落到 numpy 循环前先把暂存内容写回池，
+            # 否则会读到自己都没写过的脏数据。
+            for src, t8 in zip(pre_staged["arrays"], (y0, y2, y4)):
+                np.copyto(t8.reshape(-1), np.asarray(src).reshape(-1))
         w = attn.reshape(3, -1).reshape(3, blocks, C8)
         step = 2 if blocks >= 2 else 1
         for b0 in range(0, blocks, step):
@@ -2089,6 +2251,20 @@ class Runner:
         self._chsum_probe_bad = 0
         self._fuse_plan_n = len(fuse_plan)      # conv→cat 配对数（诊断输出用）
         self._fuse_sum_plan_n = len(sum_plan)   # conv→eca 配对数（诊断输出用）
+        # SAM 块融合本轮是否生效：record/hashlog 要逐算子的**真值**快照，
+        # 而融合会把 t84 整块省掉 ⇒ 调试模式下自动关掉（行为回到旧路径）。
+        sam_on = bool(self._sam_fuse) and self.record is None and self.hashlog is None
+        if self._sam_fuse and not sam_on:
+            print("INFO: record/hashlog 已开 → 本轮关闭 SAM 块融合（要 t84 真值）",
+                  flush=True)
+        if sam_on:
+            print("INFO: SAM 块融合已启用：%d 块（cat 跳过、eca 按段求通道和、"
+                  "sam_sum 复用暂存；交接缓冲 %d 路）"
+                  % (len(self._sam_fuse), len(self._handoff_plan)), flush=True)
+        self._sam_staged = {}
+        self._handoff_live = {}
+        self._sam_fuse_n = 0
+        self._sam_handoff_n = 0
         t0 = time.time()
         for op in self.ops:
             k = op["op"]
@@ -2147,13 +2323,25 @@ class Runner:
                 i0 = op["in"][0]
                 if self.c8:
                     # C8 直算快路径（C 内核；逐位一致，非 1/8 网格/布局不符则回落）
+                    # SAM 块融合：本 interp 的输出只喂融合后的 sam_sum ⇒ 直接算进
+                    # 交接缓冲（私有），池里那份一次都不写。下游从这块读。
+                    hb = None
+                    if sam_on and o0 in self._handoff_plan:
+                        # 按**块内槽位**取缓冲：块之间不重叠，槽位可复用
+                        hb = ops.handoff_buf("sam_h%d" % self._handoff_plan[o0],
+                                             A.view(o0).size)
                     done = False
                     try:
                         ops.interp_c8_into(A.view(o0), A.view(i0),
-                                           op["scale_num"], op["scale_den"])
+                                           op["scale_num"], op["scale_den"],
+                                           handoff=hb)
                         done = True
+                        if hb is not None:
+                            self._handoff_live[o0] = hb
+                            self._sam_handoff_n += 1
                     except Exception:
                         done = False
+                        self._handoff_live.pop(o0, None)   # 回落：池里会是真值
                     if not done:
                         # interp 只动 H/W，但 ops.interp 按 3-D 写死 ⇒ 转 CHW 算再转回
                         A.view(o0)[...] = c8_layout.ops_c8().interp(
@@ -2170,6 +2358,11 @@ class Runner:
                         out_lay=self._lay(o0))
                 else:
                     A.view(o0)[...] = A.view(i0)[:op["channels"]]
+            elif k == "cat" and sam_on and op["id"] in self._sam_skip:
+                # SAM 块融合：t84 的唯一消费者是 eca，而 eca 只要逐通道均值 ——
+                # 融合路径已经按"每段自己的数据"精确算出来了，整块不必物化
+                # （省 2 趟整块搬运：cat 的读+写）。
+                pass
             elif k == "cat":
                 lay = self.alias["noop"].get(op["id"])
                 if lay is not None:
@@ -2268,6 +2461,32 @@ class Runner:
                         i8_fast.add_into(out, a, b)
                     else:
                         A.view(o0)[...] = ops.add(a, b)
+            elif k == "eca" and sam_on and op["id"] in self._sam_fuse:
+                # SAM 块融合（见 _plan_sam_block）：cat 那一趟已经不写了，
+                # 通道和直接在"3 段 + 各自的 LUT"上精确算 —— 与
+                # `chsum_c8(cat(y0,y2,y4))` 的 int64 和**逐位相同**，
+                # 但省掉 t84 的整块写 + 整块读，也省掉再搬一次 d 暂存。
+                p = self._sam_fuse[op["id"]]
+                e = self.eca[op["weights_key"]]
+                t84 = p["out"]
+                sc = self._s(t84)
+                nc = self._logical_c(t84)
+                pairs = []
+                for t in p["segs"]:
+                    hb = self._handoff_live.pop(t, None)
+                    if hb is None:
+                        pairs.append((A.view(t), False))
+                    else:
+                        # 上游 interp 直接算进了交接缓冲（池里那份是旧的）
+                        pairs.append((hb.reshape(A.view(t).shape), True))
+                tok = ops.sam_stage(pairs)
+                sums = self._sam_lut_chsum(tok, p["segs"], sc, nc)
+                hh, ww = c8_layout.hw(A.view(t84).shape, True)
+                hw = float(hh * ww)
+                mean_c = (sums.astype(np.float64) * sc / hw).astype(np.float32)
+                A.view(o0)[...] = ops.eca_attn_from_mean(mean_c, e["conv2"], e["conv1"])
+                self._sam_staged[p["sam"]] = tok
+                self._sam_fuse_n += 1
             elif k == "eca":
                 # 2026-10-21：按通道分块算空间均值。原来把整块（144×320×320）
                 # astype 成 float32（59 MB 临时）再求均值；分块后临时数组只有
@@ -2350,7 +2569,9 @@ class Runner:
                     x = c8_layout.as_layout(x, self._is_c8(op["in"][4]), out8)
                     self._sam_sum_c8(out, y0, y2, y4, attn, x,
                                      s0, s2, s4, sx, s_out,
-                                     self._logical_c(o0))
+                                     self._logical_c(o0),
+                                     pre_staged=(self._sam_staged.pop(op["id"], None)
+                                                 if sam_on else None))
                 else:
                     # CHW：逐位一致前提下的分块快路径（ops.sam_sum_into）。
                     # 旧写法每个 16 通道块要分配 ~10 份 float64 全图临时数组，

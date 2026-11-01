@@ -59,8 +59,11 @@ module conv_k1_engine #(
 
     // ---- 实现参数 ----
     parameter int LANES    = 32,   // oc 车道数（固定，DSP = 32）
-    parameter int CIN_MAX  = 352,  // 全网络 k=1 最大 cin
-    parameter int COUT_MAX = 192,  // 全网络 k=1 最大 cout（6 个 pass）
+    // ⚠ 2026-10-28：瘦身到 192 后 TB 出现 8298/40960 字节错（拍数不变、结构相同），
+    //   说明权重/偏置读路径里有依赖 ICW/NCGMAX 的地方没同步改。**先回退**，
+    //   等定位后再瘦（目标 192/96 可省一半权重 RAM）。
+    parameter int CIN_MAX  = 192,
+    parameter int COUT_MAX = 96,
     parameter int NBUF     = 4,    // 输入像素缓冲数
     parameter int OBUF_N   = 4     // 输出块队列深度（每块 4 个 oc 组；LUTRAM 4 槽 × 4 条）
 )(
@@ -117,7 +120,12 @@ module conv_k1_engine #(
     localparam int NCGMAX  = (COUT_MAX + 7) / 8;             // 24 个 oc 组
     localparam int ICW     = $clog2(CIN_MAX + 1);            // 9
     localparam int CW      = $clog2(COUT_MAX + 1);           // 8
-    localparam int GW      = $clog2(GMAX + 1);               // 6
+    // ⚠ GW 不能简单取 $clog2(GMAX+1)：px_mem 的地址是 {槽号[1:0], 组号[GW-1:0]}，
+    //   而 ADDR_WIDTH_A/B 写死 8。GW=5 会让布局从 "槽*64+组" 变成 "槽*32+组"，
+    //   与其它按 8 位地址推理的路径不一致 ⇒ 像素缓冲互相覆盖。
+    //   实测：CIN_MAX=192 时 GW 自动算成 5，k1 TB 出现 8298/40960 字节错；
+    //   硬定 6 后立刻 PASS。所以这里下限固定为 6。
+    localparam int GW      = 6;
     localparam int BW      = $clog2(BLKMAX + 1);             // 3
     localparam int NGW     = $clog2(NCGMAX + 1);             // 5
 
@@ -161,8 +169,17 @@ module conv_k1_engine #(
     logic       start_q, start_pulse;
     logic       bank_ready, bias_ready;
 
-    logic         f_busy;
-    logic [31:0]  f_pix, f_next, f_araddr;
+    // ---- 输入预取：AR 侧与 R 侧分离（2026-10-28 v4）----
+    //  改前：f_busy 一次只允许 **1 个像素** 在飞，且必须等该像素全部数据回来
+    //        才允许发下一个 ⇒ 每像素固定付一次完整 AXI 往返（实测 ~130 拍，
+    //        与 cin 无关：cin=16 是 130 拍/像素，cin=144 也是 128 拍/像素）。
+    //        这就是 k1 只有 6~9% MAC 利用率、比模型慢 8 倍的根因。
+    //  改后：AR 侧用 f_ar_pix/f_ar 一路领先发行（受 NBUF 个像素的窗口限制），
+    //        R 侧用 f_rd_pix/f_rd 严格按 AR 顺序落后消费。
+    //        AXI 保证同 ID 的读数据**按发地址顺序返回**，而本通道对 in 只用
+    //        一个 ID ⇒ 数据必然逐像素成块、按序到达，因此 R 侧只需一组计数器。
+    logic [31:0]  f_ar_pix, f_rd_pix;   // AR 发行者 / R 消费者各自的像素号
+    logic [31:0]  f_araddr;
     logic [GW-1:0] f_ar, f_rd;
     logic [7:0]   b_cnt;
     logic [2:0]   ob_cnt;
@@ -291,8 +308,9 @@ module conv_k1_engine #(
                 end
                 ST_LOAD: if (pass_go) state <= ST_PASS;
                 ST_PASS: begin
-                    if (pass_done && (pend == 3'd0) && !f_busy &&
-                        (f_next == pix_total_r)) begin
+                    if (pass_done && (pend == 3'd0) &&
+                        (f_ar_pix == pix_total_r) &&
+                        (f_rd_pix == pix_total_r)) begin
                         if ((blk_r + 3'd1) < blk_cnt_r) begin
                             blk_r        <= blk_r + 3'd1;
                             pass_gbase   <= pass_gbase + (hw8_r << 2);
@@ -371,53 +389,60 @@ module conv_k1_engine #(
                              {{(GW-1){1'b0}}, (issue_en && (ic_cur[2:0] == 3'd7))});
     wire [7:0] nxt_addr = {nxt_buf, nxt_grp};
 
-    assign m_axi_in_arvalid = f_busy && (f_ar < g_count_r);
+    // AR 侧窗口：AR 发行者最多领先计算侧 NBUF 个像素（保证 pix_ready 的
+    // 4 个缓冲不撞车），且不越过本 pass 的像素总数。
+    wire fetch_run = (state == ST_PASS) && !pass_done;
+    wire [31:0] f_win = f_ar_pix - pix_cur;
+    wire ar_win = fetch_run && (f_ar_pix < pix_total_r) && (f_win < NBUF[31:0]);
+    // 还有未收完的数据：要么落后若干整像素，要么当前像素的 AR 已发出但 R 未齐
+    wire rd_act = fetch_run && ((f_ar_pix != f_rd_pix) || (f_ar != {GW{1'b0}}));
+
+    assign m_axi_in_arvalid = ar_win && (f_ar < g_count_r);
     assign m_axi_in_araddr  = f_araddr;
     assign m_axi_in_arlen   = 8'd0;
-    assign m_axi_in_rready  = f_busy;
+    assign m_axi_in_rready  = rd_act;
 
     always_ff @(posedge ap_clk or negedge ap_rst_n) begin
         if (!ap_rst_n) begin
-            f_busy    <= 1'b0;
-            f_pix     <= 32'd0;
-            f_next    <= 32'd0;
+            f_ar_pix  <= 32'd0;
+            f_rd_pix  <= 32'd0;
             f_araddr  <= 32'd0;
-            f_ar      <= 6'd0;
-            f_rd      <= 6'd0;
+            f_ar      <= {GW{1'b0}};
+            f_rd      <= {GW{1'b0}};
             pix_ready <= '0;
         end else if (start_pulse || pass_go) begin
-            f_busy    <= 1'b0;
-            f_next    <= 32'd0;
-            f_ar      <= 6'd0;
-            f_rd      <= 6'd0;
+            f_ar_pix  <= 32'd0;
+            f_rd_pix  <= 32'd0;
+            f_araddr  <= in_base_r;                 // 第 0 个像素的组 0 地址
+            f_ar      <= {GW{1'b0}};
+            f_rd      <= {GW{1'b0}};
             pix_ready <= '0;
         end else begin
-            // ---- 计算侧：消费完一个像素后清 ready（像素数据在 px_mem 里，不移动）----
+            // ---- 计算侧：消费完一个像素后清 ready（数据在 px_mem 里，不移动）----
             if (issue_en && (ic_cur == (cin_r - 1'b1)))
                 pix_ready[cur_buf] <= 1'b0;
 
-            // ---- fetch 侧 ----
-            if (!f_busy) begin
-                if ((state == ST_PASS) && (f_next < pix_total_r) &&
-                    ((f_next - pix_cur) < NBUF[31:0])) begin
-                    f_busy   <= 1'b1;
-                    f_pix    <= f_next;
-                    f_ar     <= 6'd0;
-                    f_rd     <= 6'd0;
-                    f_araddr <= in_base_r + (f_next << 3);
+            // ---- AR 侧：领先发行，不等数据回来 ----
+            if (in_ar_hs) begin
+                if ((f_ar + {{(GW-1){1'b0}}, 1'b1}) == g_count_r) begin
+                    f_ar     <= {GW{1'b0}};
+                    f_ar_pix <= f_ar_pix + 32'd1;
+                    f_araddr <= in_base_r + ((f_ar_pix + 32'd1) << 3);
+                end else begin
+                    f_ar     <= f_ar + {{(GW-1){1'b0}}, 1'b1};
+                    f_araddr <= f_araddr + hw8_r;       // 组步长 = H*W*8
                 end
-            end else begin
-                if (in_ar_hs) begin
-                    f_ar     <= f_ar + 6'd1;
-                    f_araddr <= f_araddr + hw8_r;
-                end
-                if (in_r_hs)
-                    f_rd <= f_rd + 6'd1;
-                if (((f_ar + {5'd0, in_ar_hs}) == g_count_r) &&
-                    ((f_rd + {5'd0, in_r_hs}) == g_count_r)) begin
-                    f_busy                <= 1'b0;
-                    pix_ready[f_pix[1:0]] <= 1'b1;
-                    f_next                <= f_pix + 32'd1;
+            end
+
+            // ---- R 侧：严格按 AR 顺序、逐像素成块返回 ----
+            if (in_r_hs) begin
+                if ((f_rd + {{(GW-1){1'b0}}, 1'b1}) == g_count_r) begin
+                    f_rd     <= {GW{1'b0}};
+                    if (f_rd_pix < pix_total_r)
+                        pix_ready[f_rd_pix[1:0]] <= 1'b1;
+                    f_rd_pix <= f_rd_pix + 32'd1;
+                end else begin
+                    f_rd <= f_rd + {{(GW-1){1'b0}}, 1'b1};
                 end
             end
         end
@@ -464,11 +489,11 @@ module conv_k1_engine #(
         .RST_MODE_B             ("SYNC")
     ) u_pxmem (
         .sleep          (1'b0),
-        // 写口：地址 = {f_pix[1:0], f_rd}（= 原来的拼接，8 位）
+        // 写口：地址 = {f_rd_pix[1:0], f_rd}（R 侧当前像素 + 当前笔）
         .clka           (ap_clk),
         .ena            (in_r_hs),
         .wea            (1'b1),
-        .addra          ({f_pix[1:0], f_rd}),
+        .addra          ({f_rd_pix[1:0], f_rd}),
         .dina           (m_axi_in_rdata),
         .injectsbiterra (1'b0),
         .injectdbiterra (1'b0),
@@ -490,7 +515,7 @@ module conv_k1_engine #(
     //   · 多 beat 像素时 group0 早已写入 RAM，bp_hit_q 只在“等待/首次 issue”这一拍
     //     置 1，随后 p_ram_q 就是新值，行为不变。
     wire bypass_now = in_r_hs && (f_rd == 6'd0) &&
-                      (f_pix[1:0] == nxt_buf) && (nxt_grp == {GW{1'b0}});
+                      (f_rd_pix[1:0] == nxt_buf) && (nxt_grp == {GW{1'b0}});
     always_ff @(posedge ap_clk or negedge ap_rst_n) begin
         if (!ap_rst_n) begin
             bp_hit_q  <= 1'b0;
@@ -1017,7 +1042,7 @@ module conv_k1_engine #(
     wire  [7:0]    wl_rem = cout_r - {wl_req_blk, 5'b00000}; // 本 pass 剩余 oc 数
     // 输入预取领先量（像素）。只有领先 ≥2 才发权重 AR；ST_PASS 以外（ST_LOAD /
     // ST_NEXT）没有计算，不设门槛。
-    wire  [31:0]   in_lead = f_next - pix_cur;
+    wire  [31:0]   in_lead = f_ar_pix - pix_cur;   // v4: AR 发行者领先计算侧的量
     wire           wl_ar_ok = (state != ST_PASS) || (in_lead >= 32'd2);
 
     // 门控一旦放开就必须保持 ARVALID 到 AR 握手（AXI 要求 valid 不得中途撤销；

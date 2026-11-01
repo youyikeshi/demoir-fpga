@@ -94,12 +94,60 @@ if {$_csopt} {
 # 2026-10-26：BD/RTL 改动后 Vivado 不会自动重跑已 100% 的 run（launch_runs 直接跳过），
 # 会导致"构建成功但 bit 还是旧的"。必须显式 reset。
 set _force [expr {[info exists ::env(FORCE_REBUILD)] ? $::env(FORCE_REBUILD) : 0}]
-if {$::env(REBUILD) ne ""} { set _force 1 }
+# ⚠ 必须用 info exists 判断：$::env(NAME) 在变量未定义时会抛 "no such variable"
+#   （2026-10-27 踩到：不带 REBUILD 跑就崩在第 97 行）
+if {[info exists ::env(REBUILD)] && $::env(REBUILD) ne ""} { set _force 1 }
 if {$_force} {
     puts "== FORCE_REBUILD：reset synth_1 / impl_1 =="
     reset_run synth_1
     reset_run impl_1
+    # ⚠⚠ 2026-10-27 第二次踩到（第一次是 10-26）：BD 里每个 module_ref IP 都有
+    #   自己的 **OOC 综合子 run**（design_1_k1_wrap_1_synth_1 等）。只 reset
+    #   synth_1/impl_1 不碰它们 ⇒ 顶层综合会把**旧的 IP 网表**合进去，
+    #   于是"构建成功、bit 却是旧的"。实测：k3_cfg_check.v 23:23 修改，
+    #   22:24 生成的 design_1_k3_wrap_0.dcp 被原样复用，上板仍报同一个旧错误。
+    #   ⇒ REBUILD 必须把 BD 内所有 *_synth_1 子 run 一并 reset。
+    set _subruns {}
+    foreach r [get_runs -quiet] {
+        if {[regexp {^design_1_.+_synth_1$} $r]} { lappend _subruns $r }
+    }
+    foreach r $_subruns {
+        reset_run $r
+        puts "   reset 子 run: $r"
+    }
+    if {[llength $_subruns] == 0} { puts "   （注意：没发现 BD 的 OOC 子 run）" }
 }
+# ============================================================================
+# 2026-10-30 关键修复：**先跑完 BD 内所有 IP 的 OOC 综合，再启动顶层综合**
+#
+# 现象：新加的两个 module_ref IP（conv_uni / bin_unit）在顶层被当成 **stub**
+#   合成（顶层日志出现 `synthesizing module 'design_1_conv_uni_0_3'`），
+#   整片资源只有 LUT 805 / DSP 0 / BRAM 0 —— 出一个"成功"的空比特流。
+#   而两个 IP 自己的 OOC 综合是好的（各 16 DSP）。
+#
+# 根因：`launch_runs synth_1` 不保证 IP 的 OOC 子 run 先完成。实测时间戳：
+#     IP OOC DCP  16:28:15
+#     顶层 DCP     16:29:04
+#   两者几乎同时跑完 ⇒ 顶层综合开始时 IP 的 DCP 还不存在 ⇒ 退回 stub .v。
+#
+# 修法：显式把 IP 子 run 先 launch + 逐个 wait，再跑顶层。
+# ============================================================================
+set _ip_runs {}
+foreach r [get_runs -quiet] {
+    if {[regexp {^design_1_.+_synth_1$} $r]} { lappend _ip_runs $r }
+}
+if {[llength $_ip_runs] > 0} {
+    puts "== 先跑 [llength $_ip_runs] 个 IP 的 OOC 综合（顶层依赖它们）=="
+    launch_runs $_ip_runs -jobs $jobs
+    foreach r $_ip_runs { wait_on_run $r }
+    set _bad {}
+    foreach r $_ip_runs {
+        if {[get_property PROGRESS $r] ne "100%"} { lappend _bad "$r=[get_property STATUS $r]" }
+    }
+    if {[llength $_bad] > 0} { error "IP OOC 综合未完成: $_bad" }
+    puts "== IP OOC 综合全部完成 =="
+}
+
 if {[get_property PROGRESS [get_runs synth_1]] ne "100%"} {
     launch_runs synth_1 -jobs $jobs
     wait_on_run synth_1

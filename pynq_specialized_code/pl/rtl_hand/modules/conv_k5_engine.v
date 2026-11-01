@@ -44,8 +44,8 @@
 module conv_k5_engine #(
     parameter int CIN  = 12,          // 逻辑输入通道（物理 CPAD = 补齐到 8 的倍数）
     parameter int COUT = 48,
-    parameter int W    = 320,
-    parameter int H    = 320,
+    parameter int W    = 128,
+    parameter int H    = 128,
     parameter int PAD  = 2,
     // 每个 pass 并行计算的 oc 数。必须整除 8（输出按 8-oc beat 拼包）。
     // 1 => 25 DSP（默认，满足整机 ≤40 DSP 预算）；2/4 仅用于权衡实验。

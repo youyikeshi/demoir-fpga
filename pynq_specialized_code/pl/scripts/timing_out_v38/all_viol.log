@@ -1,0 +1,185 @@
+
+****** Vivado v2025.2.1 (64-bit)
+  **** SW Build 6403652 on Thu Mar 19 13:47:00 MDT 2026
+  **** IP Build 6403511 on Thu Mar 19 12:41:45 MDT 2026
+  **** SharedData Build 6403650 on Thu Mar 19 14:02:13 MDT 2026
+  **** Start of session at: Sat Oct 31 17:02:06 2026
+    ** Copyright 1986-2022 Xilinx, Inc. All Rights Reserved.
+    ** Copyright 2022-2026 Advanced Micro Devices, Inc. All Rights Reserved.
+
+source scripts/all_viol.tcl
+# open_checkpoint [lindex $argv 0]
+Command: open_checkpoint ../board/overlay_engine_150mhz/design_1_150v38_routed.dcp
+
+Starting open_checkpoint Task
+
+Time (s): cpu = 00:00:00.05 ; elapsed = 00:00:00.03 . Memory (MB): peak = 1516.074 ; gain = 0.000 ; free physical = 7525 ; free virtual = 14591
+INFO: [Device 21-403] Loading part xc7z015clg485-2
+Netlist sorting complete. Time (s): cpu = 00:00:00.16 ; elapsed = 00:00:00.16 . Memory (MB): peak = 1833.473 ; gain = 0.000 ; free physical = 7146 ; free virtual = 14221
+INFO: [Netlist 29-17] Analyzing 3365 Unisim elements for replacement
+INFO: [Netlist 29-28] Unisim Transformation completed in 0 CPU seconds
+INFO: [Project 1-479] Netlist was created with Vivado 2025.2.1
+INFO: [Project 1-570] Preparing netlist for logic optimization
+Read ShapeDB Complete: Time (s): cpu = 00:00:00.04 ; elapsed = 00:00:00.04 . Memory (MB): peak = 1935.379 ; gain = 5.250 ; free physical = 6881 ; free virtual = 13986
+INFO: [Timing 38-478] Restoring timing data from binary archive.
+INFO: [Timing 38-479] Binary timing data restore complete.
+INFO: [Project 1-856] Restoring constraints from binary archive.
+INFO: [Constraints 18-5170] The checkpoint was created with non-default parameter values which do not match the current Vivado settings.  Mismatching parameters are:
+  general.maxThreads
+INFO: [Project 1-853] Binary constraint restore complete.
+INFO: [Designutils 20-5722] Start Reading Physical Databases.
+Reading placement.
+Read Netlist Cache: Time (s): cpu = 00:00:00.04 ; elapsed = 00:00:00.03 . Memory (MB): peak = 2552.379 ; gain = 0.000 ; free physical = 5707 ; free virtual = 13047
+Reading placer database...
+Read Device Cache: Time (s): cpu = 00:00:00.01 ; elapsed = 00:00:00.01 . Memory (MB): peak = 2552.379 ; gain = 0.000 ; free physical = 5717 ; free virtual = 13057
+Read PlaceDB: Time (s): cpu = 00:00:00 ; elapsed = 00:00:00 . Memory (MB): peak = 2552.379 ; gain = 0.000 ; free physical = 5717 ; free virtual = 13057
+Read placeStorage: Time (s): cpu = 00:00:00.66 ; elapsed = 00:00:00.67 . Memory (MB): peak = 2570.379 ; gain = 18.000 ; free physical = 5682 ; free virtual = 13025
+Read PulsedLatchDB: Time (s): cpu = 00:00:00 ; elapsed = 00:00:00 . Memory (MB): peak = 2570.379 ; gain = 0.000 ; free physical = 5682 ; free virtual = 13025
+Reading routing.
+Read RouteStorage: Time (s): cpu = 00:00:00.76 ; elapsed = 00:00:00.24 . Memory (MB): peak = 2591.754 ; gain = 21.375 ; free physical = 5675 ; free virtual = 13017
+Read Physdb Files: Time (s): cpu = 00:00:01 ; elapsed = 00:00:00.97 . Memory (MB): peak = 2591.754 ; gain = 39.375 ; free physical = 5674 ; free virtual = 13016
+Restored from archive | CPU: 1.550000 secs | Memory: 37.207275 MB |
+Finished XDEF File Restore: Time (s): cpu = 00:00:02 ; elapsed = 00:00:01 . Memory (MB): peak = 2591.754 ; gain = 47.312 ; free physical = 5674 ; free virtual = 13016
+Netlist sorting complete. Time (s): cpu = 00:00:00.01 ; elapsed = 00:00:00.01 . Memory (MB): peak = 2604.137 ; gain = 0.000 ; free physical = 5667 ; free virtual = 13009
+INFO: [Project 1-111] Unisim Transformation Summary:
+  A total of 201 instances were transformed.
+  RAM32M => RAM32M (RAMD32(x6), RAMS32(x2)): 5 instances
+  RAM32X1D => RAM32X1D (RAMD32(x2)): 4 instances
+  RAM64M => RAM64M (RAMD64E(x4)): 168 instances
+  RAM64X1D => RAM64X1D (RAMD64E(x2)): 24 instances
+
+INFO: [Project 1-604] Checkpoint was created with Vivado v2025.2.1 (64-bit) build 6403652
+open_checkpoint: Time (s): cpu = 00:00:19 ; elapsed = 00:00:13 . Memory (MB): peak = 2612.172 ; gain = 1096.098 ; free physical = 5667 ; free virtual = 13009
+# set vps [get_timing_paths -max_paths 3000 -nworst 1 -setup -slack_lesser_than 0]
+# puts "=== unique-endpoint violating paths: [llength $vps] ==="
+=== unique-endpoint violating paths: 3000 ===
+# array set cnt {}
+# set rows {}
+# foreach vp $vps {
+#     set e [get_property ENDPOINT_PIN $vp]
+#     set s [get_property SLACK $vp]
+#     set l [get_property LOGIC_LEVELS $vp]
+#     set d [get_property DATAPATH_DELAY $vp]
+#     set sp [get_property STARTPOINT_PIN $vp]
+#     # 端点归类：取 bin_unit / conv_uni 等顶层，再取寄存器名
+#     set key "other"
+#     foreach m {bf_data bf_strb df_addr be_data be_word u_rd_data ax_ lc_tag win_q fs_ p_valid pw_valid bu_ pend} {
+#         if {[string match *$m* $e]} { set key "WR:$m"; break }
+#     }
+#     if {$key eq "other"} {
+#         if {[string match *bin_unit* $e]} { set key "BIN:other" } \
+#         elseif {[string match *conv_uni* $e]} { set key "CONVUNI:other" } \
+#         else { set key "TOP:other" }
+#     }
+#     if {[info exists cnt($key)]} { incr cnt($key) } else { set cnt($key) 1 }
+#     lappend rows [list $s $key $l $d $sp $e]
+# }
+# puts "\n--- 按端点族聚类 ---"
+
+--- 按端点族聚类 ---
+# foreach k [lsort [array names cnt]] { puts [format "  %-18s %5d" $k $cnt($k)] }
+  BIN:other           2989
+  TOP:other              1
+  WR:win_q              10
+# puts "\n--- 每族最差一条（前 40 条按 slack 排序）---"
+
+--- 每族最差一条（前 40 条按 slack 排序）---
+# set rows [lsort -real -index 0 $rows]
+# set i 0
+# foreach r $rows {
+#     incr i
+#     if {$i > 30} break
+#     puts [format "  %7.3f  %-16s lvl=%2d delay=%6.3f\n      from %s\n      to   %s" \
+#         [lindex $r 0] [lindex $r 1] [lindex $r 2] [lindex $r 3] [lindex $r 4] [lindex $r 5]]
+# }
+   -2.080  BIN:other        lvl=18 delay=11.663
+      from design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_pack/p_reg[0]/C
+      to   design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_unit/u_eng/p_0_out__17/CEB2
+   -2.073  BIN:other        lvl=18 delay=11.635
+      from design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_pack/p_reg[0]/C
+      to   design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_unit/u_eng/pw_reg[4][26]/R
+   -2.073  BIN:other        lvl=18 delay=11.635
+      from design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_pack/p_reg[0]/C
+      to   design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_unit/u_eng/pw_reg[4][60]/R
+   -2.071  BIN:other        lvl=17 delay=11.934
+      from design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_pack/p_reg[0]/C
+      to   design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_catpack/stage_reg[657]/CE
+   -2.071  BIN:other        lvl=17 delay=11.934
+      from design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_pack/p_reg[0]/C
+      to   design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_catpack/stage_reg[681]/CE
+   -2.071  BIN:other        lvl=17 delay=11.934
+      from design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_pack/p_reg[0]/C
+      to   design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_catpack/stage_reg[683]/CE
+   -2.071  BIN:other        lvl=17 delay=11.934
+      from design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_pack/p_reg[0]/C
+      to   design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_catpack/stage_reg[691]/CE
+   -2.071  BIN:other        lvl=17 delay=11.934
+      from design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_pack/p_reg[0]/C
+      to   design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_catpack/stage_reg[713]/CE
+   -2.071  BIN:other        lvl=17 delay=11.934
+      from design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_pack/p_reg[0]/C
+      to   design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_catpack/stage_reg[721]/CE
+   -2.071  BIN:other        lvl=17 delay=11.934
+      from design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_pack/p_reg[0]/C
+      to   design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_catpack/stage_reg[737]/CE
+   -2.071  BIN:other        lvl=17 delay=11.934
+      from design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_pack/p_reg[0]/C
+      to   design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_catpack/stage_reg[763]/CE
+   -2.042  BIN:other        lvl=17 delay=11.873
+      from design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_pack/p_reg[0]/C
+      to   design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_catpack/stage_reg[673]/CE
+   -2.042  BIN:other        lvl=17 delay=11.873
+      from design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_pack/p_reg[0]/C
+      to   design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_catpack/stage_reg[705]/CE
+   -2.042  BIN:other        lvl=17 delay=11.873
+      from design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_pack/p_reg[0]/C
+      to   design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_catpack/stage_reg[753]/CE
+   -2.041  BIN:other        lvl=17 delay=11.529
+      from design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_pack/p_reg[0]/C
+      to   design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_unit/u_eng/g_wram[2].wmem_reg/WEBWE[0]
+   -2.041  BIN:other        lvl=17 delay=11.529
+      from design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_pack/p_reg[0]/C
+      to   design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_unit/u_eng/g_wram[2].wmem_reg/WEBWE[3]
+   -2.041  BIN:other        lvl=17 delay=11.529
+      from design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_pack/p_reg[0]/C
+      to   design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_unit/u_eng/g_wram[2].wmem_reg/WEBWE[4]
+   -2.041  BIN:other        lvl=17 delay=11.529
+      from design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_pack/p_reg[0]/C
+      to   design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_unit/u_eng/g_wram[2].wmem_reg/WEBWE[7]
+   -2.039  BIN:other        lvl=17 delay=11.903
+      from design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_pack/p_reg[0]/C
+      to   design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_catpack/stage_reg[137]/CE
+   -2.039  BIN:other        lvl=17 delay=11.903
+      from design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_pack/p_reg[0]/C
+      to   design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_catpack/stage_reg[145]/CE
+   -2.039  BIN:other        lvl=17 delay=11.903
+      from design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_pack/p_reg[0]/C
+      to   design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_catpack/stage_reg[153]/CE
+   -2.039  BIN:other        lvl=17 delay=11.903
+      from design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_pack/p_reg[0]/C
+      to   design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_catpack/stage_reg[161]/CE
+   -2.039  BIN:other        lvl=17 delay=11.903
+      from design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_pack/p_reg[0]/C
+      to   design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_catpack/stage_reg[177]/CE
+   -2.039  BIN:other        lvl=17 delay=11.903
+      from design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_pack/p_reg[0]/C
+      to   design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_catpack/stage_reg[233]/CE
+   -2.039  BIN:other        lvl=17 delay=11.903
+      from design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_pack/p_reg[0]/C
+      to   design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_catpack/stage_reg[241]/CE
+   -2.039  BIN:other        lvl=17 delay=11.903
+      from design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_pack/p_reg[0]/C
+      to   design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_catpack/stage_reg[249]/CE
+   -2.038  BIN:other        lvl=17 delay=11.867
+      from design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_pack/p_reg[0]/C
+      to   design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_catpack/stage_reg[642]/CE
+   -2.038  BIN:other        lvl=17 delay=11.867
+      from design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_pack/p_reg[0]/C
+      to   design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_catpack/stage_reg[714]/CE
+   -2.037  BIN:other        lvl=17 delay=11.900
+      from design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_pack/p_reg[0]/C
+      to   design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_catpack/stage_reg[641]/CE
+   -2.037  BIN:other        lvl=17 delay=11.900
+      from design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_pack/p_reg[0]/C
+      to   design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_catpack/stage_reg[649]/CE
+INFO: [Common 17-206] Exiting Vivado at Sat Oct 31 17:02:26 2026...

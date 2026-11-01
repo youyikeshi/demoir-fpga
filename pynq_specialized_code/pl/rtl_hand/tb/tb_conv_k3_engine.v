@@ -46,7 +46,8 @@ module tb_conv_k3_engine;
     logic [31:0] dbg_stall_mac;
 
     conv_k3_engine #(
-        .LANES(8), .CIN_MAX(192), .COUT_MAX(192),
+        // 2026-10-28：同步瘦身后的参数
+        .LANES(8), .CIN_MAX(192), .COUT_MAX(32),
         .W_MAX(320), .H_MAX(320), .CAP_B(4608)
     ) dut (
         .ap_clk(ap_clk), .ap_rst_n(ap_rst_n),

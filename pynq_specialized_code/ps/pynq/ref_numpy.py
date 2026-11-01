@@ -32,6 +32,11 @@ import numpy as np
 W_LAYOUT_OCIC = "oc_ic_ky_kx"    # 默认/旧容器 [oc][ic][ky][kx]
 W_LAYOUT_K3_PAD12 = "k3_pad12"   # 仅 k=3：[oc][ic][12]（9 个抽头 + 3 个零）
 W_LAYOUT_K5_PAD28 = "k5_pad28"   # 仅 k=5：[oc][ic][28]（25 个抽头 + 3 个零）
+# 通用 TAP 容器（2026-10-30 时序优化后的 RTL 口径）：
+#   [oc][ic][TAP]，前 k² 字节是真抽头（j = ky*k + kx），其余是补齐洞
+#   TAP = 8·ceil(k²/8) ∈ {8,16,32}（新，默认）；k²+3 ∈ {4,12,28}（旧，兼容）
+#   与上面两个 PAD 容器的区别只有"补齐洞多宽"：j < k² 的字节逐字节相同。
+W_LAYOUT_TAP = "oc_ic_tap"
 
 K3_PAD = 12                      # 每个 (oc,ic) 的容器字节数
 K3_PAD_BYTES = 9                 # 其中有效的抽头字节数
@@ -110,7 +115,28 @@ def k5_from_pad28(w, cout=None, cin=None):
                                 .reshape(w.shape[0], w.shape[1], 5, 5))
 
 
-def wgt_as_ocic(w, w_layout=W_LAYOUT_OCIC, k=None):
+def tap_from_container(w, k=None, w_tap=None, cout=None, cin=None):
+    """通用 TAP 容器 (cout,cin,TAP) → (cout,cin,k,k)。补齐洞必须全 0。
+
+    `w` 可以是扁平 buffer 的视图（给 cout/cin）；`w_tap` 只在扁平输入时需要，
+    reshape 之后以最后一维为准（并校验与 index.json 记录的 `tap` 一致）。
+    """
+    import tap_pack                      # 与导出侧共用同一份 TAP 表/校验
+    w = np.asarray(w, dtype=np.int8)
+    if w.ndim == 1:
+        if cout is None or cin is None or w_tap is None:
+            raise ValueError("tap_from_container: 扁平输入必须给 cout/cin/w_tap")
+        w = w.reshape(int(cout), int(cin), int(w_tap))
+    if w.ndim != 3:
+        raise ValueError("tap_from_container 期望 (cout,cin,TAP)，收到 %r"
+                         % (w.shape,))
+    if w_tap is not None and int(w_tap) != int(w.shape[2]):
+        raise ValueError("tap_from_container: index 记录 tap=%d 与 w_shape 末维 %d "
+                         "不一致（权重包坏了）" % (int(w_tap), int(w.shape[2])))
+    return tap_pack.unpack_layer(w, k=k, tap=int(w.shape[2]))
+
+
+def wgt_as_ocic(w, w_layout=W_LAYOUT_OCIC, k=None, w_tap=None):
     """把容器里的权重统一成 (cout,cin,k,k)，供下面的数值计算使用。
 
     只处理三种合法输入：旧容器的 4 维数组、k3_pad12 的 (cout,cin,12)、
@@ -123,6 +149,8 @@ def wgt_as_ocic(w, w_layout=W_LAYOUT_OCIC, k=None):
         return k3_from_pad12(w)
     if lay == W_LAYOUT_K5_PAD28:
         return k5_from_pad28(w)
+    if lay == W_LAYOUT_TAP:
+        return tap_from_container(w, k=k, w_tap=w_tap)
     if w.ndim == 4:
         return w
     raise ValueError("wgt_as_ocic: 布局 %s 期望 4 维 (cout,cin,k,k)，收到 %d 维"
@@ -130,7 +158,7 @@ def wgt_as_ocic(w, w_layout=W_LAYOUT_OCIC, k=None):
 
 
 def conv_ref_numpy(inp, wgt, bias, k, s, d, pad, shift, relu=True,
-                   w_layout=W_LAYOUT_OCIC):
+                   w_layout=W_LAYOUT_OCIC, w_tap=None):
     """inp: (cin,H,W) int8; wgt: (cout,cin,k,k) int8; bias: (cout,) int32。
     返回 (cout,Hout,Wout) int8。
 
@@ -139,7 +167,20 @@ def conv_ref_numpy(inp, wgt, bias, k, s, d, pad, shift, relu=True,
     （只是容器补齐），所以任何布局错误都会在这里被 C 侧（conv_ref_rt）或
     总量对拍（ref_out.bin 必须逐字节不变）抓出来。
     """
-    wgt = wgt_as_ocic(wgt, w_layout, k)
+    wgt = wgt_as_ocic(wgt, w_layout, k, w_tap=w_tap)
+    # ---- C 加速（2026-10-28）----------------------------------------------
+    #  k>=3 时先试 ARM 上的 C 内核（conv_ref_fast.c，逐字节与下面 numpy 版一致，
+    #  x86 实测 4.7x、板上更明显——numpy 版对 k=5 的 conv_first 要 45 s，
+    #  占整网 63%）。不可用（非 ARM / 编译失败 / 参数不支持）就静默退回 numpy。
+    #  只对 k>=3 启用：k=1 时 numpy 的 tensordot 已经很快，C 反而略慢。
+    if k >= 3 and s == 1 and d == 1:
+        try:
+            from conv_ref_fast import conv_chw_i8 as _cf
+            _fast = _cf(inp, wgt, bias, k, s, d, pad, shift, relu)
+            if _fast is not None:
+                return _fast
+        except Exception:                       # noqa: BLE001
+            pass
     cin, H, W = inp.shape
     cout = wgt.shape[0]
     hout = (H - 1) // s + 1

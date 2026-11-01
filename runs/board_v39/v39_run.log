@@ -1,0 +1,113 @@
+
+==========================================================================
+  步骤 1：加载 overlay（本 session 唯一一次真正的 download）
+==========================================================================
+  Overlay(/home/xilinx/demoir/design_1_150v39.bit, download=True) 用时 2.235 s
+
+==========================================================================
+  步骤 2：地址核对（从**已加载的** overlay 实测）
+==========================================================================
+  conv_uni_0   mmio.base_addr = 0x40040000  length = 0x20000  （期望 0x40040000）  ✓
+  bin_unit_0   mmio.base_addr = 0x40060000  length = 0x20000  （期望 0x40060000）  ✓
+  overlay 里的 IP 清单：['bin_unit_0', 'conv_uni_0', 'ps7']
+
+==========================================================================
+  步骤 3：时钟读回 + 复位指纹
+==========================================================================
+  Clocks.fclk0_mhz 目标 100 → **读回 = 100**  ✓
+  复位指纹：alpha_shift=9 slope_shift=8 （期望 9 / 8）
+  AP_CTRL=0x00000000 AP_RETURN=0x00000000 DBG_FLAG=0x00000000
+  保留页 ResvPage[0x18] = 0x0 （期望 0）
+  引擎认到的 IP=bin_unit_0 base=0x40060000 range=0x20000
+
+==========================================================================
+  步骤 4：整网 256² 功能判据（fclk 读回 100 MHz）
+==========================================================================
+  arena v39_arena_256  66.22 MB（24 槽 × (in 1.18 + out 1.57 MB)）@0x30100000
+  [LAZY_DEQ] IN/OUT 槽数 = 24（BIN_LAZY_SLOTS）
+  ── net256 hw=256 ──
+     总 10.348 s（墙钟 10.348） PL 3.636（其中 E1E2 1.169）| PS 7.214 = prologue 2.658 + epilogue 0.574 + 非卷积 3.982 | overlap 1.743 wait 1.169
+     非卷积分项 {"unshuffle": 0.0048, "convfp": 1.2651, "cat": 0.1612, "add": 0.0693, "interp": 1.9603, "eca": 0.2611, "sam": 0.2461, "shuffle": 0.0146}
+     输入 sha1=cfc75bc3f15d306b (与冻结基线一致)
+     sha1 out1=9b1940c8955b out2=f86a7035621b out3=025757a83c39  OK/3
+
+==========================================================================
+  步骤 4：整网 64² 功能判据（fclk 读回 100 MHz）
+==========================================================================
+  arena v39_arena_64   4.29 MB（24 槽 × (in 0.07 + out 0.10 MB)）@0x30100000
+  [LAZY_DEQ] IN/OUT 槽数 = 24（BIN_LAZY_SLOTS）
+  ── net64 hw=64 ──
+     总 3.010 s（墙钟 3.011） PL 0.784（其中 E1E2 0.473）| PS 1.234 = prologue 0.751 + epilogue 0.092 + 非卷积 0.391 | overlap 0.208 wait 0.086
+     非卷积分项 {"unshuffle": 0.0004, "convfp": 0.112, "cat": 0.0362, "add": 0.005, "interp": 0.175, "eca": 0.0327, "sam": 0.0282, "shuffle": 0.0012}
+     输入 sha1=bbae82e46e363a77 (与冻结基线一致)
+     sha1 out1=bfa246d34681 out2=226bd39e522a out3=762d84b9618e  OK/3
+
+==========================================================================
+  步骤 6：单层 RLAT（复用 bin_test_staged.stage5，只为拿 cyc/rd/fill）
+==========================================================================
+
+==========================================================================
+  阶段 5：golden 扫掠（逐字节）
+==========================================================================
+  用 xsim 模块级黄金向量（/home/xilinx/demoir/pl/rtl_hand/golden）。
+  这些向量是 RTL 仿真逐字节 PASS 的 ⇒ “硬件 == golden”直接等价于“硬件 == RTL 语义”，不需要浮点参考。
+  （先在本机把参考实现与 golden 对一遍，golden/路径错了要在这里拦住）
+  bin_1x32_32_8x8      cin= 32 cout= 32 k=1 cb=1  2048/2048 字节一致 ✓
+  bin_1x64_16x16       cin= 64 cout= 64 k=1 cb=1  4096/4096 字节一致 ✓
+  bin_3x32_48_8x8      cin= 32 cout= 48 k=3 cb=1  3072/3072 字节一致 ✓
+  bin_3x32_48_d2       cin= 32 cout= 32 k=3 cb=1  2048/2048 字节一致 ✓
+  bin_3x96_64_8x8      cin= 96 cout= 64 k=3 cb=2  4096/4096 字节一致 ✓
+   ✓ bin_1x32_32_8x8                    cin= 32 cout= 32 k=1 s=1 cb=1  2048/2048  0.045 ms  cyc=4530 rd=352 fill=12  cyc/term=2.2119 fill/rd=0.034 cyc/fill=377.5
+   ✓ bin_1x64_16x16                     cin= 64 cout= 64 k=1 s=1 cb=1  4096/4096  0.043 ms  cyc=4292 rd=704 fill=18  cyc/term=1.0477 fill/rd=0.026 cyc/fill=238.4
+Traceback (most recent call last):
+  File "/home/xilinx/demoir/ps/pynq/board_v39_verify.py", line 292, in step_rlat
+    BS.stage5(e, bl, pool, out_buf, out_pa, a, 30.0)
+  File "/home/xilinx/demoir/ps/pynq/bin_test_staged.py", line 517, in stage5
+    rs = e.run(ab, ob, L=L, wdt=wdt, timeout=max(10.0, est * 4 + 5.0))
+  File "/home/xilinx/demoir/ps/pynq/bin_engine.py", line 1205, in run
+    st, dt = self.wait(timeout, wdt=wdt)
+  File "/home/xilinx/demoir/ps/pynq/bin_engine.py", line 1132, in wait
+    wdt.beat()                 # 长卷积必须边等边喂狗
+AttributeError: 'float' object has no attribute 'beat'
+  （stage5 结束）
+
+==========================================================================
+  步骤 7：频率曲线（同 bit / 同 PS 代码，只切 Clocks.fclk0_mhz）
+==========================================================================
+  arena v39_sweep_256  66.22 MB（24 槽 × (in 1.18 + out 1.57 MB)）@0x30100000
+  [LAZY_DEQ] IN/OUT 槽数 = 24（BIN_LAZY_SLOTS）
+  ── sweep@125 rep0 hw=256 ──
+     总 8.576 s（墙钟 8.577） PL 3.401（其中 E1E2 1.033）| PS 5.671 = prologue 1.643 + epilogue 0.259 + 非卷积 3.770 | overlap 1.648 wait 0.850
+     非卷积分项 {"unshuffle": 0.0049, "convfp": 1.3125, "cat": 0.1306, "add": 0.0675, "interp": 1.91, "eca": 0.0812, "sam": 0.2476, "shuffle": 0.0155}
+     输入 sha1=cfc75bc3f15d306b (与冻结基线一致)
+     sha1 out1=9b1940c8955b out2=f86a7035621b out3=025757a83c39  OK/3
+  [LAZY_DEQ] IN/OUT 槽数 = 24（BIN_LAZY_SLOTS）
+  ── sweep@125 rep1 hw=256 ──
+     总 8.399 s（墙钟 8.399） PL 3.443（其中 E1E2 1.036）| PS 5.496 = prologue 1.646 + epilogue 0.260 + 非卷积 3.589 | overlap 1.686 wait 0.851
+     非卷积分项 {"unshuffle": 0.0049, "convfp": 1.1389, "cat": 0.1299, "add": 0.0652, "interp": 1.911, "eca": 0.0791, "sam": 0.2457, "shuffle": 0.0146}
+     输入 sha1=cfc75bc3f15d306b (与冻结基线一致)
+     sha1 out1=9b1940c8955b out2=f86a7035621b out3=025757a83c39  OK/3
+  >>> 请求 125 MHz（读回 125）→ min 总 8.399 s / PL 3.443 s  sha1 OK
+  [LAZY_DEQ] IN/OUT 槽数 = 24（BIN_LAZY_SLOTS）
+  ── sweep@150 rep0 hw=256 ──
+     总 8.281 s（墙钟 8.282） PL 3.242（其中 E1E2 0.967）| PS 5.541 = prologue 1.605 + epilogue 0.260 + 非卷积 3.676 | overlap 1.663 wait 0.737
+     非卷积分项 {"unshuffle": 0.0049, "convfp": 1.1642, "cat": 0.1326, "add": 0.0669, "interp": 1.9667, "eca": 0.0823, "sam": 0.2442, "shuffle": 0.0142}
+     输入 sha1=cfc75bc3f15d306b (与冻结基线一致)
+     sha1 out1=9b1940c8955b out2=f86a7035621b out3=025757a83c39  OK/3
+  [LAZY_DEQ] IN/OUT 槽数 = 24（BIN_LAZY_SLOTS）
+  ── sweep@150 rep1 hw=256 ──
+     总 8.198 s（墙钟 8.198） PL 3.176（其中 E1E2 0.962）| PS 5.474 = prologue 1.593 + epilogue 0.258 + 非卷积 3.623 | overlap 1.600 wait 0.736
+     非卷积分项 {"unshuffle": 0.0048, "convfp": 1.168, "cat": 0.1332, "add": 0.0671, "interp": 1.91, "eca": 0.0811, "sam": 0.2445, "shuffle": 0.0147}
+     输入 sha1=cfc75bc3f15d306b (与冻结基线一致)
+     sha1 out1=9b1940c8955b out2=f86a7035621b out3=025757a83c39  OK/3
+  >>> 请求 150 MHz（读回 150）→ min 总 8.198 s / PL 3.176 s  sha1 OK
+  时钟已恢复到 100 MHz（读回 100）
+
+==========================================================================
+  汇总
+==========================================================================
+  net_256  总  10.348  PL  3.636  prologue  2.658  epilogue 0.574  非卷积 3.982  sha1 3/3 OK
+  net_64   总   3.010  PL  0.784  prologue  0.751  epilogue 0.092  非卷积 0.391  sha1 3/3 OK
+  @125    MHz（读回 125）总   8.399  PL  3.443  sha1 3/3 OK
+  @150    MHz（读回 150）总   8.198  PL  3.176  sha1 3/3 OK
+  → /home/xilinx/demoir/v39_verify.json

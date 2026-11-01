@@ -1,0 +1,1134 @@
+
+****** Vivado v2025.2.1 (64-bit)
+  **** SW Build 6403652 on Thu Mar 19 13:47:00 MDT 2026
+  **** IP Build 6403511 on Thu Mar 19 12:41:45 MDT 2026
+  **** SharedData Build 6403650 on Thu Mar 19 14:02:13 MDT 2026
+  **** Start of session at: Sat Oct 31 19:52:05 2026
+    ** Copyright 1986-2022 Xilinx, Inc. All Rights Reserved.
+    ** Copyright 2022-2026 Advanced Micro Devices, Inc. All Rights Reserved.
+
+source pl/scripts/probe_latch_ooc.tcl
+# source [file join [file dirname [info script]] _guard_build.tcl]
+## set _guard_root [file normalize [file join [file dirname [file normalize [info script]]] ../../..]]
+## set _owner_file [expr {[info exists ::env(DSH_BUILD_OWNER_FILE)] \
+##                         ? $::env(DSH_BUILD_OWNER_FILE) \
+##                         : [file join $_guard_root runs resguard BUILD_OWNER]}]
+## set _ttl [expr {[info exists ::env(BUILD_OWNER_TTL)] ? $::env(BUILD_OWNER_TTL) : 21600}]
+## proc _guard_fail {msg} {
+##     puts stderr "\n==========================================================================="
+##     puts stderr "  ⛔ 构建被资源闸门拒绝：$msg"
+##     puts stderr "==========================================================================="
+##     puts stderr "  本机 SwapTotal=0，必须串行构建。请改用它启动："
+##     puts stderr ""
+##     puts stderr "    cd /media/felix/Data/coding/demoir-fpga/pynq_specialized_code"
+##     puts stderr "    tools/memgate.sh <预估峰值GB> -- \\"
+##     puts stderr "        pl/scripts/vrun.sh scripts/build_final_150v39.tcl runs/xxx.log"
+##     puts stderr ""
+##     puts stderr "  预估峰值：综合约 4 GB，中小实现约 8 GB，大实现 16 GB。"
+##     puts stderr "  说明见 runs/resguard/RESOURCE.md"
+##     puts stderr "===========================================================================\n"
+##     error "_GUARD_REJECTED: $msg"
+## }
+## if {![info exists ::env(DSH_BUILD_TOKEN)]} {
+##     _guard_fail "缺少 DSH_BUILD_TOKEN 环境变量（不是通过 memgate.sh 启动的）"
+## }
+## if {![file readable $_owner_file]} {
+##     _guard_fail "找不到 BUILD_OWNER（$_owner_file）—— 没有构建正在进行，或已过期被清理"
+## }
+## set _fh [open $_owner_file r]
+## set _raw [read $_fh]
+## close $_fh
+## array set _own {token "" pid "" ts "" lock "" cmd ""}
+## foreach _line [split $_raw "\n"] {
+##     if {[regexp {^([a-zA-Z_]+)=(.*)$} $_line -> _k _v]} {
+##         set _own($_k) $_v
+##     }
+## }
+## if {$_own(token) eq ""} {
+##     _guard_fail "BUILD_OWNER 内容不合法（缺 token）"
+## }
+## if {$_own(token) ne $::env(DSH_BUILD_TOKEN)} {
+##     _guard_fail "令牌不匹配：env=$::env(DSH_BUILD_TOKEN) owner=$_own(token)（另有构建在跑，抢锁失败）"
+## }
+## set _age [expr {[clock seconds] - int($_own(ts))}]
+## if {$_age > $_ttl} {
+##     _guard_fail "BUILD_OWNER 已过期 ${_age}s > TTL ${_ttl}s（多半是上次构建异常中断留下的）"
+## }
+## if {$_age < 0} {
+##     _guard_fail "BUILD_OWNER 时间戳在未来（时钟异常）"
+## }
+## if {$_own(lock) ne "bypassed"} {
+##     set _lk [expr {[info exists _own(lockfile)] && $_own(lockfile) ne "" ? $_own(lockfile) : "/tmp/dsh_vivado.lock"}]
+##     if {[file readable $_lk]} {
+##         # 锁空闲 ⇒ flock 能拿到 ⇒ 说明没人持锁，本进程不是受控启动
+##         if {![catch {exec flock -n $_lk -c true} _out]} {
+##             _guard_fail "单实例锁 $_lk 处于空闲状态（预期被 memgate 持有）"
+##         }
+##     }
+## }
+## puts "\[guard\] ✅ 构建闸门通过  owner_pid=$_own(pid)  age=${_age}s  lock=$_own(lock)"
+[guard] ✅ 构建闸门通过  owner_pid=2187085  age=102s  lock=held
+## puts "\[guard\]    token=$_own(token)"
+[guard]    token=1793447425-2187085-171747364
+## puts "\[guard\]    cmd=$_own(cmd)"
+[guard]    cmd=bash /media/felix/Data/tmp/v40_all.sh
+# set_param general.maxThreads 2
+# set M /media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/rtl_hand/modules
+# foreach f {conv_uni_axi_wrap_bd.v conv_uni_axi_wrap.v conv_int8_uni.v
+#            bin_unit_axi_wrap_bd.v bin_unit_axi_wrap.v
+#            bin_conv_core.v bin_conv_core8.v bin_e1e2.v bin_catpack.v
+#            bin_rprelu.v bin_sam.v bin_interp.v} {
+#     read_verilog -sv [file join $M $f]
+# }
+# synth_design -top bin_unit_axi_wrap -part xc7z015clg485-2 -mode out_of_context
+Command: synth_design -top bin_unit_axi_wrap -part xc7z015clg485-2 -mode out_of_context
+Starting synth_design
+Attempting to get a license for feature 'Synthesis' and/or device 'xc7z015'
+INFO: [Common 17-349] Got license for feature 'Synthesis' and/or device 'xc7z015'
+INFO: [Synth 8-7079] Multithreading enabled for synth_design using a maximum of 2 processes.
+INFO: [Synth 8-7078] Launching helper process for spawning children vivado processes
+INFO: [Synth 8-7075] Helper process launched with PID 2193216
+---------------------------------------------------------------------------------
+Starting Synthesize : Time (s): cpu = 00:00:03 ; elapsed = 00:00:03 . Memory (MB): peak = 2042.441 ; gain = 486.559 ; free physical = 399 ; free virtual = 11860
+---------------------------------------------------------------------------------
+WARNING: [Synth 8-11259] unmatched synthesis 'translate/synthesis off' pragma found; expected a matching pair with the same keywords [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/rtl_hand/modules/conv_uni_axi_wrap.v:2083]
+INFO: [Synth 8-6157] synthesizing module 'bin_unit_axi_wrap' [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/rtl_hand/modules/bin_unit_axi_wrap.v:299]
+INFO: [Synth 8-6157] synthesizing module 'bin_conv_core' [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/rtl_hand/modules/bin_conv_core.v:10]
+	Parameter LANES bound to: 32'sb00000000000000000000000001000000 
+	Parameter COUT_MAX bound to: 32'sb00000000000000000000000011000000 
+INFO: [Synth 8-6157] synthesizing module 'bin_conv_core8' [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/rtl_hand/modules/bin_conv_core8.v:52]
+	Parameter LANES bound to: 32'sb00000000000000000000000001000000 
+	Parameter COUT_MAX bound to: 32'sb00000000000000000000000011000000 
+INFO: [Synth 8-6155] done synthesizing module 'bin_conv_core8' (0#1) [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/rtl_hand/modules/bin_conv_core8.v:52]
+INFO: [Synth 8-6155] done synthesizing module 'bin_conv_core' (0#1) [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/rtl_hand/modules/bin_conv_core.v:10]
+INFO: [Synth 8-6157] synthesizing module 'bin_e1e2' [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/rtl_hand/modules/bin_e1e2.v:60]
+	Parameter LANES bound to: 32'sb00000000000000000000000001000000 
+	Parameter ACC_AW bound to: 32'sb00000000000000000000000000001000 
+	Parameter C_MAX bound to: 32'sb00000000000000000001000000000000 
+INFO: [Synth 8-6155] done synthesizing module 'bin_e1e2' (0#1) [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/rtl_hand/modules/bin_e1e2.v:60]
+INFO: [Synth 8-6157] synthesizing module 'bin_catpack' [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/rtl_hand/modules/bin_catpack.v:68]
+	Parameter CMAX bound to: 32'sb00000000000000000001000000000000 
+	Parameter TILE bound to: 32'sb00000000000000000000000000010000 
+INFO: [Synth 8-294] found qualifier unique on case statement: implementing as parallel_case [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/rtl_hand/modules/bin_catpack.v:427]
+INFO: [Synth 8-294] found qualifier unique on case statement: implementing as parallel_case [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/rtl_hand/modules/bin_catpack.v:456]
+INFO: [Synth 8-6155] done synthesizing module 'bin_catpack' (0#1) [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/rtl_hand/modules/bin_catpack.v:68]
+INFO: [Synth 8-6155] done synthesizing module 'bin_unit_axi_wrap' (0#1) [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/rtl_hand/modules/bin_unit_axi_wrap.v:299]
+WARNING: [Synth 8-6014] Unused sequential element r1_b_reg was removed.  [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/rtl_hand/modules/bin_conv_core8.v:359]
+WARNING: [Synth 8-6014] Unused sequential element ash_q_reg was removed.  [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/rtl_hand/modules/bin_conv_core8.v:604]
+WARNING: [Synth 8-6014] Unused sequential element ssh_q_reg was removed.  [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/rtl_hand/modules/bin_conv_core8.v:604]
+WARNING: [Synth 8-6014] Unused sequential element wgt_b_reg was removed.  [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/rtl_hand/modules/bin_conv_core8.v:605]
+WARNING: [Synth 8-6014] Unused sequential element out_b_reg was removed.  [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/rtl_hand/modules/bin_conv_core8.v:607]
+WARNING: [Synth 8-6014] Unused sequential element w8_q_reg was removed.  [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/rtl_hand/modules/bin_conv_core8.v:609]
+WARNING: [Synth 8-6014] Unused sequential element k8_q_reg was removed.  [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/rtl_hand/modules/bin_conv_core8.v:611]
+WARNING: [Synth 8-6014] Unused sequential element ky_q_reg was removed.  [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/rtl_hand/modules/bin_conv_core8.v:801]
+WARNING: [Synth 8-7137] Register s1_pc_q_reg[0] in module bin_conv_core8 has both Set and reset with same priority. This may cause simulation mismatches. Consider rewriting code  [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/rtl_hand/modules/bin_conv_core8.v:383]
+WARNING: [Synth 8-7137] Register s1_pc_q_reg[1] in module bin_conv_core8 has both Set and reset with same priority. This may cause simulation mismatches. Consider rewriting code  [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/rtl_hand/modules/bin_conv_core8.v:383]
+WARNING: [Synth 8-7137] Register s1_pc_q_reg[2] in module bin_conv_core8 has both Set and reset with same priority. This may cause simulation mismatches. Consider rewriting code  [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/rtl_hand/modules/bin_conv_core8.v:383]
+WARNING: [Synth 8-7137] Register s1_pc_q_reg[3] in module bin_conv_core8 has both Set and reset with same priority. This may cause simulation mismatches. Consider rewriting code  [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/rtl_hand/modules/bin_conv_core8.v:383]
+WARNING: [Synth 8-7137] Register s1_pc_q_reg[4] in module bin_conv_core8 has both Set and reset with same priority. This may cause simulation mismatches. Consider rewriting code  [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/rtl_hand/modules/bin_conv_core8.v:383]
+WARNING: [Synth 8-7137] Register s1_pc_q_reg[5] in module bin_conv_core8 has both Set and reset with same priority. This may cause simulation mismatches. Consider rewriting code  [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/rtl_hand/modules/bin_conv_core8.v:383]
+WARNING: [Synth 8-7137] Register s1_pc_q_reg[6] in module bin_conv_core8 has both Set and reset with same priority. This may cause simulation mismatches. Consider rewriting code  [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/rtl_hand/modules/bin_conv_core8.v:383]
+WARNING: [Synth 8-7137] Register s1_pc_q_reg[7] in module bin_conv_core8 has both Set and reset with same priority. This may cause simulation mismatches. Consider rewriting code  [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/rtl_hand/modules/bin_conv_core8.v:383]
+WARNING: [Synth 8-7137] Register p_acc_reg[0] in module bin_conv_core8 has both Set and reset with same priority. This may cause simulation mismatches. Consider rewriting code  [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/rtl_hand/modules/bin_conv_core8.v:397]
+WARNING: [Synth 8-7137] Register p_acc_reg[1] in module bin_conv_core8 has both Set and reset with same priority. This may cause simulation mismatches. Consider rewriting code  [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/rtl_hand/modules/bin_conv_core8.v:397]
+WARNING: [Synth 8-7137] Register p_acc_reg[2] in module bin_conv_core8 has both Set and reset with same priority. This may cause simulation mismatches. Consider rewriting code  [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/rtl_hand/modules/bin_conv_core8.v:397]
+WARNING: [Synth 8-7137] Register p_acc_reg[3] in module bin_conv_core8 has both Set and reset with same priority. This may cause simulation mismatches. Consider rewriting code  [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/rtl_hand/modules/bin_conv_core8.v:397]
+WARNING: [Synth 8-7137] Register p_acc_reg[4] in module bin_conv_core8 has both Set and reset with same priority. This may cause simulation mismatches. Consider rewriting code  [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/rtl_hand/modules/bin_conv_core8.v:397]
+WARNING: [Synth 8-7137] Register p_acc_reg[5] in module bin_conv_core8 has both Set and reset with same priority. This may cause simulation mismatches. Consider rewriting code  [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/rtl_hand/modules/bin_conv_core8.v:397]
+WARNING: [Synth 8-7137] Register p_acc_reg[6] in module bin_conv_core8 has both Set and reset with same priority. This may cause simulation mismatches. Consider rewriting code  [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/rtl_hand/modules/bin_conv_core8.v:397]
+WARNING: [Synth 8-7137] Register p_acc_reg[7] in module bin_conv_core8 has both Set and reset with same priority. This may cause simulation mismatches. Consider rewriting code  [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/rtl_hand/modules/bin_conv_core8.v:397]
+WARNING: [Synth 8-7137] Register p_snap_reg[0] in module bin_conv_core8 has both Set and reset with same priority. This may cause simulation mismatches. Consider rewriting code  [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/rtl_hand/modules/bin_conv_core8.v:398]
+WARNING: [Synth 8-7137] Register p_snap_reg[1] in module bin_conv_core8 has both Set and reset with same priority. This may cause simulation mismatches. Consider rewriting code  [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/rtl_hand/modules/bin_conv_core8.v:398]
+WARNING: [Synth 8-7137] Register p_snap_reg[2] in module bin_conv_core8 has both Set and reset with same priority. This may cause simulation mismatches. Consider rewriting code  [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/rtl_hand/modules/bin_conv_core8.v:398]
+WARNING: [Synth 8-7137] Register p_snap_reg[3] in module bin_conv_core8 has both Set and reset with same priority. This may cause simulation mismatches. Consider rewriting code  [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/rtl_hand/modules/bin_conv_core8.v:398]
+WARNING: [Synth 8-7137] Register p_snap_reg[4] in module bin_conv_core8 has both Set and reset with same priority. This may cause simulation mismatches. Consider rewriting code  [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/rtl_hand/modules/bin_conv_core8.v:398]
+WARNING: [Synth 8-7137] Register p_snap_reg[5] in module bin_conv_core8 has both Set and reset with same priority. This may cause simulation mismatches. Consider rewriting code  [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/rtl_hand/modules/bin_conv_core8.v:398]
+WARNING: [Synth 8-7137] Register p_snap_reg[6] in module bin_conv_core8 has both Set and reset with same priority. This may cause simulation mismatches. Consider rewriting code  [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/rtl_hand/modules/bin_conv_core8.v:398]
+WARNING: [Synth 8-7137] Register p_snap_reg[7] in module bin_conv_core8 has both Set and reset with same priority. This may cause simulation mismatches. Consider rewriting code  [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/rtl_hand/modules/bin_conv_core8.v:398]
+WARNING: [Synth 8-7137] Register e1_prod_q_reg[0] in module bin_conv_core8 has both Set and reset with same priority. This may cause simulation mismatches. Consider rewriting code  [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/rtl_hand/modules/bin_conv_core8.v:476]
+WARNING: [Synth 8-7137] Register e1_prod_q_reg[1] in module bin_conv_core8 has both Set and reset with same priority. This may cause simulation mismatches. Consider rewriting code  [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/rtl_hand/modules/bin_conv_core8.v:476]
+WARNING: [Synth 8-7137] Register e1_prod_q_reg[2] in module bin_conv_core8 has both Set and reset with same priority. This may cause simulation mismatches. Consider rewriting code  [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/rtl_hand/modules/bin_conv_core8.v:476]
+WARNING: [Synth 8-7137] Register e1_prod_q_reg[3] in module bin_conv_core8 has both Set and reset with same priority. This may cause simulation mismatches. Consider rewriting code  [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/rtl_hand/modules/bin_conv_core8.v:476]
+WARNING: [Synth 8-7137] Register e1_prod_q_reg[4] in module bin_conv_core8 has both Set and reset with same priority. This may cause simulation mismatches. Consider rewriting code  [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/rtl_hand/modules/bin_conv_core8.v:476]
+WARNING: [Synth 8-7137] Register e1_prod_q_reg[5] in module bin_conv_core8 has both Set and reset with same priority. This may cause simulation mismatches. Consider rewriting code  [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/rtl_hand/modules/bin_conv_core8.v:476]
+WARNING: [Synth 8-7137] Register e1_prod_q_reg[6] in module bin_conv_core8 has both Set and reset with same priority. This may cause simulation mismatches. Consider rewriting code  [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/rtl_hand/modules/bin_conv_core8.v:476]
+WARNING: [Synth 8-7137] Register e1_prod_q_reg[7] in module bin_conv_core8 has both Set and reset with same priority. This may cause simulation mismatches. Consider rewriting code  [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/rtl_hand/modules/bin_conv_core8.v:476]
+WARNING: [Synth 8-7137] Register e1_sh_q_reg[0] in module bin_conv_core8 has both Set and reset with same priority. This may cause simulation mismatches. Consider rewriting code  [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/rtl_hand/modules/bin_conv_core8.v:487]
+WARNING: [Synth 8-7137] Register e1_sh_q_reg[1] in module bin_conv_core8 has both Set and reset with same priority. This may cause simulation mismatches. Consider rewriting code  [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/rtl_hand/modules/bin_conv_core8.v:487]
+WARNING: [Synth 8-7137] Register e1_sh_q_reg[2] in module bin_conv_core8 has both Set and reset with same priority. This may cause simulation mismatches. Consider rewriting code  [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/rtl_hand/modules/bin_conv_core8.v:487]
+WARNING: [Synth 8-7137] Register e1_sh_q_reg[3] in module bin_conv_core8 has both Set and reset with same priority. This may cause simulation mismatches. Consider rewriting code  [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/rtl_hand/modules/bin_conv_core8.v:487]
+WARNING: [Synth 8-7137] Register e1_sh_q_reg[4] in module bin_conv_core8 has both Set and reset with same priority. This may cause simulation mismatches. Consider rewriting code  [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/rtl_hand/modules/bin_conv_core8.v:487]
+WARNING: [Synth 8-7137] Register e1_sh_q_reg[5] in module bin_conv_core8 has both Set and reset with same priority. This may cause simulation mismatches. Consider rewriting code  [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/rtl_hand/modules/bin_conv_core8.v:487]
+WARNING: [Synth 8-7137] Register e1_sh_q_reg[6] in module bin_conv_core8 has both Set and reset with same priority. This may cause simulation mismatches. Consider rewriting code  [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/rtl_hand/modules/bin_conv_core8.v:487]
+WARNING: [Synth 8-7137] Register e1_sh_q_reg[7] in module bin_conv_core8 has both Set and reset with same priority. This may cause simulation mismatches. Consider rewriting code  [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/rtl_hand/modules/bin_conv_core8.v:487]
+WARNING: [Synth 8-7137] Register e2_dd_q_reg[0] in module bin_conv_core8 has both Set and reset with same priority. This may cause simulation mismatches. Consider rewriting code  [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/rtl_hand/modules/bin_conv_core8.v:499]
+WARNING: [Synth 8-7137] Register e2_dd_q_reg[1] in module bin_conv_core8 has both Set and reset with same priority. This may cause simulation mismatches. Consider rewriting code  [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/rtl_hand/modules/bin_conv_core8.v:499]
+WARNING: [Synth 8-7137] Register e2_dd_q_reg[2] in module bin_conv_core8 has both Set and reset with same priority. This may cause simulation mismatches. Consider rewriting code  [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/rtl_hand/modules/bin_conv_core8.v:499]
+WARNING: [Synth 8-7137] Register e2_dd_q_reg[3] in module bin_conv_core8 has both Set and reset with same priority. This may cause simulation mismatches. Consider rewriting code  [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/rtl_hand/modules/bin_conv_core8.v:499]
+WARNING: [Synth 8-7137] Register e2_dd_q_reg[4] in module bin_conv_core8 has both Set and reset with same priority. This may cause simulation mismatches. Consider rewriting code  [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/rtl_hand/modules/bin_conv_core8.v:499]
+WARNING: [Synth 8-7137] Register e2_dd_q_reg[5] in module bin_conv_core8 has both Set and reset with same priority. This may cause simulation mismatches. Consider rewriting code  [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/rtl_hand/modules/bin_conv_core8.v:499]
+WARNING: [Synth 8-7137] Register e2_dd_q_reg[6] in module bin_conv_core8 has both Set and reset with same priority. This may cause simulation mismatches. Consider rewriting code  [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/rtl_hand/modules/bin_conv_core8.v:499]
+WARNING: [Synth 8-7137] Register e2_dd_q_reg[7] in module bin_conv_core8 has both Set and reset with same priority. This may cause simulation mismatches. Consider rewriting code  [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/rtl_hand/modules/bin_conv_core8.v:499]
+WARNING: [Synth 8-7137] Register e2_rp_q_reg[0] in module bin_conv_core8 has both Set and reset with same priority. This may cause simulation mismatches. Consider rewriting code  [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/rtl_hand/modules/bin_conv_core8.v:500]
+WARNING: [Synth 8-7137] Register e2_rp_q_reg[1] in module bin_conv_core8 has both Set and reset with same priority. This may cause simulation mismatches. Consider rewriting code  [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/rtl_hand/modules/bin_conv_core8.v:500]
+WARNING: [Synth 8-7137] Register e2_rp_q_reg[2] in module bin_conv_core8 has both Set and reset with same priority. This may cause simulation mismatches. Consider rewriting code  [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/rtl_hand/modules/bin_conv_core8.v:500]
+WARNING: [Synth 8-7137] Register e2_rp_q_reg[3] in module bin_conv_core8 has both Set and reset with same priority. This may cause simulation mismatches. Consider rewriting code  [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/rtl_hand/modules/bin_conv_core8.v:500]
+WARNING: [Synth 8-7137] Register e2_rp_q_reg[4] in module bin_conv_core8 has both Set and reset with same priority. This may cause simulation mismatches. Consider rewriting code  [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/rtl_hand/modules/bin_conv_core8.v:500]
+WARNING: [Synth 8-7137] Register e2_rp_q_reg[5] in module bin_conv_core8 has both Set and reset with same priority. This may cause simulation mismatches. Consider rewriting code  [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/rtl_hand/modules/bin_conv_core8.v:500]
+WARNING: [Synth 8-7137] Register e2_rp_q_reg[6] in module bin_conv_core8 has both Set and reset with same priority. This may cause simulation mismatches. Consider rewriting code  [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/rtl_hand/modules/bin_conv_core8.v:500]
+WARNING: [Synth 8-7137] Register e2_rp_q_reg[7] in module bin_conv_core8 has both Set and reset with same priority. This may cause simulation mismatches. Consider rewriting code  [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/rtl_hand/modules/bin_conv_core8.v:500]
+WARNING: [Synth 8-7137] Register e2_ddpos_q_reg[0] in module bin_conv_core8 has both Set and reset with same priority. This may cause simulation mismatches. Consider rewriting code  [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/rtl_hand/modules/bin_conv_core8.v:501]
+WARNING: [Synth 8-7137] Register e2_ddpos_q_reg[1] in module bin_conv_core8 has both Set and reset with same priority. This may cause simulation mismatches. Consider rewriting code  [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/rtl_hand/modules/bin_conv_core8.v:501]
+WARNING: [Synth 8-7137] Register e2_ddpos_q_reg[2] in module bin_conv_core8 has both Set and reset with same priority. This may cause simulation mismatches. Consider rewriting code  [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/rtl_hand/modules/bin_conv_core8.v:501]
+WARNING: [Synth 8-7137] Register e2_ddpos_q_reg[3] in module bin_conv_core8 has both Set and reset with same priority. This may cause simulation mismatches. Consider rewriting code  [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/rtl_hand/modules/bin_conv_core8.v:501]
+WARNING: [Synth 8-7137] Register e2_ddpos_q_reg[4] in module bin_conv_core8 has both Set and reset with same priority. This may cause simulation mismatches. Consider rewriting code  [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/rtl_hand/modules/bin_conv_core8.v:501]
+WARNING: [Synth 8-7137] Register e2_ddpos_q_reg[5] in module bin_conv_core8 has both Set and reset with same priority. This may cause simulation mismatches. Consider rewriting code  [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/rtl_hand/modules/bin_conv_core8.v:501]
+WARNING: [Synth 8-7137] Register e2_ddpos_q_reg[6] in module bin_conv_core8 has both Set and reset with same priority. This may cause simulation mismatches. Consider rewriting code  [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/rtl_hand/modules/bin_conv_core8.v:501]
+WARNING: [Synth 8-7137] Register e2_ddpos_q_reg[7] in module bin_conv_core8 has both Set and reset with same priority. This may cause simulation mismatches. Consider rewriting code  [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/rtl_hand/modules/bin_conv_core8.v:501]
+WARNING: [Synth 8-7137] Register e2_pn_q_reg[0] in module bin_conv_core8 has both Set and reset with same priority. This may cause simulation mismatches. Consider rewriting code  [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/rtl_hand/modules/bin_conv_core8.v:514]
+WARNING: [Synth 8-7137] Register e2_pn_q_reg[1] in module bin_conv_core8 has both Set and reset with same priority. This may cause simulation mismatches. Consider rewriting code  [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/rtl_hand/modules/bin_conv_core8.v:514]
+WARNING: [Synth 8-7137] Register e2_pn_q_reg[2] in module bin_conv_core8 has both Set and reset with same priority. This may cause simulation mismatches. Consider rewriting code  [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/rtl_hand/modules/bin_conv_core8.v:514]
+WARNING: [Synth 8-7137] Register e2_pn_q_reg[3] in module bin_conv_core8 has both Set and reset with same priority. This may cause simulation mismatches. Consider rewriting code  [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/rtl_hand/modules/bin_conv_core8.v:514]
+WARNING: [Synth 8-7137] Register e2_pn_q_reg[4] in module bin_conv_core8 has both Set and reset with same priority. This may cause simulation mismatches. Consider rewriting code  [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/rtl_hand/modules/bin_conv_core8.v:514]
+WARNING: [Synth 8-7137] Register e2_pn_q_reg[5] in module bin_conv_core8 has both Set and reset with same priority. This may cause simulation mismatches. Consider rewriting code  [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/rtl_hand/modules/bin_conv_core8.v:514]
+WARNING: [Synth 8-7137] Register e2_pn_q_reg[6] in module bin_conv_core8 has both Set and reset with same priority. This may cause simulation mismatches. Consider rewriting code  [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/rtl_hand/modules/bin_conv_core8.v:514]
+WARNING: [Synth 8-7137] Register e2_pn_q_reg[7] in module bin_conv_core8 has both Set and reset with same priority. This may cause simulation mismatches. Consider rewriting code  [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/rtl_hand/modules/bin_conv_core8.v:514]
+WARNING: [Synth 8-7137] Register e2_rp4_q_reg[0] in module bin_conv_core8 has both Set and reset with same priority. This may cause simulation mismatches. Consider rewriting code  [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/rtl_hand/modules/bin_conv_core8.v:515]
+WARNING: [Synth 8-7137] Register e2_rp4_q_reg[1] in module bin_conv_core8 has both Set and reset with same priority. This may cause simulation mismatches. Consider rewriting code  [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/rtl_hand/modules/bin_conv_core8.v:515]
+WARNING: [Synth 8-7137] Register e2_rp4_q_reg[2] in module bin_conv_core8 has both Set and reset with same priority. This may cause simulation mismatches. Consider rewriting code  [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/rtl_hand/modules/bin_conv_core8.v:515]
+WARNING: [Synth 8-7137] Register e2_rp4_q_reg[3] in module bin_conv_core8 has both Set and reset with same priority. This may cause simulation mismatches. Consider rewriting code  [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/rtl_hand/modules/bin_conv_core8.v:515]
+WARNING: [Synth 8-7137] Register e2_rp4_q_reg[4] in module bin_conv_core8 has both Set and reset with same priority. This may cause simulation mismatches. Consider rewriting code  [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/rtl_hand/modules/bin_conv_core8.v:515]
+WARNING: [Synth 8-7137] Register e2_rp4_q_reg[5] in module bin_conv_core8 has both Set and reset with same priority. This may cause simulation mismatches. Consider rewriting code  [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/rtl_hand/modules/bin_conv_core8.v:515]
+WARNING: [Synth 8-7137] Register e2_rp4_q_reg[6] in module bin_conv_core8 has both Set and reset with same priority. This may cause simulation mismatches. Consider rewriting code  [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/rtl_hand/modules/bin_conv_core8.v:515]
+WARNING: [Synth 8-7137] Register e2_rp4_q_reg[7] in module bin_conv_core8 has both Set and reset with same priority. This may cause simulation mismatches. Consider rewriting code  [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/rtl_hand/modules/bin_conv_core8.v:515]
+WARNING: [Synth 8-7137] Register e2_ddp4_q_reg[0] in module bin_conv_core8 has both Set and reset with same priority. This may cause simulation mismatches. Consider rewriting code  [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/rtl_hand/modules/bin_conv_core8.v:516]
+WARNING: [Synth 8-7137] Register e2_ddp4_q_reg[1] in module bin_conv_core8 has both Set and reset with same priority. This may cause simulation mismatches. Consider rewriting code  [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/rtl_hand/modules/bin_conv_core8.v:516]
+WARNING: [Synth 8-7137] Register e2_ddp4_q_reg[2] in module bin_conv_core8 has both Set and reset with same priority. This may cause simulation mismatches. Consider rewriting code  [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/rtl_hand/modules/bin_conv_core8.v:516]
+WARNING: [Synth 8-7137] Register e2_ddp4_q_reg[3] in module bin_conv_core8 has both Set and reset with same priority. This may cause simulation mismatches. Consider rewriting code  [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/rtl_hand/modules/bin_conv_core8.v:516]
+WARNING: [Synth 8-7137] Register e2_ddp4_q_reg[4] in module bin_conv_core8 has both Set and reset with same priority. This may cause simulation mismatches. Consider rewriting code  [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/rtl_hand/modules/bin_conv_core8.v:516]
+WARNING: [Synth 8-7137] Register e2_ddp4_q_reg[5] in module bin_conv_core8 has both Set and reset with same priority. This may cause simulation mismatches. Consider rewriting code  [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/rtl_hand/modules/bin_conv_core8.v:516]
+WARNING: [Synth 8-7137] Register e2_ddp4_q_reg[6] in module bin_conv_core8 has both Set and reset with same priority. This may cause simulation mismatches. Consider rewriting code  [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/rtl_hand/modules/bin_conv_core8.v:516]
+WARNING: [Synth 8-7137] Register e2_ddp4_q_reg[7] in module bin_conv_core8 has both Set and reset with same priority. This may cause simulation mismatches. Consider rewriting code  [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/rtl_hand/modules/bin_conv_core8.v:516]
+WARNING: [Synth 8-7137] Register e2_sn_q_reg[0] in module bin_conv_core8 has both Set and reset with same priority. This may cause simulation mismatches. Consider rewriting code  [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/rtl_hand/modules/bin_conv_core8.v:529]
+WARNING: [Synth 8-7137] Register e2_sn_q_reg[1] in module bin_conv_core8 has both Set and reset with same priority. This may cause simulation mismatches. Consider rewriting code  [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/rtl_hand/modules/bin_conv_core8.v:529]
+WARNING: [Synth 8-7137] Register e2_sn_q_reg[2] in module bin_conv_core8 has both Set and reset with same priority. This may cause simulation mismatches. Consider rewriting code  [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/rtl_hand/modules/bin_conv_core8.v:529]
+WARNING: [Synth 8-7137] Register e2_sn_q_reg[3] in module bin_conv_core8 has both Set and reset with same priority. This may cause simulation mismatches. Consider rewriting code  [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/rtl_hand/modules/bin_conv_core8.v:529]
+WARNING: [Synth 8-7137] Register e2_sn_q_reg[4] in module bin_conv_core8 has both Set and reset with same priority. This may cause simulation mismatches. Consider rewriting code  [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/rtl_hand/modules/bin_conv_core8.v:529]
+WARNING: [Synth 8-7137] Register e2_sn_q_reg[5] in module bin_conv_core8 has both Set and reset with same priority. This may cause simulation mismatches. Consider rewriting code  [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/rtl_hand/modules/bin_conv_core8.v:529]
+WARNING: [Synth 8-7137] Register e2_sn_q_reg[6] in module bin_conv_core8 has both Set and reset with same priority. This may cause simulation mismatches. Consider rewriting code  [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/rtl_hand/modules/bin_conv_core8.v:529]
+WARNING: [Synth 8-7137] Register e2_sn_q_reg[7] in module bin_conv_core8 has both Set and reset with same priority. This may cause simulation mismatches. Consider rewriting code  [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/rtl_hand/modules/bin_conv_core8.v:529]
+WARNING: [Synth 8-7137] Register e2_rp5_q_reg[0] in module bin_conv_core8 has both Set and reset with same priority. This may cause simulation mismatches. Consider rewriting code  [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/rtl_hand/modules/bin_conv_core8.v:530]
+WARNING: [Synth 8-7137] Register e2_rp5_q_reg[1] in module bin_conv_core8 has both Set and reset with same priority. This may cause simulation mismatches. Consider rewriting code  [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/rtl_hand/modules/bin_conv_core8.v:530]
+WARNING: [Synth 8-7137] Register e2_rp5_q_reg[2] in module bin_conv_core8 has both Set and reset with same priority. This may cause simulation mismatches. Consider rewriting code  [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/rtl_hand/modules/bin_conv_core8.v:530]
+WARNING: [Synth 8-7137] Register e2_rp5_q_reg[3] in module bin_conv_core8 has both Set and reset with same priority. This may cause simulation mismatches. Consider rewriting code  [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/rtl_hand/modules/bin_conv_core8.v:530]
+INFO: [Common 17-14] Message 'Synth 8-7137' appears 100 times and further instances of the messages will be disabled. Use the Tcl command set_msg_config to change the current settings.
+WARNING: [Synth 8-4767] Trying to implement RAM 'pw_reg' in registers. Block RAM or DRAM implementation is not possible; see log for reasons. [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/rtl_hand/modules/bin_conv_core8.v:676]
+Reason is one or more of the following :
+	1: RAM is sensitive to asynchronous reset signal. this RTL style is not supported. 
+	2: RAM has too many ports (16). Maximum supported = 16. 
+WARNING: [Synth 8-6014] Unused sequential element wv_q_reg was removed.  [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/rtl_hand/modules/bin_e1e2.v:327]
+WARNING: [Synth 8-6014] Unused sequential element src_q_reg was removed.  [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/rtl_hand/modules/bin_catpack.v:330]
+WARNING: [Synth 8-6014] Unused sequential element adj_q_reg was removed.  [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/rtl_hand/modules/bin_catpack.v:330]
+WARNING: [Synth 8-4767] Trying to implement RAM 'pf_tag_reg' in registers. Block RAM or DRAM implementation is not possible; see log for reasons. [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/rtl_hand/modules/bin_unit_axi_wrap.v:1829]
+Reason is one or more of the following :
+	1: RAM is sensitive to asynchronous reset signal. this RTL style is not supported. 
+WARNING: [Synth 8-4767] Trying to implement RAM 'arq_addr_reg' in registers. Block RAM or DRAM implementation is not possible; see log for reasons. [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/rtl_hand/modules/bin_unit_axi_wrap.v:1984]
+Reason is one or more of the following :
+	1: RAM is sensitive to asynchronous reset signal. this RTL style is not supported. 
+WARNING: [Synth 8-4767] Trying to implement RAM 'arq_id_reg' in registers. Block RAM or DRAM implementation is not possible; see log for reasons. [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/rtl_hand/modules/bin_unit_axi_wrap.v:1985]
+Reason is one or more of the following :
+	1: RAM is sensitive to asynchronous reset signal. this RTL style is not supported. 
+WARNING: [Synth 8-3917] design bin_unit_axi_wrap has port s_axi_bresp[1] driven by constant 0
+WARNING: [Synth 8-3917] design bin_unit_axi_wrap has port s_axi_bresp[0] driven by constant 0
+WARNING: [Synth 8-3917] design bin_unit_axi_wrap has port s_axi_rresp[1] driven by constant 0
+WARNING: [Synth 8-3917] design bin_unit_axi_wrap has port s_axi_rresp[0] driven by constant 0
+WARNING: [Synth 8-3917] design bin_unit_axi_wrap has port m_axi_arlen[3] driven by constant 1
+WARNING: [Synth 8-3917] design bin_unit_axi_wrap has port m_axi_arlen[2] driven by constant 1
+WARNING: [Synth 8-3917] design bin_unit_axi_wrap has port m_axi_arlen[1] driven by constant 1
+WARNING: [Synth 8-3917] design bin_unit_axi_wrap has port m_axi_arlen[0] driven by constant 1
+WARNING: [Synth 8-3917] design bin_unit_axi_wrap has port m_axi_wid[3] driven by constant 0
+WARNING: [Synth 8-3917] design bin_unit_axi_wrap has port m_axi_wid[2] driven by constant 0
+WARNING: [Synth 8-3917] design bin_unit_axi_wrap has port m_axi_wid[1] driven by constant 0
+WARNING: [Synth 8-3917] design bin_unit_axi_wrap has port m_axi_wid[0] driven by constant 0
+WARNING: [Synth 8-7129] Port cfg_alpha_shift[5] in module bin_conv_core8 is either unconnected or has no load
+WARNING: [Synth 8-7129] Port cfg_alpha_shift[4] in module bin_conv_core8 is either unconnected or has no load
+WARNING: [Synth 8-7129] Port cfg_alpha_shift[3] in module bin_conv_core8 is either unconnected or has no load
+WARNING: [Synth 8-7129] Port cfg_alpha_shift[2] in module bin_conv_core8 is either unconnected or has no load
+WARNING: [Synth 8-7129] Port cfg_alpha_shift[1] in module bin_conv_core8 is either unconnected or has no load
+WARNING: [Synth 8-7129] Port cfg_alpha_shift[0] in module bin_conv_core8 is either unconnected or has no load
+WARNING: [Synth 8-7129] Port cfg_slope_shift[5] in module bin_conv_core8 is either unconnected or has no load
+WARNING: [Synth 8-7129] Port cfg_slope_shift[4] in module bin_conv_core8 is either unconnected or has no load
+WARNING: [Synth 8-7129] Port cfg_slope_shift[3] in module bin_conv_core8 is either unconnected or has no load
+WARNING: [Synth 8-7129] Port cfg_slope_shift[2] in module bin_conv_core8 is either unconnected or has no load
+WARNING: [Synth 8-7129] Port cfg_slope_shift[1] in module bin_conv_core8 is either unconnected or has no load
+WARNING: [Synth 8-7129] Port cfg_slope_shift[0] in module bin_conv_core8 is either unconnected or has no load
+WARNING: [Synth 8-7129] Port m_axi_rlast in module bin_unit_axi_wrap is either unconnected or has no load
+---------------------------------------------------------------------------------
+Finished Synthesize : Time (s): cpu = 00:00:06 ; elapsed = 00:00:07 . Memory (MB): peak = 2265.379 ; gain = 709.496 ; free physical = 311 ; free virtual = 11627
+---------------------------------------------------------------------------------
+---------------------------------------------------------------------------------
+Finished Constraint Validation : Time (s): cpu = 00:00:07 ; elapsed = 00:00:08 . Memory (MB): peak = 2265.379 ; gain = 709.496 ; free physical = 319 ; free virtual = 11557
+---------------------------------------------------------------------------------
+---------------------------------------------------------------------------------
+Start Loading Part and Timing Information
+---------------------------------------------------------------------------------
+Loading part: xc7z015clg485-2
+---------------------------------------------------------------------------------
+INFO: [Device 21-403] Loading part xc7z015clg485-2
+Finished Loading Part and Timing Information : Time (s): cpu = 00:00:07 ; elapsed = 00:00:08 . Memory (MB): peak = 2265.379 ; gain = 709.496 ; free physical = 315 ; free virtual = 11553
+---------------------------------------------------------------------------------
+INFO: [Synth 8-802] inferred FSM for state register 'state_reg' in module 'bin_conv_core8'
+INFO: [Synth 8-802] inferred FSM for state register 'state_reg' in module 'bin_catpack'
+INFO: [Synth 8-802] inferred FSM for state register 'wst_reg' in module 'bin_unit_axi_wrap'
+---------------------------------------------------------------------------------------------------
+                   State |                     New Encoding |                Previous Encoding 
+---------------------------------------------------------------------------------------------------
+                 ST_IDLE |                              000 |                              000
+                  ST_PRM |                              011 |                              001
+                  ST_WLD |                              101 |                              010
+                  ST_CMP |                              100 |                              011
+                  ST_DRN |                              010 |                              100
+                 ST_DONE |                              001 |                              101
+---------------------------------------------------------------------------------------------------
+INFO: [Synth 8-3354] encoded FSM with state register 'state_reg' using encoding 'sequential' in module 'bin_conv_core8'
+INFO: [Synth 8-7082] The signal desc_ram_reg is implemented as Block RAM but is better mapped onto distributed LUT RAM for the following reason(s): The depth (3 address bits) is shallow. Please use attribute (* ram_style = "distributed" *) to instruct Vivado to infer distributed LUT RAM.
+---------------------------------------------------------------------------------------------------
+                   State |                     New Encoding |                Previous Encoding 
+---------------------------------------------------------------------------------------------------
+                 ST_IDLE |                             0000 |                             0000
+                  ST_CHK |                             0001 |                             0001
+                 ST_TINI |                             0010 |                             0010
+                 ST_PASS |                             0011 |                             0011
+                   ST_D0 |                             0100 |                             0100
+                 ST_DATA |                             0101 |                             0101
+                  ST_ROW |                             0110 |                             0110
+                ST_FLUSH |                             0111 |                             0111
+                 ST_TEND |                             1000 |                             1000
+                 ST_DONE |                             1001 |                             1001
+---------------------------------------------------------------------------------------------------
+INFO: [Synth 8-3354] encoded FSM with state register 'state_reg' using encoding 'sequential' in module 'bin_catpack'
+---------------------------------------------------------------------------------------------------
+                   State |                     New Encoding |                Previous Encoding 
+---------------------------------------------------------------------------------------------------
+                  W_IDLE |                              001 |                               00
+                   W_DR1 |                              100 |                               01
+                   W_DR2 |                              010 |                               10
+---------------------------------------------------------------------------------------------------
+INFO: [Synth 8-3354] encoded FSM with state register 'wst_reg' using encoding 'one-hot' in module 'bin_unit_axi_wrap'
+---------------------------------------------------------------------------------
+Finished RTL Optimization Phase 2 : Time (s): cpu = 00:00:15 ; elapsed = 00:00:14 . Memory (MB): peak = 2265.379 ; gain = 709.496 ; free physical = 500 ; free virtual = 11615
+---------------------------------------------------------------------------------
+No constraint files found.
+---------------------------------------------------------------------------------
+Start RTL Component Statistics 
+---------------------------------------------------------------------------------
+Detailed RTL Component Info : 
++---Adders : 
+	   2 Input   64 Bit       Adders := 1     
+	   2 Input   32 Bit       Adders := 56    
+	   3 Input   32 Bit       Adders := 4     
+	   4 Input   32 Bit       Adders := 12    
+	   5 Input   32 Bit       Adders := 1     
+	   2 Input   29 Bit       Adders := 1     
+	   2 Input   25 Bit       Adders := 1     
+	   2 Input   17 Bit       Adders := 1     
+	   3 Input   17 Bit       Adders := 2     
+	   2 Input   16 Bit       Adders := 26    
+	   3 Input   16 Bit       Adders := 9     
+	   2 Input   13 Bit       Adders := 1     
+	   2 Input   12 Bit       Adders := 1     
+	   2 Input   10 Bit       Adders := 1     
+	   2 Input    9 Bit       Adders := 6     
+	   2 Input    8 Bit       Adders := 1     
+	  16 Input    7 Bit       Adders := 8     
+	   2 Input    7 Bit       Adders := 1     
+	   2 Input    5 Bit       Adders := 6     
+	   4 Input    5 Bit       Adders := 2     
+	   3 Input    5 Bit       Adders := 1     
+	   2 Input    4 Bit       Adders := 10    
+	   4 Input    3 Bit       Adders := 128   
+	   2 Input    3 Bit       Adders := 10    
+	   2 Input    2 Bit       Adders := 4     
++---XORs : 
+	   2 Input     64 Bit         XORs := 8     
+	   2 Input     32 Bit         XORs := 2     
+	   6 Input      5 Bit         XORs := 2     
++---Registers : 
+	               64 Bit    Registers := 48    
+	               48 Bit    Registers := 8     
+	               32 Bit    Registers := 202   
+	               29 Bit    Registers := 4     
+	               25 Bit    Registers := 6     
+	               16 Bit    Registers := 49    
+	               12 Bit    Registers := 1     
+	               10 Bit    Registers := 1     
+	                9 Bit    Registers := 39    
+	                8 Bit    Registers := 43    
+	                7 Bit    Registers := 10    
+	                6 Bit    Registers := 1     
+	                5 Bit    Registers := 19    
+	                4 Bit    Registers := 32    
+	                3 Bit    Registers := 10    
+	                2 Bit    Registers := 5     
+	                1 Bit    Registers := 82    
++---Multipliers : 
+	              16x32  Multipliers := 8     
+	              32x32  Multipliers := 4     
++---RAMs : 
+	             512K Bit	(8192 X 64 bit)          RAMs := 1     
+	              16K Bit	(256 X 64 bit)          RAMs := 8     
+	               2K Bit	(256 X 8 bit)          RAMs := 8     
+	              512 Bit	(8 X 64 bit)          RAMs := 1     
++---Muxes : 
+	   8 Input 1024 Bit        Muxes := 1     
+	  10 Input 1024 Bit        Muxes := 2     
+	   2 Input 1024 Bit        Muxes := 1     
+	   8 Input  128 Bit        Muxes := 1     
+	  10 Input  128 Bit        Muxes := 2     
+	   2 Input  128 Bit        Muxes := 1     
+	   2 Input   64 Bit        Muxes := 122   
+	   3 Input   64 Bit        Muxes := 18    
+	   2 Input   32 Bit        Muxes := 186   
+	   6 Input   32 Bit        Muxes := 4     
+	   4 Input   32 Bit        Muxes := 3     
+	  10 Input   32 Bit        Muxes := 4     
+	  11 Input   32 Bit        Muxes := 2     
+	   2 Input   29 Bit        Muxes := 7     
+	   3 Input   29 Bit        Muxes := 1     
+	   2 Input   25 Bit        Muxes := 1     
+	   4 Input   25 Bit        Muxes := 4     
+	   2 Input   22 Bit        Muxes := 2     
+	   2 Input   17 Bit        Muxes := 1     
+	   2 Input   16 Bit        Muxes := 35    
+	   6 Input   16 Bit        Muxes := 2     
+	  10 Input   16 Bit        Muxes := 1     
+	  11 Input   16 Bit        Muxes := 3     
+	   2 Input   12 Bit        Muxes := 1     
+	   2 Input    9 Bit        Muxes := 13    
+	   4 Input    9 Bit        Muxes := 1     
+	  11 Input    9 Bit        Muxes := 1     
+	   3 Input    9 Bit        Muxes := 1     
+	   2 Input    8 Bit        Muxes := 146   
+	  10 Input    8 Bit        Muxes := 1     
+	  11 Input    8 Bit        Muxes := 1     
+	   3 Input    8 Bit        Muxes := 17    
+	   2 Input    5 Bit        Muxes := 49    
+	   6 Input    5 Bit        Muxes := 1     
+	   2 Input    4 Bit        Muxes := 60    
+	   6 Input    4 Bit        Muxes := 3     
+	   4 Input    4 Bit        Muxes := 1     
+	  10 Input    4 Bit        Muxes := 1     
+	  22 Input    4 Bit        Muxes := 1     
+	  11 Input    4 Bit        Muxes := 1     
+	   6 Input    3 Bit        Muxes := 2     
+	   2 Input    3 Bit        Muxes := 17    
+	   3 Input    3 Bit        Muxes := 2     
+	   4 Input    3 Bit        Muxes := 1     
+	  10 Input    3 Bit        Muxes := 3     
+	  11 Input    3 Bit        Muxes := 1     
+	   5 Input    3 Bit        Muxes := 1     
+	   2 Input    2 Bit        Muxes := 6     
+	   4 Input    2 Bit        Muxes := 1     
+	   2 Input    1 Bit        Muxes := 540   
+	   6 Input    1 Bit        Muxes := 12    
+	   4 Input    1 Bit        Muxes := 18    
+	  10 Input    1 Bit        Muxes := 15    
+	  11 Input    1 Bit        Muxes := 13    
+	   5 Input    1 Bit        Muxes := 1     
+	   3 Input    1 Bit        Muxes := 40    
+---------------------------------------------------------------------------------
+Finished RTL Component Statistics 
+---------------------------------------------------------------------------------
+---------------------------------------------------------------------------------
+Start Part Resource Summary
+---------------------------------------------------------------------------------
+Part Resources:
+DSPs: 160 (col length:60)
+BRAMs: 190 (col length: RAMB18 60 RAMB36 30)
+---------------------------------------------------------------------------------
+Finished Part Resource Summary
+---------------------------------------------------------------------------------
+No constraint files found.
+---------------------------------------------------------------------------------
+Start Cross Boundary and Area Optimization
+---------------------------------------------------------------------------------
+DSP Report: Generating DSP ckk_c, operation Mode is: A*B.
+DSP Report: operator ckk_c is absorbed into DSP ckk_c.
+DSP Report: Generating DSP K_lc, operation Mode is: A*B.
+DSP Report: operator K_lc is absorbed into DSP K_lc.
+DSP Report: operator K_lc is absorbed into DSP K_lc.
+DSP Report: Generating DSP K_lc, operation Mode is: (PCIN>>17)+A*B.
+DSP Report: operator K_lc is absorbed into DSP K_lc.
+DSP Report: operator K_lc is absorbed into DSP K_lc.
+DSP Report: Generating DSP padw8_c, operation Mode is: A*B.
+DSP Report: operator padw8_c is absorbed into DSP padw8_c.
+DSP Report: Generating DSP hw8_c0, operation Mode is: A*B.
+DSP Report: operator hw8_c0 is absorbed into DSP hw8_c0.
+DSP Report: Generating DSP cp1_q0, operation Mode is: A*B.
+DSP Report: operator cp1_q0 is absorbed into DSP cp1_q0.
+DSP Report: operator cp1_q0 is absorbed into DSP cp1_q0.
+DSP Report: Generating DSP cp1_q0, operation Mode is: (PCIN>>17)+A*B.
+DSP Report: operator cp1_q0 is absorbed into DSP cp1_q0.
+DSP Report: operator cp1_q0 is absorbed into DSP cp1_q0.
+DSP Report: Generating DSP cp1_q0, operation Mode is: A*B.
+DSP Report: operator cp1_q0 is absorbed into DSP cp1_q0.
+DSP Report: operator cp1_q0 is absorbed into DSP cp1_q0.
+DSP Report: Generating DSP cp1_q0, operation Mode is: (PCIN>>17)+A*B.
+DSP Report: operator cp1_q0 is absorbed into DSP cp1_q0.
+DSP Report: operator cp1_q0 is absorbed into DSP cp1_q0.
+DSP Report: Generating DSP cp3_q0, operation Mode is: A*B.
+DSP Report: operator cp3_q0 is absorbed into DSP cp3_q0.
+DSP Report: operator cp3_q0 is absorbed into DSP cp3_q0.
+DSP Report: Generating DSP cp3_q0, operation Mode is: (PCIN>>17)+A*B.
+DSP Report: operator cp3_q0 is absorbed into DSP cp3_q0.
+DSP Report: operator cp3_q0 is absorbed into DSP cp3_q0.
+DSP Report: Generating DSP cp3_q0, operation Mode is: A*B.
+DSP Report: operator cp3_q0 is absorbed into DSP cp3_q0.
+DSP Report: operator cp3_q0 is absorbed into DSP cp3_q0.
+DSP Report: Generating DSP cp3_q0, operation Mode is: (PCIN>>17)+A*B.
+DSP Report: operator cp3_q0 is absorbed into DSP cp3_q0.
+DSP Report: operator cp3_q0 is absorbed into DSP cp3_q0.
+DSP Report: Generating DSP dw8_c, operation Mode is: A*B.
+DSP Report: operator dw8_c is absorbed into DSP dw8_c.
+DSP Report: Generating DSP cp2_q0, operation Mode is: A*B.
+DSP Report: operator cp2_q0 is absorbed into DSP cp2_q0.
+DSP Report: operator cp2_q0 is absorbed into DSP cp2_q0.
+DSP Report: Generating DSP cp2_q0, operation Mode is: (PCIN>>17)+A*B.
+DSP Report: operator cp2_q0 is absorbed into DSP cp2_q0.
+DSP Report: operator cp2_q0 is absorbed into DSP cp2_q0.
+DSP Report: Generating DSP cp2_q0, operation Mode is: A*B.
+DSP Report: operator cp2_q0 is absorbed into DSP cp2_q0.
+DSP Report: operator cp2_q0 is absorbed into DSP cp2_q0.
+DSP Report: Generating DSP cp2_q0, operation Mode is: (PCIN>>17)+A*B.
+DSP Report: operator cp2_q0 is absorbed into DSP cp2_q0.
+DSP Report: operator cp2_q0 is absorbed into DSP cp2_q0.
+DSP Report: Generating DSP cp4_q0, operation Mode is: A*B.
+DSP Report: operator cp4_q0 is absorbed into DSP cp4_q0.
+DSP Report: operator cp4_q0 is absorbed into DSP cp4_q0.
+DSP Report: Generating DSP cp4_q0, operation Mode is: (PCIN>>17)+A*B.
+DSP Report: operator cp4_q0 is absorbed into DSP cp4_q0.
+DSP Report: operator cp4_q0 is absorbed into DSP cp4_q0.
+DSP Report: Generating DSP cp4_q0, operation Mode is: A*B.
+DSP Report: operator cp4_q0 is absorbed into DSP cp4_q0.
+DSP Report: operator cp4_q0 is absorbed into DSP cp4_q0.
+DSP Report: Generating DSP cp4_q0, operation Mode is: (PCIN>>17)+A*B.
+DSP Report: operator cp4_q0 is absorbed into DSP cp4_q0.
+DSP Report: operator cp4_q0 is absorbed into DSP cp4_q0.
+DSP Report: Generating DSP sw8_c, operation Mode is: A*B.
+DSP Report: operator sw8_c is absorbed into DSP sw8_c.
+DSP Report: Generating DSP hwout8_q1, operation Mode is: A*B.
+DSP Report: operator hwout8_q1 is absorbed into DSP hwout8_q1.
+DSP Report: Generating DSP p_0_out, operation Mode is: A*B.
+DSP Report: operator p_0_out is absorbed into DSP p_0_out.
+DSP Report: Generating DSP p_0_out, operation Mode is: A*B.
+DSP Report: operator p_0_out is absorbed into DSP p_0_out.
+DSP Report: operator p_0_out is absorbed into DSP p_0_out.
+DSP Report: Generating DSP p_0_out, operation Mode is: (PCIN>>17)+A*B.
+DSP Report: operator p_0_out is absorbed into DSP p_0_out.
+DSP Report: operator p_0_out is absorbed into DSP p_0_out.
+DSP Report: Generating DSP p_0_out, operation Mode is: A*B.
+DSP Report: operator p_0_out is absorbed into DSP p_0_out.
+DSP Report: Generating DSP p_0_out, operation Mode is: A*B.
+DSP Report: operator p_0_out is absorbed into DSP p_0_out.
+DSP Report: operator p_0_out is absorbed into DSP p_0_out.
+DSP Report: Generating DSP p_0_out, operation Mode is: (PCIN>>17)+A*B.
+DSP Report: operator p_0_out is absorbed into DSP p_0_out.
+DSP Report: operator p_0_out is absorbed into DSP p_0_out.
+DSP Report: Generating DSP p_0_out, operation Mode is: A*B.
+DSP Report: operator p_0_out is absorbed into DSP p_0_out.
+DSP Report: Generating DSP p_0_out, operation Mode is: A*B.
+DSP Report: operator p_0_out is absorbed into DSP p_0_out.
+DSP Report: operator p_0_out is absorbed into DSP p_0_out.
+DSP Report: Generating DSP p_0_out, operation Mode is: (PCIN>>17)+A*B.
+DSP Report: operator p_0_out is absorbed into DSP p_0_out.
+DSP Report: operator p_0_out is absorbed into DSP p_0_out.
+DSP Report: Generating DSP p_0_out, operation Mode is: A*B.
+DSP Report: operator p_0_out is absorbed into DSP p_0_out.
+DSP Report: Generating DSP p_0_out, operation Mode is: A*B.
+DSP Report: operator p_0_out is absorbed into DSP p_0_out.
+DSP Report: operator p_0_out is absorbed into DSP p_0_out.
+DSP Report: Generating DSP p_0_out, operation Mode is: (PCIN>>17)+A*B.
+DSP Report: operator p_0_out is absorbed into DSP p_0_out.
+DSP Report: operator p_0_out is absorbed into DSP p_0_out.
+DSP Report: Generating DSP p_0_out, operation Mode is: A*B.
+DSP Report: operator p_0_out is absorbed into DSP p_0_out.
+DSP Report: Generating DSP p_0_out, operation Mode is: A*B.
+DSP Report: operator p_0_out is absorbed into DSP p_0_out.
+DSP Report: operator p_0_out is absorbed into DSP p_0_out.
+DSP Report: Generating DSP p_0_out, operation Mode is: (PCIN>>17)+A*B.
+DSP Report: operator p_0_out is absorbed into DSP p_0_out.
+DSP Report: operator p_0_out is absorbed into DSP p_0_out.
+DSP Report: Generating DSP p_0_out, operation Mode is: A*B.
+DSP Report: operator p_0_out is absorbed into DSP p_0_out.
+DSP Report: Generating DSP p_0_out, operation Mode is: A*B.
+DSP Report: operator p_0_out is absorbed into DSP p_0_out.
+DSP Report: operator p_0_out is absorbed into DSP p_0_out.
+DSP Report: Generating DSP p_0_out, operation Mode is: (PCIN>>17)+A*B.
+DSP Report: operator p_0_out is absorbed into DSP p_0_out.
+DSP Report: operator p_0_out is absorbed into DSP p_0_out.
+DSP Report: Generating DSP p_0_out, operation Mode is: A*B.
+DSP Report: operator p_0_out is absorbed into DSP p_0_out.
+DSP Report: Generating DSP p_0_out, operation Mode is: A*B.
+DSP Report: operator p_0_out is absorbed into DSP p_0_out.
+DSP Report: operator p_0_out is absorbed into DSP p_0_out.
+DSP Report: Generating DSP p_0_out, operation Mode is: (PCIN>>17)+A*B.
+DSP Report: operator p_0_out is absorbed into DSP p_0_out.
+DSP Report: operator p_0_out is absorbed into DSP p_0_out.
+DSP Report: Generating DSP p_0_out, operation Mode is: A*B.
+DSP Report: operator p_0_out is absorbed into DSP p_0_out.
+DSP Report: Generating DSP p_0_out, operation Mode is: A*B.
+DSP Report: operator p_0_out is absorbed into DSP p_0_out.
+DSP Report: operator p_0_out is absorbed into DSP p_0_out.
+DSP Report: Generating DSP p_0_out, operation Mode is: (PCIN>>17)+A*B.
+DSP Report: operator p_0_out is absorbed into DSP p_0_out.
+DSP Report: operator p_0_out is absorbed into DSP p_0_out.
+DSP Report: Generating DSP hw_q0, operation Mode is: A*B.
+DSP Report: operator hw_q0 is absorbed into DSP hw_q0.
+DSP Report: Generating DSP hw_q0, operation Mode is: A*B.
+DSP Report: operator hw_q0 is absorbed into DSP hw_q0.
+WARNING: [Synth 8-3917] design bin_unit_axi_wrap has port s_axi_bresp[1] driven by constant 0
+WARNING: [Synth 8-3917] design bin_unit_axi_wrap has port s_axi_bresp[0] driven by constant 0
+WARNING: [Synth 8-3917] design bin_unit_axi_wrap has port s_axi_rresp[1] driven by constant 0
+WARNING: [Synth 8-3917] design bin_unit_axi_wrap has port s_axi_rresp[0] driven by constant 0
+WARNING: [Synth 8-3917] design bin_unit_axi_wrap has port m_axi_arlen[3] driven by constant 1
+WARNING: [Synth 8-3917] design bin_unit_axi_wrap has port m_axi_arlen[2] driven by constant 1
+WARNING: [Synth 8-3917] design bin_unit_axi_wrap has port m_axi_arlen[1] driven by constant 1
+WARNING: [Synth 8-3917] design bin_unit_axi_wrap has port m_axi_arlen[0] driven by constant 1
+WARNING: [Synth 8-3917] design bin_unit_axi_wrap has port m_axi_wid[3] driven by constant 0
+WARNING: [Synth 8-3917] design bin_unit_axi_wrap has port m_axi_wid[2] driven by constant 0
+WARNING: [Synth 8-3917] design bin_unit_axi_wrap has port m_axi_wid[1] driven by constant 0
+WARNING: [Synth 8-3917] design bin_unit_axi_wrap has port m_axi_wid[0] driven by constant 0
+WARNING: [Synth 8-7129] Port m_axi_rlast in module bin_unit_axi_wrap is either unconnected or has no load
+INFO: [Synth 8-7082] The signal g_conv.u_pack/desc_ram_reg is implemented as Block RAM but is better mapped onto distributed LUT RAM for the following reason(s): The depth (3 address bits) is shallow. Please use attribute (* ram_style = "distributed" *) to instruct Vivado to infer distributed LUT RAM.
+WARNING: [Synth 8-3332] Sequential element (cp1_q_reg[47]) is unused and will be removed from module bin_conv_core8.
+WARNING: [Synth 8-3332] Sequential element (cp1_q_reg[46]) is unused and will be removed from module bin_conv_core8.
+WARNING: [Synth 8-3332] Sequential element (cp1_q_reg[45]) is unused and will be removed from module bin_conv_core8.
+WARNING: [Synth 8-3332] Sequential element (cp1_q_reg[44]) is unused and will be removed from module bin_conv_core8.
+WARNING: [Synth 8-3332] Sequential element (cp1_q_reg[43]) is unused and will be removed from module bin_conv_core8.
+WARNING: [Synth 8-3332] Sequential element (cp1_q_reg[42]) is unused and will be removed from module bin_conv_core8.
+WARNING: [Synth 8-3332] Sequential element (cp1_q_reg[41]) is unused and will be removed from module bin_conv_core8.
+WARNING: [Synth 8-3332] Sequential element (cp1_q_reg[40]) is unused and will be removed from module bin_conv_core8.
+WARNING: [Synth 8-3332] Sequential element (cp1_q_reg[39]) is unused and will be removed from module bin_conv_core8.
+WARNING: [Synth 8-3332] Sequential element (cp1_q_reg[38]) is unused and will be removed from module bin_conv_core8.
+WARNING: [Synth 8-3332] Sequential element (cp1_q_reg[37]) is unused and will be removed from module bin_conv_core8.
+WARNING: [Synth 8-3332] Sequential element (cp1_q_reg[36]) is unused and will be removed from module bin_conv_core8.
+WARNING: [Synth 8-3332] Sequential element (cp1_q_reg[35]) is unused and will be removed from module bin_conv_core8.
+WARNING: [Synth 8-3332] Sequential element (cp1_q_reg[34]) is unused and will be removed from module bin_conv_core8.
+WARNING: [Synth 8-3332] Sequential element (cp1_q_reg[33]) is unused and will be removed from module bin_conv_core8.
+WARNING: [Synth 8-3332] Sequential element (cp1_q_reg[32]) is unused and will be removed from module bin_conv_core8.
+WARNING: [Synth 8-3332] Sequential element (cp1_q_reg[31]) is unused and will be removed from module bin_conv_core8.
+WARNING: [Synth 8-3332] Sequential element (cp1_q_reg[30]) is unused and will be removed from module bin_conv_core8.
+WARNING: [Synth 8-3332] Sequential element (cp1_q_reg[29]) is unused and will be removed from module bin_conv_core8.
+WARNING: [Synth 8-3332] Sequential element (cp1_q_reg[28]) is unused and will be removed from module bin_conv_core8.
+WARNING: [Synth 8-3332] Sequential element (cp1_q_reg[27]) is unused and will be removed from module bin_conv_core8.
+WARNING: [Synth 8-3332] Sequential element (cp1_q_reg[26]) is unused and will be removed from module bin_conv_core8.
+WARNING: [Synth 8-3332] Sequential element (cp1_q_reg[25]) is unused and will be removed from module bin_conv_core8.
+WARNING: [Synth 8-3332] Sequential element (cp1_q_reg[24]) is unused and will be removed from module bin_conv_core8.
+WARNING: [Synth 8-3332] Sequential element (cp1_q_reg[23]) is unused and will be removed from module bin_conv_core8.
+WARNING: [Synth 8-3332] Sequential element (cp1_q_reg[22]) is unused and will be removed from module bin_conv_core8.
+WARNING: [Synth 8-3332] Sequential element (cp1_q_reg[21]) is unused and will be removed from module bin_conv_core8.
+WARNING: [Synth 8-3332] Sequential element (cp1_q_reg[20]) is unused and will be removed from module bin_conv_core8.
+WARNING: [Synth 8-3332] Sequential element (cp1_q_reg[19]) is unused and will be removed from module bin_conv_core8.
+WARNING: [Synth 8-3332] Sequential element (cp1_q_reg[18]) is unused and will be removed from module bin_conv_core8.
+WARNING: [Synth 8-3332] Sequential element (cp1_q_reg[17]) is unused and will be removed from module bin_conv_core8.
+WARNING: [Synth 8-3332] Sequential element (cp1_q_reg[16]) is unused and will be removed from module bin_conv_core8.
+WARNING: [Synth 8-3332] Sequential element (cp1_q_reg[15]) is unused and will be removed from module bin_conv_core8.
+WARNING: [Synth 8-3332] Sequential element (cp1_q_reg[47]__0) is unused and will be removed from module bin_conv_core8.
+WARNING: [Synth 8-3332] Sequential element (cp1_q_reg[46]__0) is unused and will be removed from module bin_conv_core8.
+WARNING: [Synth 8-3332] Sequential element (cp1_q_reg[45]__0) is unused and will be removed from module bin_conv_core8.
+WARNING: [Synth 8-3332] Sequential element (cp1_q_reg[44]__0) is unused and will be removed from module bin_conv_core8.
+WARNING: [Synth 8-3332] Sequential element (cp1_q_reg[43]__0) is unused and will be removed from module bin_conv_core8.
+WARNING: [Synth 8-3332] Sequential element (cp1_q_reg[42]__0) is unused and will be removed from module bin_conv_core8.
+WARNING: [Synth 8-3332] Sequential element (cp1_q_reg[41]__0) is unused and will be removed from module bin_conv_core8.
+WARNING: [Synth 8-3332] Sequential element (cp1_q_reg[40]__0) is unused and will be removed from module bin_conv_core8.
+WARNING: [Synth 8-3332] Sequential element (cp1_q_reg[39]__0) is unused and will be removed from module bin_conv_core8.
+WARNING: [Synth 8-3332] Sequential element (cp1_q_reg[38]__0) is unused and will be removed from module bin_conv_core8.
+WARNING: [Synth 8-3332] Sequential element (cp1_q_reg[37]__0) is unused and will be removed from module bin_conv_core8.
+WARNING: [Synth 8-3332] Sequential element (cp1_q_reg[36]__0) is unused and will be removed from module bin_conv_core8.
+WARNING: [Synth 8-3332] Sequential element (cp1_q_reg[35]__0) is unused and will be removed from module bin_conv_core8.
+WARNING: [Synth 8-3332] Sequential element (cp1_q_reg[34]__0) is unused and will be removed from module bin_conv_core8.
+WARNING: [Synth 8-3332] Sequential element (cp1_q_reg[33]__0) is unused and will be removed from module bin_conv_core8.
+WARNING: [Synth 8-3332] Sequential element (cp1_q_reg[32]__0) is unused and will be removed from module bin_conv_core8.
+WARNING: [Synth 8-3332] Sequential element (cp1_q_reg[31]__0) is unused and will be removed from module bin_conv_core8.
+WARNING: [Synth 8-3332] Sequential element (cp1_q_reg[30]__0) is unused and will be removed from module bin_conv_core8.
+WARNING: [Synth 8-3332] Sequential element (cp1_q_reg[29]__0) is unused and will be removed from module bin_conv_core8.
+WARNING: [Synth 8-3332] Sequential element (cp1_q_reg[28]__0) is unused and will be removed from module bin_conv_core8.
+WARNING: [Synth 8-3332] Sequential element (cp1_q_reg[27]__0) is unused and will be removed from module bin_conv_core8.
+WARNING: [Synth 8-3332] Sequential element (cp1_q_reg[26]__0) is unused and will be removed from module bin_conv_core8.
+WARNING: [Synth 8-3332] Sequential element (cp1_q_reg[25]__0) is unused and will be removed from module bin_conv_core8.
+WARNING: [Synth 8-3332] Sequential element (cp1_q_reg[24]__0) is unused and will be removed from module bin_conv_core8.
+WARNING: [Synth 8-3332] Sequential element (cp1_q_reg[23]__0) is unused and will be removed from module bin_conv_core8.
+WARNING: [Synth 8-3332] Sequential element (cp1_q_reg[22]__0) is unused and will be removed from module bin_conv_core8.
+WARNING: [Synth 8-3332] Sequential element (cp1_q_reg[21]__0) is unused and will be removed from module bin_conv_core8.
+WARNING: [Synth 8-3332] Sequential element (cp1_q_reg[20]__0) is unused and will be removed from module bin_conv_core8.
+WARNING: [Synth 8-3332] Sequential element (cp1_q_reg[19]__0) is unused and will be removed from module bin_conv_core8.
+WARNING: [Synth 8-3332] Sequential element (cp1_q_reg[18]__0) is unused and will be removed from module bin_conv_core8.
+WARNING: [Synth 8-3332] Sequential element (cp1_q_reg[17]__0) is unused and will be removed from module bin_conv_core8.
+WARNING: [Synth 8-3332] Sequential element (cp1_q_reg[16]__0) is unused and will be removed from module bin_conv_core8.
+WARNING: [Synth 8-3332] Sequential element (cp1_q_reg[15]__0) is unused and will be removed from module bin_conv_core8.
+WARNING: [Synth 8-3332] Sequential element (cp1_q_reg[14]__0) is unused and will be removed from module bin_conv_core8.
+WARNING: [Synth 8-3332] Sequential element (cp1_q_reg[13]__0) is unused and will be removed from module bin_conv_core8.
+WARNING: [Synth 8-3332] Sequential element (cp1_q_reg[12]__0) is unused and will be removed from module bin_conv_core8.
+WARNING: [Synth 8-3332] Sequential element (cp1_q_reg[11]__0) is unused and will be removed from module bin_conv_core8.
+WARNING: [Synth 8-3332] Sequential element (cp1_q_reg[10]__0) is unused and will be removed from module bin_conv_core8.
+WARNING: [Synth 8-3332] Sequential element (cp1_q_reg[9]__0) is unused and will be removed from module bin_conv_core8.
+WARNING: [Synth 8-3332] Sequential element (cp1_q_reg[8]__0) is unused and will be removed from module bin_conv_core8.
+WARNING: [Synth 8-3332] Sequential element (cp1_q_reg[7]__0) is unused and will be removed from module bin_conv_core8.
+WARNING: [Synth 8-3332] Sequential element (cp1_q_reg[6]__0) is unused and will be removed from module bin_conv_core8.
+WARNING: [Synth 8-3332] Sequential element (cp1_q_reg[5]__0) is unused and will be removed from module bin_conv_core8.
+WARNING: [Synth 8-3332] Sequential element (cp1_q_reg[4]__0) is unused and will be removed from module bin_conv_core8.
+WARNING: [Synth 8-3332] Sequential element (cp1_q_reg[3]__0) is unused and will be removed from module bin_conv_core8.
+WARNING: [Synth 8-3332] Sequential element (cp1_q_reg[2]__0) is unused and will be removed from module bin_conv_core8.
+WARNING: [Synth 8-3332] Sequential element (cp1_q_reg[1]__0) is unused and will be removed from module bin_conv_core8.
+WARNING: [Synth 8-3332] Sequential element (cp1_q_reg[0]__0) is unused and will be removed from module bin_conv_core8.
+WARNING: [Synth 8-3332] Sequential element (cp1_q_reg[47]__1) is unused and will be removed from module bin_conv_core8.
+WARNING: [Synth 8-3332] Sequential element (cp1_q_reg[46]__1) is unused and will be removed from module bin_conv_core8.
+WARNING: [Synth 8-3332] Sequential element (cp1_q_reg[45]__1) is unused and will be removed from module bin_conv_core8.
+WARNING: [Synth 8-3332] Sequential element (cp1_q_reg[44]__1) is unused and will be removed from module bin_conv_core8.
+WARNING: [Synth 8-3332] Sequential element (cp1_q_reg[43]__1) is unused and will be removed from module bin_conv_core8.
+WARNING: [Synth 8-3332] Sequential element (cp1_q_reg[42]__1) is unused and will be removed from module bin_conv_core8.
+WARNING: [Synth 8-3332] Sequential element (cp1_q_reg[41]__1) is unused and will be removed from module bin_conv_core8.
+WARNING: [Synth 8-3332] Sequential element (cp1_q_reg[40]__1) is unused and will be removed from module bin_conv_core8.
+WARNING: [Synth 8-3332] Sequential element (cp1_q_reg[39]__1) is unused and will be removed from module bin_conv_core8.
+WARNING: [Synth 8-3332] Sequential element (cp1_q_reg[38]__1) is unused and will be removed from module bin_conv_core8.
+WARNING: [Synth 8-3332] Sequential element (cp1_q_reg[37]__1) is unused and will be removed from module bin_conv_core8.
+WARNING: [Synth 8-3332] Sequential element (cp1_q_reg[36]__1) is unused and will be removed from module bin_conv_core8.
+WARNING: [Synth 8-3332] Sequential element (cp1_q_reg[35]__1) is unused and will be removed from module bin_conv_core8.
+WARNING: [Synth 8-3332] Sequential element (cp1_q_reg[34]__1) is unused and will be removed from module bin_conv_core8.
+WARNING: [Synth 8-3332] Sequential element (cp1_q_reg[33]__1) is unused and will be removed from module bin_conv_core8.
+WARNING: [Synth 8-3332] Sequential element (cp1_q_reg[32]__1) is unused and will be removed from module bin_conv_core8.
+WARNING: [Synth 8-3332] Sequential element (cp1_q_reg[31]__1) is unused and will be removed from module bin_conv_core8.
+WARNING: [Synth 8-3332] Sequential element (cp1_q_reg[30]__1) is unused and will be removed from module bin_conv_core8.
+WARNING: [Synth 8-3332] Sequential element (cp1_q_reg[29]__1) is unused and will be removed from module bin_conv_core8.
+INFO: [Common 17-14] Message 'Synth 8-3332' appears 100 times and further instances of the messages will be disabled. Use the Tcl command set_msg_config to change the current settings.
+---------------------------------------------------------------------------------
+Finished Cross Boundary and Area Optimization : Time (s): cpu = 00:01:03 ; elapsed = 00:01:03 . Memory (MB): peak = 2822.918 ; gain = 1267.035 ; free physical = 491 ; free virtual = 11096
+---------------------------------------------------------------------------------
+ Sort Area is bin_unit_axi_wrap__GB0 cp1_q0_10 : 0 0 : 3101 5879 : Used 1 time 0
+ Sort Area is bin_unit_axi_wrap__GB0 cp1_q0_10 : 0 1 : 2778 5879 : Used 1 time 0
+ Sort Area is bin_unit_axi_wrap__GB0 cp2_q0_d : 0 0 : 3101 5879 : Used 1 time 0
+ Sort Area is bin_unit_axi_wrap__GB0 cp2_q0_d : 0 1 : 2778 5879 : Used 1 time 0
+ Sort Area is bin_unit_axi_wrap__GB0 cp3_q0_5 : 0 0 : 3101 5879 : Used 1 time 0
+ Sort Area is bin_unit_axi_wrap__GB0 cp3_q0_5 : 0 1 : 2778 5879 : Used 1 time 0
+ Sort Area is bin_unit_axi_wrap__GB0 cp4_q0_13 : 0 0 : 3101 5879 : Used 1 time 0
+ Sort Area is bin_unit_axi_wrap__GB0 cp4_q0_13 : 0 1 : 2778 5879 : Used 1 time 0
+ Sort Area is bin_unit_axi_wrap__GB0 cp1_q0_11 : 0 0 : 2759 5418 : Used 1 time 0
+ Sort Area is bin_unit_axi_wrap__GB0 cp1_q0_11 : 0 1 : 2659 5418 : Used 1 time 0
+ Sort Area is bin_unit_axi_wrap__GB0 cp2_q0_e : 0 0 : 2759 5418 : Used 1 time 0
+ Sort Area is bin_unit_axi_wrap__GB0 cp2_q0_e : 0 1 : 2659 5418 : Used 1 time 0
+ Sort Area is bin_unit_axi_wrap__GB0 cp3_q0_8 : 0 0 : 2759 5418 : Used 1 time 0
+ Sort Area is bin_unit_axi_wrap__GB0 cp3_q0_8 : 0 1 : 2659 5418 : Used 1 time 0
+ Sort Area is bin_unit_axi_wrap__GB0 cp4_q0_14 : 0 0 : 2759 5418 : Used 1 time 0
+ Sort Area is bin_unit_axi_wrap__GB0 cp4_q0_14 : 0 1 : 2659 5418 : Used 1 time 0
+ Sort Area is bin_unit_axi_wrap__GB0 p_0_out_18 : 0 0 : 2759 5302 : Used 1 time 0
+ Sort Area is bin_unit_axi_wrap__GB0 p_0_out_18 : 0 1 : 2543 5302 : Used 1 time 0
+ Sort Area is bin_unit_axi_wrap__GB0 p_0_out_1b : 0 0 : 2759 5302 : Used 1 time 0
+ Sort Area is bin_unit_axi_wrap__GB0 p_0_out_1b : 0 1 : 2543 5302 : Used 1 time 0
+ Sort Area is bin_unit_axi_wrap__GB0 p_0_out_1d : 0 0 : 2759 5302 : Used 1 time 0
+ Sort Area is bin_unit_axi_wrap__GB0 p_0_out_1d : 0 1 : 2543 5302 : Used 1 time 0
+ Sort Area is bin_unit_axi_wrap__GB0 p_0_out_1f : 0 0 : 2759 5302 : Used 1 time 0
+ Sort Area is bin_unit_axi_wrap__GB0 p_0_out_1f : 0 1 : 2543 5302 : Used 1 time 0
+ Sort Area is bin_unit_axi_wrap__GB0 p_0_out_21 : 0 0 : 2759 5302 : Used 1 time 0
+ Sort Area is bin_unit_axi_wrap__GB0 p_0_out_21 : 0 1 : 2543 5302 : Used 1 time 0
+ Sort Area is bin_unit_axi_wrap__GB0 p_0_out_23 : 0 0 : 2759 5302 : Used 1 time 0
+ Sort Area is bin_unit_axi_wrap__GB0 p_0_out_23 : 0 1 : 2543 5302 : Used 1 time 0
+ Sort Area is bin_unit_axi_wrap__GB0 p_0_out_25 : 0 0 : 2759 5302 : Used 1 time 0
+ Sort Area is bin_unit_axi_wrap__GB0 p_0_out_25 : 0 1 : 2543 5302 : Used 1 time 0
+ Sort Area is bin_unit_axi_wrap__GB0 p_0_out_27 : 0 0 : 2759 5302 : Used 1 time 0
+ Sort Area is bin_unit_axi_wrap__GB0 p_0_out_27 : 0 1 : 2543 5302 : Used 1 time 0
+ Sort Area is bin_unit_axi_wrap__GB0 K_lc_2 : 0 0 : 2588 4343 : Used 1 time 0
+ Sort Area is bin_unit_axi_wrap__GB0 K_lc_2 : 0 1 : 1755 4343 : Used 1 time 0
+ Sort Area is bin_unit_axi_wrap__GB0 dw8_c_b : 0 0 : 2237 2237 : Used 1 time 0
+ Sort Area is bin_unit_axi_wrap__GB0 padw8_c_15 : 0 0 : 2237 2237 : Used 1 time 0
+ Sort Area is bin_unit_axi_wrap__GB0 sw8_c_12 : 0 0 : 2237 2237 : Used 1 time 0
+ Sort Area is bin_unit_axi_wrap__GB0 ckk_c_0 : 0 0 : 1946 1946 : Used 1 time 0
+ Sort Area is bin_unit_axi_wrap__GB0 hw8_c0_f : 0 0 : 1946 1946 : Used 1 time 0
+ Sort Area is bin_unit_axi_wrap__GB2 hw_q0_28 : 0 0 : 1946 1946 : Used 1 time 0
+ Sort Area is bin_unit_axi_wrap__GB2 hw_q0_29 : 0 0 : 1946 1946 : Used 1 time 0
+ Sort Area is bin_unit_axi_wrap__GB0 hwout8_q1_16 : 0 0 : 1946 1946 : Used 1 time 0
+ Sort Area is bin_unit_axi_wrap__GB0 p_0_out_17 : 0 0 : 1946 1946 : Used 1 time 0
+ Sort Area is bin_unit_axi_wrap__GB0 p_0_out_1a : 0 0 : 1946 1946 : Used 1 time 0
+ Sort Area is bin_unit_axi_wrap__GB0 p_0_out_1c : 0 0 : 1946 1946 : Used 1 time 0
+ Sort Area is bin_unit_axi_wrap__GB0 p_0_out_1e : 0 0 : 1946 1946 : Used 1 time 0
+ Sort Area is bin_unit_axi_wrap__GB0 p_0_out_20 : 0 0 : 1946 1946 : Used 1 time 0
+ Sort Area is bin_unit_axi_wrap__GB0 p_0_out_22 : 0 0 : 1946 1946 : Used 1 time 0
+ Sort Area is bin_unit_axi_wrap__GB0 p_0_out_24 : 0 0 : 1946 1946 : Used 1 time 0
+ Sort Area is bin_unit_axi_wrap__GB0 p_0_out_26 : 0 0 : 1946 1946 : Used 1 time 0
+---------------------------------------------------------------------------------
+Start ROM, RAM, DSP, Shift Register and Retiming Reporting
+---------------------------------------------------------------------------------
+
+Block RAM: Preliminary Mapping Report (see note below)
++----------------------+-------------------------------+------------------------+---+---+------------------------+---+---+------------------+--------+--------+
+|Module Name           | RTL Object                    | PORT A (Depth x Width) | W | R | PORT B (Depth x Width) | W | R | Ports driving FF | RAMB18 | RAMB36 | 
++----------------------+-------------------------------+------------------------+---+---+------------------------+---+---+------------------+--------+--------+
+|\g_conv.u_unit/u_eng  | g_wram[0].wmem_reg            | 256 x 64(READ_FIRST)   | W |   | 256 x 64(WRITE_FIRST)  |   | R | Port A and B     | 0      | 1      | 
+|\g_conv.u_unit/u_eng  | g_wram[7].wmem_reg            | 256 x 64(READ_FIRST)   | W |   | 256 x 64(WRITE_FIRST)  |   | R | Port A and B     | 0      | 1      | 
+|\g_conv.u_unit/u_eng  | g_wram[1].wmem_reg            | 256 x 64(READ_FIRST)   | W |   | 256 x 64(WRITE_FIRST)  |   | R | Port A and B     | 0      | 1      | 
+|\g_conv.u_unit/u_eng  | g_wram[2].wmem_reg            | 256 x 64(READ_FIRST)   | W |   | 256 x 64(WRITE_FIRST)  |   | R | Port A and B     | 0      | 1      | 
+|\g_conv.u_unit/u_eng  | g_wram[3].wmem_reg            | 256 x 64(READ_FIRST)   | W |   | 256 x 64(WRITE_FIRST)  |   | R | Port A and B     | 0      | 1      | 
+|\g_conv.u_unit/u_eng  | g_wram[4].wmem_reg            | 256 x 64(READ_FIRST)   | W |   | 256 x 64(WRITE_FIRST)  |   | R | Port A and B     | 0      | 1      | 
+|\g_conv.u_unit/u_eng  | g_wram[5].wmem_reg            | 256 x 64(READ_FIRST)   | W |   | 256 x 64(WRITE_FIRST)  |   | R | Port A and B     | 0      | 1      | 
+|\g_conv.u_unit/u_eng  | g_wram[6].wmem_reg            | 256 x 64(READ_FIRST)   | W |   | 256 x 64(WRITE_FIRST)  |   | R | Port A and B     | 0      | 1      | 
+|bin_unit_axi_wrap     | win_q_reg                     | 8 K x 64(READ_FIRST)   | W |   | 8 K x 64(WRITE_FIRST)  |   | R | Port A and B     | 0      | 16     | 
+|bin_unit_axi_wrap     | g_conv.u_pack/desc_ram_reg    | 8 x 64(READ_FIRST)     | W |   | 8 x 64(WRITE_FIRST)    |   | R | Port A and B     | 0      | 1      | 
+|bin_unit_axi_wrap     | g_conv.u_pack/acc_b_reg[0][0] | 256 x 8(READ_FIRST)    | W |   | 256 x 8(WRITE_FIRST)   |   | R | Port A and B     | 1      | 0      | 
+|bin_unit_axi_wrap     | g_conv.u_pack/acc_b_reg[1][0] | 256 x 8(READ_FIRST)    | W |   | 256 x 8(WRITE_FIRST)   |   | R | Port A and B     | 1      | 0      | 
+|bin_unit_axi_wrap     | g_conv.u_pack/acc_b_reg[2][0] | 256 x 8(READ_FIRST)    | W |   | 256 x 8(WRITE_FIRST)   |   | R | Port A and B     | 1      | 0      | 
+|bin_unit_axi_wrap     | g_conv.u_pack/acc_b_reg[3][0] | 256 x 8(READ_FIRST)    | W |   | 256 x 8(WRITE_FIRST)   |   | R | Port A and B     | 1      | 0      | 
+|bin_unit_axi_wrap     | g_conv.u_pack/acc_b_reg[4][0] | 256 x 8(READ_FIRST)    | W |   | 256 x 8(WRITE_FIRST)   |   | R | Port A and B     | 1      | 0      | 
+|bin_unit_axi_wrap     | g_conv.u_pack/acc_b_reg[5][0] | 256 x 8(READ_FIRST)    | W |   | 256 x 8(WRITE_FIRST)   |   | R | Port A and B     | 1      | 0      | 
+|bin_unit_axi_wrap     | g_conv.u_pack/acc_b_reg[6][0] | 256 x 8(READ_FIRST)    | W |   | 256 x 8(WRITE_FIRST)   |   | R | Port A and B     | 1      | 0      | 
+|bin_unit_axi_wrap     | g_conv.u_pack/acc_b_reg[7][0] | 256 x 8(READ_FIRST)    | W |   | 256 x 8(WRITE_FIRST)   |   | R | Port A and B     | 1      | 0      | 
++----------------------+-------------------------------+------------------------+---+---+------------------------+---+---+------------------+--------+--------+
+
+Note: The table above is a preliminary report that shows the Block RAMs at the current stage of the synthesis flow. Some Block RAMs may be reimplemented as non Block RAM primitives later in the synthesis flow. Multiple instantiated Block RAMs are reported only once. 
+
+Distributed RAM: Preliminary Mapping Report (see note below)
++------------------+------------+-----------+----------------------+---------------+
+|Module Name       | RTL Object | Inference | Size (Depth x Width) | Primitives    | 
++------------------+------------+-----------+----------------------+---------------+
+|bin_unit_axi_wrap | lc_tag_reg | Implied   | 512 x 22             | RAM64M x 192  | 
++------------------+------------+-----------+----------------------+---------------+
+
+Note: The table above is a preliminary report that shows the Distributed RAMs at the current stage of the synthesis flow. Some Distributed RAMs may be reimplemented as non Distributed RAM primitives later in the synthesis flow. Multiple instantiated RAMs are reported only once.
+
+DSP: Preliminary Mapping Report (see note below. The ' indicates corresponding REG is set)
++---------------+----------------+--------+--------+--------+--------+--------+------+------+------+------+-------+------+------+
+|Module Name    | DSP Mapping    | A Size | B Size | C Size | D Size | P Size | AREG | BREG | CREG | DREG | ADREG | MREG | PREG | 
++---------------+----------------+--------+--------+--------+--------+--------+------+------+------+------+-------+------+------+
+|bin_conv_core8 | A*B            | 16     | 16     | -      | -      | 32     | 0    | 0    | -    | -    | -     | 0    | 0    | 
+|bin_conv_core8 | A*B            | 18     | 17     | -      | -      | 48     | 0    | 0    | -    | -    | -     | 0    | 0    | 
+|bin_conv_core8 | (PCIN>>17)+A*B | 15     | 15     | -      | -      | 15     | 0    | 0    | -    | -    | -     | 0    | 0    | 
+|bin_conv_core8 | A*B            | 19     | 16     | -      | -      | 35     | 0    | 0    | -    | -    | -     | 0    | 0    | 
+|bin_conv_core8 | A*B            | 16     | 16     | -      | -      | 32     | 0    | 0    | -    | -    | -     | 0    | 0    | 
+|bin_conv_core8 | A*B            | 18     | 16     | -      | -      | 48     | 0    | 0    | -    | -    | -     | 0    | 0    | 
+|bin_conv_core8 | (PCIN>>17)+A*B | 16     | 16     | -      | -      | 48     | 0    | 0    | -    | -    | -     | 0    | 0    | 
+|bin_conv_core8 | A*B            | 18     | 18     | -      | -      | 48     | 0    | 0    | -    | -    | -     | 0    | 0    | 
+|bin_conv_core8 | (PCIN>>17)+A*B | 18     | 16     | -      | -      | 48     | 0    | 0    | -    | -    | -     | 0    | 0    | 
+|bin_conv_core8 | A*B            | 18     | 16     | -      | -      | 48     | 0    | 0    | -    | -    | -     | 0    | 0    | 
+|bin_conv_core8 | (PCIN>>17)+A*B | 16     | 16     | -      | -      | 48     | 0    | 0    | -    | -    | -     | 0    | 0    | 
+|bin_conv_core8 | A*B            | 18     | 18     | -      | -      | 48     | 0    | 0    | -    | -    | -     | 0    | 0    | 
+|bin_conv_core8 | (PCIN>>17)+A*B | 18     | 16     | -      | -      | 48     | 0    | 0    | -    | -    | -     | 0    | 0    | 
+|bin_conv_core8 | A*B            | 19     | 16     | -      | -      | 35     | 0    | 0    | -    | -    | -     | 0    | 0    | 
+|bin_conv_core8 | A*B            | 18     | 16     | -      | -      | 48     | 0    | 0    | -    | -    | -     | 0    | 0    | 
+|bin_conv_core8 | (PCIN>>17)+A*B | 16     | 16     | -      | -      | 48     | 0    | 0    | -    | -    | -     | 0    | 0    | 
+|bin_conv_core8 | A*B            | 18     | 18     | -      | -      | 48     | 0    | 0    | -    | -    | -     | 0    | 0    | 
+|bin_conv_core8 | (PCIN>>17)+A*B | 18     | 16     | -      | -      | 48     | 0    | 0    | -    | -    | -     | 0    | 0    | 
+|bin_conv_core8 | A*B            | 18     | 16     | -      | -      | 48     | 0    | 0    | -    | -    | -     | 0    | 0    | 
+|bin_conv_core8 | (PCIN>>17)+A*B | 16     | 16     | -      | -      | 48     | 0    | 0    | -    | -    | -     | 0    | 0    | 
+|bin_conv_core8 | A*B            | 18     | 18     | -      | -      | 48     | 0    | 0    | -    | -    | -     | 0    | 0    | 
+|bin_conv_core8 | (PCIN>>17)+A*B | 18     | 16     | -      | -      | 48     | 0    | 0    | -    | -    | -     | 0    | 0    | 
+|bin_conv_core8 | A*B            | 19     | 16     | -      | -      | 35     | 0    | 0    | -    | -    | -     | 0    | 0    | 
+|bin_conv_core8 | A*B            | 16     | 16     | -      | -      | 32     | 0    | 0    | -    | -    | -     | 0    | 0    | 
+|bin_conv_core8 | A*B            | 16     | 16     | -      | -      | 32     | 0    | 0    | -    | -    | -     | 0    | 0    | 
+|bin_conv_core8 | A*B            | 18     | 16     | -      | -      | 48     | 0    | 0    | -    | -    | -     | 0    | 0    | 
+|bin_conv_core8 | (PCIN>>17)+A*B | 16     | 15     | -      | -      | 48     | 0    | 0    | -    | -    | -     | 0    | 0    | 
+|bin_conv_core8 | A*B            | 16     | 16     | -      | -      | 32     | 0    | 0    | -    | -    | -     | 0    | 0    | 
+|bin_conv_core8 | A*B            | 18     | 16     | -      | -      | 48     | 0    | 0    | -    | -    | -     | 0    | 0    | 
+|bin_conv_core8 | (PCIN>>17)+A*B | 16     | 15     | -      | -      | 48     | 0    | 0    | -    | -    | -     | 0    | 0    | 
+|bin_conv_core8 | A*B            | 16     | 16     | -      | -      | 32     | 0    | 0    | -    | -    | -     | 0    | 0    | 
+|bin_conv_core8 | A*B            | 18     | 16     | -      | -      | 48     | 0    | 0    | -    | -    | -     | 0    | 0    | 
+|bin_conv_core8 | (PCIN>>17)+A*B | 16     | 15     | -      | -      | 48     | 0    | 0    | -    | -    | -     | 0    | 0    | 
+|bin_conv_core8 | A*B            | 16     | 16     | -      | -      | 32     | 0    | 0    | -    | -    | -     | 0    | 0    | 
+|bin_conv_core8 | A*B            | 18     | 16     | -      | -      | 48     | 0    | 0    | -    | -    | -     | 0    | 0    | 
+|bin_conv_core8 | (PCIN>>17)+A*B | 16     | 15     | -      | -      | 48     | 0    | 0    | -    | -    | -     | 0    | 0    | 
+|bin_conv_core8 | A*B            | 16     | 16     | -      | -      | 32     | 0    | 0    | -    | -    | -     | 0    | 0    | 
+|bin_conv_core8 | A*B            | 18     | 16     | -      | -      | 48     | 0    | 0    | -    | -    | -     | 0    | 0    | 
+|bin_conv_core8 | (PCIN>>17)+A*B | 16     | 15     | -      | -      | 48     | 0    | 0    | -    | -    | -     | 0    | 0    | 
+|bin_conv_core8 | A*B            | 16     | 16     | -      | -      | 32     | 0    | 0    | -    | -    | -     | 0    | 0    | 
+|bin_conv_core8 | A*B            | 18     | 16     | -      | -      | 48     | 0    | 0    | -    | -    | -     | 0    | 0    | 
+|bin_conv_core8 | (PCIN>>17)+A*B | 16     | 15     | -      | -      | 48     | 0    | 0    | -    | -    | -     | 0    | 0    | 
+|bin_conv_core8 | A*B            | 16     | 16     | -      | -      | 32     | 0    | 0    | -    | -    | -     | 0    | 0    | 
+|bin_conv_core8 | A*B            | 18     | 16     | -      | -      | 48     | 0    | 0    | -    | -    | -     | 0    | 0    | 
+|bin_conv_core8 | (PCIN>>17)+A*B | 16     | 15     | -      | -      | 48     | 0    | 0    | -    | -    | -     | 0    | 0    | 
+|bin_conv_core8 | A*B            | 16     | 16     | -      | -      | 32     | 0    | 0    | -    | -    | -     | 0    | 0    | 
+|bin_conv_core8 | A*B            | 18     | 16     | -      | -      | 48     | 0    | 0    | -    | -    | -     | 0    | 0    | 
+|bin_conv_core8 | (PCIN>>17)+A*B | 16     | 15     | -      | -      | 48     | 0    | 0    | -    | -    | -     | 0    | 0    | 
+|bin_catpack    | A*B            | 16     | 16     | -      | -      | 32     | 0    | 0    | -    | -    | -     | 0    | 0    | 
+|bin_e1e2       | A*B            | 16     | 16     | -      | -      | 32     | 0    | 0    | -    | -    | -     | 0    | 0    | 
++---------------+----------------+--------+--------+--------+--------+--------+------+------+------+------+-------+------+------+
+
+Note: The table above is a preliminary report that shows the DSPs inferred at the current stage of the synthesis flow. Some DSP may be reimplemented as non DSP primitives later in the synthesis flow. Multiple instantiated DSPs are reported only once.
+---------------------------------------------------------------------------------
+Finished ROM, RAM, DSP, Shift Register and Retiming Reporting
+---------------------------------------------------------------------------------
+No constraint files found.
+---------------------------------------------------------------------------------
+Start Timing Optimization
+---------------------------------------------------------------------------------
+---------------------------------------------------------------------------------
+Finished Timing Optimization : Time (s): cpu = 00:01:04 ; elapsed = 00:01:04 . Memory (MB): peak = 2822.918 ; gain = 1267.035 ; free physical = 449 ; free virtual = 11064
+---------------------------------------------------------------------------------
+---------------------------------------------------------------------------------
+Start ROM, RAM, DSP, Shift Register and Retiming Reporting
+---------------------------------------------------------------------------------
+
+Block RAM: Final Mapping Report
++----------------------+-------------------------------+------------------------+---+---+------------------------+---+---+------------------+--------+--------+
+|Module Name           | RTL Object                    | PORT A (Depth x Width) | W | R | PORT B (Depth x Width) | W | R | Ports driving FF | RAMB18 | RAMB36 | 
++----------------------+-------------------------------+------------------------+---+---+------------------------+---+---+------------------+--------+--------+
+|\g_conv.u_unit/u_eng  | g_wram[0].wmem_reg            | 256 x 64(READ_FIRST)   | W |   | 256 x 64(WRITE_FIRST)  |   | R | Port A and B     | 0      | 1      | 
+|\g_conv.u_unit/u_eng  | g_wram[7].wmem_reg            | 256 x 64(READ_FIRST)   | W |   | 256 x 64(WRITE_FIRST)  |   | R | Port A and B     | 0      | 1      | 
+|\g_conv.u_unit/u_eng  | g_wram[1].wmem_reg            | 256 x 64(READ_FIRST)   | W |   | 256 x 64(WRITE_FIRST)  |   | R | Port A and B     | 0      | 1      | 
+|\g_conv.u_unit/u_eng  | g_wram[2].wmem_reg            | 256 x 64(READ_FIRST)   | W |   | 256 x 64(WRITE_FIRST)  |   | R | Port A and B     | 0      | 1      | 
+|\g_conv.u_unit/u_eng  | g_wram[3].wmem_reg            | 256 x 64(READ_FIRST)   | W |   | 256 x 64(WRITE_FIRST)  |   | R | Port A and B     | 0      | 1      | 
+|\g_conv.u_unit/u_eng  | g_wram[4].wmem_reg            | 256 x 64(READ_FIRST)   | W |   | 256 x 64(WRITE_FIRST)  |   | R | Port A and B     | 0      | 1      | 
+|\g_conv.u_unit/u_eng  | g_wram[5].wmem_reg            | 256 x 64(READ_FIRST)   | W |   | 256 x 64(WRITE_FIRST)  |   | R | Port A and B     | 0      | 1      | 
+|\g_conv.u_unit/u_eng  | g_wram[6].wmem_reg            | 256 x 64(READ_FIRST)   | W |   | 256 x 64(WRITE_FIRST)  |   | R | Port A and B     | 0      | 1      | 
+|bin_unit_axi_wrap     | win_q_reg                     | 8 K x 64(READ_FIRST)   | W |   | 8 K x 64(WRITE_FIRST)  |   | R | Port A and B     | 0      | 16     | 
+|bin_unit_axi_wrap     | g_conv.u_pack/desc_ram_reg    | 8 x 64(READ_FIRST)     | W |   | 8 x 64(WRITE_FIRST)    |   | R | Port A and B     | 0      | 1      | 
+|bin_unit_axi_wrap     | g_conv.u_pack/acc_b_reg[0][0] | 256 x 8(READ_FIRST)    | W |   | 256 x 8(WRITE_FIRST)   |   | R | Port A and B     | 1      | 0      | 
+|bin_unit_axi_wrap     | g_conv.u_pack/acc_b_reg[1][0] | 256 x 8(READ_FIRST)    | W |   | 256 x 8(WRITE_FIRST)   |   | R | Port A and B     | 1      | 0      | 
+|bin_unit_axi_wrap     | g_conv.u_pack/acc_b_reg[2][0] | 256 x 8(READ_FIRST)    | W |   | 256 x 8(WRITE_FIRST)   |   | R | Port A and B     | 1      | 0      | 
+|bin_unit_axi_wrap     | g_conv.u_pack/acc_b_reg[3][0] | 256 x 8(READ_FIRST)    | W |   | 256 x 8(WRITE_FIRST)   |   | R | Port A and B     | 1      | 0      | 
+|bin_unit_axi_wrap     | g_conv.u_pack/acc_b_reg[4][0] | 256 x 8(READ_FIRST)    | W |   | 256 x 8(WRITE_FIRST)   |   | R | Port A and B     | 1      | 0      | 
+|bin_unit_axi_wrap     | g_conv.u_pack/acc_b_reg[5][0] | 256 x 8(READ_FIRST)    | W |   | 256 x 8(WRITE_FIRST)   |   | R | Port A and B     | 1      | 0      | 
+|bin_unit_axi_wrap     | g_conv.u_pack/acc_b_reg[6][0] | 256 x 8(READ_FIRST)    | W |   | 256 x 8(WRITE_FIRST)   |   | R | Port A and B     | 1      | 0      | 
+|bin_unit_axi_wrap     | g_conv.u_pack/acc_b_reg[7][0] | 256 x 8(READ_FIRST)    | W |   | 256 x 8(WRITE_FIRST)   |   | R | Port A and B     | 1      | 0      | 
++----------------------+-------------------------------+------------------------+---+---+------------------------+---+---+------------------+--------+--------+
+
+
+Distributed RAM: Final Mapping Report
++------------------+------------+-----------+----------------------+---------------+
+|Module Name       | RTL Object | Inference | Size (Depth x Width) | Primitives    | 
++------------------+------------+-----------+----------------------+---------------+
+|bin_unit_axi_wrap | lc_tag_reg | Implied   | 512 x 22             | RAM64M x 192  | 
++------------------+------------+-----------+----------------------+---------------+
+
+---------------------------------------------------------------------------------
+Finished ROM, RAM, DSP, Shift Register and Retiming Reporting
+---------------------------------------------------------------------------------
+---------------------------------------------------------------------------------
+Start Technology Mapping
+---------------------------------------------------------------------------------
+INFO: [Synth 8-7052] The timing for the instance g_conv.u_unit/u_eng/g_wram[0].wmem_reg (implemented as a Block RAM) might be sub-optimal as no optional output register could be merged into the ram block. Providing additional output register may help in improving timing.
+INFO: [Synth 8-7052] The timing for the instance g_conv.u_unit/u_eng/g_wram[7].wmem_reg (implemented as a Block RAM) might be sub-optimal as no optional output register could be merged into the ram block. Providing additional output register may help in improving timing.
+INFO: [Synth 8-7052] The timing for the instance g_conv.u_unit/u_eng/g_wram[1].wmem_reg (implemented as a Block RAM) might be sub-optimal as no optional output register could be merged into the ram block. Providing additional output register may help in improving timing.
+INFO: [Synth 8-7052] The timing for the instance g_conv.u_unit/u_eng/g_wram[2].wmem_reg (implemented as a Block RAM) might be sub-optimal as no optional output register could be merged into the ram block. Providing additional output register may help in improving timing.
+INFO: [Synth 8-7052] The timing for the instance g_conv.u_unit/u_eng/g_wram[3].wmem_reg (implemented as a Block RAM) might be sub-optimal as no optional output register could be merged into the ram block. Providing additional output register may help in improving timing.
+INFO: [Synth 8-7052] The timing for the instance g_conv.u_unit/u_eng/g_wram[4].wmem_reg (implemented as a Block RAM) might be sub-optimal as no optional output register could be merged into the ram block. Providing additional output register may help in improving timing.
+INFO: [Synth 8-7052] The timing for the instance g_conv.u_unit/u_eng/g_wram[5].wmem_reg (implemented as a Block RAM) might be sub-optimal as no optional output register could be merged into the ram block. Providing additional output register may help in improving timing.
+INFO: [Synth 8-7052] The timing for the instance g_conv.u_unit/u_eng/g_wram[6].wmem_reg (implemented as a Block RAM) might be sub-optimal as no optional output register could be merged into the ram block. Providing additional output register may help in improving timing.
+INFO: [Synth 8-7052] The timing for the instance win_q_reg_0 (implemented as a Block RAM) might be sub-optimal as no optional output register could be merged into the ram block. Providing additional output register may help in improving timing.
+INFO: [Synth 8-7052] The timing for the instance win_q_reg_1 (implemented as a Block RAM) might be sub-optimal as no optional output register could be merged into the ram block. Providing additional output register may help in improving timing.
+INFO: [Synth 8-7052] The timing for the instance win_q_reg_2 (implemented as a Block RAM) might be sub-optimal as no optional output register could be merged into the ram block. Providing additional output register may help in improving timing.
+INFO: [Synth 8-7052] The timing for the instance win_q_reg_3 (implemented as a Block RAM) might be sub-optimal as no optional output register could be merged into the ram block. Providing additional output register may help in improving timing.
+INFO: [Synth 8-7052] The timing for the instance win_q_reg_4 (implemented as a Block RAM) might be sub-optimal as no optional output register could be merged into the ram block. Providing additional output register may help in improving timing.
+INFO: [Synth 8-7052] The timing for the instance win_q_reg_5 (implemented as a Block RAM) might be sub-optimal as no optional output register could be merged into the ram block. Providing additional output register may help in improving timing.
+INFO: [Synth 8-7052] The timing for the instance win_q_reg_6 (implemented as a Block RAM) might be sub-optimal as no optional output register could be merged into the ram block. Providing additional output register may help in improving timing.
+INFO: [Synth 8-7052] The timing for the instance win_q_reg_7 (implemented as a Block RAM) might be sub-optimal as no optional output register could be merged into the ram block. Providing additional output register may help in improving timing.
+INFO: [Synth 8-7052] The timing for the instance win_q_reg_8 (implemented as a Block RAM) might be sub-optimal as no optional output register could be merged into the ram block. Providing additional output register may help in improving timing.
+INFO: [Synth 8-7052] The timing for the instance win_q_reg_9 (implemented as a Block RAM) might be sub-optimal as no optional output register could be merged into the ram block. Providing additional output register may help in improving timing.
+INFO: [Synth 8-7052] The timing for the instance win_q_reg_10 (implemented as a Block RAM) might be sub-optimal as no optional output register could be merged into the ram block. Providing additional output register may help in improving timing.
+INFO: [Synth 8-7052] The timing for the instance win_q_reg_11 (implemented as a Block RAM) might be sub-optimal as no optional output register could be merged into the ram block. Providing additional output register may help in improving timing.
+INFO: [Synth 8-7052] The timing for the instance win_q_reg_12 (implemented as a Block RAM) might be sub-optimal as no optional output register could be merged into the ram block. Providing additional output register may help in improving timing.
+INFO: [Synth 8-7052] The timing for the instance win_q_reg_13 (implemented as a Block RAM) might be sub-optimal as no optional output register could be merged into the ram block. Providing additional output register may help in improving timing.
+INFO: [Synth 8-7052] The timing for the instance win_q_reg_14 (implemented as a Block RAM) might be sub-optimal as no optional output register could be merged into the ram block. Providing additional output register may help in improving timing.
+INFO: [Synth 8-7052] The timing for the instance win_q_reg_15 (implemented as a Block RAM) might be sub-optimal as no optional output register could be merged into the ram block. Providing additional output register may help in improving timing.
+INFO: [Synth 8-7052] The timing for the instance g_conv.u_pack/desc_ram_reg (implemented as a Block RAM) might be sub-optimal as no optional output register could be merged into the ram block. Providing additional output register may help in improving timing.
+INFO: [Synth 8-7052] The timing for the instance g_conv.u_pack/acc_b_reg[0][0] (implemented as a Block RAM) might be sub-optimal as no optional output register could be merged into the ram block. Providing additional output register may help in improving timing.
+INFO: [Synth 8-7052] The timing for the instance g_conv.u_pack/acc_b_reg[1][0] (implemented as a Block RAM) might be sub-optimal as no optional output register could be merged into the ram block. Providing additional output register may help in improving timing.
+INFO: [Synth 8-7052] The timing for the instance g_conv.u_pack/acc_b_reg[2][0] (implemented as a Block RAM) might be sub-optimal as no optional output register could be merged into the ram block. Providing additional output register may help in improving timing.
+INFO: [Synth 8-7052] The timing for the instance g_conv.u_pack/acc_b_reg[3][0] (implemented as a Block RAM) might be sub-optimal as no optional output register could be merged into the ram block. Providing additional output register may help in improving timing.
+INFO: [Synth 8-7052] The timing for the instance g_conv.u_pack/acc_b_reg[4][0] (implemented as a Block RAM) might be sub-optimal as no optional output register could be merged into the ram block. Providing additional output register may help in improving timing.
+INFO: [Synth 8-7052] The timing for the instance g_conv.u_pack/acc_b_reg[5][0] (implemented as a Block RAM) might be sub-optimal as no optional output register could be merged into the ram block. Providing additional output register may help in improving timing.
+INFO: [Synth 8-7052] The timing for the instance g_conv.u_pack/acc_b_reg[6][0] (implemented as a Block RAM) might be sub-optimal as no optional output register could be merged into the ram block. Providing additional output register may help in improving timing.
+INFO: [Synth 8-7052] The timing for the instance g_conv.u_pack/acc_b_reg[7][0] (implemented as a Block RAM) might be sub-optimal as no optional output register could be merged into the ram block. Providing additional output register may help in improving timing.
+---------------------------------------------------------------------------------
+Finished Technology Mapping : Time (s): cpu = 00:01:09 ; elapsed = 00:01:09 . Memory (MB): peak = 2822.918 ; gain = 1267.035 ; free physical = 391 ; free virtual = 11015
+---------------------------------------------------------------------------------
+---------------------------------------------------------------------------------
+Start IO Insertion
+---------------------------------------------------------------------------------
+---------------------------------------------------------------------------------
+Start Flattening Before IO Insertion
+---------------------------------------------------------------------------------
+---------------------------------------------------------------------------------
+Finished Flattening Before IO Insertion
+---------------------------------------------------------------------------------
+---------------------------------------------------------------------------------
+Start Final Netlist Cleanup
+---------------------------------------------------------------------------------
+---------------------------------------------------------------------------------
+Finished Final Netlist Cleanup
+---------------------------------------------------------------------------------
+---------------------------------------------------------------------------------
+Finished IO Insertion : Time (s): cpu = 00:01:12 ; elapsed = 00:01:12 . Memory (MB): peak = 2822.918 ; gain = 1267.035 ; free physical = 933 ; free virtual = 11537
+---------------------------------------------------------------------------------
+---------------------------------------------------------------------------------
+Start Renaming Generated Instances
+---------------------------------------------------------------------------------
+---------------------------------------------------------------------------------
+Finished Renaming Generated Instances : Time (s): cpu = 00:01:13 ; elapsed = 00:01:12 . Memory (MB): peak = 2822.918 ; gain = 1267.035 ; free physical = 922 ; free virtual = 11543
+---------------------------------------------------------------------------------
+---------------------------------------------------------------------------------
+Start Rebuilding User Hierarchy
+---------------------------------------------------------------------------------
+---------------------------------------------------------------------------------
+Finished Rebuilding User Hierarchy : Time (s): cpu = 00:01:13 ; elapsed = 00:01:13 . Memory (MB): peak = 2822.918 ; gain = 1267.035 ; free physical = 912 ; free virtual = 11534
+---------------------------------------------------------------------------------
+---------------------------------------------------------------------------------
+Start Renaming Generated Ports
+---------------------------------------------------------------------------------
+---------------------------------------------------------------------------------
+Finished Renaming Generated Ports : Time (s): cpu = 00:01:13 ; elapsed = 00:01:13 . Memory (MB): peak = 2822.918 ; gain = 1267.035 ; free physical = 924 ; free virtual = 11524
+---------------------------------------------------------------------------------
+---------------------------------------------------------------------------------
+Start Handling Custom Attributes
+---------------------------------------------------------------------------------
+---------------------------------------------------------------------------------
+Finished Handling Custom Attributes : Time (s): cpu = 00:01:14 ; elapsed = 00:01:14 . Memory (MB): peak = 2822.918 ; gain = 1267.035 ; free physical = 919 ; free virtual = 11524
+---------------------------------------------------------------------------------
+---------------------------------------------------------------------------------
+Start Renaming Generated Nets
+---------------------------------------------------------------------------------
+---------------------------------------------------------------------------------
+Finished Renaming Generated Nets : Time (s): cpu = 00:01:14 ; elapsed = 00:01:14 . Memory (MB): peak = 2822.918 ; gain = 1267.035 ; free physical = 927 ; free virtual = 11531
+---------------------------------------------------------------------------------
+---------------------------------------------------------------------------------
+Start Writing Synthesis Report
+---------------------------------------------------------------------------------
+
+DSP Final Report (the ' indicates corresponding REG is set)
++---------------+-------------------+--------+--------+--------+--------+--------+------+------+------+------+-------+------+------+
+|Module Name    | DSP Mapping       | A Size | B Size | C Size | D Size | P Size | AREG | BREG | CREG | DREG | ADREG | MREG | PREG | 
++---------------+-------------------+--------+--------+--------+--------+--------+------+------+------+------+-------+------+------+
+|bin_catpack    | (A*B)'            | 16     | 16     | -      | -      | 32     | 0    | 0    | -    | -    | -     | 0    | 1    | 
+|bin_e1e2       | (A*B)'            | 16     | 16     | -      | -      | 32     | 0    | 0    | -    | -    | -     | 0    | 1    | 
+|bin_conv_core8 | (A*B)'            | 16     | 16     | -      | -      | 32     | 0    | 0    | -    | -    | -     | 0    | 1    | 
+|bin_conv_core8 | A*B               | 17     | 11     | -      | -      | 48     | 0    | 0    | -    | -    | -     | 0    | 0    | 
+|bin_conv_core8 | (PCIN>>17+A*B)'   | 11     | 15     | -      | -      | 15     | 0    | 0    | -    | -    | -     | 0    | 1    | 
+|bin_conv_core8 | (A*B)'            | 19     | 16     | -      | -      | 35     | 0    | 0    | -    | -    | -     | 0    | 1    | 
+|bin_conv_core8 | (A*B)'            | 16     | 16     | -      | -      | 32     | 0    | 0    | -    | -    | -     | 0    | 1    | 
+|bin_conv_core8 | (A*B)'            | 17     | 15     | -      | -      | 48     | 0    | 0    | -    | -    | -     | 0    | 1    | 
+|bin_conv_core8 | A*B               | 17     | 17     | -      | -      | 48     | 0    | 0    | -    | -    | -     | 0    | 0    | 
+|bin_conv_core8 | (PCIN>>17+A*B)'   | 17     | 15     | -      | -      | 48     | 0    | 0    | -    | -    | -     | 0    | 1    | 
+|bin_conv_core8 | (A*B)'            | 17     | 15     | -      | -      | 48     | 0    | 0    | -    | -    | -     | 0    | 1    | 
+|bin_conv_core8 | A*B               | 17     | 17     | -      | -      | 48     | 0    | 0    | -    | -    | -     | 0    | 0    | 
+|bin_conv_core8 | (PCIN>>17+A*B)'   | 17     | 2      | -      | -      | 48     | 0    | 0    | -    | -    | -     | 0    | 1    | 
+|bin_conv_core8 | (A*B)'            | 19     | 16     | -      | -      | 35     | 0    | 0    | -    | -    | -     | 0    | 1    | 
+|bin_conv_core8 | (A*B)'            | 17     | 15     | -      | -      | 48     | 0    | 0    | -    | -    | -     | 0    | 1    | 
+|bin_conv_core8 | A*B               | 17     | 17     | -      | -      | 48     | 0    | 0    | -    | -    | -     | 0    | 0    | 
+|bin_conv_core8 | (PCIN>>17+A*B)'   | 17     | 15     | -      | -      | 48     | 0    | 0    | -    | -    | -     | 0    | 1    | 
+|bin_conv_core8 | (A*B)'            | 17     | 15     | -      | -      | 48     | 0    | 0    | -    | -    | -     | 0    | 1    | 
+|bin_conv_core8 | A*B               | 17     | 17     | -      | -      | 48     | 0    | 0    | -    | -    | -     | 0    | 0    | 
+|bin_conv_core8 | (PCIN>>17+A*B)'   | 17     | 2      | -      | -      | 48     | 0    | 0    | -    | -    | -     | 0    | 1    | 
+|bin_conv_core8 | (A*B)'            | 19     | 16     | -      | -      | 35     | 0    | 0    | -    | -    | -     | 0    | 1    | 
+|bin_conv_core8 | (A*B)'            | 16     | 16     | -      | -      | 32     | 0    | 0    | -    | -    | -     | 0    | 1    | 
+|bin_conv_core8 | (A*B')'           | 30     | 18     | -      | -      | 32     | 0    | 1    | -    | -    | -     | 0    | 1    | 
+|bin_conv_core8 | A'*B'             | 17     | 18     | -      | -      | 48     | 1    | 1    | -    | -    | -     | 0    | 0    | 
+|bin_conv_core8 | (PCIN>>17+A'*B')' | 30     | 18     | -      | -      | 48     | 1    | 1    | -    | -    | -     | 0    | 1    | 
+|bin_conv_core8 | (A*B')'           | 30     | 18     | -      | -      | 32     | 0    | 1    | -    | -    | -     | 0    | 1    | 
+|bin_conv_core8 | A'*B'             | 17     | 18     | -      | -      | 48     | 1    | 1    | -    | -    | -     | 0    | 0    | 
+|bin_conv_core8 | (PCIN>>17+A'*B')' | 30     | 18     | -      | -      | 48     | 1    | 1    | -    | -    | -     | 0    | 1    | 
+|bin_conv_core8 | (A*B')'           | 30     | 18     | -      | -      | 32     | 0    | 1    | -    | -    | -     | 0    | 1    | 
+|bin_conv_core8 | A'*B'             | 17     | 18     | -      | -      | 48     | 1    | 1    | -    | -    | -     | 0    | 0    | 
+|bin_conv_core8 | (PCIN>>17+A'*B')' | 30     | 18     | -      | -      | 48     | 1    | 1    | -    | -    | -     | 0    | 1    | 
+|bin_conv_core8 | (A*B')'           | 30     | 18     | -      | -      | 32     | 0    | 1    | -    | -    | -     | 0    | 1    | 
+|bin_conv_core8 | A'*B'             | 17     | 18     | -      | -      | 48     | 1    | 1    | -    | -    | -     | 0    | 0    | 
+|bin_conv_core8 | (PCIN>>17+A'*B')' | 30     | 18     | -      | -      | 48     | 1    | 1    | -    | -    | -     | 0    | 1    | 
+|bin_conv_core8 | (A*B')'           | 30     | 18     | -      | -      | 32     | 0    | 1    | -    | -    | -     | 0    | 1    | 
+|bin_conv_core8 | A'*B'             | 17     | 18     | -      | -      | 48     | 1    | 1    | -    | -    | -     | 0    | 0    | 
+|bin_conv_core8 | (PCIN>>17+A'*B')' | 30     | 18     | -      | -      | 48     | 1    | 1    | -    | -    | -     | 0    | 1    | 
+|bin_conv_core8 | (A*B')'           | 30     | 18     | -      | -      | 32     | 0    | 1    | -    | -    | -     | 0    | 1    | 
+|bin_conv_core8 | A'*B'             | 17     | 18     | -      | -      | 48     | 1    | 1    | -    | -    | -     | 0    | 0    | 
+|bin_conv_core8 | (PCIN>>17+A'*B')' | 30     | 18     | -      | -      | 48     | 1    | 1    | -    | -    | -     | 0    | 1    | 
+|bin_conv_core8 | (A*B')'           | 30     | 18     | -      | -      | 32     | 0    | 1    | -    | -    | -     | 0    | 1    | 
+|bin_conv_core8 | A'*B'             | 17     | 18     | -      | -      | 48     | 1    | 1    | -    | -    | -     | 0    | 0    | 
+|bin_conv_core8 | (PCIN>>17+A'*B')' | 30     | 18     | -      | -      | 48     | 1    | 1    | -    | -    | -     | 0    | 1    | 
+|bin_conv_core8 | (A*B')'           | 30     | 18     | -      | -      | 32     | 0    | 1    | -    | -    | -     | 0    | 1    | 
+|bin_conv_core8 | A'*B'             | 17     | 18     | -      | -      | 48     | 1    | 1    | -    | -    | -     | 0    | 0    | 
+|bin_conv_core8 | (PCIN>>17+A'*B')' | 30     | 18     | -      | -      | 48     | 1    | 1    | -    | -    | -     | 0    | 1    | 
++---------------+-------------------+--------+--------+--------+--------+--------+------+------+------+------+-------+------+------+
+
+
+Report BlackBoxes: 
++-+--------------+----------+
+| |BlackBox name |Instances |
++-+--------------+----------+
++-+--------------+----------+
+
+Report Cell Usage: 
++------+---------+------+
+|      |Cell     |Count |
++------+---------+------+
+|1     |CARRY4   |  1035|
+|2     |DSP48E1  |    46|
+|3     |LUT1     |   300|
+|4     |LUT2     |  2630|
+|5     |LUT3     |  2243|
+|6     |LUT4     |  1732|
+|7     |LUT5     |  3064|
+|8     |LUT6     |  6709|
+|9     |MUXF7    |   445|
+|10    |MUXF8    |   184|
+|11    |RAM64M   |   168|
+|12    |RAM64X1D |    24|
+|13    |RAMB18E1 |     8|
+|14    |RAMB36E1 |    25|
+|15    |FDCE     |  5692|
+|16    |FDPE     |   156|
+|17    |FDRE     |  5093|
++------+---------+------+
+
+Report Instance Areas: 
++------+---------------------+---------------+------+
+|      |Instance             |Module         |Cells |
++------+---------------------+---------------+------+
+|1     |top                  |               | 29554|
+|2     |  \g_conv.u_catpack  |bin_catpack    |  8055|
+|3     |  \g_conv.u_pack     |bin_e1e2       |  2633|
+|4     |  \g_conv.u_unit     |bin_conv_core  | 11770|
+|5     |    u_eng            |bin_conv_core8 | 11769|
++------+---------------------+---------------+------+
+---------------------------------------------------------------------------------
+Finished Writing Synthesis Report : Time (s): cpu = 00:01:14 ; elapsed = 00:01:14 . Memory (MB): peak = 2822.918 ; gain = 1267.035 ; free physical = 922 ; free virtual = 11527
+---------------------------------------------------------------------------------
+Synthesis finished with 0 errors, 0 critical warnings and 851 warnings.
+Synthesis Optimization Runtime : Time (s): cpu = 00:01:14 ; elapsed = 00:01:14 . Memory (MB): peak = 2822.918 ; gain = 1267.035 ; free physical = 906 ; free virtual = 11527
+Synthesis Optimization Complete : Time (s): cpu = 00:01:14 ; elapsed = 00:01:14 . Memory (MB): peak = 2822.926 ; gain = 1267.035 ; free physical = 906 ; free virtual = 11528
+INFO: [Project 1-571] Translating synthesized netlist
+Netlist sorting complete. Time (s): cpu = 00:00:00.14 ; elapsed = 00:00:00.14 . Memory (MB): peak = 2822.926 ; gain = 0.000 ; free physical = 1128 ; free virtual = 11728
+INFO: [Netlist 29-17] Analyzing 1935 Unisim elements for replacement
+INFO: [Netlist 29-28] Unisim Transformation completed in 0 CPU seconds
+INFO: [Project 1-570] Preparing netlist for logic optimization
+INFO: [Opt 31-138] Pushed 0 inverter(s) to 0 load pin(s).
+Netlist sorting complete. Time (s): cpu = 00:00:00.01 ; elapsed = 00:00:00.01 . Memory (MB): peak = 2830.922 ; gain = 0.000 ; free physical = 1101 ; free virtual = 11721
+INFO: [Project 1-111] Unisim Transformation Summary:
+  A total of 192 instances were transformed.
+  RAM64M => RAM64M (RAMD64E(x4)): 168 instances
+  RAM64X1D => RAM64X1D (RAMD64E(x2)): 24 instances
+
+Synth Design complete | Checksum: 1117f12f
+INFO: [Common 17-83] Releasing license: Synthesis
+67 Infos, 254 Warnings, 0 Critical Warnings and 0 Errors encountered.
+synth_design completed successfully
+synth_design: Time (s): cpu = 00:01:21 ; elapsed = 00:01:19 . Memory (MB): peak = 2830.957 ; gain = 1279.078 ; free physical = 1141 ; free virtual = 11730
+INFO: [Common 17-2834] synth_design peak Physical Memory [PSS] (MB): overall = 2293.540; main = 2069.316; forked = 294.109
+INFO: [Common 17-2834] synth_design peak Virtual Memory [VSS] (MB): overall = 3847.672; main = 2830.926; forked = 1024.750
+# puts "== PROBE: cell=[llength [get_cells -hier -quiet]]"
+== PROBE: cell=30292
+# set _ls [get_cells -hier -quiet -filter {REF_NAME == LDCE || REF_NAME == LDPE || REF_NAME == LDC}]
+# puts "== PROBE: latch cell 数 = [llength $_ls]"
+== PROBE: latch cell 数 = 0
+# foreach c $_ls {
+#     puts "LATCHCELL\t[get_property NAME $c]\t[get_property REF_NAME $c]\tparent=[get_property PARENT $c]"
+#     foreach pn {D G E CLR PRE Q} {
+#         set p [get_pins -quiet $c/$pn]
+#         if {[llength $p] == 0} { continue }
+#         set n [get_nets -quiet -of_objects $p]
+#         set drv "-"
+#         if {[llength $n] > 0} {
+#             set dp [get_pins -quiet -leaf -of_objects [lindex $n 0] -filter {DIRECTION == OUT}]
+#             if {[llength $dp] > 0} {
+#                 set d [get_cells -quiet -of_objects [lindex $dp 0]]
+#                 if {[llength $d] > 0} { set drv [get_property NAME [lindex $d 0]] }
+#             }
+#         }
+#         puts "   pin $pn net=[lindex $n 0] driver=$drv"
+#     }
+# }
+# puts "== DONE_PROBE_LATCH =="
+== DONE_PROBE_LATCH ==
+INFO: [Common 17-206] Exiting Vivado at Sat Oct 31 19:53:29 2026...

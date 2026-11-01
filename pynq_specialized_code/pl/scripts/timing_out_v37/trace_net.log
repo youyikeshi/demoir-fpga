@@ -1,0 +1,322 @@
+
+****** Vivado v2025.2.1 (64-bit)
+  **** SW Build 6403652 on Thu Mar 19 13:47:00 MDT 2026
+  **** IP Build 6403511 on Thu Mar 19 12:41:45 MDT 2026
+  **** SharedData Build 6403650 on Thu Mar 19 14:02:13 MDT 2026
+  **** Start of session at: Sat Oct 31 16:30:32 2026
+    ** Copyright 1986-2022 Xilinx, Inc. All Rights Reserved.
+    ** Copyright 2022-2026 Advanced Micro Devices, Inc. All Rights Reserved.
+
+source scripts/trace_net.tcl
+# open_checkpoint [lindex $argv 0]
+Command: open_checkpoint ../board/overlay_engine_150mhz/design_1_150v37_routed.dcp
+
+Starting open_checkpoint Task
+
+Time (s): cpu = 00:00:00.04 ; elapsed = 00:00:00.02 . Memory (MB): peak = 1579.430 ; gain = 0.000 ; free physical = 6160 ; free virtual = 13966
+INFO: [Device 21-403] Loading part xc7z015clg485-2
+Netlist sorting complete. Time (s): cpu = 00:00:00.12 ; elapsed = 00:00:00.12 . Memory (MB): peak = 1831.992 ; gain = 0.000 ; free physical = 5876 ; free virtual = 13750
+INFO: [Netlist 29-17] Analyzing 3266 Unisim elements for replacement
+INFO: [Netlist 29-28] Unisim Transformation completed in 0 CPU seconds
+INFO: [Project 1-479] Netlist was created with Vivado 2025.2.1
+INFO: [Project 1-570] Preparing netlist for logic optimization
+Read ShapeDB Complete: Time (s): cpu = 00:00:00.03 ; elapsed = 00:00:00.04 . Memory (MB): peak = 1932.898 ; gain = 4.250 ; free physical = 5769 ; free virtual = 13642
+INFO: [Timing 38-478] Restoring timing data from binary archive.
+INFO: [Timing 38-479] Binary timing data restore complete.
+INFO: [Project 1-856] Restoring constraints from binary archive.
+INFO: [Constraints 18-5170] The checkpoint was created with non-default parameter values which do not match the current Vivado settings.  Mismatching parameters are:
+  general.maxThreads
+INFO: [Project 1-853] Binary constraint restore complete.
+INFO: [Designutils 20-5722] Start Reading Physical Databases.
+Reading placement.
+Read Netlist Cache: Time (s): cpu = 00:00:00.03 ; elapsed = 00:00:00.03 . Memory (MB): peak = 2547.898 ; gain = 0.000 ; free physical = 5205 ; free virtual = 13070
+Reading placer database...
+Read Device Cache: Time (s): cpu = 00:00:00.01 ; elapsed = 00:00:00.01 . Memory (MB): peak = 2547.898 ; gain = 0.000 ; free physical = 5205 ; free virtual = 13070
+Read PlaceDB: Time (s): cpu = 00:00:00 ; elapsed = 00:00:00 . Memory (MB): peak = 2547.898 ; gain = 0.000 ; free physical = 5205 ; free virtual = 13070
+Read placeStorage: Time (s): cpu = 00:00:00.57 ; elapsed = 00:00:00.58 . Memory (MB): peak = 2565.898 ; gain = 18.000 ; free physical = 5195 ; free virtual = 13062
+Read PulsedLatchDB: Time (s): cpu = 00:00:00 ; elapsed = 00:00:00 . Memory (MB): peak = 2565.898 ; gain = 0.000 ; free physical = 5195 ; free virtual = 13062
+Reading routing.
+Read RouteStorage: Time (s): cpu = 00:00:00.54 ; elapsed = 00:00:00.18 . Memory (MB): peak = 2586.141 ; gain = 20.242 ; free physical = 5170 ; free virtual = 13037
+Read Physdb Files: Time (s): cpu = 00:00:01 ; elapsed = 00:00:00.8 . Memory (MB): peak = 2586.141 ; gain = 38.242 ; free physical = 5170 ; free virtual = 13037
+Restored from archive | CPU: 1.210000 secs | Memory: 35.569366 MB |
+Finished XDEF File Restore: Time (s): cpu = 00:00:01 ; elapsed = 00:00:00.82 . Memory (MB): peak = 2586.141 ; gain = 42.211 ; free physical = 5170 ; free virtual = 13037
+Netlist sorting complete. Time (s): cpu = 00:00:00 ; elapsed = 00:00:00 . Memory (MB): peak = 2597.523 ; gain = 0.000 ; free physical = 5164 ; free virtual = 13031
+INFO: [Project 1-111] Unisim Transformation Summary:
+  A total of 201 instances were transformed.
+  RAM32M => RAM32M (RAMD32(x6), RAMS32(x2)): 5 instances
+  RAM32X1D => RAM32X1D (RAMD32(x2)): 4 instances
+  RAM64M => RAM64M (RAMD64E(x4)): 168 instances
+  RAM64X1D => RAM64X1D (RAMD64E(x2)): 24 instances
+
+INFO: [Project 1-604] Checkpoint was created with Vivado v2025.2.1 (64-bit) build 6403652
+open_checkpoint: Time (s): cpu = 00:00:16 ; elapsed = 00:00:10 . Memory (MB): peak = 2605.559 ; gain = 1026.129 ; free physical = 5167 ; free virtual = 13034
+# puts "===== nets matching *rd_hit* ====="
+===== nets matching *rd_hit* =====
+# foreach n [get_nets -hier -quiet -filter {NAME =~ *rd_hit*}] {
+#     puts "NET [get_property NAME $n]"
+#     set drv [get_pins -quiet -of_objects $n -filter {DIRECTION == OUT}]
+#     foreach d $drv {
+#         set c [get_cells -quiet -of_objects $d]
+#         puts "   driver: $d  (cell [get_property NAME $c] [get_property REF_NAME $c])"
+#     }
+#     set ld [get_pins -quiet -of_objects $n -filter {DIRECTION == IN}]
+#     puts "   loads ([llength $ld]):"
+#     set k 0
+#     foreach l $ld {
+#         incr k
+#         if {$k > 12} { puts "     ..."; break }
+#         set c [get_cells -quiet -of_objects $l]
+#         puts "     $l   <- [get_property NAME $c] ([get_property REF_NAME $c])"
+#     }
+# }
+NET design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_pack/rd_hit1
+   driver: design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_pack/win_q_reg_0_i_69/CO[2]  (cell design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_pack/win_q_reg_0_i_69 CARRY4)
+   loads (5):
+     design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_pack/be_word[28]_i_3_comp_5/I2   <- design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_pack/be_word[28]_i_3_comp_5 (LUT5)
+     design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_pack/bf_data[0][63]_i_7_comp_2/I2   <- design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_pack/bf_data[0][63]_i_7_comp_2 (LUT5)
+     design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_pack/g_wram[0].wmem_reg_i_68_comp_5/I3   <- design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_pack/g_wram[0].wmem_reg_i_68_comp_5 (LUT6)
+     design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_pack/bf_data[0][47]_i_9_rewire_comp_2/I4   <- design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_pack/bf_data[0][47]_i_9_rewire_comp_2 (LUT6)
+     design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_pack/win_q_reg_0_i_29_rewire/I5   <- design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_pack/win_q_reg_0_i_29_rewire (LUT6)
+NET design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_pack/rd_hit10
+   driver: design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_pack/al_v_reg_i_14/CO[2]  (cell design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_pack/al_v_reg_i_14 CARRY4)
+   loads (1):
+     design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_pack/al_v_i_6_rewire/I1   <- design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_pack/al_v_i_6_rewire (LUT4)
+NET design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_pack/rd_hit11
+   driver: design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_pack/al_v_reg_i_50/CO[2]  (cell design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_pack/al_v_reg_i_50 CARRY4)
+   loads (1):
+     design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_pack/al_v_i_19/I0   <- design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_pack/al_v_i_19 (LUT4)
+NET design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_pack/rd_hit12
+   driver: design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_pack/al_v_reg_i_51/CO[2]  (cell design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_pack/al_v_reg_i_51 CARRY4)
+   loads (1):
+     design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_pack/al_v_i_19/I2   <- design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_pack/al_v_i_19 (LUT4)
+NET design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_pack/rd_hit13
+   driver: design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_pack/al_v_reg_i_43/CO[2]  (cell design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_pack/al_v_reg_i_43 CARRY4)
+   loads (1):
+     design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_pack/al_v_i_16/I2   <- design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_pack/al_v_i_16 (LUT4)
+NET design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_pack/rd_hit14
+   driver: design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_pack/al_v_reg_i_35/CO[2]  (cell design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_pack/al_v_reg_i_35 CARRY4)
+   loads (1):
+     design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_pack/al_v_i_13/I2   <- design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_pack/al_v_i_13 (LUT4)
+NET design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_pack/rd_hit15
+   driver: design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_pack/al_v_reg_i_34/CO[2]  (cell design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_pack/al_v_reg_i_34 CARRY4)
+   loads (1):
+     design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_pack/al_v_i_13/I0   <- design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_pack/al_v_i_13 (LUT4)
+NET design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_pack/rd_hit16
+   driver: design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_pack/al_v_reg_i_15/CO[2]  (cell design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_pack/al_v_reg_i_15 CARRY4)
+   loads (1):
+     design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_pack/al_v_i_6_rewire/I3   <- design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_pack/al_v_i_6_rewire (LUT4)
+NET design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_pack/rd_hit17
+   driver: design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_pack/al_v_reg_i_21/CO[2]  (cell design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_pack/al_v_reg_i_21 CARRY4)
+   loads (1):
+     design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_pack/al_v_i_8/I3   <- design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_pack/al_v_i_8 (LUT5)
+NET design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_pack/rd_hit171_out
+   driver: design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_pack/al_v_reg_i_20/CO[2]  (cell design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_pack/al_v_reg_i_20 CARRY4)
+   loads (1):
+     design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_pack/al_v_i_8/I1   <- design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_pack/al_v_i_8 (LUT5)
+NET design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_pack/rd_hit3
+   driver: design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_pack/al_v_reg_i_58/CO[2]  (cell design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_pack/al_v_reg_i_58 CARRY4)
+   loads (1):
+     design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_pack/al_v_i_22/I0   <- design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_pack/al_v_i_22 (LUT4)
+NET design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_pack/rd_hit4
+   driver: design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_pack/al_v_reg_i_59/CO[2]  (cell design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_pack/al_v_reg_i_59 CARRY4)
+   loads (1):
+     design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_pack/al_v_i_22/I2   <- design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_pack/al_v_i_22 (LUT4)
+NET design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_pack/rd_hit5
+   driver: design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_pack/al_v_reg_i_11/CO[2]  (cell design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_pack/al_v_reg_i_11 CARRY4)
+   loads (1):
+     design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_pack/al_v_i_5_rewire/I1   <- design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_pack/al_v_i_5_rewire (LUT4)
+NET design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_pack/rd_hit6
+   driver: design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_pack/al_v_reg_i_17/CO[2]  (cell design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_pack/al_v_reg_i_17 CARRY4)
+   loads (1):
+     design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_pack/al_v_i_7/I1   <- design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_pack/al_v_i_7 (LUT5)
+NET design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_pack/rd_hit7
+   driver: design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_pack/al_v_reg_i_18/CO[2]  (cell design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_pack/al_v_reg_i_18 CARRY4)
+   loads (1):
+     design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_pack/al_v_i_7/I3   <- design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_pack/al_v_i_7 (LUT5)
+NET design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_pack/rd_hit8
+   driver: design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_pack/al_v_reg_i_12/CO[2]  (cell design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_pack/al_v_reg_i_12 CARRY4)
+   loads (1):
+     design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_pack/al_v_i_5_rewire/I3   <- design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_pack/al_v_i_5_rewire (LUT4)
+NET design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_pack/rd_hit9
+   driver: design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_pack/al_v_reg_i_42/CO[2]  (cell design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_pack/al_v_reg_i_42 CARRY4)
+   loads (1):
+     design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_pack/al_v_i_16/I0   <- design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_pack/al_v_i_16 (LUT4)
+NET design_1_i/conv_uni_0/inst/u_conv_uni/u_unit/rd_hit1
+   driver: design_1_i/conv_uni_0/inst/u_conv_uni/u_unit/cache_b_reg_i_136/CO[0]  (cell design_1_i/conv_uni_0/inst/u_conv_uni/u_unit/cache_b_reg_i_136 CARRY4)
+   loads (1):
+     design_1_i/conv_uni_0/inst/u_conv_uni/u_unit/cache_b_reg_i_59/I0   <- design_1_i/conv_uni_0/inst/u_conv_uni/u_unit/cache_b_reg_i_59 (LUT2)
+NET design_1_i/conv_uni_0/inst/u_conv_uni/u_unit/rd_hit131_out
+   driver: design_1_i/conv_uni_0/inst/u_conv_uni/u_unit/cache_b_reg_i_197/CO[0]  (cell design_1_i/conv_uni_0/inst/u_conv_uni/u_unit/cache_b_reg_i_197 CARRY4)
+   loads (1):
+     design_1_i/conv_uni_0/inst/u_conv_uni/u_unit/cache_b_reg_i_98/I0   <- design_1_i/conv_uni_0/inst/u_conv_uni/u_unit/cache_b_reg_i_98 (LUT2)
+NET design_1_i/conv_uni_0/inst/u_conv_uni/u_unit/rd_hit132_out
+   driver: design_1_i/conv_uni_0/inst/u_conv_uni/u_unit/cache_b_reg_i_135/CO[0]  (cell design_1_i/conv_uni_0/inst/u_conv_uni/u_unit/cache_b_reg_i_135 CARRY4)
+   loads (1):
+     design_1_i/conv_uni_0/inst/u_conv_uni/u_unit/cache_b_reg_i_58/I0   <- design_1_i/conv_uni_0/inst/u_conv_uni/u_unit/cache_b_reg_i_58 (LUT2)
+NET design_1_i/conv_uni_0/inst/u_conv_uni/u_unit/rd_hit133_out
+   driver: design_1_i/conv_uni_0/inst/u_conv_uni/u_unit/cache_b_reg_i_194/CO[0]  (cell design_1_i/conv_uni_0/inst/u_conv_uni/u_unit/cache_b_reg_i_194 CARRY4)
+   loads (1):
+     design_1_i/conv_uni_0/inst/u_conv_uni/u_unit/cache_b_reg_i_95/I0   <- design_1_i/conv_uni_0/inst/u_conv_uni/u_unit/cache_b_reg_i_95 (LUT2)
+NET design_1_i/conv_uni_0/inst/u_conv_uni/u_unit/rd_hit134_out
+   driver: design_1_i/conv_uni_0/inst/u_conv_uni/u_unit/cache_b_reg_i_82/CO[0]  (cell design_1_i/conv_uni_0/inst/u_conv_uni/u_unit/cache_b_reg_i_82 CARRY4)
+   loads (2):
+     design_1_i/conv_uni_0/inst/u_conv_uni/u_unit/cache_b_reg_i_28/I0   <- design_1_i/conv_uni_0/inst/u_conv_uni/u_unit/cache_b_reg_i_28 (LUT6)
+     design_1_i/conv_uni_0/inst/u_conv_uni/u_unit/rd_need_q_i_7/I0   <- design_1_i/conv_uni_0/inst/u_conv_uni/u_unit/rd_need_q_i_7 (LUT6)
+NET design_1_i/conv_uni_0/inst/u_conv_uni/u_unit/rd_hit135_out
+   driver: design_1_i/conv_uni_0/inst/u_conv_uni/u_unit/cache_b_reg_i_180/CO[0]  (cell design_1_i/conv_uni_0/inst/u_conv_uni/u_unit/cache_b_reg_i_180 CARRY4)
+   loads (1):
+     design_1_i/conv_uni_0/inst/u_conv_uni/u_unit/cache_b_reg_i_83/I0   <- design_1_i/conv_uni_0/inst/u_conv_uni/u_unit/cache_b_reg_i_83 (LUT2)
+NET design_1_i/conv_uni_0/inst/u_conv_uni/u_unit/rd_hit136_out
+   driver: design_1_i/conv_uni_0/inst/u_conv_uni/u_unit/cache_b_reg_i_191/CO[0]  (cell design_1_i/conv_uni_0/inst/u_conv_uni/u_unit/cache_b_reg_i_191 CARRY4)
+   loads (1):
+     design_1_i/conv_uni_0/inst/u_conv_uni/u_unit/cache_b_reg_i_92/I0   <- design_1_i/conv_uni_0/inst/u_conv_uni/u_unit/cache_b_reg_i_92 (LUT2)
+NET design_1_i/conv_uni_0/inst/u_conv_uni/u_unit/rd_hit137_out
+   driver: design_1_i/conv_uni_0/inst/u_conv_uni/u_unit/cache_b_reg_i_190/CO[0]  (cell design_1_i/conv_uni_0/inst/u_conv_uni/u_unit/cache_b_reg_i_190 CARRY4)
+   loads (1):
+     design_1_i/conv_uni_0/inst/u_conv_uni/u_unit/cache_b_reg_i_91/I0   <- design_1_i/conv_uni_0/inst/u_conv_uni/u_unit/cache_b_reg_i_91 (LUT2)
+NET design_1_i/conv_uni_0/inst/u_conv_uni/u_unit/rd_hit138_out
+   driver: design_1_i/conv_uni_0/inst/u_conv_uni/u_unit/cache_b_reg_i_134/CO[0]  (cell design_1_i/conv_uni_0/inst/u_conv_uni/u_unit/cache_b_reg_i_134 CARRY4)
+   loads (1):
+     design_1_i/conv_uni_0/inst/u_conv_uni/u_unit/cache_b_reg_i_57/I0   <- design_1_i/conv_uni_0/inst/u_conv_uni/u_unit/cache_b_reg_i_57 (LUT2)
+NET design_1_i/conv_uni_0/inst/u_conv_uni/u_unit/rd_hit139_out
+   driver: design_1_i/conv_uni_0/inst/u_conv_uni/u_unit/cache_b_reg_i_133/CO[0]  (cell design_1_i/conv_uni_0/inst/u_conv_uni/u_unit/cache_b_reg_i_133 CARRY4)
+   loads (1):
+     design_1_i/conv_uni_0/inst/u_conv_uni/u_unit/cache_b_reg_i_56/I1   <- design_1_i/conv_uni_0/inst/u_conv_uni/u_unit/cache_b_reg_i_56 (LUT2)
+NET design_1_i/conv_uni_0/inst/u_conv_uni/u_unit/rd_hit140_out
+   driver: design_1_i/conv_uni_0/inst/u_conv_uni/u_unit/cache_b_reg_i_188/CO[0]  (cell design_1_i/conv_uni_0/inst/u_conv_uni/u_unit/cache_b_reg_i_188 CARRY4)
+   loads (1):
+     design_1_i/conv_uni_0/inst/u_conv_uni/u_unit/cache_b_reg_i_89/I1   <- design_1_i/conv_uni_0/inst/u_conv_uni/u_unit/cache_b_reg_i_89 (LUT2)
+NET design_1_i/conv_uni_0/inst/u_conv_uni/u_unit/rd_hit141_out
+   driver: design_1_i/conv_uni_0/inst/u_conv_uni/u_unit/cache_b_reg_i_189/CO[0]  (cell design_1_i/conv_uni_0/inst/u_conv_uni/u_unit/cache_b_reg_i_189 CARRY4)
+   loads (1):
+     design_1_i/conv_uni_0/inst/u_conv_uni/u_unit/cache_b_reg_i_90/I1   <- design_1_i/conv_uni_0/inst/u_conv_uni/u_unit/cache_b_reg_i_90 (LUT2)
+NET design_1_i/conv_uni_0/inst/u_conv_uni/u_unit/rd_hit142_out
+   driver: design_1_i/conv_uni_0/inst/u_conv_uni/u_unit/cache_b_reg_i_183/CO[0]  (cell design_1_i/conv_uni_0/inst/u_conv_uni/u_unit/cache_b_reg_i_183 CARRY4)
+   loads (1):
+     design_1_i/conv_uni_0/inst/u_conv_uni/u_unit/cache_b_reg_i_86/I1   <- design_1_i/conv_uni_0/inst/u_conv_uni/u_unit/cache_b_reg_i_86 (LUT2)
+NET design_1_i/conv_uni_0/inst/u_conv_uni/u_unit/rd_hit143_out
+   driver: design_1_i/conv_uni_0/inst/u_conv_uni/u_unit/rd_need_q_reg_i_10/CO[0]  (cell design_1_i/conv_uni_0/inst/u_conv_uni/u_unit/rd_need_q_reg_i_10 CARRY4)
+   loads (1):
+     design_1_i/conv_uni_0/inst/u_conv_uni/u_unit/rd_need_q_i_5/I1   <- design_1_i/conv_uni_0/inst/u_conv_uni/u_unit/rd_need_q_i_5 (LUT2)
+NET design_1_i/conv_uni_0/inst/u_conv_uni/u_unit/rd_hit144_out
+   driver: design_1_i/conv_uni_0/inst/u_conv_uni/u_unit/cache_b_reg_i_181/CO[0]  (cell design_1_i/conv_uni_0/inst/u_conv_uni/u_unit/cache_b_reg_i_181 CARRY4)
+   loads (1):
+     design_1_i/conv_uni_0/inst/u_conv_uni/u_unit/cache_b_reg_i_84/I1   <- design_1_i/conv_uni_0/inst/u_conv_uni/u_unit/cache_b_reg_i_84 (LUT2)
+NET design_1_i/conv_uni_0/inst/u_conv_uni/u_unit/rd_hit145_out
+   driver: design_1_i/conv_uni_0/inst/u_conv_uni/u_unit/cache_b_reg_i_182/CO[0]  (cell design_1_i/conv_uni_0/inst/u_conv_uni/u_unit/cache_b_reg_i_182 CARRY4)
+   loads (3):
+     design_1_i/conv_uni_0/inst/u_conv_uni/u_unit/cache_b_reg_i_85/I0   <- design_1_i/conv_uni_0/inst/u_conv_uni/u_unit/cache_b_reg_i_85 (LUT5)
+     design_1_i/conv_uni_0/inst/u_conv_uni/u_unit/cache_b_reg_i_94/I0   <- design_1_i/conv_uni_0/inst/u_conv_uni/u_unit/cache_b_reg_i_94 (LUT5)
+     design_1_i/conv_uni_0/inst/u_conv_uni/u_unit/rd_need_q_i_39/I0   <- design_1_i/conv_uni_0/inst/u_conv_uni/u_unit/rd_need_q_i_39 (LUT6)
+NET design_1_i/conv_uni_0/inst/u_conv_uni/u_unit/rd_hit146_out
+   driver: design_1_i/conv_uni_0/inst/u_conv_uni/u_unit/cache_b_reg_i_73/CO[0]  (cell design_1_i/conv_uni_0/inst/u_conv_uni/u_unit/cache_b_reg_i_73 CARRY4)
+   loads (2):
+     design_1_i/conv_uni_0/inst/u_conv_uni/u_unit/cache_b_reg_i_23/I0   <- design_1_i/conv_uni_0/inst/u_conv_uni/u_unit/cache_b_reg_i_23 (LUT3)
+     design_1_i/conv_uni_0/inst/u_conv_uni/u_unit/rd_need_q_i_11/I0   <- design_1_i/conv_uni_0/inst/u_conv_uni/u_unit/rd_need_q_i_11 (LUT5)
+NET design_1_i/conv_uni_0/inst/u_conv_uni/u_unit/rd_hit147_out
+   driver: design_1_i/conv_uni_0/inst/u_conv_uni/u_unit/cache_b_reg_i_74/CO[0]  (cell design_1_i/conv_uni_0/inst/u_conv_uni/u_unit/cache_b_reg_i_74 CARRY4)
+   loads (1):
+     design_1_i/conv_uni_0/inst/u_conv_uni/u_unit/cache_b_reg_i_24/I0   <- design_1_i/conv_uni_0/inst/u_conv_uni/u_unit/cache_b_reg_i_24 (LUT2)
+NET design_1_i/conv_uni_0/inst/u_conv_uni/u_unit/rd_hit148_out
+   driver: design_1_i/conv_uni_0/inst/u_conv_uni/u_unit/rd_need_q_reg_i_8/CO[0]  (cell design_1_i/conv_uni_0/inst/u_conv_uni/u_unit/rd_need_q_reg_i_8 CARRY4)
+   loads (1):
+     design_1_i/conv_uni_0/inst/u_conv_uni/u_unit/rd_need_q_i_3/I0   <- design_1_i/conv_uni_0/inst/u_conv_uni/u_unit/rd_need_q_i_3 (LUT2)
+NET design_1_i/conv_uni_0/inst/u_conv_uni/u_unit/rd_hit149_out
+   driver: design_1_i/conv_uni_0/inst/u_conv_uni/u_unit/cache_b_reg_i_72/CO[0]  (cell design_1_i/conv_uni_0/inst/u_conv_uni/u_unit/cache_b_reg_i_72 CARRY4)
+   loads (3):
+     design_1_i/conv_uni_0/inst/u_conv_uni/u_unit/cache_b_reg_i_22/I0   <- design_1_i/conv_uni_0/inst/u_conv_uni/u_unit/cache_b_reg_i_22 (LUT5)
+     design_1_i/conv_uni_0/inst/u_conv_uni/u_unit/cache_b_reg_i_99/I0   <- design_1_i/conv_uni_0/inst/u_conv_uni/u_unit/cache_b_reg_i_99 (LUT5)
+     design_1_i/conv_uni_0/inst/u_conv_uni/u_unit/rd_need_q_i_39/I2   <- design_1_i/conv_uni_0/inst/u_conv_uni/u_unit/rd_need_q_i_39 (LUT6)
+NET design_1_i/conv_uni_0/inst/u_conv_uni/u_unit/rd_hit150_out
+   driver: design_1_i/conv_uni_0/inst/u_conv_uni/u_unit/cache_b_reg_i_161/CO[0]  (cell design_1_i/conv_uni_0/inst/u_conv_uni/u_unit/cache_b_reg_i_161 CARRY4)
+   loads (1):
+     design_1_i/conv_uni_0/inst/u_conv_uni/u_unit/cache_b_reg_i_71/I0   <- design_1_i/conv_uni_0/inst/u_conv_uni/u_unit/cache_b_reg_i_71 (LUT2)
+NET design_1_i/conv_uni_0/inst/u_conv_uni/u_unit/rd_hit151_out
+   driver: design_1_i/conv_uni_0/inst/u_conv_uni/u_unit/cache_b_reg_i_97/CO[0]  (cell design_1_i/conv_uni_0/inst/u_conv_uni/u_unit/cache_b_reg_i_97 CARRY4)
+   loads (2):
+     design_1_i/conv_uni_0/inst/u_conv_uni/u_unit/cache_b_reg_i_35/I0   <- design_1_i/conv_uni_0/inst/u_conv_uni/u_unit/cache_b_reg_i_35 (LUT6)
+     design_1_i/conv_uni_0/inst/u_conv_uni/u_unit/rd_need_q_i_7/I2   <- design_1_i/conv_uni_0/inst/u_conv_uni/u_unit/rd_need_q_i_7 (LUT6)
+NET design_1_i/conv_uni_0/inst/u_conv_uni/u_unit/rd_hit152_out
+   driver: design_1_i/conv_uni_0/inst/u_conv_uni/u_unit/rd_need_q_reg_i_9/CO[0]  (cell design_1_i/conv_uni_0/inst/u_conv_uni/u_unit/rd_need_q_reg_i_9 CARRY4)
+   loads (1):
+     design_1_i/conv_uni_0/inst/u_conv_uni/u_unit/rd_need_q_i_4/I0   <- design_1_i/conv_uni_0/inst/u_conv_uni/u_unit/rd_need_q_i_4 (LUT2)
+NET design_1_i/conv_uni_0/inst/u_conv_uni/u_unit/rd_hit153_out
+   driver: design_1_i/conv_uni_0/inst/u_conv_uni/u_unit/cache_b_reg_i_93/CO[0]  (cell design_1_i/conv_uni_0/inst/u_conv_uni/u_unit/cache_b_reg_i_93 CARRY4)
+   loads (3):
+     design_1_i/conv_uni_0/inst/u_conv_uni/u_unit/cache_b_reg_i_33/I0   <- design_1_i/conv_uni_0/inst/u_conv_uni/u_unit/cache_b_reg_i_33 (LUT6)
+     design_1_i/conv_uni_0/inst/u_conv_uni/u_unit/rd_need_q_i_20/I0   <- design_1_i/conv_uni_0/inst/u_conv_uni/u_unit/rd_need_q_i_20 (LUT6)
+     design_1_i/conv_uni_0/inst/u_conv_uni/u_unit/cache_b_reg_i_35/I2   <- design_1_i/conv_uni_0/inst/u_conv_uni/u_unit/cache_b_reg_i_35 (LUT6)
+NET design_1_i/conv_uni_0/inst/u_conv_uni/u_unit/rd_hit154_out
+   driver: design_1_i/conv_uni_0/inst/u_conv_uni/u_unit/cache_b_reg_i_169/CO[0]  (cell design_1_i/conv_uni_0/inst/u_conv_uni/u_unit/cache_b_reg_i_169 CARRY4)
+   loads (1):
+     design_1_i/conv_uni_0/inst/u_conv_uni/u_unit/cache_b_reg_i_76/I1   <- design_1_i/conv_uni_0/inst/u_conv_uni/u_unit/cache_b_reg_i_76 (LUT2)
+NET design_1_i/conv_uni_0/inst/u_conv_uni/u_unit/rd_hit155_out
+   driver: design_1_i/conv_uni_0/inst/u_conv_uni/u_unit/cache_b_reg_i_168/CO[0]  (cell design_1_i/conv_uni_0/inst/u_conv_uni/u_unit/cache_b_reg_i_168 CARRY4)
+   loads (1):
+     design_1_i/conv_uni_0/inst/u_conv_uni/u_unit/cache_b_reg_i_75/I0   <- design_1_i/conv_uni_0/inst/u_conv_uni/u_unit/cache_b_reg_i_75 (LUT2)
+NET design_1_i/conv_uni_0/inst/u_conv_uni/u_unit/rd_hit156_out
+   driver: design_1_i/conv_uni_0/inst/u_conv_uni/u_unit/cache_b_reg_i_87/CO[0]  (cell design_1_i/conv_uni_0/inst/u_conv_uni/u_unit/cache_b_reg_i_87 CARRY4)
+   loads (2):
+     design_1_i/conv_uni_0/inst/u_conv_uni/u_unit/cache_b_reg_i_30/I0   <- design_1_i/conv_uni_0/inst/u_conv_uni/u_unit/cache_b_reg_i_30 (LUT6)
+     design_1_i/conv_uni_0/inst/u_conv_uni/u_unit/rd_need_q_i_2/I0   <- design_1_i/conv_uni_0/inst/u_conv_uni/u_unit/rd_need_q_i_2 (LUT6)
+NET design_1_i/conv_uni_0/inst/u_conv_uni/u_unit/rd_hit157_out
+   driver: design_1_i/conv_uni_0/inst/u_conv_uni/u_unit/cache_b_reg_i_88/CO[0]  (cell design_1_i/conv_uni_0/inst/u_conv_uni/u_unit/cache_b_reg_i_88 CARRY4)
+   loads (3):
+     design_1_i/conv_uni_0/inst/u_conv_uni/u_unit/cache_b_reg_i_37/I0   <- design_1_i/conv_uni_0/inst/u_conv_uni/u_unit/cache_b_reg_i_37 (LUT6)
+     design_1_i/conv_uni_0/inst/u_conv_uni/u_unit/cache_b_reg_i_30/I2   <- design_1_i/conv_uni_0/inst/u_conv_uni/u_unit/cache_b_reg_i_30 (LUT6)
+     design_1_i/conv_uni_0/inst/u_conv_uni/u_unit/rd_need_q_i_20/I2   <- design_1_i/conv_uni_0/inst/u_conv_uni/u_unit/rd_need_q_i_20 (LUT6)
+NET design_1_i/conv_uni_0/inst/u_conv_uni/u_unit/rd_hit158_out
+   driver: design_1_i/conv_uni_0/inst/u_conv_uni/u_unit/cache_b_reg_i_176/CO[0]  (cell design_1_i/conv_uni_0/inst/u_conv_uni/u_unit/cache_b_reg_i_176 CARRY4)
+   loads (1):
+     design_1_i/conv_uni_0/inst/u_conv_uni/u_unit/cache_b_reg_i_80/I0   <- design_1_i/conv_uni_0/inst/u_conv_uni/u_unit/cache_b_reg_i_80 (LUT2)
+NET design_1_i/conv_uni_0/inst/u_conv_uni/u_unit/rd_hit159_out
+   driver: design_1_i/conv_uni_0/inst/u_conv_uni/u_unit/cache_b_reg_i_177/CO[0]  (cell design_1_i/conv_uni_0/inst/u_conv_uni/u_unit/cache_b_reg_i_177 CARRY4)
+   loads (1):
+     design_1_i/conv_uni_0/inst/u_conv_uni/u_unit/cache_b_reg_i_81/I0   <- design_1_i/conv_uni_0/inst/u_conv_uni/u_unit/cache_b_reg_i_81 (LUT2)
+NET design_1_i/conv_uni_0/inst/u_conv_uni/u_unit/rd_hit160_out
+   driver: design_1_i/conv_uni_0/inst/u_conv_uni/u_unit/cache_b_reg_i_175/CO[0]  (cell design_1_i/conv_uni_0/inst/u_conv_uni/u_unit/cache_b_reg_i_175 CARRY4)
+   loads (1):
+     design_1_i/conv_uni_0/inst/u_conv_uni/u_unit/cache_b_reg_i_79/I0   <- design_1_i/conv_uni_0/inst/u_conv_uni/u_unit/cache_b_reg_i_79 (LUT2)
+NET design_1_i/conv_uni_0/inst/u_conv_uni/u_unit/rd_hit161_out
+   driver: design_1_i/conv_uni_0/inst/u_conv_uni/u_unit/cache_b_reg_i_26/CO[0]  (cell design_1_i/conv_uni_0/inst/u_conv_uni/u_unit/cache_b_reg_i_26 CARRY4)
+   loads (3):
+     design_1_i/conv_uni_0/inst/u_conv_uni/u_unit/cache_b_reg_i_4/I0   <- design_1_i/conv_uni_0/inst/u_conv_uni/u_unit/cache_b_reg_i_4 (LUT5)
+     design_1_i/conv_uni_0/inst/u_conv_uni/u_unit/cache_b_reg_i_70/I0   <- design_1_i/conv_uni_0/inst/u_conv_uni/u_unit/cache_b_reg_i_70 (LUT3)
+     design_1_i/conv_uni_0/inst/u_conv_uni/u_unit/rd_need_q_i_21/I0   <- design_1_i/conv_uni_0/inst/u_conv_uni/u_unit/rd_need_q_i_21 (LUT6)
+# puts "\n===== fanin of be_word\[28\]_i_3_comp_5 ====="
+
+===== fanin of be_word[28]_i_3_comp_5 =====
+# foreach c [get_cells -quiet -hier -filter {NAME =~ *be_word*28*_i_3_comp*}] {
+#     puts "CELL [get_property NAME $c] ([get_property REF_NAME $c])"
+#     foreach p [get_pins -quiet -of_objects $c -filter {DIRECTION == IN}] {
+#         set nn [get_nets -quiet -of_objects $p]
+#         set nm "-"
+#         if {[llength $nn] > 0} { set nm [get_property NAME [lindex $nn 0]] }
+#         set drv [get_pins -quiet -of_objects $nn -filter {DIRECTION == OUT}]
+#         set dnm "-"
+#         if {[llength $drv] > 0} { set dnm "[lindex $drv 0]" }
+#         puts "   $p  net=$nm  driver=$dnm"
+#     }
+# }
+CELL design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_pack/be_word[28]_i_3_comp (LUT2)
+   design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_pack/be_word[28]_i_3_comp/I0  net=design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_pack/be_open  driver=-
+   design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_pack/be_word[28]_i_3_comp/I1  net=design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_pack/pw_valid  driver=-
+CELL design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_pack/be_word[28]_i_3_comp_1 (LUT6)
+   design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_pack/be_word[28]_i_3_comp_1/I0  net=design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_pack/pw_valid  driver=-
+   design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_pack/be_word[28]_i_3_comp_1/I1  net=design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_pack/p_valid  driver=-
+   design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_pack/be_word[28]_i_3_comp_1/I2  net=design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_pack/FSM_onehot_wst_reg[2]_18  driver=-
+   design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_pack/be_word[28]_i_3_comp_1/I3  net=design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_pack/bu_len_reg[3]  driver=-
+   design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_pack/be_word[28]_i_3_comp_1/I4  net=design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_pack/bf_data_reg[2][53]  driver=-
+   design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_pack/be_word[28]_i_3_comp_1/I5  net=design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_pack/bf_strb_reg[0][5]  driver=-
+CELL design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_pack/be_word[28]_i_3_comp_2 (LUT4)
+   design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_pack/be_word[28]_i_3_comp_2/I0  net=design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_pack/pw_valid  driver=-
+   design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_pack/be_word[28]_i_3_comp_2/I1  net=design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_pack/p_valid  driver=-
+   design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_pack/be_word[28]_i_3_comp_2/I2  net=design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_pack/FSM_onehot_wst_reg[2]_18  driver=-
+   design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_pack/be_word[28]_i_3_comp_2/I3  net=design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_pack/CO[0]  driver=-
+CELL design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_pack/be_word[28]_i_3_comp_5 (LUT5)
+   design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_pack/be_word[28]_i_3_comp_5/I0  net=design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_pack/al_v_i_8_n_0  driver=design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_pack/al_v_i_8/O
+   design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_pack/be_word[28]_i_3_comp_5/I1  net=design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_pack/al_v_i_3_n_0  driver=design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_pack/al_v_i_3_rewire_rewire_rewire/O
+   design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_pack/be_word[28]_i_3_comp_5/I2  net=design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_pack/rd_hit1  driver=design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_pack/win_q_reg_0_i_69/CO[2]
+   design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_pack/be_word[28]_i_3_comp_5/I3  net=design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_pack/win_q_reg_0_i_29_n_0_repN  driver=design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_pack/win_q_reg_0_i_29_rewire_comp/O
+   design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_pack/be_word[28]_i_3_comp_5/I4  net=design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_pack/win_q_reg_0_i_29_n_0_repN_1  driver=design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_pack/win_q_reg_0_i_29_rewire_comp_1/O
+INFO: [Common 17-206] Exiting Vivado at Sat Oct 31 16:30:44 2026...

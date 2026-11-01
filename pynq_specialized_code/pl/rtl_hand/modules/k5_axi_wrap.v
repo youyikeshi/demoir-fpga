@@ -70,8 +70,8 @@ module k5_axi_wrap #(
     // ↓ 这 6 个参数**必须**与 conv_k5_engine 的实例参数逐字相同（本层原样下传）
     parameter int CIN         = 12,
     parameter int COUT        = 48,
-    parameter int W           = 320,
-    parameter int H           = 320,
+    parameter int W           = 128,
+    parameter int H           = 128,
     parameter int PAD         = 2,
     parameter int OC_PER_PASS = 1,
     // k5_cfg_check 的"槽容量保守上界"（见 k5_cfg_check.v 文件头 4'h8）

@@ -54,8 +54,8 @@
 `timescale 1ns / 1ps
 
 module k1_axi_wrap #(
-    parameter int CIN_MAX  = 352,
-    parameter int COUT_MAX = 192,
+    parameter int CIN_MAX  = 192,
+    parameter int COUT_MAX = 96,
     parameter int LANES    = 32,
     parameter int NBUF     = 4,
     parameter int OBUF_N   = 4,
@@ -253,7 +253,14 @@ module k1_axi_wrap #(
         end
     end
 
-    assign s_axi_bresp = 2'b00;
+    // ⚠ 2026-10-27 上板致命 bug：这里原本**漏了 s_axi_bvalid 的驱动**。
+    //   端口在第 75 行声明为 output logic，全文只有内部 bvalid 寄存器的
+    //   置位/清零，却没有把它接到端口上 ⇒ 综合成常量 0 ⇒ PS 的每一笔写
+    //   都等不到 B 响应 ⇒ CPU 停在 MMIO 写上一去不回（整机卡死，ARP 都不回）。
+    //   为什么仿真没抓到：TB 的写任务不等 bvalid；读通路 s_axi_rvalid 是好的，
+    //   纯读的冒烟测试也照样通过。k3/k5 的同名 wrapper 都有这一行，只有 k1 漏了。
+    assign s_axi_bvalid = bvalid;
+    assign s_axi_bresp  = 2'b00;
 
     // ========================================================================
     // 3. AXI4-Lite 读通道
@@ -377,51 +384,50 @@ module k1_axi_wrap #(
     logic [63:0] b_rdata;
     logic        b_rlast;
 
-    logic [1:0] rd_gnt;      // 当前 burst 的主人（锁存后整 burst 不变）
-    logic       rd_ar_ph;    // 1 = 正在等 AR 握手；0 = R 数据阶段
-    logic       rd_busy;     // 1 = 有 burst 在飞（保持到 RLAST 握手完成）
+    // ========================================================================
+    // 读通道：**多笔在飞 + 按 ID 分流**（2026-10-28 v5）
+    // ------------------------------------------------------------------------
+    //  旧版：一次只允许一笔 burst 在飞，必须等它的 RLAST 完成握手才发下一个 AR。
+    //        而 k1 引擎的输入预取全是 arlen=0 的**单拍**（C8 布局下同一像素各
+    //        通道组相隔 H*W*8 字节，连不成 burst），于是每笔单拍都付一次完整
+    //        AXI 往返。上板实测每笔 ≈56 拍、且与 cin 无关：
+    //          cin=48  → 6 笔×56 ≈ 336 拍/像素（实测额外 339）
+    //          cin=144 → 18 笔×56 ≈ 1008 拍/像素（实测额外 1014）
+    //        ⇒ 引擎本身 II=1（仿真 issue 占空比 99%），却被拖成 8 拍/通道。
+    //  新版：三个通道本来就有各自的 ARID（TAG_IN/TAG_B/TAG_W），这里把它用起来：
+    //        允许多笔同时在飞，R 数据用 m_axi_rd_rid 分流回各自通道。
+    //        同 ID 的 burst 按序返回（AXI 保证），所以每个通道只需记"在飞 beat 数"。
+    // ========================================================================
 
-    always_ff @(posedge s_axi_aclk or negedge s_axi_aresetn) begin
-        if (!s_axi_aresetn) begin
-            rd_gnt   <= TAG_IN;
-            rd_ar_ph <= 1'b0;
-            rd_busy  <= 1'b0;
-        end else if (!rd_busy) begin
-            // 空闲才选人；选完锁存，整个 burst 不再重新仲裁
-            if (in_arvalid) begin
-                rd_gnt <= TAG_IN; rd_ar_ph <= 1'b1; rd_busy <= 1'b1;
-            end else if (b_arvalid) begin
-                rd_gnt <= TAG_B;  rd_ar_ph <= 1'b1; rd_busy <= 1'b1;
-            end else if (w_arvalid) begin
-                rd_gnt <= TAG_W;  rd_ar_ph <= 1'b1; rd_busy <= 1'b1;
-            end
-        end else if (rd_ar_ph) begin
-            if (m_axi_rd_arvalid && m_axi_rd_arready)
-                rd_ar_ph <= 1'b0;                 // 进入 R 数据阶段
-        end else begin
-            // 只有该 burst 最后一拍**完成**握手才释放授权
-            if (m_axi_rd_rvalid && m_axi_rd_rlast && m_axi_rd_rready)
-                rd_busy <= 1'b0;
-        end
-    end
+    logic [11:0] o_in, o_b, o_w;           // 各通道在飞 beat 数（arlen 可到 255）
+    logic [10:0] o_tot;
+    logic        rr;                       // 轮转优先级，防 wgt/bias 被 in 饿死
 
-    // ---- AR 通道：地址 / 长度 / ID 由同一个 rd_gnt 一起切换 ----
-    assign m_axi_rd_arvalid = rd_busy && rd_ar_ph;
-    assign m_axi_rd_araddr  = (rd_gnt == TAG_IN) ? in_araddr :
-                              (rd_gnt == TAG_B)  ? b_araddr  : w_araddr;
-    assign m_axi_rd_arlen   = (rd_gnt == TAG_IN) ? in_arlen :
-                              (rd_gnt == TAG_B)  ? b_arlen   : w_arlen;
-    assign m_axi_rd_arid    = rd_gnt;
+    assign o_tot  = {1'b0, o_in} + {1'b0, o_b} + {1'b0, o_w};
+    // MAXO=24：实测 12 时仍有 1.5× 开销（单笔往返 56 拍摊不完），24 目标 1.3×
+    wire can_ar = (o_tot < 12'd24);
 
-    // 只有被授权的 master 看到 ARREADY（且与外部 ARREADY 同拍）
-    assign in_arready = rd_busy && rd_ar_ph && (rd_gnt == TAG_IN) && m_axi_rd_arready;
-    assign b_arready  = rd_busy && rd_ar_ph && (rd_gnt == TAG_B)  && m_axi_rd_arready;
-    assign w_arready  = rd_busy && rd_ar_ph && (rd_gnt == TAG_W)  && m_axi_rd_arready;
+    wire [1:0] ar_tag = rr ? (w_arvalid ? TAG_W  : (b_arvalid ? TAG_B : TAG_IN))
+                           : (in_arvalid ? TAG_IN : (b_arvalid ? TAG_B : TAG_W));
+    wire       ar_req = (in_arvalid || b_arvalid || w_arvalid) && can_ar;
 
-    // ---- R 通道：只把数据还给授权通道，另外两路 rvalid 恒 0 ----
-    assign in_rvalid = rd_busy && !rd_ar_ph && (rd_gnt == TAG_IN) && m_axi_rd_rvalid;
-    assign b_rvalid  = rd_busy && !rd_ar_ph && (rd_gnt == TAG_B)  && m_axi_rd_rvalid;
-    assign w_rvalid  = rd_busy && !rd_ar_ph && (rd_gnt == TAG_W)  && m_axi_rd_rvalid;
+    assign m_axi_rd_arvalid = ar_req;
+    assign m_axi_rd_arid    = ar_tag;
+    assign m_axi_rd_araddr  = (ar_tag == TAG_IN) ? in_araddr :
+                              (ar_tag == TAG_B)  ? b_araddr  : w_araddr;
+    assign m_axi_rd_arlen   = (ar_tag == TAG_IN) ? in_arlen :
+                              (ar_tag == TAG_B)  ? b_arlen   : w_arlen;
+
+    // 只有被选中的通道看到 ARREADY（且与外部 ARREADY 同拍）
+    assign in_arready = ar_req && (ar_tag == TAG_IN) && m_axi_rd_arready;
+    assign b_arready  = ar_req && (ar_tag == TAG_B)  && m_axi_rd_arready;
+    assign w_arready  = ar_req && (ar_tag == TAG_W)  && m_axi_rd_arready;
+
+    // ---- R 通道：按 RID 分流 ----
+    wire [1:0] rid = m_axi_rd_rid;
+    assign in_rvalid = m_axi_rd_rvalid && (rid == TAG_IN) && (o_in != 12'd0);
+    assign b_rvalid  = m_axi_rd_rvalid && (rid == TAG_B)  && (o_b  != 12'd0);
+    assign w_rvalid  = m_axi_rd_rvalid && (rid == TAG_W)  && (o_w  != 12'd0);
 
     assign in_rdata = m_axi_rd_rdata;
     assign b_rdata  = m_axi_rd_rdata;
@@ -430,17 +436,36 @@ module k1_axi_wrap #(
     assign b_rlast  = m_axi_rd_rlast;
     assign w_rlast  = m_axi_rd_rlast;
 
-    assign m_axi_rd_rready = (rd_busy && !rd_ar_ph) ?
-                             ((rd_gnt == TAG_IN) ? in_rready :
-                              (rd_gnt == TAG_B)  ? b_rready  : w_rready) : 1'b0;
+    assign m_axi_rd_rready = (rid == TAG_IN) ? in_rready :
+                             (rid == TAG_B)  ? b_rready  : w_rready;
+
+    // ---- 在飞 beat 计数（同拍可能既有 AR 又有 R，一次赋值内合并）----
+    logic [12:0] add_in, add_b, add_w;
+    assign add_in = in_arready ? ({3'b000, in_arlen} + 12'd1) : 12'd0;
+    assign add_b  = b_arready  ? ({3'b000, b_arlen}  + 12'd1) : 12'd0;
+    assign add_w  = w_arready  ? ({3'b000, w_arlen}  + 12'd1) : 12'd0;
+
+    always_ff @(posedge s_axi_aclk or negedge s_axi_aresetn) begin
+        if (!s_axi_aresetn) begin
+            o_in <= 12'd0; o_b <= 12'd0; o_w <= 12'd0; rr <= 1'b0;
+        end else begin
+            o_in <= o_in + add_in - ((in_rvalid && in_rready) ? 12'd1 : 12'd0);
+            o_b  <= o_b  + add_b  - ((b_rvalid  && b_rready)  ? 12'd1 : 12'd0);
+            o_w  <= o_w  + add_w  - ((w_rvalid  && w_rready)  ? 12'd1 : 12'd0);
+            if (m_axi_rd_arvalid && m_axi_rd_arready) rr <= ~rr;
+        end
+    end
 
     // synopsys translate_off
     always @(posedge s_axi_aclk) begin
-        if (s_axi_aresetn && rd_busy && !rd_ar_ph && m_axi_rd_rvalid &&
-            (m_axi_rd_rid !== rd_gnt))
-            $display("[K1-AXI] ERROR: RID=%0d 与授权 tag=%0d 不一致", m_axi_rd_rid, rd_gnt);
+        if (s_axi_aresetn && m_axi_rd_rvalid &&
+            ((rid == TAG_IN) && (o_in == 12'd0) ||
+             (rid == TAG_B)  && (o_b  == 12'd0) ||
+             (rid == TAG_W)  && (o_w  == 12'd0)))
+            $display("[K1-AXI] ERROR: RID=%0d 回来时该通道无在飞请求", rid);
     end
     // synopsys translate_on
+
 
     // ========================================================================
     // 4. 引擎例化（三个读引擎的端口与之前完全一致，只是接到内部仲裁器）

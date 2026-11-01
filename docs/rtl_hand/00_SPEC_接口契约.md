@@ -57,6 +57,15 @@ $$\text{addr}(c,y,x) = \left\lfloor \frac{c}{8} \right\rfloor \cdot HW \cdot 8 \
 但注意 `12k mod 8 = 28k mod 8 = 4`（k 为奇数）⇒ **只有一半的 (oc,ic) 起点是 8 字节对齐**，
 所以**不要试图 8 字节宽读权重**（实测 AR 笔数 201→15,416，净亏 27%）。
 
+> 本节描述的是**旧的三引擎**（`conv_k1/k3/k5_engine`，编译期 `K3_PAD12` / `K5_PAD28`），
+> 容器仍是 12 / 28 字节。
+>
+> 2026-10-30 起，**新的统一引擎 `conv_int8_uni` 换了步长**：
+> `TAP = 8·ceil(k²/8) ∈ {8,16,32}`（1 真+7 补 / 9 真+7 补 / 25 真+7 补），
+> 目的是让每个 (o,c) 块 8 字节对齐、把权重读地址的三级串联加法链从关键路径上删掉。
+> `j < k²` 的 payload 与本节容器**逐字节一致**，只是补齐洞从 3 字节变 7 字节。
+> 详见 `docs/binary/04_定制int8引擎规格.md` §3.3。
+
 ### 2.3 输出标度
 
 $$\text{int8\_out} = \mathrm{clamp}\left( (\text{acc} + \text{bias}) \gg \text{shift},\ 0,\ 127 \right)\quad(\text{ReLU 层})$$

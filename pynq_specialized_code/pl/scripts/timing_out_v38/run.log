@@ -1,0 +1,145 @@
+
+****** Vivado v2025.2.1 (64-bit)
+  **** SW Build 6403652 on Thu Mar 19 13:47:00 MDT 2026
+  **** IP Build 6403511 on Thu Mar 19 12:41:45 MDT 2026
+  **** SharedData Build 6403650 on Thu Mar 19 14:02:13 MDT 2026
+  **** Start of session at: Sat Oct 31 17:01:36 2026
+    ** Copyright 1986-2022 Xilinx, Inc. All Rights Reserved.
+    ** Copyright 2022-2026 Advanced Micro Devices, Inc. All Rights Reserved.
+
+source scripts/detail_path2.tcl
+# set dcp [lindex $argv 0]
+# set outdir [lindex $argv 1]
+# if {$outdir eq ""} { set outdir "." }
+# file mkdir $outdir
+# open_checkpoint $dcp
+Command: open_checkpoint ../board/overlay_engine_150mhz/design_1_150v38_routed.dcp
+
+Starting open_checkpoint Task
+
+Time (s): cpu = 00:00:00.03 ; elapsed = 00:00:00.02 . Memory (MB): peak = 1509.105 ; gain = 0.000 ; free physical = 4338 ; free virtual = 11582
+INFO: [Device 21-403] Loading part xc7z015clg485-2
+Netlist sorting complete. Time (s): cpu = 00:00:00.13 ; elapsed = 00:00:00.13 . Memory (MB): peak = 1833.457 ; gain = 0.000 ; free physical = 4088 ; free virtual = 11336
+INFO: [Netlist 29-17] Analyzing 3365 Unisim elements for replacement
+INFO: [Netlist 29-28] Unisim Transformation completed in 0 CPU seconds
+INFO: [Project 1-479] Netlist was created with Vivado 2025.2.1
+INFO: [Project 1-570] Preparing netlist for logic optimization
+Read ShapeDB Complete: Time (s): cpu = 00:00:00.05 ; elapsed = 00:00:00.05 . Memory (MB): peak = 1935.363 ; gain = 5.250 ; free physical = 3962 ; free virtual = 11197
+INFO: [Timing 38-478] Restoring timing data from binary archive.
+INFO: [Timing 38-479] Binary timing data restore complete.
+INFO: [Project 1-856] Restoring constraints from binary archive.
+INFO: [Constraints 18-5170] The checkpoint was created with non-default parameter values which do not match the current Vivado settings.  Mismatching parameters are:
+  general.maxThreads
+INFO: [Project 1-853] Binary constraint restore complete.
+INFO: [Designutils 20-5722] Start Reading Physical Databases.
+Reading placement.
+Read Netlist Cache: Time (s): cpu = 00:00:00.04 ; elapsed = 00:00:00.03 . Memory (MB): peak = 2550.363 ; gain = 0.000 ; free physical = 6822 ; free virtual = 13889
+Reading placer database...
+Read Device Cache: Time (s): cpu = 00:00:00.02 ; elapsed = 00:00:00.02 . Memory (MB): peak = 2550.363 ; gain = 0.000 ; free physical = 6823 ; free virtual = 13889
+Read PlaceDB: Time (s): cpu = 00:00:00 ; elapsed = 00:00:00 . Memory (MB): peak = 2550.363 ; gain = 0.000 ; free physical = 6823 ; free virtual = 13889
+Read placeStorage: Time (s): cpu = 00:00:00.66 ; elapsed = 00:00:00.67 . Memory (MB): peak = 2570.363 ; gain = 20.000 ; free physical = 6811 ; free virtual = 13876
+Read PulsedLatchDB: Time (s): cpu = 00:00:00 ; elapsed = 00:00:00 . Memory (MB): peak = 2570.363 ; gain = 0.000 ; free physical = 6811 ; free virtual = 13876
+Reading routing.
+Read RouteStorage: Time (s): cpu = 00:00:00.71 ; elapsed = 00:00:00.2 . Memory (MB): peak = 2591.738 ; gain = 21.375 ; free physical = 6796 ; free virtual = 13861
+Read Physdb Files: Time (s): cpu = 00:00:01 ; elapsed = 00:00:00.94 . Memory (MB): peak = 2591.738 ; gain = 41.375 ; free physical = 6796 ; free virtual = 13861
+Restored from archive | CPU: 1.490000 secs | Memory: 37.206726 MB |
+Finished XDEF File Restore: Time (s): cpu = 00:00:01 ; elapsed = 00:00:00.97 . Memory (MB): peak = 2591.738 ; gain = 47.312 ; free physical = 6796 ; free virtual = 13861
+Netlist sorting complete. Time (s): cpu = 00:00:00 ; elapsed = 00:00:00.01 . Memory (MB): peak = 2604.121 ; gain = 0.000 ; free physical = 6783 ; free virtual = 13848
+INFO: [Project 1-111] Unisim Transformation Summary:
+  A total of 201 instances were transformed.
+  RAM32M => RAM32M (RAMD32(x6), RAMS32(x2)): 5 instances
+  RAM32X1D => RAM32X1D (RAMD32(x2)): 4 instances
+  RAM64M => RAM64M (RAMD64E(x4)): 168 instances
+  RAM64X1D => RAM64X1D (RAMD64E(x2)): 24 instances
+
+INFO: [Project 1-604] Checkpoint was created with Vivado v2025.2.1 (64-bit) build 6403652
+open_checkpoint: Time (s): cpu = 00:00:19 ; elapsed = 00:00:13 . Memory (MB): peak = 2612.156 ; gain = 1103.051 ; free physical = 6782 ; free virtual = 13847
+# set clk [get_clocks -quiet FCLK_CLK0]
+# puts "\n===== CLOCK ====="
+
+===== CLOCK =====
+# puts "FCLK_CLK0 period = [get_property PERIOD $clk] ns"
+FCLK_CLK0 period = 10.000 ns
+# set p [get_timing_paths -max_paths 1 -nworst 1 -setup]
+# puts "\n===== WORST SETUP PATH ====="
+
+===== WORST SETUP PATH =====
+# puts "slack  = [get_property SLACK $p]"
+slack  = -2.080
+# puts "delay  = [get_property DATAPATH_DELAY $p]"
+delay  = 11.663
+# puts "levels = [get_property LOGIC_LEVELS $p]"
+levels = 18
+# puts "from   = [get_property STARTPOINT_PIN $p]"
+from   = design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_pack/p_reg[0]/C
+# puts "to     = [get_property ENDPOINT_PIN $p]"
+to     = design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_unit/u_eng/p_0_out__17/CEB2
+# report_timing -max_paths 1 -nworst 1 -setup -path_type full_clock -input_pins \
+#     -significant_digits 3 -file $outdir/detail_worst_full.rpt
+INFO: [Timing 38-78] ReportTimingParams: -max_paths 1 -nworst 1 -delay_type max -sort_by slack.
+# puts "  wrote detail_worst_full.rpt"
+  wrote detail_worst_full.rpt
+# set sp [get_pins -quiet -hier -filter {NAME =~ *desc_ram_reg/CLKARDCLK}]
+# if {[llength $sp] == 0} {
+#     set sp [get_pins -quiet -hier -filter {NAME =~ *desc_ram_reg*/CLKARDCLK}]
+# }
+# puts "\n===== START PIN CANDIDATES ===== ([llength $sp])"
+
+===== START PIN CANDIDATES ===== (1)
+# foreach s $sp { puts "  $s" }
+  design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_pack/desc_ram_reg/CLKARDCLK
+# set ep [get_pins -quiet -hier -filter {NAME =~ *bf_data_reg*13_/D}]
+# puts "===== END PIN CANDIDATES (13_) ===== ([llength $ep])"
+===== END PIN CANDIDATES (13_) ===== (0)
+# foreach e $ep { puts "  $e" }
+# if {[llength $sp] > 0 && [llength $ep] > 0} {
+#     set ep1 [lindex $ep 0]
+#     report_timing -from [lindex $sp 0] -to $ep1 -path_type full_clock -max_paths 1 \
+#         -nworst 1 -setup -input_pins -significant_digits 3 \
+#         -file $outdir/detail_fromto_full.rpt
+#     puts "  wrote detail_fromto_full.rpt (to = $ep1)"
+# }
+# report_timing -max_paths 25 -nworst 25 -setup -path_type short \
+#     -significant_digits 3 -file $outdir/top25_short.rpt
+INFO: [Timing 38-78] ReportTimingParams: -max_paths 25 -nworst 25 -delay_type max -sort_by slack.
+# puts "  wrote top25_short.rpt"
+  wrote top25_short.rpt
+# set bfd [get_pins -quiet -hier -filter {NAME =~ *bf_data_reg* && DIRECTION == IN && IS_LEAF == 1}]
+# puts "\n===== bf_data_reg input LEAF pins total = [llength $bfd] ====="
+
+===== bf_data_reg input LEAF pins total = 8192 =====
+# report_timing -to $bfd -max_paths 20 -nworst 20 -setup -path_type short \
+#     -significant_digits 3 -file $outdir/top20_to_bf_data.rpt
+INFO: [Timing 38-78] ReportTimingParams: -to_pins  -max_paths 20 -nworst 20 -delay_type max -sort_by slack.
+# puts "  wrote top20_to_bf_data.rpt"
+  wrote top20_to_bf_data.rpt
+# if {[llength $sp] > 0} {
+#     report_timing -from [lindex $sp 0] -max_paths 10 -nworst 10 -setup -path_type short \
+#         -significant_digits 3 -file $outdir/from_descram_top10.rpt
+#     puts "  wrote from_descram_top10.rpt"
+# }
+INFO: [Timing 38-78] ReportTimingParams: -from_pins  -max_paths 10 -nworst 10 -delay_type max -sort_by slack.
+  wrote from_descram_top10.rpt
+# puts "\n===== VIOLATING ENDPOINTS (slack < 0) 按模块聚类 ====="
+
+===== VIOLATING ENDPOINTS (slack < 0) 按模块聚类 =====
+# set vps [get_timing_paths -max_paths 400 -nworst 1 -setup -slack_lesser_than 0]
+# puts "总违例路径条数（unique endpoint）= [llength $vps]"
+总违例路径条数（unique endpoint）= 400
+# array set cnt {}
+# foreach vp $vps {
+#     set e [get_property ENDPOINT_PIN $vp]
+#     set key "other"
+#     foreach m {u_catpack u_pack bf_data be_data u_rd_data win_q df_addr ax_ lc_tag u_core} {
+#         if {[string match *$m* $e]} { set key $m; break }
+#     }
+#     if {[info exists cnt($key)]} { incr cnt($key) } else { set cnt($key) 1 }
+# }
+# foreach k [lsort [array names cnt]] { puts [format "  %-12s %5d" $k $cnt($k)] }
+  other           73
+  u_catpack      284
+  u_pack          43
+# puts "\n===== DONE ====="
+
+===== DONE =====
+INFO: [Common 17-206] Exiting Vivado at Sat Oct 31 17:01:56 2026...
