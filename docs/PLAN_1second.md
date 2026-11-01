@@ -4491,3 +4491,42 @@ $$\Rightarrow\ \textbf{救回的资产}：$$
 $$\quad\ \text{A } \texttt{bin\_unit\_axi\_wrap.v}：\texttt{AR\_SLOTS 8 / PF\_AHEAD 2 / PF\_DEPTH 8 / PF\_MAX 6} + \text{4 个 32 位诊断计数器（} \texttt{0x250..0x25C} \text{）}$$
 $$\quad\ \text{B } \texttt{bin\_e1e2.v}：\text{空 lane 跳 DRAIN + 698→227（292 行 diff）}$$
 $$\quad\ \Rightarrow\ \text{两者都还差}\textbf{逐字节 parity 与一次综合} \Rightarrow \text{已派 T-38 串行收口}$$
+
+### 70.15 ★★★★ 板端两个判决（2026-11-02 07:40，真板，第 636 轮）
+
+**判决一：板端 sgemm 的 K 方向是纯串行 ⇒ convfp C 内核解除封禁**
+
+$$\Rightarrow\ \text{`probe_serial_k`：}K=300\ (M=48)\ \text{与}\ K=576\ (M=12)\ \text{整块 + 两个子块，全部 PASS}$$
+$$\Rightarrow\ \text{板端 } \texttt{np.dot}\ \text{与手写串行标量累加}\textbf{逐字节相同}$$
+$$\Rightarrow\ \text{探针自身有分辨力：同一份脚本在主机上报 FAIL（主机 OpenBLAS 走多累加器）}$$
+$$\Rightarrow\ \Rightarrow\ \text{T-17 的 im2col-free NEON 内核可以上板，且板端整网 sha1 应当不变}$$
+$$\Rightarrow\ \text{副产品：板端 } K=300\ M=48\ N=16384\ \text{的 } \texttt{np.dot} = 675.9\ \text{ms} = \mathbf{0.35\ GMAC/s}$$
+$$\quad\ \Rightarrow\ \text{与历史 } 0.358\ \text{GMAC/s 独立吻合} \Rightarrow \text{J4 要求的 } \ge1.24\ \text{GMAC/s 需要 } 3.5\times\ \text{提速}$$
+
+**判决二：pack 的 0.891 s **一半是软件、一半是硬件**，而且硬件侧已经贴住带宽**
+
+| 量 | 值 |
+|---|---|
+| 698 条命令整段 | **0.891 s = 1.277 ms/命令** |
+| 寄存器写 / 读 | **2941 / 11907** ⇒ **17 次读/命令** |
+| 空闲时单次 | 写 19.30 µs / 读 15.72 µs |
+| **引擎忙时单次** | 写 23.6 µs / **读 33.5 µs**（2.13× 空闲）|
+| 单命令拆解 | 墙 4.2 ms = 配置写 0.2 + start 0.05 + **等 done 3.9**；`DBG_CYC` 2.59 ms ⇒ **死区 1.6 ms** |
+
+$$\Rightarrow\ \text{软件侧} = 11907\times33.5\ \mu s + 2941\times23.6\ \mu s = \mathbf{0.468\ s}$$
+$$\Rightarrow\ \text{硬件侧} = 171.74\ \text{MB} / 0.42\ \text{s} = \mathbf{409\ MB/s}\ \text{（PL 侧实测 413 MB/s，吻合）}$$
+$$\Rightarrow\ 0.468 + 0.42 = 0.888 \approx 0.891\ \text{✓ 账闭合}$$
+
+$$\Rightarrow\ \Rightarrow\ \textbf{两条结论同时成立}：$$
+$$\quad\ \text{① 字节侧已经没有空间（409 MB/s 就是这块板的上限）} \Rightarrow \text{只能"少搬"（融合，} -0.30\ \text{s）}$$
+$$\quad\ \text{② 软件侧的 0.47 s 是}\textbf{真的可省}：\text{17 次读/命令}\times33.5\ \mu s\ \text{全在关键路径上}$$
+$$\quad\ \Rightarrow\ \texttt{BIN\_MMIO\_POLL=est}\ \text{（T-23 已实现并验过访问序列逐条相同）预估 } -0.2\sim-0.3\ \text{s}$$
+
+$$\Rightarrow\ \textbf{这也修好了 T-23 的估值}：\text{它原估 ≤0.107 s 是因为用了"2 次读/命令"与 25 µs 空闲价；}$$
+$$\quad\ \text{实测是 17 次读 + 33.5 µs 忙时价} \Rightarrow \text{收益上修 } 2\sim3\times$$
+
+**第 79 条纪律：空闲态的成本不能用来给"忙时"的循环做预算**
+$$\Rightarrow\ \text{同一个 MMIO 读：空闲 15.72 µs，引擎忙时 33.5 µs（}2.13\times\text{）}$$
+$$\Rightarrow\ \text{原因：AXI-Lite 与 AXI-HP 共用互连，引擎在搬数据时控制通路被饿}$$
+$$\Rightarrow\ \textbf{判据}：\text{任何"每命令成本"的预算，必须在}\textbf{引擎实际在跑}\text{的条件下测；}$$
+$$\quad\ \text{用空闲值会把收益低估 } 2\times\ \text{以上（今晚 T-23 就是这么低估的）}$$
