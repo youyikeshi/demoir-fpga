@@ -19,6 +19,8 @@
 | 桶 | 秒 | 性质 | 目标 | 手段 | 计划 |
 |---|---:|---|---:|---|---|
 | **MMIO 握手**（记在 `pl_s` 里，不是 PL）| **1.050** | **PS 的 17 次×30 µs/命令** | ≤0.15 | Python fast-path / C 驱动 | **T-32** |
+| **T-33** | 合并 T-17 convfp 补丁进 main（默认关）+ 重跑判据 | 待分派 | 补丁 0 reject；新文件 md5 逐一相同（base 无关）；`verify_lazy_net` 默认口径与四种单开全 = 冻结三件套；开关全关 == baseline | `runs/t17_convfp/REPORT_merge_T33.md` | **进行中** | T-15 |
+| **T-34** | **conv 读通路 stall 0.8368 s 的机制与消除**（d=2 层 351 拍/填充 vs d=1 的 73）| 待分派 | ① 机制表：每条候选给 RTL 证据+预测拍数+是否成立（必须写出被证伪的）② 一个修法 ③ 逐字节 + **逐拍 parity**（总拍数不许增加）④ 资源估算 ⑤ 指纹门禁 | `worktrees/T-34-stall/` + `runs/t34_stall/` | **进行中** | T-19 |
 | PS prologue | **1.595** | q8 0.605 + 视图/描述符 0.15 + acq 0.10 + **未归因 ~0.7** | ≤0.55 | q8 缓存 + 定位未归因 | **T-16** |
 | PS convfp | **1.157** | 真算力 0.633 + im2col 0.277 + 搬运 0.147 | ≤0.35 | im2col-free 直接卷积（≥1.24 GMAC/s）| **T-17** |
 | PS sam/cat/eca/add/shuf | 0.530 | 逐元素，内存受限 | ≤0.15 | 批量化/融合 | T-18（排队）|
@@ -61,13 +63,13 @@ $$\Rightarrow\ \textbf{诚实结论}：1.0\ \text{s 需要 PS 归零 + 真实 PL
 
 | **T-14** | 依赖闭包 + 回落可见性 + fail-fast + 性能门槛 | `25ec4fdf`/`b35fde75` | ✅ ① 清单 11 模块/15 文件，**两条判据**（`md5sum -c` + `--check`；四个负例全 rc=1）② `[DEPS]` 板端 11 模块全 fast、`ok=True` ③ `BIN_REQUIRE_KERNELS=1` 缺内核 rc=1（默认关零影响，只多 1 行）④ 门槛只在**热态**判（首跑 `epilogue` 1.632→0.257，一次性装载 3.377 s 必须挪出计时）⇒ **板端复现 numpy 8.480 / C 6.489 s，sha1 3/3，15 文件跑前后+主机↔板端全对齐** | `worktrees/T-14-deps` + `runs/board_ops/20261102/{GATES_T14_deps_4.md,t14_board/}` | **待合并**（合并=主代理决策，执行交 T-15） | — |
 | **T-15** | 把 T-14 合进 main 并冻结基线 v3（**不许把 parked psdesc 一起带上**） | 待分派 | ① main 的 `ps/` 先还原到 `git HEAD`（parked 版另存 patch）② 纯 T-14 增量 = 4 文件（`bin_engine +353 / bin_net +65 / board_v39_verify +108 / deps_closure.py 新建`，md5 `1967aa8a/2e077940/903aa8bf/b6b85a4d`）③ `deps_closure.py --gen` 重生成后 **两条判据 rc=0** ④ `verify_lazy_net.py --hw 64` 的 sha1 与 HEAD 版**逐位相同**（合并不许改数值）| `docs/baseline_20261102_v39c/` + 新 `deps_closure.txt` | **已归档**：C1~C6 全过（主代理独立复核：`git diff --stat` 3 文件 / parked token 全 0 / `md5sum -c` 15/15 rc=0 / `--check` rc=0）| T-14 |
-| **T-16** | PS prologue **1.595 → ≤0.55 s**（q8 缓存复活 + 未归因 ~0.7 s 定位） | 待分派 | ① 主机归因表：`q8/views/desc/cfg/packin/acq/未归因` 每桶 ms×N，和自洽到 ±2% ② q8 缓存（上限 0.605 s）按 T-08 五条判据 ③ `verify_lazy_net.py` sha1 逐位不变 ④ prologue ≤0.55 s（主机投影 + 板端排队复测）| `worktrees/T-16-prologue/` | **待 T-15**（副本必须从新基线开）| T-15 |
-| **T-17** | PS convfp **1.157 → ≤0.35 s**（**先归因**：§41 已证换 BLAS 只快 12%）| 待分派 | ① 先交**归因**（im2col/物化/Python/真算力 各多少 ms）再动手 ② 逐字节 0 差（不是接近）+ sha1 逐位不变 ③ 加速开关默认关、异常静默回落 ④ 板端投影 ≤0.35 s | `worktrees/T-17-convfp/` | **进行中** | — |
+| **T-16** | PS prologue **1.595 → ≤0.55 s**（q8 缓存复活 + 未归因 ~0.7 s 定位） | 待分派 | ① 主机归因表：`q8/views/desc/cfg/packin/acq/未归因` 每桶 ms×N，和自洽到 ±2% ② q8 缓存（上限 0.605 s）按 T-08 五条判据 ③ `verify_lazy_net.py` sha1 逐位不变 ④ prologue ≤0.55 s（主机投影 + 板端排队复测）| `worktrees/T-16-prologue/` | **进行中（第二阶段 A/B/C）**：归因已交（q8 604 + cfg 350 + 回落 pack_input 257.5 + desc 85.5 + acq 92 + 其余 186 ms，桶和 −0.03%），目标 −880 ms | T-15 |
+| **T-17** | PS convfp **1.157 → ≤0.35 s**（**先归因**：§41 已证换 BLAS 只快 12%）| 待分派 | ① 先交**归因**（im2col/物化/Python/真算力 各多少 ms）再动手 ② 逐字节 0 差（不是接近）+ sha1 逐位不变 ③ 加速开关默认关、异常静默回落 ④ 板端投影 ≤0.35 s | `worktrees/T-17-convfp/` | **第一阶段+第二阶段已交**：便宜三项 −27 ms（其中"bias/relu 就地"自我推翻，≈0）；NEON 内核 **J1/J1b/J1c 逐字节 PASS**（249 形状×2 变体）；J4 只能给 229~386 ms 压线区间；**J3 板端 sgemm 串行性待验** | — |
 | **T-18** | PS 小算子批量化（sam 0.250 + cat 0.134 + eca 0.079 + add 0.068 + epilogue 0.256）| 待分派 | 逐字节 + sha1 不变；合计 0.79 → ≤0.25 s | `worktrees/T-18-smallops/` | **排队**（等 T-16 归因，避免猜）| T-16 |
 | **T-19** | V2 行带融合：pack(0.970) + conv(1.25) → ≤1.2 s | 待分派 | 设计收敛（容量/行带深度/资源）+ 仿真逐拍 parity + 三桶时序门槛 | `docs/V2_*` + worktree | **排队**（长杆，T-16 后开）| T-16 |
 | **T-30** | 测量口径收口：主机门禁统一 `OMP=1` 重冻常量 + 板端运行点自记录干净重建 | 待分派 | ① `verify_lazy_net` 在 `OMP=1` 下重冻三件套并写进判据 ② `board_v39_verify` 补齐 runpoint/`code_md5`/一次性成本计时（**按证据需求重写，不许搬 parked 版**）③ 两种口径都给出并写进台账 ④ 数值 sha1 一位不许变 | `ps/pynq/board_v39_verify.py` + `ps/tools/verify_lazy_net.py` | **待分派**（板子回来前必须先做完）| T-15 |
 | **T-31** | 16-lane 二值引擎（+8k LUT，算力 ×2）| 待分派 | **前置**：T-19 证明 conv 的 1.252 s 里算力占 >50%（否则不做）；前置 2：v42 时序三桶达标 | `runs/timing_v42/` + worktree | **排队**（等 T-19 结论）| T-19 |
-| **T-32** | **干掉 MMIO 握手**（`pl_s` 里 1.050 s = 行命令级 Python 往返，**不是 PL 在干活**）| 待分派（子代理 brief 里误标 T-23）| ① 访问 trace 逐条等价（宿主 mock）② 整网 sha1 逐位不变（同口径）③ opt-in 默认关 + 静默回落 ④ 每命令握手 ≤0.15 ms ⑤ 板端探针一次 session 跑完 | `worktrees/T-23-mmio/` + `runs/t23_mmio/` | **进行中** | T-15 |
+| **T-32** | **干掉 MMIO 握手**（`pl_s` 里 1.050 s = 行命令级 Python 往返，**不是 PL 在干活**）| 待分派（子代理 brief 里误标 T-23）| ① 访问 trace 逐条等价（宿主 mock）② 整网 sha1 逐位不变（同口径）③ opt-in 默认关 + 静默回落 ④ 每命令握手 ≤0.15 ms ⑤ 板端探针一次 session 跑完 | `worktrees/T-23-mmio/` + `runs/t23_mmio/` | **进行中（已收窄）**：**推翻了"0.802 ms/命令"是板端数**（那是主机 FakeE1E2Unit 墙钟）⇒ 转向"减少访问次数"（读轮询 7 次/命令）+ 探针 + 一页 RTL 设计 | T-15 |
 
 | **T-05** | PS 描述符/视图缓存 `BIN_DESC_CACHE` | `042fe646` | **上限仅 0.1 s**（实测 desc+views=0.15 s）⇒ **降级**，做完即归档，不必扩到别处 | 同上 | 进行中(降级) | — |
 | **T-06** | `acq_stats` + `descviews` 计时器（T-02/T-03 的前置） | `042fe646` | 主机 `verify_lazy_net` PASS + 8 槽下 `starved=54`（证明计数器不是摆设） | 同上 | **已归档**（计数器已交付并被 T-02/T-03 使用） | — |
