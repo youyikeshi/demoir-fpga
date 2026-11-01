@@ -129,3 +129,23 @@ pynq_specialized_code/ps/pynq/sam_sum_fast_*.so
 pynq_specialized_code/pl/rtl_hand/build/
 pynq_specialized_code/pl/rtl_hand/xsim.dir/
 pynq_specialized_code/pl/rtl_hand/xvlog.*
+
+# ---------------------------------------------------------------------------
+# ★ 2026-11-01 追加：运行/构建产物与大中间件（避免仓库膨胀）
+#   背景：v39/v40 期间产生大量 .pb / .jou / .so / .bak / weights_pack 中间件，
+#   它们都能从源码重生成，不该进 git。
+# ---------------------------------------------------------------------------
+*.pb
+*.jou
+vivado*.backup.jou
+hs_err_pid*.log
+clockInfo.txt
+.fuse_hidden*
+*.bak_*
+pynq_specialized_code/ps/pynq/*.so
+pynq_specialized_code/pl/rtl_hand/_worktrees/*/out/
+pynq_specialized_code/deploy/weights_pack*/
+runs/**/*.dcp
+runs/**/*.bit
+runs/**/mem.bin
+board_work_20261031/

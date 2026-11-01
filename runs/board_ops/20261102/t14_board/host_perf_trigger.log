@@ -1,0 +1,24 @@
+
+===== 路 A：端到端接线（256²；只把 PERF_GATE['q8_s'] 临时压低到 0.02）=====
+  真实门槛：q8 0.61 s × 1.50 = 0.915 s / epilogue 0.26 × 1.50 = 0.390 s
+  预装载内核（出计时）：{'q8': 0.0041, 'c8deq': 0.0064, 'bpack': 0.0119}
+[DEPS] q8=fast c8deq=fast bpack=fast e1e2=fast catpack=fast safe=fast  ⇒ deps_closure_ok=True
+  [LAZY_DEQ] IN/OUT 槽数 = 10（BIN_LAZY_SLOTS）
+  [PERF] ⚠⚠ prologue.q8 = 0.072 s > 门槛 0.030 s（历史 0.020 s × 1.50）⇒ 疑似 numpy 回落（q8 未装上） ⇒ run_valid=False，本跑点不许进基线表
+  实测：q8 桶 0.072 s / epilogue 0.009 s
+  stats['perf_gate'] = [{"bucket": "q8", "got_s": 0.0724, "base_s": 0.02, "limit_s": 0.03, "ratio": 1.5, "hw": 256}]
+  stats['perf_warm'] = True
+  stats['run_valid'] = False
+  sha1 = ('392d1ae02761', '7f68fb00d2b5', 'aa03751a2d1c')
+  判据：门槛压低后必须 alert + run_valid=False ⇒ ✓
+
+===== 路 B：判据值（不动代码；数字取自 2026-11-02 板端实测）=====
+  快路径（板端热态）                        q8=0.61    epi=0.26   hw=256 ⇒ 无告警   ✓
+  numpy 回落                         q8=3.6     epi=1.19   hw=256 ⇒ 告警 q8,epilogue   ✓
+  边界 0.9149（< 1.5×）                q8=0.9149  epi=0.26   hw=256 ⇒ 无告警   ✓
+  边界 0.9151（> 1.5×）                q8=0.9151  epi=0.26   hw=256 ⇒ 告警 q8   ✓
+  epilogue 边界 0.3899               q8=0.61    epi=0.3899 hw=256 ⇒ 无告警   ✓
+  epilogue 边界 0.3901               q8=0.61    epi=0.3901 hw=256 ⇒ 告警 epilogue   ✓
+  hw=128（无历史值，分辨率保护）               q8=3.6     epi=1.19   hw=128 ⇒ 无告警   ✓
+
+== 总结：路A PASS / 路B PASS ==

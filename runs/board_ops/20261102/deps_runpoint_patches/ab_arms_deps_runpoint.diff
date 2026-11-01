@@ -1,0 +1,36 @@
+--- a/ab_arms.py
++++ b/ab_arms.py
+@@ -331,9 +331,16 @@
+         slots=int(a.slots), code_md5=md5_before, switches=switches(),
+         source="git HEAD b58964e (pynq_specialized_code/ps/pynq)",
+         stamp=time.strftime("%Y-%m-%d %H:%M:%S"))
++    # ★ 2026-11-02（§② 依赖可见性）：跑点必须能回答"这一跑跑在什么内核上"。
++    #   2026-11-02 的 1.65× 假数字，直接原因就是三份 JSON 都只记了时间、
++    #   没记 prologue/epilogue 用的是 C 内核还是 numpy 回落。
++    R["runpoint"]["kernel_deps_probe"] = BE.kernel_deps()   # 开跑前（零副作用，不触发 cc）
++    R["runpoint"]["deps_closure_ok"] = bool(
++        BE.deps_closure_ok(R["runpoint"]["kernel_deps_probe"]))
+     log("  bit md5 = %s" % bit_md5)
+     log("  fclk 读回 = %s（目标 %s）" % (ident.get("fclk_readback"), a.fclk))
+     log("  开关 = %s" % json.dumps(switches(), ensure_ascii=False))
++    log("  " + BE.deps_line())
+ 
+     # ---- 一次性成本：先付掉，再开始计时（口径 b）
+     hdr("一次性成本（C 内核 load + fast 自检）—— 计时外，只付一次")
+@@ -461,6 +468,16 @@
+     log("  %s" % ("✓ 一致（无内存踩踏）" if R["md5_same"]
+                  else "✗✗ 不一致 ⇒ 立即停手"))
+ 
++    # ★ 依赖可见性：落盘前刷成**实测**状态（此时内核 _STATE 已是权威值）
++    try:
++        _d = BE.kernel_deps()
++        R["runpoint"]["kernel_deps"] = _d
++        R["runpoint"]["deps_closure_ok"] = bool(BE.deps_closure_ok(_d))
++        log("  " + BE.deps_line(_d) + "   ← 跑完实测（权威）")
++        if not R["runpoint"]["deps_closure_ok"]:
++            log("  ⚠ deps_closure_ok=False ⇒ 本次跑点**不许进基线表**")
++    except Exception as _ex:                       # noqa: BLE001
++        R["runpoint"]["kernel_deps_error"] = repr(_ex)
+     with open(a.json, "w", encoding="utf-8") as f:
+         json.dump(R, f, indent=1, ensure_ascii=False)
+     log("  → %s" % a.json)

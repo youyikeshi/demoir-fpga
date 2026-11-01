@@ -267,8 +267,8 @@ $$\text{全网 } 256^2：698\ \text{条命令} / 21.93\ \text{M 拍} \Rightarrow
        if (!alloc_ok && (ent_out[vcand] == PF_Z)) begin alloc_ok=1; alloc_v=vcand; end
    end
    ```
-   $$\Rightarrow\ 	ext{16 路扫描 + 26bit×16 CAM 命中 + 串 } 	exttt{!start\_fire} = 	ext{两级深锥叠加}$$
-   $$\Rightarrow\ 	extbf{WNS } -0.241 	o -1.833，24\% 	ext{ 端点违例，11,039 条}$$
+   $$\Rightarrow\ \text{16 路扫描 + 26bit×16 CAM 命中 + 串 } \texttt{!start\_fire} = \text{两级深锥叠加}$$
+   $$\Rightarrow\ \textbf{WNS } -0.241 \to -1.833，24\% \text{ 端点违例，11,039 条}$$
 
    **正确做法（`conv_uni §6.0` 已验证的三级流水：观察→决策→落盘）**：
    - 空条目数改**寄存器计数**：`n_free_q <= n_free_q + freed - taken`，`alloc_ok = (n_free_q != 0)`（0 级）
@@ -276,16 +276,16 @@ $$\text{全网 } 256^2：698\ \text{条命令} / 21.93\ \text{M 拍} \Rightarrow
    - `ent_tag[*].CE` 只吃**寄存后**的 `al_v`
 
 2. **`generate if` 里每个分支都必须驱动新信号（含 `g_none`）**
-   $$\Rightarrow\ 	ext{漏了 } 	exttt{assign} \Rightarrow X 	ext{ 传播} \Rightarrow 	exttt{p\_valid/bf\_cnt} 	ext{ 全 X} \Rightarrow 	extbf{done 永不到}$$
-   $$\Rightarrow\ 	extbf{xsim 不报错，综合器又帮你 tie 0} \Rightarrow 	ext{仿真挂、板上看着正常}$$
-   $$\Rightarrow\ 	ext{曾让 sam/interp 在仿真里 20M 拍超时}$$
+   $$\Rightarrow\ \text{漏了 } \texttt{assign} \Rightarrow X \text{ 传播} \Rightarrow \texttt{p\_valid/bf\_cnt} \text{ 全 X} \Rightarrow \textbf{done 永不到}$$
+   $$\Rightarrow\ \textbf{xsim 不报错，综合器又帮你 tie 0} \Rightarrow \text{仿真挂、板上看着正常}$$
+   $$\Rightarrow\ \text{曾让 sam/interp 在仿真里 20M 拍超时}$$
 
 3. **收尾流水每级只能吃上一级的寄存器**，不能吃组合中间量
-   $$\Rightarrow\ 	ext{现象：链晚一个像素、	extbf{差 ±1、七成字节对}}$$
+   $$\Rightarrow\ \text{现象：链晚一个像素、\textbf{差 ±1、七成字节对}}$$
 
 4. **冻结 CE 必须同时拉低 `mem_rd_en`**
-   $$\Rightarrow\ 	ext{否则内存模型每拍往后追一个地址，恢复后拿到下一个 term 的数据}$$
-   $$\Rightarrow\ 	ext{正确写法见 } 	exttt{bin\_unit\_axi\_wrap.v:1103}$$
+   $$\Rightarrow\ \text{否则内存模型每拍往后追一个地址，恢复后拿到下一个 term 的数据}$$
+   $$\Rightarrow\ \text{正确写法见 } \texttt{bin\_unit\_axi\_wrap.v:1103}$$
 
 ### 6.5 子代理协作
 
@@ -3796,3 +3796,520 @@ $$\Rightarrow\ \text{② } \texttt{sudo}\ \text{一律写全：}\texttt{sudo -S 
 $$\Rightarrow\ \text{③ 一次只改一个变量} \Rightarrow \text{新 bit 与新 } .so\ \text{不许同时上}$$
 $$\Rightarrow\ \text{④ 先跑"最小动作"（load + 读 ID）再跑整网}$$
 $$\Rightarrow\ \text{⑤ 任何 } \texttt{.so} / \text{C 扩展首次加载失败后，}\textbf{必须断电重启}\ \text{再继续} \Rightarrow \text{因为可能已把 PL 留在异常态}$$
+
+---
+
+## 六十四、板端事故定案（2026-11-01）
+
+**完整事故报告见 [`docs/板端事故_内存踩踏_真相.md`](板端事故_内存踩踏_真相.md)。**
+
+$$\Rightarrow\ \textbf{唯一根因}：\text{PL 引擎越界写，踩烂内核内存（页缓存被改写）}$$
+$$\Rightarrow\ \textbf{证据}：\text{三态对照 —— 未加载 PL 干净 / PL 空闲干净 / 跑整网 23 s 硬挂}$$
+$$\Rightarrow\ \textbf{判决}：\text{v39 可用（sha1 3/3 ×2），v40 禁用（跑网必挂）}$$
+$$\Rightarrow\ \textbf{新准则}：\text{违例"数量少"}\ne\text{"安全"} \Rightarrow \text{必须看违例落在什么性质的路径上}$$
+$$\Rightarrow\ \text{上板门槛：}\text{WNS} \ge 0，\text{或逐端点证明违例均在准静态寄存器的 CE 引脚}$$
+$$\Rightarrow\ \textbf{新工具}：\texttt{tools/board\_memtest.py|.sh}（三态内存/缓存测试）、\texttt{tools/archive\_build.sh}、\texttt{tools/board\_bootstrap.sh}$$
+
+---
+
+## 六十四、★ 新基线：v39 + interp C 内核 = **6.455 s（最好）/ 6.589 s（中位）**（2026-11-01 23:21）
+
+### 64.1 关键教训先写在最前面：**必须同进程重复测**
+
+$$\Rightarrow\ \text{冻结基线报告里早就写过：}\textbf{新进程里第一次跑 }256^2\ \text{总是 }10.06\sim10.35\ \text{s}，\text{同一进程内第 2 次起才稳定}$$
+$$\Rightarrow\ \text{我今天一开始拿"新进程单次 }8.730\ \text{s"\ 去和 }8.096\ \text{s 比} \Rightarrow \textbf{差点得出"变慢了"的错结论}$$
+$$\Rightarrow\ \textbf{纪律（第 61 条）：跨进程比较没有意义} \Rightarrow \text{所有优化必须在}\textbf{同一进程内重复 }N\ \text{次}\text{，取"第 2 次起"的中位与最好值}$$
+
+$$\Rightarrow\ \text{为此新增 } \texttt{tools/board\_repeat.py}（\text{同一进程内跑 }N\ \text{次，打印每次 + 第 2 次起统计}）$$
+$$\Rightarrow\ \text{这是长程验证的标准测量工具} \Rightarrow \text{以后所有 A/B 都走它}$$
+
+### 64.2 实测（v39 bit `602725b8`，150 MHz，24 槽，金丝雀常开）
+
+$$\Rightarrow\ \text{同一进程 5 次：}\mathbf{8.766,\ 6.690,\ 6.589,\ 6.455,\ 6.573}\ \text{s}$$
+$$\Rightarrow\ \textbf{第 2 次起：中位 } 6.589\ \text{s，最好 } 6.455\ \text{s，最差 } 6.690\ \text{s}$$
+$$\Rightarrow\ \text{sha1 } \mathbf{5/5}\ \text{全部 } 9b1940c8/f86a7035/025757a8 \Rightarrow \textbf{功能未被改动}$$
+$$\Rightarrow\ \text{跑前跑后 } \texttt{md5sum}\ \text{一致} \Rightarrow \text{无内存踩踏}$$
+
+$$\Rightarrow\ \text{冻结基线 } 8.096\ \text{s（\text{同为 best-of-5 口径}）} \Rightarrow \textbf{最好值 } 6.455\ \text{s}$$
+$$\Rightarrow\ \Rightarrow\ \textbf{净降 } \mathbf{1.641\ s\ (-\mathbf{20.3\%})} \Rightarrow \text{来自 interp C 内核（numpy } 1.94 \to \text{C } 0.99）$$
+$$\Rightarrow\ \text{外加冷启动代价被摊掉（第一次 }8.766 \to \text{之后 }6.5\ \text{左右}）$$
+
+### 64.3 口径澄清（避免后人误解）
+
+$$\Rightarrow\ \text{今天早些时候的 }8.730\ (\text{C}) / 9.569\ (\text{numpy})\ \text{是}\textbf{新进程单次} \Rightarrow \textbf{不可与 }8.096\ \text{并列}$$
+$$\Rightarrow\ \text{但那次 A/B 的相对差仍有效：}\textbf{C 比 numpy 快 }0.839\ \text{s}（\text{同进程同 session}）$$
+$$\Rightarrow\ \text{热态下 C 的收益更大（}8.096 \to 6.46 = -1.64\text{）} \Rightarrow \text{因为热态下 numpy 的 gather 代价更突出}$$
+
+---
+
+## 六十五、新基线复核与两项定案（2026-11-01 23:55）—— 含**一条我判断错的**
+
+### 65.1 测量协议自证成立（这是前提）
+
+$$\Rightarrow\ \text{同一进程内三组：}\text{C 臂 } 8.003/6.634/6.596/6.530/6.485；\text{numpy 臂 } 8.069/8.174/8.176/8.263/8.058$$
+$$\Rightarrow\ \textbf{numpy 臂最好 } 8.058\ \text{s} \approx \text{冻结基线 } 8.096\ (-\mathbf{0.5\%}) \Rightarrow \textbf{协议自证成立}$$
+$$\Rightarrow\ \text{C 臂最好 } \mathbf{6.485}\ \text{s}（\text{复现组 } \mathbf{6.417}\text{）} \Rightarrow \textbf{两臂差 } \mathbf{1.573\ s\ (-\mathbf{19.5\%})}$$
+$$\Rightarrow\ \text{分项自证：}\texttt{interp}\ \mathbf{0.264}\ \text{vs}\ \mathbf{1.92}\ (-\mathbf{1.66})\Rightarrow \text{差值}\textbf{全部}来自 interp，\text{其它桶 } \pm 0.03\ \text{s 内}$$
+$$\Rightarrow\ \text{总时间只降 }1.573 < 1.66\ \text{是因为 PS 有部分被 PL 盖住（numpy 臂 PS }5.44 > \text{PL }3.06）$$
+
+$$\Rightarrow\ \textbf{新基线（冻结）}：\mathbf{6.45\ s}\ \text{（best-of-warm } 6.417\sim6.485，\text{中位 } 6.48\sim6.56\text{）}$$
+$$\Rightarrow\ \text{相对旧基线 } 8.096\ \Rightarrow\ \mathbf{-1.65\ s\ (-\mathbf{20.4\%})}$$
+$$\Rightarrow\ \text{运行点：v39 } \texttt{602725b8} / 150\ \text{MHz} / 24\ \text{槽} / \text{代码 } \texttt{bin\_net cdf4b9a9, bin\_engine f848a29c}$$
+
+### 65.2 ★ 我判断错的一条：`acq 0.253 s` **不是** 16 槽伪影
+
+$$\Rightarrow\ \text{我的假设：}\text{24 槽下强制物化 } = 0 \Rightarrow 0.253\ \text{s 是 16 槽时代的伪影}$$
+$$\Rightarrow\ \textbf{实测：}\texttt{starved} = \mathbf{8}\ \ne 0 \Rightarrow \textbf{假设不成立}$$
+$$\Rightarrow\ \text{24 槽、227 层：纯挑槽 } \mathbf{4.5\ ms}；\text{强制物化 } \mathbf{8\ 次 / 92.4\ ms / 15.4\ MB}$$
+$$\Rightarrow\ \Rightarrow\ \textbf{acq 真实开销 } \approx \mathbf{0.10\ s}\ \text{（不是 }0.253\text{，也不是 }0\text{）} \Rightarrow \text{预算按 }0.10\ \text{s 记}$$
+$$\Rightarrow\ \text{自洽核对通过：}\texttt{acq.n}=227=\text{层数}；\texttt{acq.starved}=\texttt{lazy.starved}=8；15.4/8=1.93\ \text{MB/次}$$
+
+$$\Rightarrow\ \textbf{纪律（第 62 条）：}"能用调度分析推出 0 次"不等于"实测是 0" \Rightarrow \text{反例已出现}$$
+$$\Rightarrow\ \text{我此前基于"峰值活钉 14、最小空闲 10"\ 的复算是}\textbf{对稳态成立}，\text{但}\textbf{开头 8 层}是冷启动，\text{那时槽还没填满}$$
+$$\Rightarrow\ \Rightarrow\ \text{这类"起始瞬态"必须单独算，不能只算稳态峰值}$$
+
+### 65.3 定案：`desc`/`views` 能省的只有 ~0.1 s，不是 0.48 s
+
+$$\Rightarrow\ \texttt{descviews} - \texttt{views} = \mathbf{42.9\ ms}\ (\text{热}) / 44.7\ \text{ms}\ (\text{冷}) \Rightarrow 227\ \text{层} \approx 0.19\ \text{ms/层}$$
+$$\Rightarrow\ \text{热态分项：}\texttt{q8 } \mathbf{604.0}\ \text{ms}，\texttt{f32 } \mathbf{614.5}\ \text{ms}，\texttt{desc } 85.5\ \text{ms}，\texttt{views } 61.3\ \text{ms}$$
+$$\Rightarrow\ \Rightarrow\ \textbf{`prepare\_segments` 的大头在}\textbf{量化（}1.22\ \text{s）}\text{，}\texttt{desc}+\texttt{views}\ \text{合计只有 } \mathbf{0.15\ s}$$
+$$\Rightarrow\ \Rightarrow\ \textbf{我先前"desc/views 缓存能省 }0.48\ \text{s"\ 的估算是}\textbf{错的}（但当时是 }16\ \text{槽的旧码）$$
+$$\Rightarrow\ \textbf{降级}：\text{描述符缓存（}T-05\text{）}\textbf{上限 }0.1\ \text{s} \Rightarrow \text{不再是重点}$$
+$$\Rightarrow\ \textbf{升级}：\text{量化 } 1.22\ \text{s 才是 PS 侧第一目标} \Rightarrow \text{q8 缓存（}T-08\text{）优先}$$
+
+### 65.4 32 槽方案按算术直接否掉
+
+$$\Rightarrow\ 32\ \text{槽需 } 32\times(1.18+1.57) \approx \mathbf{88\ MB}，\text{而 } \texttt{CmaFree} = \mathbf{67.4\ MB} \Rightarrow \textbf{必然分配失败}$$
+$$\Rightarrow\ 24\ \text{槽 } = 66.22\ \text{MB} \Rightarrow \text{已贴上限} \Rightarrow \textbf{槽数封顶 24} \Rightarrow \text{那 }92\ \text{ms 不追}$$
+
+### 65.5 v41 Gate A/B 的两条硬发现（2026-11-02 00:10）
+
+$$\Rightarrow\ \textbf{发现①}：\text{任何"读通路 }+1\ \text{拍"的改法都会改拍数}$$
+$$\quad\ \text{机制：} \texttt{v8\_q}\ \text{晚 }1\ \text{拍} \Rightarrow \text{写流整体晚 }1\ \text{拍}，\text{而 AXI burst 排泄 FSM 跑在}\textbf{裸时钟}\text{上不受 } \texttt{u\_ce}\ \text{门控}$$
+$$\quad\ \Rightarrow \text{相对相位差 }1\ \text{拍} \Rightarrow \texttt{wr\_fifo\_press}\ \text{撞在不同拍} \Rightarrow \texttt{u\_ce}\ \text{停顿次数变} \Rightarrow \text{拍数变 }(-15/+3/+3)$$
+$$\quad\ \Rightarrow\ \textbf{预取方案救不了}（\text{miss 检测早 }1\ \text{拍} \Rightarrow \text{冻结数变}）\Rightarrow \text{只能做}\textbf{尾部补偿}$$
+
+$$\Rightarrow\ \textbf{发现②（真 bug，价值最高）}：\text{数据延后 }1\ \text{拍而}\textbf{权重没延后} \Rightarrow k\ge3\ \text{三个形状逐字节错，}k{=}1\ \text{反而对}$$
+$$\quad\ \text{根因：} \texttt{wrd<=wmem[l\_q]} \text{ 在 } T{+}1 \text{ 有效} \Rightarrow \text{pop 拿到"下一个 term 的权重"}$$
+$$\quad\ \Rightarrow\ k{=}1\ \text{时 } K{=}1、l\_q\equiv0 \Rightarrow \textbf{形状选择掩盖了缺陷}$$
+$$\quad\ \Rightarrow\ \textbf{纪律（第 63 条）：}\text{"某模块加一级"不是孤立改动} \Rightarrow \text{同一流水线上的}\textbf{所有伴行量}（权重/标志/地址）\text{都要一起搬}$$
+$$\quad\ \Rightarrow\ \text{而且}\textbf{测试形状必须包含 } k>1\ \text{与 } k=1\ \text{两侧} \Rightarrow \text{只测 }k{=}1\ \text{会漏}$$
+
+$$\Rightarrow\ \textbf{补偿方案}：\text{拆掉 S2 静态移位（} \texttt{ASH=9} \text{，0 LUT 纯重定时），把 } \texttt{qsh\_c}\ \text{直接接到 S3 加法输入}$$
+$$\quad\ \Rightarrow\ \text{副本实测：}5/5\ \text{形状拍数与 v40 逐拍相同、}12/12\ \text{逐字节相同、FF 净 } -188、\text{LUT } \pm0$$
+
+---
+
+## 六十六、⚠ 对抗复核结论：`6.455 s / −20.3%` **不能按现写法进冻结文档**（2026-11-02 00:35）
+
+复核者 `bf388fae`（只读、未碰板、未改仓库）逐条证伪，**四条成立**。这是"主代理下结论必须过复核"的第一次实战，价值就在这里。
+
+### 66.1 我错的地方（逐条认）
+
+$$\Rightarrow\ \textbf{① 我把 }8.096\ \text{s 的口径说错了}$$
+$$\quad\ \text{真相：}8.096\ \text{s 是}\textbf{跨 2 个进程的 5 个热态样本取最小}（P1 = }8.281/8.198\text{ 是该进程第 4/5 次；P2 = }8.113/8.096/8.136\text{ 是第 5/6/7 次）$$
+$$\quad\ \Rightarrow\ \textbf{中位是 }8.136，\text{不是 }8.096 \Rightarrow \text{我写的"同进程 best-of-5"是错的}$$
+$$\quad\ \Rightarrow\ \text{而且 } \texttt{board\_repeat.py:62}\ \text{自己打印"冻结基线是同进程 5 次最好"，与它开头写的"跨进程比较没意义"}\textbf{自相矛盾}$$
+$$\quad\ \Rightarrow\ \text{按它自己那条规矩，}8.096\ \text{本身就该被拒} \Rightarrow \textbf{我的工具在骗我自己}$$
+
+$$\Rightarrow\ \textbf{② }6.455\ \text{s 那组}\textbf{不可考}：仓库与主机 } \texttt{/tmp}\ \text{里没有任何原始产物（无 } \texttt{repeat.json}、\text{无日志）}$$
+$$\quad\ \Rightarrow\ \text{而且当时板端是}\textbf{混态}：\texttt{bin\_net=3f154b75 / bin\_engine=ddfe6b6f}（\text{旧）+ } \texttt{bin\_ref\_numpy=5a3bbd8b}（\text{新）}$$
+$$\quad\ \Rightarrow\ \text{更糟：} \texttt{BIN\_BILINEAR\_C}\ \text{默认值是 } \mathbf{"1"} \Rightarrow \text{违反"加速开关默认关"纪律} \Rightarrow \text{复跑会}\textbf{静默走 C}，\text{A/B 不可分辨}$$
+
+$$\Rightarrow\ \textbf{③ 冻结基线本身不可逐字节复现}：\texttt{bin\_ref\_numpy 16efab60}\ \text{在仓库与 git 里}\textbf{都不存在}（\text{git 只有 }5a3bbd8b）$$
+$$\quad\ \Rightarrow\ 8.096\ \text{s 永久不可复现} \Rightarrow \text{这是个必须单独补的窟窿}$$
+
+$$\Rightarrow\ \textbf{④ 覆盖不足}：\text{只测 }256^2/\text{seed}=1/\text{3 个最终输出}；\text{64}^2\ \text{本轮完全没测}$$
+$$\quad\ \Rightarrow\ \text{C 内核 }29\ \text{形状 full selftest}\textbf{ 没跑}（\texttt{load}\ \text{只跑 }6\ \text{形状）}$$
+$$\quad\ \Rightarrow\ \textbf{64}^2\ \text{上 C 最多只省 }0.12\ \text{s（} \approx -4\%）\Rightarrow \textbf{−20\% 只对 }256^2\ \text{成立}$$
+
+### 66.2 复核确认成立的（可以留下的）
+
+$$\Rightarrow\ \textbf{Q6 差额解掉了}：\text{那 }0.694\ \text{s 不是不明残差}，\text{而是}\textbf{C 内核一次性 load+自检 }0.73\ \text{s}$$
+$$\quad\ \Rightarrow\ 8.003 + 0.73 \approx 8.73 \approx 8.766 \Rightarrow \textbf{自洽}；\ 26\times(74.5-9.5)\ \text{ms} = 1.69\ \text{s}\ \text{也与 } -1.66\ \text{吻合}$$
+$$\Rightarrow\ \textbf{稳态对比是公平的}：\text{两边都丢弃首跑}（10.35→8.10，\text{prologue }2.66\to1.59）$$
+$$\Rightarrow\ \textbf{开关六项逐项一致}（\texttt{cfg()}\ \text{强制写死）}；\text{输入 } \texttt{rng=default\_rng(1)}、x0\ \text{sha1 } \texttt{cfc75bc3f15d306b}\ \text{与基线一致} \Rightarrow \text{排除换输入}$$
+
+### 66.3 结论改成什么样（以归档 JSON 为准，双数字 + 限定范围）
+
+$$\Rightarrow\ \textbf{主数字改用 } \texttt{runs/board\_ops/20261101/boardops\_ab.json}（\text{可复算）}：$$
+$$\quad\ \text{最好值：numpy } \mathbf{8.058} \Rightarrow \text{C } \mathbf{6.485} \Rightarrow \mathbf{-1.573\ s\ (-\mathbf{19.5\%})}$$
+$$\quad\ \text{中位值：} 8.175 \Rightarrow 6.563 \Rightarrow \mathbf{-1.612\ s\ (-\mathbf{19.7\%})}$$
+$$\quad\ \text{复现组最好 } \mathbf{6.417}$$
+$$\Rightarrow\ \textbf{必须双数字}：\text{稳态（第 2 帧起）}6.42\sim6.49\ \text{s}；\textbf{首帧 }8.77\ \text{s}（\text{旧 }10.06\sim10.35）$$
+$$\Rightarrow\ \textbf{必须限定}：\text{该收益}\textbf{只对 }256^2\ \text{成立}；64^2\ \text{预计仅 } \approx -4\%$$
+$$\Rightarrow\ \text{并且}\textbf{禁止}再写"1.94→0.99 是稳态"——}0.9972\ \text{是冷态值，稳态是 }0.26\sim0.27$$
+
+### 66.4 冻结前必须补的四个实验/修复（已派 T-12）
+
+$$\Rightarrow\ \text{(1) 改正 } \texttt{board\_repeat.py:62}\ \text{与本文的"同进程 best-of-5"说法}$$
+$$\Rightarrow\ \text{(2) } \texttt{BIN\_BILINEAR\_C}\ \text{默认 } 1 \to \mathbf{0}，\text{基线运行点显式写 }=1$$
+$$\Rightarrow\ \text{(3) 64}^2 @150\ \text{MHz：numpy vs C 同进程各 } \ge5\ \text{次 + 三 sha1}$$
+$$\Rightarrow\ \text{(4) 换 seed 或跑 } 29\ \text{形状 full selftest；并把一次 selftest 提到}\textbf{计时外}；归档 } \texttt{repeat.json}$$
+$$\Rightarrow\ \text{外加：找回 } \texttt{bin\_ref\_numpy 16efab60}\ \text{并入库，否则 }8.096\ \text{不可复现}$$
+
+---
+
+## 六十七、★ 又抓到一个口径错误：`q8` 与 `f32` 是**嵌套**的，不是相加的（2026-11-02 00:50）
+
+### 67.1 错在哪
+
+$$\Rightarrow\ \text{我在 §65.3 写了"} \texttt{q8}\ 604.0 + \texttt{f32}\ 614.5 = 1.22\ \text{s}" \Rightarrow \textbf{重复计数}$$
+$$\Rightarrow\ \text{代码事实（} \texttt{bin\_engine.py:2502/2542/2546}\text{）：} \texttt{views}\ \text{之后重置 } \texttt{\_t}，\text{循环内累加 } \texttt{q8}，\text{循环后 } \texttt{f32 = now - \_t}$$
+$$\Rightarrow\ \Rightarrow\ \textbf{f32} \supset \textbf{q8}\（\texttt{q8} = \texttt{f32}\ \text{的 } 98.3\%\text{，}604/614.5\ \text{正好吻合}）$$
+$$\Rightarrow\ \text{同理 } \texttt{descviews} \supset \texttt{views}$$
+
+$$\Rightarrow\ \Rightarrow\ \textbf{E1E2 PS 侧真实总量}：61.3 + 614.5 + 85.5 \approx \mathbf{0.76\ s} = 6.45\ \text{s 的 } 12\%（\text{不是 }19\%）$$
+$$\Rightarrow\ \Rightarrow\ \textbf{可压天花板是 } 614.5\ \text{ms}，\text{不是 } 1.22\ \text{s}$$
+
+$$\Rightarrow\ \textbf{纪律（第 65 条，与技能 §6.1 同源）}：\text{拆项必须保证}\textbf{两两不重叠}$$
+$$\quad\ \text{验收方法：}\textbf{各桶之和必须 } \approx \text{ 总时间}；\text{若明显超出，先查嵌套}$$
+$$\quad\ \Rightarrow\ \text{我这次是"同名不同层"的嵌套（内层跑在外层计时里）} \Rightarrow \text{这类错误}\textbf{看数值大小是看不出来的}$$
+
+### 67.2 q8 缓存现状（实测，主机 FakePL）
+
+$$\Rightarrow\ \texttt{Q8CACHE=1}\ \textbf{能跑通、接口已接好、sha1 全对}（12\ \text{次运行全部等于主机 FakePL 基线）}$$
+$$\Rightarrow\ \text{热态：} \texttt{q8}\ 56.7 \to \mathbf{12.5}\ \text{ms}（-\mathbf{78\%}）； \texttt{f32}\ 58.9 \to \mathbf{12.9}\ \text{ms}$$
+$$\Rightarrow\ \text{命中率：按段 } 69\sim70\%；\text{按字节 } 57\sim58\%；\text{命中吃掉 } 40\sim43\%\ \text{工作量}$$
+$$\Rightarrow\ \text{常驻 } 5.17/32\ \text{MB}，\text{0 逐出 0 skip}$$
+$$\Rightarrow\ \text{门禁④预检已过：}24\ \text{槽} / \mathbf{23\ \text{槽（基址全变）}} / 64^2 / \text{再 }256^2 \Rightarrow \mathbf{4/4}\ \text{sha1 一致}$$
+
+### 67.3 两处硬伤（这决定还能不能再压）
+
+$$\Rightarrow\ \textbf{① fs 冲突门禁白扔 } \mathbf{26\sim30\%}\ \text{字节}：\text{14 个唯一 f32 叶子里 } \mathbf{8\ \text{个}}\ \text{被 }2\sim3\ \text{种 } \texttt{fs\_in}\ \text{读}$$
+$$\quad\ \text{而 } \texttt{\_q8\_seen}\ \text{先到先占} \Rightarrow \text{整张量被踢出缓存}$$
+$$\quad\ \Rightarrow\ \text{缓存 key 本身含 } \texttt{fs} \Rightarrow \textbf{纯保守、非正确性所需}$$
+$$\quad\ \Rightarrow\ \text{副作用：}\textbf{同样跑两次命中数 } 54/61/62/65\ \text{抖动（收益 } \pm 10\%\ \text{不确定）}$$
+$$\Rightarrow\ \textbf{② fill 路径多一次拷贝}：\text{未命中是"量化到临时}\to\text{拷进 arena}\to\text{flush 整个 arena"}$$
+$$\quad\ \Rightarrow\ \text{实测 } \mathbf{1.35\sim1.45\times}\ \text{内联单价（}35.4\ \text{MB}/26\ \text{ms vs } 115.25\ \text{MB}/56.7\ \text{ms）}$$
+$$\quad\ \text{命中是真零拷贝（54 次共 3 ms）}$$
+
+$$\Rightarrow\ \textbf{板端投影（5.24 ms/MB）}：\text{现状 } 604 \to 427\ \text{ms（省 }177）；\text{两处都改} \to 288\sim343\ \text{ms（省 }261\sim316）$$
+$$\Rightarrow\ \Rightarrow\ \textbf{现状过不了"}\ge 0.30\ \text{s}"\text{ 的门槛}；\text{改后才刚过线（余量 }16\ \text{ms，很薄）}$$
+
+### 67.4 另一条必须加固的正确性点
+
+$$\Rightarrow\ \texttt{board\_v39\_verify.py:223}\ \text{只在 } \texttt{hw} \ge 256\ \text{时设 } \texttt{BV\_FREE=1}$$
+$$\Rightarrow\ \text{而本网 }256^2\ \text{的 } \texttt{f32pool\_plan}\ \text{返回 } \mathbf{0\ \text{槽}} \Rightarrow \text{f32 池实际没启用}$$
+$$\Rightarrow\ \Rightarrow\ \texttt{\_f32\_slot}\ \text{的 generation 令牌在本网}\textbf{恒为 }0$$
+$$\Rightarrow\ \Rightarrow\ \text{缓存正确性}\textbf{全靠 } \texttt{BV\_FREE}\ \text{判死点的 } \texttt{invalidate()}$$
+$$\Rightarrow\ \textbf{加固要求}：\text{不允许只靠"打断点"保证正确} \Rightarrow \text{加一条}\textbf{地址复用陈旧性测试}$$
+
+---
+
+## 六十八、★★ 重大发现：8.096 / 6.485 s **今天复现不出来（13.4 s）**，且**不是代码的锅**（2026-11-02 00:40）
+
+### 68.1 现象（同一 boot、同位流、同 150 MHz、同 24 槽、同开关）
+
+| 代码 | numpy 256² | C 256² |
+|---|---:|---:|
+| 冻结点（git HEAD） | **13.436 s** | **11.657 s** |
+| **2026-11-01 跑点原码**（`cdf4b9a9`/`f848a29c`，从板端取回、与报告逐字符相符） | **13.616 s** | 11.714 s |
+| 20261101 **报告值** | 8.058 s | 6.485 s |
+
+$$\Rightarrow\ \textbf{把代码换回那次的原码也复现不出来} \Rightarrow \text{差值}\textbf{不能}\text{归因于引擎代码}$$
+
+### 68.2 桶级证据：算法桶 1.00×，偏差全在"搬运侧"
+
+| 桶 | 20261101 报 | 今天（冻结点） | 倍数 |
+|---|---:|---:|---:|
+| `interp` | 1.899 | **1.921** | **1.01×** |
+| `convfp` | 1.163 | 1.209 | 1.04× |
+| `cat` | 0.128 | 0.128 | **1.00×** |
+| **`prologue`** | 1.580 | **5.811** | **3.68×** |
+| **`epilogue`** | 0.257 | **1.182** | **4.60×** |
+| PL | 3.054 | 4.016 | 1.31× |
+| `wait` | 0.633 | 1.526 | 2.41× |
+
+$$\Rightarrow\ \text{若 CPU 整体变慢} \Rightarrow \text{gather 密集的 } \texttt{interp}\ \textbf{不可能 }1.01\times$$
+$$\Rightarrow\ \Rightarrow\ \text{算法内核没变} \Rightarrow \textbf{是"数据搬运/缓冲区管理"这一层变了}$$
+
+### 68.3 最强嫌疑：**CMA 状态**（可测、且可能是可修的）
+
+$$\Rightarrow\ \text{昨天 }21{:}39\ \text{实测 } \texttt{CmaFree} = \mathbf{168\ MB}（\text{那次 }8.096\ \text{s 就发生在 CMA 充裕的窗口里）}$$
+$$\Rightarrow\ \text{今天 } \texttt{CmaFree}\ \text{开机只有 } \mathbf{0.5\ MB}；\text{建完 }24\ \text{槽 } 66.22\ \text{MB arena 后剩 } \mathbf{0.33\ MB}； \texttt{CmaTotal } 256\ \text{MB 却只可用 } 60\sim70\ \text{MB}$$
+$$\Rightarrow\ \text{若缓冲区}\textbf{不再 CMA 后备（heap 后备）} \Rightarrow \texttt{flush}/\texttt{invalidate}\ \text{按 cache line 维护},\text{物理页不连续} \Rightarrow \textbf{搬运成本数量级上升}$$
+$$\Rightarrow\ \Rightarrow\ \text{正好解释 } \texttt{prologue}\ 3.68\times、\texttt{epilogue}\ 4.60\times \Rightarrow \textbf{而算法桶不动}$$
+$$\Rightarrow\ \text{已证伪的候选：} \texttt{BIN\_F32POOL}\ \text{——\ 开池 epilogue }\textbf{反而升} 1.184\to1.210$$
+
+### 68.4 决策与纪律
+
+$$\Rightarrow\ \textbf{① 这是当前第一优先}：\text{13.4 s vs 8.1 s 是 } \mathbf{1.65\times}\ \text{的系统性惩罚} \Rightarrow \text{它比我们所有优化加起来都大}$$
+$$\Rightarrow\ \textbf{② 跑点记录规则（新增）}：\text{必须含 } \texttt{env | sort}\ \text{全集} + \texttt{/proc/meminfo}\ \text{的 } \texttt{CmaTotal/CmaFree} + \texttt{cpufreq}\ \text{读数}$$
+$$\quad\ \text{理由：代码实际 consult } \ge \mathbf{20}\ \text{个 env 键，而我们的开关表只记了 } 6\sim11\ \text{个} \Rightarrow \textbf{跑点不闭合}$$
+$$\Rightarrow\ \textbf{③ 冻结基线口径改成区间}：\text{"8.096 s"\ 与 "6.485 s"\ }\textbf{不可逐字节复现} \Rightarrow \text{只能引用为}\textbf{CMA 充裕条件下的中位/区间}$$
+$$\Rightarrow\ \textbf{④ 教训（第 67 条）}：\textbf{"同一台板子"不等于"同一台机器"}$$
+$$\quad\ \text{CMA/内存状态、}\texttt{env}\ \text{全集、cpufreq 都属于"运行点"，缺一项就可能差 }1.6\times$$
+
+---
+
+## 69. v41：win_q 读通路 +1 级 / 收尾流水 −1 级（2026-11-02，拍数逐拍 parity）
+
+> 运行点：150 MHz（`create_clock -period 6.667`，真频）、Vivado 2025.2.1、7z015-clg485-2、未上板
+> 产物：`runs/v41_archive/design_1_150v41.bit`；报告 `runs/timing_v41/REPORT_v41_final.md`
+> 回退点：`rtl_hand/.snapshots/v41_prebuild`
+
+### 69.1 结果（@6.667）
+
+| | v40 | **v41** |
+|---|---:|---:|
+| WNS | −2.138 | **−1.562** |
+| TNS | −818.7 | **−348.4** |
+| setup 违例端点 | 2,363 | **1,289** |
+| hold | +0.037 / 0 违例 | +0.056 / 0 违例 |
+| Latch | 0 | **0** |
+| LUT / FF / BRAM / DSP | 20,520 / 18,979 / 35 / 101 | 20,432 / 19,172 / 35 / 101 |
+| 最差路径 | `win_q/CLKBWRCLK → u_eng/s1_pc_q/D`（8.671 ns / 10 级） | `win_q → u_pack/acc_b/DIADI`（7.820 ns / 8 级；**e1e2，v42 范围**） |
+
+$$\Rightarrow\ \text{v40 那条 } \texttt{win_q}\to\texttt{s1\_pc\_q}\ \text{已实测 \textbf{NO\_PATH}}；\text{新路径 } \texttt{actd\_q}\to\texttt{s1\_pc\_q} = \textbf{-0.461}\ \text{ns}$$
+
+门禁：Gate A 106/106 + **7,244,033 拍**（= v40）；Gate B **12/12 逐字节 + 12 个 cycles 与 v40 逐拍相同**；
+synthcheck 多驱动 0 / 组合环 0 / ERROR 0 / `8-4767` 4（同集合）；Latch 0（报告 + `LDCE/LDPE` 双查）。
+三桶制（按终点判）：$N_2=632$ / $N_1=181$ / $N_0=431$ / $IP\_OTHER=45$ ⇒ **仍不可上板**。
+
+### 69.2 ★ 教训（第 68、69 条）
+
+$$\Rightarrow\ \textbf{第 68 条：任何"读通路 +1 拍"都会改总拍数——除非同时把尾部 1 拍补回来}$$
+$$\quad\ \text{机制（逐拍实测，不是推理）：}u\_ce\ \text{里有}\ \texttt{wr\_take\ \&\&\ wr\_fifo\_press}\ \text{项，而写流与 AXI burst}$$
+$$\quad\ \text{排泄 FSM（跑在}\textbf{裸时钟}\text{上）相位耦合} \Rightarrow \text{写流晚 1 拍} \Rightarrow \text{压力冻结分布变} \Rightarrow \text{拍数变}$$
+$$\quad\ \text{实测：}press\ 217\to189、\text{总拍数 } 1429\to1414、5329\to5332、3788\to3791（\text{写事件数不变}=256）$$
+$$\quad\ \Rightarrow\ \textbf{"预取一拍（提前发地址）"也救不了}：miss\ 检测早 1 拍 \Rightarrow miss\ 冻结数变$$
+$$\quad\ \Rightarrow\ \text{正解 = 读口 +1、尾部 −1（v41 拆掉 } \texttt{e1\_sh\_q}\ \text{静态移位级}）\Rightarrow \text{写口绝对时刻回到基线}$$
+
+$$\Rightarrow\ \textbf{第 69 条："BRAM 输出加一级"不是孤立改动——同一流水线的所有伴行量都要跟着搬}$$
+$$\quad\ \text{v41 第一版就是这么错的：数据延后 1 拍而}\textbf{权重没延后} \Rightarrow pop\ \text{拿"下一个 term 的权重"}$$
+$$\quad\ \Rightarrow\ k\ge3\ \text{三个形状逐字节错、}k=1\ \text{反而全对（}K=1、l\_q\equiv0 \Rightarrow \textbf{看不出来}）$$
+$$\quad\ \Rightarrow\ \textbf{"测试形状不足以暴露缺陷"的教科书例子}：\text{只跑 } k=1 \text{ 会得到一个假 PASS}$$
+$$\quad\ \text{检查清单（已写进 RTL 注释）：①标志链 ②权重/伴行读地址 ③尾部级数（DRN 余量）——缺一即静默错}$$
+
+### 69.3 顺带修掉的口径 bug（v40 审计脚本）
+
+`audit_v40_endpoints.tcl` 的 `string match "A\[*"` 双引号里先被 Tcl 解析成 `A[*`，
+而 `[` 在 `string match` 里是**字符类起始符** ⇒ 永不匹配 ⇒ **430 条 DSP48E1 端点（A/B/PCIN）被记成 `other`**，
+而它们是乘法器操作数 = 活数据 ⇒ v40 的 $N_2$ 被系统性低估。
+v41 的 `audit_v41_endpoints.tcl` 改用 `regexp` + 12 条分类器自检，并把 `tcl.collectionResultDisplayLimit` 置 0
+（否则 >500 条违例会被静默截断，Tcl 只报 Common 17-736）。
+
+### 69.4 资源差异的解释（必须逐项，不许"约"）
+
+| 项 | Δ | 落点 |
+|---|---:|---|
+| LUT | −88 | 同一函数重新分解（LUT6 −603 / LUT5 +856 / LUT4 −406）；`LUT as Memory` 不变 |
+| FF | **+193** | **不在 bin_unit**：分层实测 `bin_unit −28`、`conv_uni_0 +212`、`rst_0 +9`；`conv_uni_0` 是未被调用的固定 DCP IP，变化来自 opt/phys_opt 全局决策（`*replica*` 123→85） |
+| BRAM / DSP | 0 / 0 | `win_q`/`wmem` 推断保持、引擎乘法器未动 |
+
+### 68.5 ★ 我的 CMA 假设被证伪，真因是"冻结点漏了依赖模块 ⇒ 静默回落"
+
+$$\Rightarrow\ \textbf{H1（CMA→flush→搬运变贵）已证伪}，\text{三条反证：}$$
+$$\quad\ \text{① } arena\ \text{物理地址 } \texttt{0x30100000}，\texttt{CmaFree}\ \text{建 arena 时精确掉 }66\ \text{MB} \Rightarrow \textbf{确实是 CMA 后备}$$
+$$\quad\ \text{② } \texttt{pynq 3.1.0}\ \text{的 } \texttt{PynqBuffer.flush()}：\texttt{coherent=True}\ \text{时}\textbf{直接 return} \Rightarrow \text{66 MB } \texttt{flush}\ \text{实测 } 0.149\ \text{ms}（444\ \text{GB/s}）$$
+$$\quad\ \text{③ 因此"按 cache line 维护"今天}\textbf{没发生} \Rightarrow \text{flush 成本 } \approx 0 \Rightarrow \text{prologue 那 }4.2\ \text{s 不可能是它}$$
+$$\Rightarrow\ \text{另外：} \texttt{CmaFree}\ \text{低}\textbf{ 不是被某个服务抓走}，\text{而是 CMA 区（\text{MOVABLE}）被页缓存借走}，\text{可逆、可当场迁移让位}$$
+$$\quad\ \Rightarrow\ \text{证据：全机进程 RSS 合计 } 254\ \text{MB}，\text{没有任何进程持有 }190\ \text{MB CMA}； \texttt{/sys/kernel/debug/cma}\ \text{不存在（不是 named region）}$$
+
+$$\Rightarrow\ \textbf{真因（候选，正在做决定性 A/B）}：\text{冻结点 } \texttt{frozen\_code/}\ \textbf{漏了三个 C/NEON 模块}$$
+$$\quad\ \texttt{q8.py/.c}、\texttt{c8deq.py/.c}、\texttt{bpack.py/.c} \Rightarrow \texttt{bin\_engine}\ \text{对它们}\textbf{静默回落 numpy}$$
+$$\quad\ \Rightarrow\ \texttt{\_q8()}\ \text{回落到"量化 + 按字节散写非缓存缓冲"} \Rightarrow \textbf{打进 } \texttt{prologue}$$
+$$\quad\ \Rightarrow\ \texttt{\_deq\_kernel()}\ \text{回落到 numpy 跨步视图} \Rightarrow \textbf{打进 } \texttt{epilogue}$$
+$$\quad\ \Rightarrow\ \text{文件注释自载：非缓存 DMA 缓冲上 numpy 单趟 } \texttt{np.multiply}\ \mathbf{5.45\ s}，\text{C 内核 }0.97\ \text{s}$$
+$$\Rightarrow\ \text{与 } \texttt{prologue}\ 3.68\times、\texttt{epilogue}\ 4.60\times\ \textbf{精确吻合}；\text{而 } \texttt{interp}/\texttt{convfp}/\texttt{cat}\ \text{不碰这两个模块} \Rightarrow \mathbf{1.00\times}$$
+$$\Rightarrow\ \text{同时解释了"换回 }20261101\ \text{原码仍 }13.6\ \text{s"}：\text{那份对照}\textbf{同样缺} \texttt{q8}/\texttt{c8deq} \Rightarrow \text{缺的是}\textbf{依赖}，\text{不是改动}$$
+
+$$\Rightarrow\ \textbf{纪律（第 68 条）}：\text{"冻结点"}\textbf{必须是依赖闭包}，\text{不是手挑的文件清单}$$
+$$\quad\ \text{判据：静态扫出全部 } \texttt{import}\ \text{与 } \texttt{ctypes/.so}\ \text{加载点} \Rightarrow \text{生成 } \texttt{deps.txt} \Rightarrow \text{冻结点必须 } \texttt{md5sum -c}\ \text{全过}$$
+$$\Rightarrow\ \textbf{纪律（第 69 条）}：\textbf{静默回落必须显式可见} \Rightarrow \text{启动打印一行 } \texttt{[DEPS] q8=fast c8deq=fast ...} \text{ 并写进跑点 JSON}$$
+$$\quad\ \Rightarrow\ \text{这两天测出假数的真正机制不是"外面有 bug"，而是}\textbf{系统安静地降级了，而没人看}$$
+
+### 69.1 v41 归档结论（2026-11-02 01:20）
+
+$$\Rightarrow\ \text{时序：WNS } -2.138\to\mathbf{-1.562}；\text{TNS } -818.7\to\mathbf{-348.4}；\text{端点 }2363\to\mathbf{1289}$$
+$$\Rightarrow\ \text{v40 那条致命路径 } \texttt{win\_q}\to\texttt{u\_eng/s1\_pc\_q/D}\ \text{已实测 } \mathbf{NO\_PATH}$$
+$$\Rightarrow\ \text{新最差：} \texttt{win\_q}\to\texttt{u\_pack/acc\_b/DIADI}\ 7.820\ \text{ns}\（-1.562）\Rightarrow \textbf{同类失效，仍是真实数据通路}$$
+$$\Rightarrow\ \textbf{三桶制（按本节规则重跑，2026-11-02 00:17）}：N_2 = 632\ (-\!1.562)\ +\ \texttt{IP\_OTHER} = 45\ (-\!0.881) \Rightarrow \textbf{合计 } 677 \Rightarrow \textbf{不可上板} \Rightarrow \text{可部署位流仍是 } v39\ \texttt{602725b8}$$
+
+$$\Rightarrow\ \textbf{桶归属规则（本次定死）}：$$
+$$\quad\ \text{① 看}\textbf{终点}\text{：终点在我们 RTL} \Rightarrow \text{按引脚判（} \texttt{CE} \text{ vs } \texttt{D/A/B/PCIN} \text{）}； \texttt{CE}\ \text{且 D 侧准静态} \Rightarrow N_1$$
+$$\quad\ \text{② 终点在硬核内部} \Rightarrow N_0\（\text{免责，但必须点名 IP + 条数 + 最差}）$$
+$$\quad\ \text{③ }\textbf{我方起点 + IP 终点} \Rightarrow \texttt{IP\_OTHER}\ \text{新桶} \Rightarrow \textbf{计入上板门槛}（\text{因为源头可修})$$
+$$\Rightarrow\ \text{原则：}\textbf{宁可多写理由，不要多给豁免} \Rightarrow \text{免责项永远往严格桶挪}$$
+
+$$\Rightarrow\ \textbf{v42 降级理由（重要判断）}：\text{v39 在 }150\ \text{MHz 已经能跑} \Rightarrow \textbf{时序不是当前瓶颈}$$
+$$\Rightarrow\ \text{整网时间由 PS + PL 架构决定} \Rightarrow \text{等吞吐侧优化把瓶颈推到时序上再做 } v42$$
+
+### 68.6 ★ 根因确认（2026-11-02 01:40）：缺三个依赖模块 ⇒ 静默回落
+
+$$\Rightarrow\ \text{决定性 A/B（只换 } \texttt{sys.path}，\text{同进程/同 arena/同输入/同位流}）：$$
+
+| 闭包子集 | total | prologue | epilogue |
+|---|---:|---:|---:|
+| 无（= 今天所有 13.4 s 的跑法） | 11.752 | 5.948 | 1.194 |
+| 只补 `bpack` | 11.308 | 5.496 | 1.188 |
+| 只补 `c8deq` | 10.746 | 5.877 | **0.255** |
+| 只补 `q8` | 8.243 | **2.376** | 1.185 |
+| **补齐三件套** | **6.497** | **1.611** | **0.258** |
+| 三件套 + numpy interp | 8.261 | 1.625 | 0.259 |
+
+$$\Rightarrow\ \texttt{prologue } 5.948/1.611 = \mathbf{3.69\times}\（\text{昨天 }3.68\times）；\texttt{epilogue } 1.194/0.258 = \mathbf{4.63\times}\（\text{昨天 }4.60\times）$$
+$$\Rightarrow\ \textbf{逐模块一对一归因}：\texttt{c8deq}\ \text{独吃 } 0.939\ \text{s}（\text{全补 }0.936，\text{误差 }0.3\%）；\texttt{q8}\ 3.572\ \text{s}、\texttt{bpack}\ 0.452\ \text{s}$$
+$$\quad\ \Rightarrow\ \text{三者合计 } 4.024\ \text{s vs 实测 } 4.337\ \text{s} \Rightarrow \text{残差 }7\%\ \text{是交互项} \Rightarrow \textbf{如实标出，没抹平}$$
+$$\Rightarrow\ \text{两档历史数字都回来了}：\text{C } \mathbf{6.497}\ \text{vs }6.485（+0.19\%）；\text{numpy } \mathbf{8.261}\ \text{vs }8.058/8.096（+2.5\%/+2.0\%）$$
+$$\Rightarrow\ \text{算法桶六种组合互差 }<3\%\（interp\ 0.261\sim0.267）\Rightarrow \text{与"昨天 }1.00\times\text{"自洽}$$
+
+$$\Rightarrow\ \textbf{结论一句话}：\text{13.4 s 不是板子坏了、不是代码退化、也不是 CMA}$$
+$$\quad\ \text{而是}\textbf{冻结点漏了三个 C/NEON 模块}，\text{而 } \texttt{bin\_engine}\ \text{对它们}\textbf{静默回落 numpy}$$
+
+$$\Rightarrow\ \textbf{顺带两条硬否定}：\text{本板}\textbf{无 } \texttt{cpufreq}\ \text{节点（Zynq 无 DVFS）}； \texttt{SwapTotal = 512\ MB}\ \text{而非 }0$$
+$$\Rightarrow\ \textbf{埋雷（未触发但要修）}： \texttt{e1e2\_sim.py}、\texttt{catpack.py}、\texttt{board\_safe.py}\ \text{也是闭包缺口}$$
+
+### 68.7 机制修复：依赖闭包 + 回落可见性（T-14，2026-11-02 01:00）
+
+$$\Rightarrow\ \text{第一棒交付}： \texttt{deps\_closure.txt}（11\ \text{模块} / 15\ \text{文件}）+ \texttt{ps/tools/deps\_closure.py}（\text{AST 静态扫描，事故里漏的 } \texttt{q8}/\texttt{c8deq}/\texttt{bpack}\ \textbf{自动发现}）$$
+$$\Rightarrow\ \textbf{关键}： \texttt{md5sum -c}\ \textbf{本身堵不住这个事故}——\text{它只对"已列出的行"负责}$$
+$$\quad\ \text{事故现场只列 }7\ \text{个 } \texttt{.py}\ \text{时，它对那 }7\ \text{个全报"成功"，}\textbf{没有任何办法告诉你少列了 6 个}$$
+$$\quad\ \Rightarrow\ \text{判据必须两条：} \texttt{md5sum -c}\ \text{rc}=0 \ \textbf{且} \ \texttt{--check}（\text{重扫源码；依赖图变了而清单没重生成就 rc}=1）$$
+$$\quad\ \Rightarrow\ \text{实测三方：源码树 PASS、正确冻结点 PASS、}\textbf{事故现场 FAIL 14 项}（9\ \text{个 MISSING 一次点出根因}）$$
+
+$$\Rightarrow\ \text{启动打印 } \texttt{[DEPS] q8=fast c8deq=fast bpack=fast ... ⇒ deps\_closure\_ok=True}$$
+$$\quad\ \text{探测}\textbf{不调} \texttt{\_q8()}\ \text{等（会触发 } \texttt{cc}\ \text{编译、把一次性成本从 } \texttt{prologue}/\texttt{epilogue}\ \text{里挪走）}$$
+$$\quad\ \Rightarrow\ \text{改用 } \texttt{find\_spec} + \texttt{\_STATE}\ \text{预测，跑后复读实证} \Rightarrow \text{不一致则 } \texttt{deps\_drift()}\ \text{并强制判无效跑点}$$
+
+$$\Rightarrow\ \textbf{★ 最有价值的一条发现}：\text{缺 } \texttt{q8}\ \text{时整网 } \texttt{sha1}\ \textbf{完全相同}$$
+$$\quad\ \Rightarrow\ \textbf{逐字节 / sha1 / 拍数 / 资源，对这类事故}\textbf{集体失明}$$
+$$\quad\ \Rightarrow\ \text{因为回落是}\textbf{数值等价、纯性能} \Rightarrow \text{只有那一行 } \texttt{[DEPS]}\ \text{能抓到}$$
+$$\quad\ \Rightarrow\ \textbf{纪律（第 70 条）}：\text{凡有"快路径/慢路径"的模块，必须有一个}\textbf{不看数值、只看装没装上}\text{的探针}$$
+
+### 68.8 编排事故第 3 次：`send_message` 唤醒了"已结束"的代理（2026-11-02 00:48）
+
+$$\Rightarrow\ \text{现象：}2026\text{-}11\text{-}02\ \text{我按规程给一个"刚结束"的子代理发批准消息} \Rightarrow \text{它被}\textbf{重新唤醒}$$
+$$\Rightarrow\ \text{改为它在副本里继续写 } \Rightarrow \text{与我新派的第二棒形成}\textbf{两个写者} \Rightarrow \text{同副本 } \texttt{bin\_engine}/\texttt{bin\_net}\ \text{被双方编辑}$$
+$$\Rightarrow\ \text{第二棒自己发现（时间戳 }00{:}39{:}02/00{:}39{:}09/00{:}42{:}45/00{:}46{:}05\ \text{）并}\textbf{主动暂停不抢} \Rightarrow \text{这次损失很小}$$
+$$\Rightarrow\ \text{但这是}\textbf{今晚第三次}\（\text{前两次：}02f18349\to \text{重复冻结半成品；}2a81049a/042fe646 \text{ 同改 } \texttt{ps/pynq/}\ \text{）}$$
+
+$$\Rightarrow\ \textbf{纪律（第 71 条）}：\textbf{对一个"已结束"的子代理，默认它不会再接任务}$$
+$$\quad\ \text{要它继续} \Rightarrow \text{用 } \texttt{send\_message}\ \text{并}\textbf{立即假设它会被唤醒}
+\Rightarrow \text{若同时还有别的代理在同目录干活} \Rightarrow \textbf{先 }\texttt{interrupt}\text{ 一方}$$
+$$\quad\ \Rightarrow\ \text{更稳的做法：}\textbf{新开一个子代理}，\text{并在 brief 里写"你独占该副本；若发现别的写者，先停手报告"}$$
+
+$$\Rightarrow\ \text{同类问题的根因是同一个：}\textbf{并发写同一目录}\ \Rightarrow\ \text{技能 §2.3 的"一计划一副本 + 唯一属主"就是解药}$$
+$$\quad\ \Rightarrow\ \text{我今晚两次违反它（先是没有副本隔离，再是没管住属主唯一性）} \Rightarrow \text{两次都靠子代理自己发现才没酿成大错}$$
+
+### 68.9 T-14 收工：基线板端复现成功（2026-11-02 01:00）
+
+| 臂 | total | prologue | epilogue | interp | sha1 | 历史 |
+|---|---:|---:|---:|---:|---|---|
+| numpy | **8.480** | 1.672 | 0.265 | 1.960 | 3/3 | 8.261（+2.65%） |
+| C | **6.489** | 1.595 | 0.256 | 0.260 | 3/3 | 6.497（**−0.12%**） |
+
+$$\Rightarrow\ \textbf{"[DEPS] 板端 11 模块全 fast"被真实 } \texttt{armv7l}\ \text{环境确认} \Rightarrow \text{本机 x86 覆盖不到的那一层补上了}$$
+$$\Rightarrow\ \text{15 文件跑前后 md5 全同、且板端与主机逐一对齐} \Rightarrow \textbf{依赖闭包真的闭合了}$$
+
+$$\Rightarrow\ \textbf{第二棒改对了两处（都是被负例逼出来的）}：$$
+$$\quad\ \text{① }\textbf{性能门槛只能对热态判}：\text{板端首跑 } \texttt{epilogue } 1.632\to0.257（\times6.4）$$
+$$\quad\ \quad\ \text{原因不是回落（两次 } \texttt{[DEPS]}\ \text{全 fast），而是三个内核的 } \texttt{load()}+\text{自检 } \mathbf{3.377\ s}\ \text{落在首个整网桶里}$$
+$$\quad\ \quad\ \Rightarrow\ \text{原实现会把}\textbf{每次 session 首跑}\text{判成 } \texttt{run_valid=False} \Rightarrow \text{误报率 }100\%$$
+$$\quad\ \text{② }\textbf{闭包校验器"换目录就跑不过"}：\texttt{\# 源根:}\ \text{参与了比较，而任务书要求的用法正是"拷到板端目录后在那里 } \texttt{--check}$$
+$$\quad\ \quad\ \Rightarrow\ \text{把源根归为元信息（真判据=模块图+逐文件 md5，与路径无关）} \Rightarrow \text{四个负例证明没放宽}$$
+
+$$\Rightarrow\ \textbf{三条新发现}：$$
+$$\quad\ \text{① 一次性内核装载会被算进性能桶} \Rightarrow \text{门槛必须只说热态}$$
+$$\quad\ \text{② 性能门槛在 x86 上}\textbf{抓不到回落}（x86 的 numpy 比 C 还快）\Rightarrow \text{与 } \texttt{[DEPS]} \textbf{互补而非冗余}$$
+$$\quad\ \text{③ 闭包校验器换目录跑不过} \Rightarrow \text{"板端先跑一次 } \texttt{--check}"\text{ 在原实现下根本做不到}$$
+
+$$\Rightarrow\ \textbf{合并注意}：\text{合入 } \texttt{bin\_engine.py}\ \Rightarrow \text{清单 md5 必变} \Rightarrow \textbf{必须先 } \texttt{--gen}\ \text{再跑两条判据}$$
+
+---
+
+## 七十、★ 1 秒路线图重排：PS 是唯一墙，PL 的 44% 是 pack（2026-11-02 02:00）
+
+### 70.1 唯一可信的拆项（真板，C 臂，`runs/board_ops/20261102/t14_board/t14_deps_board2.json`）
+
+| 桶 | 秒 | 说明 |
+|---|---:|---|
+| **PS 合计** | **3.819** | 59% |
+| ├ prologue（量化+视图+描述符+cfg+acq） | 1.595 | 其中 q8 ≈0.605（`Q8CACHE=0` 时）、desc+views 0.15、acq 0.10 ⇒ **未归因 ≈0.7** |
+| ├ nonconv | 1.967 | convfp 1.157 / interp 0.260 / sam 0.250 / cat 0.134 / eca 0.079 / add 0.068 / shuf 0.019 |
+| └ epilogue | 0.256 | |
+| **PL 合计** | **2.222** | 34% |
+| ├ E1E2 pack（数据重排） | **0.970** | 44% of PL |
+| └ conv | 1.252 | 56% of PL |
+| wait | 0.627 | PS 阻塞等 PL |
+| overlap | 0.752 | PL 忙时 PS 真在干活的时间 |
+| **total** | **6.489** | |
+
+### 70.2 三个决定性发现（它们改写了优先级）
+
+**① PS 时间对总时间近似 1:1，不是"藏在 PL 后面"。**
+overlap 只有 0.752 s，而 PL 忙了 2.222 s ⇒ PL 忙时 PS 有 1.47 s 无事可做。
+原因**不是调度懒**（调度器已实现"PL 忙就准备下一层 / 跑 PS 算子"，`bin_net.py:1907-1937`），
+而是**数据依赖**：同一时刻只有 1 个 conv 在飞（`pl_task` 单变量），
+而后继算子（interp/cat/add/convfp）必须等它完成 ⇒ 每次 PS↔PL 交替都要同步一次。
+**交叉验证**：interp 1.880→0.260（−1.620 s）时总时间 8.82→6.49（−2.33，同期 q8 约 −0.6）
+⇒ 证实 1:1。**⇒ 所以 PS 侧的每一毫秒都是真的，直接减在 total 上。**
+
+**② PL 里最贵的不是算，是 pack。**
+E1E2 pack 0.970 s > conv 的算力部分。这解释了为什么"融合"的第一收益不是省带宽，
+而是**消灭这 0.97 s 的命令流本身**。
+
+**③ conv 1.252 s 离理论算力地板还有 3.2 倍。**
+引擎 = 8 lane × 64-bit XNOR-popcount = **512 二进制 MAC/拍**。
+按此重算全网（旧 `pred_cyc` 是 64 MAC/拍的老模型，**必须 ÷8**）：
+256² 全网 ≈ 58M 拍 ⇒ @150 MHz = **0.386 s**，实测 1.252 s ⇒ **3.2×**。
+**⇒ 16-lane 只能从 0.386 s 里省掉 0.19 s，而它要吃掉约 +8k LUT 与全部时序余量。
+⇒ 16-lane 与 v42 时序修复的优先级下调（不再是 1 秒的前置条件），
+   真正的 PL 目标是"消灭 3.2× 的停顿"，不是"翻倍算力"。**
+⚠ 这条结论依赖"512 MAC/拍 + 58M 拍"两个推导，**T-19 必须用逐层实测拍数核实**（见 70.6）。
+
+### 70.3 必要条件的重排（按秒/风险比排序）
+
+| 序 | 动作 | 从 | 到 | 收益 | 风险 | 计划 |
+|---|---|---|---:|---:|---:|---|---|
+| 1 | convfp 归因后削减 | 1.157 | 0.35 | −0.81 | 低（PS 侧 C/NEON + 逐字节门禁）| T-17 |
+| 2 | prologue：q8 缓存 + 未归因 0.7 | 1.595 | 0.55 | −1.05 | 低-中 | T-16 |
+| 3 | 小算子 + epilogue 批量化 | 0.790 | 0.25 | −0.54 | 低 | T-18 |
+| 4 | 融合消灭 pack | 0.970 | ≤0.10 | −0.87 | 高（RTL/BD + 拍数 parity）| T-19 |
+| 5 | 消除 conv 的 3.2× 停顿 | 1.252 | ≤0.50 | −0.75 | 高（需先取证）| T-19 后半 |
+| 6 | （可选）16-lane | 0.386 | 0.19 | −0.19 | 极高（时序）| 保持排队 |
+
+$$\Rightarrow\ 6.489 \xrightarrow{1+2+3} \approx 4.08\ \xrightarrow{4} \approx 3.2\ \xrightarrow{5} \approx 2.45$$
+
+### 70.4 里程碑（每级都要过"逐字节 + sha1 + 基线记账"）
+
+| 里程碑 | 目标 | 达成条件 |
+|---|---|---|
+| **M1** | 基线 v3 冻结 | T-15 判据全过 + commit/tag + 台账记账 |
+| **M2** | **≤5.5 s** | T-17 + T-16 之一落地（板端实测，非投影）|
+| **M3** | **≤4.2 s** | T-16+T-17+T-18 全部落地 ⇒ PS ≤1.5 |
+| **M4** | **≤3.2 s** | T-19 前半：pack 融合（PL ≤1.4）|
+| **M5** | **≤2.4 s** | T-19 后半：conv 停顿消除（PL ≤0.9）|
+| **M6** | **≤1.5 s** | PS 再削到 ≤0.6（描述符/量化彻底搬走）|
+| **M7** | **≈1.0 s** | 见 70.5 的天花板算术 |
+
+### 70.5 天花板算术（诚实版）
+
+M7 的形状：**PS 只剩驱动（≤0.35 s）+ PL 做全部计算（≤0.65 s）**。
+PL 0.65 s 的构成必须是：conv 算力地板 0.386 + floatconv 0.32 若不能与本引擎重叠就超了
+⇒ **必须让 floatconv 与 binary 引擎并行**（两个单元同时跑，共享 DDR 带宽）。
+带宽账：每帧 555 MB，1 s 需 555 MB/s = AXI-HP 上限（2000 MB/s）的 28% ⇒ **带宽不是墙**（§1.3 未被推翻）。
+⇒ **1.0 s 在物理上不是不可能，但它要求"融合 + 全搬 PL + PS 归零 + 双单元并行"同时成立**，
+中间任何一项打折，落到 1.3~1.6 s。**所以本项目对外的一致口径是：1.0 s 是目标线，先拿 M3(4.2)/M4(3.2) 的实测进展说话。**
+
+### 70.6 待核实清单（T-19 的输入，不许拿推导当实测）
+
+1. 逐层实测拍数（板端 `NET_PROFILE`）与"512 MAC/拍 ⇒ 58M 拍"是否吻合；差的 3.2× 落在 `rd_words`/`fill_win` 还是固定开销。
+2. pack 0.970 s 的内部构成（AXI 写 / 命令空间 / PS 侧命令流生成）。
+3. floatconv 与 binary 引擎能否真并行（同一 AXI-HP 端口集合 vs 各自端口）。
+4. `prologue` 里那 ≈0.7 s 未归因到底是什么（T-16）。
+
+$$\Rightarrow\ \textbf{纪律：70.2 的 ③ 与 70.3 的收益数字全部标"推导"，只有 70.1 是真板实测。}$$
+
+### 70.7 第 72 条纪律（T-15 发现）：sha1 与 BLAS 线程口径耦合
+
+$$\Rightarrow\ \texttt{verify\_lazy\_net --hw 64}\ \text{同一棵树，换 BLAS 线程数 ⇒ 冻结 sha1 变}$$
+$$\quad\ \text{默认线程（冻结常量的原始跑点）}：\texttt{104710f69c4d / 2ac6efec2325 / 8ab595fcf7cd}$$
+$$\quad\ \texttt{OMP=OPENBLAS=MKL=1}：\texttt{24222554c880 / 2fd745d93159 / 8ab595fcf7cd}$$
+$$\Rightarrow\ \text{只差 BLAS 归约顺序（out1/out2 变、out3 不变，min/max/mean 四位小数一致）}$$
+$$\Rightarrow\ \textbf{纪律}：\text{sha1 只在}\textbf{同一线程口径内}\text{可比；判据写成"同口径内 A=B=C"，不许跨口径比对}$$
+$$\Rightarrow\ \text{否则会出现"两侧逐位相同、脚本却自判 FAIL"的}\textbf{假警报}——\text{它比真错误更耗人，因为会引发一轮无用的排查}$$
+
+$$\Rightarrow\ \textbf{推论（对长期项目的意义）}：\text{任何"冻结常量"都必须连}\textbf{跑点}\text{一起冻（线程数 / 频率 / 槽数 / 位流 / 开关）}$$
+$$\quad\ \text{只冻数字不冻跑点} \Rightarrow \text{半年后没人能复现，只会得到"它坏了"的结论}$$

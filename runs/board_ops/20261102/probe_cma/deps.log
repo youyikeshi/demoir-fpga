@@ -1,0 +1,89 @@
+[boardlock] 取得板级独占 00:14:55  使用者=probe_deps
+[boardlock] 已签发唯一 load 令牌
+
+==============================================================================
+  0 冻结点 vs ps/pynq：三个 C 内核模块在不在
+==============================================================================
+  /home/xilinx/demoir/ps/pynq_frozen       {"q8.py": "缺失", "q8.c": "缺失", "c8deq.py": "缺失", "c8deq.c": "缺失", "bpack.py": "缺失", "bpack.c": "缺失"}
+  /home/xilinx/demoir/ps/pynq              {"q8.py": "e794a43d", "q8.c": "c744794c", "c8deq.py": "af33f47f", "c8deq.c": "5019fab0", "bpack.py": "63d6a936", "bpack.c": "2a8e6c55"}
+  冻结点全部文件：['MD5SUMS', 'README.md', '__pycache__', 'ab_arms.py', 'bilinear_c.c', 'bilinear_c.py', 'bilinear_c_armv7l.so', 'bin_engine.py', 'bin_net.py', 'bin_ref_numpy.py', 'bin_ref_numpy_16efab60.py', 'board_v39_verify.py', 'qcache.py']
+  ps/pynq 里相关文件：['bpack.c', 'bpack.py', 'c8deq.c', 'c8deq.py', 'q8.c', 'q8.py']
+  已只读拷出 6 个文件到 /tmp/probe_cma/deps（ps/pynq 未改动）
+  [only frozen] C 内核状态：{"_q8": "None(回落 numpy)", "_deq_kernel": "None(回落 numpy)", "_bpack": "None(回落 numpy)"}
+  import q8 → ImportError（冻结点路径下根本没有 q8.py）
+
+==============================================================================
+  1 load（本 session 唯一一次）+ arena 24 槽
+==============================================================================
+  CmaFree 开工前 = 57.105 MB
+
+==========================================================================
+  步骤 1：加载 overlay（本 session 唯一一次真正的 download）
+==========================================================================
+  Overlay(/home/xilinx/demoir/design_1_150v39.bit, download=True) 用时 1.725 s
+
+==========================================================================
+  步骤 2：地址核对（从**已加载的** overlay 实测）
+==========================================================================
+  conv_uni_0   mmio.base_addr = 0x40040000  length = 0x20000  （期望 0x40040000）  ✓
+  bin_unit_0   mmio.base_addr = 0x40060000  length = 0x20000  （期望 0x40060000）  ✓
+  overlay 里的 IP 清单：['bin_unit_0', 'conv_uni_0', 'ps7']
+
+==========================================================================
+  步骤 3：时钟读回 + 复位指纹
+==========================================================================
+  Clocks.fclk0_mhz 目标 150 → **读回 = 150**  ✓
+  复位指纹：alpha_shift=9 slope_shift=8 （期望 9 / 8）
+  AP_CTRL=0x00000000 AP_RETURN=0x00000000 DBG_FLAG=0x00000000
+  保留页 ResvPage[0x18] = 0x0 （期望 0）
+  引擎认到的 IP=bin_unit_0 base=0x40060000 range=0x20000
+  arena deps_arena_256 66.22 MB（24 槽 × (in 1.18 + out 1.57 MB)）@0x30100000
+  arena 66.22 MB @0x30100000   CmaFree = 0.406 MB
+  1 MB 标量填充：arena(非缓存) 0.508 ms  vs  heap(缓存) 0.417 ms  ⇒ **1.2×**
+
+==============================================================================
+  2 arm A：只有冻结点在路径上（= 今天 13.4 s 的跑法）×2
+==============================================================================
+  [LAZY_DEQ] IN/OUT 槽数 = 24（BIN_LAZY_SLOTS）
+  ── A1_frozenonly      ──
+     总 12.797 s  PL 3.889 | PS 10.014 = pro 6.007 + epi 1.189 + 非卷积 2.818 | ovl 2.312 wait 1.532  CmaFree 0.00
+     E1E2 亚项(ms)：{}
+     分量：{"unshuffle": 0.0047, "convfp": 1.2712, "cat": 0.1532, "add": 0.0725, "interp": 0.9664, "eca": 0.0793, "sam": 0.2562, "shuffle": 0.0145}
+     out1=9b1940c8955b OK 3/3
+  [LAZY_DEQ] IN/OUT 槽数 = 24（BIN_LAZY_SLOTS）
+  ── A2_frozenonly      ──
+     总 11.752 s  PL 3.182 | PS 9.125 = pro 5.948 + epi 1.194 + 非卷积 1.983 | ovl 1.718 wait 1.426  CmaFree 0.00
+     E1E2 亚项(ms)：{}
+     分量：{"unshuffle": 0.0052, "convfp": 1.1423, "cat": 0.1314, "add": 0.0653, "interp": 0.2899, "eca": 0.0793, "sam": 0.255, "shuffle": 0.0144}
+     out1=9b1940c8955b OK 3/3
+
+==============================================================================
+  3 arm B：把 deps/ 插到 sys.path 最前 + 清掉内核缓存 ×2
+==============================================================================
+  [frozen+deps] C 内核状态：{"_q8": "OK", "_deq_kernel": "OK", "_bpack": "OK"}
+  import q8 → /tmp/probe_cma/deps/q8.py
+q8 selftest：PASS（ok）
+  q8.selftest() = True
+  [LAZY_DEQ] IN/OUT 槽数 = 24（BIN_LAZY_SLOTS）
+  ── B1_withdeps        ──
+     总 7.998 s  PL 2.246 | PS 5.378 = pro 1.636 + epi 1.699 + 非卷积 2.044 | ovl 0.778 wait 2.066  CmaFree 0.00
+     E1E2 亚项(ms)：{}
+     分量：{"unshuffle": 0.0049, "convfp": 1.2118, "cat": 0.1355, "add": 0.0673, "interp": 0.2837, "eca": 0.0779, "sam": 0.2482, "shuffle": 0.0145}
+     out1=9b1940c8955b OK 3/3
+  [LAZY_DEQ] IN/OUT 槽数 = 24（BIN_LAZY_SLOTS）
+  ── B2_withdeps        ──
+     总 6.497 s  PL 2.223 | PS 3.849 = pro 1.611 + epi 0.258 + 非卷积 1.981 | ovl 0.758 wait 0.630  CmaFree 0.00
+     E1E2 亚项(ms)：{}
+     分量：{"unshuffle": 0.0048, "convfp": 1.1634, "cat": 0.1347, "add": 0.0709, "interp": 0.2667, "eca": 0.0798, "sam": 0.2459, "shuffle": 0.0143}
+     out1=9b1940c8955b OK 3/3
+
+==============================================================================
+  4 判据
+==============================================================================
+  prologue : A 5.948 → B 1.611  = **3.69×**
+  epilogue : A 1.189 → B 0.258  = **4.61×**
+  total    : A 11.752 → B 6.497  （差 5.255 s）
+  两臂 sha1 三件套全中 = True
+  ⇒ H2（缺 q8/c8deq 的静默回落）**成立**
+  → /tmp/probe_cma/probe_deps.json
+[boardlock] 释放板级锁 00:15:58  rc=0

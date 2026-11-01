@@ -1,0 +1,573 @@
+{
+ "steps": {},
+ "runpoint": {
+  "code_md5": {
+   "bin_net.py": "ERROR:FileNotFoundError(2, 'No such file or directory')",
+   "bin_engine.py": "ERROR:FileNotFoundError(2, 'No such file or directory')",
+   "bin_ref_numpy.py": "ERROR:FileNotFoundError(2, 'No such file or directory')",
+   "bilinear_c.py": "ERROR:FileNotFoundError(2, 'No such file or directory')",
+   "bilinear_c.c": "ERROR:FileNotFoundError(2, 'No such file or directory')"
+  },
+  "bit": "/home/xilinx/demoir/design_1_150v39.bit",
+  "bit_md5": "602725b86941864eeeeab3be005e1e81",
+  "fclk_target": 150.0,
+  "slots": 24,
+  "switches": {
+   "BIN_PACK": "",
+   "BIN_LAZY_DEQ": "",
+   "BIN_LAZY_SLOTS": "",
+   "CATPACK": "",
+   "BIN_CAT_FUSION": "",
+   "BIN_CAT_STRICT": "",
+   "Q8CACHE": "",
+   "Q8CACHE_MB": "",
+   "Q8_C8_IMPL": "",
+   "BIN_Q8_FUSED": "",
+   "BIN_BILINEAR_C": ""
+  },
+  "kernel_deps_probe": {
+   "q8": {
+    "state": "fast",
+    "source": "probe",
+    "module": "/home/xilinx/demoir/ps/pynq_deps_t14/q8.py",
+    "so": "/home/xilinx/demoir/ps/pynq_deps_t14/q8_armv7l.so",
+    "why": ".so 已在位且可加载（本次探测未触发编译）",
+    "hint": "f32→int8 量化（prologue；缺 ⇒ prologue ×3.69）",
+    "so_md5": "d4231f5b2f89002570490ab607c1a2ef"
+   },
+   "c8deq": {
+    "state": "fast",
+    "source": "probe",
+    "module": "/home/xilinx/demoir/ps/pynq_deps_t14/c8deq.py",
+    "so": "/home/xilinx/demoir/ps/pynq_deps_t14/c8deq_armv7l.so",
+    "why": ".so 已在位且可加载（本次探测未触发编译）",
+    "hint": "C8→f32 反量化（epilogue；缺 ⇒ epilogue ×4.63）",
+    "so_md5": "21d7888e9d18e8557921e03129e24be5"
+   },
+   "bpack": {
+    "state": "fast",
+    "source": "probe",
+    "module": "/home/xilinx/demoir/ps/pynq_deps_t14/bpack.py",
+    "so": "/home/xilinx/demoir/ps/pynq_deps_t14/bpack_armv7l.so",
+    "why": ".so 已在位且可加载（本次探测未触发编译）",
+    "hint": "f32→uint64 二值打包（prologue 小头；缺 ⇒ +0.45 s）",
+    "so_md5": "122bb8b8c7863cdc4f5d23a8e42d95d3"
+   },
+   "safe": {
+    "state": "fast",
+    "source": "runtime",
+    "module": "/home/xilinx/demoir/ps/pynq_deps_t14/board_safe.py",
+    "so": null,
+    "why": "Watchdog 已挂上",
+    "hint": "看门狗 board_safe.Watchdog（冷路径）",
+    "so_md5": null
+   },
+   "e1e2": {
+    "state": "fast",
+    "source": "probe",
+    "module": "/home/xilinx/demoir/ps/pynq_deps_t14/e1e2_sim.py",
+    "so": null,
+    "why": "模块可解析",
+    "hint": "E1E2 描述符/C8 填充（冷路径）",
+    "so_md5": null
+   },
+   "catpack": {
+    "state": "fast",
+    "source": "probe",
+    "module": "/home/xilinx/demoir/ps/pynq_deps_t14/catpack.py",
+    "so": null,
+    "why": "模块可解析",
+    "hint": "CATPACK=1 的 cat 直读后端（冷路径）",
+    "so_md5": null
+   }
+  },
+  "deps_closure_ok": true,
+  "stamp": "2025-05-08 12:19:51",
+  "bilinear_c": {
+   "env": "<未设置>",
+   "loaded": false,
+   "why": "BIN_BILINEAR_C 未设置（默认关/opt-in）",
+   "seconds": 0.0029,
+   "note": "seconds = 本进程 load()+fast 自检；.so 已存在时不含 cc 编译",
+   "so": "bilinear_c_armv7l.so",
+   "so_md5": "MISSING"
+  },
+  "kernel_load": {
+   "q8": {
+    "loaded": true,
+    "seconds": 0.2221,
+    "why": "ok"
+   },
+   "c8deq": {
+    "loaded": true,
+    "seconds": 1.3754,
+    "why": "ok"
+   },
+   "bpack": {
+    "loaded": true,
+    "seconds": 1.78,
+    "why": "ok"
+   }
+  },
+  "kernel_load_seconds": 3.3775,
+  "kernel_deps": {
+   "q8": {
+    "state": "fast",
+    "why": "已装载（ok）",
+    "source": "runtime",
+    "module": "/home/xilinx/demoir/ps/pynq_deps_t14/q8.py",
+    "so": "/home/xilinx/demoir/ps/pynq_deps_t14/q8_armv7l.so",
+    "hint": "f32→int8 量化（prologue；缺 ⇒ prologue ×3.69）",
+    "so_md5": "d4231f5b2f89002570490ab607c1a2ef"
+   },
+   "c8deq": {
+    "state": "fast",
+    "why": "已装载（ok）",
+    "source": "runtime",
+    "module": "/home/xilinx/demoir/ps/pynq_deps_t14/c8deq.py",
+    "so": "/home/xilinx/demoir/ps/pynq_deps_t14/c8deq_armv7l.so",
+    "hint": "C8→f32 反量化（epilogue；缺 ⇒ epilogue ×4.63）",
+    "so_md5": "21d7888e9d18e8557921e03129e24be5"
+   },
+   "bpack": {
+    "state": "fast",
+    "why": "已装载（ok）",
+    "source": "runtime",
+    "module": "/home/xilinx/demoir/ps/pynq_deps_t14/bpack.py",
+    "so": "/home/xilinx/demoir/ps/pynq_deps_t14/bpack_armv7l.so",
+    "hint": "f32→uint64 二值打包（prologue 小头；缺 ⇒ +0.45 s）",
+    "so_md5": "122bb8b8c7863cdc4f5d23a8e42d95d3"
+   },
+   "safe": {
+    "state": "fast",
+    "source": "runtime",
+    "module": "/home/xilinx/demoir/ps/pynq_deps_t14/board_safe.py",
+    "so": null,
+    "why": "Watchdog 已挂上",
+    "hint": "看门狗 board_safe.Watchdog（冷路径）",
+    "so_md5": null
+   },
+   "e1e2": {
+    "state": "fast",
+    "source": "probe",
+    "module": "/home/xilinx/demoir/ps/pynq_deps_t14/e1e2_sim.py",
+    "so": null,
+    "why": "模块可解析",
+    "hint": "E1E2 描述符/C8 填充（冷路径）",
+    "so_md5": null
+   },
+   "catpack": {
+    "state": "fast",
+    "source": "probe",
+    "module": "/home/xilinx/demoir/ps/pynq_deps_t14/catpack.py",
+    "so": null,
+    "why": "模块可解析",
+    "hint": "CATPACK=1 的 cat 直读后端（冷路径）",
+    "so_md5": null
+   }
+  },
+  "kernel_deps_note": "kernel_deps = 跑完后的实测（权威）；kernel_deps_probe = 开跑前的预测"
+ },
+ "load": {
+  "bit": "/home/xilinx/demoir/design_1_150v39.bit",
+  "download": false,
+  "seconds": 1.3408
+ },
+ "addr": {
+  "conv_uni_0": {
+   "base_addr": 1074003968,
+   "base_addr_hex": "0x40040000",
+   "length": 131072,
+   "expected_hex": "0x40040000",
+   "ok": true
+  },
+  "bin_unit_0": {
+   "base_addr": 1074135040,
+   "base_addr_hex": "0x40060000",
+   "length": 131072,
+   "expected_hex": "0x40060000",
+   "ok": true
+  }
+ },
+ "identity": {
+  "alpha_shift": 9,
+  "slope_shift": 8,
+  "ap_ctrl": 0,
+  "ap_ret": 1,
+  "dbg_flag": 0,
+  "resv_0x18": 0,
+  "fclk_readback": 150.0,
+  "fclk_target": 150.0,
+  "ip": "bin_unit_0",
+  "base": 1074135040,
+  "range": 131072,
+  "ok": true
+ },
+ "t14_board_run": {
+  "schema": "t14-deps-board-run/1",
+  "time": "2025-05-08 12:20:06",
+  "machine": "armv7l",
+  "platform": "Linux-6.12.40-xilinx-g31626ef92ff1-armv7l-with-glibc2.35",
+  "python": "3.10.4",
+  "numpy": "1.21.5",
+  "closure_dir": "/home/xilinx/demoir/ps/pynq_deps_t14",
+  "origins": {
+   "bin_net": "/home/xilinx/demoir/ps/pynq_deps_t14/bin_net.py",
+   "bin_engine": "/home/xilinx/demoir/ps/pynq_deps_t14/bin_engine.py",
+   "bin_ref_numpy": "/home/xilinx/demoir/ps/pynq_deps_t14/bin_ref_numpy.py",
+   "qcache": "/home/xilinx/demoir/ps/pynq_deps_t14/qcache.py",
+   "board_safe": "/home/xilinx/demoir/ps/pynq_deps_t14/board_safe.py",
+   "catpack": "/home/xilinx/demoir/ps/pynq_deps_t14/catpack.py",
+   "e1e2_sim": "/home/xilinx/demoir/ps/pynq_deps_t14/e1e2_sim.py",
+   "bpack": "/home/xilinx/demoir/ps/pynq_deps_t14/bpack.py",
+   "c8deq": "/home/xilinx/demoir/ps/pynq_deps_t14/c8deq.py",
+   "q8": "/home/xilinx/demoir/ps/pynq_deps_t14/q8.py",
+   "bilinear_c": "/home/xilinx/demoir/ps/pynq_deps_t14/bilinear_c.py"
+  },
+  "origins_all_inside": true,
+  "md5_before": {
+   "bin_net.py": "2e077940df90e5ac59583ae65af10b54",
+   "bin_engine.py": "1967aa8a57dabd40057a8a462785b132",
+   "bin_ref_numpy.py": "a19ba76c56df56f517c8640a62eb6051",
+   "qcache.py": "4157ba3d7e35b8514d71eef29f0ee6a5",
+   "board_safe.py": "d4d62fd06f74c963b643cec59566bf54",
+   "catpack.py": "30149d936c9eea6cd510b200d1cd6d5c",
+   "e1e2_sim.py": "2c4a6180fb74f88abb5e13b8e641b489",
+   "bpack.py": "63d6a9368827d36f81f64bc5f62c864b",
+   "bpack.c": "2a8e6c553cb3dec95460223fa800a0f6",
+   "c8deq.py": "af33f47fbffe3751e360c77038afea3c",
+   "c8deq.c": "5019fab0f07720b0954d0b773c3d5523",
+   "q8.py": "e794a43dcb8ce314f323a9b07c4274a6",
+   "q8.c": "c744794c2dafc032ddc4dde3c05adb5b",
+   "bilinear_c.py": "cd43b1d6c26908e94d8b1a2aeab169b6",
+   "bilinear_c.c": "1cd97282ee30a092425602c0d09ef7c1"
+  },
+  "md5_after": {
+   "bin_net.py": "2e077940df90e5ac59583ae65af10b54",
+   "bin_engine.py": "1967aa8a57dabd40057a8a462785b132",
+   "bin_ref_numpy.py": "a19ba76c56df56f517c8640a62eb6051",
+   "qcache.py": "4157ba3d7e35b8514d71eef29f0ee6a5",
+   "board_safe.py": "d4d62fd06f74c963b643cec59566bf54",
+   "catpack.py": "30149d936c9eea6cd510b200d1cd6d5c",
+   "e1e2_sim.py": "2c4a6180fb74f88abb5e13b8e641b489",
+   "bpack.py": "63d6a9368827d36f81f64bc5f62c864b",
+   "bpack.c": "2a8e6c553cb3dec95460223fa800a0f6",
+   "c8deq.py": "af33f47fbffe3751e360c77038afea3c",
+   "c8deq.c": "5019fab0f07720b0954d0b773c3d5523",
+   "q8.py": "e794a43dcb8ce314f323a9b07c4274a6",
+   "q8.c": "c744794c2dafc032ddc4dde3c05adb5b",
+   "bilinear_c.py": "cd43b1d6c26908e94d8b1a2aeab169b6",
+   "bilinear_c.c": "1cd97282ee30a092425602c0d09ef7c1"
+  },
+  "md5_same": true,
+  "x0_sha1": "cfc75bc3f15d306b07787325fdc9ae715cfadd0a",
+  "x0_sha1_expected": "cfc75bc3f15d306b",
+  "runpoint": {
+   "code_md5": {
+    "bin_net.py": "ERROR:FileNotFoundError(2, 'No such file or directory')",
+    "bin_engine.py": "ERROR:FileNotFoundError(2, 'No such file or directory')",
+    "bin_ref_numpy.py": "ERROR:FileNotFoundError(2, 'No such file or directory')",
+    "bilinear_c.py": "ERROR:FileNotFoundError(2, 'No such file or directory')",
+    "bilinear_c.c": "ERROR:FileNotFoundError(2, 'No such file or directory')"
+   },
+   "bit": "/home/xilinx/demoir/design_1_150v39.bit",
+   "bit_md5": "602725b86941864eeeeab3be005e1e81",
+   "fclk_target": 150.0,
+   "slots": 24,
+   "switches": {
+    "BIN_PACK": "",
+    "BIN_LAZY_DEQ": "",
+    "BIN_LAZY_SLOTS": "",
+    "CATPACK": "",
+    "BIN_CAT_FUSION": "",
+    "BIN_CAT_STRICT": "",
+    "Q8CACHE": "",
+    "Q8CACHE_MB": "",
+    "Q8_C8_IMPL": "",
+    "BIN_Q8_FUSED": "",
+    "BIN_BILINEAR_C": ""
+   },
+   "kernel_deps_probe": {
+    "q8": {
+     "state": "fast",
+     "source": "probe",
+     "module": "/home/xilinx/demoir/ps/pynq_deps_t14/q8.py",
+     "so": "/home/xilinx/demoir/ps/pynq_deps_t14/q8_armv7l.so",
+     "why": ".so 已在位且可加载（本次探测未触发编译）",
+     "hint": "f32→int8 量化（prologue；缺 ⇒ prologue ×3.69）",
+     "so_md5": "d4231f5b2f89002570490ab607c1a2ef"
+    },
+    "c8deq": {
+     "state": "fast",
+     "source": "probe",
+     "module": "/home/xilinx/demoir/ps/pynq_deps_t14/c8deq.py",
+     "so": "/home/xilinx/demoir/ps/pynq_deps_t14/c8deq_armv7l.so",
+     "why": ".so 已在位且可加载（本次探测未触发编译）",
+     "hint": "C8→f32 反量化（epilogue；缺 ⇒ epilogue ×4.63）",
+     "so_md5": "21d7888e9d18e8557921e03129e24be5"
+    },
+    "bpack": {
+     "state": "fast",
+     "source": "probe",
+     "module": "/home/xilinx/demoir/ps/pynq_deps_t14/bpack.py",
+     "so": "/home/xilinx/demoir/ps/pynq_deps_t14/bpack_armv7l.so",
+     "why": ".so 已在位且可加载（本次探测未触发编译）",
+     "hint": "f32→uint64 二值打包（prologue 小头；缺 ⇒ +0.45 s）",
+     "so_md5": "122bb8b8c7863cdc4f5d23a8e42d95d3"
+    },
+    "safe": {
+     "state": "fast",
+     "source": "runtime",
+     "module": "/home/xilinx/demoir/ps/pynq_deps_t14/board_safe.py",
+     "so": null,
+     "why": "Watchdog 已挂上",
+     "hint": "看门狗 board_safe.Watchdog（冷路径）",
+     "so_md5": null
+    },
+    "e1e2": {
+     "state": "fast",
+     "source": "probe",
+     "module": "/home/xilinx/demoir/ps/pynq_deps_t14/e1e2_sim.py",
+     "so": null,
+     "why": "模块可解析",
+     "hint": "E1E2 描述符/C8 填充（冷路径）",
+     "so_md5": null
+    },
+    "catpack": {
+     "state": "fast",
+     "source": "probe",
+     "module": "/home/xilinx/demoir/ps/pynq_deps_t14/catpack.py",
+     "so": null,
+     "why": "模块可解析",
+     "hint": "CATPACK=1 的 cat 直读后端（冷路径）",
+     "so_md5": null
+    }
+   },
+   "deps_closure_ok": true,
+   "stamp": "2025-05-08 12:19:51",
+   "bilinear_c": {
+    "env": "<未设置>",
+    "loaded": false,
+    "why": "BIN_BILINEAR_C 未设置（默认关/opt-in）",
+    "seconds": 0.0029,
+    "note": "seconds = 本进程 load()+fast 自检；.so 已存在时不含 cc 编译",
+    "so": "bilinear_c_armv7l.so",
+    "so_md5": "MISSING"
+   },
+   "kernel_load": {
+    "q8": {
+     "loaded": true,
+     "seconds": 0.2221,
+     "why": "ok"
+    },
+    "c8deq": {
+     "loaded": true,
+     "seconds": 1.3754,
+     "why": "ok"
+    },
+    "bpack": {
+     "loaded": true,
+     "seconds": 1.78,
+     "why": "ok"
+    }
+   },
+   "kernel_load_seconds": 3.3775,
+   "kernel_deps": {
+    "q8": {
+     "state": "fast",
+     "why": "已装载（ok）",
+     "source": "runtime",
+     "module": "/home/xilinx/demoir/ps/pynq_deps_t14/q8.py",
+     "so": "/home/xilinx/demoir/ps/pynq_deps_t14/q8_armv7l.so",
+     "hint": "f32→int8 量化（prologue；缺 ⇒ prologue ×3.69）",
+     "so_md5": "d4231f5b2f89002570490ab607c1a2ef"
+    },
+    "c8deq": {
+     "state": "fast",
+     "why": "已装载（ok）",
+     "source": "runtime",
+     "module": "/home/xilinx/demoir/ps/pynq_deps_t14/c8deq.py",
+     "so": "/home/xilinx/demoir/ps/pynq_deps_t14/c8deq_armv7l.so",
+     "hint": "C8→f32 反量化（epilogue；缺 ⇒ epilogue ×4.63）",
+     "so_md5": "21d7888e9d18e8557921e03129e24be5"
+    },
+    "bpack": {
+     "state": "fast",
+     "why": "已装载（ok）",
+     "source": "runtime",
+     "module": "/home/xilinx/demoir/ps/pynq_deps_t14/bpack.py",
+     "so": "/home/xilinx/demoir/ps/pynq_deps_t14/bpack_armv7l.so",
+     "hint": "f32→uint64 二值打包（prologue 小头；缺 ⇒ +0.45 s）",
+     "so_md5": "122bb8b8c7863cdc4f5d23a8e42d95d3"
+    },
+    "safe": {
+     "state": "fast",
+     "source": "runtime",
+     "module": "/home/xilinx/demoir/ps/pynq_deps_t14/board_safe.py",
+     "so": null,
+     "why": "Watchdog 已挂上",
+     "hint": "看门狗 board_safe.Watchdog（冷路径）",
+     "so_md5": null
+    },
+    "e1e2": {
+     "state": "fast",
+     "source": "probe",
+     "module": "/home/xilinx/demoir/ps/pynq_deps_t14/e1e2_sim.py",
+     "so": null,
+     "why": "模块可解析",
+     "hint": "E1E2 描述符/C8 填充（冷路径）",
+     "so_md5": null
+    },
+    "catpack": {
+     "state": "fast",
+     "source": "probe",
+     "module": "/home/xilinx/demoir/ps/pynq_deps_t14/catpack.py",
+     "so": null,
+     "why": "模块可解析",
+     "hint": "CATPACK=1 的 cat 直读后端（冷路径）",
+     "so_md5": null
+    }
+   },
+   "kernel_deps_note": "kernel_deps = 跑完后的实测（权威）；kernel_deps_probe = 开跑前的预测"
+  },
+  "rows": [
+   {
+    "tag": "t14_C",
+    "hw": 256,
+    "slots": 24,
+    "seed": 1,
+    "env": {
+     "BIN_PACK": "e1e2",
+     "BIN_LAZY_DEQ": "1",
+     "BIN_LAZY_SLOTS": "24",
+     "CATPACK": "",
+     "BIN_CAT_FUSION": "1",
+     "BIN_CAT_STRICT": "",
+     "Q8CACHE": "0",
+     "Q8CACHE_MB": "",
+     "Q8_C8_IMPL": "",
+     "BIN_Q8_FUSED": "1",
+     "BIN_BILINEAR_C": "1"
+    },
+    "x0_sha1": "cfc75bc3f15d306b07787325fdc9ae715cfadd0a",
+    "total_s": 6.888890504837036,
+    "wall_s": 6.8954,
+    "pl_s": 2.35746693611145,
+    "pack_pl": 0.984266996383667,
+    "ps_s": 4.080254398585566,
+    "prologue": 1.7059822082519531,
+    "epilogue": 0.2682114470017041,
+    "nonconv": 2.106060743331909,
+    "overlap": 0.7624607086181641,
+    "wait": 0.7390353679656982,
+    "mmio": 6006,
+    "prof": {
+     "unshuffle": 0.0049,
+     "convfp": 1.2252,
+     "cat": 0.1617,
+     "add": 0.0662,
+     "interp": 0.3034,
+     "eca": 0.0792,
+     "sam": 0.2507,
+     "shuffle": 0.0148
+    },
+    "lazy": {
+     "pinned": 198,
+     "released": 190,
+     "starved": 8,
+     "direct_layers": 200,
+     "mixed_layers": 0,
+     "ps_layers": 0,
+     "deq_skipped": 198,
+     "direct_bytes": 94985216,
+     "f32_bytes": 33497088
+    },
+    "cat": {
+     "ops": 116,
+     "fused": 110,
+     "fallback": 6,
+     "leaves": 688,
+     "channels": 34256,
+     "bytes": 468770816,
+     "pack_none": 0,
+     "fallback_reason": {
+      "needs_f32": 6
+     },
+     "ops_by_class": {
+      "i8": 60,
+      "mixed1": 42,
+      "mixed2": 8,
+      "blocked": 6
+     },
+     "cat_s": {
+      "i8": 0.013899060003495833,
+      "mixed1": 0.008486430000630207,
+      "mixed2": 0.0016464599993923912,
+      "blocked": 0.0005264340006760904
+     },
+     "pack_s": {
+      "i8": 0.21070419700026832,
+      "mixed1": 0.4575901830003204,
+      "mixed2": 0.20945710399973905,
+      "blocked": 0.0,
+      "single_i8": 0.07289525999658508,
+      "single_f32": 0.257522199003688
+     },
+     "f32_leaf_bytes_mixed": 92798976,
+     "cats_mixed": 50,
+     "q8_hits": 0,
+     "q8_fs_conflict": 0,
+     "cat_pack_s": {
+      "i8": 0.22460325700376416,
+      "mixed1": 0.4660766130009506,
+      "mixed2": 0.21110356399913144,
+      "blocked": 0.0005264340006760904
+     },
+     "cat_pack_fused_s": 0.9017834340038462
+    },
+    "sha1": {
+     "out1": "9b1940c8955be53ccffd7905e333deffcea31f0a",
+     "out2": "f86a7035621bed133374a1bef42a27db204e7019",
+     "out3": "025757a83c3993c8f592e31219b6a97906020363"
+    },
+    "expect": [
+     "9b1940c8955be53ccffd7905e333deffcea31f0a",
+     "f86a7035621bed133374a1bef42a27db204e7019",
+     "025757a83c3993c8f592e31219b6a97906020363"
+    ],
+    "sha_frozen_ok": true,
+    "sha_ok": true,
+    "frozen_comparable": true,
+    "n_sha_ok": 3,
+    "deps_closure_ok": true,
+    "kernel_deps": {
+     "q8": "fast",
+     "c8deq": "fast",
+     "bpack": "fast",
+     "safe": "fast",
+     "e1e2": "fast",
+     "catpack": "fast"
+    },
+    "perf_gate": [],
+    "e1e2_prof": {
+     "views": 0.11871661900295294,
+     "descviews": 0.1630737789982959,
+     "q8": 0.6045469070058971,
+     "q8b": 133988352.0,
+     "q8n": 122.0,
+     "f32": 0.6152404129934439,
+     "desc": 0.08699983200494898
+    },
+    "perf_warm": true,
+    "perf_note": null,
+    "run_valid": true,
+    "total_incl_onetime_s": 6.888890504837036,
+    "kernel_loaded": true,
+    "kernel_why": "ok",
+    "deps_line": "[DEPS] q8=fast c8deq=fast bpack=fast e1e2=fast catpack=fast safe=fast  ⇒ deps_closure_ok=True"
+   }
+  ],
+  "profile": "1",
+  "bin_bilinear_c": "1"
+ }
+}

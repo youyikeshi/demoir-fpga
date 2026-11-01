@@ -1,0 +1,422 @@
+--- a/ps/pynq/bin_net.py
++++ b/ps/pynq/bin_net.py
+@@ -766,6 +766,14 @@
+         dep = op.deps[0]
+         data = None
+         job = None
++        # ★ S2 统计：本层输入属于哪一类（只计时，不改数值路径）
++        _t_pack = time.perf_counter()
++        if dep.producer is not None and dep.producer.kind == "cat":
++            _cat_cls = self.net._cat_class.get(dep.id, "mixed1")
++        elif isinstance(dep.val, BE.C8Tensor) and dep.val.is_int8:
++            _cat_cls = "single_i8"
++        else:
++            _cat_cls = "single_f32"
+         keep = None                    # 需要等 E1E2 跑完再 release 的 int8 句柄
+         ee = getattr(e, "_e1e2", None)
+         lazy = getattr(self.net, "_lazy_deq", False) and ee is not None
+@@ -781,8 +789,19 @@
+             if data is None and lazy:
+                 segs = self._segments(dep.val, L)
+                 if segs:
+-                    job = ee.prepare_segments(
+-                        segs, L, plan=self.net._lane_plan.get(op.id))
++                    # ★ S2 配套：f32 叶子先查量化缓存；命中/新算都变成带 pa 的
++                    #   i8 段 ⇒ prepare_segments 里不再量化（段类型变了 ⇒ plan=None）
++                    segs, _q8chg = self.net._q8_segments(segs, L, op)
++                    if _q8chg:
++                        # 段类型变成 all-i8 ⇒ 用构建期算好的 q8 版 lane 计划
++                        # （否则 prepare_segments 会现算 _build_desc，慢 ~5 ms/层）
++                        kinds = tuple("i8" if s_.get("kind") == "i8" else "f32"
++                                      for s_ in segs)
++                        plan = (self.net._lane_plan_q8.get(op.id)
++                                if kinds == ("i8",) * len(kinds) else None)
++                    else:
++                        plan = self.net._lane_plan.get(op.id)
++                    job = ee.prepare_segments(segs, L, plan=plan)
+                     if job is not None:
+                         keep = [a for a in dep.val.arrays
+                                 if isinstance(a, BE.C8Tensor)]
+@@ -829,6 +848,10 @@
+                 self.net._prep_prof["pin_n"] = self.net._prep_prof.get("pin_n", 0) + 1
+                 self.net._prep_prof["pin_b"] = self.net._prep_prof.get("pin_b", 0) + _nb
+                 _tt = time.perf_counter()
++        # ★ S2 统计：“输入 → 描述符/打包字节”的 PS 墙钟（含 f32 量化 + 描述符）
++        st = self.net._cat_stats
++        st["pack_s"][_cat_cls] = st["pack_s"].get(_cat_cls, 0.0) + \
++            (time.perf_counter() - _t_pack)
+         if data is not None:
+             e.push_input(data, inb, verify=self.verify)
+             if _DBG_PREP:
+@@ -988,9 +1011,30 @@
+         self._graph = None
+         self._prep_prof = {}
+         self._lane_plan = {}
++        self._lane_plan_q8 = {}
+         self._lazy_stats = dict(pinned=0, released=0, starved=0, direct_layers=0,
+                                 mixed_layers=0, ps_layers=0, deq_skipped=0,
+                                 direct_bytes=0, f32_bytes=0)
++        # ★ S2：BIN_CAT_FUSION（未设 ⇒ 随 S1；=0 显式关闭）+ 统计 + 量化缓存
++        self._cat_fusion = False
++        self._cat_strict = False
++        self._cat_stats = self._new_cat_stats()
++        self._cat_class = {}
++        self._qcache = None
++        self._q8_fs_seen = {}
++        self._q8_hits = 0
++
++    @staticmethod
++    def _new_cat_stats():
++        # mixed1/mixed2：按 f32 叶子代价分档（≤1 个且 <4 MiB ⇒ mixed1）
++        return dict(ops=0, fused=0, fallback=0, leaves=0, channels=0,
++                    bytes=0, pack_none=0, fallback_reason={},
++                    ops_by_class=dict(i8=0, mixed1=0, mixed2=0, blocked=0),
++                    cat_s=dict(i8=0.0, mixed1=0.0, mixed2=0.0, blocked=0.0),
++                    pack_s=dict(i8=0.0, mixed1=0.0, mixed2=0.0, blocked=0.0,
++                                single_i8=0.0, single_f32=0.0),
++                    f32_leaf_bytes_mixed=0, cats_mixed=0, q8_hits=0,
++                    q8_fs_conflict=0)
+ 
+     # ---- C8 直读（BIN_LAZY_DEQ）的图分析 ----
+     def _analyze_lazy(self, g, outs):
+@@ -1034,9 +1078,35 @@
+             for t in acc:
+                 if t.id not in needs:
+                     nuse[t.id] = nuse.get(t.id, 0) + 1
++        # ★ S2：cat 分类（只统计；不改数值路径）
++        cls = {}
++        f32_tot = 0
++        n_mixed = 0
++        for o in g.ops:
++            if o.kind != "cat":
++                continue
++            if o.out.id in needs:
++                cls[o.out.id] = "blocked"
++                continue
++            acc = []
++            leaves(o.out, acc)
++            fs = [t for t in acc if t.id in needs]
++            if not fs:
++                cls[o.out.id] = "i8"
++                continue
++            fb = int(sum(int(t.shape[0]) * int(t.shape[1]) * int(t.shape[2]) * 4
++                         for t in fs))
++            f32_tot += fb
++            n_mixed += 1
++            cls[o.out.id] = ("mixed1" if (len(fs) <= 1 and fb < (4 << 20))
++                             else "mixed2")
++        self._cat_class = cls
++        self._cat_stats["f32_leaf_bytes_mixed"] = int(f32_tot)
++        self._cat_stats["cats_mixed"] = int(n_mixed)
+         self._needs_f32 = needs
+         self._nuse = nuse
+         self._lane_plan = self._build_lane_plans(g, needs)
++        self._lane_plan_q8 = self._build_lane_plans(g, needs, q8=True)
+         if self.verbose:
+             print("  [LAZY_DEQ] int8 直读：%d 个张量可保持 int8（无需 f32）/ %d 个总张量；"
+                   "%d 层 conv 的输入全在图里"
+@@ -1055,13 +1125,17 @@
+             self._adj_cache[key] = got
+         return got
+ 
+-    def _build_lane_plans(self, g, needs):
++    def _build_lane_plans(self, g, needs, q8=False):
+         """**构建期**把每层 conv 的 lane 计划算好（一次），prepare 里只做取数。
+ 
+         板端每个小 numpy 调用 ~30-50 µs（A53 650 MHz）⇒ 逐层现算 `closed_form_thr_vec`
+         要 ~2.6 ms/层（0.6 s）。这里把 227 层的 (d, t_q) **拼成一条**只调一次闭式，
+         再按层切片；lane→段的映射也在这里算好。运行期若段类型（i8/f32）与计划
+         不符（例如句柄被迫物化），`prepare_segments` 自动回落到现算。
++
++        `q8=True`：再算一份"所有段都当 i8"的计划（S2 的量化缓存把 f32 段换成
++        带 pa 的 i8 段时用）。阈值 d 不变（f32 段本来就是 d=0；缓存段 fs=fs_in ⇒
++        d=0），只有 lane_off 的公式从 `(lanes//8)` 变成 `(lanes-off)//8`。
+         """
+         def _leaves(t, acc):
+             if t.producer is None:
+@@ -1119,17 +1193,23 @@
+             offs_a = np.asarray(offs, np.int64)
+             si = np.searchsorted(offs_a, lanes, side="right") - 1
+             si[si < 0] = 0
+-            goff = np.asarray([1 if k == "i8" else 0 for k in kinds], np.int64)
+-            lane_off = np.where(
+-                goff[si] > 0,
+-                ((lanes - offs_a[si]) // 8) * hw * 8,
+-                (lanes // 8) * hw * 8)
++            if q8:                         # 所有段都当 i8（缓存段/原 i8 同一公式）
++                kinds_u = ("i8",) * len(kinds)
++                lane_off = ((lanes - offs_a[si]) // 8) * hw * 8
++            else:
++                kinds_u = tuple(kinds)
++                goff = np.asarray([1 if k == "i8" else 0 for k in kinds],
++                                  np.int64)
++                lane_off = np.where(
++                    goff[si] > 0,
++                    ((lanes - offs_a[si]) // 8) * hw * 8,
++                    (lanes // 8) * hw * 8)
+             if valid.all():
+                 fill = None
+             else:
+                 fill = np.where(valid, np.arange(cb * 8), 0)
+                 np.maximum.accumulate(fill, out=fill)
+-            plans[o.id] = dict(kinds=tuple(kinds), thr=thr, si=si,
++            plans[o.id] = dict(kinds=kinds_u, thr=thr, si=si,
+                                lane_off=lane_off, fill=fill,
+                                lanes2=lanes * 2, kinds_ok=True)
+         return plans
+@@ -1149,6 +1229,108 @@
+             for tid in v.ids:
+                 self._catpins.pop(tid, None)
+ 
++    # ---- S2：cat 多段直读的准入检查 / 回落原因（只统计，不改数值路径）----
++    def _cat_lazy_ok(self, arrays, ids, ok, op):
++        """惰性 cat 的结构前提；None ⇒ 可融合，否则返回原因字符串。
++
++        与 `E1E2Engine._seg_layout()` 逐条一致：
++          · 叶子都已求值、是 `C8Tensor`(int8) 或 (C,H,W) float32；
++          · 段边界落在 C8 字上（off%8==0、C%8==0）：E1E2 一条 lane 读 8 个连续
++            通道（`lsrc[k] + p*8`），跨 C8 字的段无法用一个源地址表达；
++          · ΣC == 本 cat 的逻辑通道数。
++        BIN_CAT_STRICT=1 时还要求全部是 int8 C8（有 f32 段就整层回落）。
++        """
++        if not ok:
++            return "dep_val_none"
++        if not arrays:
++            return "no_deps"
++        if self._cat_strict and any(not isinstance(a, BE.C8Tensor)
++                                    for a in arrays):
++            return "strict_f32"
++        off = 0
++        for a in arrays:
++            if not isinstance(a, (BE.C8Tensor, np.ndarray)):
++                return "seg_type(%s)" % type(a).__name__
++            if isinstance(a, np.ndarray) and not (
++                    a.dtype == np.float32 and a.ndim == 3):
++                return "seg_dtype(%s)" % a.dtype
++            C = int(a.shape[0])
++            if off % 8 or C % 8:
++                return "seg_not_c8(off=%d,C=%d)" % (off, C)
++            off += C
++        if off != int(op.out.shape[0]):
++            return "sum_c(%d!=%d)" % (off, int(op.out.shape[0]))
++        return None
++
++    def _cat_fallback(self, why, op=None):
++        self._cat_stats["fallback"] += 1
++        key = str(why).split("(")[0]
++        rs = self._cat_stats["fallback_reason"]
++        rs[key] = rs.get(key, 0) + 1
++        if _DBG_PREP:
++            print("  [cat] %-46s 不融合（%s）"
++                  % ((op.name if op is not None else "?")[-46:], why), flush=True)
++
++    # ---- S2 配套：f32 叶子的量化缓存 ----
++    def _q8_segment(self, a, L):
++        """f32 叶子 → **带物理地址的 C8 int8 段**（量化缓存）；做不到 ⇒ None。
++
++        缓存里的字节由 `qcache.quantize_leaf_c8` 产生：优先 q8.c8_into（融合
++        量化+C8 布局，板端 ~200 MB/s），与 `prepare_segments` 的 f32 段逐字节相同。
++        """
++        c = self._qcache
++        if c is None:
++            return None
++        C, H, W = (int(v) for v in a.shape)
++        fs = int(L.d["act_fs_in"])
++        if (H, W) != (int(L.H), int(L.W)) or C <= 0 or C % 8:
++            return None
++        tid = id(a)
++        prev = self._q8_fs_seen.get(tid)
++        if prev is not None and prev != fs:
++            # 同一个 f32 张量被不同 fs_in 的消费者读：阈值不同。缓存 key 本来就含
++            # fs（不会错），但保守起见该张量不走缓存，回落到 S1 的现场量化。
++            self._cat_stats["q8_fs_conflict"] += 1
++            return None
++        self._q8_fs_seen[tid] = fs
++        try:
++            _buf, pa, _k, hit = c.get_c8(a, fs)
++        except Exception as _ex:                # noqa: BLE001
++            try:
++                from qcache import QuantCacheStale
++            except Exception:                   # noqa: BLE001
++                QuantCacheStale = ()            # noqa: N806
++            if isinstance(_ex, QuantCacheStale):
++                raise                            # 内容被改 ⇒ 报错，不静默
++            return None
++        if pa == 0:
++            return None
++        self._q8_hits += int(hit)
++        self._cat_stats["q8_hits"] += int(hit)
++        return dict(kind="i8", C=C, H=H, W=W, fs=fs, pa=int(pa))
++
++    def _q8_segments(self, segs, L, op=None):
++        """把 f32 段换成缓存的 i8 段；返回 (segs, changed)。"""
++        c = self._qcache
++        if c is None or not segs:
++            return segs, False
++        out, changed = [], False
++        fs_in = int(L.d["act_fs_in"])
++        for s_ in segs:
++            # 只转换"本来就是 f32"的段（`_segments` 给 ndarray 段标 fs=fs_in）。
++            # 被强制物化的 C8Tensor 段 fs=fs_out：它的 d=fs_in-fs_out 已经写进
++            # 静态计划；若把它也换成 fs=fs_in 的缓存段，阈值 d 会变 0 ⇒ 静默错数据。
++            if (s_.get("kind") == "f32"
++                    and int(s_.get("fs", fs_in)) == fs_in
++                    and isinstance(s_.get("data"), np.ndarray)):
++                got = self._q8_segment(s_["data"], L)
++                if got is not None and int(got["C"]) == int(s_["C"]):
++                    out.append(got)
++                    changed = True
++                    continue
++            out.append(s_)
++        return out, changed
++
+     def _catpack_on(self):
+         """CATPACK 环境开关（默认关；只有 1/on/true/yes 才开）。"""
+         return os.environ.get("CATPACK", "").strip().lower() in (
+@@ -1318,7 +1500,24 @@
+             # ★ BIN_LAZY_DEQ：这个 cat 的所有消费者都是 conv（`_needs_f32` 里没有它）
+             #   ⇒ 连 f32 都不需要：叶子可以是 `C8Tensor`（conv 的 int8 OUT），
+             #   cat 在物理上根本不存在，下一层 conv 的 E1E2 直接按段读。
+-            lazy_i8 = self._lazy_deq and op.out.id not in self._needs_f32
++            #
++            # ★ S2 / BIN_CAT_FUSION：未设 ⇒ 随 S1（保持现状）；=0 ⇒ 显式关闭
++            #   （A/B 的 "cat 走 PS" 档）；=1 ⇒ 开。统计见 stats["cat"]。
++            self._cat_stats["ops"] += 1
++            _t_cat = time.perf_counter()
++            _cls = self._cat_class.get(op.out.id, "blocked")
++            self._cat_stats["ops_by_class"][_cls] = \
++                self._cat_stats["ops_by_class"].get(_cls, 0) + 1
++
++            def _note_cat():
++                st = self._cat_stats
++                st["cat_s"][_cls] = st["cat_s"].get(_cls, 0.0) + \
++                    (time.perf_counter() - _t_cat)
++
++            if self._cat_fusion and op.out.id in self._needs_f32:
++                self._cat_fallback("needs_f32", op)
++            lazy_i8 = bool(self._cat_fusion
++                           and op.out.id not in self._needs_f32)
+             if (self._catpack_lazy or lazy_i8) and op.deps:
+                 # 直接 deps 取数组：**不能**去查 build 期叶子的 .val —— 内层 cat 的
+                 # 张量值可能已被 BV_FREE 清成 None，而它的数组还在内层 marker 里。
+@@ -1339,18 +1538,27 @@
+                 #   **int8 直读不受这个上限约束**：C8Tensor 钉的是 OUT 槽本身，
+                 #   而 OUT 槽数由 `BIN_LAZY_SLOTS` 调（不足时自动物化最老的一个）。
+                 if lazy_i8:
+-                    if ok and arrays and all(
+-                            isinstance(a, (BE.C8Tensor, np.ndarray))
+-                            for a in arrays):
++                    why = self._cat_lazy_ok(arrays, ids, ok, op)
++                    if why is None:
+                         for tid in ids:
+                             self._catpins[tid] = True
++                        st = self._cat_stats
++                        st["fused"] += 1
++                        st["leaves"] += len(arrays)
++                        st["channels"] += int(op.out.shape[0])
++                        st["bytes"] += (int(op.out.shape[0])
++                                        * int(op.out.shape[1])
++                                        * int(op.out.shape[2]) * 4)
++                        _note_cat()
+                         return _CatLazy(arrays, ids)
+-                else:
++                    self._cat_fallback(why, op)
++                elif self._catpack_lazy:
+                     nbytes = sum(int(a.nbytes) for a in arrays)
+                     if (ok and arrays and nbytes <= self._catpack_lazy_max
+                             and all(BE.f32_visible(a) for a in arrays)):
+                         for tid in ids:
+                             self._catpins[tid] = True
++                        _note_cat()
+                         return _CatLazy(arrays, ids)
+             v = []
+             for t in op.deps:                     # 回落：先把惰性标记物化
+@@ -1359,6 +1567,7 @@
+                 v.append(t.val)
+             # ★ 2026-10-31：走 bin_ref_numpy.cat_last —— 默认就是 np.concatenate
+             #   （逐字节相同）；只有 BIN_CAT_THREADS=2 时才沿源段切 2 线程。
++            _note_cat()
+             return cat_last(v)
+         v = []
+         for t in op.deps:
+@@ -1423,6 +1632,7 @@
+             self._lazy_stats[_k] = 0
+         self._prep_prof = {}
+         self._lane_plan = {}
++        self._lane_plan_q8 = {}
+         try:
+             self._catpack_lazy_max = max(
+                 0, int(float(os.environ.get("CATPACK_LAZY_MB", "6")) * 1e6))
+@@ -1451,6 +1661,38 @@
+         if self.engine is not None:
+             # 直读模式下：没走直读的层回落 **PS C 内核**（不是 pack_float）
+             self.engine.ps_pack_when_e1e2 = bool(self._lazy_deq)
++        # ★ S2：BIN_CAT_FUSION 未设 ⇒ 随 S1（lazy_deq 开就融合，保持现状）；
++        #   =0 ⇒ 显式关闭（A/B 用）；=1/on ⇒ 开。
++        _cf = os.environ.get("BIN_CAT_FUSION", "").strip().lower()
++        _cs = os.environ.get("BIN_CAT_STRICT", "0").strip().lower()
++        self._cat_fusion = (bool(self._lazy_deq) if _cf == ""
++                            else bool(self._lazy_deq
++                                      and _cf in ("1", "on", "true", "yes")))
++        self._cat_strict = bool(_cs in ("1", "on", "true", "yes"))
++        self._cat_stats = self._new_cat_stats()
++        self._cat_class = {}
++        self._q8_fs_seen = {}
++        self._q8_hits = 0
++        self._qcache = None
++        _qc = os.environ.get("Q8CACHE", "0").strip().lower()
++        if self._cat_fusion and _qc in ("1", "on", "true", "yes"):
++            try:
++                import qcache as _QC
++                self._qcache = _QC.QuantLeafCache(
++                    max_bytes=int(float(os.environ.get("Q8CACHE_MB", "32"))
++                                  * (1 << 20)),
++                    verify=os.environ.get("Q8CACHE_VERIFY", "").strip().lower()
++                    in ("1", "on", "true", "yes"))
++                if self.verbose:
++                    print("  [Q8CACHE] 开：f32 叶子量化缓存（上限 %.0f MB）"
++                          % (self._qcache.max_bytes / 1e6), flush=True)
++            except Exception as _ex:          # noqa: BLE001
++                print("  ⚠ Q8CACHE=1 但缓存建不起来（%s）⇒ f32 叶子现场量化" % _ex)
++                self._qcache = None
++        if self._cat_fusion and self.verbose:
++            print("  [CAT_FUSION] 开：cat 不物化，E1E2 按段直读%s"
++                  % ("（STRICT：f32 段整层回落）" if self._cat_strict else ""),
++                  flush=True)
+         self._analyze_lazy(g, outs)
+         if self._lazy_deq:
+             # OUT 槽要同时装"在飞的 conv + 被惰性句柄钉住的叶子" ⇒ 槽数要大于 2。
+@@ -1551,6 +1793,9 @@
+                     if cons and all(i in _done_ops for i in cons):
+                         if _f32_release is not None:
+                             _f32_release(dep.val)      # 归还 f32 槽（幂等）
++                        if self._qcache is not None:
++                            # ★ 判死点同步失效（槽可能被复用 ⇒ 不能留旧量化结果）
++                            self._qcache.invalidate(dep.val)
+                         dep.val = None
+ 
+         while n_done < n_ops:
+@@ -1645,6 +1890,12 @@
+         ps_total = t_pro + t_epi + sum(prof.values())
+         _pool_stats = (self.engine.f32pool_stats()
+                        if self.engine is not None else None)
++        _cs = self._cat_stats
++        _cs["cat_pack_s"] = {
++            k: float(_cs["cat_s"].get(k, 0.0) + _cs["pack_s"].get(k, 0.0))
++            for k in ("i8", "mixed1", "mixed2", "blocked")}
++        _cs["cat_pack_fused_s"] = float(sum(
++            _cs["cat_pack_s"][k] for k in ("i8", "mixed1", "mixed2")))
+         self.stats = dict(prof=prof, total=dur, pl=t_pl, ps=ps_total,
+                           ps_prologue=t_pro, ps_epilogue=t_epi,
+                           ps_nonconv=sum(prof.values()),
+@@ -1661,6 +1912,10 @@
+                           catpack_lazy=self._catpack_lazy,
+                           lazy_deq=self._lazy_deq,
+                           lazy=self._lazy_stats,
++                          cat_fusion=self._cat_fusion,
++                          cat=self._cat_stats,
++                          qcache=(self._qcache.stats()
++                                  if self._qcache is not None else None),
+                           pack_pl=t_pack_pl,
+                           pipeline=True, backend=("PL" if self.engine else "ref"))
+         return {k: self._materialize(t.val) for k, t in outs.items()}, self.stats

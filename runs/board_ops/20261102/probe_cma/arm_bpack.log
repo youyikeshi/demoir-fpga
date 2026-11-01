@@ -1,0 +1,32 @@
+[boardlock] 取得板级独占 00:21:07  使用者=felix
+  [bpaconly] sys.path 前部 = ['/tmp/probe_cma/deps_bpack', '/home/xilinx/demoir/ps/pynq_frozen', '/tmp/probe_cma']
+  [bpaconly] 内核：q8=False c8deq=False bpack=True bilinear_c=True  CmaFree 44.391 MB
+
+==========================================================================
+  步骤 1：加载 overlay（本 session 唯一一次真正的 download）
+==========================================================================
+  Overlay(/home/xilinx/demoir/design_1_150v39.bit, download=False) 用时 1.376 s
+
+==========================================================================
+  步骤 2：地址核对（从**已加载的** overlay 实测）
+==========================================================================
+  conv_uni_0   mmio.base_addr = 0x40040000  length = 0x20000  （期望 0x40040000）  ✓
+  bin_unit_0   mmio.base_addr = 0x40060000  length = 0x20000  （期望 0x40060000）  ✓
+  overlay 里的 IP 清单：['bin_unit_0', 'conv_uni_0', 'ps7']
+
+==========================================================================
+  步骤 3：时钟读回 + 复位指纹
+==========================================================================
+  Clocks.fclk0_mhz 目标 150 → **读回 = 150**  ✓
+  复位指纹：alpha_shift=9 slope_shift=8 （期望 9 / 8）
+  AP_CTRL=0x00000000 AP_RETURN=0x00000001 DBG_FLAG=0x00000000
+  保留页 ResvPage[0x18] = 0x0 （期望 0）
+  引擎认到的 IP=bin_unit_0 base=0x40060000 range=0x20000
+  arena arm_arena_256  66.22 MB（24 槽 × (in 1.18 + out 1.57 MB)）@0x30100000
+  [bpaconly] arena 66.22 MB @0x30100000  CmaFree 0.406 MB
+  [LAZY_DEQ] IN/OUT 槽数 = 24（BIN_LAZY_SLOTS）
+  [bpaconly] bpaconly1 总 11.528  PL 3.168 | pro 5.486 + epi 1.185 + 非卷积 2.095 | ovl 1.589 wait 1.529 | interp 0.281 | OK
+  [LAZY_DEQ] IN/OUT 槽数 = 24（BIN_LAZY_SLOTS）
+  [bpaconly] bpaconly2 总 11.308  PL 3.196 | pro 5.496 + epi 1.188 + 非卷积 1.993 | ovl 1.727 wait 1.376 | interp 0.265 | OK
+  [bpaconly] best total 11.308  pro 5.486  epi 1.185 ⇒ /tmp/probe_cma/probe_arm_bpack.json
+[boardlock] 释放板级锁 00:21:49  rc=0

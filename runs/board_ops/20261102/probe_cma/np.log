@@ -1,0 +1,35 @@
+[boardlock] 取得板级独占 00:18:07  使用者=felix
+  sys.path[0] = /tmp/probe_cma/deps（依赖闭包）
+  q8=OK c8deq=OK bpack=OK
+  bilinear C 内核 = None（None ⇒ 真的是 numpy 臂）
+  CmaFree 开工前 = 53.859 MB
+
+==========================================================================
+  步骤 1：加载 overlay（本 session 唯一一次真正的 download）
+==========================================================================
+  Overlay(/home/xilinx/demoir/design_1_150v39.bit, download=False) 用时 1.339 s
+
+==========================================================================
+  步骤 2：地址核对（从**已加载的** overlay 实测）
+==========================================================================
+  conv_uni_0   mmio.base_addr = 0x40040000  length = 0x20000  （期望 0x40040000）  ✓
+  bin_unit_0   mmio.base_addr = 0x40060000  length = 0x20000  （期望 0x40060000）  ✓
+  overlay 里的 IP 清单：['bin_unit_0', 'conv_uni_0', 'ps7']
+
+==========================================================================
+  步骤 3：时钟读回 + 复位指纹
+==========================================================================
+  Clocks.fclk0_mhz 目标 150 → **读回 = 150**  ✓
+  复位指纹：alpha_shift=9 slope_shift=8 （期望 9 / 8）
+  AP_CTRL=0x00000000 AP_RETURN=0x00000001 DBG_FLAG=0x00000000
+  保留页 ResvPage[0x18] = 0x0 （期望 0）
+  引擎认到的 IP=bin_unit_0 base=0x40060000 range=0x20000
+  arena np_arena_256   66.22 MB（24 槽 × (in 1.18 + out 1.57 MB)）@0x30100000
+  arena 66.22 MB @0x30100000  CmaFree 0.484 MB
+  [LAZY_DEQ] IN/OUT 槽数 = 24（BIN_LAZY_SLOTS）
+  ── NP1 ── 总 8.965 s（墙钟 8.966） PL 3.224 | PS 6.215 = pro 1.895 + epi 0.563 + 非卷积 3.757 | ovl 1.636 wait 1.041  interp 1.946  sha1 OK 3/3
+  [LAZY_DEQ] IN/OUT 槽数 = 24（BIN_LAZY_SLOTS）
+  ── NP2 ── 总 8.261 s（墙钟 8.261） PL 3.219 | PS 5.516 = pro 1.625 + epi 0.259 + 非卷积 3.632 | ovl 1.630 wait 0.732  interp 1.938  sha1 OK 3/3
+  最好 8.261 s；历史 8.096 s ⇒ 差 +2.03%
+  → /tmp/probe_cma/probe_np.json
+[boardlock] 释放板级锁 00:18:42  rc=0

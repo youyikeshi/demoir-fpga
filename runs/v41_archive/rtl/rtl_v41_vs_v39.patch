@@ -1,0 +1,234 @@
+diff --git a/pynq_specialized_code/pl/rtl_hand/modules/bin_conv_core8.v b/pynq_specialized_code/pl/rtl_hand/modules/bin_conv_core8.v
+index 8043435..da03589 100644
+--- a/pynq_specialized_code/pl/rtl_hand/modules/bin_conv_core8.v
++++ b/pynq_specialized_code/pl/rtl_hand/modules/bin_conv_core8.v
+@@ -225,11 +225,40 @@ module bin_conv_core8 #(
+ 
+     // ========================================================================
+     // 6. 读流水线登记（T 发读 → T+1 数据有效 → T+2 累加）
+-    // ========================================================================
++    // ------------------------------------------------------------------------
++    // ★ v41（2026-11-01）时序刀：**计算通路的读数据多了一级寄存**（下面的 actd_q）。
++    //   为什么必须在本模块里加、而不是在 wrapper 上统一加：
++    //     `mem_rd_data` 在本模块有**三个**消费点，其中两个的时间轴是 1 拍死契约：
++    //       · ST_PRM：`pw[prm_i-1] <= mem_rd_data`（16 字 / 17 拍，收数相位固定）
++    //       · ST_WLD：`wdata_c = mem_rd_data & wkeep_c` → wmem[wl_l]（ph0 发、ph1 收）
++    //       · ST_CMP：act → pop64（**只有这一条**是本次要切的锥）
++    //     整体把数据延后 1 拍 ⇒ 前两个相位全错（权重/参数装载错位、逐字节回归必挂）。
++    //   ⇒ 只给 ST_CMP 那条加：`actd_q <= mem_rd_data`（见 §10），其余两条继续吃原始
++    //     `mem_rd_data`。**wrapper 因此一个字节都没改**（md5 仍是 v40 的 f4ba0655…），
++    //     这也让 Gate A（bin_e1e2 106 命令）成为"改动没越界"的免费证据。
++    //
++    //   为什么切这一刀（v40 布线实测）：最差路径
++    //       win_q_reg_12/CLKBWRCLK →(RAMB36 DOBDO, Tco 2.125 ns)→ 组合 6.5 ns
++    //       → u_eng/s1_pc_q_reg[5][5]/D，8.671 ns / 10 级（8 LUT + 2 CARRY4）
++    //   即 "BRAM 的 Tco 之后还挂着 act 选择 + XNOR + pop64 五级加法树"。
++    //   DO 后再寄存一级 ⇒ 组合只剩 pop 树（起点是 FF），Tco 那一半被隔离。
++    //
++    //   ★ 拍数为什么不变（唯一依据，**不许再加第二次**）：
++    //       尾部级数 = r1 → r2 → s1 → ps → v1..v8 = **12 级** ⇒ tail_empty 在 c+13 成立；
++    //       而 drn_done 还要 `dr_q >= DRN_MIN(12)`，dr_q 在 c+1 才是 0
++    //       ⇒ 该条件同样在 c+13 成立 ⇒ **ST_DRN 仍是 13 拍**，一次 drain 都不多。
++    //       ⚠ 改前尾部 11 级（c+12 就空）⇒ 原来有**正好 1 拍**空档，本次把它用掉了
++    //         ⇒ 余量归零：任何"再往尾部加一级"的改动都会破拍数 parity。
++    //   ★ 不动的东西：ST_CMP 的地址/counter、rd_hit 同拍语义、pop64/p_acc/epilogue、
++    //     写口、ST_PRM/ST_WLD 的装载时序 —— 一行都不改。
+     logic            r1_vld, r1_rd, r1_last, r1_bm1, r1_l0;
+     logic [15:0]     r1_b;
+     logic [31:0]     r1_oaddr;
+ 
++    // v41 新增：第二级标志（与 §10 的 actd_q 同拍；r1_b 是死信号故不复制）
++    logic            r2_vld, r2_rd, r2_last, r2_bm1, r2_l0;
++    logic [31:0]     r2_oaddr;
++
+     // ========================================================================
+     // 7. 权重 BRAM：VLANES 块独立 RAM（256×64，整字写 + 整字同步读）
+     //    为什么分块而不是一块 VLANES*64 宽的大 RAM：宽度决定 BRAM 块数
+@@ -241,6 +270,20 @@ module bin_conv_core8 #(
+     wire [63:0] wkeep_c = (wl_b == cb_m1_q) ? mask_last_q : {64{1'b1}};
+     wire [63:0] wdata_c = mem_rd_data & wkeep_c;
+ 
++    // ★ v41：权重读地址也要延后一拍（`l_q_d`），否则数据延后 1 拍而权重没延后，
++    //   第 T 个 term 会拿**第 T+1 个 term 的权重**去 XNOR ⇒ k>1 的形状逐字节错
++    //   （xsim 实测：bin_3x32_48_8x8 / _d2 / bin_3x96_64_8x8 三组 FAIL；k=1 时
++    //    K=1、l_q 恒 0 所以看不出来）。
++    //   等价性：ST_CMP 期间 wmem 是**只读**的（写口只在 ST_WLD）⇒ "晚一拍再读"
++    //   与"早一拍读、把结果寄存一拍"逐位相同，代价只有 9 个 FF 而不是 512 个。
++    //   边界：进 ST_CMP 前一拍 l_q 必为 0（term_last / cmp_init 都清 0）⇒ 第一个
++    //   term 的 l_q_d 也是 0 ✓。
++    logic [LW-1:0] l_q_d;
++    always_ff @(posedge ap_clk or negedge ap_rst_n) begin
++        if (!ap_rst_n) l_q_d <= {LW{1'b0}};
++        else if (ap_ce) l_q_d <= l_q;
++    end
++
+     genvar gk;
+     generate
+         for (gk = 0; gk < VLANES; gk = gk + 1) begin : g_wram
+@@ -251,8 +294,10 @@ module bin_conv_core8 #(
+                     wmem[wl_l] <= wdata_c;
+             end
+             // 读口：同步读（地址是 FF ⇒ wrd 在下一拍有效）
++            // ★ v41：地址用 l_q_d（比 l_q 晚一拍）⇒ wrd 与 actd_q 同拍、
++            //   仍然描述**同一个 term**。
+             always_ff @(posedge ap_clk) begin
+-                if (ap_ce) wrd[gk] <= wmem[l_q];
++                if (ap_ce) wrd[gk] <= wmem[l_q_d];
+             end
+         end
+     endgenerate
+@@ -333,8 +378,18 @@ module bin_conv_core8 #(
+     logic        ps_vld;
+     logic [31:0] osnap;
+ 
+-    wire [63:0] pad_or_c = r1_bm1 ? ~mask_last_q : 64'd0;
+-    wire [63:0] act_c    = (r1_rd ? mem_rd_data : 64'd0) | pad_or_c;
++    // ★ v41：计算通路的读数据先落一级寄存器（actd_q），把 "BRAM DOBDO 的 Tco +
++    //   act 选择" 与 "pop64 加法树" 切开；标志同步用 r2（与 actd_q 同拍）。
++    //   ⚠ 只有这一条通路被延后 —— ST_PRM 的 pw 装载与 ST_WLD 的 wmem 写仍然吃
++    //     原始 mem_rd_data（1 拍契约，见 §6 的说明）。
++    logic [63:0] actd_q;
++    always_ff @(posedge ap_clk or negedge ap_rst_n) begin
++        if (!ap_rst_n) actd_q <= 64'd0;
++        else if (ap_ce) actd_q <= mem_rd_data;
++    end
++
++    wire [63:0] pad_or_c = r2_bm1 ? ~mask_last_q : 64'd0;
++    wire [63:0] act_c    = (r2_rd ? actd_q : 64'd0) | pad_or_c;
+ 
+     logic [63:0] xn_c [0:VLANES-1];
+     logic [6:0]  pc_c [0:VLANES-1];
+@@ -370,16 +425,31 @@ module bin_conv_core8 #(
+         end
+     end
+ 
++    // ---- v41：r1 → r2（与 §10 的 actd_q 同一级；纯移位，无逻辑）----
++    always_ff @(posedge ap_clk or negedge ap_rst_n) begin
++        if (!ap_rst_n) begin
++            r2_vld <= 1'b0; r2_rd <= 1'b0; r2_last <= 1'b0;
++            r2_bm1 <= 1'b0; r2_l0 <= 1'b1;  r2_oaddr <= 32'd0;
++        end else if (ap_ce) begin
++            r2_vld   <= r1_vld;
++            r2_rd    <= r1_rd;
++            r2_last  <= r1_last;
++            r2_oaddr <= r1_oaddr;
++            r2_bm1   <= r1_bm1;
++            r2_l0    <= r1_l0;
++        end
++    end
++
+     // ---- popcount 结果寄存一拍（拆开 pop 树与 16 位累加进位链）----
+     always_ff @(posedge ap_clk or negedge ap_rst_n) begin
+         if (!ap_rst_n) begin
+             s1_v_q <= 1'b0; s1_last_q <= 1'b0; s1_l0_q <= 1'b1; s1_oa_q <= 32'd0;
+         end else if (ap_ce) begin
+-            s1_v_q    <= r1_vld;
+-            s1_last_q <= r1_vld & r1_last;
+-            if (r1_vld) begin
+-                s1_l0_q <= r1_l0;
+-                s1_oa_q <= r1_oaddr;
++            s1_v_q    <= r2_vld;
++            s1_last_q <= r2_vld & r2_last;
++            if (r2_vld) begin
++                s1_l0_q <= r2_l0;
++                s1_oa_q <= r2_oaddr;
+                 for (int k = 0; k < VLANES; k++) s1_pc_q[k] <= pc_c[k];
+             end
+         end
+@@ -402,14 +472,24 @@ module bin_conv_core8 #(
+     end
+ 
+     // ========================================================================
+-    // 11. 收尾流水（8 级 × VLANES lane；地址链只有一条）
+-    //      S1 d=2p−N_tot, prod=d*alpha  S2 q=prod>>>9（静态）
+-    //      S3 dd=q+bz, rp=dd+gamma, ddpos   S4 pn=dd*slope（48 位精确）
+-    //      S5 sn=pn>>>8（静态）             S6 r = ddpos ? rp : sn+gamma
+-    //      S7 v=r>>>shift（桶形）           S8 sat8 → 64-bit 写口
++    // 11. 收尾流水（v41 起 **7 级** × VLANES lane；地址链只有一条）
++    //      S1 d=2p−N_tot, prod=d*alpha
++    //      S2 dd=(prod>>>9)+bz, rp=dd+gamma, ddpos   ← ★v41：吃掉了原来独立的
++    //         "q=prod>>>9（静态移位）"那一级，移位**改成 S1→本级输入端的一条纯连线**
++    //      S3 pn=dd*slope（48 位精确）
++    //      S4 sn=pn>>>8（静态）             S5 r = ddpos ? rp : sn+gamma
++    //      S6 v=r>>>shift（桶形）           S7 sat8 → 64-bit 写口
++    //      ⚠ 为什么必须吃掉这一级（v41 拍数 parity 的唯一依据）：
++    //        v41 给读通路加了 1 拍（§10 的 actd_q + §6 的 r2），结果链整体晚 1 拍；
++    //        而写流（v8_q → mem_wr_*）与 AXI 侧**裸时钟**上的 burst 排泄 FSM 之间
++    //        存在相位耦合（u_ce 里的 `wr_take && wr_fifo_press`）⇒ 写流晚 1 拍就会
++    //        改压力冻结的分布 ⇒ 总拍数变（xsim 实测：1429→1414、5329→5332、3788→3791）。
++    //        把这一级静态移位级拆掉 ⇒ 写口绝对时刻回到 v40 ⇒ 12/12 形状拍数逐拍相同。
++    //      ⚠ 数值等价：q=(prod>>>ASH) 与"把 (prod>>>ASH) 直接接进加法"逐位相同
++    //        （ASH=9 是契约常量，`>>>` 只是连线，0 LUT）；地址链 a1→a3→…→a7 也随之
++    //        少一级，与整条流水线同长。
+     // ========================================================================
+     logic signed [EW-1:0]    e1_prod_q [0:VLANES-1];
+-    logic signed [EW-1:0]    e1_sh_q   [0:VLANES-1];
+     logic signed [EW-1:0]    e2_dd_q   [0:VLANES-1];
+     logic signed [EW-1:0]    e2_rp_q   [0:VLANES-1];
+     logic                    e2_ddpos_q[0:VLANES-1];
+@@ -422,12 +502,16 @@ module bin_conv_core8 #(
+     logic signed [EW-1:0]    e2_r_q    [0:VLANES-1];
+     logic signed [EW-1:0]    e3_sh_q   [0:VLANES-1];
+     logic [7:0]              wr_byte_q [0:VLANES-1];
+-    logic [31:0] a1_q, a2_q, a3_q, a4_q, a5_q, a6_q, a7_q, wr_addr_q;
+-    logic        v1_q, v2_q, v3_q, v4_q, v5_q, v6_q, v7_q, v8_q;
++    logic [31:0] a1_q, a3_q, a4_q, a5_q, a6_q, a7_q, wr_addr_q;
++    logic        v1_q, v3_q, v4_q, v5_q, v6_q, v7_q, v8_q;
+ 
+     localparam logic [3:0] DRN_MIN = 4'd12;
+-    wire tail_empty = !(r1_vld | s1_v_q | ps_vld | v1_q | v2_q | v3_q | v4_q |
+-                        v5_q | v6_q | v7_q | v8_q);
++    // ★ v41：读通路 +1（§10 actd_q / §6 r2）、收尾流水 −1（S2 静态移位级拆除）
++    //   ⇒ **尾部级数仍是 11**，与 v40 完全相同 ⇒ `tail_empty` 在 c+12 成立、
++    //   `dr_q >= DRN_MIN(12)` 在 c+13 成立 ⇒ ST_DRN 仍 13 拍、写口时刻不变。
++    //   ⚠ 这条"11 级"是拍数 parity 的唯一支点：任何再往尾部加一级的改动都会破它。
++    wire tail_empty = !(r1_vld | r2_vld | s1_v_q | ps_vld | v1_q | v3_q |
++                        v4_q | v5_q | v6_q | v7_q | v8_q);
+     wire drn_done = (dr_q >= DRN_MIN) && tail_empty;
+ 
+     logic signed [EW-1:0]    p_e     [0:VLANES-1];
+@@ -449,8 +533,9 @@ module bin_conv_core8 #(
+             d_c[k]    = (p_e[k] <<< 1) - $signed(ntot_q[EW-1:0]);
+             // 无损截断（见上面的值域证明）：|d| ≤ 2^14 < 2^15
+             d16[k]    = d_c[k][15:0];
+-            qsh_c[k]  = e1_prod_q[k] >>> ASH;                 // 静态移位：0 LUT
+-            dd_c[k]   = e1_sh_q[k] + bz_l[k];
++            qsh_c[k]  = e1_prod_q[k] >>> ASH;                 // 静态移位：0 LUT（纯连线）
++            // ★ v41：直接吃 qsh_c（S1 寄存器的静态移位结果），不再经过 e1_sh_q 那一级
++            dd_c[k]   = qsh_c[k] + bz_l[k];
+             // ★ 每一级必须读**上一级寄存器**，不能读上一级的组合中间量：
+             //   曾经写成 snw_c = pn_c >>> SSH（pn_c 是 S3 寄存器 → S4 的输入），
+             //   结果 S5 实际吃的是"下一个像素的 dd"，整条链晚一个像素。
+@@ -477,24 +562,17 @@ module bin_conv_core8 #(
+             end
+         end
+     end
+-    // S2：q = prod >>> ASH
+-    always_ff @(posedge ap_clk or negedge ap_rst_n) begin
+-        if (!ap_rst_n) begin v2_q <= 1'b0; a2_q <= 32'd0; end
+-        else if (ap_ce) begin
+-            v2_q <= v1_q;
+-            if (v1_q) begin
+-                a2_q <= a1_q;
+-                for (int k = 0; k < VLANES; k++) e1_sh_q[k] <= qsh_c[k];
+-            end
+-        end
+-    end
+-    // S3：dd = q + bz；rp = dd + gamma；ddpos
++    // ★ v41：原来的 "S2：q = prod >>> ASH" 那一级寄存器**已拆除**（见 §11 的说明）。
++    //   移位改成 S1 → §11 的 dd_c 输入端的一条纯连线（0 LUT），数值逐位相同。
++    //   ⇒ 收尾流水从 8 级变 7 级，用来抵掉读通路加的 1 级，使**写口时刻与 v40 一致**
++    //     （拍数 parity 的唯一支点；指纹门禁会断言 e1_sh_q 这个 cell 在网表里为 0）。
++    // S2（v41 编号，原 S3）：dd = (prod>>>ASH) + bz；rp = dd + gamma；ddpos
+     always_ff @(posedge ap_clk or negedge ap_rst_n) begin
+         if (!ap_rst_n) begin v3_q <= 1'b0; a3_q <= 32'd0; end
+         else if (ap_ce) begin
+-            v3_q <= v2_q;
+-            if (v2_q) begin
+-                a3_q <= a2_q;
++            v3_q <= v1_q;
++            if (v1_q) begin
++                a3_q <= a1_q;
+                 for (int k = 0; k < VLANES; k++) begin
+                     e2_dd_q[k]     <= dd_c[k];
+                     e2_rp_q[k]     <= dd_c[k] + gamma_l[k];

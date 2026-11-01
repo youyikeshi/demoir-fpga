@@ -1,0 +1,53 @@
+[boardlock] 取得板级独占 00:00:16  使用者=control2011
+==============================================================================
+  对照实验：2026-11-01 跑点复跑（只换 bin_net/bin_engine）
+==============================================================================
+    bin_net.py               cdf4b9a9711ab4112439c43ba6ed1f12  ← 2026-11-01 版本 ✓
+    bin_engine.py            f848a29c9f51d5580428684e232473bd  ← 2026-11-01 版本 ✓
+    bin_ref_numpy.py         5a3bbd8b36a5a248001943b78ab695b0
+    bilinear_c.py            48134b7b0056ea71be77a965f0adf633
+    bilinear_c.c             1cd97282ee30a092425602c0d09ef7c1
+    qcache.py                d2dc2517f1bad49ab6c61f0c3ae96944
+    board_v39_verify.py      e9877b79f3f7403b4ddfa85a305f1068
+  与 20261101 REPORT 声明的 md5 一致 = ✓
+  与冻结点 HEAD 不同 = ✓
+
+==========================================================================
+  步骤 1：加载 overlay（本 session 唯一一次真正的 download）
+==========================================================================
+  Overlay(/home/xilinx/demoir/design_1_150v39.bit, download=False) 用时 1.325 s
+
+==========================================================================
+  步骤 2：地址核对（从**已加载的** overlay 实测）
+==========================================================================
+  conv_uni_0   mmio.base_addr = 0x40040000  length = 0x20000  （期望 0x40040000）  ✓
+  bin_unit_0   mmio.base_addr = 0x40060000  length = 0x20000  （期望 0x40060000）  ✓
+  overlay 里的 IP 清单：['bin_unit_0', 'conv_uni_0', 'ps7']
+
+==========================================================================
+  步骤 3：时钟读回 + 复位指纹
+==========================================================================
+  Clocks.fclk0_mhz 目标 150 → **读回 = 150**  ✓
+  复位指纹：alpha_shift=9 slope_shift=8 （期望 9 / 8）
+  AP_CTRL=0x00000000 AP_RETURN=0x00000001 DBG_FLAG=0x00000000
+  保留页 ResvPage[0x18] = 0x0 （期望 0）
+  引擎认到的 IP=bin_unit_0 base=0x40060000 range=0x20000
+  C 内核一次性成本 = 2.369 s（kernel_loaded=True why=ok）
+  arena probe2011_arena 66.22 MB（24 槽 × (in 1.18 + out 1.57 MB)）@0x30100000
+  [LAZY_DEQ] IN/OUT 槽数 = 24（BIN_LAZY_SLOTS）
+  ── control_numpy hw=256 ──
+     总 13.616 s（墙钟 13.617） PL 4.051（其中 E1E2 0.979）| PS 10.941 = prologue 6.006 + epilogue 1.188 + 非卷积 3.746 | overlap 2.585 wait 1.423
+     非卷积分项 {"unshuffle": 0.0049, "convfp": 1.2514, "cat": 0.151, "add": 0.0689, "interp": 1.9318, "eca": 0.0783, "sam": 0.2456, "shuffle": 0.0144}
+     输入 sha1=cfc75bc3f15d306b (与冻结基线一致)
+     sha1 out1=9b1940c8955b out2=f86a7035621b out3=025757a83c39  OK/3
+  >>> numpy total=13.616 pl=4.051 ps=10.941 pro=6.006 epi=1.188 nonconv=3.746 interp=1.932 sha_ok=True
+  [LAZY_DEQ] IN/OUT 槽数 = 24（BIN_LAZY_SLOTS）
+  ── control_C hw=256 ──
+     总 11.714 s（墙钟 11.715） PL 3.092（其中 E1E2 0.975）| PS 9.092 = prologue 5.900 + epilogue 1.186 + 非卷积 2.006 | overlap 1.632 wait 1.357
+     非卷积分项 {"unshuffle": 0.0049, "convfp": 1.1831, "cat": 0.1357, "add": 0.0644, "interp": 0.2752, "eca": 0.081, "sam": 0.2472, "shuffle": 0.0144}
+     输入 sha1=cfc75bc3f15d306b (与冻结基线一致)
+     sha1 out1=9b1940c8955b out2=f86a7035621b out3=025757a83c39  OK/3
+  >>> C     total=11.714 pl=3.092 ps=9.092 pro=5.900 epi=1.186 nonconv=2.006 interp=0.275 sha_ok=True
+  → /home/xilinx/demoir/probe2011_control.json
+  md5 前后一致 = ✓
+[boardlock] 释放板级锁 00:01:02  rc=0

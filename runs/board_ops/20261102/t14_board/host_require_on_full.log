@@ -1,0 +1,30 @@
+== 算子能力矩阵 ==
+  算子               PL 单元             PS 实现                                   结论
+  bin_conv (XNOR)  bin_conv_core     bin_ref_numpy.conv_rtl                  PL 主力。当前 BD 的 bin_unit_0；4 个实例时按 bin_unit_<id> 取
+  binarize+pack    **无 RTL**         bin_ref_numpy.binarize_pack             必须 PS。每层 x_q+t_q>0 → 64 通道 1 bit（RTL 里没有这个单元）
+  RPReLU           bin_rprelu        bin_ref_numpy.rprelu_int8               本网**不需要**：227/227 层的 RPReLU 已融进 conv 的收尾流水
+  SAM 三分支加权        bin_sam           bin_ref_numpy.sam_int8（已验证）             本版走 PS 浮点；要上 PL 得先写驱动，且 BD 里没有 bin_sam 实例
+  bilinear 插值      bin_interp        bin_ref_numpy.bilinear_int8（已验证）        同上：26 次插值本版走 PS 浮点，PL 实例/驱动都没有
+  pixel_shuffle    **无 RTL**         bin_ref_numpy.pixel_shuffle             必须 PS
+  pixel_unshuffle  **无 RTL**         bin_ref_numpy.pixel_unshuffle           必须 PS
+  ECA 通道注意力        **无 RTL**         本文件 eca_attn()（float32）                 必须 PS。输出是 sigmoid 的浮点权重，要上 PL 还得先定 int16 Q1.14 量化
+  fp 卷积 ×4         无                 本文件 conv2d_f32() (numpy)                conv_first + decoder_{1,2,3}.conv，权重在 fp_layers/*.f32.bin
+  add / cat        无                 numpy                                   必须 PS
+
+== 调度表：482 个 op（227 个二值卷积 / 4 个全精度卷积 / 26 次插值）==
+  种类：add=6  cat=206  conv=227  convfp=4  eca=6  interp=26  sam=6  unshuffle=1
+  ✓ 形状断言：227 层全部对上容器里的 cin/cout（227 个二值卷积，16 个 fp 张量）
+  PL 卷积总拍数 = 28,605,312（≈ 190.70 ms @150 MHz）
+
+跑整网：输入 (3,64,64)，后端 = 参考实现 conv_rtl
+[DEPS] q8=fast c8deq=fast bpack=fast e1e2=fast catpack=fast safe=fast  ⇒ deps_closure_ok=True
+  [LAZY_DEQ] int8 直读：322 个张量可保持 int8（无需 f32）/ 396 个总张量；227 层 conv 的输入全在图里
+  out1  3x64x64          min=0.1395 max=0.6164 mean=0.4065  sha1=104710f69c4d
+  out2  3x32x32          min=0.6390 max=1.3604 mean=0.9178  sha1=2ac6efec2325
+  out3  3x16x16          min=0.0684 max=0.9327 mean=0.5568  sha1=8ab595fcf7cd
+  总耗时 1.10 s   (调度=PS/PL 重叠, 后端=ref)
+     PL 时间            0.00 s   (Σ 每层 done，硬件计)
+     PS 时间            0.09 s   = prologue 0.04 + epilogue 0.00 + 非卷积 0.05
+     纯等 done         0.00 s
+     理论下界 max(PS,PL)+首末层 ≈ 0.09 s
+     op 分解：add=0.000s  cat=0.004s  convfp=0.029s  eca=0.006s  interp=0.006s  sam=0.001s  shuffle=0.000s  unshuffle=0.000s

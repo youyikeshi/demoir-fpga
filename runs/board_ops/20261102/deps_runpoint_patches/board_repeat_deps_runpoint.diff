@@ -1,0 +1,15 @@
+--- a/tools/board_repeat.py
++++ b/tools/board_repeat.py
+@@ -83,6 +83,12 @@
+     print("  运行点：bit_md5=%s  BIN_BILINEAR_C=%s"
+           % (rp.get("bit_md5"), os.environ.get("BIN_BILINEAR_C")))
+     print("  代码 md5：%s" % json.dumps(rp.get("code_md5"), ensure_ascii=False))
++    # ★ 2026-11-02（§② 依赖可见性）：日志里先打一行内核状态（`V.runpoint()` 已写进 JSON）。
++    #   2026-11-02 的 1.65× 假数字，就是"重复测量日志里只有时间、没有内核状态"造成的。
++    print("  " + V.deps_summary())
++    if not rp.get("deps_closure_ok"):
++        print("  ⚠ deps_closure_ok=False ⇒ 本次重复测量**不许当基线**"
++              "（跑的不是应跑的内核，见 runs/board_ops/20261102/deps_closure.txt）")
+     arena, need = V.make_arena(a.hw, a.slots, "rep_arena_%d" % a.hw)
+ 
+     rows = []

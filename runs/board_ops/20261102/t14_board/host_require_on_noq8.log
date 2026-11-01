@@ -1,0 +1,38 @@
+[t] sys.path[0]=/tmp/t14b/noq8  BIN_REQUIRE_KERNELS='1'
+[DEPS] q8=fallback-numpy c8deq=fast bpack=fast e1e2=fast catpack=fast safe=fast  ⇒ deps_closure_ok=False
+[DEPS] ⚠ 依赖闭包不完整：这一跑跑的不是快路径，**数字不可当基线**
+[DEPS]   ✗ q8       fallback-numpy f32→int8 量化（prologue；缺 ⇒ prologue ×3.69）
+[DEPS]             原因：模块不在 sys.path（缺 q8.py）
+[DEPS]   修法：把 ps/pynq/{q8,c8deq,bpack}.{py,c} 与 e1e2_sim.py / catpack.py / board_safe.py 放进同一个目录（冻结点 = 依赖闭包，不是文件清单）；
+[DEPS]         清单见 runs/board_ops/20261102/deps_closure.txt，校验 `python3 ps/tools/deps_closure.py --check --dir <冻结点目录>`。
+[DEPS]   sys.path 前 6 项：['/tmp/t14b/noq8', '/tmp/t14b/noq8', '/usr/lib/python310.zip', '/usr/lib/python3.10', '/usr/lib/python3.10/lib-dynload', '/home/felix/.local/lib/python3.10/site-packages']
+[t] ★ raise RuntimeError
+----------------------------------------------------------------------
+BIN_REQUIRE_KERNELS=1：1/6 个内核没装上 ⇒ 拒绝在 numpy 回落路径上跑
+
+  ✗ q8       state=fallback-numpy
+      用途    ：f32→int8 量化（prologue；缺 ⇒ prologue ×3.69）
+      期望模块：q8.py（+ q8.c，.so 由 cc 现场编）
+      现在解析：<未解析到 —— 不在 sys.path 上>
+      .so     ：/tmp/t14b/noq8/q8_x86_64.so（不存在 ⇒ 首次使用要现场 cc 编译）
+      原因    ：模块不在 sys.path（缺 q8.py）
+
+  期望位置（本模块所在目录，依赖必须在这里闭包内）：
+    /tmp/t14b/noq8
+  /usr/bin/python3 现在的 sys.path 前 8 项：
+    [0] /tmp/t14b/noq8
+    [1] /tmp/t14b/noq8
+    [2] /usr/lib/python310.zip
+    [3] /usr/lib/python3.10
+    [4] /usr/lib/python3.10/lib-dynload
+    [5] /home/felix/.local/lib/python3.10/site-packages
+    [6] /usr/local/lib/python3.10/dist-packages
+    [7] /usr/lib/python3/dist-packages
+
+  修法（任选其一，都别改代码）：
+    ① 把缺的文件整份拷到上面那个目录（冻结点 = 依赖闭包，不是文件清单）：
+       runs/board_ops/20261102/deps_closure.txt 里列了全部 11 个 .py + 4 个 .c；
+    ② 或把包含它们的目录加到 PYTHONPATH / sys.path **前面**；
+    ③ 校验：python3 ps/tools/deps_closure.py --check --dir <冻结点目录>
+  注意：只拷 .py 不够 —— q8/c8deq/bpack/bilinear_c 还要各自的 .c 才编得出 .so。
+----------------------------------------------------------------------

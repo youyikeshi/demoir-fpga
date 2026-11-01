@@ -1,0 +1,60 @@
+[clk] fclk0 读回 = 100 MHz；loadavg=['2.63', '2.58', '2.15']
+[ip ] bin_unit_0 base=0x40060000
+[cp ] probe: 写5→0x5 写0→0x0（0x200 页可写 ⇒ 比特流含 catpack）
+
+===== ① 功能（逐字节 A/B vs quant_pack）=====
+  [阈值] 真实 t_q → adj：min=-0.4375 max=0.6875（长度 544）
+  [功能] 单源 64ch 8x8 真实阈值               cin= 64  8x8  段= 1  差异=0/64  tail=None
+  [功能] 单源 544ch 24x24 真实阈值            cin=544 24x24 段= 1  差异=0/5184  tail=None
+  [功能] 边界值 NaN/±inf/±0/次正规 (5x8)      cin=544  5x8  段= 1  差异=0/360  tail=True
+  [功能] 多源 2 段                         cin=544 24x24 段= 2  差异=0/5184  tail=None
+  [功能] 多源 3 段                         cin=544 24x24 段= 3  差异=0/5184  tail=None
+  [功能] 多源 9 段                         cin=544 24x24 段= 9  差异=0/5184  tail=None
+  [功能] 多源 11 段                        cin=544 24x24 段=11  差异=0/5184  tail=None
+  [护栏] HW 奇数（5x7）⇒ 拒绝（正确）
+  [DBG] catpack 跑完 0x230..0x240 = rd=0 cyc=0 rdst=0 wrst=0 wr=0  ⇒ 本比特流不统计 catpack
+
+===== ② 读带宽（cin=544，单源；4 档规模）=====
+  128 KB     0.14 MB  job=  7.001 ms  PL=  0.724 ms  (median PL   0.756)  带宽 job=  19.9 PL= 192.4 MB/s  125.67 拍/字  [build 1.23 setup 0.54 groups 3.52 inval 0.27 final 0.83 ms]
+  512 KB     0.56 MB  job=  7.975 ms  PL=  1.934 ms  (median PL   1.976)  带宽 job=  69.9 PL= 288.0 MB/s  83.94 拍/字  [build 1.12 setup 0.52 groups 4.67 inval 0.26 final 0.81 ms]
+  1.25 MB    1.25 MB  job= 10.449 ms  PL=  4.302 ms  (median PL   4.364)  带宽 job= 119.9 PL= 291.3 MB/s  82.99 拍/字  [build 1.11 setup 0.52 groups 7.18 inval 0.28 final 0.81 ms]
+  5 MB       5.01 MB  job= 41.514 ms  PL= 35.096 ms  (median PL  35.187)  带宽 job= 120.8 PL= 142.9 MB/s  169.25 拍/字  [build 1.14 setup 0.53 groups 38.13 inval 0.29 final 0.82 ms]
+
+  [拟合] 4 档：t_PL = -2.245 ms + 0.007 ns/KB  ⇒ 稳态 136.4 MB/s
+  [拟合] 后 3 档：t_PL = -3.717 ms + 0.008 ns/KB  ⇒ 稳态 130.0 MB/s
+
+===== ②b 控制变量：cin=544 固定，扫 H*W（线缓存悬崖）=====
+  hw hw=256   0.56 MB  job=  7.855 ms  PL=  1.903 ms  (median PL   1.907)  带宽 job=  70.9 PL= 292.7 MB/s  82.61 拍/字  [build 1.12 setup 0.69 groups 4.53 inval 0.26 final 0.81 ms]
+  hw hw=576   1.25 MB  job= 10.468 ms  PL=  4.332 ms  (median PL   4.376)  带宽 job= 119.7 PL= 289.3 MB/s  83.56 拍/字  [build 1.19 setup 0.53 groups 7.10 inval 0.25 final 0.80 ms]
+  hw hw=1024   2.23 MB  job= 30.937 ms  PL= 24.391 ms  (median PL  24.426)  带宽 job=  72.0 PL=  91.4 MB/s  264.66 拍/字  [build 1.19 setup 0.60 groups 27.49 inval 0.29 final 0.84 ms]
+  hw hw=1536   3.34 MB  job= 41.552 ms  PL= 34.788 ms  (median PL  34.817)  带宽 job=  80.4 PL=  96.1 MB/s  251.65 拍/字  [build 1.39 setup 0.63 groups 38.29 inval 0.29 final 0.91 ms]
+  hw hw=2048   4.46 MB  job= 55.906 ms  PL= 49.364 ms  (median PL  56.984)  带宽 job=  79.7 PL=  90.3 MB/s  267.82 拍/字  [build 1.17 setup 0.53 groups 52.47 inval 0.30 final 0.83 ms]
+  hw hw=2304   5.01 MB  job= 41.837 ms  PL= 35.213 ms  (median PL  37.294)  带宽 job= 119.8 PL= 142.4 MB/s  169.82 拍/字  [build 1.09 setup 0.55 groups 44.37 inval 0.45 final 0.85 ms]
+  hw hw=4096   8.91 MB  job=106.104 ms  PL= 99.112 ms  (median PL 101.197)  带宽 job=  84.0 PL=  89.9 MB/s  268.86 拍/字  [build 1.18 setup 0.55 groups 107.27 inval 0.30 final 0.84 ms]
+  hw hw=16384  35.65 MB  job=384.791 ms  PL=377.816 ms  (median PL 378.788)  带宽 job=  92.7 PL=  94.4 MB/s  256.22 拍/字  [build 1.26 setup 0.55 groups 382.13 inval 0.30 final 0.85 ms]
+
+===== ②c 控制变量：hw=576 固定，扫 cin（规模无关性）=====
+  cin=64     0.15 MB  job=  3.997 ms  PL=  0.403 ms  (median PL   0.439)  带宽 job=  36.9 PL= 365.5 MB/s  70.04 拍/字  [build 0.91 setup 0.50 groups 1.04 inval 0.26 final 0.84 ms]
+  cin=160    0.37 MB  job=  5.168 ms  PL=  1.152 ms  (median PL   1.204)  带宽 job=  71.3 PL= 320.1 MB/s  66.64 拍/字  [build 0.94 setup 0.48 groups 2.21 inval 0.22 final 0.76 ms]
+  cin=288    0.66 MB  job=  7.162 ms  PL=  2.324 ms  (median PL   2.354)  带宽 job=  92.6 PL= 285.5 MB/s  80.70 拍/字  [build 1.13 setup 0.50 groups 3.90 inval 0.27 final 0.80 ms]
+  cin=544    1.25 MB  job= 10.171 ms  PL=  4.191 ms  (median PL   4.263)  带宽 job= 123.2 PL= 299.0 MB/s  80.85 拍/字  [build 1.11 setup 0.51 groups 6.86 inval 0.27 final 0.81 ms]
+
+===== ③ 多源（1.25 MB，544ch，描述符开销）=====
+  多源 1段      1.25 MB  job= 10.527 ms  PL=  4.203 ms  (median PL   4.264)  带宽 job= 119.1 PL= 298.2 MB/s  81.07 拍/字  [build 1.21 setup 0.52 groups 6.88 inval 0.29 final 0.94 ms]
+  多源 3段      1.25 MB  job= 11.128 ms  PL=  4.501 ms  (median PL   4.588)  带宽 job= 112.6 PL= 278.5 MB/s  86.82 拍/字  [build 1.21 setup 0.54 groups 8.01 inval 0.35 final 0.90 ms]
+  多源 9段      1.25 MB  job=  9.994 ms  PL=  3.585 ms  (median PL   3.628)  带宽 job= 125.4 PL= 349.6 MB/s  69.15 拍/字  [build 1.35 setup 0.55 groups 6.31 inval 0.27 final 0.85 ms]
+  多源 11段     1.25 MB  job= 10.252 ms  PL=  3.618 ms  (median PL   3.668)  带宽 job= 122.3 PL= 346.4 MB/s  69.80 拍/字  [build 1.42 setup 0.60 groups 6.53 inval 0.27 final 0.82 ms]
+
+===== ④ PS 对比（concatenate + quant_pack）=====
+  单源 64ch 8x8              concat=  0.093  quant_pack=  0.353  合计=  0.481 ms
+  单源 544ch 24x24           concat=  4.447  quant_pack=  9.605  合计= 13.901 ms
+  单源 544ch 48x48           concat= 16.908  quant_pack= 37.045  合计= 53.606 ms
+  3 段 544ch 24x24          concat=  4.305  quant_pack=  9.522  合计= 13.754 ms
+  9 段 544ch 24x24          concat=  3.965  quant_pack=  9.612  合计= 14.375 ms
+  近似真实层 cin=544 24x24      concat=  4.060  quant_pack=  9.526  合计= 13.819 ms
+  近似真实层 cin=448 24x24      concat=  3.502  quant_pack=  7.936  合计= 11.386 ms
+
+===== ⑤ 单次 f32 槽 flush 成本（1.25 MB）=====
+  flush 1.25 MB: 0.147 ms
+
+[done] /home/xilinx/demoir/catpack.json

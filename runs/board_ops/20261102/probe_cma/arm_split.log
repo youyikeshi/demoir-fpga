@@ -1,0 +1,65 @@
+[boardlock] 取得板级独占 00:19:10  使用者=probe_arm
+[boardlock] 已签发唯一 load 令牌
+### ARM C: 只补 q8（download=True）
+  [q8only] sys.path 前部 = ['/tmp/probe_cma/deps_q8', '/home/xilinx/demoir/ps/pynq_frozen', '/tmp/probe_cma']
+  [q8only] 内核：q8=True c8deq=False bpack=False bilinear_c=True  CmaFree 44.219 MB
+
+==========================================================================
+  步骤 1：加载 overlay（本 session 唯一一次真正的 download）
+==========================================================================
+  Overlay(/home/xilinx/demoir/design_1_150v39.bit, download=True) 用时 1.761 s
+
+==========================================================================
+  步骤 2：地址核对（从**已加载的** overlay 实测）
+==========================================================================
+  conv_uni_0   mmio.base_addr = 0x40040000  length = 0x20000  （期望 0x40040000）  ✓
+  bin_unit_0   mmio.base_addr = 0x40060000  length = 0x20000  （期望 0x40060000）  ✓
+  overlay 里的 IP 清单：['bin_unit_0', 'conv_uni_0', 'ps7']
+
+==========================================================================
+  步骤 3：时钟读回 + 复位指纹
+==========================================================================
+  Clocks.fclk0_mhz 目标 150 → **读回 = 150**  ✓
+  复位指纹：alpha_shift=9 slope_shift=8 （期望 9 / 8）
+  AP_CTRL=0x00000000 AP_RETURN=0x00000000 DBG_FLAG=0x00000000
+  保留页 ResvPage[0x18] = 0x0 （期望 0）
+  引擎认到的 IP=bin_unit_0 base=0x40060000 range=0x20000
+  arena arm_arena_256  66.22 MB（24 槽 × (in 1.18 + out 1.57 MB)）@0x30100000
+  [q8only] arena 66.22 MB @0x30100000  CmaFree 0.41 MB
+  [LAZY_DEQ] IN/OUT 槽数 = 24（BIN_LAZY_SLOTS）
+  [q8only] q8only1 总 12.012  PL 2.767 | pro 5.895 + epi 1.194 + 非卷积 2.146 | ovl 1.196 wait 1.549 | interp 0.298 | OK
+  [LAZY_DEQ] IN/OUT 槽数 = 24（BIN_LAZY_SLOTS）
+  [q8only] q8only2 总 8.243  PL 2.722 | pro 2.376 + epi 1.185 + 非卷积 1.961 | ovl 1.159 wait 1.540 | interp 0.264 | OK
+  [q8only] best total 8.243  pro 2.376  epi 1.185 ⇒ /tmp/probe_cma/probe_arm_q8.json
+### ARM D: 只补 c8deq
+  [c8deqonly] sys.path 前部 = ['/tmp/probe_cma/deps_c8deq', '/home/xilinx/demoir/ps/pynq_frozen', '/tmp/probe_cma']
+  [c8deqonly] 内核：q8=False c8deq=True bpack=False bilinear_c=True  CmaFree 44.426 MB
+
+==========================================================================
+  步骤 1：加载 overlay（本 session 唯一一次真正的 download）
+==========================================================================
+  Overlay(/home/xilinx/demoir/design_1_150v39.bit, download=False) 用时 1.386 s
+
+==========================================================================
+  步骤 2：地址核对（从**已加载的** overlay 实测）
+==========================================================================
+  conv_uni_0   mmio.base_addr = 0x40040000  length = 0x20000  （期望 0x40040000）  ✓
+  bin_unit_0   mmio.base_addr = 0x40060000  length = 0x20000  （期望 0x40060000）  ✓
+  overlay 里的 IP 清单：['bin_unit_0', 'conv_uni_0', 'ps7']
+
+==========================================================================
+  步骤 3：时钟读回 + 复位指纹
+==========================================================================
+  Clocks.fclk0_mhz 目标 150 → **读回 = 150**  ✓
+  复位指纹：alpha_shift=9 slope_shift=8 （期望 9 / 8）
+  AP_CTRL=0x00000000 AP_RETURN=0x00000001 DBG_FLAG=0x00000000
+  保留页 ResvPage[0x18] = 0x0 （期望 0）
+  引擎认到的 IP=bin_unit_0 base=0x40060000 range=0x20000
+  arena arm_arena_256  66.22 MB（24 槽 × (in 1.18 + out 1.57 MB)）@0x30100000
+  [c8deqonly] arena 66.22 MB @0x30100000  CmaFree 0.406 MB
+  [LAZY_DEQ] IN/OUT 槽数 = 24（BIN_LAZY_SLOTS）
+  [c8deqonly] c8deqonly1 总 12.248  PL 3.108 | pro 5.815 + epi 1.640 + 非卷积 2.102 | ovl 1.645 wait 1.983 | interp 0.286 | OK
+  [LAZY_DEQ] IN/OUT 槽数 = 24（BIN_LAZY_SLOTS）
+  [c8deqonly] c8deqonly2 总 10.746  PL 3.106 | pro 5.877 + epi 0.255 + 非卷积 1.976 | ovl 1.648 wait 0.597 | interp 0.261 | OK
+  [c8deqonly] best total 10.746  pro 5.815  epi 0.255 ⇒ /tmp/probe_cma/probe_arm_c8deq.json
+[boardlock] 释放板级锁 00:20:27  rc=0

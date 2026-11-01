@@ -1,0 +1,45 @@
+# deps_closure.txt —— 冻结点的**依赖闭包**（不是手挑的文件清单）
+#
+# 背景（2026-11-02 事故）：`frozen_code/` 只挑了 7 个 .py，漏了 q8/c8deq/bpack 三个
+# C/NEON 内核模块。`bin_engine` 对它们**静默回落**到 numpy 慢路径 ⇒
+# prologue 5.948→1.611 s（×3.69）、epilogue 1.189→0.258 s（×4.61）、total 11.752→6.497 s。
+# 也就是说：代码字节没变，**依赖缺了**，跑出了 1.65× 的假数字。
+#
+# 用法（放/拷到冻结点目录后，在**冻结点目录内**执行）：
+#     cd runs/board_ops/<日期>/frozen_code/ && md5sum -c deps_closure.txt   # rc 必须 0
+# 说明：`#` 开头为注释，GNU md5sum -c 会警告"格式不正确"但 **rc 仍为 0**（已实测）。
+# 若 rc≠0（当前状态就是 6 个文件 MISSING）⇒ **不许上板、不许记跑点**。
+#
+# ── 一级（热路径，缺了会静默变慢，落在 prologue/epilogue）────────────────────
+# q8    : prologue 的「量化 + C8 转置」一趟写完（NEON）；缺 ⇒ 按字节散写非缓存缓冲
+# c8deq : epilogue 的「C8 → f32」一趟 burst；缺 ⇒ numpy 跨步视图（实测 5.45 s vs 0.97 s）
+# bpack : f32 → uint64 二值化打包；缺 ⇒ numpy 回退（prologue 小头 0.46 s）
+e794a43dcb8ce314f323a9b07c4274a6  q8.py
+c744794c2dafc032ddc4dde3c05adb5b  q8.c
+af33f47fbffe3751e360c77038afea3c  c8deq.py
+5019fab0f07720b0954d0b773c3d5523  c8deq.c
+63d6a9368827d36f81f64bc5f62c864b  bpack.py
+2a8e6c553cb3dec95460223fa800a0f6  bpack.c
+#
+# ── 二级（冷路径，今天的跑法未触发；缺了是埋雷，不是本次偏差来源）─────────────
+# e1e2_sim  : bin_engine.pack_segments / write_int8 里的 to_c8_padded
+# catpack   : BinConvEngine.enable_catpack() 的 CatPackEngine（R_RUN_UNIT=5 后端，默认不挂）
+# board_safe: 可选看门狗（try/except 包着，缺了静默无看门狗）
+# 注意：以下 md5 取自**主机工作树** `pynq_specialized_code/ps/pynq/`，
+#       板端同名文件未逐一核对（今天不需要它们就拿到了判据）。
+2c4a6180fb74f88abb5e13b8e641b489  e1e2_sim.py
+30149d936c9eea6cd510b200d1cd6d5c  catpack.py
+d4d62fd06f74c963b643cec59566bf54  board_safe.py
+#
+# ── .so 的决策来源：**不随包传**，板端 cc 现场编译 ──────────────────────────
+# q8.py/c8deq.py/bpack.py 各自 `_build()`：`cc -O3 -std=c99 -fPIC -shared -mfpu=neon
+# -mfloat-abi=hard` → `<mod>_armv7l.so`（编在模块自己的目录里）。
+# ⇒ 所以冻结点**必须同时带 .py 和 .c**；只带 .py 会编不出来（缺 .c），只带 .so
+#    会跨架构失效。编译后必须记录 **.so 的 md5 + cc 版本 + built_now 清单**。
+#
+# ── 判据（比 md5 更硬的两条，写进跑点门禁）────────────────────────────────
+# 1) 每个模块必须解析到冻结点目录**内部**：
+#      importlib.util.find_spec(m).origin.startswith(FROZEN_DIR + "/")
+#    —— 防止又一次"其实 import 到了 ps/pynq 的"假通过。
+# 2) 三个惰性内核必须**真的装上**（不是"能 import"）：
+#      bin_engine._q8() and bin_engine._deq_kernel() and bin_engine._bpack()

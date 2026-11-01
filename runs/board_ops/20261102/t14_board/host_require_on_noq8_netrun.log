@@ -1,0 +1,61 @@
+== 算子能力矩阵 ==
+  算子               PL 单元             PS 实现                                   结论
+  bin_conv (XNOR)  bin_conv_core     bin_ref_numpy.conv_rtl                  PL 主力。当前 BD 的 bin_unit_0；4 个实例时按 bin_unit_<id> 取
+  binarize+pack    **无 RTL**         bin_ref_numpy.binarize_pack             必须 PS。每层 x_q+t_q>0 → 64 通道 1 bit（RTL 里没有这个单元）
+  RPReLU           bin_rprelu        bin_ref_numpy.rprelu_int8               本网**不需要**：227/227 层的 RPReLU 已融进 conv 的收尾流水
+  SAM 三分支加权        bin_sam           bin_ref_numpy.sam_int8（已验证）             本版走 PS 浮点；要上 PL 得先写驱动，且 BD 里没有 bin_sam 实例
+  bilinear 插值      bin_interp        bin_ref_numpy.bilinear_int8（已验证）        同上：26 次插值本版走 PS 浮点，PL 实例/驱动都没有
+  pixel_shuffle    **无 RTL**         bin_ref_numpy.pixel_shuffle             必须 PS
+  pixel_unshuffle  **无 RTL**         bin_ref_numpy.pixel_unshuffle           必须 PS
+  ECA 通道注意力        **无 RTL**         本文件 eca_attn()（float32）                 必须 PS。输出是 sigmoid 的浮点权重，要上 PL 还得先定 int16 Q1.14 量化
+  fp 卷积 ×4         无                 本文件 conv2d_f32() (numpy)                conv_first + decoder_{1,2,3}.conv，权重在 fp_layers/*.f32.bin
+  add / cat        无                 numpy                                   必须 PS
+
+== 调度表：482 个 op（227 个二值卷积 / 4 个全精度卷积 / 26 次插值）==
+  种类：add=6  cat=206  conv=227  convfp=4  eca=6  interp=26  sam=6  unshuffle=1
+  ✓ 形状断言：227 层全部对上容器里的 cin/cout（227 个二值卷积，16 个 fp 张量）
+  PL 卷积总拍数 = 28,605,312（≈ 190.70 ms @150 MHz）
+
+跑整网：输入 (3,64,64)，后端 = 参考实现 conv_rtl
+[DEPS] q8=fallback-numpy c8deq=fast bpack=fast e1e2=fast catpack=fast safe=fast  ⇒ deps_closure_ok=False
+[DEPS] ⚠ 依赖闭包不完整：这一跑跑的不是快路径，**数字不可当基线**
+[DEPS]   ✗ q8       fallback-numpy f32→int8 量化（prologue；缺 ⇒ prologue ×3.69）
+[DEPS]             原因：模块不在 sys.path（缺 q8.py）
+[DEPS]   修法：把 ps/pynq/{q8,c8deq,bpack}.{py,c} 与 e1e2_sim.py / catpack.py / board_safe.py 放进同一个目录（冻结点 = 依赖闭包，不是文件清单）；
+[DEPS]         清单见 runs/board_ops/20261102/deps_closure.txt，校验 `python3 ps/tools/deps_closure.py --check --dir <冻结点目录>`。
+[DEPS]   sys.path 前 6 项：['/tmp/t14b/noq8', '/usr/lib/python310.zip', '/usr/lib/python3.10', '/usr/lib/python3.10/lib-dynload', '/home/felix/.local/lib/python3.10/site-packages', '/usr/local/lib/python3.10/dist-packages']
+Traceback (most recent call last):
+  File "/tmp/t14b/noq8/bin_net.py", line 2320, in <module>
+    sys.exit(main())
+  File "/tmp/t14b/noq8/bin_net.py", line 2185, in main
+    outs, st = net.run(x0, pipeline=not a.no_pipeline, nbuf=a.nbuf,
+  File "/tmp/t14b/noq8/bin_net.py", line 1680, in run
+    BE.report_deps()
+  File "/tmp/t14b/noq8/bin_engine.py", line 3980, in report_deps
+    raise deps_require_error(d)
+RuntimeError: BIN_REQUIRE_KERNELS=1：1/6 个内核没装上 ⇒ 拒绝在 numpy 回落路径上跑
+
+  ✗ q8       state=fallback-numpy
+      用途    ：f32→int8 量化（prologue；缺 ⇒ prologue ×3.69）
+      期望模块：q8.py（+ q8.c，.so 由 cc 现场编）
+      现在解析：<未解析到 —— 不在 sys.path 上>
+      .so     ：/tmp/t14b/noq8/q8_x86_64.so（不存在 ⇒ 首次使用要现场 cc 编译）
+      原因    ：模块不在 sys.path（缺 q8.py）
+
+  期望位置（本模块所在目录，依赖必须在这里闭包内）：
+    /tmp/t14b/noq8
+  /usr/bin/python3 现在的 sys.path 前 8 项：
+    [0] /tmp/t14b/noq8
+    [1] /usr/lib/python310.zip
+    [2] /usr/lib/python3.10
+    [3] /usr/lib/python3.10/lib-dynload
+    [4] /home/felix/.local/lib/python3.10/site-packages
+    [5] /usr/local/lib/python3.10/dist-packages
+    [6] /usr/lib/python3/dist-packages
+
+  修法（任选其一，都别改代码）：
+    ① 把缺的文件整份拷到上面那个目录（冻结点 = 依赖闭包，不是文件清单）：
+       runs/board_ops/20261102/deps_closure.txt 里列了全部 11 个 .py + 4 个 .c；
+    ② 或把包含它们的目录加到 PYTHONPATH / sys.path **前面**；
+    ③ 校验：python3 ps/tools/deps_closure.py --check --dir <冻结点目录>
+  注意：只拷 .py 不够 —— q8/c8deq/bpack/bilinear_c 还要各自的 .c 才编得出 .so。

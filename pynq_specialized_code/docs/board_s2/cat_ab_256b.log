@@ -1,0 +1,109 @@
+== board_cat_fusion_ab：S2 BIN_CAT_FUSION A/B（hw=256，fclk=100，不下载比特流）==
+  PL 已接管（download=False），fclk0 读回 = 100 MHz
+  E1E2 probe：R_RUN_UNIT 写 4 读 4 / 写 0 读 0 通过
+  IN/OUT arena：66.22 MB（24 槽 × (in 1.18 + out 1.57 MB)）@0x30100000
+  输入 (3,256,256) seed=1 sha1=cfc75bc3f15d306b
+  ── off      cf=0 ──
+     总 13.604 s（墙钟 13.604） PL 3.461 | PS 12.099 = prologue 5.552 + epilogue 1.298 + 非卷积 5.249 | overlap 2.791 wait 1.335
+     cat 桶 1.674 s | 非卷积分项 {"unshuffle": 0.0051, "convfp": 1.2166, "cat": 1.6737, "add": 0.0662, "interp": 1.9481, "eca": 0.0782, "sam": 0.2465, "shuffle": 0.0143}
+     cat 分类：ops {'i8': 60, 'mixed1': 42, 'mixed2': 8, 'blocked': 6} | cat_s {'i8': 0.003, 'mixed1': 0.002, 'mixed2': 0.0, 'blocked': 0.0} | pack_s {'i8': 0.678, 'mixed1': 1.701, 'mixed2': 1.213, 'blocked': 0.0, 'single_i8': 0.0, 'single_f32': 1.448}
+     cat_s+pack_s（按类）{'i8': 0.682, 'mixed1': 1.703, 'mixed2': 1.213, 'blocked': 0.0} | 可融合合计 3.598 s
+     口径：PL+PS 桶和 15.560（重叠 2.791、wait 1.335）⇒ 桶和-重叠+wait 14.104 vs 总 13.604（差 -0.500）
+     融合 0 / 回落 0（{}）
+     sha1 9b1940c8955b  OK
+  ── off      cf=0 ──
+     总 12.220 s（墙钟 12.220） PL 3.319 | PS 10.753 = prologue 4.768 + epilogue 0.976 + 非卷积 5.009 | overlap 2.650 wait 1.003
+     cat 桶 1.534 s | 非卷积分项 {"unshuffle": 0.0048, "convfp": 1.1595, "cat": 1.534, "add": 0.0652, "interp": 1.9105, "eca": 0.0796, "sam": 0.2414, "shuffle": 0.0144}
+     cat 分类：ops {'i8': 60, 'mixed1': 42, 'mixed2': 8, 'blocked': 6} | cat_s {'i8': 0.003, 'mixed1': 0.002, 'mixed2': 0.0, 'blocked': 0.0} | pack_s {'i8': 0.674, 'mixed1': 1.658, 'mixed2': 1.247, 'blocked': 0.0, 'single_i8': 0.0, 'single_f32': 0.689}
+     cat_s+pack_s（按类）{'i8': 0.677, 'mixed1': 1.66, 'mixed2': 1.248, 'blocked': 0.0} | 可融合合计 3.586 s
+     口径：PL+PS 桶和 14.071（重叠 2.650、wait 1.003）⇒ 桶和-重叠+wait 12.424 vs 总 12.220（差 -0.204）
+     融合 0 / 回落 0（{}）
+     sha1 9b1940c8955b  OK
+  ── e1e2     cf=0 ──
+     总 12.850 s（墙钟 12.852） PL 4.551 | PS 10.805 = prologue 4.415 + epilogue 0.273 + 非卷积 6.117 | overlap 3.678 wait 0.783
+     cat 桶 2.625 s | 非卷积分项 {"unshuffle": 0.0053, "convfp": 1.1543, "cat": 2.6245, "add": 0.064, "interp": 1.9298, "eca": 0.0799, "sam": 0.2443, "shuffle": 0.0145}
+     cat 分类：ops {'i8': 60, 'mixed1': 42, 'mixed2': 8, 'blocked': 6} | cat_s {'i8': 0.003, 'mixed1': 0.002, 'mixed2': 0.0, 'blocked': 0.0} | pack_s {'i8': 0.665, 'mixed1': 1.655, 'mixed2': 1.21, 'blocked': 0.0, 'single_i8': 0.173, 'single_f32': 0.255}
+     cat_s+pack_s（按类）{'i8': 0.669, 'mixed1': 1.657, 'mixed2': 1.211, 'blocked': 0.0} | 可融合合计 3.536 s
+     口径：PL+PS 桶和 15.356（重叠 3.678、wait 0.783）⇒ 桶和-重叠+wait 12.461 vs 总 12.850（差 +0.389）
+     融合 0 / 回落 0（{}）
+     sha1 9b1940c8955b  OK
+  ── e1e2     cf=0 ──
+     总 12.563 s（墙钟 12.564） PL 4.383 | PS 10.522 = prologue 4.357 + epilogue 0.271 + 非卷积 5.894 | overlap 3.510 wait 0.785
+     cat 桶 2.409 s | 非卷积分项 {"unshuffle": 0.0053, "convfp": 1.1594, "cat": 2.4092, "add": 0.0671, "interp": 1.9133, "eca": 0.0801, "sam": 0.2458, "shuffle": 0.0144}
+     cat 分类：ops {'i8': 60, 'mixed1': 42, 'mixed2': 8, 'blocked': 6} | cat_s {'i8': 0.003, 'mixed1': 0.002, 'mixed2': 0.0, 'blocked': 0.0} | pack_s {'i8': 0.666, 'mixed1': 1.656, 'mixed2': 1.211, 'blocked': 0.0, 'single_i8': 0.111, 'single_f32': 0.256}
+     cat_s+pack_s（按类）{'i8': 0.669, 'mixed1': 1.658, 'mixed2': 1.211, 'blocked': 0.0} | 可融合合计 3.538 s
+     口径：PL+PS 桶和 14.905（重叠 3.510、wait 0.785）⇒ 桶和-重叠+wait 12.180 vs 总 12.563（差 +0.382）
+     融合 0 / 回落 0（{}）
+     sha1 9b1940c8955b  OK
+  ── e1e2     cf=1 ──
+     总 8.762 s（墙钟 8.762） PL 3.591 | PS 5.712 = prologue 1.822 + epilogue 0.251 + 非卷积 3.639 | overlap 1.695 wait 0.873
+     cat 桶 0.127 s | 非卷积分项 {"unshuffle": 0.0047, "convfp": 1.178, "cat": 0.1273, "add": 0.0632, "interp": 1.9319, "eca": 0.0812, "sam": 0.2383, "shuffle": 0.0143}
+     cat 分类：ops {'i8': 60, 'mixed1': 42, 'mixed2': 8, 'blocked': 6} | cat_s {'i8': 0.014, 'mixed1': 0.009, 'mixed2': 0.002, 'blocked': 0.001} | pack_s {'i8': 0.22, 'mixed1': 0.635, 'mixed2': 0.178, 'blocked': 0.0, 'single_i8': 0.064, 'single_f32': 0.257}
+     cat_s+pack_s（按类）{'i8': 0.234, 'mixed1': 0.644, 'mixed2': 0.18, 'blocked': 0.001} | 可融合合计 1.058 s
+     口径：PL+PS 桶和 9.303（重叠 1.695、wait 0.873）⇒ 桶和-重叠+wait 8.481 vs 总 8.762（差 +0.281）
+     融合 110 / 回落 6（{'needs_f32': 6}）
+     sha1 9b1940c8955b  OK
+  ── e1e2     cf=1 ──
+     总 8.472 s（墙钟 8.473） PL 3.557 | PS 5.442 = prologue 1.585 + epilogue 0.249 + 非卷积 3.608 | overlap 1.679 wait 0.861
+     cat 桶 0.130 s | 非卷积分项 {"unshuffle": 0.0053, "convfp": 1.182, "cat": 0.1296, "add": 0.064, "interp": 1.897, "eca": 0.0788, "sam": 0.2364, "shuffle": 0.0144}
+     cat 分类：ops {'i8': 60, 'mixed1': 42, 'mixed2': 8, 'blocked': 6} | cat_s {'i8': 0.014, 'mixed1': 0.009, 'mixed2': 0.002, 'blocked': 0.001} | pack_s {'i8': 0.219, 'mixed1': 0.411, 'mixed2': 0.173, 'blocked': 0.0, 'single_i8': 0.064, 'single_f32': 0.255}
+     cat_s+pack_s（按类）{'i8': 0.233, 'mixed1': 0.42, 'mixed2': 0.174, 'blocked': 0.001} | 可融合合计 0.827 s
+     口径：PL+PS 桶和 8.999（重叠 1.679、wait 0.861）⇒ 桶和-重叠+wait 8.181 vs 总 8.472（差 +0.291）
+     融合 110 / 回落 6（{'needs_f32': 6}）
+     sha1 9b1940c8955b  OK
+  ── e1e2     cf=1+qc ──
+     总 8.700 s（墙钟 8.701） PL 3.503 | PS 5.595 = prologue 1.735 + epilogue 0.250 + 非卷积 3.610 | overlap 1.605 wait 0.870
+     cat 桶 0.125 s | 非卷积分项 {"unshuffle": 0.0047, "convfp": 1.1823, "cat": 0.1253, "add": 0.0641, "interp": 1.9008, "eca": 0.0795, "sam": 0.2385, "shuffle": 0.0143}
+     cat 分类：ops {'i8': 60, 'mixed1': 42, 'mixed2': 8, 'blocked': 6} | cat_s {'i8': 0.012, 'mixed1': 0.008, 'mixed2': 0.001, 'blocked': 0.0} | pack_s {'i8': 0.185, 'mixed1': 0.628, 'mixed2': 0.132, 'blocked': 0.0, 'single_i8': 0.064, 'single_f32': 0.256}
+     cat_s+pack_s（按类）{'i8': 0.197, 'mixed1': 0.636, 'mixed2': 0.134, 'blocked': 0.0} | 可融合合计 0.967 s
+     口径：PL+PS 桶和 9.098（重叠 1.605、wait 0.870）⇒ 桶和-重叠+wait 8.363 vs 总 8.700（差 +0.337）
+     融合 110 / 回落 6（{'needs_f32': 6}）
+     sha1 9b1940c8955b  OK
+  ── e1e2     cf=1+qc ──
+     总 8.457 s（墙钟 8.457） PL 3.500 | PS 5.399 = prologue 1.533 + epilogue 0.249 + 非卷积 3.617 | overlap 1.610 wait 0.874
+     cat 桶 0.124 s | 非卷积分项 {"unshuffle": 0.0052, "convfp": 1.1721, "cat": 0.1244, "add": 0.0636, "interp": 1.9127, "eca": 0.0837, "sam": 0.241, "shuffle": 0.0143}
+     cat 分类：ops {'i8': 60, 'mixed1': 42, 'mixed2': 8, 'blocked': 6} | cat_s {'i8': 0.012, 'mixed1': 0.007, 'mixed2': 0.001, 'blocked': 0.001} | pack_s {'i8': 0.189, 'mixed1': 0.431, 'mixed2': 0.132, 'blocked': 0.0, 'single_i8': 0.064, 'single_f32': 0.255}
+     cat_s+pack_s（按类）{'i8': 0.201, 'mixed1': 0.438, 'mixed2': 0.133, 'blocked': 0.001} | 可融合合计 0.773 s
+     口径：PL+PS 桶和 8.899（重叠 1.610、wait 0.874）⇒ 桶和-重叠+wait 8.163 vs 总 8.457（差 +0.294）
+     融合 110 / 回落 6（{'needs_f32': 6}）
+     sha1 9b1940c8955b  OK
+  ── e1e2     cf=1+c8:padded ──
+     总 8.584 s（墙钟 8.585） PL 3.596 | PS 5.538 = prologue 1.606 + epilogue 0.250 + 非卷积 3.682 | overlap 1.718 wait 0.849
+     cat 桶 0.126 s | 非卷积分项 {"unshuffle": 0.0053, "convfp": 1.1847, "cat": 0.1256, "add": 0.0653, "interp": 1.9638, "eca": 0.0809, "sam": 0.2421, "shuffle": 0.0144}
+     cat 分类：ops {'i8': 60, 'mixed1': 42, 'mixed2': 8, 'blocked': 6} | cat_s {'i8': 0.012, 'mixed1': 0.008, 'mixed2': 0.001, 'blocked': 0.0} | pack_s {'i8': 0.22, 'mixed1': 0.421, 'mixed2': 0.172, 'blocked': 0.0, 'single_i8': 0.064, 'single_f32': 0.258}
+     cat_s+pack_s（按类）{'i8': 0.232, 'mixed1': 0.429, 'mixed2': 0.173, 'blocked': 0.0} | 可融合合计 0.834 s
+     口径：PL+PS 桶和 9.134（重叠 1.718、wait 0.849）⇒ 桶和-重叠+wait 8.265 vs 总 8.584（差 +0.319）
+     融合 110 / 回落 6（{'needs_f32': 6}）
+     sha1 9b1940c8955b  OK
+  ── e1e2     cf=1+c8:padded ──
+     总 8.595 s（墙钟 8.596） PL 3.606 | PS 5.518 = prologue 1.593 + epilogue 0.248 + 非卷积 3.677 | overlap 1.719 wait 0.876
+     cat 桶 0.125 s | 非卷积分项 {"unshuffle": 0.0051, "convfp": 1.1821, "cat": 0.1252, "add": 0.0664, "interp": 1.961, "eca": 0.0815, "sam": 0.241, "shuffle": 0.0144}
+     cat 分类：ops {'i8': 60, 'mixed1': 42, 'mixed2': 8, 'blocked': 6} | cat_s {'i8': 0.012, 'mixed1': 0.007, 'mixed2': 0.001, 'blocked': 0.0} | pack_s {'i8': 0.218, 'mixed1': 0.412, 'mixed2': 0.18, 'blocked': 0.0, 'single_i8': 0.062, 'single_f32': 0.258}
+     cat_s+pack_s（按类）{'i8': 0.23, 'mixed1': 0.419, 'mixed2': 0.181, 'blocked': 0.0} | 可融合合计 0.831 s
+     口径：PL+PS 桶和 9.124（重叠 1.719、wait 0.876）⇒ 桶和-重叠+wait 8.281 vs 总 8.595（差 +0.314）
+     融合 110 / 回落 6（{'needs_f32': 6}）
+     sha1 9b1940c8955b  OK
+  ── e1e2     cf=1+strict ──
+     总 12.728 s（墙钟 12.730） PL 4.545 | PS 10.548 = prologue 4.355 + epilogue 0.265 + 非卷积 5.928 | overlap 3.524 wait 0.931
+     cat 桶 2.413 s | 非卷积分项 {"unshuffle": 0.0053, "convfp": 1.1675, "cat": 2.4131, "add": 0.0624, "interp": 1.938, "eca": 0.0812, "sam": 0.2462, "shuffle": 0.0143}
+     cat 分类：ops {'i8': 60, 'mixed1': 42, 'mixed2': 8, 'blocked': 6} | cat_s {'i8': 0.007, 'mixed1': 0.005, 'mixed2': 0.001, 'blocked': 0.0} | pack_s {'i8': 0.668, 'mixed1': 1.664, 'mixed2': 1.21, 'blocked': 0.0, 'single_i8': 0.108, 'single_f32': 0.255}
+     cat_s+pack_s（按类）{'i8': 0.675, 'mixed1': 1.669, 'mixed2': 1.211, 'blocked': 0.0} | 可融合合计 3.554 s
+     口径：PL+PS 桶和 15.093（重叠 3.524、wait 0.931）⇒ 桶和-重叠+wait 12.501 vs 总 12.728（差 +0.227）
+     融合 0 / 回落 116（{'strict_f32': 110, 'needs_f32': 6}）
+     sha1 9b1940c8955b  OK
+  ── e1e2     cf=1+strict ──
+     总 12.592 s（墙钟 12.594） PL 4.396 | PS 10.558 = prologue 4.353 + epilogue 0.264 + 非卷积 5.941 | overlap 3.524 wait 0.777
+     cat 桶 2.405 s | 非卷积分项 {"unshuffle": 0.0047, "convfp": 1.1652, "cat": 2.4052, "add": 0.0639, "interp": 1.9577, "eca": 0.0813, "sam": 0.2483, "shuffle": 0.0145}
+     cat 分类：ops {'i8': 60, 'mixed1': 42, 'mixed2': 8, 'blocked': 6} | cat_s {'i8': 0.007, 'mixed1': 0.005, 'mixed2': 0.001, 'blocked': 0.0} | pack_s {'i8': 0.667, 'mixed1': 1.664, 'mixed2': 1.207, 'blocked': 0.0, 'single_i8': 0.108, 'single_f32': 0.255}
+     cat_s+pack_s（按类）{'i8': 0.674, 'mixed1': 1.669, 'mixed2': 1.208, 'blocked': 0.0} | 可融合合计 3.552 s
+     口径：PL+PS 桶和 14.954（重叠 3.524、wait 0.777）⇒ 桶和-重叠+wait 12.207 vs 总 12.592（差 +0.386）
+     融合 0 / 回落 116（{'strict_f32': 110, 'needs_f32': 6}）
+     sha1 9b1940c8955b  OK
+
+== 汇总（hw=256，每档取 min of 2 轮）==
+  off      cf=0          总  12.220  PL+PS  14.071  PL 3.319  prologue   4.768  epilogue 0.976  非卷积 5.009  cat  1.534  cat+pack  3.586  融合   0/回落 0  sha1 OK
+  e1e2     cf=0          总  12.563  PL+PS  14.905  PL 4.383  prologue   4.357  epilogue 0.271  非卷积 5.894  cat  2.409  cat+pack  3.538  融合   0/回落 0  sha1 OK
+  e1e2     cf=1          总   8.472  PL+PS   8.999  PL 3.557  prologue   1.585  epilogue 0.249  非卷积 3.608  cat  0.130  cat+pack  0.827  融合 110/回落 6  sha1 OK
+  e1e2     cf=1+qc       总   8.457  PL+PS   8.899  PL 3.500  prologue   1.533  epilogue 0.249  非卷积 3.617  cat  0.124  cat+pack  0.773  融合 110/回落 6  sha1 OK
+  e1e2     cf=1+c8:padded 总   8.584  PL+PS   9.134  PL 3.596  prologue   1.606  epilogue 0.250  非卷积 3.682  cat  0.126  cat+pack  0.834  融合 110/回落 6  sha1 OK
+  e1e2     cf=1+strict   总  12.592  PL+PS  14.954  PL 4.396  prologue   4.353  epilogue 0.264  非卷积 5.941  cat  2.405  cat+pack  3.552  融合   0/回落 116  sha1 OK

@@ -1,0 +1,210 @@
+[boardlock] 取得板级独占 00:50:22  使用者=t14deps
+[boardlock] 已签发唯一 load 令牌
+==============================================================================
+  T-14 ④ 板端验证：依赖闭包可见性 + 256² numpy/C 两臂
+  时间 2025-05-08 12:12:29
+==============================================================================
+
+[1] 环境身份
+    platform.machine() = armv7l
+    platform.platform()= Linux-6.12.40-xilinx-g31626ef92ff1-armv7l-with-glibc2.35
+    python  = 3.10.4
+    numpy   = 1.21.5
+    pynq    = 3.1.0（/usr/local/share/pynq-venv/lib/python3.10/site-packages/pynq）
+    BIN_PROFILE=None  BIN_BILINEAR_C=None  BIN_REQUIRE_KERNELS=None
+    cwd = /home/xilinx/demoir/ps/pynq_deps_t14
+    闭包目录 T14_CLOSURE = /home/xilinx/demoir/ps/pynq_deps_t14
+    解释器 sys.executable = /usr/local/share/pynq-venv/bin/python3
+
+[2] 闭包落点（find_spec().origin 必须都在 /home/xilinx/demoir/ps/pynq_deps_t14 内）
+    bin_net        ✓  /home/xilinx/demoir/ps/pynq_deps_t14/bin_net.py
+    bin_engine     ✓  /home/xilinx/demoir/ps/pynq_deps_t14/bin_engine.py
+    bin_ref_numpy  ✓  /home/xilinx/demoir/ps/pynq_deps_t14/bin_ref_numpy.py
+    qcache         ✓  /home/xilinx/demoir/ps/pynq_deps_t14/qcache.py
+    board_safe     ✓  /home/xilinx/demoir/ps/pynq_deps_t14/board_safe.py
+    catpack        ✓  /home/xilinx/demoir/ps/pynq_deps_t14/catpack.py
+    e1e2_sim       ✓  /home/xilinx/demoir/ps/pynq_deps_t14/e1e2_sim.py
+    bpack          ✓  /home/xilinx/demoir/ps/pynq_deps_t14/bpack.py
+    c8deq          ✓  /home/xilinx/demoir/ps/pynq_deps_t14/c8deq.py
+    q8             ✓  /home/xilinx/demoir/ps/pynq_deps_t14/q8.py
+    bilinear_c     ✓  /home/xilinx/demoir/ps/pynq_deps_t14/bilinear_c.py
+    全部落在闭包内 = ✓
+
+[3] [DEPS]（跑前 = 零副作用预测；跑后由 dump 覆盖为实测权威）
+[DEPS] q8=fast c8deq=fast bpack=fast e1e2=fast catpack=fast safe=fast  ⇒ deps_closure_ok=True
+    sys.path 前 6 项 = ['/home/xilinx/demoir/ps/pynq_deps_t14', '/home/xilinx/demoir/ps/pynq_deps_t14/drv', '/home/xilinx/demoir/ps/pynq_deps_t14/drv', '/usr/lib/python310.zip', '/usr/lib/python3.10', '/usr/lib/python3.10/lib-dynload']
+
+[4] 15 个闭包文件 md5（跑前）
+    bin_net.py       348ec97cbcbac45a308a63b4005ada4f
+    bin_engine.py    fa50018dff72c6bc8aa146d27b5ffbb7
+    bin_ref_numpy.py a19ba76c56df56f517c8640a62eb6051
+    qcache.py        4157ba3d7e35b8514d71eef29f0ee6a5
+    board_safe.py    d4d62fd06f74c963b643cec59566bf54
+    catpack.py       30149d936c9eea6cd510b200d1cd6d5c
+    e1e2_sim.py      2c4a6180fb74f88abb5e13b8e641b489
+    bpack.py         63d6a9368827d36f81f64bc5f62c864b
+    bpack.c          2a8e6c553cb3dec95460223fa800a0f6
+    c8deq.py         af33f47fbffe3751e360c77038afea3c
+    c8deq.c          5019fab0f07720b0954d0b773c3d5523
+    q8.py            e794a43dcb8ce314f323a9b07c4274a6
+    q8.c             c744794c2dafc032ddc4dde3c05adb5b
+    bilinear_c.py    cd43b1d6c26908e94d8b1a2aeab169b6
+    bilinear_c.c     1cd97282ee30a092425602c0d09ef7c1
+
+    运行点：bit_md5=602725b86941864eeeeab3be005e1e81  fclk=150.0  slots=24
+    deps_closure_ok(probe) = True
+
+==========================================================================
+  步骤 1：加载 overlay（本 session 唯一一次真正的 download）
+==========================================================================
+  Overlay(/home/xilinx/demoir/design_1_150v39.bit, download=True) 用时 1.572 s
+
+==========================================================================
+  步骤 2：地址核对（从**已加载的** overlay 实测）
+==========================================================================
+  conv_uni_0   mmio.base_addr = 0x40040000  length = 0x20000  （期望 0x40040000）  ✓
+  bin_unit_0   mmio.base_addr = 0x40060000  length = 0x20000  （期望 0x40060000）  ✓
+  overlay 里的 IP 清单：['bin_unit_0', 'conv_uni_0', 'ps7']
+
+==========================================================================
+  步骤 3：时钟读回 + 复位指纹
+==========================================================================
+  Clocks.fclk0_mhz 目标 150 → **读回 = 150**  ✓
+  复位指纹：alpha_shift=9 slope_shift=8 （期望 9 / 8）
+  AP_CTRL=0x00000000 AP_RETURN=0x00000000 DBG_FLAG=0x00000000
+  保留页 ResvPage[0x18] = 0x0 （期望 0）
+  引擎认到的 IP=bin_unit_0 base=0x40060000 range=0x20000
+
+==========================================================================
+  步骤 0：C 内核一次性成本（load + fast 自检）—— 单独计时，不进稳态
+==========================================================================
+  BIN_BILINEAR_C=<未设置> → 未启用（why=BIN_BILINEAR_C 未设置（默认关/opt-in））；本次无一次性成本 ⇒ 口径 a = 口径 b
+  arena t14_deps_arena 66.22 MB（24 槽 × (in 1.18 + out 1.57 MB)）@0x30100000
+    [输入自证] seed=1 (3,256,256) sha1 = cfc75bc3f15d306b（期望 cfc75bc3f15d306b）  ✓
+
+    >>> 切臂 t14_numpy：kernel_loaded=False why=BIN_BILINEAR_C=0（显式关）
+  [LAZY_DEQ] IN/OUT 槽数 = 24（BIN_LAZY_SLOTS）
+  ── t14_numpy hw=256 ──
+     总 11.693 s（墙钟 11.699） PL 3.186（其中 E1E2 0.974）| PS 8.922 = prologue 3.572 + epilogue 1.632 + 非卷积 3.718 | overlap 1.598 wait 2.108
+     非卷积分项 {"unshuffle": 0.0047, "convfp": 1.2188, "cat": 0.1574, "add": 0.0696, "interp": 1.9277, "eca": 0.0776, "sam": 0.248, "shuffle": 0.0145}
+     输入 sha1=cfc75bc3f15d306b (与冻结基线一致)
+     sha1 out1=9b1940c8955b out2=f86a7035621b out3=025757a83c39  OK/3
+    >>> t14_numpy total=11.693 pl=3.186 ps=8.922 pro=3.572 epi=1.632 nonconv=3.718 interp=1.928 sha_ok=True run_valid=True
+    >>> [DEPS] q8=fast c8deq=fast bpack=fast e1e2=fast catpack=fast safe=fast  ⇒ deps_closure_ok=True
+
+    >>> 切臂 t14_C：kernel_loaded=True why=ok
+  [LAZY_DEQ] IN/OUT 槽数 = 24（BIN_LAZY_SLOTS）
+  ── t14_C hw=256 ──
+     总 6.609 s（墙钟 6.615） PL 2.345（其中 E1E2 0.979）| PS 3.843 = prologue 1.613 + epilogue 0.257 + 非卷积 1.974 | overlap 0.752 wait 0.731
+     非卷积分项 {"unshuffle": 0.0048, "convfp": 1.1586, "cat": 0.137, "add": 0.0677, "interp": 0.2618, "eca": 0.0796, "sam": 0.2502, "shuffle": 0.0144}
+     输入 sha1=cfc75bc3f15d306b (与冻结基线一致)
+     sha1 out1=9b1940c8955b out2=f86a7035621b out3=025757a83c39  OK/3
+    >>> t14_C  total=6.609 pl=2.345 ps=3.843 pro=1.613 epi=0.257 nonconv=1.974 interp=0.262 sha_ok=True run_valid=True
+    >>> [DEPS] q8=fast c8deq=fast bpack=fast e1e2=fast catpack=fast safe=fast  ⇒ deps_closure_ok=True
+
+[5] 15 个闭包文件 md5（跑后）与跑前一致 = ✓
+    两臂 sha1 逐位相同 = ✓
+      numpy: {'out1': '9b1940c8955be53ccffd7905e333deffcea31f0a', 'out2': 'f86a7035621bed133374a1bef42a27db204e7019', 'out3': '025757a83c3993c8f592e31219b6a97906020363'}
+      C    : {'out1': '9b1940c8955be53ccffd7905e333deffcea31f0a', 'out2': 'f86a7035621bed133374a1bef42a27db204e7019', 'out3': '025757a83c3993c8f592e31219b6a97906020363'}
+
+    → /home/xilinx/demoir/t14_deps_board.json（含 runpoint + 两臂行）
+RC_MAIN=0
+==============================================================================
+  T-14 ④ 板端验证：依赖闭包可见性 + 256² numpy/C 两臂
+  时间 2025-05-08 12:13:05
+==============================================================================
+
+[1] 环境身份
+    platform.machine() = armv7l
+    platform.platform()= Linux-6.12.40-xilinx-g31626ef92ff1-armv7l-with-glibc2.35
+    python  = 3.10.4
+    numpy   = 1.21.5
+    pynq    = 3.1.0（/usr/local/share/pynq-venv/lib/python3.10/site-packages/pynq）
+    BIN_PROFILE='1'  BIN_BILINEAR_C=None  BIN_REQUIRE_KERNELS=None
+    cwd = /home/xilinx/demoir/ps/pynq_deps_t14
+    闭包目录 T14_CLOSURE = /home/xilinx/demoir/ps/pynq_deps_t14
+    解释器 sys.executable = /usr/local/share/pynq-venv/bin/python3
+
+[2] 闭包落点（find_spec().origin 必须都在 /home/xilinx/demoir/ps/pynq_deps_t14 内）
+    bin_net        ✓  /home/xilinx/demoir/ps/pynq_deps_t14/bin_net.py
+    bin_engine     ✓  /home/xilinx/demoir/ps/pynq_deps_t14/bin_engine.py
+    bin_ref_numpy  ✓  /home/xilinx/demoir/ps/pynq_deps_t14/bin_ref_numpy.py
+    qcache         ✓  /home/xilinx/demoir/ps/pynq_deps_t14/qcache.py
+    board_safe     ✓  /home/xilinx/demoir/ps/pynq_deps_t14/board_safe.py
+    catpack        ✓  /home/xilinx/demoir/ps/pynq_deps_t14/catpack.py
+    e1e2_sim       ✓  /home/xilinx/demoir/ps/pynq_deps_t14/e1e2_sim.py
+    bpack          ✓  /home/xilinx/demoir/ps/pynq_deps_t14/bpack.py
+    c8deq          ✓  /home/xilinx/demoir/ps/pynq_deps_t14/c8deq.py
+    q8             ✓  /home/xilinx/demoir/ps/pynq_deps_t14/q8.py
+    bilinear_c     ✓  /home/xilinx/demoir/ps/pynq_deps_t14/bilinear_c.py
+    全部落在闭包内 = ✓
+
+[3] [DEPS]（跑前 = 零副作用预测；跑后由 dump 覆盖为实测权威）
+[DEPS] q8=fast c8deq=fast bpack=fast e1e2=fast catpack=fast safe=fast  ⇒ deps_closure_ok=True
+    sys.path 前 6 项 = ['/home/xilinx/demoir/ps/pynq_deps_t14', '/home/xilinx/demoir/ps/pynq_deps_t14/drv', '/home/xilinx/demoir/ps/pynq_deps_t14/drv', '/usr/lib/python310.zip', '/usr/lib/python3.10', '/usr/lib/python3.10/lib-dynload']
+
+[4] 15 个闭包文件 md5（跑前）
+    bin_net.py       348ec97cbcbac45a308a63b4005ada4f
+    bin_engine.py    fa50018dff72c6bc8aa146d27b5ffbb7
+    bin_ref_numpy.py a19ba76c56df56f517c8640a62eb6051
+    qcache.py        4157ba3d7e35b8514d71eef29f0ee6a5
+    board_safe.py    d4d62fd06f74c963b643cec59566bf54
+    catpack.py       30149d936c9eea6cd510b200d1cd6d5c
+    e1e2_sim.py      2c4a6180fb74f88abb5e13b8e641b489
+    bpack.py         63d6a9368827d36f81f64bc5f62c864b
+    bpack.c          2a8e6c553cb3dec95460223fa800a0f6
+    c8deq.py         af33f47fbffe3751e360c77038afea3c
+    c8deq.c          5019fab0f07720b0954d0b773c3d5523
+    q8.py            e794a43dcb8ce314f323a9b07c4274a6
+    q8.c             c744794c2dafc032ddc4dde3c05adb5b
+    bilinear_c.py    cd43b1d6c26908e94d8b1a2aeab169b6
+    bilinear_c.c     1cd97282ee30a092425602c0d09ef7c1
+
+    运行点：bit_md5=602725b86941864eeeeab3be005e1e81  fclk=150.0  slots=24
+    deps_closure_ok(probe) = True
+
+==========================================================================
+  步骤 1：加载 overlay（本 session 唯一一次真正的 download）
+==========================================================================
+  Overlay(/home/xilinx/demoir/design_1_150v39.bit, download=False) 用时 1.394 s
+
+==========================================================================
+  步骤 2：地址核对（从**已加载的** overlay 实测）
+==========================================================================
+  conv_uni_0   mmio.base_addr = 0x40040000  length = 0x20000  （期望 0x40040000）  ✓
+  bin_unit_0   mmio.base_addr = 0x40060000  length = 0x20000  （期望 0x40060000）  ✓
+  overlay 里的 IP 清单：['bin_unit_0', 'conv_uni_0', 'ps7']
+
+==========================================================================
+  步骤 3：时钟读回 + 复位指纹
+==========================================================================
+  Clocks.fclk0_mhz 目标 150 → **读回 = 150**  ✓
+  复位指纹：alpha_shift=9 slope_shift=8 （期望 9 / 8）
+  AP_CTRL=0x00000000 AP_RETURN=0x00000001 DBG_FLAG=0x00000000
+  保留页 ResvPage[0x18] = 0x0 （期望 0）
+  引擎认到的 IP=bin_unit_0 base=0x40060000 range=0x20000
+
+==========================================================================
+  步骤 0：C 内核一次性成本（load + fast 自检）—— 单独计时，不进稳态
+==========================================================================
+  BIN_BILINEAR_C=<未设置> → 未启用（why=BIN_BILINEAR_C 未设置（默认关/opt-in））；本次无一次性成本 ⇒ 口径 a = 口径 b
+  arena t14_deps_arena 66.22 MB（24 槽 × (in 1.18 + out 1.57 MB)）@0x30100000
+    [输入自证] seed=1 (3,256,256) sha1 = cfc75bc3f15d306b（期望 cfc75bc3f15d306b）  ✓
+
+    >>> 切臂 t14_C：kernel_loaded=True why=ok
+  [LAZY_DEQ] IN/OUT 槽数 = 24（BIN_LAZY_SLOTS）
+  [PERF] ⚠⚠ epilogue = 1.640 s > 门槛 0.390 s（历史 0.260 s × 1.50）⇒ 疑似 numpy 跨步回落（c8deq 未装上） ⇒ run_valid=False，本跑点不许进基线表
+  ── t14_C hw=256 ──
+     ⚠⚠ run_valid=False（deps_closure_ok=True, perf_gate=['epilogue']） ⇒ 本行数字**不许进基线表**
+     总 10.099 s（墙钟 10.110） PL 2.355（其中 E1E2 0.976）| PS 7.335 = prologue 3.609 + epilogue 1.640 + 非卷积 2.086 | overlap 0.766 wait 2.115
+     非卷积分项 {"unshuffle": 0.005, "convfp": 1.2294, "cat": 0.1581, "add": 0.0681, "interp": 0.2868, "eca": 0.0761, "sam": 0.2477, "shuffle": 0.0144}
+     输入 sha1=cfc75bc3f15d306b (与冻结基线一致)
+     sha1 out1=9b1940c8955b out2=f86a7035621b out3=025757a83c39  OK/3
+    >>> t14_C  total=10.099 pl=2.355 ps=7.335 pro=3.609 epi=1.640 nonconv=2.086 interp=0.287 sha_ok=True run_valid=False
+    >>> [DEPS] q8=fast c8deq=fast bpack=fast e1e2=fast catpack=fast safe=fast  ⇒ deps_closure_ok=True
+
+[5] 15 个闭包文件 md5（跑后）与跑前一致 = ✓
+
+    → /home/xilinx/demoir/t14_deps_board_prof.json（含 runpoint + 两臂行）
+RC_PROF=0
+[boardlock] 释放板级锁 00:51:26  rc=0

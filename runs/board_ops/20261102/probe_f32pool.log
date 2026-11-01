@@ -1,0 +1,52 @@
+[boardlock] 取得板级独占 00:03:05  使用者=pool
+==============================================================================
+  定向实验：BIN_F32POOL 是否解释 prologue/epilogue 的 4× 差
+==============================================================================
+  frozen dir = /home/xilinx/demoir/ps/pynq_frozen（HEAD b58964e）
+  CmaFree 开工前 = 28.65 MB
+
+==========================================================================
+  步骤 1：加载 overlay（本 session 唯一一次真正的 download）
+==========================================================================
+  Overlay(/home/xilinx/demoir/design_1_150v39.bit, download=False) 用时 1.346 s
+
+==========================================================================
+  步骤 2：地址核对（从**已加载的** overlay 实测）
+==========================================================================
+  conv_uni_0   mmio.base_addr = 0x40040000  length = 0x20000  （期望 0x40040000）  ✓
+  bin_unit_0   mmio.base_addr = 0x40060000  length = 0x20000  （期望 0x40060000）  ✓
+  overlay 里的 IP 清单：['bin_unit_0', 'conv_uni_0', 'ps7']
+
+==========================================================================
+  步骤 3：时钟读回 + 复位指纹
+==========================================================================
+  Clocks.fclk0_mhz 目标 150 → **读回 = 150**  ✓
+  复位指纹：alpha_shift=9 slope_shift=8 （期望 9 / 8）
+  AP_CTRL=0x00000000 AP_RETURN=0x00000001 DBG_FLAG=0x00000000
+  保留页 ResvPage[0x18] = 0x0 （期望 0）
+  引擎认到的 IP=bin_unit_0 base=0x40060000 range=0x20000
+  arena probe_pool_arena 66.22 MB（24 槽 × (in 1.18 + out 1.57 MB)）@0x30100000
+  CmaFree 建 arena 后 = 0.33 MB
+  f32pool_plan(conv ops=227) = (nslots=0, slot_bytes=0) ⇒ 需 0.00 MB
+  CmaFree 余量 = 0.33 MB
+
+  >>> pool_off（BIN_F32POOL=None） CmaFree=0.33 MB
+  [LAZY_DEQ] IN/OUT 槽数 = 24（BIN_LAZY_SLOTS）
+  ── pool_off hw=256 ──
+     总 12.561 s（墙钟 12.562） PL 3.817（其中 E1E2 0.978）| PS 9.923 = prologue 5.927 + epilogue 1.184 + 非卷积 2.812 | overlap 2.359 wait 1.351
+     非卷积分项 {"unshuffle": 0.0052, "convfp": 1.2431, "cat": 0.1588, "add": 0.0697, "interp": 0.9943, "eca": 0.079, "sam": 0.2475, "shuffle": 0.0145}
+     输入 sha1=cfc75bc3f15d306b (与冻结基线一致)
+     sha1 out1=9b1940c8955b out2=f86a7035621b out3=025757a83c39  OK/3
+
+  >>> pool_on（BIN_F32POOL='1'） CmaFree=10.97 MB
+  [LAZY_DEQ] IN/OUT 槽数 = 24（BIN_LAZY_SLOTS）
+  ── pool_on hw=256 ──
+     总 13.998 s（墙钟 13.998） PL 3.345（其中 E1E2 0.976）| PS 11.092 = prologue 7.081 + epilogue 1.210 + 非卷积 2.801 | overlap 1.884 wait 1.371
+     非卷积分项 {"unshuffle": 0.0048, "convfp": 1.1946, "cat": 0.1476, "add": 0.2832, "interp": 0.7435, "eca": 0.0768, "sam": 0.3354, "shuffle": 0.0147}
+     输入 sha1=cfc75bc3f15d306b (与冻结基线一致)
+     sha1 out1=9b1940c8955b out2=f86a7035621b out3=025757a83c39  OK/3
+
+  → /home/xilinx/demoir/probe_f32pool.json
+  pool_off  total=12.561 pro=5.927 epi=1.184 pl=3.817 wait=1.351 interp=0.994
+  pool_on   total=13.998 pro=7.081 epi=1.210 pl=3.345 wait=1.371 interp=0.744
+[boardlock] 释放板级锁 00:03:49  rc=0

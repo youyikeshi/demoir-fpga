@@ -1,0 +1,1650 @@
+diff --git a/pynq_specialized_code/ps/pynq/bilinear_c.py b/pynq_specialized_code/ps/pynq/bilinear_c.py
+index 5e1a461..700542d 100644
+--- a/pynq_specialized_code/ps/pynq/bilinear_c.py
++++ b/pynq_specialized_code/ps/pynq/bilinear_c.py
+@@ -4,7 +4,13 @@
+   · 源码随包发布，首次使用 `cc` 现场编译（板端 ~2 s，只做一次）；
+   · 加载后立刻**逐字节自检**（代表形状，uint32 视图逐位比）；
+   · 编不出来 / 版本不对 / 自检不过 ⇒ **静默回落 numpy**，结果永远一致；
+-  · 开关 `BIN_BILINEAR_C`：**默认关**（`BIN_BILINEAR_C=1` 才启用）—— 2026-10-31 21:45 板端出现 segfault，在查清编译/调用约定之前不允许默认开启（纪律：未经板端复验的加速开关必须 opt-in）。
++  · 开关 `BIN_BILINEAR_C`：**默认关（opt-in）** —— 只有**显式**写 `BIN_BILINEAR_C=1` 才启用；
++    未设置 / `=0` 一律走 numpy（结果逐位相同，只是慢）。**基线运行点必须显式写
++    `BIN_BILINEAR_C=1`**，并在每份 JSON 的 `runpoint.switches` 里留证。
++    ★ 2026-11-02 纠正：本 docstring 一直写"默认关"，但 `load()` 里的默认值曾是 `"1"`
++      （两者矛盾，等于默认开）；现把代码默认值改成 `"0"`，docstring 与代码一致。
++      历史原因：2026-10-31 21:45 板端出现 segfault，在查清编译/调用约定之前不允许默认开启
++      （纪律：未经板端复验的加速开关必须 opt-in）。
+   · 变体（逐字节相同，只用于 A/B）：`BIN_BILINEAR_V4=0` → v3；`BIN_BILINEAR_V3=0` → v2；
+     `BIN_BILINEAR_V2=0` → v1。默认 v4。
+ 
+@@ -312,12 +318,21 @@ def selftest(mode="fast", verbose=False):
+ 
+ 
+ def load():
+-    """一次性加载 + 自检；任何一步失败 ⇒ 永久回落 numpy。"""
++    """一次性加载 + 自检；任何一步失败 ⇒ 永久回落 numpy。
++
++    ★ 2026-11-02（opt-in）：`BIN_BILINEAR_C` 的**默认值 = "0"（关）**。
++      只有显式 `=1` 才编译/加载内核；未设置与显式 `=0` 都走 numpy，
++      但 `why()` 区分两种情形（"未设置（默认关）" / "=0（显式关）"），便于审计。
++      显式 `=1` 时的判定与数值行为与改动前**逐位相同**（本函数只改了默认值）。
++    """
+     if _STATE["tried"]:
+         return _STATE["lib"]
+-    want = os.environ.get("BIN_BILINEAR_C", "1").strip().lower()
++    raw = os.environ.get("BIN_BILINEAR_C", "")
++    want = (raw or "0").strip().lower()
+     if want in ("", "0", "off", "false", "no", "n", "numpy"):
+-        _STATE.update(tried=True, lib=None, why="BIN_BILINEAR_C=0（显式关）")
++        why = ("BIN_BILINEAR_C 未设置（默认关/opt-in）" if not raw.strip()
++               else "BIN_BILINEAR_C=%s（显式关）" % raw.strip())
++        _STATE.update(tried=True, lib=None, why=why)
+         return None
+     lib, err = _build()
+     if lib is None:
+diff --git a/pynq_specialized_code/ps/pynq/bin_engine.py b/pynq_specialized_code/ps/pynq/bin_engine.py
+index ea19479..8b5e032 100644
+--- a/pynq_specialized_code/ps/pynq/bin_engine.py
++++ b/pynq_specialized_code/ps/pynq/bin_engine.py
+@@ -1542,6 +1542,31 @@ E1E2_REG = dict(
+ )
+ 
+ _PROF = os.environ.get("BIN_PROFILE", "") not in ("", "0", "false", "False")
++# ★ BIN_DESC_CACHE（**默认关**）：`prepare_segments` 里 plan 命中路径的编排缓存。
++#   为什么**不需要任何失效逻辑**：memo 键 = (sk, thr_pa, tuple(pas))，其中
++#     · `sk`     = 布局键（层 H/W、cin、每段 H/W/C/kind）＝"plan"的内容化形式
++#                  （用 id(plan) 会 0 命中：plans 每个 run 都重建）
++#     · `thr_pa` = 阈值缓冲的物理地址（每 run 的 arena 决定）
++#     · `pas`    = **每一个**段的运行时基址（i8 段 = C8 缓冲 pa；f32 段 = vin_pa）
++#   ⇒ 只要有一个运行时地址变了，键就变 ⇒ 必 miss ⇒ 必重算。
++#   所以"地址一变就失效"是**结构性**的，不靠人记得去 invalidate。
++_DESC_CACHE = os.environ.get("BIN_DESC_CACHE", "") not in ("", "0", "false", "False")
++try:                        # memo 总量上限（超出即整表清空；默认 1 MB）
++    _DESC_CACHE_MAX = int(float(os.environ.get("BIN_DESC_CACHE_MB", "1")) * (1 << 20))
++except Exception:                             # noqa: BLE001
++    _DESC_CACHE_MAX = 1 << 20
++# 首次校验的范围：默认整个 engine 生命周期只校验一次（足够抓"计划与 blob/段类型
++# 不匹配"这类系统性错误）；BIN_DESC_VERIFY_ALL=1 ⇒ 每个 plan 各校验一次
++# （最严，但会把 ①的收益吐回去：每层都得取 t_q）。
++_DESC_VERIFY_ALL = os.environ.get("BIN_DESC_VERIFY_ALL", "") not in (
++    "", "0", "false", "False")
++# 子开关（默认 1 = 按上一版要求做地址键 memo）。设 0 则**只保留**"可分离形式 +
++# 三处不依赖地址重复的省法"（HI / t_q / _pack_views / _seg_layout），不做地址键
++# 查表。为什么要这个开关：地址键 memo 只有在"同样的地址再来一次"时才命中，而
++# `run()` 每次重建 arena ⇒ 实测跨 run 命中≈0、只有同 run 内重复层能命中（2%）。
++# 关掉它就能把"可分离形式的收益"与"memo 的簿记开销"分开量。
++_DESC_MEMO = os.environ.get("BIN_DESC_MEMO", "1") not in (
++    "0", "false", "False", "off", "no", "n")
+ # E1E2 直读路径的 DBG 计数器：每条命令 5 次 MMIO 读（板端 ≈0.16 ms）纯属统计用
+ # ⇒ 默认不读；排查带宽时 E1E2_DBG=1 打开。
+ _E1E2_DBG = os.environ.get("E1E2_DBG", "") not in ("", "0", "false", "False")
+@@ -1708,6 +1733,145 @@ class E1E2Program:
+         return desc2, cmds2, self.sentinel_pa + delta
+ 
+ 
++_LAY_MISS = object()
++
++
++class _DescMemo:
++    """`BIN_DESC_CACHE` 的三张表（开关关掉时**根本不会被创建**）。
++
++    ① `d`     : 描述符 memo。键 = `(sk, thr_pa, tuple(pas))`
++                  · `sk`     = 布局键（层 H/W、cin、每段 H/W/C/kind）——即
++                    "plan 那一位"的**内容化**形式。为什么不用 `id(plan)`：
++                    `run()` 每次都会重建 `_lane_plan/_lane_plan_q8`，`id` 每个 run
++                    都变 ⇒ 用 id **永远 0 命中**（实测 200/200 miss）。
++                    而描述符的值只由"布局 + thr_pa + 各段 pas"决定（`si`/`lane_off`
++                    全部是 offs/Cs/hw 的函数）⇒ 用内容做键既完备又可跨 run 命中。
++                  · `thr_pa` = 阈值缓冲物理地址；`pas` = 每一段的运行时基址
++                  ⇒ 键里含**全部运行时地址** ⇒ 地址一变必 miss ⇒ **无失效风险**。
++    ② `lay`   : `_seg_layout` 的形状键 memo。键覆盖该函数读到的**每一个**输入
++                  （层 H/W、cin、每段自己的 H/W/C/kind）⇒ 命中与重算**可证等价**。
++    ③ `pv`    : `_pack_views` 的 (cb, hw) 查表；arena 重分配时整体清空（见
++                  `E1E2Engine._pack_views`），因为视图里的 pa 全部变了。
++
++    上限：`d` 的总字节超过 `max_bytes` 就**整表清空**（阈值 `BIN_DESC_CACHE_MB`，
++    默认 1 MB；预期体量 227 层 × ≤576 B ≈ 130 KB ⇒ 正常永远碰不到）。
++    """
++
++    __slots__ = ("max_bytes", "d", "nbytes", "hit", "miss", "clears",
++                 "lay", "lay_hit", "lay_miss", "pv", "pv_hit", "pv_miss",
++                 "hi", "hi_hit", "hi_miss", "verified", "_plans", "memo")
++
++    def __init__(self, max_bytes):
++        self.max_bytes = int(max_bytes)
++        self.d = {}
++        self.nbytes = 0
++        self.hit = self.miss = self.clears = 0
++        self.lay = {}
++        self.lay_hit = self.lay_miss = 0
++        self.pv = {}
++        self.pv_hit = self.pv_miss = 0
++        # ④ `hi[(cb, thr_pa)] = ((thr_pa + lanes2) << 32)` —— 描述符里**与段地址
++        #    无关**的那一半（"session 常量"）。`lanes2` 只由 cb 决定、`thr_pa` 只由
++        #    pack arena 决定 ⇒ 每层省掉 int64 加 + astype + 左移三次 numpy 调用，
++        #    而且**不依赖 pas 是否重复**（跨 run 也有效）。
++        self.hi = {}
++        self.hi_hit = self.hi_miss = 0
++        self.memo = bool(_DESC_MEMO)      # 地址键 memo 子开关（可运行时改，供 A/B）
++        self.verified = False
++        self._plans = set()
++
++    # ---- ① 描述符 ----
++    def get(self, key):
++        v = self.d.get(key)
++        if v is None:
++            self.miss += 1
++            return None
++        self.hit += 1
++        return v
++
++    def put(self, key, arr):
++        n = int(arr.nbytes)
++        if n > self.max_bytes:
++            return
++        if self.nbytes + n > self.max_bytes:
++            self.d.clear()                    # 超上限 ⇒ 整表清空（不是逐条淘汰）
++            self.nbytes = 0
++            self.clears += 1
++        self.d[key] = arr
++        self.nbytes += n
++
++    # ---- ② 段布局 ----
++    def lay_get(self, key):
++        v = self.lay.get(key, _LAY_MISS)
++        if v is _LAY_MISS:
++            self.lay_miss += 1
++        else:
++            self.lay_hit += 1
++        return v
++
++    def lay_put(self, key, val):
++        self.lay[key] = val
++
++    # ---- ③ 视图 ----
++    def pv_get(self, key):
++        v = self.pv.get(key)
++        if v is None:
++            self.pv_miss += 1
++        else:
++            self.pv_hit += 1
++        return v
++
++    # ---- 首次校验（硬要求 1）----
++    def need_verify(self, pid):
++        if _DESC_VERIFY_ALL:
++            if pid in self._plans:
++                return False
++            self._plans.add(pid)
++            return True
++        if self.verified:
++            return False
++        self.verified = True
++        return True
++
++    # ---- 硬要求 2：键里必须含全部地址源 ----
++    @staticmethod
++    def check_addrs(pla, lay, vin_pa):
++        """miss 时断言：`pas` 只由"段自己的 pa"与"vin_pa"组成，且每段 pa 都在里面。
++
++        意图：将来有人加了新的地址源（例如多一个 f32 源缓冲）却忘了进键 ⇒ 这里
++        立刻炸，而不是悄悄返回过期描述符。逐段一趟循环、**不建 set**（A53 上便宜）。
++        """
++        vin_pa = int(vin_pa)
++        for i, (s_, _o, _c) in enumerate(lay):
++            if s_.get("kind") != "i8":
++                if pla[i] != vin_pa:
++                    raise AssertionError(
++                        "BIN_DESC_CACHE 键里有来源不明的地址 %r"
++                        "（f32 段的基址只允许是 vin_pa=%#x）" % (pla[i], vin_pa))
++                continue
++            pa = int(s_.get("pa") or 0)
++            if pa and pa != pla[i]:
++                raise AssertionError(
++                    "BIN_DESC_CACHE 键漏了地址源：段 pa=%#x 但键里是 %r"
++                    % (pa, pla[i]))
++        return True
++
++    def stats(self):
++        n = self.hit + self.miss
++        return dict(hit=self.hit, miss=self.miss,
++                    rate=(self.hit / n if n else 0.0),
++                    entries=len(self.d), bytes=int(self.nbytes),
++                    max_bytes=int(self.max_bytes), clears=int(self.clears),
++                    verified=bool(self.verified or self._plans),
++                    verify_scope=("per-key" if _DESC_VERIFY_ALL else "once"),
++                    memo=bool(self.memo),
++                    lay_entries=len(self.lay), lay_hit=self.lay_hit,
++                    lay_miss=self.lay_miss, pv_entries=len(self.pv),
++                    pv_hit=self.pv_hit, pv_miss=self.pv_miss,
++                    hi_entries=len(self.hi), hi_hit=self.hi_hit,
++                    hi_miss=self.hi_miss)
++
++
+ class E1E2Engine:
+     """`bin_e1e2`（R_RUN_UNIT=4）的 PS 驱动；**不改 conv 路径**。
+ 
+@@ -1746,6 +1910,11 @@ class E1E2Engine:
+         self.last_run = None
+         self.last_pack_stats = None
+         self._regions_added = set()
++        # ★ BIN_DESC_CACHE（默认关）：关掉时 `_dc is None`，`prepare_segments`
++        #   里所有 dc 分支一次都不进（只多一次局部变量判空）。
++        self._dc = (_DescMemo(_DESC_CACHE_MAX) if _DESC_CACHE else None)
++        # 视图查表在 `_dc.pv` 里（关缓存时 `_dc is None`，这张表根本不存在）
++        self._pv_gen = 0            # arena 重分配代数（bump ⇒ `_dc.pv` 整个清空）
+ 
+     # ---------------------------------------------------------------- 能力
+     def probe(self):
+@@ -2077,6 +2246,11 @@ class E1E2Engine:
+             buf = _pynq_allocate(shape=(need,), dtype=np.uint8)
+             self.core.add_region(buf, "e1e2_pack")
+             self._pbuf = buf
++            # ★ BIN_DESC_CACHE：arena 换了 ⇒ 所有视图里的物理地址全部作废。
++            #   这里 bump 代数并清表，是**唯一**的失效点（见 `_DescMemo`）。
++            self._pv_gen += 1
++            if self._dc is not None:
++                self._dc.pv.clear()
+             mv = _u8(buf)
+             o = 0
+             views = []
+@@ -2174,26 +2348,131 @@ class E1E2Engine:
+                                     in_bytes=int(need_in))
+         return data
+ 
++    def _tq_of(self, L, cin):
++        """`core.host_blob` 的 t_q → int64 向量（取值 + 长度校验，与改前逐字相同）。
++
++        抽成方法是为了让"缓存命中路径"能**不取** t_q、只在首次校验/回落时按同一
++        口径取一次（保证两条路径拿到的 t 一模一样）。
++        """
++        if getattr(self.core, "host_blob", None) is None:
++            raise RuntimeError("prepare_segments 需要 t_q 或 core.host_blob")
++        t = np.asarray(self.core.host_blob.t_q(L.d), np.int64).reshape(-1)
++        if t.size != int(cin):
++            raise ValueError("t_q 长度 %d != cin %d" % (t.size, int(cin)))
++        return t
++
++    def desc_cache_stats(self):
++        """BIN_DESC_CACHE 的统计（关掉 ⇒ None）。"""
++        dc = self._dc
++        if dc is None:
++            return None
++        return dc.stats()
++
++    def desc_cache_enable(self, max_bytes=None):
++        """打开（默认由模块级常量 `BIN_DESC_CACHE` 决定；这里是给**同进程 A/B** 用）。
++
++        为什么要能运行时切：板端纪律是"同一进程跑 N 次、取第 2 次起"，
++        跨进程比较没有意义 ⇒ A/B 必须在同一进程里切开关，否则量出来的差值
++        里混着"新进程第一次慢"。切成 None 后 `prepare_segments` 里所有 dc 分支
++        立刻全部不进，行为回到改前。
++        """
++        self._dc = _DescMemo(_DESC_CACHE_MAX if max_bytes is None else max_bytes)
++        return True
++
++    def desc_cache_disable(self):
++        """关掉（= 改前的代码路径）。"""
++        self._dc = None
++        return True
++
++    def desc_cache_clear(self):
++        """清空描述符/布局/视图/HI 四张表（失效门禁用；语义上不必要——键含地址）。"""
++        dc = self._dc
++        if dc is None:
++            return False
++        dc.d.clear()
++        dc.nbytes = 0
++        dc.lay.clear()
++        dc.pv.clear()
++        dc.hi.clear()
++        return True
++
+     def prepare_segments(self, segs, L, t_q=None, bufs=None, plan=None):
+         """**只做 PS 侧**：段表 → 阈值/描述符 + f32 段量化落进 vin。**不启动 PL**。
+ 
+         返回一个 job（供 `run_prepared` 用），或 None（调用方回落）。
+         这样"启 E1E2"可以推迟到 `_PlBackend.kick`——那时候上一层的 conv 已经
+         收完（done 位没被 E1E2 顶掉），prologue 也只剩真正的 PS 工作。
++
++        ★ 计时桶口径（BIN_PROFILE=1 时才有）：
++          · `descviews`（2026-11-01 新增，**合并口径**）= 本函数**入口** →
++            `_pack_views()` **返回**。含：`t_q` 解析（reshape/长度检查）、
++            `_seg_layout`、i8 段的 `pa` 检查、`need_in` 计算、`_pack_views`
++            本身（arena 查询/分配/RegionBuffer 构造）。**不含** f32 段量化
++            （`q8`/`f32` 桶）与描述符组装（`desc` 桶）。
++          · `views`（旧桶，**口径一字不改**）= 仅 `_pack_views()` 那一段
++            （含 `bufs is not None` 时的空转）。两个桶并存，便于新旧表对照：
++            `descviews - views` = 入口到 `_pack_views` 之前的固定开销。
++        ⚠ **`BIN_PROFILE=1` 自己会加开销**：本函数每层多 5 次 `perf_counter`
++          ⇒ **所有桶都会略偏高**。所以 `PROFILE=1` 的绝对时间**不能**与
++          `PROFILE=0` 的表并列比较；要么同一次 run 内 A/B 同一开关，要么只在
++          `PROFILE=1` 内部前后比。
++
++        ★ BIN_DESC_CACHE（默认关；`_DESC_CACHE` 是模块级常量）在 plan 命中路径上
++        省掉三处，且**不改变任何合出来的字节**：
++          ① `t_q` 不再每层取（阈值直接用 `plan["thr"]`）；**首次命中**仍取一次
++             `t_q` 走 `_build_desc` 重算一遍 thr+descs，与计划 **uint32/uint64
++             逐位比**（`np.array_equal` 在整数上就是逐位；**不用 allclose**），
++             不等就抛错，之后不再取。
++          ② `_pack_views` 降成 1 次 dict 查表 `_dc.pv[(cb, hw)]`
++             （arena 重分配时 bump `_pv_gen` 并清表）。
++          ③ `_seg_layout` 走形状键 memo（键含层 H/W、cin、每段 H/W/C/kind
++             ⇒ 命中与重算可证等价）。
++          描述符本身按 **memo 键 = (id(plan), thr_pa, tuple(pas))** 缓存：键里含
++          **全部运行时地址** ⇒ 地址一变必 miss 必重算 ⇒ 天然无失效风险。
++          注意：`pas` **照旧每层都读**（它是唯一运行时输入，省了就等于用旧地址）；
++          被省掉的只有"地址不变时的 numpy 重组"。
++          ① 的代价：`BIN_DESC_CACHE=1` 时**每层**多 1 次局部判空 + 1 个 tuple 键；
++          `=0`（默认）时与改前逐字相同，只多一次 `dc is None` 的判空。
++          实测统计见 `E1E2Engine.desc_cache_stats()` / `stats["desc_cache"]`。
+         """
+         cin, H, W = int(L.cin), int(L.H), int(L.W)
+         hw = H * W
+         cb = (cin + 63) // 64
+-        if t_q is None:
+-            if getattr(self.core, "host_blob", None) is None:
+-                raise RuntimeError("prepare_segments 需要 t_q 或 core.host_blob")
+-            t_q = self.core.host_blob.t_q(L.d)
+-        t = np.asarray(t_q, np.int64).reshape(-1)
+-        if t.size != cin:
+-            raise ValueError("t_q 长度 %d != cin %d" % (t.size, cin))
+-        lay = self._seg_layout(segs, cin, H, W)
++        # ★ descviews 起点 = **函数入口**（口径见 docstring）
++        _t_dv = time.perf_counter() if _PROF else 0.0
++        # ★ 缓存关 ⇒ dc is None ⇒ 下面每一个 `if dc is not None` 都不进，
++        #   t_q 取值/`_seg_layout`/`_pack_views`/numpy 组装与 **改前逐字相同**。
++        dc = self._dc
++        t = None
++        if t_q is not None:
++            t = np.asarray(t_q, np.int64).reshape(-1)
++            if t.size != cin:
++                raise ValueError("t_q 长度 %d != cin %d" % (t.size, cin))
++        elif dc is None:
++            t = self._tq_of(L, cin)          # 关缓存：与改前一样，进函数就取
++        # ---- ③ `_seg_layout`：形状键 memo ----
++        lay = None
++        kinds = None
++        sk = None
++        if dc is not None:
++            sk = (H, W, cin,
++                  tuple(v for s in segs
++                        for v in (int(s["H"]), int(s["W"]), int(s["C"]),
++                                  1 if s.get("kind") == "i8" else 0)))
++            got = dc.lay_get(sk)
++            if got is not _LAY_MISS:
++                if got is None:
++                    return None
++                lay = [(s, o, C) for (s, (o, C)) in zip(segs, got)]
++                # kinds 直接从键里取（与 `lay` 顺序一致），省一趟生成器
++                kinds = tuple("i8" if v else "f32" for v in sk[3][3::4])
+         if lay is None:
+-            return None
++            lay = self._seg_layout(segs, cin, H, W)
++            if dc is not None:
++                dc.lay_put(sk, None if lay is None else
++                           [(o, C) for (_s, o, C) in lay])
++            if lay is None:
++                return None
+         for (s_, off, C) in lay:
+             if s_.get("kind") == "i8" and int(s_.get("pa") or 0) == 0:
+                 return None
+@@ -2202,15 +2481,27 @@ class E1E2Engine:
+         _t = time.perf_counter() if _PROF else 0.0
+         if bufs is None:
+             try:
+-                views = self._pack_views(need_in=need_in, need_out=cb * hw * 8,
+-                                         need_thr=cb * 64 * 2,
+-                                         need_desc=cb * 64)
++                if dc is None:
++                    views = self._pack_views(need_in=need_in, need_out=cb * hw * 8,
++                                             need_thr=cb * 64 * 2,
++                                             need_desc=cb * 64)
++                else:
++                    # ---- ② `_pack_views` → 1 次 dict 查表 ----
++                    # 四个块大小全由 (cb, hw) 决定；arena 重分配时 `_dc.pv`
++                    # 已被 `_pack_views` 清空 ⇒ 不会返回过期 pa。
++                    views = dc.pv_get((cb, hw))
++                    if views is None:
++                        views = self._pack_views(
++                            need_in=need_in, need_out=cb * hw * 8,
++                            need_thr=cb * 64 * 2, need_desc=cb * 64)
++                        dc.pv[(cb, hw)] = views
+             except Exception:                  # noqa: BLE001
+                 return None
+         else:
+             views = (bufs["in"], bufs["out"], bufs["thr"], bufs["desc"])
+         if _pf is not None:
+             _pf["views"] = time.perf_counter() - _t
++            _pf["descviews"] = time.perf_counter() - _t_dv   # 入口 → _pack_views 返回
+             _t = time.perf_counter()
+         vin, vout, vthr, vdesc = views
+         vin_pa = int(getattr(vin, "physical_address", 0) or 0)
+@@ -2260,22 +2551,76 @@ class E1E2Engine:
+         # ★ 构建期预算好的 lane 计划（段类型一致时才用；不一致 ⇒ 现算）
+         fast = None
+         if plan is not None:
+-            kinds = tuple("i8" if s_.get("kind") == "i8" else "f32"
+-                          for s_, _o, _c in lay)
++            if kinds is None:                # 缓存关时 kinds 没被 ③ 顺带算过
++                kinds = tuple("i8" if s_.get("kind") == "i8" else "f32"
++                              for s_, _o, _c in lay)
+             if kinds == plan["kinds"]:
+                 fast = plan
+         if fast is not None:
+             thr = fast["thr"]
+-            lanes2 = fast["lanes2"]
+-            pas = np.asarray([int(s_["pa"]) if s_.get("kind") == "i8"
+-                              else int(vin_pa) for s_ in (x[0] for x in lay)],
+-                             np.int64)
+-            src = pas[fast["si"]] + fast["lane_off"]
+-            if fast["fill"] is not None:
+-                src = src[fast["fill"]]
+-            tp = (int(thr_pa) + lanes2).astype(np.uint64)
+-            descs = (tp << np.uint64(32)) | src.astype(np.uint64)
++            # 运行时地址（**唯一**输入）：i8 段 = C8 缓冲 pa；f32 段 = vin_pa
++            pla = [int(s_["pa"]) if s_.get("kind") == "i8" else int(vin_pa)
++                   for s_, _o, _c in lay]
++            descs = None
++            dkey = None
++            if dc is not None and dc.memo:
++                # memo 键 = (布局键 sk, thr_pa, tuple(pas)) —— 见 `_DescMemo` ①
++                dkey = (sk, int(thr_pa), tuple(pla))
++                descs = dc.get(dkey)
++            if descs is None:
++                pas = np.asarray(pla, np.int64)
++                src = pas[fast["si"]] + fast["lane_off"]
++                if fast["fill"] is not None:
++                    src = src[fast["fill"]]
++                if dc is None:
++                    tp = (int(thr_pa) + fast["lanes2"]).astype(np.uint64)
++                    descs = (tp << np.uint64(32)) | src.astype(np.uint64)
++                else:
++                    # 硬要求 2：miss 时断言"键里含全部地址源"
++                    dc.check_addrs(pla, lay, int(vin_pa))
++                    # ④ 可分离形式：desc = HI[cb] | (pas[si] + lanes2)
++                    #    HI 与**段地址无关**（只依赖 cb 与 thr_pa，即"session 常量"）
++                    #    ⇒ 每层省掉 int64 加 / astype / 左移 3 次 numpy 调用，
++                    #    而且**不依赖 memo 是否命中**（跨 run 也有效）。
++                    hkey = (cb, int(thr_pa))
++                    hi = dc.hi.get(hkey)
++                    if hi is None:
++                        dc.hi_miss += 1
++                        hi = ((int(thr_pa) + fast["lanes2"]).astype(np.uint64)
++                              << np.uint64(32))
++                        hi.flags.writeable = False
++                        dc.hi[hkey] = hi
++                    else:
++                        dc.hi_hit += 1
++                    descs = hi | src.astype(np.uint64)
++                if dc is not None and dc.need_verify(dkey):
++                    # ---- 硬要求 1：首次命中仍读一次 t_q，与计划**逐位**比 ----
++                    # 用**同一条** `_build_desc`（回退路径的实现）重算 thr 与 descs，
++                    # 两者都必须**逐位**相等（thr 按 uint32、descs 按 uint64 比；
++                    # 整数上的 array_equal 就是逐位，**绝不用 allclose**）。
++                    _tv = t if t is not None else self._tq_of(L, cin)
++                    _thr_ref, _desc_ref = self._build_desc(
++                        L, lay, _tv, cin, H, W, vin_pa, 0, thr_pa)
++                    _a16 = np.ascontiguousarray(_thr_ref, np.int16)
++                    _b16 = np.ascontiguousarray(thr, np.int16)
++                    if not np.array_equal(_a16.view(np.uint32),
++                                          _b16.view(np.uint32)):
++                        raise RuntimeError(
++                            "BIN_DESC_CACHE 校验失败：plan['thr'] 与 _build_desc 重算的"
++                            " thr 不逐位相同（层 %s，cin=%d）⇒ 拒绝使用缓存路径"
++                            % (getattr(L, "name", "?"), cin))
++                    if not np.array_equal(np.ascontiguousarray(_desc_ref, np.uint64),
++                                          np.ascontiguousarray(descs, np.uint64)):
++                        raise RuntimeError(
++                            "BIN_DESC_CACHE 校验失败：lane 计划的描述符与 _build_desc "
++                            "重算不逐位相同（层 %s，cin=%d）"
++                            % (getattr(L, "name", "?"), cin))
++                if dc is not None and dc.memo:
++                    descs.flags.writeable = False   # 缓存值只读：谁想就地改就当场炸
++                    dc.put(dkey, descs)
+         else:
++            if t is None:
++                t = self._tq_of(L, cin)
+             thr, descs = self._build_desc(L, lay, t, cin, H, W, vin_pa, 0, thr_pa)
+         if thr is None:
+             return None
+diff --git a/pynq_specialized_code/ps/pynq/bin_net.py b/pynq_specialized_code/ps/pynq/bin_net.py
+index 1e3aeab..772b663 100644
+--- a/pynq_specialized_code/ps/pynq/bin_net.py
++++ b/pynq_specialized_code/ps/pynq/bin_net.py
+@@ -671,6 +671,13 @@ class _PlBackend:
+         self._free = list(range(self.nbuf))
+         self._pins = []                       # [(seq, C8Tensor)]
+         self._pin_seq = 0
++        # ★ acq 计数器（2026-11-01）：**永远开**，不受 BIN_PROFILE 控制。
++        #   目的只有一个：把 prologue 里的"槽获取"拆成
++        #     list_ms（纯挑槽，已扣除物化） / evict_ms+evict_mb（强制物化）
++        #   两部分，用一次上板给"0.253 s 到底是槽数伪影还是真开销"定案。
++        #   成本 ≈ 每层 2 次 perf_counter（快路径不物化），见 `_acquire_slot`。
++        self.acq_stats = dict(n=0, list_ms=0.0, starved=0, evict_ms=0.0,
++                              evict_mb=0.0)
+         if arena is not None:
+             for i in range(self.nbuf):
+                 b, _pa = arena.region(nin, align=64, name="IN%d" % i)
+@@ -686,20 +693,47 @@ class _PlBackend:
+             self._free.append(slot)
+ 
+     def _acquire_slot(self):
+-        """取一个**不在使用中**的槽；全被惰性句柄钉住 ⇒ 物化最老的那个。"""
+-        while True:
+-            if self._free:
+-                return self._free.pop(0)
++        """取一个**不在使用中**的槽；全被惰性句柄钉住 ⇒ 物化最老的那个。
++
++        ★ acq 计数器（**永远开**，不受 `BIN_PROFILE` 控制；每层 2 次
++        `perf_counter`）——口径：
++          · `n`        : 本 run 调用的次数（正常 = 层数）
++          · `list_ms`  : **纯挑槽**的累计毫秒，即本函数墙钟**减去**物化耗时
++          · `starved`  : 强制物化的次数（= 一个槽都没空、必须让位）
++          · `evict_ms` : 强制物化的累计毫秒（含 `C8Tensor.materialize()`
++                         的反量化 + 槽回收回调）
++          · `evict_mb` : 被强制物化掉的 f32 体积（MB，按 C*H*W*4 计）
++        自洽判据：`list_ms + evict_ms` 必须落在"外部再包一层 perf_counter 量到的
++        墙钟"之内（差值 = 计数器自身的 ~2 次 perf_counter，x86 ≲1 µs/次）；
++        同时 `starved` 必须恒等于 `stats["lazy"]["starved"]`。
++        """
++        acq = self.acq_stats
++        _t0 = time.perf_counter()
++        _ev = 0.0
++        if not self._free:
+             # 没有空槽：钉住的句柄必须让位（物化 = 一次反量化，之后是 f32 路径）
+-            while self._pins and not self._free:
+-                _seq, h = self._pins.pop(0)
+-                if getattr(h, "_rel", False):
+-                    continue
+-                self.net._lazy_stats["starved"] += 1
+-                h.materialize()           # 内部 release() ⇒ 槽回到 _free
+-            if not self._free:
+-                raise RuntimeError("C8 直读：%d 个槽全在飞行中，没有可回收的句柄"
+-                                   % self.nbuf)
++            while True:
++                if self._free:
++                    break
++                while self._pins and not self._free:
++                    _seq, h = self._pins.pop(0)
++                    if getattr(h, "_rel", False):
++                        continue
++                    self.net._lazy_stats["starved"] += 1
++                    acq["starved"] += 1
++                    acq["evict_mb"] += (int(h.C) * int(h.H) * int(h.W) * 4) / 1e6
++                    _te = time.perf_counter()
++                    h.materialize()        # 内部 release() ⇒ 槽回到 _free
++                    _dt = time.perf_counter() - _te
++                    acq["evict_ms"] += _dt * 1e3
++                    _ev += _dt
++                if not self._free:
++                    raise RuntimeError("C8 直读：%d 个槽全在飞行中，没有可回收的句柄"
++                                       % self.nbuf)
++        slot = self._free.pop(0)
++        acq["n"] += 1
++        acq["list_ms"] += ((time.perf_counter() - _t0) - _ev) * 1e3
++        return slot
+ 
+     def _pin(self, slot, h):
+         self._pin_seq += 1
+@@ -1277,6 +1311,18 @@ class BinNet:
+ 
+         缓存里的字节由 `qcache.quantize_leaf_c8` 产生：优先 q8.c8_into（融合
+         量化+C8 布局，板端 ~200 MB/s），与 `prepare_segments` 的 f32 段逐字节相同。
++
++        ★ fs 冲突门禁（2026-11-01 第二棒改）：
++          改前"同一个张量被第二种 fs_in 读 ⇒ **整张量踢出缓存**"（先到先占）。
++          本网 14 个唯一 f32 叶子里有 8 个（17.8 / 92.8 MB）被 2~3 种 fs_in 读，
++          于是 26~30% 的字节白扔；而且"谁先访问"由调度顺序决定 ⇒ 完全相同的
++          两次运行命中数会抖（54/61/62/65）。
++          `qcache` 的 key 本来就把 `fs_in` 算进去了（`QuantLeafCache.key`）⇒
++          多条目并存不会错，这条门禁是**纯保守、非正确性所需**。
++          改后：允许 `(tensor, fs)` 各留一条，容量仍由 `max_bytes` 按字节上限约束。
++          `q8_fs_conflict` 这个计数**保留但换了口径**：它现在数的是
++          "**第一次出现第二种 fs 的张量个数**"（= 改前会被整张踢掉的张量数），
++          不再表示"拦截次数"。
+         """
+         c = self._qcache
+         if c is None:
+@@ -1285,14 +1331,20 @@ class BinNet:
+         fs = int(L.d["act_fs_in"])
+         if (H, W) != (int(L.H), int(L.W)) or C <= 0 or C % 8:
+             return None
+-        tid = id(a)
+-        prev = self._q8_fs_seen.get(tid)
+-        if prev is not None and prev != fs:
+-            # 同一个 f32 张量被不同 fs_in 的消费者读：阈值不同。缓存 key 本来就含
+-            # fs（不会错），但保守起见该张量不走缓存，回落到 S1 的现场量化。
+-            self._cat_stats["q8_fs_conflict"] += 1
+-            return None
+-        self._q8_fs_seen[tid] = fs
++        # 只做统计（不拦）：同一张量的第二种 fs 出现时计一次。
++        try:
++            _tid = id(a)
++            _ptr = int(a.__array_interface__["data"][0])
++        except Exception:                       # noqa: BLE001
++            _tid, _ptr = None, -1
++        if _tid is not None:
++            _rec = self._q8_fs_seen.get(_tid)
++            if _rec is None or _rec[0] != _ptr:      # 新对象 / id 被复用 / 槽换址
++                self._q8_fs_seen[_tid] = (_ptr, {fs})
++            elif fs not in _rec[1]:
++                _rec[1].add(fs)
++                if len(_rec[1]) == 2:
++                    self._cat_stats["q8_fs_conflict"] += 1
+         try:
+             _buf, pa, _k, hit = c.get_c8(a, fs)
+         except Exception as _ex:                # noqa: BLE001
+@@ -1890,6 +1942,16 @@ class BinNet:
+         ps_total = t_pro + t_epi + sum(prof.values())
+         _pool_stats = (self.engine.f32pool_stats()
+                        if self.engine is not None else None)
++        # ★ E1E2 的 PS 侧分项（`prepare_segments` 内部桶，只在 BIN_PROFILE=1 时有）
++        _e1p = None
++        _dcs = None
++        if self.engine is not None and getattr(self.engine, "_e1e2", None) is not None:
++            _p = getattr(self.engine._e1e2, "_prof", None)
++            if _p:
++                _e1p = dict(_p)
++            _f = getattr(self.engine._e1e2, "desc_cache_stats", None)
++            if _f is not None:
++                _dcs = _f()          # BIN_DESC_CACHE 关 ⇒ None
+         _cs = self._cat_stats
+         _cs["cat_pack_s"] = {
+             k: float(_cs["cat_s"].get(k, 0.0) + _cs["pack_s"].get(k, 0.0))
+@@ -1916,6 +1978,9 @@ class BinNet:
+                           cat=self._cat_stats,
+                           qcache=(self._qcache.stats()
+                                   if self._qcache is not None else None),
++                          acq=getattr(be, "acq_stats", None),
++                          e1e2_prof=_e1p,
++                          desc_cache=_dcs,
+                           pack_pl=t_pack_pl,
+                           pipeline=True, backend=("PL" if self.engine else "ref"))
+         return {k: self._materialize(t.val) for k, t in outs.items()}, self.stats
+@@ -1937,6 +2002,7 @@ class BinNet:
+         dur = time.time() - t_all
+         self.stats = dict(prof=prof, total=dur, pipeline=False,
+                           backend=("PL" if self.engine else "ref"),
++                          acq=getattr(be, "acq_stats", None),
+                           mmio_writes=getattr(self.engine, "_writes", 0),
+                           mmio_skipped=getattr(self.engine, "_writes_skipped", 0))
+         return {k: t.val for k, t in outs.items()}, self.stats
+@@ -2061,12 +2127,42 @@ def main(argv=None):
+         h = hashlib.sha1(np.ascontiguousarray(o).tobytes()).hexdigest()[:12]
+         print("  %-5s %-16s min=%.4f max=%.4f mean=%.4f  sha1=%s"
+               % (k, "x".join(map(str, o.shape)), o.min(), o.max(), o.mean(), h))
+-    _print_stats(st)
++    print_stats(st)
+     return 0
+ 
+ 
+-def _print_stats(st):
+-    """统一的结果打印（PS/PL 分解 + 重叠量 + MMIO 计数）。"""
++def print_stats(st):
++    """统一的结果打印（PS/PL 分解 + 重叠量 + MMIO 计数 + qcache 命中）。
++
++    ★ 2026-11-01（第二棒）：由 `_print_stats` 改名而来（**函数体逐字未变**，
++    只多了一段 qcache），并保留 `_print_stats = print_stats` 别名 ⇒ CLI 输出
++    在 `Q8CACHE` 关时**逐字不变**。
++    为什么改名：`run()` **从不**调它（只有 CLI `main()` 调），所以 harness /
++    上板脚本拿不到桶 ⇒ 现在调用方可以显式 `bin_net.print_stats(st)`。
++    ★ 不要把它塞进 `run()`：那会让 CLI 打两遍，改变既有输出。
++
++    口径（每个字段从哪到哪、含什么）：
++      · `总耗时` st["total"]：`run()` 入口 → 返回，**含**建图、建缓存、PS/PL 全程；
++        主机上受内存压力影响会漂（26~44 s），**不能当判据**。
++      · `PL 时间` st["pl"]：Σ 每层 `finish()` 报的硬件 done 时间（不含 PS 轮询空档）。
++      · `PS 时间` st["ps_prologue"] + `ps_epilogue` + `ps_nonconv`：三段互不重叠；
++        其中 `ps_prologue` = 建描述符 + 量化 + 搬进 IN 缓冲（**本行的 q8 桶在这一段里**）。
++      · `E1E2 PS 分项` st["e1e2_prof"]（只在 `BIN_PROFILE=1` 时有）：
++          - `views`  = `prepare_segments` 入口 → `_pack_views()` 返回（取/建 4 个视图）；
++          - `descviews` = 入口 → `_pack_views()` 返回（= views + 之前的布局/键查找）；
++          - `q8`     = f32 段循环：`_q8_segments()`（含 `qcache.get_c8`，**含未命中的
++                       现场量化与写入**）→ 累加到该段落进 `vin`；**不含** i8 段（零拷贝）；
++          - `f32`    = 上述 q8 循环结束 → lanes 计划定稿 ⇒ **f32 ⊇ q8**（不可相加！）；
++          - `desc`   = 描述符组装（含 memo 命中）。
++      · `qcache（Q8CACHE=1）`：
++          - 按段 = `hits/(hits+misses)`；"一段" = 一次 `get_c8`（一个 f32 叶子的一段）。
++          - 按字节 = `hit_bytes/(hit_bytes+miss_bytes)`，单位是 **C8 int8 字节**；
++            换算 f32 等值请 ×4（所以本行同时给出 MB，且注明是 C8）。
++          - 常驻 = `stats["bytes"]`（当前）/ `peak`（历史峰值）/ `max_bytes`（= `Q8CACHE_MB`）。
++          - 逐出 = `evictions`（为腾地方踢掉的条数）；未常驻 = `skips`
++            （单条 > 上限，或 arena 用尽 ⇒ 走一次性缓冲，`pa=0`，正确但没省）。
++          - `evictions/skips` 都为 0 才说明"容量没成为瓶颈"。
++    """
+     print("  总耗时 %.2f s   (调度=%s, 后端=%s)"
+           % (st["total"], "PS/PL 重叠" if st.get("pipeline") else "严格串行",
+              st.get("backend", "?")))
+@@ -2105,6 +2201,47 @@ def _print_stats(st):
+         print("        直读源（int8）%.2f MB，现量化（f32 段）%.2f MB"
+               % (lz.get("direct_bytes", 0) / 1e6,
+                  lz.get("f32_bytes", 0) / 1e6))
++    _aq = st.get("acq")
++    if _aq and _aq.get("n"):
++        # ★ 永远打印（不依赖 BIN_PROFILE）：用一次上板判定 acq 是不是槽数伪影
++        print("     acq 明细：%d 次取槽，纯挑槽 %.1f ms；强制物化 %d 次 / %.1f ms%s"
++              % (_aq["n"], _aq["list_ms"], _aq["starved"], _aq["evict_ms"],
++                 ("（%.1f MB）" % _aq["evict_mb"]) if _aq.get("starved") else ""))
++    _ep = st.get("e1e2_prof")
++    if _ep:
++        # 只在 BIN_PROFILE=1 时有；descviews = prepare_segments 入口 → _pack_views 返回
++        _keys = ("q8", "f32", "desc", "views", "descviews")
++        print("     E1E2 PS 分项（BIN_PROFILE=1）："
++              + "  ".join("%s=%.1fms" % (k, _ep[k] * 1e3)
++                          for k in _keys if k in _ep))
++    _dc = st.get("desc_cache")
++    if _dc:
++        # 只在 BIN_DESC_CACHE=1 时出现
++        print("     描述符缓存：命中 %d / miss %d（%.1f%%），%d 条目 / %.0f KB"
++              "（上限 %.1f MB，清空 %d 次）；布局键 %d 条（命 %d），视图表 %d 条"
++              % (_dc["hit"], _dc["miss"], 100.0 * _dc["rate"],
++                 _dc["entries"], _dc["bytes"] / 1024.0,
++                 _dc["max_bytes"] / 1e6, _dc["clears"],
++                 _dc["lay_entries"], _dc["lay_hit"], _dc["pv_entries"]))
++    _q = st.get("qcache")
++    if _q:
++        # ★ 2026-11-01（第二棒）新增：只在 Q8CACHE=1（有缓存实例）时出现
++        #   ⇒ Q8CACHE 关时 CLI 输出逐字不变。口径见本函数 docstring。
++        _nseg = int(_q.get("hits", 0)) + int(_q.get("misses", 0))
++        _hb = int(_q.get("hit_bytes", 0))
++        _mb = int(_q.get("miss_bytes", 0))
++        _q8fs = (st.get("cat") or {}).get("q8_fs_conflict")
++        print("     qcache（Q8CACHE=1）：命中 %d / 未命中 %d 段（%.0f%%）；"
++              "按字节 命中 %.2f / 未命中 %.2f MB-C8（%.0f%%）；"
++              "常驻 %.2f MB（峰值 %.2f / 上限 %.0f）；逐出 %d，未常驻 %d%s"
++              % (_q.get("hits", 0), _q.get("misses", 0),
++                 100.0 * _q.get("hits", 0) / max(1, _nseg),
++                 _hb / 1e6, _mb / 1e6, 100.0 * _hb / max(1, _hb + _mb),
++                 _q.get("bytes", 0) / 1e6, _q.get("peak", 0) / 1e6,
++                 _q.get("max_bytes", 0) / 1e6,
++                 _q.get("evictions", 0), _q.get("skips", 0),
++                 ("；%d 个叶子有多种 fs_in（多条目并存）" % _q8fs
++                  if _q8fs else "")))
+     if st.get("mmio_writes"):
+         print("     MMIO：真写 %d 次 / 影子缓存跳过 %d 次"
+               "（预写配置命中 %d，未命中 %d）"
+@@ -2112,5 +2249,9 @@ def _print_stats(st):
+                  st.get("cfg_hits", 0), st.get("cfg_miss", 0)))
+ 
+ 
++# 旧名别名：`bin_net.main()` 与外脚本/历史探针都用 `_print_stats`
++_print_stats = print_stats
++
++
+ if __name__ == "__main__":
+     sys.exit(main())
+diff --git a/pynq_specialized_code/ps/pynq/bin_ref_numpy.py b/pynq_specialized_code/ps/pynq/bin_ref_numpy.py
+index f33bee0..30e2196 100644
+--- a/pynq_specialized_code/ps/pynq/bin_ref_numpy.py
++++ b/pynq_specialized_code/ps/pynq/bin_ref_numpy.py
+@@ -632,7 +632,11 @@ def _bilinear_slab(x, c0, c1, i00, i01, i10, i11, w00, w01, w10, w11, out):
+     o += t
+ 
+ 
+-# ★ 2026-10-31（合入，2026-11-01 板端复验通过）：C 内核 `bilinear_c.c`，默认开（`BIN_BILINEAR_C=0` 关）。
++# ★ 2026-10-31（合入，2026-11-01 板端复验通过；2026-11-02 默认值纠正为 opt-in）：
++#   C 内核 `bilinear_c.c`，**默认关（opt-in）** —— 只有**显式** `BIN_BILINEAR_C=1` 才启用；
++#   基线运行点必须显式写 `=1`。未设置 / `=0` / C 不可用 ⇒ 走 numpy 回落路径（逐位相同）。
++#   （纠正原因：原注释写"默认开"，与 `bilinear_c.py` docstring 的"默认关"矛盾；
++#     2026-11-02 已把 `bilinear_c.load()` 的默认值改成 "0"，两处说法现在一致。）
+ #   为什么：板端 v39 256² 的 26 次 interp = **1.907 s**（非卷积最大单项、全网 22.4%），
+ #   有效吞吐只有 30 MB/s —— 瓶颈是 4 次 fancy-index gather 在 2 核 A9 上的表现。
+ #   同进程板端实测：**1.994 → 0.412 s（4.83×）**，整网 13.099 → 11.236 s（−1.86 s），
+@@ -676,8 +680,9 @@ def bilinear_f32(x, size=None, scale=None):
+       因为下采样的主体是 `np.take`，而它**不释放 GIL**（实测 0 加速，见 3.4 注释）。
+       主机真实激活实测：26 次插值 46.9~51.5 → 35.3~40.0 ms（**1.29~1.42×**，多次运行），
+       逐字节 0 差异。
+-    ★ 2026-10-31（合入）：默认走 C 内核（`bilinear_c.c`，逐字节等价）；
+-      numpy 版保留为回落路径（`BIN_BILINEAR_C=0` 或 C 不可用时）。
++    ★ 2026-10-31（合入）/ 2026-11-02（默认值纠正）：**显式 `BIN_BILINEAR_C=1`** 时走 C 内核
++      （`bilinear_c.c`，逐字节等价）；默认（未设置）、显式 `=0`、C 不可用 ⇒ 走 numpy
++      （opt-in 纪律：加速开关默认关，异常静默回落）。
+     """
+     _c = _bilinear_c_kernel()
+     if _c is not None:
+diff --git a/pynq_specialized_code/ps/pynq/board_v39_verify.py b/pynq_specialized_code/ps/pynq/board_v39_verify.py
+index db82ad5..142ea37 100644
+--- a/pynq_specialized_code/ps/pynq/board_v39_verify.py
++++ b/pynq_specialized_code/ps/pynq/board_v39_verify.py
+@@ -115,23 +115,155 @@ def dump(path):
+ 
+ 
+ # ---------------------------------------------------------------- 配置开关
++# ★ 2026-11-02（②）：`BIN_BILINEAR_C` 也进 `_KEYS` ⇒ 每次 run 的 `row["env"]`、
++#   `R["env_at_start"]`、`R["runpoint"]["switches"]` 都会留证。
++#   它是 opt-in 开关（默认关），所以由 `--bilinear-c`（**默认 1 = 基线运行点**）
++#   **显式**落成环境变量——否则"默认关"会把基线悄悄变成 numpy 臂（口径漂移）。
+ _KEYS = ("BIN_PACK", "BIN_LAZY_DEQ", "BIN_LAZY_SLOTS", "CATPACK",
+          "BIN_CAT_FUSION", "BIN_CAT_STRICT", "Q8CACHE", "Q8CACHE_MB",
+-         "Q8_C8_IMPL", "BIN_Q8_FUSED")
++         "Q8_C8_IMPL", "BIN_Q8_FUSED", "BIN_BILINEAR_C")
+ 
++# 基线运行点：C 内核算 interp（显式 =1）。--bilinear-c 覆盖。
++_BC = {"want": "1"}
+ 
+-def cfg(slots):
++
++def _switch_values(slots, bc=None):
++    """`cfg()` 会落成环境变量的那套开关（**不碰环境变量**，供开跑前的 runpoint 记录）。"""
++    return {"BIN_PACK": "e1e2",              # 基线同款：E1E2 硬打包
++            "BIN_LAZY_DEQ": "1",             # 任务书指定
++            "BIN_LAZY_SLOTS": str(int(slots)),   # 任务书指定 24
++            "BIN_CAT_FUSION": "1",           # S2 融合（8.3 s 那一档）
++            "Q8CACHE": "0",                  # 任务书指定
++            "BIN_Q8_FUSED": "1",
++            "BIN_BILINEAR_C": _BC["want"] if bc is None else str(bc)}
++
++
++def cfg(slots, bc=None):
+     for k in _KEYS:
+         os.environ.pop(k, None)
+-    os.environ["BIN_PACK"] = "e1e2"          # 基线同款：E1E2 硬打包
+-    os.environ["BIN_LAZY_DEQ"] = "1"         # 任务书指定
+-    os.environ["BIN_LAZY_SLOTS"] = str(int(slots))   # 任务书指定 24
+-    os.environ["BIN_CAT_FUSION"] = "1"       # S2 融合（8.3 s 那一档）
+-    os.environ["Q8CACHE"] = "0"              # 任务书指定
+-    os.environ["BIN_Q8_FUSED"] = "1"
++    for k, v in _switch_values(slots, bc).items():
++        os.environ[k] = v
+     return {k: os.environ.get(k, "") for k in _KEYS}
+ 
+ 
++# ---------------------------------------------------------------- 运行点自记录
++# ★ 2026-11-02（②）：每份 JSON 都必须能回答"这一跑用的是哪份代码"。
++#   复核者就卡在这里：6.455 s 那组只有时间，没有代码 md5 ⇒ 无法证明跑的是哪份代码。
++#   五份代码 = 本脚本实际 import / 编译的那几份（HERE 目录，即板端真正执行的文件）。
++CODE_FILES = ("bin_net.py", "bin_engine.py", "bin_ref_numpy.py",
++              "bilinear_c.py", "bilinear_c.c")
++
++
++def md5_of(path):
++    h = hashlib.md5()
++    with open(path, "rb") as f:
++        for chunk in iter(lambda: f.read(1 << 20), b""):
++            h.update(chunk)
++    return h.hexdigest()
++
++
++def code_md5():
++    out = {}
++    for name in CODE_FILES:
++        try:
++            out[name] = md5_of(os.path.join(HERE, name))
++        except Exception as ex:                        # noqa: BLE001
++            out[name] = "ERROR:%r" % (ex,)
++    return out
++
++
++def runpoint(bit=None, fclk_target=None, slots=None, switches=None):
++    """运行点自记录（写进 R["runpoint"]）：位流 md5 + 五项代码 md5 + 开关 + 频率/槽数。"""
++    rp = R.setdefault("runpoint", {})
++    rp["code_md5"] = code_md5()
++    if bit is not None:
++        rp["bit"] = bit
++        try:
++            rp["bit_md5"] = md5_of(bit) if os.path.exists(bit) else "MISSING"
++        except Exception as ex:                        # noqa: BLE001
++            rp["bit_md5"] = "ERROR:%r" % (ex,)
++    if fclk_target is not None:
++        rp["fclk_target"] = fclk_target
++    if slots is not None:
++        rp["slots"] = int(slots)
++    rp["switches"] = ({k: os.environ.get(k, "") for k in _KEYS}
++                      if switches is None else dict(switches))
++    rp["stamp"] = time.strftime("%Y-%m-%d %H:%M:%S")
++    return rp
++
++
++# ---------------------------------------------------------------- 步骤 0：一次性成本
++# ★ 2026-11-02（④）：`bilinear_c.load()`（cc 编译 + 6 形状 fast 自检）是**一次性成本**，
++#   原来它落在第一次 run 的计时里 ⇒ 首跑 8.77 s 里有 ≈0.73 s 不是稳态。
++#   现在：
++#     ① 在这里**单独计时一次并打印**，写进 `R["runpoint"]["bilinear_c"]`；
++#     ② 本 session 首个 run 的行里追认 `total_incl_onetime_s = total_s + 一次性成本`
++#        （口径 a：用户真实首帧），而 `total_s` 永远是**不含**它的稳态（口径 b）；
++#     ③ 两个口径**都打印**——不许只报好看的那个。
++_ONETIME = {"boot_s": None, "charged": False}
++
++
++def step_bilinear():
++    hdr("步骤 0：C 内核一次性成本（load + fast 自检）—— 单独计时，不进稳态")
++    rp = R.setdefault("runpoint", {})
++    rec = dict(env=os.environ.get("BIN_BILINEAR_C", "<未设置>"))
++    t0 = time.perf_counter()
++    try:
++        import bilinear_c as bc
++    except Exception as ex:                            # noqa: BLE001
++        dt = time.perf_counter() - t0
++        log("  import bilinear_c 失败：%r ⇒ 永久走 numpy" % (ex,))
++        rec.update(status="import_error", error=repr(ex)[:300],
++                   seconds=round(dt, 4))
++        rp["bilinear_c"] = rec
++        return rec
++    lib = bc.load()                        # 内含 fast 自检（6 形状）
++    dt = time.perf_counter() - t0
++    rec.update(loaded=bool(lib is not None), why=str(bc.why()),
++               seconds=round(dt, 4),
++               note="seconds = 本进程 load()+fast 自检；.so 已存在时不含 cc 编译")
++    try:
++        so = os.path.join(HERE, "bilinear_c_%s.so" % bc.ARCH)
++        rec["so"] = os.path.basename(so)
++        rec["so_md5"] = md5_of(so) if os.path.exists(so) else "MISSING"
++    except Exception as ex:                            # noqa: BLE001
++        rec["so_md5"] = "ERROR:%r" % (ex,)
++    if lib is not None:
++        _ONETIME["boot_s"] = dt
++        log("  BIN_BILINEAR_C=%s → 内核已加载（why=%s，fast 自检 6 形状通过）"
++            % (rec["env"], bc.why()))
++        log("  **一次性成本 = %.3f s**（本进程只付一次）" % dt)
++        log("  口径 a) 含一次性成本的首帧 = 首个 run 的 total + %.3f s（用户真实体验）" % dt)
++        log("  口径 b) 不含它的稳态 = 首个 run 本身的 total（技术对比）")
++    else:
++        log("  BIN_BILINEAR_C=%s → 未启用（why=%s）；本次无一次性成本 ⇒ 口径 a = 口径 b"
++            % (rec["env"], bc.why()))
++    rp["bilinear_c"] = rec
++    return rec
++
++
++# ---------------------------------------------------------------- 运行期切臂（⑤ 用）
++# ★ 2026-11-02（⑤）：同进程 A/B 必须能在**运行期**切 interp 内核 —— `bilinear_c._STATE`
++#   （tried/lib）与 `bin_ref_numpy._C_KERNEL`（tried/fn）都是 once-per-process 缓存。
++#   本函数**只重置这两个缓存**并落 `BIN_BILINEAR_C`（同时更新 `_BC["want"]`，
++#   否则下一次 `run_net→cfg()` 会把臂切回默认值），**不改任何源码/数值逻辑**。
++#   返回 `(kernel_loaded, why)`：调用方**必须**用它判断"这条臂到底是不是 C 臂"，
++#   不许只看环境变量（C 编不出时 set_arm(True) 会返回 False）。
++_ARM = {"use_c": None}
++
++
++def set_arm(use_c):
++    os.environ["BIN_BILINEAR_C"] = "1" if use_c else "0"
++    _BC["want"] = os.environ["BIN_BILINEAR_C"]
++    _ARM["use_c"] = bool(use_c)
++    import bin_ref_numpy as _rn
++    import bilinear_c as _bc
++    _rn._C_KERNEL = {"tried": False, "fn": None}
++    _bc._STATE = {"tried": False, "lib": None, "why": "reset", "checked": False}
++    fn = _rn._bilinear_c_kernel()
++    return (fn is not None), str(_bc.why())
++
++
+ # ---------------------------------------------------------------- 步骤 1：load
+ def step_load(bit, download=True):
+     hdr("步骤 1：加载 overlay（本 session 唯一一次真正的 download）")
+@@ -218,14 +350,14 @@ def make_arena(hw, slots, name):
+     return arena, need
+ 
+ 
+-def run_net(ov, hw, arena, slots, tag=""):
+-    env = cfg(slots)
++def run_net(ov, hw, arena, slots, tag="", bc=None, seed=1):
++    env = cfg(slots, bc)
+     os.environ["BV_FREE"] = "1" if hw >= 256 else "0"
+     arena.reset()
+     eng = BE.BinConvEngine(ov, unit_id=0, pack_dir=PACK, verbose=False)
+     eng.load_weights()
+     net = BN.BinNet(PACK, engine=eng, H=hw, W=hw, verbose=False)
+-    rng = np.random.default_rng(1)
++    rng = np.random.default_rng(int(seed))
+     x0 = rng.random((3, hw, hw), dtype=np.float32)
+     xs = sha1_of(x0)
+     t0 = time.time()
+@@ -233,8 +365,12 @@ def run_net(ov, hw, arena, slots, tag=""):
+     dur = time.time() - t0
+     sh = {k: sha1_of(outs[k]) for k in ("out1", "out2", "out3")}
+     ok = (FROZEN[hw] == (sh["out1"], sh["out2"], sh["out3"]))
++    # ⑥（2026-11-02）：seed ≠ 1 时 sha1 **必然**与冻结基线不同（那是另一个输入）
++    #   ⇒ 判据换成"numpy臂=C臂 逐位相同"（由 driver 比对），本行不冒充"通过"。
++    frozen_cmp = (int(seed) == 1)
+     prof = st.get("prof") or {}
+-    row = dict(tag=tag, hw=hw, slots=int(slots), env=env, x0_sha1=xs,
++    row = dict(tag=tag, hw=hw, slots=int(slots), seed=int(seed), env=env,
++               x0_sha1=xs,
+                total_s=st.get("total"), wall_s=round(dur, 4),
+                pl_s=st.get("pl"), pack_pl=st.get("pack_pl"),
+                ps_s=st.get("ps"), prologue=st.get("ps_prologue"),
+@@ -243,8 +379,25 @@ def run_net(ov, hw, arena, slots, tag=""):
+                mmio=st.get("mmio_writes"),
+                prof={k: round(float(v), 4) for k, v in prof.items()},
+                lazy=st.get("lazy"), cat=st.get("cat"),
+-               sha1=sh, expect=FROZEN[hw], sha_ok=bool(ok),
+-               n_sha_ok=int(ok) * 3)
++               sha1=sh, expect=FROZEN[hw],
++               sha_frozen_ok=bool(ok),
++               sha_ok=(bool(ok) if frozen_cmp else None),
++               frozen_comparable=bool(frozen_cmp),
++               n_sha_ok=(int(ok) * 3 if frozen_cmp else None))
++    # ④ 两种口径：total_s 永远是不含一次性成本的稳态（b）；只有本 session 首个 run
++    #    追认 total_incl_onetime_s（a = 稳态 + 一次性 load/自检）。之后的行 a = b。
++    boot = _ONETIME.get("boot_s")
++    if boot and not _ONETIME["charged"]:
++        tot = row["total_s"]
++        row["onetime_s"] = round(float(boot), 4)
++        row["total_incl_onetime_s"] = (round(float(tot) + float(boot), 4)
++                                       if tot is not None else None)
++        _ONETIME["charged"] = True
++        log("     口径 a) 含一次性成本 %.3f s 的首帧 = %.3f s  |  "
++            "口径 b) 稳态 = %.3f s（上面的 total 即 b）"
++            % (boot, (tot or 0.0) + boot, tot or 0.0))
++    else:
++        row["total_incl_onetime_s"] = row["total_s"]
+     log("  ── %s hw=%d ──" % (tag or "net", hw))
+     log("     总 %.3f s（墙钟 %.3f） PL %.3f（其中 E1E2 %.3f）| PS %.3f = "
+         "prologue %.3f + epilogue %.3f + 非卷积 %.3f | overlap %.3f wait %.3f"
+@@ -252,22 +405,37 @@ def run_net(ov, hw, arena, slots, tag=""):
+            row["ps_s"] or 0, row["prologue"] or 0, row["epilogue"] or 0,
+            row["nonconv"] or 0, row["overlap"] or 0, row["wait"] or 0))
+     log("     非卷积分项 %s" % json.dumps(row["prof"], ensure_ascii=False))
+-    log("     输入 sha1=%s %s" % (xs[:16],
+-                                 "(与冻结基线一致)" if hw != 256 or
+-                                 xs.startswith(X0_SHA1[256]) else "(⚠ 与基线不同)"))
+-    log("     sha1 out1=%s out2=%s out3=%s  %s"
+-        % (sh["out1"][:12], sh["out2"][:12], sh["out3"][:12],
+-           "OK/3" if ok else "**≠冻结基线**"))
++    if frozen_cmp:
++        log("     输入 sha1=%s %s" % (xs[:16],
++                                     "(与冻结基线一致)" if hw != 256 or
++                                     xs.startswith(X0_SHA1[256]) else "(⚠ 与基线不同)"))
++        log("     sha1 out1=%s out2=%s out3=%s  %s"
++            % (sh["out1"][:12], sh["out2"][:12], sh["out3"][:12],
++               "OK/3" if ok else "**≠冻结基线**"))
++    else:
++        log("     seed=%d ⇒ 输入 sha1=%s（**故意**与冻结基线不同）；"
++            "sha1 out1=%s out2=%s out3=%s"
++            % (int(seed), xs[:16], sh["out1"][:12], sh["out2"][:12],
++               sh["out3"][:12]))
++        log("     本行不与冻结基线比（另一个输入）；判据是 numpy臂 vs C臂 输出逐位相同")
+     del net, eng, outs
+     gc.collect()
+     return row
+ 
+ 
+ # ---------------------------------------------------------------- 步骤 4/5
+-def step_net(ov, hw, slots, fclk):
+-    hdr("步骤 4：整网 %d² 功能判据（fclk 读回 %g MHz）" % (hw, fclk))
++def sha_label(r):
++    """sha1 判据的口径标签：seed≠1 时**不许**写成"通过"（那是另一个输入）。"""
++    if r.get("sha_ok") is None:
++        return "跳过(seed≠1)"
++    return "3/3 OK" if r["sha_ok"] else "**≠**"
++
++
++def step_net(ov, hw, slots, fclk, seed=1):
++    hdr("步骤 4：整网 %d² 功能判据（fclk 读回 %g MHz，seed=%d）"
++        % (hw, fclk, int(seed)))
+     arena, need = make_arena(hw, slots, "v39_arena_%d" % hw)
+-    row = run_net(ov, hw, arena, slots, tag="net%d" % hw)
++    row = run_net(ov, hw, arena, slots, tag="net%d" % hw, seed=seed)
+     R["net_%d" % hw] = row
+     del arena
+     gc.collect()
+@@ -302,7 +470,7 @@ def step_rlat(ov, fclk):
+ 
+ 
+ # ---------------------------------------------------------------- 步骤 7：曲线
+-def step_sweep(ov, hw, slots, freqs, reps, fclk0):
++def step_sweep(ov, hw, slots, freqs, reps, fclk0, seed=1):
+     hdr("步骤 7：频率曲线（同 bit / 同 PS 代码，只切 Clocks.fclk0_mhz）")
+     arena, need = make_arena(hw, slots, "v39_sweep_%d" % hw)
+     rows = []
+@@ -317,7 +485,8 @@ def step_sweep(ov, hw, slots, freqs, reps, fclk0):
+         best = None
+         for r in range(max(1, reps)):
+             try:
+-                row = run_net(ov, hw, arena, slots, tag="sweep@%g rep%d" % (f, r))
++                row = run_net(ov, hw, arena, slots,
++                              tag="sweep@%g rep%d" % (f, r), seed=seed)
+             except Exception as ex:                    # noqa: BLE001
+                 log("  %g MHz rep%d 异常：%r" % (f, r, ex))
+                 row = dict(tag="sweep@%g" % f, error=repr(ex)[:400])
+@@ -333,7 +502,7 @@ def step_sweep(ov, hw, slots, freqs, reps, fclk0):
+             rows.append(best)
+             log("  >>> 请求 %g MHz（读回 %g）→ min 总 %.3f s / PL %.3f s  sha1 %s"
+                 % (f, got, best["total_s"], best["pl_s"] or 0,
+-                   "OK" if best["sha_ok"] else "**≠**"))
++                   sha_label(best)))
+             R["sweep"] = rows
+             dump(R["_json"])
+         else:
+@@ -363,12 +532,26 @@ def main(argv=None):
+     ap.add_argument("--json", default="/home/xilinx/demoir/v39_verify.json")
+     ap.add_argument("--no-download", action="store_true")
+     ap.add_argument("--skip", default="", help="rlat,sweep,net64")
++    ap.add_argument("--bilinear-c", type=int, choices=(0, 1), default=1,
++                    help="1=interp 走 C 内核（**基线运行点，opt-in 必须显式**）；"
++                         "0=numpy 回落臂。默认 1 并显式写进环境变量与 runpoint。")
++    ap.add_argument("--seed", type=int, default=1,
++                    help="整网输入 rng=default_rng(seed)。默认 1 = 冻结基线输入；"
++                         "换 seed 时 sha1 必然不同 ⇒ 只能比 numpy臂 vs C臂 逐位相同。")
+     a = ap.parse_args(argv)
+     skip = set(x.strip() for x in a.skip.split(",") if x.strip())
++    _BC["want"] = str(a.bilinear_c)
++    os.environ["BIN_BILINEAR_C"] = _BC["want"]   # opt-in 开关：显式落环境变量，不靠默认值
+     R["_json"] = a.json
+     R["args"] = vars(a)
+     R["started"] = time.strftime("%Y-%m-%d %H:%M:%S")
+     R["env_at_start"] = {k: os.environ.get(k, "") for k in _KEYS}
++    rp = runpoint(a.bit, a.fclk, a.slots,
++                  switches=_switch_values(a.slots, a.bilinear_c))
++    log("  运行点自记录：bit_md5=%s" % rp.get("bit_md5"))
++    for _k in CODE_FILES:
++        log("    %-18s %s" % (_k, rp["code_md5"].get(_k)))
++    dump(a.json)
+ 
+     ov = step_load(a.bit, download=not a.no_download)
+     step_addr(ov)
+@@ -381,21 +564,28 @@ def main(argv=None):
+         dump(a.json)
+         return 3
+ 
++    # ④ 一次性成本单独计时（必须在任何 run 之前，否则会被算进首跑）
++    step_bilinear()
++    dump(a.json)
++
+     # 256²（最重要）
+-    r256 = step_net(ov, 256, a.slots, Clocks.fclk0_mhz)
++    r256 = step_net(ov, 256, a.slots, Clocks.fclk0_mhz, a.seed)
+     dump(a.json)
+-    if not r256.get("sha_ok"):
++    if a.seed == 1 and not r256.get("sha_ok"):
+         log("!! 256² sha1 ≠ 冻结基线 ⇒ 真问题，停在这里（不做 64/曲线）")
+         R["fatal"] = "net256 sha1 mismatch"
+         R["finished"] = time.strftime("%Y-%m-%d %H:%M:%S")
+         dump(a.json)
+         return 4
++    if a.seed != 1:
++        log("  seed=%d：本跑不与冻结基线比 sha1（另一个输入）；"
++            "等价性判据在 driver 里比 numpy臂 vs C臂" % a.seed)
+ 
+     # 64²
+     if "net64" not in skip:
+-        r64 = step_net(ov, 64, a.slots, Clocks.fclk0_mhz)
++        r64 = step_net(ov, 64, a.slots, Clocks.fclk0_mhz, a.seed)
+         dump(a.json)
+-        if not r64.get("sha_ok"):
++        if a.seed == 1 and not r64.get("sha_ok"):
+             log("!! 64² sha1 ≠ 冻结基线 ⇒ 真问题")
+             R["fatal"] = "net64 sha1 mismatch"
+ 
+@@ -409,12 +599,23 @@ def main(argv=None):
+ 
+     if "sweep" not in skip:
+         freqs = [float(x) for x in a.freqs.split(",") if x.strip()]
+-        step_sweep(ov, 256, a.slots, freqs, a.reps, a.fclk)
++        step_sweep(ov, 256, a.slots, freqs, a.reps, a.fclk, a.seed)
+ 
+-    # ---- 汇总
++    # ---- 汇总（②：把运行点与"跑后 md5"写进同一份 JSON）
+     hdr("汇总")
++    after = code_md5()
++    rp["code_md5_after"] = after
++    rp["code_md5_same"] = bool(after == rp.get("code_md5"))
+     R["finished"] = time.strftime("%Y-%m-%d %H:%M:%S")
+     dump(a.json)
++    log("  运行点：bit_md5=%s  fclk 目标 %g / 读回 %g  槽 %d  BIN_BILINEAR_C=%s"
++        % (rp.get("bit_md5"), rp.get("fclk_target"),
++           (R.get("identity") or {}).get("fclk_readback"),
++           rp.get("slots"), os.environ.get("BIN_BILINEAR_C")))
++    log("  代码 md5（五项）：%s"
++        % json.dumps(rp.get("code_md5"), ensure_ascii=False))
++    log("  跑后 md5：%s" % ("✓ 与开跑时逐字节一致（无内存踩踏）"
++                          if rp["code_md5_same"] else "✗✗ 变了 ⇒ 立即停手"))
+     for key in ("net_256", "net_64"):
+         r = R.get(key)
+         if not r:
+@@ -422,15 +623,19 @@ def main(argv=None):
+         log("  %-8s 总 %7.3f  PL %6.3f  prologue %6.3f  epilogue %5.3f  "
+             "非卷积 %5.3f  sha1 %s"
+             % (key, r["total_s"] or 0, r["pl_s"] or 0, r["prologue"] or 0,
+-               r["epilogue"] or 0, r["nonconv"] or 0,
+-               "3/3 OK" if r["sha_ok"] else "**≠**"))
++               r["epilogue"] or 0, r["nonconv"] or 0, sha_label(r)))
++        if r.get("onetime_s"):
++            log("          口径 a) 含一次性 %.3f s 的首帧 = %7.3f s  |  "
++                "口径 b) 稳态 = %7.3f s"
++                % (r["onetime_s"], r["total_incl_onetime_s"] or 0,
++                   r["total_s"] or 0))
+     for r in R.get("sweep") or []:
+         if "error" in r:
+             log("  @%g MHz ERROR %s" % (r["req_mhz"], r["error"]))
+             continue
+         log("  @%-6g MHz（读回 %g）总 %7.3f  PL %6.3f  sha1 %s"
+             % (r["req_mhz"], r["got_mhz"], r["total_s"], r["pl_s"] or 0,
+-               "3/3 OK" if r["sha_ok"] else "**≠**"))
++               sha_label(r)))
+     log("  → %s" % a.json)
+     return 0
+ 
+diff --git a/pynq_specialized_code/ps/pynq/qcache.py b/pynq_specialized_code/ps/pynq/qcache.py
+index b40e47d..8543303 100644
+--- a/pynq_specialized_code/ps/pynq/qcache.py
++++ b/pynq_specialized_code/ps/pynq/qcache.py
+@@ -121,7 +121,7 @@ def to_c8_blocked(q, block_bytes=32 << 10, mode="slice"):
+ _C8_IMPL = os.environ.get("Q8_C8_IMPL", "").strip().lower() or "blocked"
+ 
+ 
+-def quantize_leaf_c8(x_f, fs_in, impl=None):
++def quantize_leaf_c8(x_f, fs_in, impl=None, out=None):
+     """(C,H,W) float32 → C8 交错 int8（**逐字节 == pack_segments 的 f32 段**）。
+ 
+     实现优先级：
+@@ -129,10 +129,27 @@ def quantize_leaf_c8(x_f, fs_in, impl=None):
+          S1 的 `prepare_segments` 也用它 ⇒ 与热路径**同一字节定义**）；
+       2. `Q8_C8_IMPL` 指定的纯 numpy 变体（padded/fast/blocked/blocked_t）。
+     `BIN_Q8_FUSED=0` 可强制走 2（A/B / 内核不可用时）。
++
++    `out`（2026-11-01 第二棒，为"fill 直写 arena"加的）：
++      - `None`（默认）⇒ 自己 `np.empty` 一块返回。**与改前逐字节、口径一致。**
++      - 一块可写 uint8 视图（长度 = `c8_nbytes(C,H,W)`）⇒ 结果**直接写进去**并返回它。
++        省掉"量化到临时缓冲 → 拷进 arena"那一次整段拷贝。
++      - 长度/类型/可写性任一不符 ⇒ 忽略 `out`，按 `None` 走（调用方自己拷）。
++    数值语义与 `out` **无关**：同一 `(x_f, fs_in)` 写出的字节完全相同。
+     """
+     from bin_engine import quantize_int8, _q8
+     x = np.asarray(x_f, np.float32)
+     C, H, W = (int(v) for v in x.shape)
++    n = c8_nbytes((C, H, W))
++    dst = None
++    if out is not None and n:
++        try:
++            cand = np.asarray(out).reshape(-1)
++            if (cand.dtype == np.uint8 and cand.size == n
++                    and cand.flags.writeable and cand.flags.c_contiguous):
++                dst = cand
++        except Exception:                  # noqa: BLE001
++            dst = None
+     how = (impl or os.environ.get("Q8_C8_IMPL", "") or _C8_IMPL).strip().lower()
+     fused = os.environ.get("BIN_Q8_FUSED", "1").strip().lower() not in (
+         "0", "off", "false", "no")
+@@ -141,21 +158,43 @@ def quantize_leaf_c8(x_f, fs_in, impl=None):
+         try:
+             qm = _q8()
+             if qm is not None and C % 8 == 0:
+-                out = np.empty(C * H * W, np.uint8)
+-                got = qm.c8_into(x, int(fs_in), out, C, H, W)
++                tgt = dst if dst is not None else np.empty(C * H * W, np.uint8)
++                got = qm.c8_into(x, int(fs_in), tgt, C, H, W)
+                 if got is not None:
+-                    return out
++                    return tgt
+         except Exception:                  # noqa: BLE001
+             pass
+     q = quantize_int8(x, int(fs_in))
+     if how in ("fast", "ascontig"):
+-        return to_c8_fast(q)
+-    if how in ("blocked", "block"):
+-        return to_c8_blocked(q, mode="slice")
+-    if how in ("blocked_t", "block_t"):
+-        return to_c8_blocked(q, mode="t")
+-    from e1e2_sim import to_c8_padded
+-    return np.frombuffer(to_c8_padded(q, pad_to=C), np.uint8)
++        r = to_c8_fast(q)
++    elif how in ("blocked", "block"):
++        r = to_c8_blocked(q, mode="slice")
++    elif how in ("blocked_t", "block_t"):
++        r = to_c8_blocked(q, mode="t")
++    else:
++        from e1e2_sim import to_c8_padded
++        r = np.frombuffer(to_c8_padded(q, pad_to=C), np.uint8)
++    if dst is not None:                    # 融合内核没接住 ⇒ 拷一次，语义不变
++        rr = np.asarray(r).reshape(-1)
++        if rr.size == n:
++            dst[:] = rr
++            return dst
++    return r
++
++
++def c8_nbytes(shape):
++    """(C,H,W) → C8 交错字节数 `ceil(C/8)*8*H*W`（== 上面所有实现的输出长度）。
++
++    只看形状、**不做量化** ⇒ 让调用方"先落位、再直写"（fill 直写 arena 的前提）。
++    形状不是 3 维 / 任一维 ≤ 0 ⇒ `None`（调用方回落"先量化再量长度"的老路径）。
++    """
++    try:
++        sh = tuple(int(v) for v in shape)
++    except Exception:                      # noqa: BLE001
++        return None
++    if len(sh) != 3 or min(sh) <= 0:
++        return None
++    return ((sh[0] + 7) // 8) * 8 * sh[1] * sh[2]
+ 
+ 
+ class QuantLeafCache:
+@@ -177,6 +216,8 @@ class QuantLeafCache:
+         self._by_qid = {}                       # id(obj) -> set(keys)
+         self.hits = 0
+         self.misses = 0
++        self.hit_bytes = 0          # 命中段的 C8 字节合计（f32 等值 = × 4）
++        self.miss_bytes = 0         # 未命中（现场量化过）段的 C8 字节合计
+         self.stale = 0
+         self.evictions = 0
+         self.skips = 0
+@@ -230,6 +271,8 @@ class QuantLeafCache:
+         return dict(name=self.name, entries=len(self._m), bytes=int(self.bytes),
+                     peak=int(self.peak), max_bytes=int(self.max_bytes),
+                     hits=self.hits, misses=self.misses, stale=self.stale,
++                    hit_bytes=int(self.hit_bytes),
++                    miss_bytes=int(self.miss_bytes),
+                     evictions=self.evictions, skips=self.skips,
+                     n_alloc=self.n_alloc, high_water=int(self.high_water),
+                     verify=self.verify)
+@@ -278,13 +321,66 @@ class QuantLeafCache:
+             except Exception:                           # noqa: BLE001
+                 pass
+ 
++    def _flush_entry(self, buf, nbytes):
++        """把**刚写的那一条**（`buf` 的前 `nbytes` 字节）清出 cache，PL 才看得到。
++
++        ★ 2026-11-01（第二棒）flush 口径：
++          - 改前：每次未命中 `self._flush(self._arena)` ⇒ 每 miss 都把**整块 arena**
++            （= `Q8CACHE_MB`+64，默认 **32 MB**）clean 一遍。本网 ~26 次 miss
++            ⇒ 约 830 MB 的 dcache clean，纯浪费（常驻只有 5~8 MB）。
++          - 改后：只 clean 本条条目的字节范围，先试 `buf.flush_range(0, nbytes)`
++            （`bin_engine.RegionBuffer` 若能从底层拿到按范围的 clean 就返回 True）；
++            拿不到就**回落到 `buf.flush()`**（= 整块 arena，与改前完全一样）。
++            也就是说：**拿不到范围原语时行为与改前相同，不会更差、也不会错。**
++          - 语义保证：只要 [开始写, 这里] 之间没有别的写，clean 这一条就足以让
++            PL 读到完整的新数据（一条条目写完之后才注册进 `_m`，不存在半条可见）。
++          - 异常一律吞掉（flush 失败不许改变程序语义，与改前一致）。
++        """
++        n = int(nbytes)
++        if n <= 0:
++            return
++        fr = getattr(buf, "flush_range", None)
++        if fr is not None:
++            try:
++                if fr(0, n):
++                    return
++            except Exception:                           # noqa: BLE001
++                pass
++        self._flush(buf)
++
++    def _admit(self, k, data, buf, pa, n):
++        """把已写好的 `buf[0:n]` 登记成一条常驻条目，返回 `(buf, pa, k, False)`。"""
++        ent = dict(buf=buf, pa=pa, off=int(pa - self._arena_pa),
++                   nbytes=int(n), qid=id(data),
++                   h=(hashlib.sha1(np.ascontiguousarray(data).tobytes()).digest()
++                      if self.verify else None))
++        self._m[k] = ent
++        self._by_qid.setdefault(id(data), set()).add(k)
++        self.bytes += int(n)
++        self.peak = max(self.peak, self.bytes)
++        return buf, ent["pa"], k, False
++
+     # ---------------------------------------------------------------- 主入口
+     def get_c8(self, data, fs_in):
+         """返回 `(buf, pa, key, hit)`；buf 是 uint8 C8 裸字节（有 pa 时可直接给 E1E2）。
+ 
+-        未命中时现场量化的结果会**拷进一个带物理地址的缓冲**并常驻（受上限约束）。
++        未命中时现场量化的结果会**直接写进**一块带物理地址的 arena 子区并常驻
++        （受 `max_bytes` 约束）；装不下 ⇒ 给一次性缓冲（`pa=0`，调用方回落 f32 段）。
+         `verify=True` 时命中会复算 SHA1；内容变了 ⇒ `QuantCacheStale`（或按
+         `on_stale="recompute"` 重算并覆盖）。
++
++        ★ 计时/计数字段口径（第二棒补，供 `bin_net.print_stats` 打印）：
++          - `hits` / `misses`：按**段**计数。一次 `get_c8` = 一个 f32 叶子的一段；
++            命中段不量化、未命中段量化一次。比率 = hits/(hits+misses)。
++          - `hit_bytes` / `miss_bytes`：按**段字节**计数，单位是 **C8 int8 字节**
++            （= f32 字节 / 4，两者相差 4 倍，直接换算：f32 等值 = C8 × 4）。
++            含一次性缓冲（`skips`）那部分的 miss 字节 —— 因为"没进缓存"也是
++            真实发生过的量化开销；比率 = hit_bytes/(hit_bytes+miss_bytes)。
++          - `bytes`：当前**常驻**字节（C8）；`peak`：历史峰值。
++            `max_bytes`：上限（`Q8CACHE_MB`）。`evictions`：为腾地方逐出的条数。
++          - `skips`：本条**没常驻**的次数（单条 > 上限，或 arena 用尽）。
++          - 计时口径：`get_c8` 内部不记时间；桶时间由调用方（`bin_engine._PROF`
++            的 `q8` 桶：`prepare_segments` 里"量化 + 落进 vin"的累计）统计。
+         """
+         k = self.key(data, fs_in)
+         e = self._m.get(k)
+@@ -300,43 +396,60 @@ class QuantLeafCache:
+                             "拒绝使用旧量化结果" % (k[0], int(fs_in), e["nbytes"]))
+                 else:
+                     self.hits += 1
++                    self.hit_bytes += int(e["nbytes"])
+                     self._m.move_to_end(k)
+                     return e["buf"], e["pa"], k, True
+             else:
+                 self.hits += 1
++                self.hit_bytes += int(e["nbytes"])
+                 self._m.move_to_end(k)
+                 return e["buf"], e["pa"], k, True
+ 
+         self.misses += 1
+-        raw = quantize_leaf_c8(data, fs_in)
+-        raw_flat = np.asarray(raw).reshape(-1)
+-        n = int(raw_flat.size)
+-        if n > self.max_bytes:
++        # ★ ①（第二棒）：先由**形状**算出 C8 字节数 ⇒ 先落位、再让量化内核直写，
++        #   省掉"量化到临时缓冲 → 拷进 arena"（主机实测占未命中代价 30~45%）。
++        n = c8_nbytes(getattr(data, "shape", ()))
++        if n is None:                      # 形状算不出 ⇒ 老路径（先量化再定长度）
++            raw = np.asarray(quantize_leaf_c8(data, fs_in)).reshape(-1)
++            n = int(raw.size)
++            self.miss_bytes += n
++            if n > self.max_bytes:
++                self.skips += 1
++                return raw, 0, k, False
++            while self._m and self.bytes + n > self.max_bytes:
++                self._drop(next(iter(self._m)))
++                self.evictions += 1
++            place = self._place(n)
++            if place is None:
++                self.skips += 1
++                return raw, 0, k, False
++            buf, pa = place
++            buf[:] = raw
++            self._flush_entry(buf, n)
++            return self._admit(k, data, buf, pa, n)
++
++        self.miss_bytes += n
++        if n > self.max_bytes:             # 单条 > 上限 ⇒ 一次性缓冲、不常驻
+             self.skips += 1
+-            return raw_flat, 0, k, False
++            return np.asarray(quantize_leaf_c8(data, fs_in)).reshape(-1), 0, k, False
+         while self._m and self.bytes + n > self.max_bytes:
+-            k0 = next(iter(self._m))
+-            self._drop(k0)
++            self._drop(next(iter(self._m)))
+             self.evictions += 1
++        off0 = self._off
+         place = self._place(n)
+         if place is None:                  # arena 用尽 ⇒ 不常驻（回落 f32 段，正确优先）
+             self.skips += 1
+-            return raw_flat, 0, k, False
+-        if place is None:
+-            self.skips += 1
+-            return raw_flat, 0, k, False
++            return np.asarray(quantize_leaf_c8(data, fs_in)).reshape(-1), 0, k, False
+         buf, pa = place
+-        buf[:] = raw_flat
+-        self._flush(self._arena)
+-        ent = dict(buf=buf, pa=pa, off=int(pa - self._arena_pa),
+-                   nbytes=n, qid=id(data),
+-                   h=(hashlib.sha1(np.ascontiguousarray(data).tobytes()).digest()
+-                      if self.verify else None))
+-        self._m[k] = ent
+-        self._by_qid.setdefault(id(data), set()).add(k)
+-        self.bytes += n
+-        self.peak = max(self.peak, self.bytes)
+-        return buf, ent["pa"], k, False
++        try:
++            raw = quantize_leaf_c8(data, fs_in, out=buf)
++        except BaseException:
++            self._off = off0               # 没写成 ⇒ 把这段 arena 还回去（无条目引用）
++            raise
++        if raw is not buf:                 # 内核没直写 ⇒ 拷一次（字节完全相同）
++            buf[:] = np.asarray(raw).reshape(-1)
++        self._flush_entry(buf, n)
++        return self._admit(k, data, buf, pa, n)
+ 
+ 
+ # ============================================================================
+diff --git a/pynq_specialized_code/ps/tools/export_network.py b/pynq_specialized_code/ps/tools/export_network.py
+index 8f94957..b48f18f 100644
+--- a/pynq_specialized_code/ps/tools/export_network.py
++++ b/pynq_specialized_code/ps/tools/export_network.py
+@@ -28,8 +28,14 @@ import os
+ import sys
+ 
+ import numpy as np
+-import torch
+-import torch.nn.functional as F
++
++try:                                     # 导出机要 torch；本机只做静态检查/打包单测
++    import torch
++    import torch.nn.functional as F
++except ImportError as _e:                # noqa: BLE001
++    torch = None
++    F = None
++    _TORCH_ERR = _e
+ 
+ HERE = os.path.dirname(os.path.abspath(__file__))
+ sys.path.insert(0, os.path.join(HERE, "..", "pynq"))
+@@ -39,7 +45,8 @@ EN_F, EN_I, DE_F, DE_I = 48, 32, 64, 32
+ 
+ from img_io import load_image_np        # noqa: E402  （读图拆出去：不依赖 torch）
+ from ref_numpy import (k3_to_pad12, k5_to_pad28, W_LAYOUT_K3_PAD12,  # noqa: E402
+-                       W_LAYOUT_K5_PAD28, W_LAYOUT_OCIC)
++                       W_LAYOUT_K5_PAD28, W_LAYOUT_OCIC, W_LAYOUT_TAP)
++import tap_pack                                            # noqa: E402
+ 
+ 
+ def load_image(path, h, w, crop="center", allow_resize=False):
+@@ -214,8 +221,37 @@ def _sha256(path):
+     return h.hexdigest().upper()
+ 
+ 
++def pack_weight_container(w_q, k, tap_mode="new"):
++    """量化后的 (cout,cin,k,k) int8 → (容器数组, w_layout, index 里的 tap 字段)。
++
++    纯 numpy、不碰 torch，所以本机（没装 PyTorch）也能单测这条路径。
++
++    ---- 权重容器 TAP（2026-10-30 时序优化后是 {8,16,32}）----
++      addr(o,c,j) = base + ((o*cin + c)*TAP + j),  j = ky*k + kx < k²
++      新（默认，"new"）：TAP = 8·ceil(k²/8) ∈ {8,16,32}
++          每个 (o,c) 块是 8 的整数倍 ⇒ 引擎读地址纯 +8 累加、低 3 位恒 0
++          （从关键路径删掉三级加法链，−11.2 ns 违例里最大的一段）。
++      旧（"old"）：k=3 补到 12、k=5 补到 28、k=1 紧排（1 字节）——
++          配 2026-10-30 之前的比特流，保留只为回退。
++    ⚠ 与比特流不一致不会静默算错：conv_uni_axi_wrap 启动校验直接
++      ERR_TAP(2)（AP_RETURN=0x0201）拒跑。
++    """
++    k = int(k)
++    if tap_mode == "new":
++        tap = tap_pack.tap_of_k(k, padded=True)
++        return tap_pack.pack_layer(w_q, k, tap), W_LAYOUT_TAP, int(tap)
++    if tap_mode != "old":
++        raise ValueError("tap_mode 只能是 new/old，收到 %r" % (tap_mode,))
++    if k == 3:
++        return k3_to_pad12(w_q), W_LAYOUT_K3_PAD12, 0
++    if k == 5:
++        return k5_to_pad28(w_q), W_LAYOUT_K5_PAD28, 0
++    return w_q, W_LAYOUT_OCIC, 0
++
++
+ def write_build_info(out_dir, manifest_path, manifest, ckpt, images, crop,
+-                     allow_resize, psnr, cross_diff, blob_size, clip_pct=100.0):
++                     allow_resize, psnr, cross_diff, blob_size, clip_pct=100.0,
++                     tap_mode="new"):
+     """写 `build_info.json`：这份部署包的**溯源快照**。
+ 
+     对齐上游的做法：`runs/<run>/config.yaml` 是把"这次训练到底用了什么"钉在产物里。
+@@ -245,6 +281,18 @@ def write_build_info(out_dir, manifest_path, manifest, ckpt, images, crop,
+             "not_done": "无 QAT；无逐通道缩放（那要 PL 加逐通道寄存器，"
+                         "见 docs/交接要求对照.md 缺口 1）",
+         },
++        # 权重容器的 TAP 步长（必须与比特流一致，否则 ERR_TAP(2)）
++        "weight_container": {
++            "tap_mode": tap_mode,
++            "tap_of_k": ({str(k): v for k, v in tap_pack.TAP_OF_K.items()}
++                         if tap_mode == "new" else
++                         {str(k): v for k, v in tap_pack.TAP_OF_K_LEGACY.items()}),
++            "note": ("新格式 8·ceil(k²/8)：每 (o,c) 块 8 字节整数倍，"
++                     "地址纯 +8 累加" if tap_mode == "new" else
++                     "旧格式 k²+3（k=1 紧排 1 字节）：配 2026-10-30 之前的比特流"),
++            "err_if_mismatch": "conv_uni_axi_wrap 启动校验返回 ERR_TAP(2) "
++                              "(AP_RETURN=0x0201)，不会静默算错",
++        },
+         "measured": {
+             "psnr_db_calib": round(float(psnr), 2),
+             "blob_size": blob_size,
+@@ -288,9 +336,20 @@ def main():
+                          "99.9 / 99.5 / 99 等=按分位裁剪，压制激活离群值"
+                          "（上游 QuantDemoire 警告的那件事；不动硬件，只改标度）")
+     ap.add_argument("--out", required=True)
++    ap.add_argument("--tap", choices=["new", "old"], default="new",
++                    help="权重容器的 TAP 步长：new（默认）= 8·ceil(k²/8) = "
++                         "{8,16,32}，配 2026-10-30 之后的 conv_uni 比特流；"
++                         "old = k²+3 = {4,12,28}，配旧比特流（k=1 仍是紧排）")
+     ap.add_argument("--repo", default=None, help="PDNet model 目录（可选，做交叉验证）")
+     a = ap.parse_args()
+ 
++    if torch is None:
++        raise SystemExit(
++            "本机没有 PyTorch（导出需要 torch 做浮点前向/标定）：%r\n"
++            "  这台机器只能跑 numpy 路径：\n"
++            "    · python3 ps/tools/repack_tap_stride.py   # 已有权重包改 TAP（不重算）\n"
++            "    · python3 ps/tools/torchless_ckpt.py <ckpt>  # 只读 checkpoint\n"
++            "  要在本机真正导出请装 torch；不要 pip install 污染环境，先问。" % (_TORCH_ERR,))
+     with open(a.manifest, "r", encoding="utf-8") as f:
+         m = json.load(f)
+     H, W = m["input_hw"]
+@@ -387,29 +446,26 @@ def main():
+             s_out = s_in * sw * (2 ** shift)
+             scales[out_t] = s_out
+             w_q = np.clip(np.rint(w / sw), -128, 127).astype(np.int8)
+-            # ---- k=3 的 12 字节容器（2026-10-23 第四轮）----
+-            # 每个 (oc,ic) 的 9 个抽头紧排在前 9 字节、再补 3 个零，凑成
+-            # 3 个 32-bit 字 ⇒ 容器起点 (oc*cin+ic)*12 恒 4 字节对齐，
+-            # PL 装载一拍读一个字（事务数 ÷9、每笔 12 字节）。
+-            # 数值语义不变（补的是零），所以 ref_out.bin / 板上 md5 不变；
+-            # 代价是 k=3 权重 ×4/3。k=1 容器不变（[oc][ic][1][1]）；k=5 见下。
+-            # ---- k=5 的 28 字节容器（2026-10-23 第五轮，同一招）----
+-            # 25 个抽头紧排 + 3 个零 = 7 个 32-bit 字 ⇒ 起点恒 4 字节对齐。
+-            if op["k"] == 3:
+-                w_out = k3_to_pad12(w_q)
+-                w_layout = W_LAYOUT_K3_PAD12
+-            elif op["k"] == 5:
+-                w_out = k5_to_pad28(w_q)
+-                w_layout = W_LAYOUT_K5_PAD28
+-            else:
+-                w_out = w_q
+-                w_layout = W_LAYOUT_OCIC
++            # ---- 权重容器 TAP（2026-10-30 时序优化后是 {8,16,32}）----
++            #   addr(o,c,j) = base + ((o*cin + c)*TAP + j),  j = ky*k + kx < k²
++            #   新（默认，--tap new）：TAP = 8·ceil(k²/8) ∈ {8,16,32}
++            #       每个 (o,c) 块是 8 的整数倍 ⇒ 引擎读地址纯 +8 累加、
++            #       低 3 位恒 0（从关键路径删掉三级加法链）。
++            #   旧（--tap old）：k=3 补到 12、k=5 补到 28、k=1 紧排（1 字节）——
++            #       配 2026-10-30 之前的比特流，保留只为回退。
++            #   ⚠ 与比特流不一致不会静默算错：conv_uni_axi_wrap 直接 ERR_TAP(2)。
++            w_out, w_layout, tap_rec = pack_weight_container(
++                w_q, int(op["k"]), a.tap)
+             w_off = put(w_out.tobytes())
+             b_off = put(b_q.astype("<i4").tobytes())
+-            layers[key] = {"w_off": w_off, "w_len": int(w_q.size),
++            # ⚠ w_len 必须是**容器**的字节数（= cout*cin*TAP），不是紧排的
++            #   cout*cin*k²：_w_b() 会按 w_shape 原样 reshape，长度对不上就炸。
++            #   （2026-10-23 之前的版本这里写 int(w_q.size)，k=3/k=5 包必须靠
++            #     repack_k3_pad12.py / repack_k5_pad28.py 事后补一刀才好使。）
++            layers[key] = {"w_off": w_off, "w_len": int(w_out.size),
+                            "w_shape": list(w_out.shape), "b_off": b_off,
+                            "b_len": int(b_q.size * 4), "shift": shift,
+-                           "w_layout": w_layout,
++                           "w_layout": w_layout, "tap": tap_rec,
+                            "sw": sw, "scale_in": float(s_in),
+                            "scale_out": float(s_out),
+                            "relu": int(bool(op["relu"]))}
+@@ -461,7 +517,11 @@ def main():
+     with open(os.path.join(a.out, "ref_psnr.txt"), "w") as f:
+         f.write("PSNR(quantized-ref vs float) = %.2f dB\n" % psnr)
+     write_build_info(a.out, a.manifest, m, a.ckpt, a.image or [], a.crop,
+-                     a.allow_resize, psnr, cross_diff, len(blob), a.clip_pct)
++                     a.allow_resize, psnr, cross_diff, len(blob), a.clip_pct,
++                     a.tap)
++    print("权重容器 TAP：%s %r"
++          % ("新 8·ceil(k²/8)" if a.tap == "new" else "旧 k²+3",
++             tap_pack.TAP_OF_K if a.tap == "new" else tap_pack.TAP_OF_K_LEGACY))
+     print("导出完成: %d 层, blob %.1f MB, 量化参考用时 %.1fs" %
+           (len(layers), len(blob) / 1e6, dt))
+     print("PSNR(量化参考 vs 浮点) = %.2f dB（记录于 ref_psnr.txt）" % psnr)

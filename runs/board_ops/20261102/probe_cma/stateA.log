@@ -1,0 +1,129 @@
+[boardlock] 取得板级独占 00:11:43  使用者=probe_cma
+[boardlock] 已签发唯一 load 令牌
+
+==============================================================================
+  ① 开机状态采样（3 次，间隔 10 s）
+==============================================================================
+  uptime = 4607.7（开机 1.3 h，loadavg [0.0, 0.11, 0.2]）
+  cpu n=2 freq={}
+  env 键数 = 27（全部记入 JSON）
+  [采样 1/3] CmaFree 90.918 / 256.0 MB   MemFree 659.2  MemAvail 869.2  Cached 183.5  AnonPages 90.3  Slab 19.1  freq {}
+  [采样 2/3] CmaFree 90.895 / 256.0 MB   MemFree 659.2  MemAvail 869.2  Cached 183.5  AnonPages 90.2  Slab 19.1  freq {}
+  [采样 3/3] CmaFree 90.895 / 256.0 MB   MemFree 659.2  MemAvail 869.2  Cached 183.5  AnonPages 90.2  Slab 19.1  freq {}
+  buddyinfo = {"0, Normal": [424, 342, 254, 256, 317, 192, 101, 44, 25, 10, 104], "0, HighMem": [1, 0, 1, 0, 0, 1, 1, 1, 0, 1, 22]}
+  /sys/kernel/debug/cma = {"exists": false, "note": "没有 /sys/kernel/debug/cma（CMA 区不是 named region）"}
+  dmesg| [  887.297590] [drm] memory 0 is not reserved in device tree. will allocate memory from cma
+  dmesg| [ 1127.150437] [drm] memory 0 is not reserved in device tree. will allocate memory from cma
+  dmesg| [ 1359.106458] [drm] memory 0 is not reserved in device tree. will allocate memory from cma
+  dmesg| [ 1580.692269] [drm] memory 0 is not reserved in device tree. will allocate memory from cma
+  dmesg| [ 1908.006313] [drm] memory 0 is not reserved in device tree. will allocate memory from cma
+  dmesg| [ 3616.905673] [drm] memory 0 is not reserved in device tree. will allocate memory from cma
+  进程 RSS 合计 253.9 MB / 85 个；前 18 名合计 218.0 MB
+       513     48.9 MB  jupyter-noteboo        /usr/local/share/pynq-venv/bin/python3 /usr/local/share/pynq-venv/bin/jupyter-notebook --n
+      5564     21.1 MB  python3                /usr/local/share/pynq-venv/bin/python3 -u /tmp/probe_cma/probe_cma.py --download
+       460     16.8 MB  smbd                   /usr/sbin/smbd --foreground --no-process-group
+       600     15.3 MB  python3                python3 /usr/local/bin/redirect_server
+       488     13.9 MB  samba-bgqd             /usr/lib/arm-linux-gnueabihf/samba/samba-bgqd --ready-signal-fd=46 --parent-watch-fd=-1 --
+       404     13.0 MB  unattended-upgr        /usr/bin/python3 /usr/share/unattended-upgrades/unattended-upgrade-shutdown --wait-for-sig
+        78     12.5 MB  systemd-journal        /lib/systemd/systemd-journald
+       197     11.0 MB  networkd-dispat        /usr/bin/python3 /usr/bin/networkd-dispatcher --run-startup-triggers
+       398     10.0 MB  nmbd                   /usr/sbin/nmbd --foreground --no-process-group
+       485      9.1 MB  smbd-notifyd           /usr/sbin/smbd --foreground --no-process-group
+       140      8.0 MB  systemd-resolve        /lib/systemd/systemd-resolved
+      5538      7.1 MB  sshd                   sshd: xilinx [priv]
+         1      6.3 MB  systemd                /sbin/init
+       415      5.4 MB  sshd                   sshd: /usr/sbin/sshd -D [listener] 0 of 10-100 startups
+       486      5.2 MB  cleanupd               /usr/sbin/smbd --foreground --no-process-group
+      5554      5.0 MB  sshd                   sshd: xilinx@notty
+       475      4.8 MB  systemd                /lib/systemd/systemd --user
+       238      4.7 MB  systemd-logind         /lib/systemd/systemd-logind
+  CMA 区猜测：base=None  size=None MB
+
+==============================================================================
+  二 加载 overlay（本 session 唯一一次 download）与建 arena
+==============================================================================
+  pynq=3.1.0 xrt=ModuleNotFoundError("No module named 'xrt'") numpy=1.21.5
+  --- PynqBuffer.flush ---
+         def flush(self):
+             """Flush the underlying memory if necessary"""
+             if not self.coherent:
+                 self.device.flush(self.bo, self.offset, self.virtual_address, self.nbytes)
+  --- PynqBuffer.invalidate ---
+         def invalidate(self):
+             """Invalidate the underlying memory if necessary"""
+             if not self.coherent:
+                 self.device.invalidate(
+                     self.bo, self.offset, self.virtual_address, self.nbytes
+                 )
+  CmaFree 开工前 = 58.762 / 256.0 MB
+
+==========================================================================
+  步骤 1：加载 overlay（本 session 唯一一次真正的 download）
+==========================================================================
+  Overlay(/home/xilinx/demoir/design_1_150v39.bit, download=True) 用时 1.714 s
+  Overlay(download=True) 1.794 s ⇒ CmaFree 32.113 MB
+
+==========================================================================
+  步骤 2：地址核对（从**已加载的** overlay 实测）
+==========================================================================
+  conv_uni_0   mmio.base_addr = 0x40040000  length = 0x20000  （期望 0x40040000）  ✓
+  bin_unit_0   mmio.base_addr = 0x40060000  length = 0x20000  （期望 0x40060000）  ✓
+  overlay 里的 IP 清单：['bin_unit_0', 'conv_uni_0', 'ps7']
+
+==========================================================================
+  步骤 3：时钟读回 + 复位指纹
+==========================================================================
+  Clocks.fclk0_mhz 目标 150 → **读回 = 150**  ✓
+  复位指纹：alpha_shift=9 slope_shift=8 （期望 9 / 8）
+  AP_CTRL=0x00000000 AP_RETURN=0x00000000 DBG_FLAG=0x00000000
+  保留页 ResvPage[0x18] = 0x0 （期望 0）
+  引擎认到的 IP=bin_unit_0 base=0x40060000 range=0x20000
+  identity = {"alpha_shift": 9, "slope_shift": 8, "ap_ctrl": 0, "ap_ret": 0, "dbg_flag": 0, "resv_0x18": 0, "fclk_readback": 150.0, "fclk_target": 150.0, "ip": "bin_unit_0", "base": 1074135040, "range": 131072, "ok": true}
+  arena probe_arena_256 66.22 MB（24 槽 × (in 1.18 + out 1.57 MB)）@0x30100000
+  arena 66.22 MB @0x30100000  CmaFree 0.438 MB
+  pagemap arena : {"n_pages": 16168, "n_present": 0, "n_zero_pfn": 0, "n_runs": 0, "longest_run_pages": 0, "first_run_lens": [], "phys_first_mb": null, "va": "0xae948000", "nbytes": 66224128, "contiguous": false}
+  pagemap heap64: {"n_pages": 16385, "n_present": 16385, "n_zero_pfn": 0, "n_runs": 494, "longest_run_pages": 128, "first_run_lens": [1, 15, 16, 16, 16, 16, 16, 16, 16, 16], "phys_first_mb": 877.9981, "va": "0x236a500", "nbytes": 67108864, "contiguous": false}
+
+==============================================================================
+  三 flush/invalidate 微基准（RegionBuffer.flush 是**整块 owner** flush）
+==============================================================================
+  flush          n=10 min 0.144 ms  med 0.149 ms  max 0.320 ms  
+  invalidate     n=10 min 0.145 ms  med 0.155 ms  max 0.262 ms  
+  flush_4MB_view n=10 min 0.146 ms  med 0.148 ms  max 0.189 ms  
+  ⇒ 66.22 MB / 0.15 ms = 444457.2 MB/s 的 cache 维护吞吐
+
+==============================================================================
+  ④ 态 A：256² numpy 臂（同配置；BIN_PROFILE 开/关各一次 + 原函数交叉核对）
+==============================================================================
+  [LAZY_DEQ] IN/OUT 槽数 = 24（BIN_LAZY_SLOTS）
+  ── A1_noprof              profile=0 ──
+     总 12.750 s（墙钟 12.751） PL 3.851 | PS 10.070 = pro 6.170 + epi 1.189 + 非卷积 2.712 | ovl 2.388 wait 1.359  interp 0.983  CmaFree 0.496 MB
+     prologue 亚项（engine._prof，s）：{}  ← 单位 ms
+     net._prep_prof（s）：{}  ← ms
+     out1=9b1940c8955b OK 3/3  x0=cfc75bc3f15d306b
+  [LAZY_DEQ] IN/OUT 槽数 = 24（BIN_LAZY_SLOTS）
+  ── A2_prof                profile=1 ──
+     总 11.975 s（墙钟 11.976） PL 3.222 | PS 9.215 = pro 6.062 + epi 1.185 + 非卷积 1.967 | ovl 1.646 wait 1.527  interp 0.266  CmaFree 0.340 MB
+     prologue 亚项（engine._prof，s）：{}  ← 单位 ms
+     net._prep_prof（s）：{}  ← ms
+     out1=9b1940c8955b OK 3/3  x0=cfc75bc3f15d306b
+
+==============================================================================
+  五 原函数交叉核对 V.run_net（协议自证）
+==============================================================================
+  [LAZY_DEQ] IN/OUT 槽数 = 24（BIN_LAZY_SLOTS）
+  ── ref_V_run_net hw=256 ──
+     总 11.854 s（墙钟 11.855） PL 3.202（其中 E1E2 0.964）| PS 9.114 = prologue 5.953 + epilogue 1.187 + 非卷积 1.973 | overlap 1.635 wait 1.532
+     非卷积分项 {"unshuffle": 0.0048, "convfp": 1.1394, "cat": 0.1379, "add": 0.0703, "interp": 0.266, "eca": 0.08, "sam": 0.2605, "shuffle": 0.0144}
+     输入 sha1=cfc75bc3f15d306b (与冻结基线一致)
+     sha1 out1=9b1940c8955b out2=f86a7035621b out3=025757a83c39  OK/3
+  V.run_net: x0=cfc75bc3f15d306b out1=9b1940c8955b total=11.854
+  与薄拷贝逐位相同 = ✓
+
+==============================================================================
+  六 跑完后的状态（与开工前对比）
+==============================================================================
+  CmaFree 11.605 / 256.0 MB   MemAvail 682.5 MB   freq {}
+  buddyinfo = {"0, Normal": [17, 15, 30, 20, 31, 20, 10, 7, 19, 10, 104], "0, HighMem": [3, 3, 3, 3, 1, 1, 1, 0, 3, 0, 2]}
+  → /tmp/probe_cma/probe_cma_stateA.json
+[boardlock] 释放板级锁 00:12:59  rc=0

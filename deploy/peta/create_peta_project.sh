@@ -83,12 +83,21 @@ S = [  # (key, value) —— value 就是 config 文件里 = 右边那一整串�
     ("CONFIG_SUBSYSTEM_ETHERNET_PS7_ETHERNET_0_USE_DHCP", "y"),
     ("CONFIG_SUBSYSTEM_FLASH_PS7_QSPI_0_SELECT", "y"),
     ("CONFIG_SUBSYSTEM_PRIMARY_SD_PS7_SD_0_SELECT", "y"),
-    # 离线构建：源码与 sstate 都指向构建根下的缓存目录。
-    # ⚠ 这两个是 Kconfig **字符串**值，必须带双引号 —— 少了引号 silentconfig
-    #   会静默忽略，plnxtool.conf 里 SOURCE_MIRROR_URL 变成空串（实测踩过）。
-    ("CONFIG_PRE_MIRROR_URL", '"file://%s/harvest/downloads"' % cache),
-    ("CONFIG_YOCTO_LOCAL_SSTATE_FEEDS_URL", '"%s/harvest/sstate-cache"' % cache),
 ]
+# 离线构建：源码与 sstate 都指向构建根下的缓存目录。
+# ⚠ 这两个是 Kconfig **字符串**值，必须带双引号 —— 少了引号 silentconfig
+#   会静默忽略，plnxtool.conf 里 SOURCE_MIRROR_URL 变成空串（实测踩过）。
+# ★ 2026-11-01：本机没有离线缓存（offline_cache 从未生成过），此时
+#   **绝不写这两行** —— 指向一个不存在的 file:// 镜像会让部分 recipe 直接失败，
+#   而不写就只是走网络正常下载。文档 §2.4 说的"留空即可"就是这个意思。
+import os as _os
+if _os.path.isdir(_os.path.join(cache, "harvest", "sstate-cache")):
+    S += [
+        ("CONFIG_PRE_MIRROR_URL", '"file://%s/harvest/downloads"' % cache),
+        ("CONFIG_YOCTO_LOCAL_SSTATE_FEEDS_URL", '"%s/harvest/sstate-cache"' % cache),
+    ]
+else:
+    print("  ⚠ 无离线缓存 ⇒ 不写 mirror 配置，构建将联网取源码（首次约 40 分钟）")
 U = [  # 必须显式关掉的（Kconfig 里是 "is not set" 形式）
     "CONFIG_SUBSYSTEM_ROOTFS_INITRD",
     "CONFIG_SUBSYSTEM_ETHERNET_MANUAL_SELECT",

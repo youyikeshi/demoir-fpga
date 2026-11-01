@@ -1,0 +1,211 @@
+[boardlock] 取得板级独占 23:55:02  使用者=baseline2
+[boardlock] 已签发唯一 load 令牌
+
+==============================================================================
+  冻结点双臂测量  运行点记录
+==============================================================================
+  frozen dir = /home/xilinx/demoir/ps/pynq_frozen
+    bin_net.py               3f154b75f6526a096f78001aaa1e785b
+    bin_engine.py            ddfe6b6ffdfea33e76959748825d7af3
+    bin_ref_numpy.py         5a3bbd8b36a5a248001943b78ab695b0
+    bilinear_c.py            48134b7b0056ea71be77a965f0adf633
+    bilinear_c.c             1cd97282ee30a092425602c0d09ef7c1
+    qcache.py                d2dc2517f1bad49ab6c61f0c3ae96944
+    board_v39_verify.py      e9877b79f3f7403b4ddfa85a305f1068
+    ab_arms.py               f9c61f7e33b6faef4e68b4dfaeefcf89
+  判据自证：本地 FROZEN == board_v39_verify.FROZEN ✓
+
+==========================================================================
+  步骤 1：加载 overlay（本 session 唯一一次真正的 download）
+==========================================================================
+  Overlay(/home/xilinx/demoir/design_1_150v39.bit, download=True) 用时 1.735 s
+
+==========================================================================
+  步骤 2：地址核对（从**已加载的** overlay 实测）
+==========================================================================
+  conv_uni_0   mmio.base_addr = 0x40040000  length = 0x20000  （期望 0x40040000）  ✓
+  bin_unit_0   mmio.base_addr = 0x40060000  length = 0x20000  （期望 0x40060000）  ✓
+  overlay 里的 IP 清单：['bin_unit_0', 'conv_uni_0', 'ps7']
+
+==========================================================================
+  步骤 3：时钟读回 + 复位指纹
+==========================================================================
+  Clocks.fclk0_mhz 目标 150 → **读回 = 150**  ✓
+  复位指纹：alpha_shift=9 slope_shift=8 （期望 9 / 8）
+  AP_CTRL=0x00000000 AP_RETURN=0x00000000 DBG_FLAG=0x00000000
+  保留页 ResvPage[0x18] = 0x0 （期望 0）
+  引擎认到的 IP=bin_unit_0 base=0x40060000 range=0x20000
+  bit md5 = 602725b86941864eeeeab3be005e1e81
+  fclk 读回 = 150.0（目标 150.0）
+  开关 = {"BIN_PACK": "", "BIN_LAZY_DEQ": "", "BIN_LAZY_SLOTS": "", "CATPACK": "", "BIN_CAT_FUSION": "", "BIN_CAT_STRICT": "", "Q8CACHE": "", "Q8CACHE_MB": "", "Q8_C8_IMPL": "", "BIN_Q8_FUSED": "", "BIN_BILINEAR_C": ""}
+
+==============================================================================
+  一次性成本（C 内核 load + fast 自检）—— 计时外，只付一次
+==============================================================================
+  set_arm(True) 第一次：kernel_loaded=True why=ok  **3.430 s**
+  口径 a) 含一次性成本的首帧 = 每组第 1 次 total + 3.430 s
+  口径 b) 稳态 = 每组第 2 次起（所有 row.total_s 都是这个口径）
+
+==============================================================================
+  S   selftest("full") —— 29 形状（C 臂）
+==============================================================================
+  selftest("full") = True（36 形状，3.329 s，kernel=ok）
+
+==============================================================================
+  建 arena hw=64（24 槽）
+==============================================================================
+  arena ops_arena_64   4.29 MB（24 槽 × (in 0.07 + out 0.10 MB)）@0x30100000
+
+==============================================================================
+  ⑤ net64_150   hw=64 seed=1  numpy x5 + C x5（逐次交替）
+==============================================================================
+  [LAZY_DEQ] IN/OUT 槽数 = 24（BIN_LAZY_SLOTS）
+  ── ⑤_1                        numpy hw=64 seed=1 ──
+     总 3.454 s（墙钟 3.454） PL 0.713 | PS 1.675 = pro 1.143 + epi 0.153 + 非卷积 0.379 | ovl 0.158 wait 0.102  interp 0.160
+     x0 sha1=bbae82e46e363a77  out=bfa246d34681/226bd39e522a/762d84b9618e  OK 3/3（=冻结基线）
+     [numpy] kernel_loaded=False why=BIN_BILINEAR_C=0（显式关）
+  [LAZY_DEQ] IN/OUT 槽数 = 24（BIN_LAZY_SLOTS）
+  ── ⑤_1                        C     hw=64 seed=1 ──
+     总 3.194 s（墙钟 3.194） PL 0.674 | PS 1.477 = pro 1.059 + epi 0.150 + 非卷积 0.267 | ovl 0.133 wait 0.099  interp 0.049
+     x0 sha1=bbae82e46e363a77  out=bfa246d34681/226bd39e522a/762d84b9618e  OK 3/3（=冻结基线）
+  [LAZY_DEQ] IN/OUT 槽数 = 24（BIN_LAZY_SLOTS）
+  ── ⑤_2                        numpy hw=64 seed=1 ──
+     总 3.291 s（墙钟 3.291） PL 0.708 | PS 1.581 = pro 1.060 + epi 0.149 + 非卷积 0.372 | ovl 0.169 wait 0.099  interp 0.157
+     x0 sha1=bbae82e46e363a77  out=bfa246d34681/226bd39e522a/762d84b9618e  OK 3/3（=冻结基线）
+     [numpy] kernel_loaded=False why=BIN_BILINEAR_C=0（显式关）
+  [LAZY_DEQ] IN/OUT 槽数 = 24（BIN_LAZY_SLOTS）
+  ── ⑤_2                        C     hw=64 seed=1 ──
+     总 3.214 s（墙钟 3.214） PL 0.675 | PS 1.501 = pro 1.080 + epi 0.152 + 非卷积 0.270 | ovl 0.131 wait 0.101  interp 0.048
+     x0 sha1=bbae82e46e363a77  out=bfa246d34681/226bd39e522a/762d84b9618e  OK 3/3（=冻结基线）
+  [LAZY_DEQ] IN/OUT 槽数 = 24（BIN_LAZY_SLOTS）
+  ── ⑤_3                        numpy hw=64 seed=1 ──
+     总 3.282 s（墙钟 3.282） PL 0.711 | PS 1.576 = pro 1.054 + epi 0.149 + 非卷积 0.373 | ovl 0.171 wait 0.098  interp 0.157
+     x0 sha1=bbae82e46e363a77  out=bfa246d34681/226bd39e522a/762d84b9618e  OK 3/3（=冻结基线）
+     [numpy] kernel_loaded=False why=BIN_BILINEAR_C=0（显式关）
+  [LAZY_DEQ] IN/OUT 槽数 = 24（BIN_LAZY_SLOTS）
+  ── ⑤_3                        C     hw=64 seed=1 ──
+     总 3.151 s（墙钟 3.151） PL 0.675 | PS 1.451 = pro 1.044 + epi 0.146 + 非卷积 0.262 | ovl 0.140 wait 0.098  interp 0.047
+     x0 sha1=bbae82e46e363a77  out=bfa246d34681/226bd39e522a/762d84b9618e  OK 3/3（=冻结基线）
+  [LAZY_DEQ] IN/OUT 槽数 = 24（BIN_LAZY_SLOTS）
+  ── ⑤_4                        numpy hw=64 seed=1 ──
+     总 3.387 s（墙钟 3.388） PL 0.720 | PS 1.623 = pro 1.085 + epi 0.150 + 非卷积 0.388 | ovl 0.163 wait 0.097  interp 0.157
+     x0 sha1=bbae82e46e363a77  out=bfa246d34681/226bd39e522a/762d84b9618e  OK 3/3（=冻结基线）
+     [numpy] kernel_loaded=False why=BIN_BILINEAR_C=0（显式关）
+  [LAZY_DEQ] IN/OUT 槽数 = 24（BIN_LAZY_SLOTS）
+  ── ⑤_4                        C     hw=64 seed=1 ──
+     总 3.212 s（墙钟 3.212） PL 0.680 | PS 1.466 = pro 1.053 + epi 0.146 + 非卷积 0.267 | ovl 0.141 wait 0.096  interp 0.047
+     x0 sha1=bbae82e46e363a77  out=bfa246d34681/226bd39e522a/762d84b9618e  OK 3/3（=冻结基线）
+  [LAZY_DEQ] IN/OUT 槽数 = 24（BIN_LAZY_SLOTS）
+  ── ⑤_5                        numpy hw=64 seed=1 ──
+     总 3.340 s（墙钟 3.341） PL 0.715 | PS 1.616 = pro 1.079 + epi 0.150 + 非卷积 0.388 | ovl 0.161 wait 0.099  interp 0.157
+     x0 sha1=bbae82e46e363a77  out=bfa246d34681/226bd39e522a/762d84b9618e  OK 3/3（=冻结基线）
+     [numpy] kernel_loaded=False why=BIN_BILINEAR_C=0（显式关）
+  [LAZY_DEQ] IN/OUT 槽数 = 24（BIN_LAZY_SLOTS）
+  ── ⑤_5                        C     hw=64 seed=1 ──
+     总 3.191 s（墙钟 3.192） PL 0.668 | PS 1.454 = pro 1.043 + epi 0.146 + 非卷积 0.264 | ovl 0.133 wait 0.098  interp 0.047
+     x0 sha1=bbae82e46e363a77  out=bfa246d34681/226bd39e522a/762d84b9618e  OK 3/3（=冻结基线）
+
+  numpy: 全部 3.454 3.291 3.282 3.387 3.340
+  numpy: 第2次起 n=4 中位 3.316 最好 3.282 最差 3.387
+  C: 全部 3.194 3.214 3.151 3.212 3.191
+  C: 第2次起 n=4 中位 3.201 最好 3.151 最差 3.214
+
+==============================================================================
+  建 arena hw=256（24 槽）
+==============================================================================
+  arena ops_arena_256  66.22 MB（24 槽 × (in 1.18 + out 1.57 MB)）@0x30100000
+
+==============================================================================
+  ⑥a net256_150_s1   hw=256 seed=1  numpy x3 + C x3（逐次交替）
+==============================================================================
+  [LAZY_DEQ] IN/OUT 槽数 = 24（BIN_LAZY_SLOTS）
+  ── ⑥a_1                       numpy hw=256 seed=1 ──
+     总 13.690 s（墙钟 13.691） PL 4.044 | PS 10.913 = pro 5.973 + epi 1.177 + 非卷积 3.762 | ovl 2.480 wait 1.528  interp 1.929
+     x0 sha1=cfc75bc3f15d306b  out=9b1940c8955b/f86a7035621b/025757a83c39  OK 3/3（=冻结基线）
+     [numpy] kernel_loaded=False why=BIN_BILINEAR_C=0（显式关）
+  [LAZY_DEQ] IN/OUT 槽数 = 24（BIN_LAZY_SLOTS）
+  ── ⑥a_1                       C     hw=256 seed=1 ──
+     总 11.778 s（墙钟 11.779） PL 3.159 | PS 9.036 = pro 5.843 + epi 1.181 + 非卷积 2.012 | ovl 1.593 wait 1.527  interp 0.267
+     x0 sha1=cfc75bc3f15d306b  out=9b1940c8955b/f86a7035621b/025757a83c39  OK 3/3（=冻结基线）
+  [LAZY_DEQ] IN/OUT 槽数 = 24（BIN_LAZY_SLOTS）
+  ── ⑥a_2                       numpy hw=256 seed=1 ──
+     总 13.436 s（墙钟 13.436） PL 4.016 | PS 10.655 = pro 5.811 + epi 1.182 + 非卷积 3.663 | ovl 2.445 wait 1.526  interp 1.921
+     x0 sha1=cfc75bc3f15d306b  out=9b1940c8955b/f86a7035621b/025757a83c39  OK 3/3（=冻结基线）
+     [numpy] kernel_loaded=False why=BIN_BILINEAR_C=0（显式关）
+  [LAZY_DEQ] IN/OUT 槽数 = 24（BIN_LAZY_SLOTS）
+  ── ⑥a_2                       C     hw=256 seed=1 ──
+     总 11.717 s（墙钟 11.717） PL 3.073 | PS 9.055 = pro 5.869 + epi 1.184 + 非卷积 2.003 | ovl 1.623 wait 1.355  interp 0.276
+     x0 sha1=cfc75bc3f15d306b  out=9b1940c8955b/f86a7035621b/025757a83c39  OK 3/3（=冻结基线）
+  [LAZY_DEQ] IN/OUT 槽数 = 24（BIN_LAZY_SLOTS）
+  ── ⑥a_3                       numpy hw=256 seed=1 ──
+     总 13.446 s（墙钟 13.446） PL 4.033 | PS 10.693 = pro 5.827 + epi 1.185 + 非卷积 3.681 | ovl 2.457 wait 1.531  interp 1.927
+     x0 sha1=cfc75bc3f15d306b  out=9b1940c8955b/f86a7035621b/025757a83c39  OK 3/3（=冻结基线）
+     [numpy] kernel_loaded=False why=BIN_BILINEAR_C=0（显式关）
+  [LAZY_DEQ] IN/OUT 槽数 = 24（BIN_LAZY_SLOTS）
+  ── ⑥a_3                       C     hw=256 seed=1 ──
+     总 11.657 s（墙钟 11.658） PL 3.072 | PS 9.036 = pro 5.849 + epi 1.182 + 非卷积 2.005 | ovl 1.624 wait 1.355  interp 0.281
+     x0 sha1=cfc75bc3f15d306b  out=9b1940c8955b/f86a7035621b/025757a83c39  OK 3/3（=冻结基线）
+
+  numpy: 全部 13.691 13.436 13.446
+  numpy: 第2次起 n=2 中位 13.441 最好 13.436 最差 13.446
+  C: 全部 11.778 11.717 11.657
+  C: 第2次起 n=2 中位 11.687 最好 11.657 最差 11.717
+
+==============================================================================
+  ⑥b net256_150_s2   hw=256 seed=2  numpy x2 + C x2（逐次交替）
+==============================================================================
+  [LAZY_DEQ] IN/OUT 槽数 = 24（BIN_LAZY_SLOTS）
+  ── ⑥b_1                       numpy hw=256 seed=2 ──
+     总 13.367 s（墙钟 13.367） PL 4.019 | PS 10.623 = pro 5.757 + epi 1.176 + 非卷积 3.690 | ovl 2.451 wait 1.525  interp 1.920
+     x0 sha1=a1cbfa1db7a2cc46  out=66a3828571b8/25ffcabfeba5/279a0e01bdf7  ≠冻结基线（seed!=1 时属正常）
+     [numpy] kernel_loaded=False why=BIN_BILINEAR_C=0（显式关）
+  [LAZY_DEQ] IN/OUT 槽数 = 24（BIN_LAZY_SLOTS）
+  ── ⑥b_1                       C     hw=256 seed=2 ──
+     总 11.614 s（墙钟 11.615） PL 3.048 | PS 8.953 = pro 5.756 + epi 1.179 + 非卷积 2.018 | ovl 1.600 wait 1.357  interp 0.266
+     x0 sha1=a1cbfa1db7a2cc46  out=66a3828571b8/25ffcabfeba5/279a0e01bdf7  ≠冻结基线（seed!=1 时属正常）
+  [LAZY_DEQ] IN/OUT 槽数 = 24（BIN_LAZY_SLOTS）
+  ── ⑥b_2                       numpy hw=256 seed=2 ──
+     总 13.214 s（墙钟 13.215） PL 4.098 | PS 10.592 = pro 5.773 + epi 1.176 + 非卷积 3.643 | ovl 2.646 wait 1.317  interp 1.919
+     x0 sha1=a1cbfa1db7a2cc46  out=66a3828571b8/25ffcabfeba5/279a0e01bdf7  ≠冻结基线（seed!=1 时属正常）
+     [numpy] kernel_loaded=False why=BIN_BILINEAR_C=0（显式关）
+  [LAZY_DEQ] IN/OUT 槽数 = 24（BIN_LAZY_SLOTS）
+  ── ⑥b_2                       C     hw=256 seed=2 ──
+     总 11.752 s（墙钟 11.753） PL 3.167 | PS 8.971 = pro 5.779 + epi 1.181 + 非卷积 2.011 | ovl 1.598 wait 1.532  interp 0.265
+     x0 sha1=a1cbfa1db7a2cc46  out=66a3828571b8/25ffcabfeba5/279a0e01bdf7  ≠冻结基线（seed!=1 时属正常）
+
+  numpy: 全部 13.367 13.214
+  numpy: 第2次起 n=1 中位 13.214 最好 13.214 最差 13.214
+  C: 全部 11.614 11.752
+  C: 第2次起 n=1 中位 11.752 最好 11.752 最差 11.752
+  第 1 轮：同输入=True  两臂输出逐位相同=✓
+     numpy 66a3828571b8 / C 66a3828571b8
+  第 2 轮：同输入=True  两臂输出逐位相同=✓
+     numpy 66a3828571b8 / C 66a3828571b8
+
+==============================================================================
+  P   协议自证：V.run_net 原函数跑一次 256^2/seed=1（只比 sha1）
+==============================================================================
+  [LAZY_DEQ] IN/OUT 槽数 = 24（BIN_LAZY_SLOTS）
+  ── P_V_run_net hw=256 ──
+     总 13.400 s（墙钟 13.401） PL 4.023（其中 E1E2 0.966）| PS 10.616 = prologue 5.778 + epilogue 1.182 + 非卷积 3.655 | overlap 2.453 wait 1.528
+     非卷积分项 {"unshuffle": 0.0048, "convfp": 1.1941, "cat": 0.1284, "add": 0.0651, "interp": 1.9238, "eca": 0.0793, "sam": 0.2449, "shuffle": 0.0143}
+     输入 sha1=cfc75bc3f15d306b (与冻结基线一致)
+     sha1 out1=9b1940c8955b out2=f86a7035621b out3=025757a83c39  OK/3
+  V.run_net   : x0=cfc75bc3f15d306b out1=9b1940c8955b total=13.400
+  ab_arms 拷贝: x0=cfc75bc3f15d306b out1=9b1940c8955b total=13.690
+  输入与三级输出逐位相同 = ✓（⇒ 拷贝是忠实的）
+
+==============================================================================
+  md5 前后（跑网 7 文件逐字节对比）
+==============================================================================
+  bin_net.py               3f154b75f6526a096f78001aaa1e785b  ✓
+  bin_engine.py            ddfe6b6ffdfea33e76959748825d7af3  ✓
+  bin_ref_numpy.py         5a3bbd8b36a5a248001943b78ab695b0  ✓
+  bilinear_c.py            48134b7b0056ea71be77a965f0adf633  ✓
+  bilinear_c.c             1cd97282ee30a092425602c0d09ef7c1  ✓
+  qcache.py                d2dc2517f1bad49ab6c61f0c3ae96944  ✓
+  board_v39_verify.py      e9877b79f3f7403b4ddfa85a305f1068  ✓
+  ab_arms.py               f9c61f7e33b6faef4e68b4dfaeefcf89  ✓
+  ✓ 一致（无内存踩踏）
+  → /home/xilinx/demoir/boardops2_frozen.json
+[boardlock] 释放板级锁 23:58:36  rc=0

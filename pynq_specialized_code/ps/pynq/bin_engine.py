@@ -45,6 +45,7 @@ from __future__ import annotations
 
 import json
 import os
+import shutil
 import sys
 import time
 import weakref
@@ -3442,6 +3443,358 @@ def _selftest(pack_dir=None, verbose=True):
                     else "自检失败 %d 项：%s" % (len(fails), fails)))
     return 0 if not fails else 1
 
+
+# ============================================================================
+# 6.4 ★ 依赖可见性：让「内核没装上 ⇒ 静默回落」不可能被忽略
+# ============================================================================
+# 2026-11-02 事故：冻结点漏了 q8/c8deq/bpack 三个内核模块，`_q8()` / `_deq_kernel()`
+# / `_bpack()` 全部静默回落 numpy，**一行日志都没有** ⇒ 同一个 bin_net、同一块板、
+# 同一个 boot 上跑出 prologue 5.948→1.611 s（×3.69）、epilogue 1.189→0.258 s（×4.63）、
+# total 11.752→6.497 s，而"慢的那一档"被当成了结果记了两天。
+# 证据：runs/board_ops/20261102/REPORT_rootcause_missing_deps.md。
+#
+# 本节**不动任何算法**，只做两件事：
+#   ① `report_deps()` 打一行 `[DEPS] q8=fast c8deq=fast ...  ⇒ deps_closure_ok=True`
+#      （**每进程一次**；不健康时再补几行"缺哪个/为什么/怎么修"）；
+#   ② `kernel_deps()` 把同一份状态交给调用方写进跑点：`bin_net.run()` 的
+#      `stats["kernel_deps"] / stats["deps_closure_ok"]`、`board_v39_verify.runpoint()`。
+#
+# ★ 关键设计：**判状态不许有副作用**。
+#   `_q8()` / `_deq_kernel()` / `_bpack()` 一旦被调用就会 `cc -O3` 现场编译 .so（~1.5 s），
+#   那会把"一次性编译成本"从 prologue/epilogue 里**挪走** ⇒ 计时口径被改。
+#   ⇒ 本节探测只做三件事：
+#       · `find_spec`（只查能否解析，**不 import**）；
+#       · 读模块自己的 `_STATE`（本进程已试过 load() ⇒ 用**权威**结果）；
+#       · 看 `.c` / `.so` / `cc` 是否在位（预测"首次使用会不会成功"）。
+#   跑完再调一次 `kernel_deps()`：`_STATE` 已被真实路径填好 ⇒ 得到**权威**状态。
+#   ⇒ 所以：开头那行是"装配前预测"，`stats["kernel_deps"]` 是"跑完实测"；
+#     两者不一致时 `deps_drift()` 会给出差异，`bin_net.run()` 会补一行 ⚠ 并把
+#     `deps_closure_ok` 判成 False（宁可报错，不许再静默）。
+DEPS_NAMES = ("q8", "c8deq", "bpack", "e1e2", "catpack", "safe")
+_DEPS_MOD = {"q8": "q8", "c8deq": "c8deq", "bpack": "bpack",
+             "e1e2": "e1e2_sim", "catpack": "catpack", "safe": "board_safe"}
+_DEPS_NATIVE = ("q8", "c8deq", "bpack")          # 有 .c ⇒ 首次使用现场编译 .so
+_DEPS_HINT = {
+    "q8": "f32→int8 量化（prologue；缺 ⇒ prologue ×3.69）",
+    "c8deq": "C8→f32 反量化（epilogue；缺 ⇒ epilogue ×4.63）",
+    "bpack": "f32→uint64 二值打包（prologue 小头；缺 ⇒ +0.45 s）",
+    "e1e2": "E1E2 描述符/C8 填充（冷路径）",
+    "catpack": "CATPACK=1 的 cat 直读后端（冷路径）",
+    "safe": "看门狗 board_safe.Watchdog（冷路径）",
+}
+_DEPS_STATE = {"reported": None}                 # 只打一行，不刷屏
+
+
+def _deps_arch():
+    import platform
+    return platform.machine().lower()
+
+
+def _deps_md5(path):
+    try:
+        import hashlib
+        h = hashlib.md5()
+        with open(path, "rb") as f:
+            for chunk in iter(lambda: f.read(1 << 20), b""):
+                h.update(chunk)
+        return h.hexdigest()
+    except Exception:                            # noqa: BLE001
+        return None
+
+
+def _deps_spec(modname):
+    """`find_spec`：只查"能不能解析到"，**不 import**（不触发 .so 编译）。"""
+    try:
+        import importlib.util as _iu
+        sp = _iu.find_spec(modname)
+    except Exception:                            # noqa: BLE001
+        return None
+    if sp is None or not getattr(sp, "origin", None):
+        return None
+    return sp.origin
+
+
+def _deps_tried_state(modname):
+    """若本进程已试过 `load()`，返回模块自己记的权威状态 (state|None, why)。"""
+    m = sys.modules.get(modname)
+    st = getattr(m, "_STATE", None) if m is not None else None
+    if not isinstance(st, dict) or not st.get("tried"):
+        return None, ""
+    if st.get("lib") is not None:
+        return "fast", "已装载（%s）" % (st.get("why") or "ok")
+    return "fallback-numpy", "已回落：%s" % (st.get("err") or st.get("why") or "?")
+
+
+def _deps_native_state(modname):
+    """q8/c8deq/bpack：权威优先（已试过），否则做**零副作用**的预测。"""
+    st, why = _deps_tried_state(modname)
+    origin = _deps_spec(modname)
+    so = os.path.join(HERE, "%s_%s.so" % (modname, _deps_arch()))
+    if st is not None:
+        return dict(state=st, why=why, source="runtime", module=origin, so=so)
+    if origin is None:
+        return dict(state="fallback-numpy", source="probe", module=None, so=so,
+                    why="模块不在 sys.path（缺 %s.py）" % modname)
+    csrc = os.path.join(HERE, modname + ".c")
+    if not os.path.exists(csrc):
+        return dict(state="fallback-numpy", source="probe", module=origin, so=so,
+                    why="缺 %s.c：只有 .py 编不出 .so ⇒ 只能 numpy 回落" % modname)
+    if os.path.exists(so):
+        try:
+            import ctypes as _ct
+            _ct.CDLL(so)                          # 只加载，不调函数（不编译、不自检）
+            return dict(state="fast", source="probe", module=origin, so=so,
+                        why=".so 已在位且可加载（本次探测未触发编译）")
+        except Exception as ex:                  # noqa: BLE001
+            why_so = "现有 .so 不可加载（%r）" % (ex,)
+    else:
+        why_so = ".so 尚未生成"
+    cc = os.environ.get("CC", "cc")
+    if shutil.which(cc) is None:
+        return dict(state="fallback-numpy", source="probe", module=origin, so=so,
+                    why="%s 且找不到编译器 %r ⇒ 只能 numpy 回落" % (why_so, cc))
+    return dict(state="fast", source="probe", module=origin, so=so,
+                why="%s，但 %s.c 与 %s 都在 ⇒ 首次使用会现场编译"
+                    % (why_so, modname, cc))
+
+
+def kernel_deps():
+    """6 个内核模块的运行时状态（**零副作用**：不 import、不编译）。
+
+    返回 `{name: dict(state, why, source, module, so, so_md5, hint)}`
+
+    状态取值（就这三个，别的都算 bug）：
+      · `fast`           —— 内核/模块可用，跑的就是快路径；
+      · `fallback-numpy` —— **装不上，已静默回落到 numpy 纯 PS 实现**（只可能出现在
+                            q8/c8deq/bpack：它们是"有 C 用 C、没 C 用 numpy"）；
+      · `missing`        —— 可选模块不在 sys.path（e1e2/catpack/safe：缺了 = 该功能不可用）。
+    `deps_closure_ok` 只要求 `DEPS_NAMES`（任务书那 6 个）全为 `fast`。
+    `bilinear_c` 是 **opt-in**（`BIN_BILINEAR_C=1` 才加载 .so，默认关）⇒ 不进这一行；
+    它的**文件齐不齐**由 `deps_closure.txt`（ps/tools/deps_closure.py --check）负责。
+    """
+    d = {}
+    for name in _DEPS_NATIVE:
+        d[name] = _deps_native_state(_DEPS_MOD[name])
+    # safe：`from board_safe import Watchdog` 在本模块 import 时就试过一次 ⇒ 权威
+    d["safe"] = dict(state=("fast" if Watchdog is not None else "missing"),
+                     source="runtime", module=_deps_spec("board_safe"), so=None,
+                     why=("Watchdog 已挂上" if Watchdog is not None else
+                          "board_safe 不在 sys.path 或 import 失败 ⇒ 本跑无看门狗"))
+    for name in ("e1e2", "catpack"):
+        origin = _deps_spec(_DEPS_MOD[name])
+        d[name] = dict(state=("fast" if origin else "missing"), source="probe",
+                       module=origin, so=None,
+                       why=("模块可解析" if origin else
+                            "模块不在 sys.path（缺 %s.py）" % _DEPS_MOD[name]))
+    for k, v in list(d.items()):
+        v["hint"] = _DEPS_HINT[k]
+        v["so_md5"] = _deps_md5(v["so"]) if v.get("so") else None
+    return d
+
+
+def deps_closure_ok(deps=None):
+    """任务书那 6 个内核是否全部 `fast`（= 这一跑跑在"应跑的内核"上）。"""
+    d = kernel_deps() if deps is None else deps
+    return all(d[k]["state"] == "fast" for k in DEPS_NAMES)
+
+
+def deps_line(deps=None):
+    """`[DEPS] q8=fast ... ⇒ deps_closure_ok=True` —— 唯一新增的默认输出。"""
+    d = kernel_deps() if deps is None else deps
+    return ("[DEPS] " + " ".join("%s=%s" % (k, d[k]["state"]) for k in DEPS_NAMES)
+            + "  ⇒ deps_closure_ok=%s" % deps_closure_ok(d))
+
+
+def report_deps(force=False, stream=None):
+    """打一行 `[DEPS] ...`（每进程一次）+ 不健康时补"缺哪个/为什么/怎么修"。"""
+    if _DEPS_STATE["reported"] is not None and not force:
+        return _DEPS_STATE["reported"]
+    d = kernel_deps()
+    out = stream or sys.stdout
+    print(deps_line(d), file=out, flush=True)
+    if not deps_closure_ok(d):
+        # 只在**已经出事**的时候多打几行 ⇒ 健康跑点的输出只多那一行
+        print("[DEPS] ⚠ 依赖闭包不完整：这一跑跑的不是快路径，**数字不可当基线**",
+              file=out, flush=True)
+        for k in DEPS_NAMES:
+            if d[k]["state"] == "fast":
+                continue
+            print("[DEPS]   ✗ %-8s %-9s %s\n[DEPS]             原因：%s"
+                  % (k, d[k]["state"], d[k]["hint"], d[k]["why"]),
+                  file=out, flush=True)
+        print("[DEPS]   修法：把 ps/pynq/{q8,c8deq,bpack}.{py,c} 与 e1e2_sim.py / "
+              "catpack.py / board_safe.py 放进同一个目录（冻结点 = 依赖闭包，不是文件清单）；\n"
+              "[DEPS]         清单见 runs/board_ops/20261102/deps_closure.txt，"
+              "校验 `python3 ps/tools/deps_closure.py --check --dir <冻结点目录>`。",
+              file=out, flush=True)
+        print("[DEPS]   sys.path 前 6 项：%s" % (sys.path[:6],), file=out, flush=True)
+    _DEPS_STATE["reported"] = d
+    # ★ §③ fail-fast（默认关）：`BIN_REQUIRE_KERNELS=1` ⇒ 打完诊断再 raise。
+    #   先打印再抛：日志里既有"一行 [DEPS]"也有完整修法，异常里也有（10 秒能修）。
+    if require_kernels() and not deps_closure_ok(d):
+        raise deps_require_error(d)
+    return d
+
+
+def deps_drift():
+    """"开跑前预测" vs "现在实测" 的状态差异 ⇒ `[(name, before, after)]`。
+
+    非空 = 某个内核**首次使用时才现原形**（预测说 fast、实际回落了）。
+    `bin_net.run()` 在写 stats 时调它：有差异就补一行 ⚠，并把 `deps_closure_ok=False`。
+    """
+    before = _DEPS_STATE["reported"]
+    if not before:
+        return []
+    now = kernel_deps()
+    return [(k, before[k]["state"], now[k]["state"]) for k in DEPS_NAMES
+            if before[k]["state"] != now[k]["state"]]
+
+# ============================================================================
+# 6.5 ★ fail-fast 开关 + 性能门槛告警（**两个都默认关 ⇒ 线上行为不变**）
+# ============================================================================
+# ① `BIN_REQUIRE_KERNELS=1`：任一内核没装上就 **raise**。
+#    语义：这个开关就是"本次跑点必须全快路径"的声明。配上它，2026-11-02 那种
+#    "13.4 s 跑到报告里"的事故会当场变成异常，而不是一个漂亮的数字。
+#    错误信息要能让人 **10 秒修好**：缺哪个模块 / 期望在哪 / 现在解析到哪 /
+#    .so 状态 / `sys.path` 前几项 / 闭包清单在哪。
+#
+# ② 性能门槛告警（`BIN_PROFILE=1` 下）：`prologue.q8` 或 `epilogue` 超过历史值的
+#    1.5× ⇒ 醒目告警 + `stats["run_valid"]=False`。**不自动修正，只报警。**
+#    为什么需要它：依赖齐了**不等于**内核真在跑（`CC` 坏、`.so` 自检不过、
+#    环境变量把开关关了，都能让回落照样发生）；而回落是**数值等价**的，
+#    逐字节/sha1/拍数三件套**全部通过**。唯一能看见它的，是"这两个桶不该这么慢"。
+#
+#    历史门槛（256² 热态，来自 2026-11-02 的板端实测与 docs/PLAN_1second.md）：
+#      prologue.q8 ≈ 0.61 s、epilogue ≈ 0.26 s（C 内核）；numpy 回落时
+#      q8 落在 ≈ 3.6 s、epilogue ≈ 1.19 s ⇒ 差距 4~6×，1.5× 的门槛**不会误报**、
+#      也**不会漏报**（哪怕只回落了一个模块）。
+#    ⚠ 只在 256²（net 的 H0/W0 = 256）上判：其它分辨率没有历史值，
+#      硬套门槛会把正常跑点判成无效。这不是"没做"，是"只对已知基线判"。
+REQUIRE_KERNELS_ENV = "BIN_REQUIRE_KERNELS"
+
+PERF_GATE = dict(
+    ratio=1.5,
+    hw=256,
+    q8_s=0.61,
+    epilogue_s=0.26,
+    source="2026-11-02 板端 256² 热态（runs/board_ops/20261102/ 与 docs/PLAN_1second.md）；"
+           "numpy 回落时为 q8≈3.6 s / epilogue≈1.19 s",
+)
+
+
+def require_kernels():
+    """`BIN_REQUIRE_KERNELS=1` ⇒ 任一内核没装上就 raise（**默认关**）。"""
+    v = os.environ.get(REQUIRE_KERNELS_ENV, "").strip().lower()
+    return v not in ("", "0", "off", "false", "no", "n", "none")
+
+
+def deps_warm():
+    """三个 native 内核在本进程里**是否已经真的试过 `load()`**。
+
+    = True ⇒ 这一跑**不会**付"首次装载 + 自检"的一次性成本 ⇒ 桶里是**热态**，
+      性能门槛（`prologue.q8 ≈0.61 s / epilogue ≈0.26 s`）才有意义；
+    = False ⇒ 这一跑是**口径 a**（含一次性装载）。此时门槛**不判**——否则每次
+      session 的首跑都会被判 `run_valid=False`，报警就变成了噪声。
+
+    ★ 这条是**板端实测逼出来的**（2026-11-02 12:13，同一 boot、同一闭包）：
+      首跑 epilogue = **1.640 s**、热态 = **0.257 s**（×6.4）；首跑 prologue =
+      3.572 s、热态 = 1.613 s。原因不是回落，而是 `.so` 虽已编好，
+      `q8/c8deq/bpack` 的 `load()` + 逐位自检仍要 1.4~1.9 s，且发生在**首跑的
+      prologue/epilogue 桶里**。⇒ 与 `bilinear_c` 一样，它必须被当成"一次性成本"
+      显式计出去（见 `load_kernels()` / `board_v39_verify.step_kernels()`）。
+    """
+    d = kernel_deps()
+    return all(d[k]["source"] != "probe" for k in _DEPS_NATIVE)
+
+
+def load_kernels():
+    """显式装载 `q8/c8deq/bpack`（**一次性成本，单独计时**；零数值影响）。
+
+    与 `board_v39_verify.step_bilinear()` 对 `bilinear_c` 的处理完全同构：
+    在**计时区间之外**先把内核装上，并把这次成本写进运行点，
+    这样后面每一跑的 `prologue.q8 / epilogue` 才是**热态**口径（历史基线 8.096/6.485
+    就是热态）。不调用它也能跑，只是首跑会被判"口径 a"、门槛不判。
+
+    返回 `{name: {loaded, seconds, why}}`。
+    """
+    out = {}
+    for name in _DEPS_NATIVE:
+        t0 = time.perf_counter()
+        try:
+            m = __import__(_DEPS_MOD[name])
+            lib = m.load()
+            out[name] = dict(loaded=bool(lib is not None),
+                             seconds=round(time.perf_counter() - t0, 4),
+                             why=str(getattr(m, "why", lambda: "")()))
+        except Exception as ex:                    # noqa: BLE001
+            out[name] = dict(loaded=False,
+                             seconds=round(time.perf_counter() - t0, 4),
+                             why=repr(ex)[:200])
+    return out
+
+
+def deps_require_error(deps=None):
+    """构造 fail-fast 的 `RuntimeError`（**10 秒能修**：缺什么 / 在哪 / 现在解析到哪）。"""
+    d = kernel_deps() if deps is None else deps
+    miss = [k for k in DEPS_NAMES if d[k]["state"] != "fast"]
+    L = ["%s=1：%d/%d 个内核没装上 ⇒ 拒绝在 numpy 回落路径上跑"
+         % (REQUIRE_KERNELS_ENV, len(miss), len(DEPS_NAMES)), ""]
+    for k in miss:
+        e = d[k]
+        L.append("  ✗ %-8s state=%s" % (k, e["state"]))
+        L.append("      用途    ：%s" % _DEPS_HINT.get(k, ""))
+        L.append("      期望模块：%s.py%s" % (_DEPS_MOD[k],
+                                            "（+ %s.c，.so 由 cc 现场编）" % _DEPS_MOD[k]
+                                            if k in _DEPS_NATIVE else ""))
+        L.append("      现在解析：%s" % (e.get("module") or "<未解析到 —— 不在 sys.path 上>"))
+        if e.get("so"):
+            L.append("      .so     ：%s%s" % (
+                e["so"], "（存在，md5=%s）" % e["so_md5"] if e.get("so_md5")
+                else "（不存在 ⇒ 首次使用要现场 cc 编译）"))
+        L.append("      原因    ：%s" % e.get("why"))
+    L += ["", "  期望位置（本模块所在目录，依赖必须在这里闭包内）：",
+          "    %s" % HERE,
+          "  %s 现在的 sys.path 前 8 项：" % sys.executable]
+    L += ["    [%d] %s" % (i, p) for i, p in enumerate(sys.path[:8])]
+    L += ["", "  修法（任选其一，都别改代码）：",
+          "    ① 把缺的文件整份拷到上面那个目录（冻结点 = 依赖闭包，不是文件清单）：",
+          "       runs/board_ops/20261102/deps_closure.txt 里列了全部 11 个 .py + 4 个 .c；",
+          "    ② 或把包含它们的目录加到 PYTHONPATH / sys.path **前面**；",
+          "    ③ 校验：python3 ps/tools/deps_closure.py --check --dir <冻结点目录>",
+          "  注意：只拷 .py 不够 —— q8/c8deq/bpack/bilinear_c 还要各自的 .c 才编得出 .so。"]
+    return RuntimeError("\n".join(L))
+
+
+def perf_gate(q8_s=None, epilogue_s=None, hw=None):
+    """256² 热态的门槛检查。返回 `[alert, ...]`（**空 = 通过**；只报警、不修正）。
+
+    `q8_s`      = `BIN_PROFILE=1` 时 `prepare_segments` 的 `q8` 桶（query+量化+落 vin）
+    `epilogue_s`= `run()` 的 `ps_epilogue` 桶
+    门槛 = 历史值 × `PERF_GATE["ratio"]`（1.5）。
+    """
+    out = []
+    if hw is not None and int(hw) != int(PERF_GATE["hw"]):
+        return out                              # 非 256²：没有历史值，不判（见节头）
+    for key, got in (("q8", q8_s), ("epilogue", epilogue_s)):
+        if got is None:
+            continue
+        base = float(PERF_GATE["%s_s" % key])
+        lim = base * float(PERF_GATE["ratio"])
+        if float(got) > lim:
+            out.append(dict(bucket=key, got_s=float(got), base_s=base,
+                            limit_s=lim, ratio=float(PERF_GATE["ratio"]),
+                            hw=(int(hw) if hw is not None else PERF_GATE["hw"])))
+    return out
+
+
+def perf_alert_text(a):
+    """一条告警的可读形式（`run()` 与 driver 共用，格式统一）。"""
+    what = ("prologue.q8" if a["bucket"] == "q8" else "epilogue")
+    guess = ("疑似 numpy 回落（q8 未装上）" if a["bucket"] == "q8"
+             else "疑似 numpy 跨步回落（c8deq 未装上）")
+    return ("[PERF] ⚠⚠ %s = %.3f s > 门槛 %.3f s（历史 %.3f s × %.2f）"
+            "⇒ %s ⇒ run_valid=False，本跑点不许进基线表"
+            % (what, a["got_s"], a["limit_s"], a["base_s"], a["ratio"], guess))
 
 def main(argv=None):
     argv = list(sys.argv[1:] if argv is None else argv)

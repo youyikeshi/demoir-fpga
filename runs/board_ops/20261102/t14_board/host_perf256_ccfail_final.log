@@ -1,0 +1,24 @@
+[perf_case] 闭包全部来自 /tmp/t14b/ccfail ✓
+[perf_case] 预装载内核（一次性，出计时）：{'q8': 0.0067, 'c8deq': 0.0032, 'bpack': 0.0033}
+[DEPS] q8=fallback-numpy c8deq=fallback-numpy bpack=fallback-numpy e1e2=fast catpack=fast safe=fast  ⇒ deps_closure_ok=False
+[DEPS] ⚠ 依赖闭包不完整：这一跑跑的不是快路径，**数字不可当基线**
+[DEPS]   ✗ q8       fallback-numpy f32→int8 量化（prologue；缺 ⇒ prologue ×3.69）
+[DEPS]             原因：已回落：cc 编译失败: Command '['/bin/false', '-O3', '-std=c99', '-fPIC', '-shared', '-o', '/tmp/t14b/ccfail/q8_x86_64.so', '/tmp/t14b/ccfail/q8.c']' returned non-zero exit status 1.
+[DEPS]   ✗ c8deq    fallback-numpy C8→f32 反量化（epilogue；缺 ⇒ epilogue ×4.63）
+[DEPS]             原因：已回落：cc 编译失败: Command '['/bin/false', '-O2', '-std=c99', '-fPIC', '-shared', '-o', '/tmp/t14b/ccfail/c8deq_x86_64.so', '/tmp/t14b/ccfail/c8deq.c']' returned non-zero exit status 1.
+[DEPS]   ✗ bpack    fallback-numpy f32→uint64 二值打包（prologue 小头；缺 ⇒ +0.45 s）
+[DEPS]             原因：已回落：cc 编译失败: Command '['/bin/false', '-O3', '-std=c99', '-fPIC', '-shared', '-o', '/tmp/t14b/ccfail/bpack_x86_64.so', '/tmp/t14b/ccfail/bpack.c']' returned non-zero exit status 1.
+[DEPS]   修法：把 ps/pynq/{q8,c8deq,bpack}.{py,c} 与 e1e2_sim.py / catpack.py / board_safe.py 放进同一个目录（冻结点 = 依赖闭包，不是文件清单）；
+[DEPS]         清单见 runs/board_ops/20261102/deps_closure.txt，校验 `python3 ps/tools/deps_closure.py --check --dir <冻结点目录>`。
+[DEPS]   sys.path 前 6 项：['/tmp/t14b/ccfail', '/media/felix/Data/coding/demoir-fpga/worktrees/T-14-deps/pynq_specialized_code/ps/tools', '/media/felix/Data/coding/demoir-fpga/worktrees/T-14-deps/pynq_specialized_code/ps/tools', '/tmp/t14b/ccfail', '/tmp/t14b', '/usr/lib/python310.zip']
+  [LAZY_DEQ] IN/OUT 槽数 = 10（BIN_LAZY_SLOTS）
+== perf_case hw=256 code=/tmp/t14b/ccfail ==
+  wall 19.05 s  total 19.05 s  prologue 0.148  epilogue 0.011
+  e1e2_prof buckets: {"views": 0.002, "descviews": 0.005, "q8": 0.087, "q8b": 169005056.0, "q8n": 232.0, "f32": 0.087, "desc": 0.015}
+  q8 桶 = 0.087 s   (BIN_PROFILE='1', CC='/bin/false')
+  kernel_deps = {"q8": ["fallback-numpy", "runtime"], "c8deq": ["fallback-numpy", "runtime"], "bpack": ["fallback-numpy", "runtime"], "safe": ["fast", "runtime"], "e1e2": ["fast", "probe"], "catpack": ["fast", "probe"]}
+  deps_closure_ok = False
+  perf_gate = []
+  perf_warm = True   perf_note = None
+  run_valid = False
+  sha1 = ('392d1ae02761', '7f68fb00d2b5', 'aa03751a2d1c')

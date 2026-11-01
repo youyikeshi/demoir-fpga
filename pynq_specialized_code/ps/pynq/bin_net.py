@@ -1620,6 +1620,17 @@ class BinNet:
             print("  ⚠ --nbuf=%d 与流水不兼容（会与在跑的层抢 IN 缓冲）⇒ 强制用 2"
                   % nbuf)
             nbuf = 2
+        # ★ 2026-11-02（§② 依赖可见性）：装配完成后**只打一行**内核状态。
+        #   为什么非要打：2026-11-02 的 1.65× 假数字，根源就是 q8/c8deq/bpack
+        #   三个内核静默回落 numpy 而**一行日志都没有**（见
+        #   runs/board_ops/20261102/REPORT_rootcause_missing_deps.md）。
+        #   只打印、不改行为；每进程一次（重复跑整网不刷屏）。
+        BE.report_deps()
+        # ★ 2026-11-02（§④，板端实测逼出来的）：**在计时之前**记下"内核是不是热的"。
+        #   首跑会把 `q8/c8deq/bpack` 的 load()+逐位自检（1.4~1.9 s/个）吃进
+        #   prologue/epilogue 桶里（板端实测 epilogue 首跑 1.640 s vs 热态 0.257 s）
+        #   ⇒ 1.5× 门槛只能对**热态**判，否则每次 session 首跑都被误判无效。
+        _deps_warm = BE.deps_warm()
         g, outs, tin = self.build_graph(t)
         self._graph = g
 
@@ -1890,6 +1901,49 @@ class BinNet:
         ps_total = t_pro + t_epi + sum(prof.values())
         _pool_stats = (self.engine.f32pool_stats()
                        if self.engine is not None else None)
+        # ★ E1E2 的 PS 侧分项（`prepare_segments` 内部桶，只在 BIN_PROFILE=1 时有）
+        _e1p = None
+        if self.engine is not None and getattr(self.engine, "_e1e2", None) is not None:
+            _p = getattr(self.engine._e1e2, "_prof", None)
+            if _p:
+                _e1p = dict(_p)
+        # ★ 2026-11-02（§②）：依赖可见性 —— 权威状态 + "预测 vs 实测"漂移检测。
+        #   漂移非空 = 某个内核**首次使用时才现原形**（开头预测 fast、跑起来回落了）
+        #   ⇒ 这一跑点直接判无效（`deps_closure_ok=False`），不许再"静默变慢"。
+        _kd = BE.kernel_deps()
+        _dok = BE.deps_closure_ok(_kd)
+        _drift = BE.deps_drift()
+        if _drift:
+            print("  [DEPS] ⚠ 预测与实测不符（首次使用时才现原形）：%s ⇒ "
+                  "本跑点 deps_closure_ok=False"
+                  % ", ".join("%s %s→%s" % t for t in _drift), flush=True)
+            _dok = False
+            if BE.require_kernels():          # ★ §③ fail-fast：这种"跑到一半才回落"
+                raise BE.deps_require_error(_kd)   # 最贵（计时已花、数字已假）
+
+        # ★ ④ 性能门槛告警（只在 BIN_PROFILE=1 出桶、且只有 256² 有历史值）。
+        #   为什么非要它：依赖齐了 ≠ 内核在跑（CC 坏 / .so 自检不过 / 开关被关掉，
+        #   都能让回落照旧发生），而回落**数值等价** ⇒ 逐字节/sha1/拍数全部通过。
+        #   唯一能看见它的是"这两个桶不该这么慢"。**只报警，不自动修正。**
+        #
+        #   ★ 只说热态（2026-11-02 板端实测）：门槛是**热态**值（q8 0.61 / epi 0.26），
+        #    而首跑会把三个内核的 load()+自检（1.4~1.9 s/个）吃进桶里
+        #    （实测首跑 epi 1.640 s vs 热态 0.257 s）⇒ 对首跑判门槛 = 100% 误报。
+        #    ⇒ `_deps_warm=False` 时**不判**，只提示"这是口径 a"；要把一次性成本
+        #      挪出计时，用 `BE.load_kernels()` / `board_v39_verify.step_kernels()`。
+        _perf = []
+        _perf_note = None
+        if _e1p:
+            if _deps_warm:
+                _perf = BE.perf_gate(_e1p.get("q8"), t_epi, hw=self.plan.H0)
+                for _a in _perf:
+                    print("  " + BE.perf_alert_text(_a), flush=True)
+            else:
+                _perf_note = ("本跑含一次性内核装载（q8/c8deq/bpack 的 load+自检）"
+                              "⇒ 口径 a，门槛按热态语义**不判**")
+                print("  [PERF] %s（下一次跑才是稳态；"
+                      "要一次到位就先调 BE.load_kernels()）" % _perf_note,
+                      flush=True)
         _cs = self._cat_stats
         _cs["cat_pack_s"] = {
             k: float(_cs["cat_s"].get(k, 0.0) + _cs["pack_s"].get(k, 0.0))
@@ -1916,7 +1970,17 @@ class BinNet:
                           cat=self._cat_stats,
                           qcache=(self._qcache.stats()
                                   if self._qcache is not None else None),
+                          e1e2_prof=_e1p,
                           pack_pl=t_pack_pl,
+                          # ★ 2026-11-02（§②）：跑完再读一次内核状态（此时
+                          #   `q8._STATE`/`c8deq._STATE`/`bpack._STATE` 已被真实路径
+                          #   填好 ⇒ **权威**，不是开头那行的预测）。
+                          kernel_deps=_kd, deps_closure_ok=_dok,
+                          # ★ 2026-11-02（§④）：「这一跑的数字能不能用」的唯一总判据
+                          perf_gate=_perf, run_valid=bool(_dok and not _perf),
+                          # ★ 热态判定（口径 a/b）：False ⇒ 这一跑含一次性内核装载，
+                          #   桶里不是热态值；基线表只收 perf_warm=True 的行。
+                          perf_warm=bool(_deps_warm), perf_note=_perf_note,
                           pipeline=True, backend=("PL" if self.engine else "ref"))
         return {k: self._materialize(t.val) for k, t in outs.items()}, self.stats
 
@@ -1935,10 +1999,16 @@ class BinNet:
                 o.out.val = self._exec_ps(o)
                 prof[o.kind] = prof.get(o.kind, 0.0) + (time.time() - t0)
         dur = time.time() - t_all
+        _kd = BE.kernel_deps()
         self.stats = dict(prof=prof, total=dur, pipeline=False,
                           backend=("PL" if self.engine else "ref"),
                           mmio_writes=getattr(self.engine, "_writes", 0),
-                          mmio_skipped=getattr(self.engine, "_writes_skipped", 0))
+                          mmio_skipped=getattr(self.engine, "_writes_skipped", 0),
+                          # ★ 2026-11-02（§②）：串行臂（A/B 的对照臂）也必须留证
+                          kernel_deps=_kd,
+                          deps_closure_ok=BE.deps_closure_ok(_kd),
+                          perf_gate=[],
+                          run_valid=BE.deps_closure_ok(_kd))
         return {k: t.val for k, t in outs.items()}, self.stats
 
 
