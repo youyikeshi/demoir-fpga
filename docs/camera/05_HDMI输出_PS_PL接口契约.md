@@ -250,3 +250,22 @@ $$\Rightarrow\ 100\ \text{MHz} \Rightarrow 300\ \text{MB/s};\quad 150\ \text{MHz
 ### 8.4 PYNQ 侧的一条实用知识
 - 未 load 过 overlay 时 `from pynq import Clocks; Clocks.fclk0_mhz` 会抛 `RuntimeError: No device found`（ZOCL 无上下文）。
 - 因此"先设 FCLK 再 load"在这套镜像上做不到 ⇒ **必须靠 8.1/8.2 两条机制兜底**，不能靠顺序。
+
+### 8.5 ★ 裁定：`mmcm_locked` **只许做状态上报**，不许与像素域复位相与（2026-11-03）
+
+§8.1 原文"像素域单独一把复位（可以由 `dcm_locked` 门控）"**作废**，改为下面这条更硬的规则：
+
+$$\Rightarrow\ 	extbf{全设计只允许一处使用 } 	exttt{MMCM.LOCKED} \Rightarrow 	ext{喂 } 	exttt{0x30[1]}\ 	ext{的状态位}$$
+$$\Rightarrow\ 	ext{不许进复位、不许进使能、不许进 } 	exttt{hdmi\_rst\_n}$$
+
+理由两条（都是硬证据，不是风格偏好）：
+
+1. **心跳独立性**：`hb_cnt` 只认 `aresetn`。若把 `mmcm_locked` 与进 `pix_rst`，
+   未锁时就会清 `hb_cnt` ⇒ `0x30[0]` 的翻转不再是"像素时钟活着"的**独立**证据 ⇒ **心跳自证失效**。
+2. **永久黑屏陷阱**：`sil9134_init` 跑在 `s_axi_aclk`（复位 = `~pwr_good`）⇒ **MMCM 没锁时 I2C 照样配完**。
+   若此时把 SIL9134 按在复位里，等 MMCM 锁上后 I2C 已 `S_DONE` ⇒ **永久黑屏**，
+   且现象是"心跳正常、状态正常、就是不亮"—— 最难查的一类。
+
+未锁时"像素域处于复位态"由**硬件拓扑**保证，不需要显式与：
+$$\Rightarrow\ 	ext{像素时钟本身就是 MMCM 派生} \Rightarrow 	ext{无锁即无时钟} \Rightarrow 	ext{像素域触发器停在初值}$$
+$$\Rightarrow\ \Rightarrow\ 	extbf{"不亮而已，不变砖"成立，靠拓扑而非靠逻辑门}$$
