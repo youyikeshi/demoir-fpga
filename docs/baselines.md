@@ -82,3 +82,46 @@
 **但 A9 双核上 C 直接卷积比 im2col+netlib-BLAS 慢约 2 倍**（A9 无 FMA、NEON 64-bit 通路、且 `cout=12` 填不满寄存器块）。
 ⇒ **`BIN_CONVPF_C` 永久不进运行点**；−0.8 s 那个投影来自主机/x86 口径，**作废**。
 ⇒ 教训（第 84 条）：**"内核更快"是平台相关的命题**；任何"换内核能省 X"的结论必须在**目标板**上验，主机缩写不能当收益。
+
+---
+
+## 基线 v5（2026-11-02，commit 待打 tag）
+
+$$\textbf{v5} = \text{v4} + \texttt{BIN\_CAT\_ECA\_FUSE=1} + \texttt{BIN\_EPI\_NOINV=1}$$
+
+| 项 | v4 | **v5** | Δ（同 session）|
+|---|---:|---:|---:|
+| 板端热态中位 | 6.208 | **6.043** | **−0.164（−2.64%）** |
+| `cat` 桶 | 0.1350 | **0.0345** | −0.1006 |
+| `eca` 桶 | — | — | +0.0053（桶搬家）|
+| `epilogue` 桶 | 0.2707 | **0.2245** | −0.0462 |
+| PS 合计 | — | — | **−0.1490** |
+| PL 合计 | — | — | +0.0132 |
+| 非卷积 PS | — | — | −0.1102 |
+
+**运行点（可直接抄）**
+```
+BIN_PACK=e1e2 BIN_LAZY_DEQ=1 BIN_LAZY_SLOTS=24 BIN_CAT_FUSION=1 \
+BIN_BILINEAR_C=1 BIN_PRECOMP=1 Q8CACHE=1 BIN_F32DIRECT=1 \
+BIN_CAT_ECA_FUSE=1 BIN_EPI_NOINV=1
+```
+> ⚠ 关闭项（实测为负/作废）：`BIN_SAM_TILE`（+0.030 s）、`BIN_DEQ_TILE`（+2.4%）、`BIN_CONVPF_C`（+0.17 s）、`BIN_MMIO_POLL`（+0.33 s）
+
+**判据取证（`runs/board_t58/`）**
+
+| 判据 | 结果 |
+|---|---|
+| sha1 | **24/24 = 冻结 256²**（`9b1940c8…/f86a7035…/025757a8…`）；每臂第 2/3 跑逐位相同 |
+| 三个口径独立印证 | 中位差 −0.164 / 括号法 4/4 全负（−0.101~−0.190）/ 同序号配对 −0.146 |
+| 结构证据 | `cat fused 110 / fallback 0`（v4 是 `110/6`）；`_catpins` 残留 **0/24 跑**；`lazy.starved` 同量级 |
+| 无回落 | 24/24 `[DEPS]` 全 fast、`deps_closure_ok=True`、`run_valid=True`、`perf_gate=[]` |
+| 门禁 | ps 156/156、闭包 19/19、`--check rc=0`（13 模块/19 文件）|
+| 位流 | v39 `602725b8` + `.hwh c1686bd8`，跑前=跑后（本 boot 未重载）|
+
+**边界（必须一起引用）**
+$$\Rightarrow\ \text{总时间噪声底 } \approx3.1\%（\text{v4 臂间 } 6.099\sim6.289）\Rightarrow \textbf{差值必须与桶级一起引用}$$
+$$\Rightarrow\ \text{单 session、只对 } 256^2\ \text{验证};\ \text{跨 session 的绝对值不可比（第 87 条）}$$
+$$\Rightarrow\ \text{CMA 很紧（起步 181 MB → 跑中最低 } \sim0.02\ \text{MB}）\Rightarrow \textbf{不许并行第二个整网}$$
+$$\Rightarrow\ \text{一个未计入机制账的观察：} \texttt{convfp } -0.0162（\text{两簇清晰分开}）\Rightarrow \text{判为"cat 少写 33 MB ⇒ DDR/L2 压力降"的}\textbf{间接}收益$$
+
+**诚实记录**：板端探针在 24 跑**全部落盘之后**的汇总打印段抛 `NameError`（`summarize()` 残留循环变量）⇒ 日志结尾有 traceback、json 缺 `summary`，但**逐跑原始字段一个不缺**，汇总由主机侧复算；**未为"日志好看"重跑第二遍**（避免引入第二个 session 的绝对值）。
