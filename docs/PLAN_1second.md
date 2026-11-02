@@ -5520,3 +5520,32 @@ $$\Rightarrow\ \textbf{权重/PRM 基址走寄存器}（\mathtt{r\_wgt/r\_shift/
 $$\quad\ \Rightarrow\ \text{理由：描述符只有 10 字，塞不下 5 个指针；段内权重连续排布}$$
 
 **未做（已派 IMP-B 续作）**：`op_mask` 只实现 bit0；`conv→pack→sam` 带内串联未做；catpack 融合不支持。
+
+### 70.50 T-78 修好两个 bug，并用**隔离实验**证明不破坏等价性（2026-11-02 15:52）
+
+**改动（5 个 hunk，2 处 + 改名）**
+$$\Rightarrow\ \mathtt{F1}：\mathtt{plane\_stride\_q <= (hout*wout)*VLANES}\ (\text{原 } \mathtt{hwout8\_q <= (hout*wout)<<3})$$
+$$\Rightarrow\ \mathtt{F2}：\mathtt{剩余 = cout\_q - (o\_q + VLANES)};\ \mathtt{nvalid\_q <= (>VLANES)?VLANES:((>0)?剩余:0)}$$
+
+**验收（都用 SIM 的现成 TB）**
+
+| 项 | 修前 | 修后 |
+|---|---|---|
+| V3 `addr` 错（cout=17/20/24/33）| 40 / 40 / 40 / 80 | **0 / 0 / 0 / 0** |
+| V2 `MASK_N16` | 186 | **0** |
+| V2 `OVERRUN`（非法字节）| 2230 | **0** |
+| V1 `cout%8==0` 的 16 组 | — | **逐 bit 0 diff，写事务 1389→1389、TXSIG 逐笔相同** |
+
+$$\Rightarrow\ \textbf{V5 隔离实验 A/B/C}（\text{比每笔写事务的 TXSIG 哈希 = 笔数 + addr + 128bit data + 16bit sel 的 FNV）：$$
+$$\quad\ \text{B(只修F1) vs C(F1+F2)} \Rightarrow \text{28 组 157 条里只有 } \mathbf{21}\ \text{条不同，}\textbf{全部落在 } \mathtt{cout}\%\mathtt{VLANES}\neq0$$
+$$\quad\ \mathtt{VLANES=8}\ \text{在 } \mathtt{cout}\in\{8,16,24,32\}\ \textbf{全等};\ \mathtt{VLANES=16}\ \text{在 } \mathtt{cout}\in\{16,32\}\ \textbf{全等}$$
+$$\quad\ \text{A vs B 在 8-lane 全等} \Rightarrow \textbf{F1 在 8-lane 是纯 no-op}$$
+
+$$\Rightarrow\ \Rightarrow\ \textbf{"}\mathtt{cout}\%\mathtt{VLANES}==0\ \text{时逐字节不变"有仿真证据，不是推理}$$
+$$\Rightarrow\ \text{修后核 } \mathtt{bin\_conv\_core.v}\ \text{md5} = \mathbf{\mathtt{4e6a4235}}（925\ \text{行}）$$
+
+**T-78 的一条诚实提醒（很重要）**
+$$\Rightarrow\ \text{修 F2 后，}\textbf{任何以 v39 为 golden 且 } \mathtt{cout}\%\ 8\neq0\ \text{的回归都会"失败"}$$
+$$\quad\ \Rightarrow\ \text{因为 v39 的末组掩码本身是错的（全 1）} \Rightarrow \text{golden 要改成 } \mathtt{(1<<剩余)-1}$$
+$$\Rightarrow\ \text{当前网络 } \mathtt{cout}\ \text{全是 } 8/16\ \text{倍数} \Rightarrow \text{不影响现有 sha1}$$
+$$\quad\ \Rightarrow\ \text{但这条要写进}\textbf{未来的 golden 维护规则}：\text{掩码类断言必须以"修正后语义"为准}$$
