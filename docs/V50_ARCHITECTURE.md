@@ -186,3 +186,38 @@ $$\Rightarrow\ \text{v50 也必须给两层，且}\textbf{名字不能与旧文�
 
 $$\Rightarrow\ \mathtt{bd\_v50.tcl}\ \text{的 module-ref 必须指向 } \mathbf{\mathtt{bin\_unit\_axi\_wrap\_bd\_v50}}$$
 $$\Rightarrow\ \text{所有新模块名}\textbf{不得与 } \mathtt{rtl\_v50/}\ \text{里既有的 25 个模块重名}$$
+
+---
+
+## 10. 契约修订 R1（2026-11-02 15:30）——**寄存器块搬家 + 描述符 w6/w7 定死**
+
+### 10.1 撞车：`0x200` 段已被 E1E2 占用
+$$\Rightarrow\ \text{IMP-C 实测：}\mathtt{E1E2\_REG}\ \text{的 } \mathtt{RUN\_UNIT/E\_GROUP/E\_DESC/E\_DESC\_HI}\ \text{正是 } \mathtt{0x200/0x204/0x208/0x20C}$$
+$$\Rightarrow\ \text{我原定的 } \mathtt{CHAIN\_HEAD/PROGRESS/BAND\_ROWS/FUSE\_MODE}\ \text{与它}\textbf{逐字冲突}$$
+
+$$\Rightarrow\ \textbf{修订：v50 新寄存器整体搬到 } \mathbf{\mathtt{0x300}} \text{ 段，E1E2 的 } \mathtt{0x200}\ \text{段}\textbf{一个字节都不动}$$
+
+| 地址 | v50 寄存器 | 说明 |
+|---|---|---|
+| `0x300` | `CHAIN_HEAD` | 描述符链首物理地址（4 KB 对齐）|
+| `0x304` | `PROGRESS` | 已完成描述符数（只读）|
+| `0x308` | `BAND_ROWS` | 行带高度 |
+| `0x30C` | `FUSE_MODE` | 0=旧路径（默认），1=段融合 |
+| `0x310` | `CHAIN_STATUS` | bit0 done / bit1 err / bit2 busy / bit8~15 err_code |
+
+$$\Rightarrow\ \mathtt{0x000..0x1FF}\ \text{与 } \mathtt{0x200..0x20C}\ \textbf{全部保持原样}$$
+$$\Rightarrow\ \mathtt{0x250..0x25C}\ \text{仍}\textbf{禁止}（\text{v42d 教训}）$$
+
+### 10.2 契约 B 的字 6/字 7（原留白，现定死）
+$$\Rightarrow\ \text{字 } 6 = \mathtt{band\_y0}\ (\text{本带起始行号，绝对行号，不是带内偏移}）$$
+$$\Rightarrow\ \text{字 } 7 = \mathtt{flags}：\text{bit0=末带、bit1=本带需物化、bit2=含 shuffle、bit3=输出 f32}$$
+$$\Rightarrow\ \text{其余位保留为 } 0;\ \text{RTL 必须忽略未定义位}（\text{不报错}）$$
+
+### 10.3 PRM 帧宽（IMP-C 已实现，登记入契约）
+$$\Rightarrow\ \text{帧宽 }= 2\times\mathtt{VLANES}\ \text{字} \Rightarrow \mathtt{VLANES=8}\ \text{时 } 16\ \text{字 / 偏移 } 0,2,6,10,14;\ \mathtt{VLANES=16}\ \text{时 } 32\ \text{字 / } 0,4,12,20,28$$
+$$\Rightarrow\ \text{打包点在 } \mathtt{ps/tools/pack\_bin\_weights.py:388\text{-}395}；\text{新增 } \mathtt{bin\_engine.prm\_layout()}\ \text{与 } \mathtt{check\_prm\_capacity()}$$
+$$\Rightarrow\ \text{前提已核：227 层的 } \mathtt{cout}\in\{32,48,64,96,192\}\ \text{全是 } 16\ \text{的倍数} \Rightarrow \text{容器不需 padding}$$
+
+### 10.4 合并时必须补的一行（否则基线门禁假失败）
+$$\Rightarrow\ \mathtt{bin\_net}\ \text{新增懒加载 } \mathtt{import\ fconv} \Rightarrow \mathtt{deps\_closure.py}\ \text{必须加 } \mathtt{DECL["fconv"]}$$
+$$\Rightarrow\ \text{这是第 41/44 条纪律的}\textbf{第三次}（前两次是 } \mathtt{convpf\_c}、\mathtt{mmio\_batch}\text{）\Rightarrow \text{合并代理必须跑 } \mathtt{merge\_gate.sh}\ \text{三关}$$
