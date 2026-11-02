@@ -4616,3 +4616,31 @@ $$\quad\ \text{而板端 } \Sigma \texttt{DBG\_CYC} = 49.31\ \text{M 拍（}656\
 $$\Rightarrow\ \textbf{未合并项}：\text{无。}\texttt{FAST}/\texttt{C}\ \text{两支一起进了（默认关，}C\ \text{只在 } \texttt{BIN\_MMIO\_C=1}\ \text{时现场 } \texttt{cc}\text{）}$$
 $$\quad\ \text{理由：它们与 POLL 共用 } \texttt{\_wr\_seq} / \texttt{\_fast}\ \text{那一层；把它们剪掉就等于把 X1 验过的那段代码重写一遍}$$
 $$\quad\ \quad\ \text{——"写序列不许变"的红线下，}\textbf{保留已验代码 > 缩小 patch}$$
+
+### 70.18 ★★★★ 上板门槛**必须重写**：v39 自己也过不了原来那条（2026-11-02 08:10）
+
+T-42 用**同一套 v41 分类器**回头复算 v39 的 `endpoints_at150.csv`（20,706 行）：
+
+| | N2 | N1 | N0 | IP_OTHER | 总 | TNS |
+|---|---:|---:|---:|---:|---:|---:|
+| **v39（唯一可用位流）** | **15,556** | 936 | 4,149 | **65** | 20,706 | −47,312.4 |
+| v41（禁用） | 632 | 181 | 431 | 45 | 1,289 | −348.4 |
+
+$$\Rightarrow\ \text{复算 TNS} = -47{,}312.396\ \text{与历史记载逐位一致} \Rightarrow \text{分类器口径可信}$$
+$$\Rightarrow\ \Rightarrow\ \textbf{"N2 + IP\_OTHER = 0" 这条门槛，唯一能跑的位流自己就过不了}$$
+$$\Rightarrow\ \text{所以它}\textbf{不是安全判据}\text{，v40 挂板与 v39 能跑的区别不在"违例数量"}$$
+
+$$\Rightarrow\ \textbf{真正的安全性质}：\text{违例不许落在}\textbf{生成地址 / 突发长度 / 写使能}\text{的路径上}$$
+$$\quad\ \text{因为 v40 的失效模式是}\textbf{越界写踩烂内核页缓存} \Rightarrow \text{它只可能来自地址/突发/WE 算错}$$
+
+**新门槛（G1/G2/G3，取代原三桶计数式门槛）**
+$$\Rightarrow\ \textbf{G1 可比量}：\text{v42 vs v39 的逐桶 }\Delta + \textbf{新增端点清单}(\text{v42 有、v39 无})$$
+$$\Rightarrow\ \textbf{G2 安全}：\text{下列路径}\textbf{零违例}：$$
+$$\quad\ \text{① } \texttt{bin\_e1e2}\ \text{新增的组自增 }(\texttt{E\_DESC/E\_OUT/E\_GROUP}\ \text{加法器} \to \text{描述符/输出地址/写口})$$
+$$\quad\ \text{② } \texttt{bin\_unit\_axi\_wrap}\ \text{的 } \texttt{ar\_addr/aw\_addr/arlen/awlen/w\_valid/w\_strb}\ \text{寄存器 D 引脚}$$
+$$\quad\ \text{③ 线缓存的 fill 写地址}$$
+$$\Rightarrow\ \textbf{G3}：\texttt{Register as Latch = 0}\ \text{双查} + \text{资源表}$$
+
+$$\Rightarrow\ \textbf{纪律（第 83 条）}：\text{门槛必须先用}\textbf{已知能跑的位流}\text{回代验证；}$$
+$$\quad\ \text{若一条门槛判"唯一可用位流"不合格，那}\textbf{门槛错了，不是位流错了}$$
+$$\quad\ \Rightarrow\ \text{本项目为此浪费了 v40/v41 两轮（都在追"违例数量"，而 v39 用 15,556 条违例跑得好好的）}$$
