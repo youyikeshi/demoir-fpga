@@ -3,6 +3,7 @@
 # run_hdmi_p1_sim.sh —— HDMI P1 的 xsim 运行器
 #   用法: ./tools/run_hdmi_p1_sim.sh timing|i2c|topcfg|all
 #   规则: 每次运行前 rm -rf xsim.dir；xelab 用 -debug off（不落 GB 级 wdb）
+#   顶层含 BUFG/BUFGMUX/IOBUF（unisim）⇒ xelab 加 -L unisims_ver 并链接 glbl
 # ============================================================================
 set -uo pipefail
 
@@ -22,6 +23,10 @@ if ! command -v xvlog >/dev/null 2>&1; then
 fi
 command -v xvlog >/dev/null || { echo "xvlog not found"; exit 3; }
 
+GLBL="$(cd "$(dirname "$(command -v xvlog)")/.." && pwd)/data/verilog/src/glbl.v"
+[[ -f "$GLBL" ]] || GLBL="$VIV/data/verilog/src/glbl.v"
+[[ -f "$GLBL" ]] || { echo "glbl.v not found"; exit 3; }
+
 run_one() {
   local name="$1"; shift
   local top="$1"; shift
@@ -30,11 +35,11 @@ run_one() {
   rm -rf "$w"; mkdir -p "$w"; cd "$w" || exit 4
   rm -rf xsim.dir
   echo "=== [$name] xvlog ==="
-  if ! xvlog --nolog "${files[@]}" > xvlog.log 2>&1; then
+  if ! xvlog --nolog -L unisims_ver "${files[@]}" > xvlog.log 2>&1; then
     echo "xvlog FAILED"; tail -40 xvlog.log; return 1
   fi
   echo "=== [$name] xelab ==="
-  if ! xelab --nolog -debug off --relax -s "sim_$name" "$top" > xelab.log 2>&1; then
+  if ! xelab --nolog -debug off --relax -L unisims_ver -s "sim_$name" $top > xelab.log 2>&1; then
     echo "xelab FAILED"; tail -40 xelab.log; return 1
   fi
   echo "=== [$name] xsim ==="
@@ -59,20 +64,20 @@ case "$MODE" in
       "$ROOT/modules/sil9134_init.v" "$ROOT/tb/tb_sil9134_i2c.v" || RC=1
     ;;
   topcfg)
-    run_one topcfg tb_hdmi_top_cfg \
+    run_one topcfg "tb_hdmi_top_cfg glbl" \
       "$ROOT/modules/hdmi_timing_gen.v" "$ROOT/modules/hdmi_color_bar.v" \
       "$ROOT/modules/sil9134_init.v" "$ROOT/modules/hdmi_out_top.v" \
-      "$ROOT/tb/tb_hdmi_top_cfg.v" || RC=1
+      "$GLBL" "$ROOT/tb/tb_hdmi_top_cfg.v" || RC=1
     ;;
   all)
-    WORK="$WORK/all" run_one timing tb_hdmi_timing \
+    run_one timing tb_hdmi_timing \
       "$ROOT/modules/hdmi_timing_gen.v" "$ROOT/tb/tb_hdmi_timing.v" || RC=1
-    WORK="$WORK/all" run_one i2c tb_sil9134_i2c \
+    run_one i2c tb_sil9134_i2c \
       "$ROOT/modules/sil9134_init.v" "$ROOT/tb/tb_sil9134_i2c.v" || RC=1
-    WORK="$WORK/all" run_one topcfg tb_hdmi_top_cfg \
+    run_one topcfg "tb_hdmi_top_cfg glbl" \
       "$ROOT/modules/hdmi_timing_gen.v" "$ROOT/modules/hdmi_color_bar.v" \
       "$ROOT/modules/sil9134_init.v" "$ROOT/modules/hdmi_out_top.v" \
-      "$ROOT/tb/tb_hdmi_top_cfg.v" || RC=1
+      "$GLBL" "$ROOT/tb/tb_hdmi_top_cfg.v" || RC=1
     ;;
   *)
     echo "usage: $0 timing|i2c|topcfg|all"; exit 2

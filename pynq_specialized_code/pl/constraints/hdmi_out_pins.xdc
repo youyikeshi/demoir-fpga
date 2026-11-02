@@ -13,14 +13,14 @@
 #   BD 顶层用 IOBUF 接成 hdmi_scl / hdmi_sda（IOBUF .I(1'b0) .O(sda_i) .T(t)），
 #   本文件约束的是 IOBUF 之后的顶层 inout 端口。
 #
-# 时钟：pix_clk 由 PS FCLK1 提供（1080p60 目标 148.5 MHz），不是板上晶振；
-#   其 create_clock / 时钟组见 hdmi_out_ooc.xdc（OOC 用）与 P3 BD 的 PS 配置。
+# 时钟：pix_clk 是本模块内部 BUFGMUX 的输出（148.4375 / 74.21875 MHz 二选一），
+#   两路输入由 P3 BD 里的 MMCM 产生；OOC 约束见 hdmi_out_ooc.xdc。
 # ============================================================================
 
 # ---- 像素时钟（PL -> SIL9134，H1）----
-set_property PACKAGE_PIN H1 [get_ports hdmi_clk]
-set_property IOSTANDARD LVCMOS33 [get_ports hdmi_clk]
-set_property SLEW FAST [get_ports hdmi_clk]
+set_property PACKAGE_PIN H1 [get_ports pix_clk]
+set_property IOSTANDARD LVCMOS33 [get_ports pix_clk]
+set_property SLEW FAST [get_ports pix_clk]
 
 # ---- 24-bit RGB（D[0..23]）----
 set_property PACKAGE_PIN G3 [get_ports {hdmi_d[0]}]
