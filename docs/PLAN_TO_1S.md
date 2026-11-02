@@ -122,6 +122,19 @@ $$\Rightarrow\ \text{代价：}\text{最后要补一轮专门的时序战役（�
 
 **注意一个反例的启示**：`v42e` 在 150 MHz 挂死、100 MHz 数据错 ⇒ 说明**低频率不会掩盖逻辑 bug**，只会掩盖时序 bug。这正是我们要的分离。
 
+### R8 的补充：功能验证时钟要**按位流自己的最差路径算**（2026-11-02 14:50）
+
+$$\Rightarrow\ 	ext{新块（fconv）的最差路径} = \mathbf{15.545\ ns}\ (	exttt{oc\_base\_reg[3]/C} 	o 	exttt{wd\_len\_reg\_*/RAMA/WE},\ 12\ 	ext{级})$$
+$$\Rightarrow\ 	ext{真实最差} pprox 16.1\ 	ext{ns} \Rightarrow 	ext{10 ns 约束下 } 	exttt{WNS } -6.076 \Rightarrow 	extbf{只支持 62 MHz}$$
+$$\Rightarrow\ \Rightarrow\ 	ext{若在 } 100\ 	ext{MHz 验功能，这条路径}	extbf{仍然错拍} \Rightarrow 	ext{错分不清逻辑还是时序} \Rightarrow 	extbf{R8 的分离失效}$$
+
+$$\Rightarrow\ 	extbf{规则}：	ext{功能验证时钟} = \left\lfloor \dfrac{1}{1.3 	imes T_{	ext{worst}}} ightfloor_{5\,	ext{MHz}}$$
+$$\quad\ 	ext{本次} \Rightarrow 1/(1.3 	imes 16.1\ 	ext{ns}) pprox 47.8 \Rightarrow \mathbf{45\ MHz}\ (	ext{整网 } 15\sim22\ 	ext{s})$$
+$$\Rightarrow\ 	ext{分两阶段验更稳}：	ext{先验"不含 fconv 的老功能"在 } 100\ 	ext{MHz 是否正常} \Rightarrow 	ext{再验 fconv 在 } 45\ 	ext{MHz}$$
+
+$$\Rightarrow\ 	ext{这样"慢"是有明确代价的：}	extbf{每颗新位流的功能验证要跑 } 15\sim22\ 	ext{s}\ 	ext{的整网}$$
+$$\quad\ \Rightarrow\ 	ext{但}	extbf{判据是 } 	exttt{sha1}	ext{，与速度无关} \Rightarrow 	ext{慢不损失判据强度}$$
+
 ---
 
 ## 4. 永久排除（别再花时间）
