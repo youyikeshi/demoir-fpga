@@ -4825,3 +4825,35 @@ $$\Rightarrow\ \text{本轮正是这一条把结论从"某层算错"升级为"�
 $$\Rightarrow\ \textbf{第 91 条纪律：一次只动一个参数}$$
 $$\quad\ \text{v42 一次改了 4 个预取参数 + 2 处 E1E2 逻辑} \Rightarrow \text{归因只能靠再花一轮板端二分才拆开}$$
 $$\quad\ \Rightarrow\ \text{改 N 个旋钮就丢掉 N−1 份可归因性；本轮的代价是两次构建 + 一轮隔离}$$
+
+### 70.24 ★★★★ v42c：只动 `PF_AHEAD` 一档，时序突变好，且 `pf_tag` 族归零（2026-11-02 09:13）
+
+$$\text{v42c} = \text{v39 的 } \texttt{bin\_e1e2.v} + \texttt{bin\_unit\_axi\_wrap.v}\ \text{只改 } \texttt{PF\_AHEAD } 1\to2\ (\texttt{PF\_DEPTH/PF\_MAX/AR\_SLOTS}\ \text{全回 } 4/4/4)$$
+$$\Rightarrow\ \text{bit } \mathbf{\texttt{eecc6e80}};\ \texttt{.hwh}\ \text{仍 } \texttt{c1686bd8}\ (\text{BD 未动});\ \text{DRC 0 err};\ \text{Latch}=0\ \text{双查};\ \text{峰值 } 4{,}148\ \text{MB}$$
+
+**G1（v39 那一列是同一次审计里重跑 v39 DCP 得到的，不是抄旧数）**
+
+| | v39 | v42c | Δ |
+|---|---:|---:|---:|
+| N2 | 15,556 | **3,310** | **−12,246** |
+| N1 | 936 | 936 | 0 |
+| N0 | 4,149 | 3,659 | −490 |
+| IP_OTHER | 65 | 58 | −7 |
+| 合计 | 20,706 | **7,963** | −12,743 |
+| TNS | −47,312 | **−6,164** | **+41,148** |
+| WNS | −5.331 | **−3.087** | **+2.244** |
+
+$$\Rightarrow\ \textbf{时序杀手不是 } \texttt{PF\_AHEAD}\text{，是 } \texttt{PF\_DEPTH } 4\to8\ \text{与 } \texttt{AR\_SLOTS } 4\to8}$$
+$$\Rightarrow\ \text{铁证：}\textbf{同一份 P\&R 在}10.000\ \text{ns}\ \text{松约束下，v42 是 WNS } -1.457\ /\ \text{违例} \ge2{,}000$$
+$$\quad\ \text{v42c 是 } \textbf{WNS } +0.246\ /\ \text{违例 } 0\ /\ \text{TNS } 0.000 \Rightarrow \text{摘掉 } \texttt{pf\_tag[7]}\ \text{那一行后连松约束都全清}$$
+$$\Rightarrow\ \text{资源几乎不动：LUT } 20{,}407\ (\text{v39 } 20{,}552)、\text{FF } 18{,}997、\text{BRAM } 35\ (=\text{v39})、\text{DSP } 101$$
+
+**Z3（本轮成败判据）通过**
+$$\Rightarrow\ \texttt{pf\_tag}\ \text{违例族}\ \textbf{0 条}\ (\text{v42 是 } 118\ \text{条} / -4.719)$$
+$$\Rightarrow\ \text{网表口径 } \texttt{pf\_tag\_reg}\ \text{行号} = \{0,1,2,3\} \Rightarrow \texttt{pf\_tag[7]}\ \textbf{物理上不存在}$$
+$$\Rightarrow\ \text{G2-E 组剩下 3 条} (\texttt{pf\_busy\_reg[0..2]/D}，\text{起点 ps7}) \Rightarrow \textbf{全部继承自 v39，新增 0 条}$$
+
+**第 92 条纪律：参数默认值不是性能旋钮，是时序旋钮**
+$$\Rightarrow\ \text{同一个"加深预取"的想法，}\texttt{PF\_AHEAD 1\to2}\ \text{几乎免费，}\texttt{PF\_DEPTH 4\to8}\ \text{直接造出 118 条} -4.719\ \text{的 CE 违例}$$
+$$\quad\ \text{而那条违例的失效模式是}\textbf{预取 tag 写错} \Rightarrow \text{误判命中} \Rightarrow \text{取回错的线} \Rightarrow \textbf{非确定性数据错（v42 的 24/24）}$$
+$$\Rightarrow\ \textbf{判据}：\text{加深度类参数前，先问"它是否新增一行存储/比较器"，并}\textbf{单独看那一行的 CE/D 引脚 slack}$$
