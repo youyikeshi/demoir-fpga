@@ -5009,7 +5009,7 @@ $$\Rightarrow\ \text{新的里程碑：}5.99\ \to\ (\text{①②③实测 }-0.14
 
 ### 70.32 `bin_engine/bin_net` 的**导入期常量**清单（T-54 踩坑，共 8 个）
 
-$$\Rightarrow\ \text{这 8 个在 } \texttt{import}\ \text{时就定型} \Rightarrow \text{运行点/开关}	extbf{必须在 import 之前}	ext{写进 } \texttt{os.environ}$$
+$$\Rightarrow\ \text{这 8 个在 } \texttt{import}\ \text{时就定型} \Rightarrow \text{运行点/开关}\textbf{必须在 import 之前}\text{写进 } \texttt{os.environ}$$
 
 | 模块 | 常量 | 环境变量 |
 |---|---|---|
