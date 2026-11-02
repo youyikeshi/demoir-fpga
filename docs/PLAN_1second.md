@@ -5334,3 +5334,35 @@ $$\Rightarrow\ \text{④ lane 8-15 复用 lane 0-7 的参数切片};\quad \text{
 **另外两条纠正**
 $$\Rightarrow\ \texttt{RD\_WIN\_WORDS}\ \text{当前已是 } \mathbf{16}\ (\text{不是任务书写的 8})，\ \texttt{ARLEN}=15$$
 $$\Rightarrow\ \texttt{bin\_e1e2.v}\ \text{的 8 lane 是"64 位输出字的 8 个子字"，与 conv 的 oc-lane \textbf{正交}} \Rightarrow \textbf{16-lane 不该动它}$$
+
+### 70.44 v44（fconv 4-lane + HP2）构件完成 —— 拍板：**可上板（功能验证，45 MHz）**（2026-11-02 15:25）
+
+$$\Rightarrow\ \text{bit } \mathtt{d848bb5b60698e14b227ccc60e485097};\quad \text{.hwh } \mathtt{194562af193ecfa9553f2debc454daf9}$$
+$$\Rightarrow\ \text{资源 LUT } \mathbf{32{,}012}\ (69.3\%, \le 38{,}000),\ \text{FF } 28{,}299,\ \text{BRAM } 56,\ \text{DSP } 115$$
+$$\Rightarrow\ \text{Latch 双查 } 0,\quad \text{DRC }\mathbf{0\ Errors},\quad \text{RTL 根 manifest } \mathbf{25/25}$$
+
+**既有项 0 变化（三张 diff 表）**
+$$\Rightarrow\ \text{地址图：}\mathtt{0x40040000}/\mathtt{0x40060000}\ \text{0 变化};\ \text{新增 } \mathtt{fconv\_0@0x40080000}+128\text{K}$$
+$$\Rightarrow\ \text{连接图：既有 5 条 intf net 0 变化};\ \text{新增 } \mathtt{axi\_ctrl/M04\to fconv/s\_axi}、\mathtt{fconv/m\_axi\to ps7/S\_AXI\_HP2}$$
+$$\Rightarrow\ \text{ps7 全量 } \mathbf{876}\ \text{条 } \mathtt{PCW\_*}\ \text{逐条 assert}：\text{仅 } \mathtt{PCW\_USE\_S\_AXI\_HP2}\ 0\to1、\mathtt{PCW\_S\_AXI\_HP2\_FREQMHZ}\ 10\to150$$
+
+**时序（如实记录，按 R8 不作门槛）**
+$$\Rightarrow\ \text{10 ns：WNS } -6.076 / \text{TNS } -80{,}328 / 19{,}590\ \text{端点}$$
+$$\Rightarrow\ \text{最差 } \mathtt{fconv/u\_core/oc\_base\_reg[3]/C \to wd\_len\_reg\_*/RAMA/WE}，\text{data path } 15.545\ \text{ns} / 12\ \text{级}$$
+$$\Rightarrow\ \text{真实最差周期 } = 16.076\ \text{ns} \Rightarrow \text{建议功能时钟 } 45\ \text{MHz}$$
+$$\Rightarrow\ \textbf{去掉 fconv 后最差 } -0.001\ \text{ns}\ (\mathtt{ps7/SAXIHP0ACLK\to bin\_unit/fs\_wr\_reg[6][0]/D}) \Rightarrow \textbf{老功能仍可按 100 MHz}$$
+
+**G2 的字面触发 vs 实质（我的拍板依据）**
+$$\Rightarrow\ \mathtt{G2\text{-}B}\ (\text{AXI 写载荷})\ 0\to5\ \text{条}，\text{最差 } -0.718\ \text{ns}$$
+$$\Rightarrow\ \text{"新族" 1{,}000 端点}\textbf{ 100\% 是 } \mathtt{rst\_0/\dots/C \to */CLR}，\text{1 级逻辑，7.4\sim8.4 ns} \Rightarrow \textbf{准静态复位树}$$
+$$\Rightarrow\ \mathtt{G2F\text{-}5\_ps7\_HP2入向}\ \mathbf{637\ objs / 0\ 违例\ PASS};\ \mathtt{fconv}\ \text{的 } \mathtt{m\_axi}\ \text{读/写载荷组 }\mathbf{0\ 违例\ PASS}$$
+$$\Rightarrow\ \Rightarrow\ \textbf{没有任何一条违例跨 HP2} \Rightarrow \text{HP2 连接在结构与时序上都干净}$$
+
+$$\Rightarrow\ \textbf{拍板：维持"可上板（功能验证；45 MHz）"}$$
+$$\quad\ \text{理由①}：\text{按 R8，功能期时序不作门槛};\ \text{理由②}：45\ \text{MHz 下 } 0.718\ \text{ns 的缺口有 } \mathbf{2.2\times}\ \text{余量}$$
+$$\quad\ \text{理由③}：\text{字面触发的那 5 条与 1{,}000 条}\textbf{机理已查明}\text{（写载荷 + 复位树），不是新连接语义错}$$
+$$\quad\ \Rightarrow\ \textbf{但记为时序战役的债}：\text{最终 150 MHz 收时序时必须把 } \mathtt{fconv}\ \text{的 } \mathtt{oc\_base} \to \mathtt{wd\_len}\ \text{那条 12 级路径打断}$$
+
+**BD validate 的 41-1356（HP2 slave segment 未分配）—— 判为元数据提示**
+$$\Rightarrow\ \text{证据：} \mathtt{runs/timing\_v43/bd\_v43.log}\ \text{里 }\mathtt{HP1\to conv\_uni}\ /\ \mathtt{HP0\to bin\_unit}\ \text{有}\textbf{一字不差的同款两条}，\text{而板上跑通}$$
+$$\Rightarrow\ \Rightarrow\ \text{直连 PS 硬口无解码器，属正常元数据提示，不是错误}$$
