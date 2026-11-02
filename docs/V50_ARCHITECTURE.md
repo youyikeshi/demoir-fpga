@@ -221,3 +221,45 @@ $$\Rightarrow\ \text{前提已核：227 层的 } \mathtt{cout}\in\{32,48,64,96,1
 ### 10.4 合并时必须补的一行（否则基线门禁假失败）
 $$\Rightarrow\ \mathtt{bin\_net}\ \text{新增懒加载 } \mathtt{import\ fconv} \Rightarrow \mathtt{deps\_closure.py}\ \text{必须加 } \mathtt{DECL["fconv"]}$$
 $$\Rightarrow\ \text{这是第 41/44 条纪律的}\textbf{第三次}（前两次是 } \mathtt{convpf\_c}、\mathtt{mmio\_batch}\text{）\Rightarrow \text{合并代理必须跑 } \mathtt{merge\_gate.sh}\ \text{三关}$$
+
+---
+
+## 11. 契约修订 R2：**halo / pad / cfg_h 的段边界语义**（2026-11-02 15:45）
+
+> 背景：IMP-B 报"band 模式下 `cfg_h`=带内行数(含 halo)，段边界 pad 与 halo 行怎么叠要与 IMP-A/IMP-C 一起定、未与 PS 对齐验证"。这是**必须由契约裁定**的缺口。
+
+### 11.1 三个量的定义（**互不重叠**）
+$$\Rightarrow\ \mathtt{y0}（\text{描述符字 }6）: \text{本段}\textbf{第一个有效输出行}（\text{绝对行号}）$$
+$$\Rightarrow\ \mathtt{nband}（\text{描述符字 }9\text{ 低 }16\text{ 位}）: \text{本段}\textbf{有效输出行数}；\text{最后一带可以 } < \mathtt{BAND\_ROWS}$$
+$$\Rightarrow\ \mathtt{HALO}（\text{寄存器 } \mathtt{0x308}\ \text{按 } k\ \text{自动推}): \text{输入侧需要}\textbf{上下各多少行}$$
+
+### 11.2 band 缓冲里装什么
+$$\Rightarrow\ \text{band 缓冲装的是}\textbf{输入}：\text{行号范围 } [\mathtt{y0}-\mathtt{HALO},\ \mathtt{y0}+\mathtt{nband}+\mathtt{HALO})$$
+$$\Rightarrow\ \text{行数} = \mathtt{nband} + 2\cdot\mathtt{HALO}$$
+$$\Rightarrow\ \text{输出只写 } [\mathtt{y0},\ \mathtt{y0}+\mathtt{nband})\ \Rightarrow \textbf{halo 行只读不写}$$
+
+### 11.3 pad 由**填充路径（E 口）**做，不由 conv 做
+$$\Rightarrow\ \text{E 口按行号 } \mathtt{yr}\ \text{填充时：}\text{若 } \mathtt{yr}<0\ \text{或}\ \mathtt{yr}\ge H_{\text{in}}\ \Rightarrow \textbf{整行写 0}（\text{不发起 DMA}）$$
+$$\Rightarrow\ \Rightarrow\ \text{conv 读侧}\textbf{永远不需要判边界}（\text{它读到的 pad 行已经是 0}）$$
+$$\Rightarrow\ \text{好处：} k\in\{1,3,5\}\ \text{共用同一填充器，conv 内部零分支}$$
+
+### 11.4 段内级联的 halo 叠加
+$$\Rightarrow\ \text{若一段内有 } n\ \text{个 conv 级联，}\mathtt{HALO} = \sum_i (k_i-1)/2$$
+$$\Rightarrow\ \text{T-67 实测：当前网络级联 halo 只有 } \{0,2\}\ \text{行} \Rightarrow \text{预算无压力}$$
+$$\Rightarrow\ \text{但 }\textbf{填充器只填"段输入的原始行"}，\text{中间层输出留在 band 缓冲里} \Rightarrow \text{级联 halo 由 RTL 内部管理，PS 只给 }\mathtt{HALO}_{\text{段}}$$
+
+### 11.5 `cfg_h` 的最终语义（**IMP-B 的实现据此对齐**）
+$$\Rightarrow\ \text{conv 的 } \mathtt{cfg\_h} = \mathtt{nband}\ (\textbf{不含 halo}）$$
+$$\Rightarrow\ \text{band 缓冲的行数} = \mathtt{nband} + 2\cdot\mathtt{HALO}\ \text{由硬件按寄存器自动算，}\textbf{PS 不传缓冲行数}$$
+$$\Rightarrow\ \mathclap{\text{}} \text{若 IMP-B 当前把 } \mathtt{cfg\_h}\ \text{当成"含 halo 的行数"}\Rightarrow \textbf{必须改成不含}$$
+
+### 11.6 权重/PRM 基址走寄存器（IMP-B 的做法，**采纳**）
+$$\Rightarrow\ \text{融合模式下 }\mathtt{r\_wgt/r\_shift/r\_*\_shift}\ \text{在}\textbf{段边界由 PS 写一次}（\text{不再逐描述符带}）$$
+$$\Rightarrow\ \text{理由：描述符只有 10 字，塞不下 5 个指针};\ \text{且段内各层的权重是连续排布的}$$
+$$\Rightarrow\ \Rightarrow\ \textbf{IMP-C 必须配合}：\text{段边界写权重基址，}\text{且}\textbf{写序必须在 } \mathtt{CHAIN\_HEAD}\ \text{之前}（\text{否则第一描述符就用错基址}$$
+$$\Rightarrow\ \text{描述符里的 } \mathtt{desc\_pa}\ \text{仍按 v39 语义（该层的激活/权重描述），}\text{基址寄存器提供}\textbf{段级起点}$$
+
+### 11.7 未完成项（IMP-B 自报，必须有人接）
+$$\Rightarrow\ \text{② } \mathtt{op\_mask}\ \text{只实现 bit0（conv）};\ \textbf{conv}\to\textbf{pack}\to\textbf{sam}\ \text{的}\textbf{带内串联序列未做}$$
+$$\Rightarrow\ \text{④ } \mathtt{catpack}\ \text{融合模式不支持（} \mathtt{fuse\_cfg\_bad}\to \mathtt{ERR\_UNIT}）$$
+$$\Rightarrow\ \text{⑤ 层例化依赖 IMP-A 的核文件存在（无核时 } \mathtt{xvlog}\ \text{过、} \mathtt{xelab}\ \text{不过）}$$
