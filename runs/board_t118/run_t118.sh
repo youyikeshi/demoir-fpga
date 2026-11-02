@@ -1,0 +1,224 @@
+#!/usr/bin/env bash
+# ============================================================================
+#  runs/board_t118/run_t118.sh —— T-118：v118 = v53 + **PF_EN=0（预取关）**，256² 定罪实验
+#
+#  唯一用法（必须先删旧 load 令牌）：
+#      rm -f /tmp/dsh_board.loadtoken
+#      BOARD_ALLOW_LOAD=1 BOARD_TAG=T118 tools/boardlock.sh bash runs/board_t118/run_t118.sh
+#
+#  唯一变量 = 位流（PS 一个字节不改）：
+#      v118 = runs/timing_v50/rtl_v50 的副本，仅 lane16/bin_unit_axi_wrap_v50.v 里
+#             `PF_EN 1 -> 0`（其余 34/34 个 .v 与 v53 逐字节相同，md5 见 runs/board_t118/）
+#
+#  本次 session = 一次 load + 一个探针进程：
+#      第 1 步 load v118 + 基址 0x40040000/0x40060000
+#              + **0x314 CHAIN_ID 必须 = 0x50300001**（绝对地址 0x40070314）
+#              + fclk0=50 MHz 读回
+#      第 2 步 256² @50 MHz，冻结运行点原样，连跑 2 次（arena 66,224,128 B / 24 槽）
+#              ★ 每次整网后重读 0x310 确认归零
+#      第 3 步 同 session 内 64² ×2（arena 4,292,608 B / 24 槽）作对照
+#
+#  租约内共 3 条 ssh/scp（体检杀旧 → scp → 部署+门禁+跑 → 拉回）
+#  ★ 判据：256² 三 sha1 = 9b1940c8/f86a7035/025757a8 且两次相同 ⇒ 预取/线缓存定罪
+#  ★ 铁律：只 pkill -x / 按 pid kill -TERM；禁 pkill -f；禁 kill -9；
+#          不收尾 poweroff（只 sync; sync）；不许 ssh 重试风暴；ulimit -c 0。
+# ============================================================================
+set -uo pipefail
+
+REPO="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)"
+R="$REPO"
+BOARD="${BOARD_HOST:-xilinx@192.168.7.2}"
+SUDO_PASS="${BOARD_SUDO_PASS:-xilinx}"
+DEST=/tmp/probe_T118
+OUT="${OUT:-/home/xilinx/demoir/t118_out}"
+LOCAL_OUT="${LOCAL_OUT:-$REPO/runs/board_t118}"
+BIT_NAME="${BIT_NAME:-design_1_150v118}"
+SRC_DIR="${SRC_DIR:-$R/worktrees/T-118-pfoff/out}"
+MD5_BIT="${MD5_BIT:-$( [ -f "$REPO/runs/board_t118/expect_bit.md5" ] && cut -d' ' -f1 "$REPO/runs/board_t118/expect_bit.md5" || echo MISSING )}"
+MD5_HWH="${MD5_HWH:-$( [ -f "$REPO/runs/board_t118/expect_hwh.md5" ] && cut -d' ' -f1 "$REPO/runs/board_t118/expect_hwh.md5" || echo MISSING )}"
+PROBE_ARGS="${PROBE_ARGS:---freq 50 --slots 24 --runs-big 2 --runs-64 2}"
+MANIFEST="$R/runs/board_ops/20261102/deps_closure.txt"
+MD5_MANIFEST=$(md5sum "$MANIFEST" | cut -d" " -f1)
+PROBE="$REPO/runs/board_t118/probe_t118.py"
+PROBE_MD5=$(md5sum "$PROBE" | cut -d" " -f1)
+LOG_PREFIX="${LOG_PREFIX:-t118}"
+
+SSH=(ssh -o BatchMode=yes -o ConnectTimeout=20 -o StrictHostKeyChecking=no
+     -o ServerAliveInterval=20 -o ServerAliveCountMax=120 "$BOARD")
+SCP=(scp -o BatchMode=yes -o ConnectTimeout=20 -o StrictHostKeyChecking=no)
+
+mkdir -p "$LOCAL_OUT"
+echo "[t118] repo = $REPO"
+echo "[t118] board = $BOARD   bit=$BIT_NAME  src=$SRC_DIR"
+echo "[t118] 探针 md5 = $PROBE_MD5"
+echo "[t118] 清单 md5 = $MD5_MANIFEST"
+echo "[t118] 探针参数 = $PROBE_ARGS"
+
+# ---- ⓪ 主机侧：冻结资产硬校验 + 打包 ps ----
+[ "$(md5sum "$SRC_DIR/$BIT_NAME.bit" | cut -d' ' -f1)" = "$MD5_BIT" ] \
+  || { echo "[t118] ✗ bit md5 不符冻结值"; exit 15; }
+[ "$(md5sum "$SRC_DIR/$BIT_NAME.hwh" | cut -d' ' -f1)" = "$MD5_HWH" ] \
+  || { echo "[t118] ✗ hwh md5 不符冻结值"; exit 15; }
+echo "[t118] ⓪ bit/hwh md5 = 冻结值 ✓（成对）"
+
+cd "$R/pynq_specialized_code" || exit 10
+find ps -type f ! -path "*__pycache__*" ! -name "*.so" | LC_ALL=C sort \
+    > "$LOCAL_OUT/ps_t118_filelist.txt"
+NF=$(wc -l < "$LOCAL_OUT/ps_t118_filelist.txt")
+tar czf "$LOCAL_OUT/ps_t118_deploy.tgz" -T "$LOCAL_OUT/ps_t118_filelist.txt" \
+    || { echo "[t118] ✗ 打包失败"; exit 10; }
+xargs -a "$LOCAL_OUT/ps_t118_filelist.txt" md5sum > "$LOCAL_OUT/ps_md5_host.txt" \
+    || { echo "[t118] ✗ md5 清单失败"; exit 10; }
+echo "[t118] ⓪ 打包 $NF 个文件（$(du -h "$LOCAL_OUT/ps_t118_deploy.tgz" | cut -f1)）"
+
+# ---- ① 板端体检 + CMA 审计 + 按 pid 杀旧程序 ----
+"${SSH[@]}" "bash -s" <<EOS1
+set -u
+ulimit -c 0
+mkdir -p '$DEST' '$OUT' || exit 1
+echo "--- uptime"; uptime
+echo "--- disk"; df -h / | tail -1; df -i / | tail -1
+echo "--- mem/cma"
+grep -E '^(MemTotal|MemFree|MemAvailable|CmaTotal|CmaFree|SwapTotal|SwapFree)' /proc/meminfo
+echo "--- 现存 python（pgrep -x python3）"
+pgrep -a -x python3 2>/dev/null | head -10 || true
+CUR=\$\$; PAR=\$PPID
+for p in \$(pgrep -x python3 2>/dev/null || true); do
+    [ "\$p" = "\$CUR" ] && continue
+    [ "\$p" = "\$PAR" ] && continue
+    c=\$(tr '\0' ' ' < /proc/\$p/cmdline 2>/dev/null || true)
+    case "\$c" in
+      *jupyter*|*redirect_server*|*networkd*|*unattended*|*'pynq.pl_server'*) continue;;
+    esac
+    case "\$c" in
+      *probe_*|*bin_net*|*board_*|*t1[0-9][0-9]_*)
+        echo "  kill -TERM \$p : \$c"; kill -TERM "\$p" 2>/dev/null || true;;
+    esac
+done
+sleep 2
+echo "--- 杀后残留"
+pgrep -a -x python3 2>/dev/null | grep -E 'probe_|bin_net|board_' || echo "  (无)"
+echo "--- 现有位流"
+ls -l /home/xilinx/demoir/design_1_150v*.bit 2>/dev/null | tail -8 || true
+echo "--- PACK 目录"
+ls -d /home/xilinx/demoir/deploy/bin_weights_new 2>/dev/null || true
+md5sum /home/xilinx/demoir/deploy/bin_weights_new/index.json 2>/dev/null | head -1 || true
+echo "--- 真 python"
+ls -l /usr/local/share/pynq-venv/bin/python3 2>&1 | head -2
+echo "--- 腾 CMA：drop_caches 前"
+grep -E '^CmaFree' /proc/meminfo
+printf '%s\n' "$SUDO_PASS" | sudo -S -p '' sh -c 'echo 3 > /proc/sys/vm/drop_caches' 2>/dev/null && echo "  ✓ drop_caches" || echo "  ⚠ drop_caches 失败"
+sleep 1
+echo "--- 腾 CMA：drop_caches 后"
+grep -E '^CmaFree' /proc/meminfo
+echo "[t118] ① done"
+EOS1
+if [ $? -ne 0 ]; then echo "[t118] ✗ 板端体检失败（不重试风暴）"; exit 11; fi
+
+# ---- ② scp ----
+"${SCP[@]}" "$LOCAL_OUT/ps_t118_deploy.tgz" "$LOCAL_OUT/ps_md5_host.txt" \
+    "$PROBE" "$MANIFEST" \
+    "$SRC_DIR/$BIT_NAME.bit" "$SRC_DIR/$BIT_NAME.hwh" \
+    "$BOARD:$DEST/" \
+  || { echo "[t118] ✗ scp 失败"; exit 12; }
+echo "[t118] ② scp done（ps 包 + md5 + 探针 + 清单 + bit + hwh）"
+
+# ---- ③ 部署 + 门禁 + 跑 ----
+"${SSH[@]}" "bash -s" <<EOS
+set -u
+ulimit -c 0
+cd /home/xilinx/demoir || exit 20
+
+echo "=== ③-a 位流落位 + md5（冻结值硬校验，必须成对）==="
+cp -f "$DEST/$BIT_NAME.bit" /home/xilinx/demoir/$BIT_NAME.bit || exit 21
+cp -f "$DEST/$BIT_NAME.hwh" /home/xilinx/demoir/$BIT_NAME.hwh || exit 21
+MB=\$(md5sum /home/xilinx/demoir/$BIT_NAME.bit | awk '{print \$1}')
+MH=\$(md5sum /home/xilinx/demoir/$BIT_NAME.hwh | awk '{print \$1}')
+echo "  bit = \$MB   hwh = \$MH"
+[ "\$MB" = "$MD5_BIT" ] && [ "\$MH" = "$MD5_HWH" ] || { echo "  ✗ 位流 md5 不符 ⇒ 停"; exit 21; }
+echo "  ✓ bit/hwh = 冻结值，成对"
+
+echo "=== ③-b 解包 ps 源码 + 逐文件 md5 ==="
+tar xzf "$DEST/ps_t118_deploy.tgz" || { echo "  ✗ 解包失败"; exit 21; }
+printf '%s\n' "$SUDO_PASS" | sudo -S -p '' rm -rf ps/pynq/__pycache__ ps/tools/__pycache__ 2>/dev/null || true
+echo "  解包完成（\$(find ps -type f ! -path '*__pycache__*' | wc -l) 个文件）"
+if md5sum -c "$DEST/ps_md5_host.txt" > "$OUT/ps_md5_board_check.txt" 2>&1; then
+    echo "  ✓ md5 -c 全过：\$(grep -c ': OK' "$OUT/ps_md5_board_check.txt") 个文件"
+else
+    echo "  ✗ md5 -c 失败"
+    grep ': FAILED' "$OUT/ps_md5_board_check.txt" | head -20
+    exit 22
+fi
+
+PY0=""
+for p in /usr/local/share/pynq-venv/bin/python3 /usr/share/pynq-venv/bin/python3; do
+    if [ -x "\$p" ]; then PY0="\$p"; break; fi
+done
+echo "  python = \$PY0"
+[ -n "\$PY0" ] || { echo "  ✗ 找不到 pynq venv python3 ⇒ 停"; exit 26; }
+
+echo "=== ③-c 依赖闭包清单（与 ps/ 一起同步）==="
+MROOT=/home/xilinx
+MPRIM=\$MROOT/runs/board_ops/20261102/deps_closure.txt
+mkdir -p "\$MROOT/runs/board_ops/20261102" runs/board_ops/20261102
+cp -f "$DEST/deps_closure.txt" "\$MPRIM"
+cp -f "$DEST/deps_closure.txt" runs/board_ops/20261102/deps_closure.txt
+M=\$(md5sum "\$MPRIM" | awk '{print \$1}')
+M2=\$(md5sum runs/board_ops/20261102/deps_closure.txt | awk '{print \$1}')
+echo "  主清单 md5 = \$M ；镜像 md5 = \$M2 （主机 $MD5_MANIFEST）"
+[ "\$M" = "$MD5_MANIFEST" ] && [ "\$M2" = "$MD5_MANIFEST" ] || { echo "  ✗ 清单 md5 不符 ⇒ 停"; exit 25; }
+echo "  判据①：cd ps/pynq && md5sum -c <主清单>"
+( cd ps/pynq && md5sum -c "\$MPRIM" > "$OUT/ps_deps_md5sum_c.txt" 2>&1 ) || {
+    echo "  ✗ md5sum -c 失败"; tail -20 "$OUT/ps_deps_md5sum_c.txt"; exit 25; }
+echo "    ✓ rc=0（一致文件数 = \$(grep -c ': OK' "$OUT/ps_deps_md5sum_c.txt")）"
+echo "  判据②：deps_closure --check"
+"\$PY0" ps/tools/deps_closure.py --check; RC=\$?
+echo "    rc=\$RC"
+[ "\$RC" = "0" ] || { echo "  ✗ 依赖闭包不合格 ⇒ 停"; exit 23; }
+
+echo "=== ③-d 清 PYNQ 残留状态 ==="
+PLD=\$(ls -d /usr/local/share/pynq-venv/lib/python3*/site-packages/pynq/pl_server 2>/dev/null | head -1)
+echo "  pl_server = \$PLD"
+[ -n "\$PLD" ] && printf '%s\n' "$SUDO_PASS" | sudo -S -p '' rm -f "\$PLD/global_pl_state_.json" "\$PLD/_current_metadata.pkl" 2>/dev/null || true
+
+echo "=== ③-e 释放页缓存 + 清空旧 dump（跑前最后一次 CMA 读数）==="
+grep -E '^(CmaTotal|CmaFree)' /proc/meminfo
+rm -f "$OUT/net"*.bin "$OUT/ops_"*.bin "$OUT/ops_"*.json 2>/dev/null || true
+sync
+printf '%s\n' "$SUDO_PASS" | sudo -S -p '' sh -c 'echo 3 > /proc/sys/vm/drop_caches' 2>/dev/null && echo "  ✓ drop_caches" || echo "  ⚠ drop_caches 失败（不致命）"
+sleep 2
+grep -E '^(CmaTotal|CmaFree|MemFree|MemAvailable)' /proc/meminfo
+
+echo "=== ③-f 跑探针（★ 本 session 唯一一次 download）==="
+t0=\$(date +%s)
+printf '%s\n' "$SUDO_PASS" | sudo -S -p '' env XILINX_XRT=/usr \\
+    "\$PY0" -u "$DEST/probe_t118.py" \\
+        --bit /home/xilinx/demoir/$BIT_NAME.bit \\
+        --pack /home/xilinx/demoir/deploy/bin_weights_new \\
+        $PROBE_ARGS \\
+        --outdir "$OUT" 2>&1 | tee "$OUT/${LOG_PREFIX}_run.log"
+RC=\${PIPESTATUS[1]}
+t1=\$(date +%s)
+echo "  [t118] 探针 rc=\$RC  用时 \$((t1-t0)) s"
+
+echo "=== ③-g 跑后凭据 ==="
+md5sum /home/xilinx/demoir/$BIT_NAME.bit /home/xilinx/demoir/$BIT_NAME.hwh | tee "$OUT/${LOG_PREFIX}_bit_after.md5"
+grep -E '^(CmaTotal|CmaFree|MemFree)' /proc/meminfo
+ls -la "$OUT" | head -30
+du -sh "$OUT" 2>/dev/null || true
+echo "  [t118] 收尾只 sync（不 poweroff）"
+sync; sync
+echo "  [t118] 仍开机：uptime=\$(uptime | sed 's/^ *//')"
+echo "  [t118] rc=\$RC"
+exit \$RC
+EOS
+RC=$?
+echo "[t118] ③ 返回 rc=$RC"
+
+# ---- ④ 无论成败都把产物拉回 ----
+"${SCP[@]}" -r "$BOARD:$OUT/*" "$LOCAL_OUT/" \
+  && echo "[t118] ④ 产物已拉回 $LOCAL_OUT" \
+  || echo "[t118] ⚠ 产物拉回失败（板端 $OUT）"
+
+echo "[t118] DONE rc=$RC"
+exit "$RC"

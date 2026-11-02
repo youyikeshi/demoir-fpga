@@ -1,0 +1,198 @@
+
+****** Vivado v2025.2.1 (64-bit)
+  **** SW Build 6403652 on Thu Mar 19 13:47:00 MDT 2026
+  **** IP Build 6403511 on Thu Mar 19 12:41:45 MDT 2026
+  **** SharedData Build 6403650 on Thu Mar 19 14:02:13 MDT 2026
+  **** Start of session at: Tue Nov  3 01:04:03 2026
+    ** Copyright 1986-2022 Xilinx, Inc. All Rights Reserved.
+    ** Copyright 2022-2026 Advanced Micro Devices, Inc. All Rights Reserved.
+
+source /media/felix/Data/coding/demoir-fpga/worktrees/T-118-pfoff/build_final_150v118.tcl
+# source [file join [file dirname [info script]] _guard_build.tcl]  
+## set _guard_root [file normalize [file join [file dirname [file normalize [info script]]] ../../..]]
+## set _owner_file [expr {[info exists ::env(DSH_BUILD_OWNER_FILE)] \
+##                         ? $::env(DSH_BUILD_OWNER_FILE) \
+##                         : [file join $_guard_root runs resguard BUILD_OWNER]}]
+## set _ttl [expr {[info exists ::env(BUILD_OWNER_TTL)] ? $::env(BUILD_OWNER_TTL) : 21600}]
+## proc _guard_fail {msg} {
+##     puts stderr "\n==========================================================================="
+##     puts stderr "  ⛔ 构建被资源闸门拒绝：$msg"
+##     puts stderr "==========================================================================="
+##     puts stderr "  本机 SwapTotal=0，必须串行构建。请改用它启动："
+##     puts stderr ""
+##     puts stderr "    cd /media/felix/Data/coding/demoir-fpga/pynq_specialized_code"
+##     puts stderr "    tools/memgate.sh <预估峰值GB> -- \\"
+##     puts stderr "        pl/scripts/vrun.sh scripts/build_final_150v39.tcl runs/xxx.log"
+##     puts stderr ""
+##     puts stderr "  预估峰值：综合约 4 GB，中小实现约 8 GB，大实现 16 GB。"
+##     puts stderr "  说明见 runs/resguard/RESOURCE.md"
+##     puts stderr "===========================================================================\n"
+##     error "_GUARD_REJECTED: $msg"
+## }
+## if {![info exists ::env(DSH_BUILD_TOKEN)]} {
+##     _guard_fail "缺少 DSH_BUILD_TOKEN 环境变量（不是通过 memgate.sh 启动的）"
+## }
+## if {![file readable $_owner_file]} {
+##     _guard_fail "找不到 BUILD_OWNER（$_owner_file）—— 没有构建正在进行，或已过期被清理"
+## }
+## set _fh [open $_owner_file r]
+## set _raw [read $_fh]
+## close $_fh
+## array set _own {token "" pid "" ts "" lock "" cmd ""}
+## foreach _line [split $_raw "\n"] {
+##     if {[regexp {^([a-zA-Z_]+)=(.*)$} $_line -> _k _v]} {
+##         set _own($_k) $_v
+##     }
+## }
+## if {$_own(token) eq ""} {
+##     _guard_fail "BUILD_OWNER 内容不合法（缺 token）"
+## }
+## if {$_own(token) ne $::env(DSH_BUILD_TOKEN)} {
+##     _guard_fail "令牌不匹配：env=$::env(DSH_BUILD_TOKEN) owner=$_own(token)（另有构建在跑，抢锁失败）"
+## }
+## set _age [expr {[clock seconds] - int($_own(ts))}]
+## if {$_age > $_ttl} {
+##     _guard_fail "BUILD_OWNER 已过期 ${_age}s > TTL ${_ttl}s（多半是上次构建异常中断留下的）"
+## }
+## if {$_age < 0} {
+##     _guard_fail "BUILD_OWNER 时间戳在未来（时钟异常）"
+## }
+## if {$_own(lock) ne "bypassed"} {
+##     set _lk [expr {[info exists _own(lockfile)] && $_own(lockfile) ne "" ? $_own(lockfile) : "/tmp/dsh_vivado.lock"}]
+##     if {[file readable $_lk]} {
+##         # 锁空闲 ⇒ flock 能拿到 ⇒ 说明没人持锁，本进程不是受控启动
+##         if {![catch {exec flock -n $_lk -c true} _out]} {
+##             _guard_fail "单实例锁 $_lk 处于空闲状态（预期被 memgate 持有）"
+##         }
+##     }
+## }
+## puts "\[guard\] ✅ 构建闸门通过  owner_pid=$_own(pid)  age=${_age}s  lock=$_own(lock)"
+[guard] ✅ 构建闸门通过  owner_pid=79108  age=3s  lock=held
+## puts "\[guard\]    token=$_own(token)"
+[guard]    token=1793639042-79108-164921257
+## puts "\[guard\]    cmd=$_own(cmd)"
+[guard]    cmd=pl/scripts/vrun.sh /media/felix/Data/coding/demoir-fpga/worktrees/T-118-pfoff/build_final_150v118.tcl /media/felix/Data/coding/demoir-fpga/runs/board_t118/t118_assert.log 600
+# set_param general.maxThreads 2
+# set pl   /media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl
+# set bd   $pl/vivado/proj_v50/proj_engine.gen/sources_1/bd/design_1
+# set rtl  /media/felix/Data/coding/demoir-fpga/worktrees/T-118-pfoff/rtl_v50
+# set out  [file normalize /media/felix/Data/coding/demoir-fpga/worktrees/T-118-pfoff/out]
+# set part xc7z015clg485-2
+# file mkdir $out
+# puts "== 0a) RTL 根硬断言（verify_rtl_root.sh；位流 manifest + 冻结副本 manifest）=="
+== 0a) RTL 根硬断言（verify_rtl_root.sh；位流 manifest + 冻结副本 manifest）==
+# set _VR [file join [file dirname [info script]] verify_rtl_root.sh]
+# if {![file exists $_VR]} { error "缺 verify_rtl_root.sh：$_VR（判据工具不可得 ⇒ 拒绝构建）" }
+# set _MAN39 /media/felix/Data/coding/demoir-fpga/pynq_specialized_code/board/overlay_engine_150mhz/build_v39_manifest.txt
+# set _MAN50 /media/felix/Data/coding/demoir-fpga/worktrees/T-118-pfoff/rtl_v50_manifest_t118.txt
+# foreach _m [list $_MAN39 $_MAN50] {
+#     if {![file exists $_m]} { error "缺 manifest: $_m（判据不可得 ⇒ 拒绝构建）" }
+# }
+# if {[catch {exec bash $_VR $_MAN39 $rtl --allow-extra * 2>@1} _o]} {
+#     puts $_o
+#     error "v39 位流 manifest 比对失败：v50 基线与 v39 位流输入不一致。绝不许改 RTL 让它过。"
+# }
+# puts $_o
+== verify_rtl_root ==
+   manifest : /media/felix/Data/coding/demoir-fpga/pynq_specialized_code/board/overlay_engine_150mhz/build_v39_manifest.txt
+   rtl_dir  : /media/felix/Data/coding/demoir-fpga/worktrees/T-118-pfoff/rtl_v50
+   allow    : *
+   manifest 条目 15 → RTL 条目 12，跳过 3
+      SKIP  /media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/vivado/proj_engine/proj_engine.gen/sources_1/bd/design_1/synth/design_1.v（不属于本 RTL 根）
+      SKIP  /media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/vivado/proj_engine/proj_engine.gen/sources_1/bd/design_1/hdl/design_1_wrapper.v（不属于本 RTL 根）
+      SKIP  /media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/scripts/build_final_150v39.tcl（不属于本 RTL 根）
+   MATCH    bin_catpack.v  cfa8132264cb22256379d5fc4bff80bd
+   MATCH    bin_conv_core.v  acaa8540cd6e2701b370e0cff85a6821
+   MATCH    bin_conv_core8.v  4e9887a9b125c61116ee3663ade425ce
+   MATCH    bin_e1e2.v  28375eec288f067e9235c0ecd486abb5
+   MATCH    bin_interp.v  fa4198e6cba9d4e65c58866bf278bc8c
+   MATCH    bin_rprelu.v  18f77f2f2ceb153605063334060d2775
+   MATCH    bin_sam.v  c9ef0488fd79ca36b321924f00c92d74
+   MATCH    bin_unit_axi_wrap.v  0cf68b2e31ac106ed03e30bd5591504d
+   MATCH    bin_unit_axi_wrap_bd.v  a9ac6fd7ba307cfa2c256fca776953cb
+   MATCH    conv_int8_uni.v  c7913f58cfc5d7a46c104a7486134ac5
+   MATCH    conv_uni_axi_wrap.v  34012562d6aa1d3d919b372ae3adb618
+   MATCH    conv_uni_axi_wrap_bd.v  0877f62db82d01a89bc3a61b4e617acd
+   rtl_dir 文件总数 35，其中 .v/.sv 共 35；manifest 覆盖 12
+   EXTRA-OK _selftest_bad.v（--allow-extra 放行）
+   EXTRA-OK _selftest_ok.v（--allow-extra 放行）
+   EXTRA-OK conv_k1_engine.v（--allow-extra 放行）
+   EXTRA-OK conv_k3_engine.v（--allow-extra 放行）
+   EXTRA-OK conv_k5_engine.v（--allow-extra 放行）
+   EXTRA-OK k1_axi_wrap.v（--allow-extra 放行）
+   EXTRA-OK k1_axi_wrap_bd.v（--allow-extra 放行）
+   EXTRA-OK k3_axi_wrap.v（--allow-extra 放行）
+   EXTRA-OK k3_axi_wrap_bd.v（--allow-extra 放行）
+   EXTRA-OK k3_cfg_check.v（--allow-extra 放行）
+   EXTRA-OK k5_axi_wrap.v（--allow-extra 放行）
+   EXTRA-OK k5_axi_wrap_bd.v（--allow-extra 放行）
+   EXTRA-OK k5_cfg_check.v（--allow-extra 放行）
+   EXTRA-OK lane16/bin_band_buf.v（--allow-extra 放行）
+   EXTRA-OK lane16/bin_band_fill_v50.v（--allow-extra 放行）
+   EXTRA-OK lane16/bin_catpack_v50.v（--allow-extra 放行）
+   EXTRA-OK lane16/bin_conv_core_v50.v（--allow-extra 放行）
+   EXTRA-OK lane16/bin_interp_v50.v（--allow-extra 放行）
+   EXTRA-OK lane16/bin_rprelu_v50.v（--allow-extra 放行）
+   EXTRA-OK lane16/bin_sam_v50.v（--allow-extra 放行）
+   EXTRA-OK lane16/bin_segq.v（--allow-extra 放行）
+   EXTRA-OK lane16/bin_unit_axi_wrap_bd_v50.v（--allow-extra 放行）
+   EXTRA-OK lane16/bin_unit_axi_wrap_v50.v（--allow-extra 放行）
+MATCH=12 DIFF=0 EXTRA=0 MISSING=0
+ALLOWED_EXTRA=23  V_TOTAL=35  MANIFEST_RTL=12
+RESULT: PASS
+# if {[catch {exec bash $_VR $_MAN50 $rtl 2>@1} _o]} {
+#     puts $_o
+#     error "v50 冻结 RTL 根 manifest 比对失败：runs/timing_v50/rtl_v50 被改动过（不是冻结副本）"
+# }
+# puts $_o
+== verify_rtl_root ==
+   manifest : /media/felix/Data/coding/demoir-fpga/worktrees/T-118-pfoff/rtl_v50_manifest_t118.txt
+   rtl_dir  : /media/felix/Data/coding/demoir-fpga/worktrees/T-118-pfoff/rtl_v50
+   manifest 条目 35 → RTL 条目 35，跳过 0
+   MATCH    _selftest_bad.v  fcc96728b5c8334ea594063ff0629703
+   MATCH    _selftest_ok.v  fcc96728b5c8334ea594063ff0629703
+   MATCH    bin_catpack.v  cfa8132264cb22256379d5fc4bff80bd
+   MATCH    bin_conv_core.v  acaa8540cd6e2701b370e0cff85a6821
+   MATCH    bin_conv_core8.v  4e9887a9b125c61116ee3663ade425ce
+   MATCH    bin_e1e2.v  28375eec288f067e9235c0ecd486abb5
+   MATCH    bin_interp.v  fa4198e6cba9d4e65c58866bf278bc8c
+   MATCH    bin_rprelu.v  18f77f2f2ceb153605063334060d2775
+   MATCH    bin_sam.v  c9ef0488fd79ca36b321924f00c92d74
+   MATCH    bin_unit_axi_wrap.v  0cf68b2e31ac106ed03e30bd5591504d
+   MATCH    bin_unit_axi_wrap_bd.v  a9ac6fd7ba307cfa2c256fca776953cb
+   MATCH    conv_int8_uni.v  c7913f58cfc5d7a46c104a7486134ac5
+   MATCH    conv_k1_engine.v  6b759e48e5a223d6a103ec39a260969c
+   MATCH    conv_k3_engine.v  900ffed925d68eddadde6fb3039166b5
+   MATCH    conv_k5_engine.v  5d87182e92ec4c623782c096cb8979f6
+   MATCH    conv_uni_axi_wrap.v  34012562d6aa1d3d919b372ae3adb618
+   MATCH    conv_uni_axi_wrap_bd.v  0877f62db82d01a89bc3a61b4e617acd
+   MATCH    k1_axi_wrap.v  1f7a6ae7755210ef593ac00f09a341ca
+   MATCH    k1_axi_wrap_bd.v  3a3c04dfcbd20e57329a9b96e022a6dc
+   MATCH    k3_axi_wrap.v  250cffbb6b9a4c19578a89a8248039d5
+   MATCH    k3_axi_wrap_bd.v  d1e3973082e7fe4335178eccc33c2e7c
+   MATCH    k3_cfg_check.v  fd8ac087100300c80dc01cb1584d0f84
+   MATCH    k5_axi_wrap.v  5ef4b22d57f69ed15b9f163c34fc85fd
+   MATCH    k5_axi_wrap_bd.v  8e141bde4675d060d2ffa822f1cc1ace
+   MATCH    k5_cfg_check.v  21ae24b3f3c7c27ad5e0734881308014
+   MATCH    lane16/bin_band_buf.v  f966667d52c0c48f9d1e1a29b5602c06
+   MATCH    lane16/bin_band_fill_v50.v  1b0407bd83056739ebfb8d6b01b60c68
+   MATCH    lane16/bin_catpack_v50.v  e5d7b3b7b4c5791e5a85815d15620c1f
+   MATCH    lane16/bin_conv_core_v50.v  61568f39a5206e9f1e1c9f3b620dadb3
+   MATCH    lane16/bin_interp_v50.v  314a6f18e038c9c8cecde09706e1193b
+   MATCH    lane16/bin_rprelu_v50.v  dba8b606acdd9cdd8109a59599ebae71
+   MATCH    lane16/bin_sam_v50.v  8f242a2758dc715bc6d78a8e198a5a46
+   MATCH    lane16/bin_segq.v  266454b87d8b7e4124d1fb1323d78178
+   MATCH    lane16/bin_unit_axi_wrap_bd_v50.v  9303ad6f61289ec6e7b259210a367bb7
+   MATCH    lane16/bin_unit_axi_wrap_v50.v  9ad53f96a8dcd94b610dfc1987ea8d35
+   rtl_dir 文件总数 35，其中 .v/.sv 共 35；manifest 覆盖 35
+MATCH=35 DIFF=0 EXTRA=0 MISSING=0
+ALLOWED_EXTRA=0  V_TOTAL=35  MANIFEST_RTL=35
+RESULT: PASS
+# puts "== 0a) ✓ 两层判定通过：12/12 = v39 位流输入，冻结副本逐条一致 =="
+== 0a) ✓ 两层判定通过：12/12 = v39 位流输入，冻结副本逐条一致 ==
+# if {[info exists ::env(V50_ASSERT_ONLY)] && $::env(V50_ASSERT_ONLY) eq "1"} {
+#     puts "== 0a) V50_ASSERT_ONLY=1 ⇒ 断言通过，按要求不进入构建 =="
+#     exit 0
+# }
+== 0a) V50_ASSERT_ONLY=1 ⇒ 断言通过，按要求不进入构建 ==
+INFO: [Common 17-206] Exiting Vivado at Tue Nov  3 01:04:05 2026...

@@ -6366,3 +6366,31 @@ $$\quad\ \Rightarrow\ \textbf{T-116 建议的 } 4096\ \textbf{不可行}（512\ 
 
 $$\Rightarrow\ \text{另有一个反证要记住：}64^2\ \text{最深层 } cb=9 \Rightarrow 576\ \text{条} > 512\ \text{却结果正确}$$
 $$\quad\ \Rightarrow\ \textbf{"容量不够"本身不错数}，\text{只有"fill 与需求同拍争用"才错} \Rightarrow \text{这也是第②步值得做的原因}$$
+
+### 70.82 板子状态移交确认 + v118 待重实现（T-118，2026-11-03 01:2x）
+
+**板子现状态（交给用户）**
+$$\Rightarrow\ \textbf{PL} = \mathtt{v39}\ \mathtt{602725b8}（\text{T-117 留下的）};\quad \mathtt{fclk0} = \mathbf{50\ \text{MHz}}$$
+$$\Rightarrow\ \text{T-118 板端}\textbf{零操作}（\text{脚本写了但没执行）};\ \text{主机侧 0 个残留 vivado}$$
+$$\Rightarrow\ \textbf{另一会话正持有板级租约}：\mathtt{/tmp/dsh\_board.loadtoken}\ (01{:}14{:}56)\ \text{与 } \mathtt{/tmp/dsh\_board.lock}\ (\text{01{:}17{:}57 仍在更新）$$
+$$\quad\ \Rightarrow \text{T-118 未删未抢} \Rightarrow \text{处置正确};\ \text{这正是用户自己的测试会话}$$
+
+**两条机制结论（都定了）**
+$$\Rightarrow\ \mathtt{PF\_EN}\ \text{是综合期 } \mathtt{parameter\ int\ PF\_EN\ =\ 1}（\mathtt{:344}）\ \Rightarrow \text{关预取}\textbf{必须重建}$$
+$$\Rightarrow\ \mathtt{LC\_N}\ \text{同为 } \mathtt{parameter}（\mathtt{:330}）\Rightarrow \text{加大线缓存也必须改 RTL + 重建}$$
+$$\Rightarrow\ \text{0x300 段无预取位，打包层也不透传它} \Rightarrow \text{没有运行时开关}$$
+
+**已产出：} \mathtt{PF\_EN}=0 \text{ 的位流（未上板）**
+$$\Rightarrow\ \text{隔离副本 } \mathtt{worktrees/T-118-pfoff/rtl\_v50/}：\textbf{唯一改动 } \mathtt{:344\ PF\_EN\ 1\to0}，\text{其余 34/34 逐字节不变}$$
+$$\Rightarrow\ \text{md5 } \mathtt{17164dfc}\to\mathtt{9ad53f96};\ \text{主线 RTL/PS}\textbf{一字节未动}$$
+$$\Rightarrow\ \text{位流 } \mathtt{design\_1\_150v118.bit}\ \text{md5 } \mathtt{8deb14f3}，\mathtt{.hwh}\ \text{同 v53（BD 未重建）}$$
+
+**⚠ 但它自己没过时序红线**
+$$\Rightarrow\ \text{routed } \mathbf{WNS = -0.270\ \text{ns}}，33\ \text{个违例端点，TNS } -4.541\ (\text{v53 是 } +0.041/0)$$
+$$\Rightarrow\ \text{最差路径 } \mathtt{r\_s\_reg[12]\_replica/C \to g\_wr\_split2.pix\_q\_reg[12]/D}，10.149\ \text{ns} / 16\ \text{级（真实数据通路）}$$
+$$\Rightarrow\ \text{构建脚本内置 Z3 门禁已打 } \mathtt{★★\ Z3\ FAIL\ ★★}$$
+$$\Rightarrow\ \Rightarrow\ \textbf{按我们自己的红线，这颗不许上板}$$
+$$\Rightarrow\ \text{恶化 }0.31\ \text{ns}\ \text{来自 P\&R 换了不同解}（\textbf{删逻辑不该变慢}）\Rightarrow \text{正路是同 RTL 重跑实现到 } \mathtt{WNS}\ge0$$
+
+$$\Rightarrow\ \textbf{第 124 条：A/B 位流必须"各自时序干净"，否则单变量对比被 P\&R 噪声污染}$$
+$$\quad\ \text{本轮就是教训：删掉预取反而慢了 }0.31\ \text{ns，}\text{若直接上板，}\text{会把"预取无罪"误判成"预取有罪"}$$
