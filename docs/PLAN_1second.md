@@ -5549,3 +5549,29 @@ $$\Rightarrow\ \text{修 F2 后，}\textbf{任何以 v39 为 golden 且 } \matht
 $$\quad\ \Rightarrow\ \text{因为 v39 的末组掩码本身是错的（全 1）} \Rightarrow \text{golden 要改成 } \mathtt{(1<<剩余)-1}$$
 $$\Rightarrow\ \text{当前网络 } \mathtt{cout}\ \text{全是 } 8/16\ \text{倍数} \Rightarrow \text{不影响现有 sha1}$$
 $$\quad\ \Rightarrow\ \text{但这条要写进}\textbf{未来的 golden 维护规则}：\text{掩码类断言必须以"修正后语义"为准}$$
+
+### 70.51 ★★★★★ v44 板端 SIGBUS 的真正根因：**陈旧 IP 产物把 M04 的向量通道整段丢弃**（T-75，2026-11-02 16:00）
+
+**T-75 在 routed DCP 里的实测**
+$$\Rightarrow\ \mathtt{M04\_PINS} = \mathbf{0};\quad \mathtt{M04\_NETS} = \mathbf{5}\ (\text{全是标量握手：}\mathtt{ARREADY/AWREADY/BVALID/RVALID/WREADY})$$
+$$\Rightarrow\ \text{地址/数据通道（}\mathtt{AWADDR/AWVALID/WDATA/WSTRB/ARADDR/ARVALID}）\textbf{一条 net 都没有}$$
+$$\Rightarrow\ \text{对比：}\mathtt{M02\_NETS}=96、\mathtt{M03\_NETS}=100\ (\text{完整 AXI4-Lite});\ \mathtt{M00/M01/M05}=0$$
+$$\Rightarrow\ \text{xbar 实际形态：}\mathtt{design\_1\_i/axi\_ctrl/xbar}\ \text{端口是}\textbf{单条扁平 } \mathtt{m\_axi}$$
+$$\quad\ \text{位宽：}\mathtt{awaddr/araddr/wdata/rdata}\ \text{各 } 160\ \text{bit} = 5\times32;\ \mathtt{wstrb}\ 20;\ \mathtt{arlen}\ 40;\ \mathtt{resp}\ 10;\ \mathtt{ready/valid}\ \text{各 } 5\ \text{bit}$$
+$$\quad\ \Rightarrow\ \textbf{位宽是 5 路，但}\textbf{没有 M00..M04 编号端口} \Rightarrow \text{编号路数} = 0$$
+$$\Rightarrow\ \text{fconv 在网表：在（}\mathtt{fconv\_0} = \mathtt{fconv\_axi\_wrap\_bd}，\sim2.5\ \text{万叶子}）$$
+$$\quad\ \text{但 } \mathtt{s\_axi}\ \text{引脚} \mathbf{0}\ \text{个}（\text{位级探针 } \mathtt{s\_axi\_awaddr[0]/[31]}\ \text{全 MISS}）\Rightarrow \textbf{没有 net 可连}$$
+
+$$\Rightarrow\ \Rightarrow\ \textbf{结论：构建漏了，不是下载没生效} \Rightarrow \text{换时钟、二次 load 都不会改变}$$
+$$\Rightarrow\ \text{根因链：}\text{构建读的是}\textbf{陈旧 IP 产物 } \mathtt{ip/design\_1\_axi\_ctrl\_imp\_xbar\_0/\{.dcp,\_stub.v\}}（\mathbf{10\text{-}30\ 09{:}49}，\text{扁平 } \mathtt{m\_axi}）$$
+$$\quad\ \text{而 wrapper/}\mathtt{.hwh}\ \text{是 } \mathbf{11\text{-}02\ 13{:}1x}\ \text{按编号 } \mathtt{M04\_AXI}\ \text{生成的}$$
+$$\quad\ \Rightarrow\ \text{名字只对上了 } 5\ \text{条标量}，\textbf{向量通道整段被静默丢弃} \Rightarrow 0x40080000\ \text{无从设备译码}$$
+
+$$\Rightarrow\ \textbf{这是今晚同一类坑的第三次}：\mathtt{xlconstant}（BD 改了但 IP 产物旧）\to\ \text{计数器改时序}\to\ \text{xbar 旧 DCP}$$
+$$\Rightarrow\ \Rightarrow\ \textbf{第 109 条纪律：BD 里任何一个 IP 的 } \mathtt{.dcp/\_stub.v}\ \text{必须与 BD 同代}$$
+$$\quad\ \text{判据：}\textbf{构建脚本必须断言"stub 里能搜到 BD 要求的每一个引脚名"}（\text{本轮的 } \mathtt{M04\_AXI\_AWADDR}）$$
+$$\quad\ \Rightarrow\ \text{这比"读到了 DCP"强得多——本轮 DCP 确实读到了，只是}\textbf{内容过期}$$
+
+**修法（唯一路径）**
+$$\Rightarrow\ \text{重新 OOC 综合 } \mathtt{design\_1\_axi\_ctrl\_imp\_xbar\_0}\ \Rightarrow \text{产出}\textbf{新 } \mathtt{.dcp}\ \text{+}\textbf{编号端口 stub}（\text{必须能搜到 } \mathtt{M04\_AXI\_AWADDR}）$$
+$$\Rightarrow\ \text{再重建} \Rightarrow \text{并断言 routed DCP 里 } \mathtt{M04\_AXI\_AWADDR}\ \text{的}\textbf{向量通道}\text{齐全}$$
