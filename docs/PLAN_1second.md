@@ -6489,3 +6489,31 @@ $$\Rightarrow\ 128^2/256^2\ \text{的差别}\textbf{不在几何，而在"多 op
 $$\Rightarrow\ \Rightarrow\ \text{剩余嫌疑：}\textbf{槽轮转 / 写通路衔接 / 连续 start 未全排空 / arena 复用}$$
 $$\Rightarrow\ \text{T-122 下一步：}\textbf{双 op 交替}（A→OA 校验→B→OB→回读 OA 再校验；再换槽 A→OB，循环 4 轮）$$
 $$\quad\ \Rightarrow\ \text{这是能交给 xsim 的最小形状；若仍不复现，才做整网最小前缀二分}$$
+
+### 70.87 ★★★★★ T-122 终局：**单层不可能复现；只剩"整网多 op"这一维**（2026-11-03 03:2x）
+
+**单层 50 MHz：24 个形状全对（npix 1024 → 65536）**
+$$\Rightarrow\ k1/k3、c48/c112、o32/48/64、方形/非方形（32\times64、64\times32、16\times64、64\times16）$$
+$$\Rightarrow\ 48^2/96^2/128^2/160^2/192^2/\mathbf{256^2}、64\times256、256\times64 \Rightarrow \textbf{全部 0 错 0\ \text{B} 越界，2 跑相同}$$
+$$\Rightarrow\ k3\ 128^2\ \textbf{连跑 8 次 = 8/8 同一 sha1}$$
+$$\Rightarrow\ \textbf{双 op 交替 + 换输出槽 5 轮}（A{=}96^2,\ B{=}128^2,\ B\ \text{跑完回读 } A\ \text{的槽）}\Rightarrow \textbf{全 0 错}，A\ \text{的 sha1 5 轮恒为 } \mathtt{59048ce87679}$$
+$$\Rightarrow\ \Rightarrow\ \textbf{两个假设同时被证伪}：k{=}3\ \text{行抽头}（k3\ \text{在 }64^2\ \text{与 }256^2\ \text{都全对}）＋ \mathtt{npix}{=}4096\ \text{边界（}256^2\ \text{也全对）}$$
+$$\Rightarrow\ \text{T-116 的"线缓存 }2\sim8\times\ \text{超容"确实}\textbf{只伤性能、不出错数}（256^2\ \text{单层实测 0 错）}$$
+$$\Rightarrow\ \text{非方形两个方向都全对} \Rightarrow \textbf{"门槛是 } \mathtt{npix}\ \text{还是 } W{=}64\text{" 这个问题本身不成立}$$
+
+**唯一复现：150 MHz 单层崩，而且错误性质极具诊断价值**
+$$\Rightarrow\ k1\ c48\ o32\ 64\times64：\text{run1 错 }14548/131072，\text{run2 }14547，\text{互差 }247\ \text{B}$$
+$$\Rightarrow\ \text{逐通道错数 } [4095,4096,2524,2523,2,2,1,1,\dots] \Rightarrow \textbf{前 4 通道整个平面错}，\text{其余近全对}$$
+$$\Rightarrow\ \text{逐行 } \mathbf{64/64}\ \text{行都有错}，\text{行内 }194\sim798（\text{均值 }227）\Rightarrow \textbf{不整行、不隔行}$$
+$$\Rightarrow\ 5679\ \text{个错段，最长 } \mathbf{12\ \text{B}};\ 277\ \text{个错块在 } \mathtt{exp}\ \textbf{里找不到}（\text{不是置换）}$$
+$$\Rightarrow\ \mathbf{\text{所有错值恰好 } \pm 1\ \text{LSB}}$$
+$$\Rightarrow\ \Rightarrow\ \text{性质} = \textbf{量化截断通路}（\mathtt{alpha\cdot dint\gg shift}\ /\ \mathtt{sat8}）\ \textbf{建立时间不足} \Rightarrow \textbf{不是算错、不是地址错}$$
+$$\Rightarrow\ \Rightarrow\ \textbf{v53 只许 } \le 50\ \text{MHz};\ \text{150 MHz 任何整网结论无效（第 125 条已立）}$$
+
+**所以剩下的唯一维度：整网多 op**
+$$\Rightarrow\ \text{单层任何几何/尺寸都正确} \Rightarrow 128^2/256^2\ \text{的差别}\textbf{只在"多 op"}$$
+$$\Rightarrow\ \text{嫌疑：连续多 op 的槽轮转、跨 op 写通路衔接、整网 planner 的大 arena 布局}$$
+$$\Rightarrow\ \textbf{下一步不是再扫形状}，\text{而是 } \mathbf{128^2\ \text{整网逐 op dump 的"第一错 op"}}（\text{T-121 只比了三个总 sha1，没做逐 op 归属）}$$
+$$\quad\ \Rightarrow\ \text{这不属于"二分"：}\textbf{一次 dump 出全部 op 的输出}，\text{与 v39 逐个比 md5，\text{直接指出第一个错的}}
+$$\quad\ \Rightarrow\ \text{判别工具已现成：} \mathtt{analyze\_t122.py}\ \text{的口径}$$
+$$\quad\ \quad\ \text{错块能在 } \mathtt{exp}\ \text{别处找到} \Rightarrow \text{地址/置换/槽错位};\ \text{找不到 + 错段极短 + 错值 } \pm1 \Rightarrow \text{时序/量化}$$
