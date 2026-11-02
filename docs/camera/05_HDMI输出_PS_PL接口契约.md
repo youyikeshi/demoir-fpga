@@ -255,8 +255,8 @@ $$\Rightarrow\ 100\ \text{MHz} \Rightarrow 300\ \text{MB/s};\quad 150\ \text{MHz
 
 §8.1 原文"像素域单独一把复位（可以由 `dcm_locked` 门控）"**作废**，改为下面这条更硬的规则：
 
-$$\Rightarrow\ 	extbf{全设计只允许一处使用 } 	exttt{MMCM.LOCKED} \Rightarrow 	ext{喂 } 	exttt{0x30[1]}\ 	ext{的状态位}$$
-$$\Rightarrow\ 	ext{不许进复位、不许进使能、不许进 } 	exttt{hdmi\_rst\_n}$$
+- extbf全设计只允许一处使用 extttMMCM.LOCKED ⇒ ext喂 exttt0x30[1] ext的状态位
+- ext不许进复位、不许进使能、不许进 exttthdmi\_rst\_n
 
 理由两条（都是硬证据，不是风格偏好）：
 
@@ -267,16 +267,16 @@ $$\Rightarrow\ 	ext{不许进复位、不许进使能、不许进 } 	exttt{hdmi\
    且现象是"心跳正常、状态正常、就是不亮"—— 最难查的一类。
 
 未锁时"像素域处于复位态"由**硬件拓扑**保证，不需要显式与：
-$$\Rightarrow\ 	ext{像素时钟本身就是 MMCM 派生} \Rightarrow 	ext{无锁即无时钟} \Rightarrow 	ext{像素域触发器停在初值}$$
-$$\Rightarrow\ \Rightarrow\ 	extbf{"不亮而已，不变砖"成立，靠拓扑而非靠逻辑门}$$
+- ext像素时钟本身就是 MMCM 派生 ⇒ ext无锁即无时钟 ⇒ ext像素域触发器停在初值
+- extbf"不亮而已，不变砖"成立，靠拓扑而非靠逻辑门
 
 ### 8.6 ★ 门禁必须按"引脚级别"扫，并按"警告级别"兜底（2026-11-03，事故同形态的第二个来源）
 
 `bd 41-759` 事故复现：`axi_ctrl`（`axi_interconnect`）的 **per-port 复位** `S00_ARESETN` / `M00_ARESETN`
 没接，Vivado 把**低有效**脚绑成 0 ⇒ 该口永久处于复位 ⇒ PS 读 `0x400A0000` 无响应。
 
-$$\Rightarrow\ 	ext{这和 11-03 的 } 	exttt{dcm\_locked}\ 	ext{是}	extbf{同一个故障形态}（	ext{复位被永久按住}）$$
-$$\Rightarrow\ \Rightarrow\ 	extbf{说明“点名某一条已知的线”这种断言抓不住同类问题}$$
+- ext这和 11-03 的 extttdcm\_locked ext是 extbf同一个故障形态（ ext复位被永久按住）
+- extbf说明“点名某一条已知的线”这种断言抓不住同类问题
 
 **两条规则**：
 
@@ -290,4 +290,4 @@ $$\Rightarrow\ \Rightarrow\ 	extbf{说明“点名某一条已知的线”这种
    - 白名单只许 PS7 的已知无关脚，且必须写成**显式清单 + 注释原因**。
    - 理由：`CRITICAL WARNING` **不阻断构建** ⇒ 不主动抓就永远没人看 ⇒ 11-03 与本次都是这么漏的。
 
-$$\Rightarrow\ 	ext{一句话：} 	extbf{"不阻断构建的错误"才是真正的危险} \Rightarrow 	ext{门禁要盯它们，不是盯 } 	ext{ERROR}$$
+- ext一句话： extbf"不阻断构建的错误"才是真正的危险 ⇒ ext门禁要盯它们，不是盯 extERROR
