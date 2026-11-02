@@ -4689,3 +4689,53 @@ $$\quad\ \text{若一条门槛判"唯一可用位流"不合格，那}\textbf{门
 $$\quad\ \Rightarrow\ \text{本项目为此浪费了 v40/v41 两轮（都在追"违例数量"，而 v39 用 15,556 条违例跑得好好的）}$$
 
 ---
+
+### 70.20 ★★★★ v42 位流：逐桶全面优于 v39，但门槛还得再改一次（2026-11-02 08:45）
+
+**产物**：`design_1_150v42.bit` md5 **`f1b5dd2af4a1f37dd4b6c08c9ef18f1b`**，`.hwh` = v39/v40/v41 **逐位相同**
+（`c1686bd8` ⇒ **BD 一个字节没动**）。DRC **0 Errors / 21 Warnings**；Vivado 峰值 4,187.7 MB；实现 12:12（v41 18:31）。
+`Register as Latch = 0`（报告 + 网表 `LDCE/LDPE=0` 双查）；归档 `runs/v42_archive/`（`md5sum -c` 38/38）。
+
+**G1（与 v39 逐桶比，这是"RTL 有没有把时序搞坏"的证据）**
+
+| | v39 | v42 | Δ |
+|---|---:|---:|---:|
+| N2 | 15,556 | 14,971 | **−585** |
+| N1 | 936 | 936 | ±0 |
+| N0 | 4,149 | 2,648 | **−1,501** |
+| IP_OTHER | 65 | 63 | −2 |
+| TNS | −47,312 | −44,558 | **+2,754** |
+| WNS | −5.331 | −4.790 | **+0.541** |
+
+$$\Rightarrow\ \textbf{没有一个桶变差} \Rightarrow \text{T-38 的两处改动（预取加深 + E1E2 组自增）没有让时序恶化}$$
+
+**资源：方向与预估相反（好消息）**
+$$\Rightarrow\ \text{LUT } 20{,}552 \to \mathbf{19{,}503}\ (−1{,}049),\ \text{BRAM } 35\to31\ (\text{RAMB18 } 8\to0),\ \text{FF } +363$$
+$$\Rightarrow\ \text{T-38 给的 "+1.5k LUT" 是}\textbf{子模块口径}（bin_e1e2 单独综合 +1,471），\textbf{不能外推到全设计}$$
+$$\Rightarrow\ \text{第 85 条纪律：}\textbf{子模块的资源增量不能外推到全设计}\text{——工具在全设计层面会重新分解（此处 RAMB18 被换成 LUTRAM）}$$
+
+**G2（地址/突发/写使能通路）——判定要改成\*\*相对\*\*的**
+$$\Rightarrow\ \text{v42 有 } 256\ \text{条；}\textbf{v39 有 } 263\ \text{条} \Rightarrow \textbf{连"唯一能跑的位流"也过不了"零违例"}$$
+$$\Rightarrow\ \Rightarrow\ \text{G2 必须写成}\textbf{"不许比 v39 更差"}，\text{并}\textbf{区分两类}：$$
+
+| 组 | 内容 | v39 | v42 | 最差 v39 → v42 | 判定 |
+|---|---|---:|---:|---|---|
+| **A** | **T-36 新增的组自增**（`E_DESC/E_OUT/E_GROUP` → 描述符/输出地址/写口）| 0 | **0** | 无 → **+1.311 ns** | ✅ **最高风险的新逻辑是干净的** |
+| B | AXI `awlen` / D 脚 | 0 | **1** | 无 → −0.171 | ⚠ 新增 |
+| C | 线缓存写地址 | 254 | 249 | −1.605 → **−1.990**（我方起点 135→103 条，但最深变差 0.385）| ⚠ |
+| D | fill 槽表 / D | 9 | 6 | −0.375 → −0.190 | ✅ 变好 |
+
+$$\Rightarrow\ \text{全局 WNS 路径（−4.790）是 } \texttt{u\_pack/desc\_q\_reg[3]} \to \texttt{u\_eng/pw\_reg[*][*]}\ \text{的 } R/CE（18 级）$$
+$$\quad\ \Rightarrow\ \textbf{不是地址通路}，\text{是"参数装载可能取错一拍"} \Rightarrow \text{失效模式 = 数据错，}\textbf{不是越界写}$$
+$$\Rightarrow\ \text{T-38 直接引入的新违例族：} \texttt{ph\_reg[3]}\to\texttt{pf\_tag[7]/CE}\ \text{118 条（−4.719，}\texttt{PF\_DEPTH 4\to8}\ \text{多出的第 7 行）}$$
+$$\quad\ \Rightarrow\ \text{不进 G2（标签表不是地址），但 CE 错拍}\Rightarrow\textbf{预取可能误判命中}\Rightarrow\text{数据错}$$
+
+$$\Rightarrow\ \Rightarrow\ \textbf{判定}：\text{v42 在"越界写"这一类风险上}\textbf{比 v39 更干净}（新地址逻辑零违例 +1.311、条数 263→256、全桶变好）$$
+$$\quad\ \text{残余风险是}\textbf{数据正确性}（pw_reg 装载 / pf_tag CE）\Rightarrow \text{只能用}\textbf{板端 sha1} \text{判，不能用时序判}$$
+$$\quad\ \Rightarrow\ \textbf{上板策略：分档点亮}（64² 小网 sha1 → 256² ×3 sha1 → 金丝雀），\text{不做"一次上全尺寸 ×N"}$$
+
+**第 86 条纪律：门槛必须是"相对已知能跑的位流"，且按"失效模式"分类**
+$$\Rightarrow\ \text{绝对阈值（N2=0）在本项目两次都是错的（v39 自己 15,621）}$$
+$$\Rightarrow\ \text{正确的三分类：}\textbf{① 越界写风险}（地址/突发/WE，相对 v39 不许更差）$$
+$$\quad\ \textbf{② 数据正确性风险}（CE/D 错拍，只能靠 sha1 判）\quad\ \textbf{③ 纯性能}（WNS/TNS，只影响快慢）$$
+$$\Rightarrow\ \text{把 ②③ 混进 ① 的门槛，就会把"能跑的位流"判死，也会放过"真会写坏内存"的位流}$$
