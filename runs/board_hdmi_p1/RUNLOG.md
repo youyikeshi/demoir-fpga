@@ -261,16 +261,72 @@ $$\Rightarrow\ \text{心跳半周期 } 0.4414\to0.8829\ \text{ms}\ (\times2.000)
 $$\Rightarrow\ \text{与 } \texttt{pix\_clk\_b}=74.21875\ \text{MHz 差 } +0.018\%\Rightarrow \textbf{BUFGMUX 确实切到了 } \texttt{pix\_clk\_b}$$
 $$\Rightarrow\ \text{切模式期间 } \texttt{init\_done}\ \text{没有掉}（0x04[0]=1），\text{软复位/自动复位没把 SIL9134 打回未配置态}$$
 
-**板子当前状态：停在 720p60（`VIDEO_MODE=0`）**，等用户肉眼判定，**尚未执行"切回 1080p60"闭环**。
+**切换瞬间的状态：停在 720p60（`VIDEO_MODE=0`）**，交用户肉眼判定。
+
+### 3.3 720p60 被 SIL9134 接受 ⇒ 切回 1080p60 并做**双向可逆性验证**（`step4_closure_1080p.log`）
+
+**用户肉眼判定：720p 图是对的** ⇒ SIL9134 同时接受 1080p60 与 720p60，那两笔 I2C 寄存器写不锁死模式、芯片自适应。
+
+#### (a) 720p60 下的可信实测频率（P2 文档基准，两个 1.0 s 窗口）
+
+| 轮次 | 翻转沿 | 首末沿跨度 | 半周期（span） | 反推像素时钟 |
+|---|---|---|---|---|
+| #1 | 1133 | 999.481 ms | 0.882933 ms | **74.2253 MHz** |
+| #2 | 1132 | 998.609 ms | 0.882943 ms | **74.2245 MHz** |
+
+$$\Rightarrow\ \text{均值 } \mathbf{74.2249\ MHz}\ \text{vs 设计 } 74.21875\ \text{MHz} \Rightarrow \textbf{+0.008\%}$$
+⇒ 本窗口精度约 ±0.02 MHz（±0.03%），故 **P2 文档基准取 74.225 MHz**
+
+#### (b) 切回 1080p60（与切过去**完全同一套**协议）
+
+```
+[F0] RD 0x08 = 0x00000000        (切换前确证仍在 720p)
+[F1] WR 0x00 = 0x11  before=0x15 readback=0x11 OK
+[F2] WR 0x08 = 0x01  before=0x00 readback=0x01 OK
+[F3] sleep 0.05
+[F4] WR 0x00 = 0x15  before=0x11 readback=0x15 OK
+[F5] sleep 0.10
+[F6] RD 0x08 = 0x00000001        ✅
+[F7] RD 0x04 = 0x00000003        ✅ init_done=1, vsync=1
+[F8] RD 0x00 = 0x00000015        ✅
+[F10] RD 0x2C = 0x00000000       ✅
+```
+
+#### (c) 切回后的像素时钟（两个 1.0 s 窗口）
+
+| 轮次 | 翻转沿 | 首末沿跨度 | 半周期（span） | 反推像素时钟 |
+|---|---|---|---|---|
+| #1 | 2265 | 999.471 ms | 0.441462 ms | **148.4520 MHz** |
+| #2 | 2264 | 999.052 ms | 0.441473 ms | **148.4486 MHz** |
+
+$$\Rightarrow\ \text{均值 } \mathbf{148.4503\ MHz}\ \text{vs 设计 } 148.4375\ \text{MHz} \Rightarrow \textbf{+0.0086\%}$$
+
+#### (d) ★ 双向可切换判据
+
+$$\frac{148.4503}{74.2249} = \mathbf{2.00001}\ \ (\text{判据区间 } 1.999\sim2.001)\ \Rightarrow\ \textbf{PASS}$$
+$$\Rightarrow\ 74.225 \leftrightarrow 148.450\ \text{MHz 可双向切换，且每次切换后 } \texttt{init\_done}\ \text{都保持 }1$$
+$$\Rightarrow\ \text{BUFGMUX 切换没有把 SIL9134 打回未配置态、没有丢帧级复位、没有 AXI 挂死}$$
+
+#### (e) 收尾
+
+```
+sync ; sync_rc=0
+fpga0/state = operating
+uptime = 04:27:14 up 10 min, load average 0.16 0.17 0.15
+dmesg 尾部 20 行 = 仅 zocl 的 create/destroy client 与 "bitstream … locked/unlocked, ref="
+                  （= 每次 Overlay(download=False) 建上下文的正常日志）
+                  无 AXI timeout、无 OCM/ECC、无 kernel panic、无 fpga_manager 报错
+```
+
+**板子最终状态：1080p60（`VIDEO_MODE=1`）、`CTRL=0x15`、`fpga0/state=operating`、未 poweroff、未动 SD 卡。**
 
 ---
 
-## 待办（等指令）
+## P1 点亮收尾结论（一句话）
 
-1. 用户看屏幕判 720p60 ⇒ 结论只依据"肉眼 + 上面的寄存器证据"
-2. 无论结果，执行切回：`WR 0x00=0x11 → WR 0x08=1 → sleep 0.05 → WR 0x00=0x15`，再读 `0x30`/`0x04`/`0x08`，请用户再看一眼（闭环：证明可逆）
-3. `sync` 收尾 + 记录 `fpga0/state` 与 `dmesg` 尾部 20 行
-4. **不 `poweroff`、不动 SD 卡**
+$$\Rightarrow\ \textbf{位流一 load 就出 1080p60 彩条}（\texttt{CTRL}\ \text{复位值 }0x15，\text{PS 未写任何一个寄存器}）$$
+$$\Rightarrow\ \textbf{720p60 也被接受} \Rightarrow \text{P2 真画面可用 720p60（AXI 100 MHz，带宽余量约 }26\%\text{）}$$
+$$\Rightarrow\ \text{模式切换双向可逆，判据做到寄存器级 + 频率级，不依赖肉眼}$$
 
 ## 取证边界（说清"我没能证明什么"，避免把间接推断当结论）
 

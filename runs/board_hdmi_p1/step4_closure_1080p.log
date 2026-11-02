@@ -1,0 +1,87 @@
+[boardlock] 取得板级独占 01:23:00  使用者=hdmi-p1-closure
+== [F0] fpga0 state / 当前模式 ==
+operating
+RD off=0x08 val=0x00000000  bin=00000000000000000000000000000000  elapsed=0.000 s
+rc=0
+
+===== ② 720p60 下的可信实测频率（P2 文档基准；两次 1.0 s 窗口）=====
+POLL dur=1.000 s samples=65199 distinct_vals=['0x2', '0x3'] last_bit1=1 bit0=0 bit1=1
+POLL edges=1133
+POLL[median] half_period_ms=0.881556 implied_pix_clk_MHz=74.3413
+POLL[span] half_period_ms=0.882933 implied_pix_clk_MHz=74.2253
+POLL half_period_ms med=0.881556 min=0.796278 max=0.906840 span_ms=999.481 edges=1133
+rc=0
+POLL dur=1.000 s samples=65245 distinct_vals=['0x2', '0x3'] last_bit1=1 bit0=1 bit1=1
+POLL edges=1132
+POLL[median] half_period_ms=0.883290 implied_pix_clk_MHz=74.1953
+POLL[span] half_period_ms=0.882943 implied_pix_clk_MHz=74.2245
+POLL half_period_ms med=0.883290 min=0.710658 max=1.061844 span_ms=998.609 edges=1132
+rc=0
+
+===== ① 切回 1080p60（同一协议）=====
+-- [F1] WR 0x00 = 0x11 --
+WR off=0x00 write=0x00000011  before=0x00000015 readback=0x00000011 OK
+rc=0
+-- [F2] WR 0x08 = 0x01 --
+WR off=0x08 write=0x00000001  before=0x00000000 readback=0x00000001 OK
+rc=0
+-- [F3] wait 50 ms --
+-- [F4] WR 0x00 = 0x15 --
+WR off=0x00 write=0x00000015  before=0x00000011 readback=0x00000015 OK
+rc=0
+-- [F5] wait 100 ms --
+-- [F6] RD 0x08 (期望 0x01) --
+RD off=0x08 val=0x00000001  bin=00000000000000000000000000000001  elapsed=0.000 s
+rc=0
+-- [F7] RD 0x04 (期望 0x03) --
+RD off=0x04 val=0x00000003  bin=00000000000000000000000000000011  elapsed=0.000 s
+rc=0
+-- [F8] RD 0x00 (期望 0x15) --
+RD off=0x00 val=0x00000015  bin=00000000000000000000000000010101  elapsed=0.000 s
+rc=0
+-- [F9] POLL 0x30 1.0 s ×2 (期望 ~148.44 MHz) --
+POLL dur=1.000 s samples=64621 distinct_vals=['0x2', '0x3'] last_bit1=1 bit0=0 bit1=1
+POLL edges=2265
+POLL[median] half_period_ms=0.443085 implied_pix_clk_MHz=147.9084
+POLL[span] half_period_ms=0.441462 implied_pix_clk_MHz=148.4520
+POLL half_period_ms med=0.443085 min=0.335460 max=0.522738 span_ms=999.471 edges=2265
+rc=0
+POLL dur=1.000 s samples=63828 distinct_vals=['0x2', '0x3'] last_bit1=1 bit0=1 bit1=1
+POLL edges=2264
+POLL[median] half_period_ms=0.439800 implied_pix_clk_MHz=149.0132
+POLL[span] half_period_ms=0.441473 implied_pix_clk_MHz=148.4486
+POLL half_period_ms med=0.439800 min=0.368982 max=0.482004 span_ms=999.052 edges=2264
+rc=0
+-- [F10] RD 0x2C (P1 恒 0) --
+RD off=0x2C val=0x00000000  bin=00000000000000000000000000000000  elapsed=0.000 s
+rc=0
+
+===== ③ 收尾 =====
+sync_rc=0
+== fpga0 state ==
+operating
+== dmesg tail 20 ==
+[  217.205021] zocl-drm axi:zyxclmm_drm: zocl_create_client: created KDS client for pid(822), ret: 0
+[  217.205131] zocl-drm axi:zyxclmm_drm: zocl_destroy_client: client exits pid(822)
+[  217.786685] zocl-drm axi:zyxclmm_drm: zocl_create_client: created KDS client for pid(817), ret: 0
+[  217.786795] zocl-drm axi:zyxclmm_drm: zocl_destroy_client: client exits pid(817)
+[  217.787460] zocl-drm axi:zyxclmm_drm: zocl_create_client: created KDS client for pid(817), ret: 0
+[  217.790559] [drm] bitstream c68d4658-8517-ca7a-2820-23f79977dbe3 locked, ref=1
+[  217.790650] zocl-drm axi:zyxclmm_drm:  ffffffffc1102c10 kds_add_context: Client pid(817) add context Domain(65535) CU(0xffff) shared(true)
+[  217.791497] zocl-drm axi:zyxclmm_drm:  ffffffffc1102c10 kds_del_context: Client pid(817) del context Domain(65535) CU(0xffff)
+[  217.791553] [drm] bitstream c68d4658-8517-ca7a-2820-23f79977dbe3 unlocked, ref=0
+[  219.887810] zocl-drm axi:zyxclmm_drm: zocl_destroy_client: client exits pid(817)
+[  389.721334] zocl-drm axi:zyxclmm_drm: zocl_create_client: created KDS client for pid(1016), ret: 0
+[  389.721448] zocl-drm axi:zyxclmm_drm: zocl_destroy_client: client exits pid(1016)
+[  390.322175] zocl-drm axi:zyxclmm_drm: zocl_create_client: created KDS client for pid(1011), ret: 0
+[  390.322287] zocl-drm axi:zyxclmm_drm: zocl_destroy_client: client exits pid(1011)
+[  390.322980] zocl-drm axi:zyxclmm_drm: zocl_create_client: created KDS client for pid(1011), ret: 0
+[  390.326026] [drm] bitstream c68d4658-8517-ca7a-2820-23f79977dbe3 locked, ref=1
+[  390.326118] zocl-drm axi:zyxclmm_drm:  ffffffffc1102c10 kds_add_context: Client pid(1011) add context Domain(65535) CU(0xffff) shared(true)
+[  390.326956] zocl-drm axi:zyxclmm_drm:  ffffffffc1102c10 kds_del_context: Client pid(1011) del context Domain(65535) CU(0xffff)
+[  390.327010] [drm] bitstream c68d4658-8517-ca7a-2820-23f79977dbe3 unlocked, ref=0
+[  392.517167] zocl-drm axi:zyxclmm_drm: zocl_destroy_client: client exits pid(1011)
+== uptime ==
+ 04:27:14 up 10 min,  1 user,  load average: 0.16, 0.17, 0.15
+== STAGE_F_END ==
+[boardlock] 释放板级锁 01:23:12  rc=0
