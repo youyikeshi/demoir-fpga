@@ -4567,3 +4567,52 @@ $$\quad\ \quad\ \text{要么判 } \texttt{rc}\text{，要么把 stderr 单独落
 $$\quad\ \text{② }\textbf{parity 必须打印"参与比较的字节数"}\text{（}\texttt{bytes=N}\text{）并核对期望值}$$
 $$\quad\ \quad\ \texttt{nerr=0 / asrt=0 / status=PASS}\ \text{ 在不曾真正比对时同样为"绿"（}\texttt{0} \text{ 字节参与比较也是 } 0\ \text{ 错）}$$
 $$\quad\ \Rightarrow\ \text{配套：TB 的地址窗口必须有判据（越界要 } \texttt{\$fatal}\text{，不许静默别名）}$$
+
+---
+
+### 70.17 ★★ 第 81 条纪律：轮询读省的不是带宽，是**同一个 AXI-Lite 上的往返次数**（2026-11-02 08:10）
+
+**合并**：T-23 的轮询减访问（`BIN_MMIO_POLL=tight|est`，**默认关**）已进 main，一个 commit
+（`feat(ps): 合并 T-23 轮询减访问（BIN_MMIO_POLL=est，默认关）`）。
+产物 `runs/t23_mmio/T23_mmio.patch`（1331 行 / 18 hunk；在 `7b1069f` 上 `patch -p1` **0 reject**，
+手工解 hunk **0 处**——它的副本基线比 main 老，但改动只落在 T-16/T-17 没碰过的函数上）。
+
+$$\Rightarrow\ \textbf{第 81 条纪律}：\text{"减少轮询读"}\textbf{不是省带宽}\text{（读一次只搬 }4\ \text{B），}$$
+$$\quad\ \text{是省}\textbf{同一个 AXI-Lite 上的往返次数}；\text{而引擎忙时单次访问贵 } 2.13\times$$
+$$\quad\ \text{（AXI-HP 与 AXI-Lite 共用互连）} \Rightarrow \textbf{"睡够了再查一次"比"密集轮询"快}$$
+$$\quad\ \Rightarrow\ \text{推论：}\textbf{任何"每命令访问次数"×"忙时单次成本"} \text{ 才是 PS 侧的预算口径；}$$
+$$\quad\ \quad\ \text{空闲价（15.72 µs）会把收益低估 }2\times \text{ 以上（第 79 条的同一件事，从另一头说）}$$
+
+**板端为什么把它的价值上修 2~3 倍（T-39 真板，v39/150 MHz/24 槽，见 §70.15）**
+
+$$\text{每命令软件时间 } 863.2\ \mu s = 25.38\ \text{次访问} \times 34.02\ \mu s\ (\text{自洽 } 0.06\%)$$
+$$\text{而 } t_{wall} = t_{hw} + t_{sw} = 0.3287 + 0.5663 = 0.8950\ \text{s}\ \textbf{严格可加}$$
+$$\Rightarrow\ \text{即 PS 在做 MMIO 的 0.566 s 里，引擎只完成相当于 } 0.329\ \text{s 的工作} \Rightarrow \text{访问}\textbf{既贵又抢引擎带宽}$$
+$$\Rightarrow\ \text{T-23 原估 } \le 0.107\ \text{s 的根因：它假设"轮询读 = 等待，与引擎工作重叠"（}25\ \mu s\ \text{空闲价 + }2\ \text{读/命令）}$$
+
+$$\Rightarrow\ \textbf{离线模型只能证"不漏 done"，不能证收益}：\texttt{runs/t23\_mmio/x3\_poll\_sim.py} 里 \texttt{done\_at} \text{ 是绝对时刻}$$
+$$\quad\ \text{（= "重叠"假设）} \Rightarrow \text{该模型下 est 只把读 } 9.41\to5.60/\text{命令、墙钟 } \pm 0.01\ \text{ms（看不出收益）}$$
+$$\quad\ \Rightarrow\ \text{收益的上下界要按两种机制夹：}\textbf{重叠} \Rightarrow \text{只省过量读} \approx \mathbf{0.16\ s}；\textbf{加性} \Rightarrow \text{可到 } \mathbf{0.3\sim0.45\ s}$$
+$$\quad\ \Rightarrow\ \textbf{上板前只许写"投影 0.3~0.45 s"，不许当实测引用（第 75 条的同一把尺）}$$
+
+**合并判据（离线，主机 FakePL 64²，全 rc=0）**
+
+| 判据 | 结果 |
+|---|---|
+| X1 写序列（核心） | 合并后 `old` arm 与 T-23 存档 `old.json` **10471 条逐条相同**：写 **5585**（含影子跳过 **2640**）、读 4886；5 个 arm（old/fast/tight/est/c）写序列全同 ⇒ **写一次没变** |
+| X2 sha1 | **全关**与 `POLL=est` 两种下都是 `104710f69c4d / 2ac6efec2325 / 8ab595fcf7cd` |
+| X3 不漏 done | 6 组（bus 25/33.5/100 µs × mult 1/3）× 3 模式：`首次观测−硬件置 done` 的 **min = 0.16 µs ≥ 0**，**=0 的 0/698**，max 205.9 µs；18 组全 PASS |
+| X4 默认关 | `verify_lazy_net --hw 64` 归一化（时间数字归一）后 **13 行逐行相同** |
+| X5 睡眠实现 | 复核代码确实是"长等 sleep + 末 0.3 ms 忙等"（`_sleep_until(tail=3e-4)`）；主机实测 `sleep(1e-6)=52.9 µs`、`sleep(2e-4)=253.1 µs`，`_sleep_until(188 µs)=188.6 µs`（p99 193.4）|
+| X6 fclk | `E1E2Engine.fclk_mhz` 默认 **100 → 取 FCLK0，拿不到按 150**（§70.11 记的那个 bug，本轮修掉）|
+
+$$\Rightarrow\ \textbf{X6 的副作用只有"显示口径"}：\texttt{dbg\_summary()} \text{ 的 } \texttt{compute\_ms} \text{ 原来按 100 MHz 算、偏大 }1.5\times \text{，现在按真实 }150$$
+$$\Rightarrow\ \text{timeout \textbf{不变}}：\texttt{run\_one} \text{ 的式子用的是 } 50\ \text{MHz 常数（} \texttt{cyc/50e6*4+5}\text{）；最大的 }128^2\ \text{命令 est }1.005\ \text{ms vs timeout }5.012\ \text{s} \Rightarrow \text{余量 } \mathbf{4990\times}$$
+$$\quad\ \text{（est 只是"睡多久"，不进 timeout；fclk 改对后 est 变小 }0.667\times \Rightarrow \text{睡得更短} \Rightarrow \text{更不会误判）}$$
+$$\Rightarrow\ \text{板端可调项：} \texttt{BIN\_MMIO\_PRED\_K}\ \text{默认 }0.55 \text{ 是为"fclk 错 }1.5\times\text{"留的保险；fclk 修对后可试 }0.9$$
+$$\quad\ \text{为什么 }0.9\ \text{也安全：}698\ \text{条命令的解析模型 } \Sigma cyc = 21.93\ \text{M 拍（@150 MHz 共 }146\ \text{ms}），$$
+$$\quad\ \text{而板端 } \Sigma \texttt{DBG\_CYC} = 49.31\ \text{M 拍（}656\ \text{条）} \Rightarrow \text{真实/模型 } = 2.39\times \Rightarrow 0.9 \times \text{下界仍只有真实的 }38\%$$
+
+$$\Rightarrow\ \textbf{未合并项}：\text{无。}\texttt{FAST}/\texttt{C}\ \text{两支一起进了（默认关，}C\ \text{只在 } \texttt{BIN\_MMIO\_C=1}\ \text{时现场 } \texttt{cc}\text{）}$$
+$$\quad\ \text{理由：它们与 POLL 共用 } \texttt{\_wr\_seq} / \texttt{\_fast}\ \text{那一层；把它们剪掉就等于把 X1 验过的那段代码重写一遍}$$
+$$\quad\ \quad\ \text{——"写序列不许变"的红线下，}\textbf{保留已验代码 > 缩小 patch}$$

@@ -46,6 +46,7 @@ from __future__ import annotations
 import json
 import os
 import shutil
+import struct
 import sys
 import time
 import weakref
@@ -804,6 +805,185 @@ class BinConvEngine:
         self._catpack = None
         self._cat_env = os.environ.get("CATPACK", "").strip().lower()
         self._catpack_fallback = 0
+        # ★ T-23：MMIO fast-path 状态（默认 None ⇒ 用原路径；见 _mmio_fast_init）
+        self._fast = None                 # None=尚未探测 / False=不可用 / dict=可用
+        self._fast_why = ""               # 回落原因（只打印一次）
+        self._poll_mode = _MMIO_POLL_ENV  # "" | "tight" | "est"
+        # est 模式：睡 k × 解析拍数。默认 0.55 是**安全值**——`E1E2Engine.fclk_mhz`
+        # 历史上默认 100 MHz（真板 150），est 可能偏大 1.5×，0.55×1.5=0.83<1 不会睡过；
+        # 若调用方确认 fclk 正确（探针的 --fclk 会设进去），可 `BIN_MMIO_PRED_K=0.9`
+        # 把读次数压到最低（见 runs/t23_mmio/REPORT.md 的投影表）。
+        try:
+            self._pred_k = min(1.0, max(0.2, float(os.environ.get("BIN_MMIO_PRED_K",
+                                                                 "0.55"))))
+        except Exception:                                  # noqa: BLE001
+            self._pred_k = 0.55
+        self._pred_note = ""              # 最近一次 est 轮询的自述（探针/日志用）
+        self._pred_done = None            # conv 异步路径：预计完成时刻（time.time）
+        self._pred_est = 0.0              # 该次预测的 est_s
+        self._rd_us = None                # 实测"一次 MMIO 读"要多少秒（est 模式用）
+        self._wr_merged = 0               # 合并成一次 pack_into 的字数（统计）
+        self._fast_w = 0                  # 走 fast-path 的写次数（统计）
+        self._fast_r = 0                  # 走 fast-path 的读次数（统计）
+        self._c_cmds = 0                  # 走 C 路径的命令数（统计）
+        # ★ T-23 C1 判据用的诊断钩子：给了 list 就把每一次"逻辑访问"记进去
+        #   (kind, off, val, force, sent) —— sent=False 表示被影子缓存跳过。
+        #   三个 arm 的记录必须逐条相同（见 ps/tools/verify_t23_mmio.py）。
+        self._trace_log = None
+        self.mmio_fast_init()             # 三个开关都没开时立即返回（几乎零成本）
+
+    # ------------------------------------------------------------ T-23 MMIO
+    def mmio_fast_init(self):
+        """探测一次底层 buffer + C 驱动，返回 self._fast（dict 或 False）。
+
+        fast-path 的取法（按优先级）：
+          1. `self.mmio.mem`（pynq 3.x 的 MMIO.mem 是 memoryview）；
+          2. `self.mmio.mmap`（pynq 2.x/3.x 的 MMIO.mmap 是 mmap 对象）；
+          3. `self.immio.buf` / `self.mmio.array`（其它实现）。
+        拿到以后一次性转成 memoryview，之后 `struct.pack_into/unpack_from` 直接落。
+        **不复制、不缓存值**：仍然是同一块 mapper，语义与 pynq.MMIO.write 等价。
+        """
+        if self._fast is not None:
+            return self._fast
+        if not (MMIO_FAST_ON or MMIO_C_ON or self._poll_mode):
+            self._fast = False
+            return self._fast
+        info = dict(mv=None, lib=None, pvmode=False)
+        if MMIO_FAST_ON or MMIO_C_ON:
+            m = self.mmio
+            mv = None
+            why = ""
+            for attr in ("mem", "mmap", "buf", "array"):
+                obj = getattr(m, attr, None)
+                if obj is None:
+                    continue
+                try:
+                    mv = obj if isinstance(obj, memoryview) else memoryview(obj)
+                    if mv.readonly:
+                        raise BufferError("只读")
+                    break
+                except Exception as e:                      # noqa: BLE001
+                    mv, why = None, "%s: %r" % (attr, e)
+            if mv is None:
+                self._fast_why = ("拿不到底层 buffer（%s）⇒ 用 pynq.MMIO 原路径"
+                                  % (why or "没有 .mem/.mmap/.buf"))
+                self._fast = False
+                if self.verbose:
+                    print("[bin_engine][T23] %s" % self._fast_why)
+                return self._fast
+            info["mv"] = mv
+            info["pvmode"] = bool(MMIO_FAST_ON)   # _wr/_rd 走直写（BIN_MMIO_FAST=1）
+            if MMIO_C_ON:
+                try:
+                    import mmio_batch
+                    info["lib"] = mmio_batch.load(mv)
+                except Exception as e:                      # noqa: BLE001
+                    self._fast_why = "C 驱动不可用（%r）⇒ 回落 Python 路径" % (e,)
+                    if self.verbose:
+                        print("[bin_engine][T23] %s" % self._fast_why)
+            if info["lib"] is None and not (MMIO_FAST_ON or info["pvmode"]):
+                self._fast = False
+                return self._fast
+        self._fast = info
+        if self.verbose and (MMIO_FAST_ON or info["lib"] is not None):
+            print("[bin_engine][T23] fast-path=on  %s  poll=%r"
+                  % ("C+py" if info["lib"] is not None else "py", self._poll_mode or "adaptive"))
+        return self._fast
+
+    def _fast_off(self, why):
+        """一次性打印原因并永久回落到 `self.mmio.write/read`。"""
+        self._fast = False
+        self._fast_why = why
+        if self.verbose:
+            print("[bin_engine][T23] fast-path 关闭（%s）⇒ 回落 pynq.MMIO" % why)
+
+    def mmio_stats(self):
+        f = self._fast if isinstance(self._fast, dict) else None
+        return dict(fast=bool(f), c=bool(f and f.get("lib") is not None),
+                    poll=self._poll_mode or "adaptive", fast_w=self._fast_w,
+                    fast_r=self._fast_r, merged=self._wr_merged,
+                    c_cmds=self._c_cmds, why=self._fast_why,
+                    writes=self._writes, writes_skipped=self._writes_skipped)
+
+    def _start_planned(self):
+        """C 路径专用：AP_CTRL 的写由 C 完成，这里只做**记账**（shadow/计数/trace）。
+
+        不碰总线。这样 `_writes` / `_writes_skipped` / trace 与 Python 路径逐条一致
+        （C1 判据要求 force 写也必须出现在记录里），而总线上仍然只有一次 start 写。
+        """
+        off = CFG + BIN_REG["AP_CTRL"]
+        if self._trace_log is not None:
+            self._trace_log.append(("W", off, 1, True, True))
+        self._shadow[off] = 1
+        self._writes += 1
+
+    def _write_pairs_raw(self, pairs):
+        """把已经"登记过"的 (off, v) 真的写下去，**不动影子/计数**（回落专用）。"""
+        if not pairs:
+            return
+        f = self._fast
+        mv = f["mv"] if (isinstance(f, dict) and f.get("pvmode")) else None
+        run = []
+
+        def flush_run():
+            if not run:
+                return
+            if mv is not None:
+                try:
+                    if len(run) == 1:
+                        struct.pack_into("<I", mv, run[0][0], run[0][1])
+                    else:
+                        struct.pack_into("<%dI" % len(run), mv, run[0][0],
+                                         *[x[1] for x in run])
+                    run.clear()
+                    return
+                except Exception:                          # noqa: BLE001
+                    self._fast_off("_write_pairs_raw 的 pack_into 失败")
+            for o, v in run:
+                self.mmio.write(o, v)
+            run.clear()
+
+        for off, v in pairs:
+            if run and off != run[-1][0] + 4:
+                flush_run()
+            run.append((off, v))
+        flush_run()
+
+    def _mb_run_cmd(self, pairs, ctrl_off, ret_off, timeout_s, wdt=None,
+                    slice_s=0.5):
+        """★ T-23 第 2 级：一次 C 调用完成 "写一批 + start + 等 done"。
+
+        语义与 `[self.mmio.write]* + start() + wait()` 逐项相同：
+          · 写序列 = pairs 的顺序（每项 32-bit volatile store）；
+          · start 之前有 `__sync_synchronize()`（保证配置写先于 start 到达 AXI）；
+          · 轮询只读 ret_off，判 bit0；**超时不再发第二次 start**；
+          · 按 slice_s 切片返回，好让调用方继续喂狗（长命令也不会饿死看门狗）。
+        返回 (status, elapsed_秒)。超时抛 TimeoutError，错误码由调用方解码。
+        """
+        lib = self._fast.get("lib")
+        if lib is None:
+            raise RuntimeError("没有 C 驱动")
+        t0 = time.time()
+        st = 0
+        while True:
+            budget = min(float(slice_s), max(1e-3, timeout_s - (time.time() - t0)))
+            st = lib.run_pairs(ctrl_off, ret_off, pairs, budget,
+                               1 if self._poll_mode == "tight" else 0)
+            if st & 1:
+                return st, time.time() - t0
+            if wdt is not None:
+                wdt.beat()
+            if (time.time() - t0) > timeout_s:
+                msg = ("bin_unit 超时 %.1fs 未 done（C 路径 timeout=%s）。"
+                       "**不再发第二次 start**：引擎可能还在访存，继续跑会踩内存。"
+                       % (time.time() - t0, timeout_s))
+                if wdt is not None and getattr(wdt, "armed", False):
+                    print("[bin_engine] " + msg, flush=True)
+                    print("[bin_engine] 停止喂狗，%.0fs 后由硬件看门狗复位整板"
+                          % getattr(wdt, "seconds", 0), flush=True)
+                    while True:
+                        time.sleep(1.0)
+                raise TimeoutError(msg)
 
     # ---------------------------------------------------------------- f32 池
     def enable_f32_pool(self, arena=None, nslots=None, slot_bytes=None, name="f32"):
@@ -918,26 +1098,119 @@ class BinConvEngine:
         227 层里大多数层的 S/D/PAD/ALPHA_SHIFT/SLOPE_SHIFT/H/W/K/COUT 反复重复，
         基址的高字恒 0 ⇒ 缓存后每层真正写下去的次数从 30 降到 3~6 次。
         （MMIO 写实测 30.4 µs/次，见 perf_probe `[mem] MMIO write`。）
+
+        ★ T-23：fast-path 只换"一次 32-bit 写怎么落到 mapper"（见模块头的开关），
+        **影子缓存的判断与计数一个字节都不动** ⇒ trace 等价、`_writes_skipped`
+        次数不变。任何异常永久回落（打印一行原因）。
         """
         off = int(off)
         v = int(v) & 0xFFFFFFFF
+        lg = self._trace_log
         if not force and self._shadow.get(off, None) == v:
             self._writes_skipped += 1
+            if lg is not None:
+                lg.append(("W", off, v, bool(force), False))
             return
-        self.mmio.write(off, v)
+        f = self._fast
+        if f is None:
+            f = self._fast = False
+        if f is not False and f["pvmode"]:
+            try:
+                struct.pack_into("<I", f["mv"], off, v)
+                self._fast_w += 1
+            except Exception as e:                     # noqa: BLE001
+                self._fast_off("写 %#x 时 struct.pack_into 失败：%r" % (off, e))
+                self.mmio.write(off, v)
+        else:
+            self.mmio.write(off, v)
+        if lg is not None:
+            lg.append(("W", off, v, bool(force), True))
         self._shadow[off] = v
         self._writes += 1
 
     def _wr_reg(self, name, v, force=False):
         self._wr(CFG + BIN_REG[name], v, force=force)
 
+    def _wr_seq(self, pairs, collect=None):
+        """按顺序写一组 ((off, v[, force]), ...) 并**合并连续偏移**。
+
+        语义与逐个 `_wr()` 完全一致：影子判断、跳过计数、`_writes` 计数、
+        `force` 语义逐条相同；唯一的区别是"连续偏移的多字"用**一次**
+        `struct.pack_into`（例如 0x204/0x208 两字一次落地），减少 Python 调用次数。
+        地址升序写入与逐个写下去在 AXI-Lite 上不可区分（同序、同值、同宽度）。
+
+        collect 给了 list 时**不真的写**，而是把要发的 (off, v) 追加进去
+        （给 `mmio_batch` 的 C 路径用：影子/计数照旧，由 C 一次发完）。
+        """
+        mv = None
+        lg = self._trace_log
+        f = self._fast
+        if f is not None and f is not False and f["pvmode"]:
+            mv = f["mv"]
+        run = []                       # 待合并的连续字 [(off, v), ...]
+        nw = 0
+
+        def flush_run():
+            nonlocal nw
+            if not run:
+                return
+            if collect is not None:
+                collect.extend(run)
+            elif mv is not None:
+                if len(run) == 1:
+                    struct.pack_into("<I", mv, run[0][0], run[0][1])
+                else:
+                    struct.pack_into("<%dI" % len(run), mv, run[0][0],
+                                     *[x[1] for x in run])
+                    self._wr_merged += len(run) - 1
+                self._fast_w += len(run)
+                nw += 1
+            else:
+                for o, v in run:
+                    self.mmio.write(o, v)
+            run.clear()
+
+        for item in pairs:
+            off = int(item[0])
+            v = int(item[1]) & 0xFFFFFFFF
+            force = bool(item[2]) if len(item) > 2 else False
+            if not force and self._shadow.get(off, None) == v:
+                self._writes_skipped += 1
+                if lg is not None:
+                    lg.append(("W", off, v, bool(force), False))
+                continue
+            if lg is not None:
+                lg.append(("W", off, v, bool(force), True))
+            if run and off != run[-1][0] + 4:
+                flush_run()
+            run.append((off, v))
+            self._shadow[off] = v
+            self._writes += 1
+        flush_run()
+        return nw
+
     def shadow_reset(self):
         """丢掉影子寄存器（硬件被别的路径改过之后必须调用）。"""
         self._shadow.clear()
 
     def _rd(self, off):
+        off = int(off)
         self._reads += 1
-        return int(self.mmio.read(int(off))) & 0xFFFFFFFF
+        lg = self._trace_log
+        f = self._fast
+        if f is not None and f is not False and f["pvmode"]:
+            try:
+                self._fast_r += 1
+                val = struct.unpack_from("<I", f["mv"], off)[0]
+                if lg is not None:
+                    lg.append(("R", off, val, False, True))
+                return val
+            except Exception as e:                     # noqa: BLE001
+                self._fast_off("读 %#x 时 struct.unpack_from 失败：%r" % (off, e))
+        val = int(self.mmio.read(off)) & 0xFFFFFFFF
+        if lg is not None:
+            lg.append(("R", off, val, False, True))
+        return val
 
     def _rd_reg(self, name):
         return self._rd(CFG + BIN_REG[name])
@@ -1114,7 +1387,7 @@ class BinConvEngine:
                   % (self.cfg.name if self.cfg else "?", dt * 1e3))
         return st, dt
 
-    def wait(self, timeout=30.0, wdt=None, poll=None):
+    def wait(self, timeout=30.0, wdt=None, poll=None, est_s=None):
         """轮询 AP_RETURN.bit0。**超时不再发 start**；有看门狗就让板子复位。
 
         poll=None ⇒ 自适应（2026-10-30 实测：`time.sleep(2e-4)` 在这块板上实际要
@@ -1122,13 +1395,51 @@ class BinConvEngine:
           · 前几拍不睡（短层 0.3~3 ms 能立刻抓到 done，不吃 0.29 ms 的量化误差）
           · 之后 sleep(0)，再往后逐步退避到 2e-4（长层不空转抢 AXI 带宽）
         显式传 poll=<秒> 则保持旧的固定间隔行为（老脚本/对比用）。
+
+        ★ T-23：`BIN_MMIO_POLL=tight|est` 换轮询策略（默认为空 ⇒ 上面这条原路径）：
+          · tight —— 一次都不睡。每次读本身就要 25 µs，紧轮询最多多花一次读的钱，
+            却省掉 `sleep(0)` 的系统调用往返；done 后**最坏也只晚一次读**。
+          · est   —— "按预测拍数先粗睡、再收窄"：
+                    先睡 `k·est_s`（k 是固定的安全系数，见 `BIN_MMIO_PRED_K`），
+                    之后**紧轮询**（不再睡）。`est_s` 来自解析拍数模型
+                    （`17 + Σ(9·run+50)` 拍 ÷ f），是**下界**：读通路 stall 只会
+                    让真实时长更长 ⇒ 早醒只会多读几次，不会睡过头。
+        两种模式都**不改时间语义**（timeout 仍从 t0 起算），也不改任何寄存器写。
+
+        **不会"因为睡着而错过 done"**（三条独立保证）：
+          1. done 在 RTL 里是 sticky（`done_sticky`），只有下一次 start 才清
+             ⇒ 晚读只影响"什么时候看见"，不影响"是否看见"；
+          2. 睡完**一定**进紧轮询，且紧轮询没有次数上限，直到 done 或 timeout；
+          3. 单次睡眠封顶 `0.02 s`（且 ≤ 0.9×timeout），所以 227 层里最长的那层
+             也不可能"睡过去"；`k` 只在 [0.2, 1.0] 里动（见 `BIN_MMIO_PRED_K`）。
         """
+        mode = self._poll_mode if poll is None else ""
         t0 = time.time()
         n = 0
+        sleep_s = 0.0
+        slept = False
+        k_done = 0
         while True:
-            st = self._rd_reg("AP_RET")
+            if mode == "est":
+                _tr = time.perf_counter()
+                st = self._rd_reg("AP_RET")
+                _rdt = time.perf_counter() - _tr
+                # 实测"一次读"的成本（取历史最小，避开偶发抖动）：
+                # 用它判断"这一层值不值得先睡"——睡不到 3 次读的钱就别睡。
+                self._rd_us = _rdt if self._rd_us is None else min(self._rd_us, _rdt)
+            else:
+                st = self._rd_reg("AP_RET")
             if st & 1:
-                return st, time.time() - t0
+                dt = time.time() - t0
+                if mode == "est" and est_s and sleep_s > 0.0:
+                    # 只记录、不自校正：`est_s` 是**解析拍数下界**，睡 0.9×下界
+                    # 永远不会睡过真实完成时刻；真实更慢时醒后紧轮询，读数与
+                    # 原自适应同阶（不会更差）。任何"因为一读就中而缩短 k"的
+                    # 反馈都会被"读本身就要 25~100 µs"污染 ⇒ 干脆不要。
+                    self._pred_note = ("k=%.2f est=%.1fµs sleep=%.1fµs 醒后读=%d 实测=%.1fµs"
+                                       % (self._pred_k, est_s * 1e6, sleep_s * 1e6,
+                                          k_done, dt * 1e6))
+                return st, dt
             if wdt is not None:
                 wdt.beat()                 # 长卷积必须边等边喂狗
             dt = time.time() - t0
@@ -1143,6 +1454,23 @@ class BinConvEngine:
                         time.sleep(1.0)
                 raise TimeoutError(msg)
             n += 1
+            if mode == "tight":
+                continue                              # 不睡：下一次读就是下一次等
+            if mode == "est" and est_s and n == 1 and not slept:
+                slept = True
+                # 只有"睡得过一次读的钱"才睡：短层（est < 3×实测读成本）直接紧轮询
+                _s = float(self._pred_k) * float(est_s)
+                _rd = float(self._rd_us or 0.0)
+                if _rd > 0.0 and _s < 3.0 * _rd:
+                    _s = 0.0
+                sleep_s = min(max(0.0, _s), 0.02, max(0.0, 0.9 * float(timeout)))
+                if sleep_s > 0.0:
+                    _sleep_until(time.time() + sleep_s)   # 精确等到预测时刻
+                    continue
+                # 不值得睡 ⇒ 落到下面的紧轮询
+            if mode == "est" and est_s:
+                k_done += 1                           # 醒后紧轮询：每次读本身就是等待
+                continue
             if poll is not None:
                 time.sleep(poll)
             elif n < 3:
@@ -1386,17 +1714,45 @@ class BinConvEngine:
             return None
 
     def kick(self, timeout=None):
-        """发 start，立即返回（不等 done）。返回 (t0, timeout)。"""
+        """发 start，立即返回（不等 done）。返回 (t0, timeout)。
+
+        ★ T-23（`BIN_MMIO_POLL=est`）：顺便算出"预计完成时刻"，让 `poll()`
+        在到点之前**干脆不做那次 MMIO 读**（一次读 25~100 µs，比 sleep(0) 贵两个量级）。
+        """
         if timeout is None:
             _c, est = estimate_cycles(self.cfg)
             timeout = max(5.0, min(600.0, est * 4 + 5.0))
         t0 = time.time()
+        self._pred_done = None
+        self._pred_est = 0.0
+        self._pred_polls = 0
+        if self._poll_mode == "est" and self.cfg is not None:
+            try:
+                _c, est = estimate_cycles(self.cfg)
+                self._pred_est = float(est)
+                self._pred_done = t0 + min(max(0.0, self._pred_k * float(est)),
+                                           0.02, max(0.0, 0.9 * float(timeout)))
+            except Exception:                       # noqa: BLE001
+                self._pred_done = None
         self.start()
         return t0, timeout
 
     def poll(self):
-        """非阻塞看 done：返回 status 或 None。"""
+        """非阻塞看 done：返回 status 或 None。
+
+        ★ T-23（est 模式）：预计完成时刻之前**不发 MMIO 读**，只 `sleep(0)` 让出 CPU；
+        到点之后回到原行为（每次调用读一次）。done 是 sticky ⇒ 晚读不会漏。
+        """
+        p = self._pred_done
+        if p is not None:
+            now = time.time()
+            if now < p:
+                time.sleep(0)
+                return None
+            self._pred_done = None
         st = self._rd_reg("AP_RET")
+        if p is not None:
+            self._pred_polls = getattr(self, "_pred_polls", 0) + 1
         return st if (st & 1) else None
 
     def reap(self, t0, timeout, out_buf=None, L=None, verify_canary=True, t_done=None):
@@ -1406,7 +1762,14 @@ class BinConvEngine:
         比 reap 的时刻早）。不给就退化成"reap 时刻 - start 时刻"。
         """
         L = L or self.cfg
-        st, _ = self.wait(timeout)
+        est_s = None
+        if self._poll_mode == "est" and L is not None:
+            try:
+                _c, est_s = estimate_cycles(L)
+            except Exception:                       # noqa: BLE001
+                est_s = None
+        self._pred_done = None          # 进阻塞等待：改用 wait() 的"先粗睡再收窄"
+        st, _ = self.wait(timeout, est_s=est_s)
         err = (st >> 8) & 0xFF
         if err:
             raise BinRunError(err, msg="%s: bin_unit 报错 err_code=%d" % (L.name, err))
@@ -1639,6 +2002,32 @@ _PROF = os.environ.get("BIN_PROFILE", "") not in ("", "0", "false", "False")
 # ⇒ 默认不读；排查带宽时 E1E2_DBG=1 打开。
 _E1E2_DBG = os.environ.get("E1E2_DBG", "") not in ("", "0", "false", "False")
 
+# ============================================================================
+# ★ T-23：MMIO 访问层 fast-path（**全部默认关**，opt-in；关掉时逐字节走原路径）
+# ----------------------------------------------------------------------------
+# 三个独立开关（互不依赖，可以只开一个）：
+#   BIN_MMIO_FAST=1   直接对底层 buffer（pynq MMIO 的 mmap / memoryview）做
+#                     struct.pack_into / unpack_from，绕开 pynq.MMIO.write 的
+#                     struct.pack + 切片赋值（主机实测 0.80 µs → 0.11 µs/次）。
+#   BIN_MMIO_POLL=tight|est
+#                     done 轮询策略。默认（不设）= 原来的自适应（前 3 次紧轮询
+#                     → sleep(0) → 指数退避）。tight = 一次都不睡；est = 先按
+#                     解析拍数模型睡 60% 的估计时长再紧轮询。
+#   BIN_MMIO_C=1      用 ps/pynq/mmio_batch.c（首次使用时 cc -O2 现场编译）把
+#                     "一批写 + start + 等 done + 读状态"压进**一次 C 调用**。
+# ----------------------------------------------------------------------------
+# 语义红线（三条都不可放宽）：
+#   1. 影子缓存（`_shadow` / `_writes_skipped`）**逻辑一个字节不改**：fast-path 只
+#      替换"一次 32-bit 写怎么落到 mapper"，不替换"哪些写该发、发的顺序"。
+#   2. `force=True` 的有副作用寄存器（start / 清 sticky）仍然每次都真写。
+#   3. 任何异常（拿不到 buffer / C 库加载失败 / struct 报错）⇒ 打印一行原因，
+#      **永久回落**到 `self.mmio.write/read`，绝不抛给调用方。
+_MMIO_FAST_ENV = os.environ.get("BIN_MMIO_FAST", "").strip().lower()
+MMIO_FAST_ON = _MMIO_FAST_ENV not in ("", "0", "off", "false", "no", "n")
+_MMIO_POLL_ENV = os.environ.get("BIN_MMIO_POLL", "").strip().lower()
+_MMIO_C_ENV = os.environ.get("BIN_MMIO_C", "").strip().lower()
+MMIO_C_ON = _MMIO_C_ENV not in ("", "0", "off", "false", "no", "n")
+
 CMDS_DTYPE = np.dtype([
     ("base_desc", "<u4"), ("base_out", "<u4"),
     ("cfg_c", "<u2"), ("cfg_h", "<u2"), ("cfg_w", "<u2"),
@@ -1801,6 +2190,33 @@ class E1E2Program:
         return desc2, cmds2, self.sentinel_pa + delta
 
 
+def _fclk_mhz_now(explicit=None, fallback=150.0):
+    """E1E2 的**实际**时钟（MHz）。取值顺序：显式参数 > pynq 的 FCLK0 > 150。
+
+    ★ 为什么需要它（T-23 §7.2 记录的老 bug，本轮合并时修掉）：
+      `E1E2Engine.fclk_mhz` 历史上默认 **100 MHz**，而设计/板端实跑 **150 MHz**
+      ⇒ `dbg_summary()` 的 compute_ms 与 `BIN_MMIO_POLL=est` 的预测时长**都偏大 1.5×**。
+      上游不传参数的地方（`enable_e1e2()`）就吃这个默认值，所以错的是"默认"而不是调用方。
+
+    不引入任何新依赖：拿不到 pynq（离线/主机）就回落到设计频率 150。
+    """
+    if explicit:
+        try:
+            f = float(explicit)
+            if f > 0.0:
+                return f
+        except Exception:                    # noqa: BLE001
+            pass
+    try:
+        from pynq.ps import Clocks
+        f = float(Clocks.fclk0_mhz)
+        if 1.0 <= f <= 2000.0:
+            return f
+    except Exception:                        # noqa: BLE001
+        pass
+    return float(fallback)
+
+
 class E1E2Engine:
     """`bin_e1e2`（R_RUN_UNIT=4）的 PS 驱动；**不改 conv 路径**。
 
@@ -1813,15 +2229,16 @@ class E1E2Engine:
         info = ee.load_program()              # 一次：分配 arena + 搬 127.5 KB
         ee.write_int8("encoder...conv", x_q)  # 按 frame.json 的 buffer 名填源
         ee.run_layer("encoder...conv")        # 或 ee.run_all()
-        print(ee.dbg_summary(fclk_mhz=100))
+        print(ee.dbg_summary())
     """
 
     def __init__(self, core, desc_dir=None, verbose=False, program=None,
-                 fclk_mhz=100.0):
+                 fclk_mhz=None):
         self.core = core
         self.verbose = bool(verbose)
         self.program = program or E1E2Program(desc_dir=desc_dir, verbose=self.verbose)
-        self.fclk_mhz = float(fclk_mhz)
+        # ★ 实际时钟：不传就取 FCLK0，拿不到按 150（设计跑 150；旧默认 100 是错的）
+        self.fclk_mhz = _fclk_mhz_now(fclk_mhz)
         self.arena = None
         self.arena_pa = None
         self.desc_pa = None
@@ -2009,8 +2426,14 @@ class E1E2Engine:
 
     def run_one(self, desc_pa, out_pa, cfg_c, cfg_h, cfg_w, cfg_group,
                 timeout=None, wdt=None, count=True, skip_idle=False):
-        """一条 E1E2 命令：写 5 个寄存器 → 等 idle → start → 等 done → 读错误码/DBG。"""
+        """一条 E1E2 命令：写 5 个寄存器 → 等 idle → start → 等 done → 读错误码/DBG。
+
+        ★ T-23：写序列改成一次 `_wr_seq`（合并连续偏移），并可选把
+        "这批写 + start + 等 done" 压进**一次 C 调用**（`BIN_MMIO_C=1`）。
+        寄存器集合、顺序、影子跳过、`force` 语义、done 判据**完全相同**。
+        """
         core = self.core
+        cyc = None
         if timeout is None:
             hw = int(cfg_h) * int(cfg_w)
             cyc, left = 17, hw
@@ -2019,13 +2442,27 @@ class E1E2Engine:
                 cyc += 9 * run + 50
                 left -= run
             timeout = max(5.0, min(600.0, cyc / 50e6 * 4.0 + 5.0))
+        est_s = None
+        if cyc is None:                       # 给了 timeout 也要能估（C/est 用）
+            hw = int(cfg_h) * int(cfg_w)
+            cyc, left = 17, hw
+            while left > 0:
+                run = min(E1E2_ACC_DEPTH, left)
+                cyc += 9 * run + 50
+                left -= run
+        est_s = cyc / (float(getattr(self, "fclk_mhz", 150.0)) * 1e6)
+
         self.select(4)
-        core._wr_reg("C", int(cfg_c))
-        core._wr_reg("H", int(cfg_h))
-        core._wr_reg("W", int(cfg_w))
-        self._wr_e("E_GROUP", int(cfg_group))
-        self._wr_e("E_DESC", int(desc_pa))
-        self._wr_e("E_OUT", int(out_pa))
+        lib = self.core._fast.get("lib") if isinstance(self.core._fast, dict) else None
+        pairs = [] if lib is not None else None
+        # C/H/W 与 E_GROUP/E_DESC/E_OUT：地址不连续的两段，各自内部合并。
+        # shadow/计数/force 语义在 _wr_seq 里照旧；collect 给了就只登记不发。
+        core._wr_seq((((CFG + BIN_REG["C"]), int(cfg_c)),
+                      ((CFG + BIN_REG["H"]), int(cfg_h)),
+                      ((CFG + BIN_REG["W"]), int(cfg_w))), collect=pairs)
+        core._wr_seq((((CFG + E1E2_REG["E_GROUP"]), int(cfg_group)),
+                      ((CFG + E1E2_REG["E_DESC"]), int(desc_pa)),
+                      ((CFG + E1E2_REG["E_OUT"]), int(out_pa))), collect=pairs)
         if not skip_idle:
             # 同一 job 的后续组：上一组刚 wait 到 done ⇒ 本来就 idle，
             # 省掉一次轮询（板端 0.1~0.3 ms × 698 条）
@@ -2033,8 +2470,21 @@ class E1E2Engine:
             self._wait_idle(timeout=min(max(30.0, timeout), 120.0))
             self._agg["idle"] = self._agg.get("idle", 0.0) + (
                 time.perf_counter() - _tw)
-        core.start()
-        st, dt = core.wait(timeout, wdt=wdt)
+        if lib is not None:
+            # ---- C 路径：一次调用完成 写 + start + 等 done（切片喂狗）----
+            core._start_planned()          # start 的记账（C 负责真写）
+            try:
+                st, dt = core._mb_run_cmd(pairs, CFG, CFG + BIN_REG["AP_RET"],
+                                          timeout, wdt=wdt)
+                core._c_cmds += 1
+            except Exception as e:                       # noqa: BLE001
+                core._fast_off("C 路径失败（%r）⇒ 本轮回落 Python" % (e,))
+                core._write_pairs_raw(pairs)
+                core.start()
+                st, dt = core.wait(timeout, wdt=wdt, est_s=est_s)
+        else:
+            core.start()
+            st, dt = core.wait(timeout, wdt=wdt, est_s=est_s)
         err = (st >> 8) & 0xFF
         if err:
             raise BinRunError(err, msg="E1E2 命令报错 %s(%d)（desc=%#x out=%#x "
@@ -3202,6 +3652,27 @@ def _flush(buf):
         buf.flush()
     except Exception:                     # noqa: BLE001
         pass
+
+
+def _sleep_until(t_end, tail=3e-4):
+    """睡/忙等到 `t_end`（time.time() 口径）。**末尾 tail 秒忙等**：精确到 µs。
+
+    为什么不能只用 `time.sleep()`：Linux 上一次 sleep 的实际时长有 ~50 µs 量级的
+    下限/过冲（本项目实测 `sleep(2e-4)` 实际 0.29 ms、`sleep(1e-6)` 实际 52 µs），
+    拿它去"睡 180 µs"会睡成 300~500 µs，反而比不睡更慢。
+    长等待仍然走 sleep（不烧 CPU），最后 `tail` 秒用 `perf_counter` 忙等收口。
+    """
+    while True:
+        rem = t_end - time.time()
+        if rem <= 0.0:
+            return
+        if rem > tail:
+            time.sleep(rem - tail)
+        else:
+            t_c = time.perf_counter()
+            while time.perf_counter() - t_c < rem:
+                pass
+            return
 
 
 def _invalidate(buf):
