@@ -99,17 +99,17 @@ $$\quad\ \Rightarrow\ \textbf{1 s 在原理上可达，但要求整条流水线�
 
 ## 6. ★ 策略调整（2026-11-02 14:45，用户决策）：**功能优先，时序收尾**
 
-$$\Rightarrow\ 	ext{过去两天的节奏病根：}	extbf{每颗位流都要过 150 MHz 时序审计才敢上板}$$
-$$\quad\ 	ext{而 } 	exttt{v39}\ 	ext{在 150 MHz 审计下 WNS 就是 } -5.331;\ 	ext{v42e 是 } -3.159;\ 	ext{v43base2 是 } -5.473$$
-$$\quad\ \Rightarrow\ 	ext{"等时序干净"这个门槛}	extbf{从来没有被任何可用位流满足过} \Rightarrow 	ext{它只是在拖时间}$$
+$$\Rightarrow\ \text{过去两天的节奏病根：}\textbf{每颗位流都要过 150 MHz 时序审计才敢上板}$$
+$$\quad\ \text{而 } \texttt{v39}\ \text{在 150 MHz 审计下 WNS 就是 } -5.331;\ \text{v42e 是 } -3.159;\ \text{v43base2 是 } -5.473$$
+$$\quad\ \Rightarrow\ \text{"等时序干净"这个门槛}\textbf{从来没有被任何可用位流满足过} \Rightarrow \text{它只是在拖时间}$$
 
 **新规则 R8：功能验证与时序验证彻底分离**
 
-$$\Rightarrow\ 	extbf{构建一律用 10 ns（松）约束} \Rightarrow 	ext{永远可布线，}	ext{不再为"能不能过 6.667 ns"卡住}$$
-$$\Rightarrow\ 	extbf{功能验证在板端 100 MHz 做}（	ext{运行时 } 	exttt{Clocks.fclk0_mhz = 100}	ext{，}	extbf{不重建、不改约束}）$$
-$$\quad\ \Rightarrow\ 	ext{逻辑 bug（地址错、状态机错、数据通路错）}	extbf{在 100 MHz 一样暴露}$$
-$$\quad\ \Rightarrow\ 	ext{而时序违例引起的错}	extbf{会被压掉} \Rightarrow 	ext{两种失效模式}	extbf{第一次能分开归因}$$
-$$\Rightarrow\ 	extbf{时序战役放到最后一步}：	ext{等功能全绿后，}	ext{专门做一次"6.667 ns 诚实构建 + 收时序 + 逐点验"}$$
+$$\Rightarrow\ \textbf{构建一律用 10 ns（松）约束} \Rightarrow \text{永远可布线，}\text{不再为"能不能过 6.667 ns"卡住}$$
+$$\Rightarrow\ \textbf{功能验证在板端 100 MHz 做}（\text{运行时 } \texttt{Clocks.fclk0_mhz = 100}\text{，}\textbf{不重建、不改约束}）$$
+$$\quad\ \Rightarrow\ \text{逻辑 bug（地址错、状态机错、数据通路错）}\textbf{在 100 MHz 一样暴露}$$
+$$\quad\ \Rightarrow\ \text{而时序违例引起的错}\textbf{会被压掉} \Rightarrow \text{两种失效模式}\textbf{第一次能分开归因}$$
+$$\Rightarrow\ \textbf{时序战役放到最后一步}：\text{等功能全绿后，}\text{专门做一次"6.667 ns 诚实构建 + 收时序 + 逐点验"}$$
 
 | 阶段 | 频率 | 目的 | 门禁 |
 |---|---|---|---|
@@ -117,8 +117,8 @@ $$\Rightarrow\ 	extbf{时序战役放到最后一步}：	ext{等功能全绿后�
 | 里程碑收尾 | 150 MHz | 只在功能全绿后抽查 | 同 100 MHz 的 sha1 |
 | 最终时序战役 | 150/200 MHz | 收 WNS 到 ≥0 | 全速 + 长跑 + 误码统计 |
 
-$$\Rightarrow\ 	ext{这条 R8 把"每颗位流 3 道时序关"降到"1 道功能关"，}	extbf{预期推进速度提升 2\sim3 倍}$$
-$$\Rightarrow\ 	ext{代价：}	ext{最后要补一轮专门的时序战役（约 }1\sim2\ 	ext{天），}	ext{但那时的设计}	extbf{已定型}，	ext{改的是流水线级数而不是功能}$$
+$$\Rightarrow\ \text{这条 R8 把"每颗位流 3 道时序关"降到"1 道功能关"，}\textbf{预期推进速度提升 2\sim3 倍}$$
+$$\Rightarrow\ \text{代价：}\text{最后要补一轮专门的时序战役（约 }1\sim2\ \text{天），}\text{但那时的设计}\textbf{已定型}，\text{改的是流水线级数而不是功能}$$
 
 **注意一个反例的启示**：`v42e` 在 150 MHz 挂死、100 MHz 数据错 ⇒ 说明**低频率不会掩盖逻辑 bug**，只会掩盖时序 bug。这正是我们要的分离。
 
