@@ -5862,3 +5862,33 @@ $$\Rightarrow\ \text{bit } \mathtt{16766e1f}；\text{hwh } \mathtt{52357646}；\
 $$\Rightarrow\ \mathtt{bd\_v50.tcl}\ \text{里 } \mathtt{generate\_target\ all\ -force}\ \text{会}\textbf{删掉 auto\_pc 的 OOC dcp+stub}（\mathtt{proj\_v50}\ \text{里 auto\_pc 无 OOC run}）$$
 $$\Rightarrow\ \text{首次构建因此在 0c 之后 rc=1（}\textbf{零烧时}）;\ \text{已按 v50 配方复用 0 参数差异旧产物}（\text{xml 同尺寸，10 行 diff 全是时间戳}）$$
 $$\Rightarrow\ \Rightarrow\ \textbf{以后每次跑 } \mathtt{bd\_v50.tcl}\ \text{都要先补这一步}$$
+
+### 70.63 v51 上板：越界与死锁修好了，但**逐字节 ±1 误差 + 吞吐退化**（T-96，2026-11-02 20:51）
+
+**修好的两件（都要记功）**
+$$\Rightarrow\ \textbf{越界写 } \mathbf{5/5\ \text{层} = 0\ \text{B}}（\text{v50 是 } 904\text{-}4096\ \text{B}）$$
+$$\Rightarrow\ \textbf{64² 第 3 层不再挂死}：227/227\ \text{op 全返回（\text{v50 在此 } 5.05\ \text{s 未 done）}$$
+$$\Rightarrow\ \text{金丝雀 0 报警、无段错误、无内核被踩（垫子全净）}$$
+
+**没修好的两件**
+$$\Rightarrow\ \text{逐字节仍错}：\mathtt{cin}48\text{k}3\ \mathbf{1381/65536};\ \mathtt{cin}112\ \mathbf{24476/65536};\ \mathtt{cin}176\ \mathbf{18540/65536};\ \mathtt{cin}240\text{k}1\ 1190/49152;\ \mathtt{cin}512\text{k}1\ 47/196608$$
+$$\Rightarrow\ \mathbf{v39\ \text{控制组同 session 同脚本}：5/5\ \text{层 } 0\ \text{B}、0\ \text{字节}，64^2\ \text{与}\ 256^2\ \text{两套冻结 sha1 全中}}$$
+$$\quad\ \Rightarrow\ \textbf{PS 与探针干净，错只能在 PL}$$
+$$\Rightarrow\ 64^2\ \text{sha1} = \mathtt{b8844153/6a9487b8/ac8a3188} \neq \text{冻结}$$
+$$\Rightarrow\ \text{吞吐}\mathbf{4/5\ \text{层破 } 0.8\ \text{红线}}：1.41× / 0.73× / 0.53× / 2.82× / 1.57×（\text{期望 } 0.54\text{-}0.61）$$
+
+**错误形状（最有价值的一条）**
+$$\Rightarrow\ \text{每组内}\textbf{固定一个通道索引系统性偏 } \pm1$$
+$$\quad\ \mathtt{cin}112 \to \mathtt{chan}{=}2\ \text{全 8 组 } \sim750\ \text{次},\ 932/1024\ \text{像素受影响}$$
+$$\quad\ \mathtt{cin}176 \to \mathtt{chan}{=}3;\ \mathtt{cin}48 \to \mathtt{chan}{=}6;\ \mathtt{cin}240 \to \mathtt{chan}{=}6$$
+$$\quad\ \mathtt{cin}512\ \text{只出现在列 } 0/10/20;\ \text{少数 } \pm127/-128\ \text{饱和}$$
+$$\Rightarrow\ \Rightarrow\ \textbf{不像越界/整段错位}，\text{更像 }\mathbf{lane\to word}\ \text{映射或 per-lane } \mathtt{PRM/shift}\ \text{残差}$$
+$$\Rightarrow\ \text{整数累加是精确的（}\mathtt{p\_acc}\ \text{是 } 16\ \text{位整数加法），}\textbf{与累加顺序无关}$$
+$$\quad\ \Rightarrow\ \pm1\ \text{只能来自}\textbf{移位/缩放参数或 term 数}\text{，不可能来自加法顺序}$$
+$$\Rightarrow\ \text{重点怀疑：IMP-A 改的 } \mathtt{PRM\_W}\ 16\to32\ \text{与 } \mathtt{PB\_*}\ \text{偏移 } 0,4,12,20,28$$
+$$\quad\ \Rightarrow\ \text{每字 } 4\ \text{lane}（\text{V=8 时 alpha 2 字}=8\ \text{lane}，V=16 时 4 字}=16\ \text{lane）} \Rightarrow \text{某 lane 的字节偏移可能错一位}$$
+
+**吞吐退化的机理（我的判断）**
+$$\Rightarrow\ \text{T-94 把"压力线丢拍"改成"hold-until-accepted"} \Rightarrow \textbf{正确但会停核}$$
+$$\Rightarrow\ \Rightarrow\ \text{根因是}\textbf{写 FIFO 不够深 / 不能连续吞两拍}，\text{不是协议错}$$
+$$\Rightarrow\ \text{修法方向：加深写 FIFO 或让串行化器每拍都能接一拍} \Rightarrow \text{而不是回到丢拍}$$

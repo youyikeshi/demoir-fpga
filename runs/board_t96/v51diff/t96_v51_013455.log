@@ -1,0 +1,305 @@
+[t96] vlanes_now()=8  prm_layout={'VLANES': 8, 'PRM_W': 16, 'PB_S': 0, 'PB_B': 2, 'PB_Z': 6, 'PB_G': 10, 'PB_SL': 14, 'seg': {'alpha': (0, 2), 'bias': (2, 6), 'zeta': (6, 10), 'gamma': (10, 14), 'slope': (14, 16)}, 'words': {'alpha': 2, 'bias': 4, 'zeta': 4, 'gamma': 4, 'slope': 2}}
+[t96] 日志 = /home/xilinx/demoir/t96_out/t96_v51_013455.log
+[t96] bit = /home/xilinx/demoir/design_1_150v51.bit
+
+==============================================================================
+  步骤 1：load overlay + 指纹（本进程唯一一次 download=True）
+==============================================================================
+  Overlay(design_1_150v51.bit) 用时 2.495 s
+  IP 清单：['bin_unit_0', 'conv_uni_0', 'ps7']
+  conv_uni_0  base=0x40040000 length=0x20000 （期望 0x40040000）✓
+  bin_unit_0  base=0x40060000 length=0x20000 （期望 0x40060000）✓
+  fconv_0 在 IP 清单里 = False （期望 False）✓
+  0x40070314 = 0x50300001   (CFG+0x314 (契约口径))
+  0x40060314 = 0x00000000   (base+0x314 (任务书字面))
+  0x40060310 = 0x00000000   (0x310 CHAIN_STATUS)
+  0x40060308 = 0x00000000   (0x308 BAND_ROWS)
+  **magic(0x314) = 0x50300001 期望 0x50300001 ⇒ v51 寄存器块在位 ✓**
+  **0x310 复位值 = 0x00000000 期望 0（契约 R3：err 不许置）**
+
+==============================================================================
+  步骤 2：fclk0 设 100 MHz 并读回
+==============================================================================
+  目标 100 MHz → **读回 100 MHz** ✓
+
+==============================================================================
+  内核一次性装载（不进稳态）
+==============================================================================
+  q8     load=0.256 s loaded=True
+  c8deq  load=4.353 s loaded=True
+  bpack  load=1.756 s loaded=True
+  bilinear load=0.704 s
+  合计 7.068 s；[DEPS] q8=fast c8deq=fast bpack=fast e1e2=fast catpack=fast safe=fast  ⇒ deps_closure_ok=True
+
+==============================================================================
+  步骤 3（任务书第 2 步）：逐层隔离 H=W=32，64 KB 越界垫子（0xA5）
+==============================================================================
+  ---- cin48_k3_d1  (cb=1 K=9)    encoder.encoder_1.rdb.conv_layers.0.conv
+       ✗ 异常 TypeError("Cannot cast array data from dtype('int64') to dtype('int32') according to the rule 'safe'")
+[json] 已落盘 /home/xilinx/demoir/t96_out/t96_v51_013455.json
+  ---- cin112_k3_d2 (cb=2 K=18)   encoder.encoder_1.rdb.conv_layers.1.conv
+       ✗ 异常 TypeError("Cannot cast array data from dtype('int64') to dtype('int32') according to the rule 'safe'")
+[json] 已落盘 /home/xilinx/demoir/t96_out/t96_v51_013455.json
+  ---- cin176_k3_d1 (cb=3 K=27)   encoder.encoder_1.rdb.conv_layers.2.conv
+       ✗ 异常 TypeError("Cannot cast array data from dtype('int64') to dtype('int32') according to the rule 'safe'")
+[json] 已落盘 /home/xilinx/demoir/t96_out/t96_v51_013455.json
+  ---- cin240_k1    (cb=4 K=4)    encoder.encoder_1.rdb.conv_post.conv
+       ✗ 异常 TypeError("Cannot cast array data from dtype('int64') to dtype('int32') according to the rule 'safe'")
+[json] 已落盘 /home/xilinx/demoir/t96_out/t96_v51_013455.json
+  ---- cin512_k1    (cb=8 K=8)    encoder.encoder_3.sam_blocks.0.b0.conv.conv
+       ✗ 异常 TypeError("Cannot cast array data from dtype('int64') to dtype('int32') according to the rule 'safe'")
+[json] 已落盘 /home/xilinx/demoir/t96_out/t96_v51_013455.json
+[json] 已落盘 /home/xilinx/demoir/t96_out/t96_v51_013455.json
+
+  ⇒ 逐层隔离**未过**（见上：越界 B 数 / 逐字节不符数）
+     --run-net 已开：只继续跑 64² 取**诊断**证据（判据不放松）
+  arena t96_arena64 4.29 MB（24 槽 × (in 0.07 + out 0.10 MB)）@0x30100000
+
+==============================================================================
+  整网 64²（fclk 读回 100 MHz）
+==============================================================================
+  开跑（冻结运行点，BIN_V50_*=空）  [DEPS] q8=fast c8deq=fast bpack=fast e1e2=fast catpack=fast safe=fast  ⇒ deps_closure_ok=True
+  总 3.320 s（墙钟 3.327）| PL 0.935（E1E2 0.624）| PS 1.295 = prologue 0.914 + epilogue 0.065 + 非卷积 0.316 | overlap 0.207 wait 0.079
+  非卷积分项 {"unshuffle": 0.0004, "convfp": 0.1321, "cat": 0.0376, "add": 0.0051, "interp": 0.062, "eca": 0.0464, "sam": 0.0313, "shuffle": 0.0012}
+  sha1 out1=b8844153a13deeae out2=6a9487b88b76c11f out3=ac8a3188604a7af6  **≠冻结**
+     冻结 out1=bfa246d34681e748311bbcd2f1b87317a56923fe
+     冻结 out2=226bd39e522aa373b8fc183acae5280931f8b63f
+     冻结 out3=762d84b9618eab8922edd6da4f07ba06de865628
+  --- conv: 227 个 op，PL 合计 0.3107 s = 31.1 M 拍，总 term 2.85e+07 ⇒ **cyc/term = 1.09**
+  --- 每个 op 的周期（全量；cyc = PL seconds × fclk）---
+     0 encoder.encoder_1.rdb.conv_lay cin= 48 cout= 64 k=3 32x32→32x32 cb=1 K=    9 cyc=   253749 cyc/term=   0.43
+     1 encoder.encoder_1.rdb.conv_lay cin=112 cout= 64 k=3 32x32→32x32 cb=2 K=   18 cyc=   256920 cyc/term=   0.22
+     2 encoder.encoder_1.rdb.conv_lay cin=176 cout= 64 k=3 32x32→32x32 cb=3 K=   27 cyc=   276160 cyc/term=   0.16
+     3 encoder.encoder_1.rdb.conv_pos cin=240 cout= 48 k=1 32x32→32x32 cb=4 K=    4 cyc=   211596 cyc/term=   1.08
+     4 encoder.encoder_1.sam_blocks.0 cin= 48 cout= 32 k=1 32x32→32x32 cb=1 K=    1 cyc=   343871 cyc/term=  10.49
+     5 encoder.encoder_1.sam_blocks.0 cin= 32 cout= 32 k=3 32x32→32x32 cb=1 K=    9 cyc=   415015 cyc/term=   1.41
+     6 encoder.encoder_1.sam_blocks.0 cin= 48 cout= 32 k=1 16x16→16x16 cb=1 K=    1 cyc=   144839 cyc/term=  17.68
+     7 encoder.encoder_1.sam_blocks.0 cin= 32 cout= 32 k=3 16x16→16x16 cb=1 K=    9 cyc=   401616 cyc/term=   5.45
+     8 encoder.encoder_1.sam_blocks.0 cin= 48 cout= 32 k=1  8x8 → 8x8  cb=1 K=    1 cyc=    15283 cyc/term=   7.46
+     9 encoder.encoder_1.sam_blocks.0 cin= 32 cout= 32 k=3  8x8 → 8x8  cb=1 K=    9 cyc=    15712 cyc/term=   0.85
+    10 encoder.encoder_1.sam_blocks.0 cin=112 cout= 32 k=1 32x32→32x32 cb=2 K=    2 cyc=   352883 cyc/term=   5.38
+    11 encoder.encoder_1.sam_blocks.0 cin=112 cout= 32 k=1 16x16→16x16 cb=2 K=    2 cyc=   240207 cyc/term=  14.66
+    12 encoder.encoder_1.sam_blocks.0 cin= 32 cout= 32 k=3 32x32→32x32 cb=1 K=    9 cyc=   234842 cyc/term=   0.80
+    13 encoder.encoder_1.sam_blocks.0 cin= 32 cout= 32 k=3 16x16→16x16 cb=1 K=    9 cyc=    59652 cyc/term=   0.81
+    14 encoder.encoder_1.sam_blocks.0 cin=176 cout= 32 k=1 32x32→32x32 cb=3 K=    3 cyc=   364208 cyc/term=   3.70
+    15 encoder.encoder_1.sam_blocks.0 cin=176 cout= 32 k=1 16x16→16x16 cb=3 K=    3 cyc=   240993 cyc/term=   9.81
+    16 encoder.encoder_1.sam_blocks.0 cin= 32 cout= 32 k=3 32x32→32x32 cb=1 K=    9 cyc=   241470 cyc/term=   0.82
+    17 encoder.encoder_1.sam_blocks.0 cin= 32 cout= 32 k=3 16x16→16x16 cb=1 K=    9 cyc=    61655 cyc/term=   0.84
+    18 encoder.encoder_1.sam_blocks.0 cin=240 cout= 32 k=1 32x32→32x32 cb=4 K=    4 cyc=   386763 cyc/term=   2.95
+    19 encoder.encoder_1.sam_blocks.0 cin=240 cout= 32 k=1 16x16→16x16 cb=4 K=    4 cyc=   240517 cyc/term=   7.34
+    20 encoder.encoder_1.sam_blocks.0 cin= 32 cout= 32 k=3 32x32→32x32 cb=1 K=    9 cyc=   231004 cyc/term=   0.78
+    21 encoder.encoder_1.sam_blocks.0 cin= 32 cout= 32 k=3 16x16→16x16 cb=1 K=    9 cyc=    64373 cyc/term=   0.87
+    22 encoder.encoder_1.sam_blocks.0 cin=304 cout= 32 k=1 32x32→32x32 cb=5 K=    5 cyc=   406170 cyc/term=   2.48
+    23 encoder.encoder_1.sam_blocks.0 cin=304 cout= 32 k=1 16x16→16x16 cb=5 K=    5 cyc=   237560 cyc/term=   5.80
+    24 encoder.encoder_1.sam_blocks.0 cin= 32 cout= 32 k=3 32x32→32x32 cb=1 K=    9 cyc=   239110 cyc/term=   0.81
+    25 encoder.encoder_1.sam_blocks.0 cin= 32 cout= 32 k=3 16x16→16x16 cb=1 K=    9 cyc=    67258 cyc/term=   0.91
+    26 encoder.encoder_1.sam_blocks.0 cin=368 cout= 48 k=1 32x32→32x32 cb=6 K=    6 cyc=   571895 cyc/term=   1.94
+    27 encoder.encoder_1.sam_blocks.0 cin=368 cout= 48 k=1 16x16→16x16 cb=6 K=    6 cyc=    58222 cyc/term=   0.79
+    28 encoder.encoder_1.sam_blocks.0 cin=112 cout= 32 k=1  8x8 → 8x8  cb=2 K=    2 cyc=    15593 cyc/term=   3.81
+    29 encoder.encoder_1.sam_blocks.0 cin= 32 cout= 32 k=3  8x8 → 8x8  cb=1 K=    9 cyc=    15593 cyc/term=   0.85
+    30 encoder.encoder_1.sam_blocks.0 cin=176 cout= 32 k=1  8x8 → 8x8  cb=3 K=    3 cyc=    15998 cyc/term=   2.60
+    31 encoder.encoder_1.sam_blocks.0 cin= 32 cout= 32 k=3  8x8 → 8x8  cb=1 K=    9 cyc=   504255 cyc/term=  27.36
+    32 encoder.encoder_1.sam_blocks.0 cin=240 cout= 32 k=1  8x8 → 8x8  cb=4 K=    4 cyc=    15903 cyc/term=   1.94
+    33 encoder.encoder_1.sam_blocks.0 cin= 32 cout= 32 k=3  8x8 → 8x8  cb=1 K=    9 cyc=   101304 cyc/term=   5.50
+    34 encoder.encoder_1.sam_blocks.0 cin=304 cout= 32 k=1  8x8 → 8x8  cb=5 K=    5 cyc=    15712 cyc/term=   1.53
+    35 encoder.encoder_1.sam_blocks.0 cin= 32 cout= 32 k=3  8x8 → 8x8  cb=1 K=    9 cyc=    16117 cyc/term=   0.87
+    36 encoder.encoder_1.sam_blocks.0 cin=368 cout= 48 k=1  8x8 → 8x8  cb=6 K=    6 cyc=    39959 cyc/term=   2.17
+    37 encoder.encoder_1.down.conv    cin= 48 cout= 96 k=3 32x32→16x16 cb=1 K=    9 cyc=   150061 cyc/term=   0.68
+    38 encoder.encoder_2.rdb.conv_lay cin= 96 cout= 64 k=3 16x16→16x16 cb=2 K=   18 cyc=   130701 cyc/term=   0.44
+    39 encoder.encoder_2.rdb.conv_lay cin=160 cout= 64 k=3 16x16→16x16 cb=3 K=   27 cyc=   143313 cyc/term=   0.32
+    40 encoder.encoder_2.rdb.conv_lay cin=224 cout= 64 k=3 16x16→16x16 cb=4 K=   36 cyc=   161195 cyc/term=   0.27
+    41 encoder.encoder_2.rdb.conv_pos cin=288 cout= 96 k=1 16x16→16x16 cb=5 K=    5 cyc=   147247 cyc/term=   1.20
+    42 encoder.encoder_2.sam_blocks.0 cin= 96 cout= 32 k=1 16x16→16x16 cb=2 K=    2 cyc=   289965 cyc/term=  17.70
+    43 encoder.encoder_2.sam_blocks.0 cin= 32 cout= 32 k=3 16x16→16x16 cb=1 K=    9 cyc=   412726 cyc/term=   5.60
+    44 encoder.encoder_2.sam_blocks.0 cin= 96 cout= 32 k=1  8x8 → 8x8  cb=2 K=    2 cyc=    15450 cyc/term=   3.77
+    45 encoder.encoder_2.sam_blocks.0 cin= 32 cout= 32 k=3  8x8 → 8x8  cb=1 K=    9 cyc=   261188 cyc/term=  14.17
+    46 encoder.encoder_2.sam_blocks.0 cin= 96 cout= 32 k=1  4x4 → 4x4  cb=2 K=    2 cyc=    15521 cyc/term=  15.16
+    47 encoder.encoder_2.sam_blocks.0 cin= 32 cout= 32 k=3  4x4 → 4x4  cb=1 K=    9 cyc=    15020 cyc/term=   3.26
+    48 encoder.encoder_2.sam_blocks.0 cin=160 cout= 32 k=1 16x16→16x16 cb=3 K=    3 cyc=    56505 cyc/term=   2.30
+    49 encoder.encoder_2.sam_blocks.0 cin= 32 cout= 32 k=3 16x16→16x16 cb=1 K=    9 cyc=   319219 cyc/term=   4.33
+    50 encoder.encoder_2.sam_blocks.0 cin=160 cout= 32 k=1  8x8 → 8x8  cb=3 K=    3 cyc=    15426 cyc/term=   2.51
+    51 encoder.encoder_2.sam_blocks.0 cin= 32 cout= 32 k=3  8x8 → 8x8  cb=1 K=    9 cyc=    59080 cyc/term=   3.21
+    52 encoder.encoder_2.sam_blocks.0 cin=224 cout= 32 k=1 16x16→16x16 cb=4 K=    4 cyc=    58794 cyc/term=   1.79
+    53 encoder.encoder_2.sam_blocks.0 cin= 32 cout= 32 k=3 16x16→16x16 cb=1 K=    9 cyc=   397778 cyc/term=   5.40
+    54 encoder.encoder_2.sam_blocks.0 cin=224 cout= 32 k=1  8x8 → 8x8  cb=4 K=    4 cyc=    15378 cyc/term=   1.88
+    55 encoder.encoder_2.sam_blocks.0 cin= 32 cout= 32 k=3  8x8 → 8x8  cb=1 K=    9 cyc=    15378 cyc/term=   0.83
+    56 encoder.encoder_2.sam_blocks.0 cin=288 cout= 32 k=1 16x16→16x16 cb=5 K=    5 cyc=    62704 cyc/term=   1.53
+    57 encoder.encoder_2.sam_blocks.0 cin= 32 cout= 32 k=3 16x16→16x16 cb=1 K=    9 cyc=   345707 cyc/term=   4.69
+    58 encoder.encoder_2.sam_blocks.0 cin=288 cout= 32 k=1  8x8 → 8x8  cb=5 K=    5 cyc=    15974 cyc/term=   1.56
+    59 encoder.encoder_2.sam_blocks.0 cin= 32 cout= 32 k=3  8x8 → 8x8  cb=1 K=    9 cyc=    63848 cyc/term=   3.46
+    60 encoder.encoder_2.sam_blocks.0 cin=352 cout= 32 k=1 16x16→16x16 cb=6 K=    6 cyc=    63610 cyc/term=   1.29
+    61 encoder.encoder_2.sam_blocks.0 cin= 32 cout= 32 k=3 16x16→16x16 cb=1 K=    9 cyc=   363135 cyc/term=   4.93
+    62 encoder.encoder_2.sam_blocks.0 cin=352 cout= 32 k=1  8x8 → 8x8  cb=6 K=    6 cyc=    16546 cyc/term=   1.35
+    63 encoder.encoder_2.sam_blocks.0 cin= 32 cout= 32 k=3  8x8 → 8x8  cb=1 K=    9 cyc=    66304 cyc/term=   3.60
+    64 encoder.encoder_2.sam_blocks.0 cin=416 cout= 96 k=1 16x16→16x16 cb=7 K=    7 cyc=   433040 cyc/term=   2.52
+    65 encoder.encoder_2.sam_blocks.0 cin=416 cout= 96 k=1  8x8 → 8x8  cb=7 K=    7 cyc=    56005 cyc/term=   1.30
+    66 encoder.encoder_2.sam_blocks.0 cin=160 cout= 32 k=1  4x4 → 4x4  cb=3 K=    3 cyc=    15283 cyc/term=   9.95
+    67 encoder.encoder_2.sam_blocks.0 cin= 32 cout= 32 k=3  4x4 → 4x4  cb=1 K=    9 cyc=    15330 cyc/term=   3.33
+    68 encoder.encoder_2.sam_blocks.0 cin=224 cout= 32 k=1  4x4 → 4x4  cb=4 K=    4 cyc=    15211 cyc/term=   7.43
+    69 encoder.encoder_2.sam_blocks.0 cin= 32 cout= 32 k=3  4x4 → 4x4  cb=1 K=    9 cyc=    15092 cyc/term=   3.28
+    70 encoder.encoder_2.sam_blocks.0 cin=288 cout= 32 k=1  4x4 → 4x4  cb=5 K=    5 cyc=    15259 cyc/term=   5.96
+    71 encoder.encoder_2.sam_blocks.0 cin= 32 cout= 32 k=3  4x4 → 4x4  cb=1 K=    9 cyc=    14901 cyc/term=   3.23
+    72 encoder.encoder_2.sam_blocks.0 cin=352 cout= 32 k=1  4x4 → 4x4  cb=6 K=    6 cyc=    15235 cyc/term=   4.96
+    73 encoder.encoder_2.sam_blocks.0 cin= 32 cout= 32 k=3  4x4 → 4x4  cb=1 K=    9 cyc=    15140 cyc/term=   3.29
+    74 encoder.encoder_2.sam_blocks.0 cin=416 cout= 96 k=1  4x4 → 4x4  cb=7 K=    7 cyc=   355387 cyc/term=  33.05
+    75 encoder.encoder_2.down.conv    cin= 96 cout=192 k=3 16x16→ 8x8  cb=2 K=   18 cyc=   130796 cyc/term=   0.59
+    76 encoder.encoder_3.rdb.conv_lay cin=192 cout= 64 k=3  8x8 → 8x8  cb=3 K=   27 cyc=   113678 cyc/term=   1.03
+    77 encoder.encoder_3.rdb.conv_lay cin=256 cout= 64 k=3  8x8 → 8x8  cb=4 K=   36 cyc=   109291 cyc/term=   0.74
+    78 encoder.encoder_3.rdb.conv_lay cin=320 cout= 64 k=3  8x8 → 8x8  cb=5 K=   45 cyc=   117517 cyc/term=   0.64
+    79 encoder.encoder_3.rdb.conv_pos cin=384 cout=192 k=1  8x8 → 8x8  cb=6 K=    6 cyc=   122905 cyc/term=   1.67
+    80 encoder.encoder_3.sam_blocks.0 cin=192 cout= 32 k=1  8x8 → 8x8  cb=3 K=    3 cyc=    14830 cyc/term=   2.41
+    81 encoder.encoder_3.sam_blocks.0 cin= 32 cout= 32 k=3  8x8 → 8x8  cb=1 K=    9 cyc=   256634 cyc/term=  13.92
+    82 encoder.encoder_3.sam_blocks.0 cin=192 cout= 32 k=1  4x4 → 4x4  cb=3 K=    3 cyc=    15163 cyc/term=   9.87
+    83 encoder.encoder_3.sam_blocks.0 cin= 32 cout= 32 k=3  4x4 → 4x4  cb=1 K=    9 cyc=    15259 cyc/term=   3.31
+    84 encoder.encoder_3.sam_blocks.0 cin=192 cout= 32 k=1  2x2 → 2x2  cb=3 K=    3 cyc=    14830 cyc/term=  38.62
+    85 encoder.encoder_3.sam_blocks.0 cin= 32 cout= 32 k=3  2x2 → 2x2  cb=1 K=    9 cyc=    14782 cyc/term=  12.83
+    86 encoder.encoder_3.sam_blocks.0 cin=256 cout= 32 k=1  8x8 → 8x8  cb=4 K=    4 cyc=    14901 cyc/term=   1.82
+    87 encoder.encoder_3.sam_blocks.0 cin= 32 cout= 32 k=3  8x8 → 8x8  cb=1 K=    9 cyc=    55766 cyc/term=   3.03
+    88 encoder.encoder_3.sam_blocks.0 cin=256 cout= 32 k=1  4x4 → 4x4  cb=4 K=    4 cyc=    14901 cyc/term=   7.28
+    89 encoder.encoder_3.sam_blocks.0 cin= 32 cout= 32 k=3  4x4 → 4x4  cb=1 K=    9 cyc=    15140 cyc/term=   3.29
+    90 encoder.encoder_3.sam_blocks.0 cin=320 cout= 32 k=1  8x8 → 8x8  cb=5 K=    5 cyc=    15283 cyc/term=   1.49
+    91 encoder.encoder_3.sam_blocks.0 cin= 32 cout= 32 k=3  8x8 → 8x8  cb=1 K=    9 cyc=    58484 cyc/term=   3.17
+    92 encoder.encoder_3.sam_blocks.0 cin=320 cout= 32 k=1  4x4 → 4x4  cb=5 K=    5 cyc=    15450 cyc/term=   6.03
+    93 encoder.encoder_3.sam_blocks.0 cin= 32 cout= 32 k=3  4x4 → 4x4  cb=1 K=    9 cyc=    14949 cyc/term=   3.24
+    94 encoder.encoder_3.sam_blocks.0 cin=384 cout= 32 k=1  8x8 → 8x8  cb=6 K=    6 cyc=    61131 cyc/term=   4.97
+    95 encoder.encoder_3.sam_blocks.0 cin= 32 cout= 32 k=3  8x8 → 8x8  cb=1 K=    9 cyc=   353122 cyc/term=  19.16
+    96 encoder.encoder_3.sam_blocks.0 cin=384 cout= 32 k=1  4x4 → 4x4  cb=6 K=    6 cyc=    14925 cyc/term=   4.86
+    97 encoder.encoder_3.sam_blocks.0 cin= 32 cout= 32 k=3  4x4 → 4x4  cb=1 K=    9 cyc=    14973 cyc/term=   3.25
+    98 encoder.encoder_3.sam_blocks.0 cin=448 cout= 32 k=1  8x8 → 8x8  cb=7 K=    7 cyc=    63753 cyc/term=   4.45
+    99 encoder.encoder_3.sam_blocks.0 cin= 32 cout= 32 k=3  8x8 → 8x8  cb=1 K=    9 cyc=   376606 cyc/term=  20.43
+   100 encoder.encoder_3.sam_blocks.0 cin=448 cout= 32 k=1  4x4 → 4x4  cb=7 K=    7 cyc=    14949 cyc/term=   4.17
+   101 encoder.encoder_3.sam_blocks.0 cin= 32 cout= 32 k=3  4x4 → 4x4  cb=1 K=    9 cyc=    15020 cyc/term=   3.26
+   102 encoder.encoder_3.sam_blocks.0 cin=512 cout=192 k=1  8x8 → 8x8  cb=8 K=    8 cyc=    67425 cyc/term=   0.69
+   103 encoder.encoder_3.sam_blocks.0 cin=512 cout=192 k=1  4x4 → 4x4  cb=8 K=    8 cyc=    55361 cyc/term=   2.25
+   104 encoder.encoder_3.sam_blocks.0 cin=256 cout= 32 k=1  2x2 → 2x2  cb=4 K=    4 cyc=    15521 cyc/term=  30.31
+   105 encoder.encoder_3.sam_blocks.0 cin= 32 cout= 32 k=3  2x2 → 2x2  cb=1 K=    9 cyc=    14973 cyc/term=  13.00
+   106 encoder.encoder_3.sam_blocks.0 cin=320 cout= 32 k=1  2x2 → 2x2  cb=5 K=    5 cyc=    14925 cyc/term=  23.32
+   107 encoder.encoder_3.sam_blocks.0 cin= 32 cout= 32 k=3  2x2 → 2x2  cb=1 K=    9 cyc=    14973 cyc/term=  13.00
+   108 encoder.encoder_3.sam_blocks.0 cin=384 cout= 32 k=1  2x2 → 2x2  cb=6 K=    6 cyc=    15473 cyc/term=  20.15
+   109 encoder.encoder_3.sam_blocks.0 cin= 32 cout= 32 k=3  2x2 → 2x2  cb=1 K=    9 cyc=    14925 cyc/term=  12.96
+   110 encoder.encoder_3.sam_blocks.0 cin=448 cout= 32 k=1  2x2 → 2x2  cb=7 K=    7 cyc=    14639 cyc/term=  16.34
+   111 encoder.encoder_3.sam_blocks.0 cin= 32 cout= 32 k=3  2x2 → 2x2  cb=1 K=    9 cyc=    14758 cyc/term=  12.81
+   112 encoder.encoder_3.sam_blocks.0 cin=512 cout=192 k=1  2x2 → 2x2  cb=8 K=    8 cyc=   291729 cyc/term=  47.48
+   113 decoder.preconv_3.conv         cin=192 cout= 64 k=3  8x8 → 8x8  cb=3 K=   27 cyc=   105166 cyc/term=   0.95
+   114 decoder.decoder_3.rdb.conv_lay cin= 64 cout= 96 k=3  8x8 → 8x8  cb=1 K=    9 cyc=   105786 cyc/term=   1.91
+   115 decoder.decoder_3.rdb.conv_lay cin=160 cout= 96 k=3  8x8 → 8x8  cb=3 K=   27 cyc=   116801 cyc/term=   0.70
+   116 decoder.decoder_3.rdb.conv_lay cin=256 cout= 96 k=3  8x8 → 8x8  cb=4 K=   36 cyc=   123525 cyc/term=   0.56
+   117 decoder.decoder_3.rdb.conv_pos cin=352 cout= 64 k=1  8x8 → 8x8  cb=6 K=    6 cyc=   106430 cyc/term=   4.33
+   118 decoder.decoder_3.sam_blocks.0 cin= 64 cout= 48 k=1  8x8 → 8x8  cb=1 K=    1 cyc=   121140 cyc/term=  39.43
+   119 decoder.decoder_3.sam_blocks.0 cin= 48 cout= 48 k=3  8x8 → 8x8  cb=1 K=    9 cyc=   382328 cyc/term=  13.83
+   120 decoder.decoder_3.sam_blocks.0 cin= 64 cout= 48 k=1  4x4 → 4x4  cb=1 K=    1 cyc=    14615 cyc/term=  19.03
+   121 decoder.decoder_3.sam_blocks.0 cin= 48 cout= 48 k=3  4x4 → 4x4  cb=1 K=    9 cyc=    14734 cyc/term=   2.13
+   122 decoder.decoder_3.sam_blocks.0 cin= 64 cout= 48 k=1  2x2 → 2x2  cb=1 K=    1 cyc=    14830 cyc/term=  77.24
+   123 decoder.decoder_3.sam_blocks.0 cin= 48 cout= 48 k=3  2x2 → 2x2  cb=1 K=    9 cyc=    14853 cyc/term=   8.60
+   124 decoder.decoder_3.sam_blocks.0 cin=160 cout= 48 k=1  8x8 → 8x8  cb=3 K=    3 cyc=    54455 cyc/term=   5.91
+   125 decoder.decoder_3.sam_blocks.0 cin= 48 cout= 48 k=3  8x8 → 8x8  cb=1 K=    9 cyc=   416183 cyc/term=  15.05
+   126 decoder.decoder_3.sam_blocks.0 cin=160 cout= 48 k=1  4x4 → 4x4  cb=3 K=    3 cyc=    14687 cyc/term=   6.37
+   127 decoder.decoder_3.sam_blocks.0 cin= 48 cout= 48 k=3  4x4 → 4x4  cb=1 K=    9 cyc=    14973 cyc/term=   2.17
+   128 decoder.decoder_3.sam_blocks.0 cin=256 cout= 48 k=1  8x8 → 8x8  cb=4 K=    4 cyc=    57912 cyc/term=   4.71
+   129 decoder.decoder_3.sam_blocks.0 cin= 48 cout= 48 k=3  8x8 → 8x8  cb=1 K=    9 cyc=   333858 cyc/term=  12.08
+   130 decoder.decoder_3.sam_blocks.0 cin=256 cout= 48 k=1  4x4 → 4x4  cb=4 K=    4 cyc=    14782 cyc/term=   4.81
+   131 decoder.decoder_3.sam_blocks.0 cin= 48 cout= 48 k=3  4x4 → 4x4  cb=1 K=    9 cyc=    14901 cyc/term=   2.16
+   132 decoder.decoder_3.sam_blocks.0 cin=352 cout= 48 k=1  8x8 → 8x8  cb=6 K=    6 cyc=    67711 cyc/term=   3.67
+   133 decoder.decoder_3.sam_blocks.0 cin= 48 cout= 48 k=3  8x8 → 8x8  cb=1 K=    9 cyc=   348425 cyc/term=  12.60
+   134 decoder.decoder_3.sam_blocks.0 cin=352 cout= 48 k=1  4x4 → 4x4  cb=6 K=    6 cyc=    15259 cyc/term=   3.31
+   135 decoder.decoder_3.sam_blocks.0 cin= 48 cout= 48 k=3  4x4 → 4x4  cb=1 K=    9 cyc=    14472 cyc/term=   2.09
+   136 decoder.decoder_3.sam_blocks.0 cin=448 cout= 48 k=1  8x8 → 8x8  cb=7 K=    7 cyc=    71192 cyc/term=   3.31
+   137 decoder.decoder_3.sam_blocks.0 cin= 48 cout= 48 k=3  8x8 → 8x8  cb=1 K=    9 cyc=   359154 cyc/term=  12.99
+   138 decoder.decoder_3.sam_blocks.0 cin=448 cout= 48 k=1  4x4 → 4x4  cb=7 K=    7 cyc=    14734 cyc/term=   2.74
+   139 decoder.decoder_3.sam_blocks.0 cin= 48 cout= 48 k=3  4x4 → 4x4  cb=1 K=    9 cyc=    14544 cyc/term=   2.10
+   140 decoder.decoder_3.sam_blocks.0 cin=544 cout= 64 k=1  8x8 → 8x8  cb=9 K=    9 cyc=    67234 cyc/term=   1.82
+   141 decoder.decoder_3.sam_blocks.0 cin=544 cout= 64 k=1  4x4 → 4x4  cb=9 K=    9 cyc=    15497 cyc/term=   1.68
+   142 decoder.decoder_3.sam_blocks.0 cin=160 cout= 48 k=1  2x2 → 2x2  cb=3 K=    3 cyc=    14949 cyc/term=  25.95
+   143 decoder.decoder_3.sam_blocks.0 cin= 48 cout= 48 k=3  2x2 → 2x2  cb=1 K=    9 cyc=    14997 cyc/term=   8.68
+   144 decoder.decoder_3.sam_blocks.0 cin=256 cout= 48 k=1  2x2 → 2x2  cb=4 K=    4 cyc=    14663 cyc/term=  19.09
+   145 decoder.decoder_3.sam_blocks.0 cin= 48 cout= 48 k=3  2x2 → 2x2  cb=1 K=    9 cyc=    15068 cyc/term=   8.72
+   146 decoder.decoder_3.sam_blocks.0 cin=352 cout= 48 k=1  2x2 → 2x2  cb=6 K=    6 cyc=    14997 cyc/term=  13.02
+   147 decoder.decoder_3.sam_blocks.0 cin= 48 cout= 48 k=3  2x2 → 2x2  cb=1 K=    9 cyc=    14663 cyc/term=   8.49
+   148 decoder.decoder_3.sam_blocks.0 cin=448 cout= 48 k=1  2x2 → 2x2  cb=7 K=    7 cyc=    15187 cyc/term=  11.30
+   149 decoder.decoder_3.sam_blocks.0 cin= 48 cout= 48 k=3  2x2 → 2x2  cb=1 K=    9 cyc=    14687 cyc/term=   8.50
+   150 decoder.decoder_3.sam_blocks.0 cin=544 cout= 64 k=1  2x2 → 2x2  cb=9 K=    9 cyc=    15378 cyc/term=   6.67
+   151 decoder.preconv_2.conv         cin=160 cout= 64 k=3 16x16→16x16 cb=3 K=   27 cyc=   136447 cyc/term=   0.31
+   152 decoder.decoder_2.rdb.conv_lay cin= 64 cout= 96 k=3 16x16→16x16 cb=1 K=    9 cyc=   146985 cyc/term=   0.66
+   153 decoder.decoder_2.rdb.conv_lay cin=160 cout= 96 k=3 16x16→16x16 cb=3 K=   27 cyc=   163293 cyc/term=   0.25
+   154 decoder.decoder_2.rdb.conv_lay cin=256 cout= 96 k=3 16x16→16x16 cb=4 K=   36 cyc=   185037 cyc/term=   0.21
+   155 decoder.decoder_2.rdb.conv_pos cin=352 cout= 64 k=1 16x16→16x16 cb=6 K=    6 cyc=   137591 cyc/term=   1.40
+   156 decoder.decoder_2.sam_blocks.0 cin= 64 cout= 48 k=1 16x16→16x16 cb=1 K=    1 cyc=   138164 cyc/term=  11.24
+   157 decoder.decoder_2.sam_blocks.0 cin= 48 cout= 48 k=3 16x16→16x16 cb=1 K=    9 cyc=   372720 cyc/term=   3.37
+   158 decoder.decoder_2.sam_blocks.0 cin= 64 cout= 48 k=1  8x8 → 8x8  cb=1 K=    1 cyc=   119948 cyc/term=  39.05
+   159 decoder.decoder_2.sam_blocks.0 cin= 48 cout= 48 k=3  8x8 → 8x8  cb=1 K=    9 cyc=   375056 cyc/term=  13.57
+   160 decoder.decoder_2.sam_blocks.0 cin= 64 cout= 48 k=1  4x4 → 4x4  cb=1 K=    1 cyc=    13971 cyc/term=  18.19
+   161 decoder.decoder_2.sam_blocks.0 cin= 48 cout= 48 k=3  4x4 → 4x4  cb=1 K=    9 cyc=    14281 cyc/term=   2.07
+   162 decoder.decoder_2.sam_blocks.0 cin=160 cout= 48 k=1 16x16→16x16 cb=3 K=    3 cyc=    53239 cyc/term=   1.44
+   163 decoder.decoder_2.sam_blocks.0 cin= 48 cout= 48 k=3 16x16→16x16 cb=1 K=    9 cyc=   404763 cyc/term=   3.66
+   164 decoder.decoder_2.sam_blocks.0 cin=160 cout= 48 k=1  8x8 → 8x8  cb=3 K=    3 cyc=    56291 cyc/term=   6.11
+   165 decoder.decoder_2.sam_blocks.0 cin=256 cout= 48 k=1 16x16→16x16 cb=4 K=    4 cyc=   229597 cyc/term=   4.67
+   166 decoder.decoder_2.sam_blocks.0 cin= 48 cout= 48 k=3  8x8 → 8x8  cb=1 K=    9 cyc=   220370 cyc/term=   7.97
+   167 decoder.decoder_2.sam_blocks.0 cin= 48 cout= 48 k=3 16x16→16x16 cb=1 K=    9 cyc=    55170 cyc/term=   0.50
+   168 decoder.decoder_2.sam_blocks.0 cin=256 cout= 48 k=1  8x8 → 8x8  cb=4 K=    4 cyc=    57817 cyc/term=   4.71
+   169 decoder.decoder_2.sam_blocks.0 cin=352 cout= 48 k=1 16x16→16x16 cb=6 K=    6 cyc=   235772 cyc/term=   3.20
+   170 decoder.decoder_2.sam_blocks.0 cin= 48 cout= 48 k=3  8x8 → 8x8  cb=1 K=    9 cyc=   304031 cyc/term=  11.00
+   171 decoder.decoder_2.sam_blocks.0 cin= 48 cout= 48 k=3 16x16→16x16 cb=1 K=    9 cyc=    59485 cyc/term=   0.54
+   172 decoder.decoder_2.sam_blocks.0 cin=352 cout= 48 k=1  8x8 → 8x8  cb=6 K=    6 cyc=    61417 cyc/term=   3.33
+   173 decoder.decoder_2.sam_blocks.0 cin=448 cout= 48 k=1 16x16→16x16 cb=7 K=    7 cyc=   225401 cyc/term=   2.62
+   174 decoder.decoder_2.sam_blocks.0 cin= 48 cout= 48 k=3  8x8 → 8x8  cb=1 K=    9 cyc=   232053 cyc/term=   8.39
+   175 decoder.decoder_2.sam_blocks.0 cin= 48 cout= 48 k=3 16x16→16x16 cb=1 K=    9 cyc=    60749 cyc/term=   0.55
+   176 decoder.decoder_2.sam_blocks.0 cin=448 cout= 48 k=1  8x8 → 8x8  cb=7 K=    7 cyc=    64921 cyc/term=   3.02
+   177 decoder.decoder_2.sam_blocks.0 cin=544 cout= 64 k=1 16x16→16x16 cb=9 K=    9 cyc=   228333 cyc/term=   1.55
+   178 decoder.decoder_2.sam_blocks.0 cin= 48 cout= 48 k=3  8x8 → 8x8  cb=1 K=    9 cyc=    53525 cyc/term=   1.94
+   179 decoder.decoder_2.sam_blocks.0 cin=160 cout= 48 k=1  4x4 → 4x4  cb=3 K=    3 cyc=    14019 cyc/term=   6.08
+   180 decoder.decoder_2.sam_blocks.0 cin= 48 cout= 48 k=3  4x4 → 4x4  cb=1 K=    9 cyc=    14162 cyc/term=   2.05
+   181 decoder.decoder_2.sam_blocks.0 cin=544 cout= 64 k=1  8x8 → 8x8  cb=9 K=    9 cyc=    55361 cyc/term=   1.50
+   182 decoder.decoder_2.sam_blocks.0 cin=256 cout= 48 k=1  4x4 → 4x4  cb=4 K=    4 cyc=    14353 cyc/term=   4.67
+   183 decoder.decoder_2.sam_blocks.0 cin= 48 cout= 48 k=3  4x4 → 4x4  cb=1 K=    9 cyc=    14353 cyc/term=   2.08
+   184 decoder.decoder_2.sam_blocks.0 cin=352 cout= 48 k=1  4x4 → 4x4  cb=6 K=    6 cyc=    14138 cyc/term=   3.07
+   185 decoder.decoder_2.sam_blocks.0 cin= 48 cout= 48 k=3  4x4 → 4x4  cb=1 K=    9 cyc=    14281 cyc/term=   2.07
+   186 decoder.decoder_2.sam_blocks.0 cin=448 cout= 48 k=1  4x4 → 4x4  cb=7 K=    7 cyc=    14496 cyc/term=   2.70
+   187 decoder.decoder_2.sam_blocks.0 cin= 48 cout= 48 k=3  4x4 → 4x4  cb=1 K=    9 cyc=    14067 cyc/term=   2.04
+   188 decoder.decoder_2.sam_blocks.0 cin=544 cout= 64 k=1  4x4 → 4x4  cb=9 K=    9 cyc=   181055 cyc/term=  19.65
+   189 decoder.preconv_1.conv         cin=112 cout= 64 k=3 32x32→32x32 cb=2 K=   18 cyc=   254273 cyc/term=   0.22
+   190 decoder.decoder_1.rdb.conv_lay cin= 64 cout= 96 k=3 32x32→32x32 cb=1 K=    9 cyc=   331926 cyc/term=   0.38
+   191 decoder.decoder_1.rdb.conv_lay cin=160 cout= 96 k=3 32x32→32x32 cb=3 K=   27 cyc=   363016 cyc/term=   0.14
+   192 decoder.decoder_1.rdb.conv_lay cin=256 cout= 96 k=3 32x32→32x32 cb=4 K=   36 cyc=   440812 cyc/term=   0.12
+   193 decoder.decoder_1.rdb.conv_pos cin=352 cout= 64 k=1 32x32→32x32 cb=6 K=    6 cyc=   252128 cyc/term=   0.64
+   194 decoder.decoder_1.sam_blocks.0 cin= 64 cout= 48 k=1 32x32→32x32 cb=1 K=    1 cyc=   214410 cyc/term=   4.36
+   195 decoder.decoder_1.sam_blocks.0 cin= 48 cout= 48 k=3 32x32→32x32 cb=1 K=    9 cyc=   410342 cyc/term=   0.93
+   196 decoder.decoder_1.sam_blocks.0 cin= 64 cout= 48 k=1 16x16→16x16 cb=1 K=    1 cyc=   146484 cyc/term=  11.92
+   197 decoder.decoder_1.sam_blocks.0 cin= 48 cout= 48 k=3 16x16→16x16 cb=1 K=    9 cyc=   409555 cyc/term=   3.70
+   198 decoder.decoder_1.sam_blocks.0 cin= 64 cout= 48 k=1  8x8 → 8x8  cb=1 K=    1 cyc=    24438 cyc/term=   7.96
+   199 decoder.decoder_1.sam_blocks.0 cin= 48 cout= 48 k=3  8x8 → 8x8  cb=1 K=    9 cyc=    53740 cyc/term=   1.94
+   200 decoder.decoder_1.sam_blocks.0 cin=160 cout= 48 k=1 32x32→32x32 cb=3 K=    3 cyc=   477076 cyc/term=   3.24
+   201 decoder.decoder_1.sam_blocks.0 cin=160 cout= 48 k=1 16x16→16x16 cb=3 K=    3 cyc=   315738 cyc/term=   8.56
+   202 decoder.decoder_1.sam_blocks.0 cin= 48 cout= 48 k=3 32x32→32x32 cb=1 K=    9 cyc=   221610 cyc/term=   0.50
+   203 decoder.decoder_1.sam_blocks.0 cin= 48 cout= 48 k=3 16x16→16x16 cb=1 K=    9 cyc=    56124 cyc/term=   0.51
+   204 decoder.decoder_1.sam_blocks.0 cin=256 cout= 48 k=1 32x32→32x32 cb=4 K=    4 cyc=   348544 cyc/term=   1.77
+   205 decoder.decoder_1.sam_blocks.0 cin=256 cout= 48 k=1 16x16→16x16 cb=4 K=    4 cyc=   254846 cyc/term=   5.18
+   206 decoder.decoder_1.sam_blocks.0 cin= 48 cout= 48 k=3 32x32→32x32 cb=1 K=    9 cyc=   231504 cyc/term=   0.52
+   207 decoder.decoder_1.sam_blocks.0 cin= 48 cout= 48 k=3 16x16→16x16 cb=1 K=    9 cyc=    58174 cyc/term=   0.53
+   208 decoder.decoder_1.sam_blocks.0 cin=352 cout= 48 k=1 32x32→32x32 cb=6 K=    6 cyc=   411320 cyc/term=   1.39
+   209 decoder.decoder_1.sam_blocks.0 cin=352 cout= 48 k=1 16x16→16x16 cb=6 K=    6 cyc=   228357 cyc/term=   3.10
+   210 decoder.decoder_1.sam_blocks.0 cin= 48 cout= 48 k=3 32x32→32x32 cb=1 K=    9 cyc=   221658 cyc/term=   0.50
+   211 decoder.decoder_1.sam_blocks.0 cin= 48 cout= 48 k=3 16x16→16x16 cb=1 K=    9 cyc=    61202 cyc/term=   0.55
+   212 decoder.decoder_1.sam_blocks.0 cin=448 cout= 48 k=1 32x32→32x32 cb=7 K=    7 cyc=   413394 cyc/term=   1.20
+   213 decoder.decoder_1.sam_blocks.0 cin=448 cout= 48 k=1 16x16→16x16 cb=7 K=    7 cyc=   225782 cyc/term=   2.62
+   214 decoder.decoder_1.sam_blocks.0 cin= 48 cout= 48 k=3 32x32→32x32 cb=1 K=    9 cyc=   290370 cyc/term=   0.66
+   215 decoder.decoder_1.sam_blocks.0 cin= 48 cout= 48 k=3 16x16→16x16 cb=1 K=    9 cyc=    72074 cyc/term=   0.65
+   216 decoder.decoder_1.sam_blocks.0 cin=544 cout= 64 k=1 32x32→32x32 cb=9 K=    9 cyc=   416589 cyc/term=   0.71
+   217 decoder.decoder_1.sam_blocks.0 cin=544 cout= 64 k=1 16x16→16x16 cb=9 K=    9 cyc=    55170 cyc/term=   0.37
+   218 decoder.decoder_1.sam_blocks.0 cin=160 cout= 48 k=1  8x8 → 8x8  cb=3 K=    3 cyc=   480843 cyc/term=  52.17
+   219 decoder.decoder_1.sam_blocks.0 cin= 48 cout= 48 k=3  8x8 → 8x8  cb=1 K=    9 cyc=   107765 cyc/term=   3.90
+   220 decoder.decoder_1.sam_blocks.0 cin=256 cout= 48 k=1  8x8 → 8x8  cb=4 K=    4 cyc=    99087 cyc/term=   8.06
+   221 decoder.decoder_1.sam_blocks.0 cin= 48 cout= 48 k=3  8x8 → 8x8  cb=1 K=    9 cyc=    98038 cyc/term=   3.55
+   222 decoder.decoder_1.sam_blocks.0 cin=352 cout= 48 k=1  8x8 → 8x8  cb=6 K=    6 cyc=   100017 cyc/term=   5.43
+   223 decoder.decoder_1.sam_blocks.0 cin= 48 cout= 48 k=3  8x8 → 8x8  cb=1 K=    9 cyc=    97203 cyc/term=   3.52
+   224 decoder.decoder_1.sam_blocks.0 cin=448 cout= 48 k=1  8x8 → 8x8  cb=7 K=    7 cyc=    98205 cyc/term=   4.57
+   225 decoder.decoder_1.sam_blocks.0 cin= 48 cout= 48 k=3  8x8 → 8x8  cb=1 K=    9 cyc=   106096 cyc/term=   3.84
+   226 decoder.decoder_1.sam_blocks.0 cin=544 cout= 64 k=1  8x8 → 8x8  cb=9 K=    9 cyc=   102663 cyc/term=   2.78
+  --- 第 3 层是否挂死：未挂死（227 个 conv op 全部返回）
+
+==============================================================================
+  金丝雀 + magic 复核
+==============================================================================
+  arena 0x30100000 长度 4.29 MB；每次 op 都 fill+check_canary，0 次抛异常 ⇒ 金丝雀 0 字节被写坏
+  跑后 0x314 = 0x50300001（仍是 magic ✓）；0x310 = 0x00000403
+[json] 已落盘 /home/xilinx/demoir/t96_out/t96_v51_013455.json
+  ⇒ **停**：64² 三个 sha1 ≠ 冻结值，不跑 256²

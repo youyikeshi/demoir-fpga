@@ -1,0 +1,468 @@
+{
+ "env_at_start": {
+  "BIN_PACK": "e1e2",
+  "BIN_LAZY_DEQ": "1",
+  "BIN_LAZY_SLOTS": "24",
+  "BIN_CAT_FUSION": "1",
+  "BIN_BILINEAR_C": "1",
+  "BIN_PRECOMP": "1",
+  "Q8CACHE": "1",
+  "BIN_F32DIRECT": "1",
+  "BIN_CAT_ECA_FUSE": "1",
+  "BIN_EPI_NOINV": "1",
+  "BIN_PROFILE": "1",
+  "Q8CACHE_MB": "32",
+  "BIN_V50_FUSE": "",
+  "BIN_VLANES": ""
+ },
+ "steps": {
+  "load": {
+   "bit": "/home/xilinx/demoir/design_1_150v51.bit",
+   "seconds": 2.4946,
+   "ips": [
+    "bin_unit_0",
+    "conv_uni_0",
+    "ps7"
+   ],
+   "addr": {
+    "conv_uni_0": {
+     "base": 1074003968,
+     "base_hex": "0x40040000",
+     "length": 131072,
+     "ok": true
+    },
+    "bin_unit_0": {
+     "base": 1074135040,
+     "base_hex": "0x40060000",
+     "length": 131072,
+     "ok": true
+    }
+   },
+   "fconv_present": false,
+   "magic": {
+    "CFG+0x314 (契约口径)": {
+     "abs_addr": "0x40070314",
+     "value": 1345323009,
+     "hex": "0x50300001"
+    },
+    "base+0x314 (任务书字面)": {
+     "abs_addr": "0x40060314",
+     "value": 0,
+     "hex": "0x00000000"
+    },
+    "0x310 CHAIN_STATUS": {
+     "abs_addr": "0x40060310",
+     "value": 0,
+     "hex": "0x00000000"
+    },
+    "0x308 BAND_ROWS": {
+     "abs_addr": "0x40060308",
+     "value": 0,
+     "hex": "0x00000000"
+    }
+   },
+   "magic_ok": true,
+   "status310_reset": 0,
+   "fp_ok": true
+  },
+  "fclk": {
+   "target": 100.0,
+   "readback": 100.0,
+   "ok": true,
+   "used": 100.0
+  },
+  "kernel_load": {
+   "seconds": 7.0684
+  },
+  "layers": [
+   {
+    "tag": "cin48_k3_d1",
+    "name": "encoder.encoder_1.rdb.conv_layers.0.conv",
+    "cin": 48,
+    "cout": 64,
+    "k": 3,
+    "error": "TypeError(\"Cannot cast array data from dtype('int64') to dtype('int32') according to the rule 'safe'\")",
+    "ok": false
+   },
+   {
+    "tag": "cin112_k3_d2",
+    "name": "encoder.encoder_1.rdb.conv_layers.1.conv",
+    "cin": 112,
+    "cout": 64,
+    "k": 3,
+    "error": "TypeError(\"Cannot cast array data from dtype('int64') to dtype('int32') according to the rule 'safe'\")",
+    "ok": false
+   },
+   {
+    "tag": "cin176_k3_d1",
+    "name": "encoder.encoder_1.rdb.conv_layers.2.conv",
+    "cin": 176,
+    "cout": 64,
+    "k": 3,
+    "error": "TypeError(\"Cannot cast array data from dtype('int64') to dtype('int32') according to the rule 'safe'\")",
+    "ok": false
+   },
+   {
+    "tag": "cin240_k1",
+    "name": "encoder.encoder_1.rdb.conv_post.conv",
+    "cin": 240,
+    "cout": 48,
+    "k": 1,
+    "error": "TypeError(\"Cannot cast array data from dtype('int64') to dtype('int32') according to the rule 'safe'\")",
+    "ok": false
+   },
+   {
+    "tag": "cin512_k1",
+    "name": "encoder.encoder_3.sam_blocks.0.b0.conv.conv",
+    "cin": 512,
+    "cout": 192,
+    "k": 1,
+    "error": "TypeError(\"Cannot cast array data from dtype('int64') to dtype('int32') according to the rule 'safe'\")",
+    "ok": false
+   }
+  ],
+  "layers_all_ok": false,
+  "net64": {
+   "tag": "net64",
+   "hw": 64,
+   "slots": 24,
+   "fclk": 100.0,
+   "x0_sha1": "bbae82e46e363a776d8fce8d9004e94502456bdc",
+   "total_s": 3.319765090942383,
+   "wall_s": 3.3266,
+   "pl_s": 0.9351935386657715,
+   "pack_pl": 0.6244993209838867,
+   "ps_s": 1.2949110575646046,
+   "prologue": 0.9136593341827393,
+   "epilogue": 0.06517449102102546,
+   "nonconv": 0.31607723236083984,
+   "overlap": 0.20653581619262695,
+   "wait": 0.07873749732971191,
+   "mmio": 6167,
+   "prof": {
+    "unshuffle": 0.0004,
+    "convfp": 0.1321,
+    "cat": 0.0376,
+    "add": 0.0051,
+    "interp": 0.062,
+    "eca": 0.0464,
+    "sam": 0.0313,
+    "shuffle": 0.0012
+   },
+   "lazy": {
+    "pinned": 198,
+    "released": 198,
+    "starved": 0,
+    "direct_layers": 227,
+    "mixed_layers": 0,
+    "ps_layers": 0,
+    "deq_skipped": 198,
+    "direct_bytes": 8030144,
+    "f32_bytes": 483840
+   },
+   "cat": {
+    "ops": 116,
+    "fused": 110,
+    "fallback": 0,
+    "leaves": 688,
+    "channels": 34256,
+    "bytes": 29298176,
+    "pack_none": 0,
+    "fallback_reason": {},
+    "ops_by_class": {
+     "i8": 60,
+     "mixed1": 50,
+     "mixed2": 0,
+     "blocked": 6
+    },
+    "cat_s": {
+     "i8": 0.017295077988819685,
+     "mixed1": 0.013259604027552996,
+     "mixed2": 0.0,
+     "blocked": 0.001117295993026346
+    },
+    "pack_s": {
+     "i8": 0.13199099603662034,
+     "mixed1": 0.1259994370120694,
+     "mixed2": 0.0,
+     "blocked": 0.0,
+     "single_i8": 0.08743095098907361,
+     "single_f32": 0.29822728600993287
+    },
+    "f32_leaf_bytes_mixed": 5799936,
+    "cats_mixed": 50,
+    "q8_hits": 89,
+    "q8_fs_conflict": 24,
+    "cat_pack_s": {
+     "i8": 0.14928607402544003,
+     "mixed1": 0.1392590410396224,
+     "mixed2": 0.0,
+     "blocked": 0.001117295993026346
+    },
+    "cat_pack_fused_s": 0.2885451150650624
+   },
+   "sha1": {
+    "out1": "b8844153a13deeaebc81767fda42577a1659d665",
+    "out2": "6a9487b88b76c11f4479085081cfdb146902417d",
+    "out3": "ac8a3188604a7af61cfa7a2a7e4606418f5a0c2b"
+   },
+   "expect": [
+    "bfa246d34681e748311bbcd2f1b87317a56923fe",
+    "226bd39e522aa373b8fc183acae5280931f8b63f",
+    "762d84b9618eab8922edd6da4f07ba06de865628"
+   ],
+   "sha_ok": false,
+   "deps_closure_ok": true,
+   "kernel_deps": {
+    "q8": "fast",
+    "c8deq": "fast",
+    "bpack": "fast",
+    "safe": "fast",
+    "e1e2": "fast",
+    "catpack": "fast"
+   },
+   "run_valid": true,
+   "n_conv_ops": 227,
+   "conv_cyc": 31069421.768188477,
+   "conv_terms": 28496256.0,
+   "conv_cyc_per_term": 1.0902983805377267,
+   "pl_s_at150_est": 0.6235,
+   "total_at150_est": 3.008,
+   "top_ops": [
+    {
+     "name": "encoder.encoder_1.sam_blocks.0.b0.conv.conv",
+     "cin": 368,
+     "cout": 48,
+     "k": 1,
+     "s": 1,
+     "H": 32,
+     "W": 32,
+     "Hout": 32,
+     "Wout": 32,
+     "cb": 6,
+     "K": 6,
+     "sec": 0.005719
+    },
+    {
+     "name": "encoder.encoder_1.sam_blocks.0.b4.ghost_layers.2.cheap_operation.conv",
+     "cin": 32,
+     "cout": 32,
+     "k": 3,
+     "s": 1,
+     "H": 8,
+     "W": 8,
+     "Hout": 8,
+     "Wout": 8,
+     "cb": 1,
+     "K": 9,
+     "sec": 0.005043
+    },
+    {
+     "name": "decoder.decoder_1.sam_blocks.0.b4.ghost_layers.1.primary_conv.conv",
+     "cin": 160,
+     "cout": 48,
+     "k": 1,
+     "s": 1,
+     "H": 8,
+     "W": 8,
+     "Hout": 8,
+     "Wout": 8,
+     "cb": 3,
+     "K": 3,
+     "sec": 0.004808
+    },
+    {
+     "name": "decoder.decoder_1.sam_blocks.0.b0.ghost_layers.1.primary_conv.conv",
+     "cin": 160,
+     "cout": 48,
+     "k": 1,
+     "s": 1,
+     "H": 32,
+     "W": 32,
+     "Hout": 32,
+     "Wout": 32,
+     "cb": 3,
+     "K": 3,
+     "sec": 0.004771
+    },
+    {
+     "name": "decoder.decoder_1.rdb.conv_layers.2.conv",
+     "cin": 256,
+     "cout": 96,
+     "k": 3,
+     "s": 1,
+     "H": 32,
+     "W": 32,
+     "Hout": 32,
+     "Wout": 32,
+     "cb": 4,
+     "K": 36,
+     "sec": 0.004408
+    },
+    {
+     "name": "encoder.encoder_2.sam_blocks.0.b0.conv.conv",
+     "cin": 416,
+     "cout": 96,
+     "k": 1,
+     "s": 1,
+     "H": 16,
+     "W": 16,
+     "Hout": 16,
+     "Wout": 16,
+     "cb": 7,
+     "K": 7,
+     "sec": 0.00433
+    },
+    {
+     "name": "decoder.decoder_1.sam_blocks.0.b0.conv.conv",
+     "cin": 544,
+     "cout": 64,
+     "k": 1,
+     "s": 1,
+     "H": 32,
+     "W": 32,
+     "Hout": 32,
+     "Wout": 32,
+     "cb": 9,
+     "K": 9,
+     "sec": 0.004166
+    },
+    {
+     "name": "decoder.decoder_3.sam_blocks.0.b0.ghost_layers.1.cheap_operation.conv",
+     "cin": 48,
+     "cout": 48,
+     "k": 3,
+     "s": 1,
+     "H": 8,
+     "W": 8,
+     "Hout": 8,
+     "Wout": 8,
+     "cb": 1,
+     "K": 9,
+     "sec": 0.004162
+    },
+    {
+     "name": "encoder.encoder_1.sam_blocks.0.b0.ghost_layers.0.cheap_operation.conv",
+     "cin": 32,
+     "cout": 32,
+     "k": 3,
+     "s": 1,
+     "H": 32,
+     "W": 32,
+     "Hout": 32,
+     "Wout": 32,
+     "cb": 1,
+     "K": 9,
+     "sec": 0.00415
+    },
+    {
+     "name": "decoder.decoder_1.sam_blocks.0.b0.ghost_layers.4.primary_conv.conv",
+     "cin": 448,
+     "cout": 48,
+     "k": 1,
+     "s": 1,
+     "H": 32,
+     "W": 32,
+     "Hout": 32,
+     "Wout": 32,
+     "cb": 7,
+     "K": 7,
+     "sec": 0.004134
+    },
+    {
+     "name": "encoder.encoder_2.sam_blocks.0.b0.ghost_layers.0.cheap_operation.conv",
+     "cin": 32,
+     "cout": 32,
+     "k": 3,
+     "s": 1,
+     "H": 16,
+     "W": 16,
+     "Hout": 16,
+     "Wout": 16,
+     "cb": 1,
+     "K": 9,
+     "sec": 0.004127
+    },
+    {
+     "name": "decoder.decoder_1.sam_blocks.0.b0.ghost_layers.3.primary_conv.conv",
+     "cin": 352,
+     "cout": 48,
+     "k": 1,
+     "s": 1,
+     "H": 32,
+     "W": 32,
+     "Hout": 32,
+     "Wout": 32,
+     "cb": 6,
+     "K": 6,
+     "sec": 0.004113
+    }
+   ]
+  },
+  "canary": {
+   "ops_checked": 227,
+   "violated": 0,
+   "magic_after": 1345323009,
+   "status_after": 1027,
+   "magic_still": true
+  }
+ },
+ "vlanes_used": 8,
+ "prm_layout": {
+  "VLANES": 8,
+  "PRM_W": 16,
+  "PB_S": 0,
+  "PB_B": 2,
+  "PB_Z": 6,
+  "PB_G": 10,
+  "PB_SL": 14,
+  "seg": {
+   "alpha": [
+    0,
+    2
+   ],
+   "bias": [
+    2,
+    6
+   ],
+   "zeta": [
+    6,
+    10
+   ],
+   "gamma": [
+    10,
+    14
+   ],
+   "slope": [
+    14,
+    16
+   ]
+  },
+  "words": {
+   "alpha": 2,
+   "bias": 4,
+   "zeta": 4,
+   "gamma": 4,
+   "slope": 2
+  }
+ },
+ "args": {
+  "bit": "/home/xilinx/demoir/design_1_150v51.bit",
+  "pack": "/home/xilinx/demoir/deploy/bin_weights_new",
+  "fclk": 100.0,
+  "slots": 24,
+  "hw": 32,
+  "timeout": 4.0,
+  "seed": 20261031,
+  "outdir": "/home/xilinx/demoir/t96_out",
+  "skip_256": false,
+  "vlanes": 0,
+  "no_magic_gate": false,
+  "run_net": true
+ },
+ "base_want": {
+  "conv_uni_0": 1074003968,
+  "bin_unit_0": 1074135040
+ },
+ "magic_want": "0x50300001"
+}

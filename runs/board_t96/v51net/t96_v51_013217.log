@@ -1,0 +1,20 @@
+[t96] vlanes_now()=8  prm_layout={'VLANES': 8, 'PRM_W': 16, 'PB_S': 0, 'PB_B': 2, 'PB_Z': 6, 'PB_G': 10, 'PB_SL': 14, 'seg': {'alpha': (0, 2), 'bias': (2, 6), 'zeta': (6, 10), 'gamma': (10, 14), 'slope': (14, 16)}, 'words': {'alpha': 2, 'bias': 4, 'zeta': 4, 'gamma': 4, 'slope': 2}}
+[t96] 日志 = /home/xilinx/demoir/t96_out/t96_v51_013217.log
+[t96] bit = /home/xilinx/demoir/design_1_150v39.bit
+
+==============================================================================
+  步骤 1：load overlay + 指纹（本进程唯一一次 download=True）
+==============================================================================
+  Overlay(design_1_150v39.bit) 用时 2.722 s
+  IP 清单：['bin_unit_0', 'conv_uni_0', 'ps7']
+  conv_uni_0  base=0x40040000 length=0x20000 （期望 0x40040000）✓
+  bin_unit_0  base=0x40060000 length=0x20000 （期望 0x40060000）✓
+  fconv_0 在 IP 清单里 = False （期望 False）✓
+  0x40070314 = 0x00000000   (CFG+0x314 (契约口径))
+  0x40060314 = 0x00000000   (base+0x314 (任务书字面))
+  0x40060310 = 0x00000000   (0x310 CHAIN_STATUS)
+  0x40060308 = 0x00000000   (0x308 BAND_ROWS)
+  **magic(0x314) = 0x00000000 期望 0x50300001 ⇒ ✗✗ ⇒ 停**
+  **0x310 复位值 = 0x00000000 期望 0（契约 R3：err 不许置）**
+  ⇒ **停**：指纹不合格
+[json] 已落盘 /home/xilinx/demoir/t96_out/t96_v51_013217.json
