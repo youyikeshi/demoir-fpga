@@ -479,7 +479,7 @@ MMCM 单 VCO = 1187.5 MHz（输入 100 MHz，`M=11.875`，`DIVCLK=1`）：
 实测事故：`ooc_hdmi_p1.sh` 综合失败后**没检查次生错误**，于是读到了 `/tmp` 里**上一轮留下的** `util.rpt`，
 照样打印 `LUT 410 / BRAM 0 / DSP 0` 并 `rc=0` —— 那是集成前的旧数字。
 
-$$\Rightarrow\ 	ext{这是本项目最经典的失效模式} \Rightarrow 	ext{报告比代码更会撒谎}$$
+- ext这是本项目最经典的失效模式 ⇒ ext报告比代码更会撒谎
 
 **任何门禁脚本必须做到三条：**
 
@@ -491,9 +491,9 @@ $$\Rightarrow\ 	ext{这是本项目最经典的失效模式} \Rightarrow 	ext{�
    ⇒ 让"这些数字是哪一轮的"变成可审计事实，而不是靠时间戳猜。
    ⇒ 例：`consume util.rpt mtime=... md5=...`
 
-$$\Rightarrow\ 	ext{另外：}	extbf{源文件清单变更必须同步到所有门禁脚本}$$
-$$\Rightarrow\ 	ext{本次 } 	exttt{hdmi\_fb\_scan.v}\ 	ext{加进设计，但 } 	exttt{synthcheck}/	exttt{ooc}\ 	ext{的 } 	exttt{read\_verilog}\ 	ext{没跟上}$$
-$$\Rightarrow\ \Rightarrow\ 	ext{报 } 	exttt{Synth 8-439 module not found} \Rightarrow 	extbf{新增源文件 = 新增一份要同步的清单}$$
+- ext另外： extbf源文件清单变更必须同步到所有门禁脚本
+- ext本次 exttthdmi\_fb\_scan.v ext加进设计，但 extttsynthcheck/ extttooc ext的 extttread\_verilog ext没跟上
+- ext报 extttSynth 8-439 module not found ⇒ extbf新增源文件 = 新增一份要同步的清单
 
 ### 8.16 构建排队的正确互斥（对"等 pgrep==0"的修正）
 - 真正保证一机一构建的是 `memgate` 的 **`flock /tmp/dsh_vivado.lock`**（实测另一支线 `T-118`
