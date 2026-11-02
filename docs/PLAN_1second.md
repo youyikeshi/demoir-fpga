@@ -4929,3 +4929,46 @@ $$\Rightarrow\ \text{替代做法：诊断口用}\textbf{独立寄存器复制�
 **下一步（唯一还有意义的实验）**：`v42e = v39 + 只改 PF_AHEAD=2`（**不带任何计数器**）
 $$\Rightarrow\ \text{若 v42e 对} \Rightarrow \texttt{PF\_AHEAD=2}\ \text{本身可用} \Rightarrow \text{再单独解决 } \texttt{PF\_DEPTH=8}\ \text{的 tag 时序（T-42 §9 已给修法：}\texttt{ph\_reg[3]}\to\texttt{pf\_tag/CE}\ \text{加一级）}$$
 $$\Rightarrow\ \text{若 v42e 错} \Rightarrow \text{预取这条路必须}\textbf{回炉重做}（配乱序 AXI 的仿真门禁）}$$
+
+### 70.28 T-18 三刀板端实测：①③ 真收益，② 反号，④ 证伪（2026-11-02 10:20）
+
+同 session、同进程、8 臂 × 3 跑、24/24 sha1 = 冻结 256²；`off` 热态 **6.326 s**（四锚点，会话内 2.5% 升温漂移）。
+
+| 刀 | total Δ | 桶级证据 | 判定 |
+|---|---:|---|---|
+| ① `BIN_CAT_ECA_FUSE` | −0.084 | `cat 0.1358→0.0381`（−0.098）、`eca +0.007` ⇒ **净 −0.091** | ✅ **真收益** |
+| ② `BIN_SAM_TILE`(96 KB) | −0.118（被①掩盖）| **`sam 0.2479→0.2783`（+0.030）**，K12/K123/K1234 **9/9 跑 ≥0.276** | ❌ **反号** |
+| ③ `BIN_EPI_NOINV` | **−0.133** | **`epilogue 0.2687→0.2216`（−0.047）**，别的桶不动 | ✅ **真收益（唯一"打哪省哪"）** |
+| ④ `BIN_DEQ_TILE` | +0.010 | microbench 真 DMA 源、31 形状/39 次 deq、先 31/31 逐字节全等：**275.4→282.0 ms（+2.4%）**；写**真 DMA** 输出反而比写宿主快 33 ms | ❌ **作废** |
+
+$$\Rightarrow\ \textbf{三刀合计 } -0.13\sim0.14\ \text{s（}-2.1\sim2.2\%\text{）},\ \textbf{不是投影的 } -0.45\sim0.49$$
+$$\quad\ \text{差距几乎全在 ② 反号：A9 上"分片留 L2"的收益抵不过 96 次额外 numpy 调用 + 访存形状变差}$$
+$$\Rightarrow\ \text{④ 的证伪点很干净：T-18 的"半写 line ⇒ RFO 多搬一次"假设在 A9 上}\textbf{不成立}$$
+$$\quad\ \text{（写真 DMA 缓冲反而快 33 ms ⇒ 宿主分配才是慢的那一侧）}$$
+$$\Rightarrow\ \text{自洽性：}\texttt{off}\ \text{的 } \texttt{epilogue } 268.7\ \text{ms} \approx \text{microbench deq 总 } 275.4\ \text{ms}$$
+
+$$\Rightarrow\ \textbf{进运行点}：\texttt{BIN\_CAT\_ECA\_FUSE=1}\ \text{与}\ \texttt{BIN\_EPI\_NOINV=1}$$
+$$\Rightarrow\ \textbf{不进}：\texttt{BIN\_SAM\_TILE}（负）、\texttt{BIN\_DEQ\_TILE}（作废，代码留、默认关）$$
+
+**部署口径的一个真坑（已修）**：板端 `ps/` 树比主机**浅一层**（`/home/xilinx/demoir/ps`）⇒
+`deps_closure.py` 的默认清单路径变成 `/home/xilinx/runs/board_ops/...` ⇒ 只同步 `ps/` 会拿到**旧清单** ⇒ `--check` 假失败。
+$$\Rightarrow\ \textbf{部署必须同时带 } \texttt{deps_closure.txt}，\text{且门禁跑两条（} \texttt{md5sum -c} + \texttt{--check}）$$
+
+### 70.29 v42e：终于一颗"只差 1 行"的干净位流（2026-11-02 10:12）
+
+$$\text{v42e} = \text{v39} + \textbf{只改 } \texttt{PF\_AHEAD } 1\to2\ (\text{RTL diff = 1 处 / 2 行，零诊断，零计数器})$$
+$$\Rightarrow\ \text{bit } \texttt{e08a4e0e};\ \texttt{.hwh}\ \text{仍 } \texttt{c1686bd8};\ \text{DRC 0 Errors / 0 Warnings};\ \text{Latch}=0\ \text{双查}$$
+$$\Rightarrow\ \text{modules/ 25 个 .v 里 24 个与 } \texttt{b58964e}\ \text{逐字节相同};\ \text{诊断关键字计数 v39=34 / v42e=34}$$
+
+| | v39 | v42e | Δ |
+|---|---:|---:|---:|
+| N2 | 15,556 | **2,596** | **−83.3%** |
+| 端点合计 | 20,706 | 7,543 | −63.6% |
+| TNS | −47,312 | −5,648 | **−88%** |
+| WNS | −5.331 | **−3.159** | +2.172 |
+| LUT | 20,552 | 20,153 | −399 |
+
+$$\Rightarrow\ \textbf{G2-E 通过}：\texttt{pf\_tag\_reg}\ \text{违例 } \mathbf{0}\ \text{条（v39 是 } 126\ \text{条 / } -5.251\text{）};\ \texttt{pf\_*} \text{ 家族 } 164\to59$$
+$$\quad\ \texttt{ph\_reg}\to\texttt{pf\_tag}\ \text{直查 } \textbf{NO\_PATH} \Rightarrow \text{v42 那条 } -4.719\ \text{的锥在本版}\textbf{不存在}$$
+$$\Rightarrow\ \textbf{唯一负面记账}：\text{G2-C 的 } \texttt{win\_q}\ \text{写地址最差 } -1.605\to-2.404（-0.8\ \text{ns}，64\ \text{条新端点，起点全是 ps7）}$$
+$$\quad\ \Rightarrow\ \text{该族在 v39 更糟时（} -1.605 \text{）都能跑} \Rightarrow \text{风险等级与 v39 同级，不是新类型}$$
