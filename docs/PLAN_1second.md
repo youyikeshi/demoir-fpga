@@ -6066,3 +6066,31 @@ $$\Rightarrow\ \text{基线实测 } \text{place}\to\text{route}\ \text{差 } -0.
 
 $$\Rightarrow\ \textbf{但按真实不确定性折算仍偏薄}：+0.42 - (0.5-0.035) \approx \mathbf{-0.05}\ \text{ns}$$
 $$\quad\ \Rightarrow\ \textbf{100 MHz 可能仍不稳};\ \text{若失败退 } 95/90\ \text{MHz 再验} \Rightarrow \text{这是"用实测定频率"，不是猜}$$
+
+### 70.70 ★ v52 是**回归**，已回退；并暴露一个**与频率无关的整网 bug**（T-103，2026-11-02 23:10）
+
+**v52 上板：比 v51 更差 10\text{-}30 倍**
+| 判据 | v51 @100 | v52 @100 |
+|---|---|---|
+| 逐层字节错 | 2238 / 3291 | **23797 / 91836** |
+| 同层两次差 | 3598 / 2754 B | **14629 / 53329 B** |
+| 64² sha1 | 3 个都错 | **3 次互不相同** |
+
+$$\Rightarrow\ \text{降频扫描}：93.75\ \text{MHz}\ 4287/16957;\ 88.235\ \text{MHz}\ \mathtt{cin}112\ \mathbf{0/0}\ \text{但}\ \mathtt{cin}512\ 318/294$$
+$$\Rightarrow\ 75\ \text{MHz}：\text{两层 }\mathbf{0/0}\ \text{且两次逐字节相同 = golden};\ \textbf{但 64}^2\ \mathbf{\text{仍} \neq \text{冻结}}（\mathtt{2025f580}）$$
+$$\Rightarrow\ \Rightarrow\ \mathbf{\text{没有任何频率满足"逐层 + 整网"全部判据}}$$
+
+$$\Rightarrow\ \textbf{裁定}：\mathtt{WNS}\ +0.524\ \text{是}\mathbf{假安全};\ \text{插流水让}\text{真实通路变差} \Rightarrow \textbf{v52 回退}$$
+$$\quad\ \text{已 } \mathtt{git\ checkout}\ \text{回 } \mathtt{61568f39}，\mathtt{verify\_rtl\_root}\ \mathbf{PASS};\ \text{位流留档 } \mathtt{runs/v52\_archive/}$$
+
+**但真正重要的一条（T-103 主动指出）**
+$$\Rightarrow\ 75\ \text{MHz 下逐层已 100\% 正确，}\textbf{整网却仍 } \neq \text{冻结} \Rightarrow \text{这不是时序问题，是}\mathbf{逻辑 bug}$$
+$$\Rightarrow\ \text{（v51 从未在 75 MHz 跑过整网，所以不能单归因 v52）}$$
+$$\Rightarrow\ \Rightarrow\ \textbf{优先级反转}：\text{先把整网逻辑 bug 找出来，}\text{时序再谈}$$
+$$\quad\ \text{因为：}\text{频率再稳，整网算错也没意义}$$
+
+**方法论两条（T-103 自己踩出来的）**
+$$\Rightarrow\ \textbf{第 118 条}：\text{整网测试}\textbf{必须放在所有逐层测试之后}（\text{整网会把 PL 留在 busy}）$$
+$$\quad\ \Rightarrow\ \text{它第一轮把整网插在频率块中间} \Rightarrow 95/90\ \text{的逐层读到"早到的 done"}（\mathtt{cyc}\approx19.5\mathtt{k}\ \text{而该层至少 }166\mathtt{k}）$$
+$$\quad\ \Rightarrow\ \text{它自己发现并重跑了全部数据} \Rightarrow \textbf{这批数字可信}$$
+$$\Rightarrow\ \textbf{第 119 条}：\text{同一 session 内改频率后，}\textbf{必须重读 magic 与 } \mathtt{0x310}\ \text{并确认 PL 空闲}$$

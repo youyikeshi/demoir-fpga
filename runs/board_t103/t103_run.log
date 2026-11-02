@@ -1,0 +1,184 @@
+[t103] python=3.10.4 numpy=1.21.5 mach=armv7l
+[t103] vlanes_now()=8 prm_layout={'VLANES': 8, 'PRM_W': 16, 'PB_S': 0, 'PB_B': 2, 'PB_Z': 6, 'PB_G': 10, 'PB_SL': 14, 'seg': {'alpha': (0, 2), 'bias': (2, 6), 'zeta': (6, 10), 'gamma': (10, 14), 'slope': (14, 16)}, 'words': {'alpha': 2, 'bias': 4, 'zeta': 4, 'gamma': 4, 'slope': 2}} BIN_V50_* 残留=[]
+[t103] cat_eca_fuse=True epi_noinv=True
+[t103] 日志 = /home/xilinx/demoir/t103_out/t103_035522.log
+[t103] bit = /home/xilinx/demoir/design_1_150v52.bit
+[t103] 运行点 = {"BIN_PACK": "e1e2", "BIN_LAZY_DEQ": "1", "BIN_LAZY_SLOTS": "24", "BIN_CAT_FUSION": "1", "BIN_BILINEAR_C": "1", "BIN_PRECOMP": "1", "Q8CACHE": "1", "BIN_F32DIRECT": "1", "BIN_CAT_ECA_FUSE": "1", "BIN_EPI_NOINV": "1", "BIN_PROFILE": "1", "BIN_V50_FUSE": "", "BIN_VLANES": ""}
+
+==============================================================================
+  第 1 步：load overlay + 指纹（本进程唯一一次 download=True）
+==============================================================================
+  Overlay(design_1_150v52.bit) 用时 2.505 s
+  IP 清单：['bin_unit_0', 'conv_uni_0', 'ps7']
+  conv_uni_0  base=0x40040000 length=0x20000 （期望 0x40040000）✓
+  bin_unit_0  base=0x40060000 length=0x20000 （期望 0x40060000）✓
+  0x40070314 = 0x50300001   (CFG+0x314)
+  0x40060314 = 0x00000000   (base+0x314)
+  0x40060310 = 0x00000000   (0x310 CHAIN_STATUS)
+  0x40060308 = 0x00000000   (0x308 BAND_ROWS)
+  **magic(0x314) = 0x50300001 期望 0x50300001 ⇒ v52 寄存器块在位 ✓**
+  load 后 fclk0 读回 = 125 MHz（下一步按 100 MHz 设并再读回）
+  内核装载：{'q8': (0.261, True), 'c8deq': (4.318, True), 'bpack': (1.799, True)}
+  [DEPS] q8=fast c8deq=fast bpack=fast e1e2=fast catpack=fast safe=fast  ⇒ deps_closure_ok=True
+
+==============================================================================
+  第 2 步：逐层缓冲准备（每个 case 只分配一次 ⇒ 跨频率/跨 run 地址恒定）
+==============================================================================
+  准备 encoder.encode cin=112 cout=64 k=3 32x32→32x32 K=18  OUT=65536 B  act=16384 B  ob=0x30100000  exp_sha1=2d6a3dae9bc7
+  准备 encoder.encode cin=512 cout=192 k=1 32x32→32x32 K=8  OUT=196608 B  act=65536 B  ob=0x30126880  exp_sha1=b5ecf17a6697
+
+==============================================================================
+  第 4 步：64² 整网 arena（24 槽）
+==============================================================================
+  arena t103_arena64 4.29 MB（24 槽 × (in 0.07 + out 0.10 MB)）@0x32100000
+
+################ [100 MHz] 目标 100 MHz → fclk0 读回 **100 MHz**
+  ---- cin112_k3_d2 (cin=112 cout=64 k=3 out_n=65536) @ 100 MHz
+   run1: 越界 **    0 B** | 不符 ** 23797/65536** | cyc=   167108 | 0x310=0x00000403 | sha1=9ab7a1a7e969
+   run2: 越界 **    0 B** | 不符 ** 23841/65536** | cyc=   165391 | 0x310=0x00000403 | sha1=226e14eb225b
+   两次互比：**不同 14629 B** ⇒ **不同 ✗✗** | 与 golden 逐字节：不同 ✗✗ | 判据：✗✗ 不过
+         run1 前几笔差异：[{'i': 8, 'got': 2, 'want': -2}, {'i': 12, 'got': 12, 'want': 7}, {'i': 16, 'got': 1, 'want': -3}, {'i': 20, 'got': 12, 'want': 25}, {'i': 21, 'got': 1, 'want': -1}, {'i': 24, 'got': 2, 'want': -2}, {'i': 28, 'got': 12, 'want': -2}, {'i': 29, 'got': 1, 'want': 3}]
+  ---- cin512_k1 (cin=512 cout=192 k=1 out_n=196608) @ 100 MHz
+   run1: 越界 **    0 B** | 不符 ** 91836/196608** | cyc=   489759 | 0x310=0x00000403 | sha1=e80fe65669da
+   run2: 越界 **    0 B** | 不符 ** 91072/196608** | cyc=   488400 | 0x310=0x00000403 | sha1=9fd14fb3d867
+   两次互比：**不同 53329 B** ⇒ **不同 ✗✗** | 与 golden 逐字节：不同 ✗✗ | 判据：✗✗ 不过
+         run1 前几笔差异：[{'i': 0, 'got': -2, 'want': 0}, {'i': 1, 'got': -21, 'want': 1}, {'i': 4, 'got': 24, 'want': 12}, {'i': 5, 'got': 127, 'want': -1}, {'i': 6, 'got': 0, 'want': -1}, {'i': 8, 'got': -2, 'want': -1}, {'i': 9, 'got': -21, 'want': -4}, {'i': 12, 'got': 24, 'want': 11}]
+  [100 MHz] 逐层小结：✗✗ 不达标
+[json] 已落盘 /home/xilinx/demoir/t103_out/t103_035522.json
+/usr/local/share/pynq-venv/lib/python3.10/site-packages/pynq/ps.py:438: UserWarning: Setting frequency to the closest possible value 93.75MHz.
+  warnings.warn(
+
+################ [95 MHz] 目标 95 MHz → fclk0 读回 **93.75 MHz**
+  ---- cin112_k3_d2 (cin=112 cout=64 k=3 out_n=65536) @ 93.75 MHz
+   run1: 越界 **    0 B** | 不符 **  4287/65536** | cyc=   163950 | 0x310=0x00000403 | sha1=18e909194fbe
+   run2: 越界 **    0 B** | 不符 **  4238/65536** | cyc=   168465 | 0x310=0x00000403 | sha1=01c21001380a
+   两次互比：**不同 2641 B** ⇒ **不同 ✗✗** | 与 golden 逐字节：不同 ✗✗ | 判据：✗✗ 不过
+         run1 前几笔差异：[{'i': 8204, 'got': 24, 'want': 11}, {'i': 8212, 'got': 24, 'want': 16}, {'i': 8220, 'got': 24, 'want': 13}, {'i': 8228, 'got': 24, 'want': 9}, {'i': 8236, 'got': 24, 'want': 15}, {'i': 8244, 'got': 24, 'want': 3}, {'i': 8245, 'got': -10, 'want': -2}, {'i': 8252, 'got': 24, 'want': 6}]
+  ---- cin512_k1 (cin=512 cout=192 k=1 out_n=196608) @ 93.75 MHz
+   run1: 越界 **    0 B** | 不符 ** 16957/196608** | cyc=   487715 | 0x310=0x00000403 | sha1=4d8ab4bf7188
+   run2: 越界 **    0 B** | 不符 ** 16822/196608** | cyc=   488140 | 0x310=0x00000403 | sha1=ba1a0bdd50b3
+   两次互比：**不同 11501 B** ⇒ **不同 ✗✗** | 与 golden 逐字节：不同 ✗✗ | 判据：✗✗ 不过
+         run1 前几笔差异：[{'i': 100, 'got': -35, 'want': -3}, {'i': 212, 'got': -34, 'want': -2}, {'i': 284, 'got': -34, 'want': -2}, {'i': 412, 'got': 127, 'want': 8}, {'i': 484, 'got': 127, 'want': 18}, {'i': 500, 'got': 127, 'want': 15}, {'i': 596, 'got': 127, 'want': 3}, {'i': 620, 'got': 127, 'want': 6}]
+  [95 MHz] 逐层小结：✗✗ 不达标
+[json] 已落盘 /home/xilinx/demoir/t103_out/t103_035522.json
+/usr/local/share/pynq-venv/lib/python3.10/site-packages/pynq/ps.py:438: UserWarning: Setting frequency to the closest possible value 88.23529MHz.
+  warnings.warn(
+
+################ [90 MHz] 目标 90 MHz → fclk0 读回 **88.2353 MHz**
+  ---- cin112_k3_d2 (cin=112 cout=64 k=3 out_n=65536) @ 88.2353 MHz
+   run1: 越界 **    0 B** | 不符 **     0/65536** | cyc=   153969 | 0x310=0x00000403 | sha1=2d6a3dae9bc7
+   run2: 越界 **    0 B** | 不符 **     0/65536** | cyc=   153927 | 0x310=0x00000403 | sha1=2d6a3dae9bc7
+   两次互比：**不同 0 B** ⇒ 逐字节相同 ✓ | 与 golden 逐字节：相同 ✓ | 判据：✓ 过
+  ---- cin512_k1 (cin=512 cout=192 k=1 out_n=196608) @ 88.2353 MHz
+   run1: 越界 **    0 B** | 不符 **   318/196608** | cyc=   450632 | 0x310=0x00000403 | sha1=78f2e9bf00d5
+   run2: 越界 **    0 B** | 不符 **   294/196608** | cyc=   449202 | 0x310=0x00000403 | sha1=690958fd5b6e
+   两次互比：**不同 279 B** ⇒ **不同 ✗✗** | 与 golden 逐字节：不同 ✗✗ | 判据：✗✗ 不过
+         run1 前几笔差异：[{'i': 8228, 'got': -3, 'want': -7}, {'i': 8284, 'got': -3, 'want': -7}, {'i': 8308, 'got': 127, 'want': 3}, {'i': 8316, 'got': 127, 'want': 1}, {'i': 8324, 'got': 127, 'want': 0}, {'i': 8332, 'got': 127, 'want': 0}, {'i': 8340, 'got': -1, 'want': -5}, {'i': 8348, 'got': -1, 'want': -5}]
+  [90 MHz] 逐层小结：✗✗ 不达标
+[json] 已落盘 /home/xilinx/demoir/t103_out/t103_035522.json
+
+################ [75 MHz] 目标 75 MHz → fclk0 读回 **75 MHz**
+  ---- cin112_k3_d2 (cin=112 cout=64 k=3 out_n=65536) @ 75 MHz
+   run1: 越界 **    0 B** | 不符 **     0/65536** | cyc=   152135 | 0x310=0x00000403 | sha1=2d6a3dae9bc7
+   run2: 越界 **    0 B** | 不符 **     0/65536** | cyc=   151902 | 0x310=0x00000403 | sha1=2d6a3dae9bc7
+   两次互比：**不同 0 B** ⇒ 逐字节相同 ✓ | 与 golden 逐字节：相同 ✓ | 判据：✓ 过
+  ---- cin512_k1 (cin=512 cout=192 k=1 out_n=196608) @ 75 MHz
+   run1: 越界 **    0 B** | 不符 **     0/196608** | cyc=   454903 | 0x310=0x00000403 | sha1=b5ecf17a6697
+   run2: 越界 **    0 B** | 不符 **     0/196608** | cyc=   454813 | 0x310=0x00000403 | sha1=b5ecf17a6697
+   两次互比：**不同 0 B** ⇒ 逐字节相同 ✓ | 与 golden 逐字节：相同 ✓ | 判据：✓ 过
+  [75 MHz] 逐层小结：两层 0 越界 / 0 不符 / 两次相同 ✓
+[json] 已落盘 /home/xilinx/demoir/t103_out/t103_035522.json
+
+################ [100 MHz] 64² 整网（连跑 3 次）→ fclk0 读回 **100 MHz**
+
+==============================================================================
+  第 4 步：64² 整网（冻结运行点）fclk 读回 100 MHz，连跑 3 次
+==============================================================================
+  输入 x0 sha1 = bbae82e46e363a776d8fce8d9004e94502456bdc    [DEPS] q8=fast c8deq=fast bpack=fast e1e2=fast catpack=fast safe=fast  ⇒ deps_closure_ok=True
+[DEPS] q8=fast c8deq=fast bpack=fast e1e2=fast catpack=fast safe=fast  ⇒ deps_closure_ok=True
+  [LAZY_DEQ] IN/OUT 槽数 = 24（BIN_LAZY_SLOTS）
+  run1: 总 4.347 s（墙钟 4.354）| PL 1.696 | PS 2.256 | conv op 227 个
+        sha1 out1=9fe53c57ca88095f out2=30f95e2ea5828e6a out3=534f4e34e843cfe2  **≠ 冻结值 ✗✗**
+        冻结 out1=bfa246d34681e748311bbcd2f1b87317a56923fe
+        冻结 out2=226bd39e522aa373b8fc183acae5280931f8b63f
+        冻结 out3=762d84b9618eab8922edd6da4f07ba06de865628
+  [LAZY_DEQ] IN/OUT 槽数 = 24（BIN_LAZY_SLOTS）
+  run2: 总 3.048 s（墙钟 3.054）| PL 0.908 | PS 1.089 | conv op 227 个
+        sha1 out1=34f48269fd9fa556 out2=eb631453455c940c out3=794d9406497c76e9  **≠ 冻结值 ✗✗**
+        冻结 out1=bfa246d34681e748311bbcd2f1b87317a56923fe
+        冻结 out2=226bd39e522aa373b8fc183acae5280931f8b63f
+        冻结 out3=762d84b9618eab8922edd6da4f07ba06de865628
+  [LAZY_DEQ] IN/OUT 槽数 = 24（BIN_LAZY_SLOTS）
+  run3: 总 2.859 s（墙钟 2.866）| PL 0.870 | PS 0.929 | conv op 227 个
+        sha1 out1=f7542c97b26e704e out2=fd1e069c119487c7 out3=faf046c1ea4c8a38  **≠ 冻结值 ✗✗**
+        冻结 out1=bfa246d34681e748311bbcd2f1b87317a56923fe
+        冻结 out2=226bd39e522aa373b8fc183acae5280931f8b63f
+        冻结 out3=762d84b9618eab8922edd6da4f07ba06de865628
+  3 次 sha1 互比：**不同 ✗✗（非确定性）**
+  [100 MHz] 小结：逐层 ✗✗；64² sha1 ≠ 冻结值 ✗✗；3 次相同 ✗✗ ⇒ **本频率 不干净 ✗✗**
+[json] 已落盘 /home/xilinx/demoir/t103_out/t103_035522.json
+
+################ [95 MHz] 64² 整网（连跑 1 次）→ fclk0 读回 **93.75 MHz**
+
+==============================================================================
+  第 4 步：64² 整网（冻结运行点）fclk 读回 93.75 MHz，连跑 1 次
+==============================================================================
+  输入 x0 sha1 = bbae82e46e363a776d8fce8d9004e94502456bdc    [DEPS] q8=fast c8deq=fast bpack=fast e1e2=fast catpack=fast safe=fast  ⇒ deps_closure_ok=True
+  [LAZY_DEQ] IN/OUT 槽数 = 24（BIN_LAZY_SLOTS）
+  run1: 总 2.866 s（墙钟 2.873）| PL 0.872 | PS 0.899 | conv op 227 个
+        sha1 out1=3c83808f4e18887e out2=dfcd63c4aefb0e21 out3=3c1101f7ebf7318a  **≠ 冻结值 ✗✗**
+        冻结 out1=bfa246d34681e748311bbcd2f1b87317a56923fe
+        冻结 out2=226bd39e522aa373b8fc183acae5280931f8b63f
+        冻结 out3=762d84b9618eab8922edd6da4f07ba06de865628
+  1 次 sha1 互比：**完全相同 ✓**
+  [95 MHz] 小结：逐层 ✗✗；64² sha1 ≠ 冻结值 ✗✗；1 次相同 ✓ ⇒ **本频率 不干净 ✗✗**
+[json] 已落盘 /home/xilinx/demoir/t103_out/t103_035522.json
+
+################ [90 MHz] 64² 整网（连跑 1 次）→ fclk0 读回 **88.2353 MHz**
+
+==============================================================================
+  第 4 步：64² 整网（冻结运行点）fclk 读回 88.2353 MHz，连跑 1 次
+==============================================================================
+  输入 x0 sha1 = bbae82e46e363a776d8fce8d9004e94502456bdc    [DEPS] q8=fast c8deq=fast bpack=fast e1e2=fast catpack=fast safe=fast  ⇒ deps_closure_ok=True
+  [LAZY_DEQ] IN/OUT 槽数 = 24（BIN_LAZY_SLOTS）
+  run1: 总 2.744 s（墙钟 2.750）| PL 0.841 | PS 0.856 | conv op 227 个
+        sha1 out1=ae7360002df2a690 out2=aca6dfdb35bf705c out3=b1bcde22f5fe305b  **≠ 冻结值 ✗✗**
+        冻结 out1=bfa246d34681e748311bbcd2f1b87317a56923fe
+        冻结 out2=226bd39e522aa373b8fc183acae5280931f8b63f
+        冻结 out3=762d84b9618eab8922edd6da4f07ba06de865628
+  1 次 sha1 互比：**完全相同 ✓**
+  [90 MHz] 小结：逐层 ✗✗；64² sha1 ≠ 冻结值 ✗✗；1 次相同 ✓ ⇒ **本频率 不干净 ✗✗**
+[json] 已落盘 /home/xilinx/demoir/t103_out/t103_035522.json
+
+################ [75 MHz] 64² 整网（连跑 1 次）→ fclk0 读回 **75 MHz**
+
+==============================================================================
+  第 4 步：64² 整网（冻结运行点）fclk 读回 75 MHz，连跑 1 次
+==============================================================================
+  输入 x0 sha1 = bbae82e46e363a776d8fce8d9004e94502456bdc    [DEPS] q8=fast c8deq=fast bpack=fast e1e2=fast catpack=fast safe=fast  ⇒ deps_closure_ok=True
+  [LAZY_DEQ] IN/OUT 槽数 = 24（BIN_LAZY_SLOTS）
+  run1: 总 2.747 s（墙钟 2.754）| PL 0.855 | PS 0.844 | conv op 227 个
+        sha1 out1=2025f58018abcbf7 out2=f9881e0199c32614 out3=df3db0927cb61fd0  **≠ 冻结值 ✗✗**
+        冻结 out1=bfa246d34681e748311bbcd2f1b87317a56923fe
+        冻结 out2=226bd39e522aa373b8fc183acae5280931f8b63f
+        冻结 out3=762d84b9618eab8922edd6da4f07ba06de865628
+  1 次 sha1 互比：**完全相同 ✓**
+  [75 MHz] 小结：逐层 ✓；64² sha1 ≠ 冻结值 ✗✗；1 次相同 ✓ ⇒ **本频率 不干净 ✗✗**
+[json] 已落盘 /home/xilinx/demoir/t103_out/t103_035522.json
+
+==============================================================================
+  汇总：频率 × 是否达标
+==============================================================================
+  频率       fclk读回     两层（越界B / 不符B / 两次差B）               64² sha1     两次相同       达标
+  100      100.0      0/23797/14629 | 0/91836/53329 ⇒ 非 0 ✗✗ 不冻结 ✗✗       ✗✗         不达标
+  95       93.75      0/4287/2641 | 0/16957/11501 ⇒ 非 0 ✗✗ 不冻结 ✗✗       ✓          不达标
+  90       88.235294  0/0/0 | 0/318/279 ⇒ 非 0 ✗✗         不冻结 ✗✗       ✓          不达标
+  75       75.0       0/0/0 | 0/0/0 ⇒ 全 0 ✓              不冻结 ✗✗       ✓          不达标
+
+==============================================================================
+  判定（判据由父代理任务书给定）
+==============================================================================
+  ⇒ **所测频率（100,95,90,75 MHz）全部不达标**
+  跑后 0x314 = 0x50300001（仍是 magic ✓）；0x310 = 0x00000403；fclk0 = 75 MHz
+[t103] DONE
+[json] 已落盘 /home/xilinx/demoir/t103_out/t103_035522.json

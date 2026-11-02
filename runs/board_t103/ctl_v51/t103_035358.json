@@ -1,0 +1,432 @@
+{
+ "env_at_start": {
+  "BIN_PACK": "e1e2",
+  "BIN_LAZY_DEQ": "1",
+  "BIN_LAZY_SLOTS": "24",
+  "BIN_CAT_FUSION": "1",
+  "BIN_BILINEAR_C": "1",
+  "BIN_PRECOMP": "1",
+  "Q8CACHE": "1",
+  "BIN_F32DIRECT": "1",
+  "BIN_CAT_ECA_FUSE": "1",
+  "BIN_EPI_NOINV": "1",
+  "BIN_PROFILE": "1",
+  "BIN_V50_FUSE": "",
+  "BIN_VLANES": ""
+ },
+ "steps": {
+  "load": {
+   "bit": "/home/xilinx/demoir/design_1_150v51.bit",
+   "bit_md5": null,
+   "seconds": 2.5045,
+   "ips": [
+    "bin_unit_0",
+    "conv_uni_0",
+    "ps7"
+   ],
+   "has_fconv": false,
+   "addr": {
+    "conv_uni_0": {
+     "base": "0x40040000",
+     "length": 131072,
+     "ok": true
+    },
+    "bin_unit_0": {
+     "base": "0x40060000",
+     "length": 131072,
+     "ok": true
+    }
+   },
+   "magic": {
+    "CFG+0x314": {
+     "abs_addr": "0x40070314",
+     "hex": "0x50300001"
+    },
+    "base+0x314": {
+     "abs_addr": "0x40060314",
+     "hex": "0x00000000"
+    },
+    "0x310 CHAIN_STATUS": {
+     "abs_addr": "0x40060310",
+     "hex": "0x00000000"
+    },
+    "0x308 BAND_ROWS": {
+     "abs_addr": "0x40060308",
+     "hex": "0x00000000"
+    }
+   },
+   "magic_ok": true,
+   "fclk0_at_load": 125.0,
+   "downloads": 1,
+   "fp_ok": true
+  },
+  "deps": {
+   "line": "[DEPS] q8=fast c8deq=fast bpack=fast e1e2=fast catpack=fast safe=fast  ⇒ deps_closure_ok=True",
+   "closure_ok": true
+  },
+  "blocks": [
+   {
+    "block": "100",
+    "target": 100.0,
+    "fclk": 100.0,
+    "layers": [
+     {
+      "key": "cin112_k3_d2",
+      "cin": 112,
+      "cout": 64,
+      "k": 3,
+      "out_n": 65536,
+      "exp_sha1": "2d6a3dae9bc79d0d7affa84ce8cfb836ec86ad7e",
+      "run1": {
+       "label": "100#1",
+       "fclk": 100.0,
+       "wall": 0.00432,
+       "cyc": 169492,
+       "oob_bytes": 0,
+       "mismatch": 2858,
+       "out_n": 65536,
+       "st310": "0x00000403",
+       "sha1": "8b223a399db3d0077edceeb505886f0919cc3622",
+       "first_diffs": [
+        {
+         "i": 538,
+         "got": -2,
+         "want": -1
+        },
+        {
+         "i": 540,
+         "got": 11,
+         "want": -5
+        },
+        {
+         "i": 546,
+         "got": -4,
+         "want": -3
+        },
+        {
+         "i": 548,
+         "got": 11,
+         "want": -1
+        },
+        {
+         "i": 554,
+         "got": -4,
+         "want": -3
+        },
+        {
+         "i": 556,
+         "got": 11,
+         "want": -9
+        },
+        {
+         "i": 562,
+         "got": 71,
+         "want": 7
+        },
+        {
+         "i": 564,
+         "got": 10,
+         "want": 16
+        }
+       ]
+      },
+      "run2": {
+       "label": "100#2",
+       "fclk": 100.0,
+       "wall": 0.00324,
+       "cyc": 164056,
+       "oob_bytes": 0,
+       "mismatch": 2034,
+       "out_n": 65536,
+       "st310": "0x00000403",
+       "sha1": "e05398a3dd090fc926d5877aeb0331b8f378466b",
+       "first_diffs": [
+        {
+         "i": 538,
+         "got": -2,
+         "want": -1
+        },
+        {
+         "i": 540,
+         "got": 11,
+         "want": -5
+        },
+        {
+         "i": 556,
+         "got": -1,
+         "want": -9
+        },
+        {
+         "i": 564,
+         "got": -2,
+         "want": 16
+        },
+        {
+         "i": 578,
+         "got": 77,
+         "want": 13
+        },
+        {
+         "i": 580,
+         "got": -5,
+         "want": 12
+        },
+        {
+         "i": 602,
+         "got": -5,
+         "want": -3
+        },
+        {
+         "i": 644,
+         "got": 127,
+         "want": 12
+        }
+       ]
+      },
+      "diff_bytes_1v2": 3598,
+      "same_1v2": false,
+      "ok": false
+     },
+     {
+      "key": "cin512_k1",
+      "cin": 512,
+      "cout": 192,
+      "k": 1,
+      "out_n": 196608,
+      "exp_sha1": "b5ecf17a6697979d691978751cbe4f2f1a4b4fd4",
+      "run1": {
+       "label": "100#1",
+       "fclk": 100.0,
+       "wall": 0.00695,
+       "cyc": 488043,
+       "oob_bytes": 0,
+       "mismatch": 29,
+       "out_n": 196608,
+       "st310": "0x00000403",
+       "sha1": "d44f348775816189843d7f78f46ea8db00b47bc6",
+       "first_diffs": [
+        {
+         "i": 4035,
+         "got": -8,
+         "want": -7
+        },
+        {
+         "i": 4036,
+         "got": -2,
+         "want": -1
+        },
+        {
+         "i": 16391,
+         "got": 7,
+         "want": 0
+        },
+        {
+         "i": 24579,
+         "got": 0,
+         "want": 2
+        },
+        {
+         "i": 32775,
+         "got": -2,
+         "want": 3
+        },
+        {
+         "i": 40963,
+         "got": -4,
+         "want": -1
+        },
+        {
+         "i": 49158,
+         "got": -80,
+         "want": 0
+        },
+        {
+         "i": 49159,
+         "got": -2,
+         "want": -5
+        }
+       ]
+      },
+      "run2": {
+       "label": "100#2",
+       "fclk": 100.0,
+       "wall": 0.0066,
+       "cyc": 490189,
+       "oob_bytes": 0,
+       "mismatch": 2773,
+       "out_n": 196608,
+       "st310": "0x00000403",
+       "sha1": "b9fdce335a3d5a457c50ebd9a4e615931e876ee1",
+       "first_diffs": [
+        {
+         "i": 16391,
+         "got": 7,
+         "want": 0
+        },
+        {
+         "i": 24579,
+         "got": -64,
+         "want": 2
+        },
+        {
+         "i": 24582,
+         "got": 127,
+         "want": -15
+        },
+        {
+         "i": 24590,
+         "got": 127,
+         "want": -2
+        },
+        {
+         "i": 24598,
+         "got": 127,
+         "want": -5
+        },
+        {
+         "i": 24606,
+         "got": 127,
+         "want": 8
+        },
+        {
+         "i": 24614,
+         "got": 127,
+         "want": 14
+        },
+        {
+         "i": 24622,
+         "got": 127,
+         "want": 9
+        }
+       ]
+      },
+      "diff_bytes_1v2": 2754,
+      "same_1v2": false,
+      "ok": false
+     }
+    ],
+    "net": {
+     "tag": "net64_100",
+     "hw": 64,
+     "slots": 24,
+     "fclk": 100.0,
+     "x0_sha1": "bbae82e46e363a776d8fce8d9004e94502456bdc",
+     "nrun": 2,
+     "runs": [
+      {
+       "run": 1,
+       "wall_s": 4.278,
+       "total_s": 4.270381450653076,
+       "pl_s": 1.6662051677703857,
+       "ps_s": 2.248157916328637,
+       "prologue": 1.0112628936767578,
+       "epilogue": 0.06332796599599533,
+       "nonconv": 1.1735670566558838,
+       "deps_closure_ok": true,
+       "kernel_deps": {
+        "q8": "fast",
+        "c8deq": "fast",
+        "bpack": "fast",
+        "safe": "fast",
+        "e1e2": "fast",
+        "catpack": "fast"
+       },
+       "n_conv_ops": 227,
+       "sha1": {
+        "out1": "2ea7fded033ad396fae40b19f88b29b86651ae91",
+        "out2": "f32ab6eda764e5eec5aa94426ed466253a1228b3",
+        "out3": "1586d3aaec4fee90d1b003bfd3b77a553ebc51b0"
+       },
+       "sha_ok": false,
+       "conv_cyc": 106976128
+      },
+      {
+       "run": 2,
+       "wall_s": 2.739,
+       "total_s": 2.7324986457824707,
+       "pl_s": 0.831312894821167,
+       "ps_s": 0.8614952870557318,
+       "prologue": 0.5345504283905029,
+       "epilogue": 0.061968834037543274,
+       "nonconv": 0.26497602462768555,
+       "deps_closure_ok": true,
+       "kernel_deps": {
+        "q8": "fast",
+        "c8deq": "fast",
+        "bpack": "fast",
+        "safe": "fast",
+        "e1e2": "fast",
+        "catpack": "fast"
+       },
+       "n_conv_ops": 227,
+       "sha1": {
+        "out1": "5cdefbd202d6d3ddd40e93979bde4e49b8d47820",
+        "out2": "6ae6d442a1b159990fb1793a6e88cb1a5d185802",
+        "out3": "a7db9095d0796766370e3cdf5583c1b9645a594b"
+       },
+       "sha_ok": false,
+       "conv_cyc": 25122571
+      }
+     ],
+     "frozen": [
+      "bfa246d34681e748311bbcd2f1b87317a56923fe",
+      "226bd39e522aa373b8fc183acae5280931f8b63f",
+      "762d84b9618eab8922edd6da4f07ba06de865628"
+     ],
+     "sha_ok_all": false,
+     "same_across_runs": false
+    },
+    "layers_ok": false,
+    "clean": false
+   }
+  ],
+  "after": {
+   "magic": "0x50300001",
+   "status": "0x00000403",
+   "fclk_now": 100.0
+  }
+ },
+ "args": {
+  "bit": "/home/xilinx/demoir/design_1_150v51.bit",
+  "pack": "/home/xilinx/demoir/deploy/bin_weights_new",
+  "hw": 32,
+  "timeout": 4.0,
+  "seed": 20261031,
+  "outdir": "/home/xilinx/demoir/t103ctl_out",
+  "net_watchdog": 180.0,
+  "layer_freqs": "100",
+  "net_freqs": "100",
+  "net_runs_first": 2,
+  "net_runs_other": 1
+ },
+ "runpoint": {
+  "BIN_PACK": "e1e2",
+  "BIN_LAZY_DEQ": "1",
+  "BIN_LAZY_SLOTS": "24",
+  "BIN_CAT_FUSION": "1",
+  "BIN_BILINEAR_C": "1",
+  "BIN_PRECOMP": "1",
+  "Q8CACHE": "1",
+  "BIN_F32DIRECT": "1",
+  "BIN_CAT_ECA_FUSE": "1",
+  "BIN_EPI_NOINV": "1",
+  "BIN_PROFILE": "1",
+  "BIN_V50_FUSE": "",
+  "BIN_VLANES": ""
+ },
+ "fclk": {
+  "100": {
+   "target": 100.0,
+   "readback": 100.0
+  },
+  "100_net": {
+   "target": 100.0,
+   "readback": 100.0
+  }
+ },
+ "verdict": {
+  "ok100": false,
+  "clean_at": null,
+  "text": "所测频率（100 MHz）全部不达标"
+ }
+}
