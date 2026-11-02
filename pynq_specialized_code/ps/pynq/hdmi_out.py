@@ -54,7 +54,8 @@ __all__ = [
     "MODE_720P60",
     "MODE_1080P60",
     "MODE_1080P30",
-    "MODE_640X480P60",
+    "MODE_720P30",
+    "MODE_640X480P60",   # 兼容别名（= MODE_720P30）
     "VideoMode",
     "MODES",
     "HdmiOut",
@@ -70,7 +71,7 @@ __all__ = [
 REG = {
     "CTRL":              0x00,   # RW [0]enable [1]soft_reset [2]test_pattern [3]frame_swap_req
     "STATUS":            0x04,   # RO [0]init_done [1]vsync_seen [2]scan_underflow(粘滞)
-    "VIDEO_MODE":        0x08,   # RW [1:0] 0=720p60 1=1080p60 2=1080p30 3=640x480p60
+    "VIDEO_MODE":        0x08,   # RW [1:0] 0=720p60 1=1080p60 2=1080p30 3=720p30（§8.13）
     "FB_ADDR_LO":        0x0C,   # RW 帧缓冲物理地址 [31:0]，64 B 对齐
     "FB_ADDR_HI":        0x10,   # RW 本板 1 GB DDR ⇒ 恒 0
     "FB_STRIDE":         0x14,   # RW 每行字节数（**必须 64 B 对齐**且 ≥ W*3）
@@ -80,6 +81,7 @@ REG = {
     "FRAME_ID_LATCHED":  0x24,   # RO PL 已采纳的帧号
     "PIXEL_FMT":         0x28,   # RW 0 = RGB888
     "UNDERFLOW_CNT":     0x2C,   # RO 自 soft_reset 起“被读空的行数”，饱和 32 bit
+    "PIX_HB":            0x30,   # RO [0] pix_hb 自由翻转位 [1] mmcm_locked（契约 §8.2；读法见 §8.9）
 }
 
 # CTRL 位
@@ -147,13 +149,20 @@ class VideoMode:
 MODE_720P60        = 0
 MODE_1080P60       = 1
 MODE_1080P30       = 2
-MODE_640X480P60    = 3
+#: ``VIDEO_MODE=3`` ＝ **720p30**（契约 §8.10/§8.13；2026-11-03 由旧的 640x480p60 改口径）
+MODE_720P30        = 3
+#: 兼容别名：旧名指向同一个模式号（§8.13 已废弃“3=640x480p60”这一口径）
+MODE_640X480P60    = MODE_720P30
 
+#: 像素时钟：模式 3 用设计值 37.109375 MHz（MMCM VCO 1187.5 MHz ÷32）；
+#: 板端实测（契约 §8.7/§8.11，P1 已点亮）：1080p60 **148.450** / 720p60 **74.225** /
+#: 720p30 **37.09** MHz，相对设计值 ≤0.05%。模式 0/1 表内保留标称值 74.25/148.5（同一口径的
+#: 四舍五入形式，仅供带宽估算；**要报实测必须写实测值并注明测量窗口**）。
 MODES = {
-    MODE_720P60:     VideoMode(0, "720p60",     1280, 720,  74.25,  1650, 1280, 750,  720),
-    MODE_1080P60:    VideoMode(1, "1080p60",    1920, 1080, 148.5,  2200, 1920, 1125, 1080),
-    MODE_1080P30:    VideoMode(2, "1080p30",    1920, 1080, 74.25,  2200, 1920, 1125, 1080),
-    MODE_640X480P60: VideoMode(3, "640x480p60", 640,  480,  25.175, 800,  640,  525,  480),
+    MODE_720P60:  VideoMode(0, "720p60",  1280, 720,  74.25,     1650, 1280, 750,  720),
+    MODE_1080P60: VideoMode(1, "1080p60", 1920, 1080, 148.5,     2200, 1920, 1125, 1080),
+    MODE_1080P30: VideoMode(2, "1080p30", 1920, 1080, 74.25,     2200, 1920, 1125, 1080),
+    MODE_720P30:  VideoMode(3, "720p30",  1280, 720,  37.109375, 1650, 1280, 750,  720),
 }
 
 
@@ -366,7 +375,7 @@ class HdmiOut:
         return m
 
     def set_mode(self, mode: int) -> None:
-        """写 ``VIDEO_MODE``（0=720p60 1=1080p60 2=1080p30 3=640x480p60）。"""
+        """写 ``VIDEO_MODE``（0=720p60 1=1080p60 2=1080p30 3=720p30）。"""
         self._mode = self._check_mode(mode)
         self._wr("VIDEO_MODE", self._mode)
 

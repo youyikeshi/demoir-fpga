@@ -186,10 +186,12 @@ def test_regmap() -> None:
         "FB_ADDR_LO": 0x0C, "FB_ADDR_HI": 0x10, "FB_STRIDE": 0x14,
         "FB_W": 0x18, "FB_H": 0x1C, "FRAME_ID": 0x20,
         "FRAME_ID_LATCHED": 0x24, "PIXEL_FMT": 0x28, "UNDERFLOW_CNT": 0x2C,
+        "PIX_HB": 0x30,                      # §8.13 增补：像素域心跳
     }
-    for k, v in expect.items():
-        check(ho.REG.get(k) == v, f"REG[{k}] 应为 0x{v:02X}，实际 {ho.REG.get(k)}")
-    check(len(ho.REG) == len(expect), "REG 表有多余条目")
+    # 逐键比（含“REG 多出契约外条目”也算失败，故按并集遍历）；条数与旧版 12+1 相同
+    for k in sorted(set(expect) | set(ho.REG)):
+        check(ho.REG.get(k) == expect.get(k),
+              f"REG[{k}] 应为 {expect.get(k)}，实际 {ho.REG.get(k)}（契约 §2/§8.13）")
 
     # 双缓冲公式：第 n 帧写 buf=n&1，PL 读 addr = base + (n&1)*fsize
     for mode_code in (0, 1, 2, 3):
@@ -202,7 +204,7 @@ def test_regmap() -> None:
         check(out.fb_size == fsize, f"{m.name}: fb_size={out.fb_size} != {fsize}")
         check(io.mem.get(ho.REG["FB_STRIDE"]) == stride, f"{m.name}: FB_STRIDE 写错")
         check(io.mem.get(ho.REG["FB_ADDR_LO"]) == FB_BASE, f"{m.name}: FB_ADDR_LO 写错")
-    print("  ✓ 12 个偏移 + 4 种模式的 fsize/stride 与 RTL 公式一致")
+    print("  ✓ 13 个偏移 + 4 种模式的 fsize/stride 与 RTL 公式一致")
 
 
 # ---------------------------------------------------------------------------

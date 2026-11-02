@@ -3,8 +3,11 @@
 需求来源（唯一）
 ----------------
 ``docs/camera/05_HDMI输出_PS_PL接口契约.md``（§2 寄存器图 / §7.2 双缓冲 / §8.2+§8.9 心跳 /
-§8.10+§8.11 720p30）与 ``docs/camera/03_显示构图规范_纯PS.md``。``display_layout.compose()``、
-``hdmi_out.HdmiOut``+``REG``+``align64`` —— **只调用，不改**。
+§8.10+§8.11 720p30 / §8.13 裁定）与 ``docs/camera/03_显示构图规范_纯PS.md``。
+
+**几何与寄存器只有一个来源**（不再保留任何本地副本）：
+``hdmi_out.MODES``（模式号/宽高/像素时钟/时序）与 ``hdmi_out.REG``（含 ``PIX_HB=0x30``）；
+``display_layout.compose()`` 与 ``hdmi_out.HdmiOut`` 只调用、不改。
 
 一帧
 ----
@@ -15,19 +18,26 @@
 ``FB_SIZE = align64(stride*H)`` ⇒ 两块**必须一次连续分配**（``allocator(2*FB_SIZE)``）。
 ``stride = W*3 = 3840`` 是 64 的整数倍，``FB_SIZE = align64(3840*720) = 2,764,800``。
 
-模式（契约 §8.11）：0=720p60 74.21875 MHz / 1=1080p60 148.4375 / 2=1080p30 74.21875 /
-**3=720p30 37.109375 MHz（默认，H/V=1650/1280, 750/720）**。
+模式（``hdmi_out.MODES``，契约 §8.11）：0=720p60 / 1=1080p60 / 2=1080p30 /
+**3=720p30（默认，37.109375 MHz，H/V=1650/1280, 750/720）**。
 
-**已知冲突（未改 hdmi_out.py，只报告）**：``hdmi_out.MODES[3]`` 仍是旧口径 ``640x480p60``，
-与契约 §8.11 矛盾 ⇒ 本模块**不读** ``MODES[mode]`` 的几何，只用自带 ``MODES_PS``，并把几何
-显式传给 ``HdmiOut.configure(addr, stride, W, H)``。
-**已知缺口**：``0x30 PIX_HB``（§8.2/§8.9）不在 ``hdmi_out.REG``（截至 ``0x2C``）⇒ 自带
-``PIX_HB_OFF``；半周期 = 2^16 个像素时钟 ⇒ ``f_pix = 沿数 × 2^16 / 窗口秒数``，判据是
-**有界窗口 ≥100 ms 且 ≥5 个沿**（“两次读不同”不可靠）。
+**首帧号是 1**：``enable=1`` 后 PL 立刻扫块 0，首帧写块 0 会边写边被扫 ⇒ 撕裂；故首帧写块 1，
+块序 ``1,0,1,0``（交替、不重复、帧号严格递增）。**并在 ``setup()`` 里把两块都预填黑**，
+否则 ``enable=1`` 到首帧之间屏幕上是未初始化内存的垃圾。
 
-**为什么首帧号是 1**：``enable=1`` 后 PL 立刻扫块 0；首帧写块 0 会被边写边扫 ⇒ 撕裂。
-故首帧写块 1，块序 ``1,0,1,0``（交替、不重复、帧号严格递增）；要字面 ``0,1,0,1`` 就把
-``FIRST_FRAME_ID`` 设 0，但首帧有撕裂风险。
+心跳（``REG["PIX_HB"]=0x30``，§8.2/§8.9）：``[0]`` 由像素域 ``hb_cnt[16]`` 翻转，
+半周期 = $2^{16}$ 个像素时钟 ⇒ ``f_pix = 沿数 × 2^16 / 窗口秒数``。
+**``pix_alive(100 ms)`` 只判“活着”（≥5 沿），不判频率**；频率精度 ≈ ``1/N``（N = 窗口内沿数）：
+
+=========  ==========  ==========
+窗口        720p30 沿数  精度
+=========  ==========  ==========
+100 ms     ≈57         **±1.8%**
+500 ms     ≈283        ±0.35%
+2 s        ≈1132       **±0.09%**
+=========  ==========  ==========
+
+⇒ 要 ``±0.1%`` 必须 ``≥2 s`` 窗口，且**报数时必须注明窗口**。
 
 可注入（**不 import pynq 也能跑**）：``reg_io`` = ``read32``/``write32``（默认 ``MmapRegIo``）；
 ``allocator`` = ``f(nbytes)->块``，块需有 ``device_address``、可被 numpy 访问、有 ``flush()``
@@ -39,7 +49,6 @@ from __future__ import annotations
 import os
 import sys
 import time
-from dataclasses import dataclass
 
 import numpy as np
 
@@ -50,66 +59,30 @@ if _HERE not in sys.path:
 from display_layout import compose  # noqa: E402  已板端验证，只调用
 import hdmi_out as ho  # noqa: E402  只调用
 
-__all__ = ["PIX_HB_OFF", "HB_HALF_DIV", "ModeDef", "MODES_PS", "DEFAULT_MODE",
+__all__ = ["HB_MASK", "HB_HALF_DIV", "DEFAULT_MODE", "stride_of", "block_bytes_of",
            "DisplayPipeline", "default_allocate"]
 
-PIX_HB_OFF = 0x30      #: 契约 §8.2 像素域心跳（hdmi_out.REG 尚未收录）
-HB_MASK = 1 << 0       #: 0x30[0] 翻转位
+HB_MASK = 1 << 0       #: ``REG["PIX_HB"]`` 的 ``[0]`` 翻转位
 HB_HALF_DIV = 1 << 16  #: 心跳半周期 = 2^16 个像素时钟
 DEFAULT_MODE = 3       #: 720p30（契约 §8.10）
 
 
-@dataclass(frozen=True)
-class ModeDef:
-    """一种显示模式（契约 §8.11）；``code`` 即 ``VIDEO_MODE`` 寄存器值。"""
-
-    code: int
-    name: str
-    W: int
-    H: int
-    h_total: int
-    v_total: int
-    pix_clk_mhz: float
-
-    @property
-    def fps(self) -> float:
-        return self.pix_clk_mhz * 1e6 / (self.h_total * self.v_total)
-
-    @property
-    def frame_period_s(self) -> float:
-        return 1.0 / self.fps
-
-    @property
-    def stride(self) -> int:
-        """``W*3``（行首无 padding；3840/5760 都是 64 的整数倍）。"""
-        return self.W * 3
-
-    @property
-    def frame_bytes(self) -> int:
-        return self.stride * self.H
-
-    @property
-    def block_bytes(self) -> int:
-        """``align64(stride*H)`` —— 与 RTL 的块大小公式完全一致。"""
-        return ho.align64(self.frame_bytes)
+def stride_of(m) -> int:
+    """``W*3``（行首无 padding；3840/5760 都是 64 的整数倍）。"""
+    return m.W * 3
 
 
-MODES_PS: dict[int, ModeDef] = {
-    m.code: m for m in (
-        ModeDef(0, "720p60", 1280, 720, 1650, 750, 74.21875),
-        ModeDef(1, "1080p60", 1920, 1080, 2200, 1125, 148.4375),
-        ModeDef(2, "1080p30", 1920, 1080, 2200, 1125, 74.21875),
-        ModeDef(3, "720p30", 1280, 720, 1650, 750, 37.109375),
-    )
-}
+def block_bytes_of(m) -> int:
+    """``align64(stride*H)`` —— 与 RTL 的块大小公式完全一致。"""
+    return ho.align64(stride_of(m) * m.H)
 
 
 def _check_mode(mode: object) -> int:
     if isinstance(mode, bool) or not isinstance(mode, (int, np.integer)):
         raise ValueError(f"mode 必须是 int，得到 {type(mode).__name__}")
     m = int(mode)
-    if m not in MODES_PS:
-        raise ValueError(f"mode 必须是 {sorted(MODES_PS)} 之一，得到 {m}")
+    if m not in ho.MODES:
+        raise ValueError(f"mode 必须是 {sorted(ho.MODES)} 之一，得到 {m}")
     return m
 
 
@@ -191,8 +164,9 @@ class DisplayPipeline:
 
     # ------------- 只读属性 -------------
     @property
-    def mode_def(self) -> ModeDef:
-        return MODES_PS[self._mode]
+    def mode_def(self):
+        """当前模式的 ``hdmi_out.VideoMode``（几何唯一来源）。"""
+        return ho.MODES[self._mode]
 
     @property
     def mode(self) -> int:
@@ -221,19 +195,18 @@ class DisplayPipeline:
     def setup(self) -> "DisplayPipeline":
         """分配双缓冲 → 切模式（契约协议）→ 写几何 → ``enable=1``。"""
         d = self.mode_def
-        self._check_stride(d.stride)
+        self._check_stride(stride_of(d))
         if self._io is None:
             self._io = ho.MmapRegIo(self.BASE)
             self._owns_io = True
         if self._out is None:
-            # 只借寄存器读写；几何一律由 configure() 显式给（MODES[3] 口径有冲突）
             self._out = ho.HdmiOut(self.BASE, reg_io=self._io, mode=self._mode)
         self._ensure_buffers()
         self._apply_mode()
         return self
 
     def _ensure_buffers(self) -> None:
-        want = self.mode_def.block_bytes
+        want = block_bytes_of(self.mode_def)
         if self._blocks is not None and want == self._block_bytes:
             return
         self._free_buffers()
@@ -246,15 +219,27 @@ class DisplayPipeline:
             raise ValueError(f"帧缓冲物理地址 0x{addr:X} 未按 64 B 对齐（契约 §2）")
         self._blocks, self._block_bytes, self._fb_addr = blk, want, addr
         self._u8 = _u8_view(blk, 2 * want)  # None ⇒ 退回分配块自身切片赋值
+        self._prefill_blocks()              # enable=1 之前两块必须是黑的（§8.13）
+
+    def _prefill_blocks(self) -> None:
+        """两块都预填黑 ``(0,0,0)``：``enable=1`` 到首帧之间 PL 扫的就是这块内存（§8.13）。"""
+        n = 2 * self._block_bytes
+        if self._u8 is not None:
+            self._u8[:n] = 0
+        else:
+            self._blocks[0:n] = np.zeros(n, dtype=np.uint8)   # 不透明块只能切片赋值
+        flush = getattr(self._blocks, "flush", None)
+        if flush is not None:
+            flush()
 
     def _apply_mode(self) -> None:
         """契约 §8.11：``enable=0`` → 写 ``VIDEO_MODE`` → 等 ≥2 帧 → ``enable=1``。"""
         d = self.mode_def
         self._out.enable(False)
-        self._out.set_mode(self._mode)           # 顺便同步 HdmiOut 内部状态
-        time.sleep(2.05 * d.frame_period_s)      # ≥2 整帧，让 BUFGMUX/时序稳下来
+        self._out.set_mode(self._mode)       # 顺便同步 HdmiOut 内部状态
+        time.sleep(2.05 / d.fps)             # ≥2 整帧，让 BUFGMUX/时序稳下来
         # configure() 写 FB_ADDR/STRIDE/W/H/PIXEL_FMT/VIDEO_MODE，收尾 enable(True)
-        self._out.configure(self._fb_addr, d.stride, d.W, d.H)
+        self._out.configure(self._fb_addr, stride_of(d), d.W, d.H)
         self._mode_switches += 1
 
     def set_mode(self, mode: int) -> None:
@@ -322,16 +307,22 @@ class DisplayPipeline:
         """
         if not (window_ms > 0):
             raise ValueError(f"window_ms 必须 > 0，得到 {window_ms}")
-        t0 = time.monotonic()
-        t_end = t0 + window_ms / 1000.0
-        last = int(self._io.read32(PIX_HB_OFF)) & HB_MASK
-        edges = 0
-        while time.monotonic() < t_end:   # 只受墙钟约束（不限 poll 次数，否则窗口被悄悄截短）
-            v = int(self._io.read32(PIX_HB_OFF)) & HB_MASK
-            if v != last:
+        t_end = time.monotonic() + window_ms / 1000.0
+        last, edges = None, 0
+        t_first = t_last = time.monotonic()
+        while True:  # 只受墙钟约束（不限 poll 次数，否则窗口被悄悄截短）
+            t = time.monotonic()
+            v = int(self._io.read32(ho.REG["PIX_HB"])) & HB_MASK
+            if last is None:
+                t_first = t
+            elif v != last:
                 edges += 1
-                last = v
-        dt = max(time.monotonic() - t0, 1e-9)
+            last, t_last = v, t
+            if t >= t_end:
+                break
+        # 只算「首末取样的跨度」：含循环起停开销会把 dt 拉长、把频率压低
+        # （实测 148 MHz/2 s 档曾因此偏低 0.11%，正是“精度声称必须可信”要防的事）
+        dt = max(t_last - t_first, 1e-9)
         mhz = edges * HB_HALF_DIV / dt / 1e6
         alive = edges >= 5
         self._last_pix, self._pix_window = (alive, mhz), dt
@@ -340,7 +331,7 @@ class DisplayPipeline:
     def stats(self) -> dict:
         d = self.mode_def
         st = {"mode": self._mode, "mode_name": d.name, "W": d.W, "H": d.H,
-              "stride": d.stride, "frame_bytes": d.frame_bytes,
+              "stride": stride_of(d), "frame_bytes": d.frame_bytes,
               "block_bytes": self._block_bytes, "fb_addr": self._fb_addr,
               "frame_id": self._frame_id, "shown": self._shown,
               "mode_switches": self._mode_switches,
@@ -396,5 +387,5 @@ class DisplayPipeline:
 
     def __repr__(self) -> str:
         d = self.mode_def
-        return (f"DisplayPipeline(mode={self._mode}:{d.name} {d.W}x{d.H} stride={d.stride} "
+        return (f"DisplayPipeline(mode={self._mode}:{d.name} {d.W}x{d.H} stride={stride_of(d)} "
                 f"fb=0x{self._fb_addr:08X} frame_id={self._frame_id})")

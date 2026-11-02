@@ -40,7 +40,8 @@
 
 ```
 module hdmi_out_top #(
-    parameter integer MODE_DEFAULT = 0        // 0=720p60 1=1080p60 2=1080p30 3=640x480p60
+    parameter integer MODE_DEFAULT = 3        // 0=720p60 1=1080p60 2=1080p30 3=720p30（默认，见 §8.11）
+                                              // 注：640x480 已由 720p30 取代（它需要 25.175 MHz，本设计没有第四路时钟）
 )(
     // ---- 时钟/复位 ----
     input  wire        s_axi_aclk,

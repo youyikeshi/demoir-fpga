@@ -1,24 +1,31 @@
 #!/usr/bin/env python3
-"""显示流水线端到端主机自检 —— **里程碑 1：只做判据 1~3**。
+"""显示流水线端到端主机自检 —— **判据 1~8**（里程碑 1 的 1~3 + 里程碑 2 的 4~8）。
 
 被测：``ps/pynq/display_demo.DisplayPipeline``（compose → 双缓冲 → ``FRAME_ID`` 换帧）
-互补：``tools/hdmi_selftest.py`` 管的是“PL 按 stride/8 拍扫描能否读回 compose 的字节”+
-寄存器图/握手；本文件**不重复**它，只判“PS 侧流水线把字节写对、块选对、换帧有序”。
+互补：``tools/hdmi_selftest.py``（119 条）管的是“PL 按 stride/8 拍扫描能否读回 compose 的字节”
++ 寄存器图 + 握手；本文件**不重复**它，只判“PS 侧流水线：字节写对、块选对、换帧有序、
+参数守住、心跳反推可信、模式切换合规”。
 
 判据
 ----
-1. **字节流一致**：假 allocator 抓内存 ⇒ 写进第 ``FRAME_ID&1`` 块的字节与
-   ``compose()` 输出**逐字节相同**（比 2,764,800 B 全量，不看抽样）。
-2. **双缓冲**：连续 4 帧 ⇒ 块序号严格交替（相邻不同）且等于 ``FRAME_ID & 1``、
-   ``FRAME_ID`` 严格递增；每块内容 == 本帧；**正被扫的另一块在换帧前不被覆盖**。
-3. **原子性**：内存写与寄存器写放进**同一条事件时间线** ⇒ 断言“写缓冲内容”(``block_write``)
-   全部早于“写 ``FRAME_ID``”(``fid_write``)；并在写 ``FRAME_ID`` 的那一刻给目标块拍 md5
-   快照，断言快照 == 本帧 ``compose()`` 的 md5（不是“写完了、碰巧后面才一致”）。
+1. **字节流一致**：假 allocator 抓内存 ⇒ 写进第 ``FRAME_ID&1`` 块的字节与 ``compose()``
+   输出**逐字节相同**（2,764,800 B 全量，不抽样）。
+2. **双缓冲**：连续 4 帧 ⇒ 块序号严格交替且等于 ``FRAME_ID & 1``、``FRAME_ID`` 严格递增；
+   每块内容 == 本帧；**正被扫的另一块在换帧前不被覆盖**。
+3. **原子性**：内存写与寄存器写放进**同一条事件时间线** ⇒ “写块”(``block_write``) 全部早于
+   “写 ``FRAME_ID``”(``fid_write``)；并在写 ``FRAME_ID`` 那一刻给目标块拍 md5 快照。
+4. **参数校验**：坏 mode / 坏 shape / 坏 dtype / 非数组 / stride 未 64 B 对齐 / 地址未对齐 /
+   无 ``device_address`` / 未 ``setup()`` / ``pix_alive`` 窗口非法 —— 必须直接抛，不许静默降级。
+5. **心跳反推**（契约 §8.13 口径）：``pix_alive(100 ms)`` **只判活着**（≥5 沿）；
+   **精度声明必须 ≥2 s 窗口**（N≈1132 沿 ⇒ ±0.09%），故 2 s 窗口下断言相对误差 ≤0.1%。
+6. **模式切换写入顺序**：``enable=0 → 写 VIDEO_MODE → 等 ≥2 整帧 → enable=1``（用事件时间戳量）。
+7. **三种图案 × 两种模式**（720p30 + 720p60，另加 1080p60 几何重分配）：字节仍逐字节一致。
+8. **``setup()`` 后两块全黑**：预填必须发生在 ``enable=1`` 之前，否则首帧前屏幕是垃圾内存。
 
 用法 / 退出码
 -------------
 ``python3 tools/display_e2e_selftest.py`` ⇒ 全过 ``rc=0`` 且末行打印 ``PASS``。
-不 import pynq、不碰板子（192.168.7.2 全程零访问）。
+不 import pynq、不碰板子（192.168.7.2 全程零访问）。**判据 5 需要 ~6 s 墙钟**（三个 2 s 窗口）。
 """
 
 from __future__ import annotations
@@ -26,6 +33,7 @@ from __future__ import annotations
 import hashlib
 import os
 import sys
+import time
 import traceback
 
 import numpy as np
@@ -83,6 +91,22 @@ def _input_color() -> tuple[np.ndarray, np.ndarray]:
     return orig, proc
 
 
+def _input_checker() -> tuple[np.ndarray, np.ndarray]:
+    y, x = np.mgrid[0:256, 0:256]
+    k = (((x // 32) + (y // 32)) & 1).astype(np.uint8)
+    orig = np.stack([k * 255, k * 255, k * 255], -1).astype(np.uint8)
+    proc = np.stack([255 - k * 255, (x * 2) & 0xFF, (y * 2) & 0xFF], -1).astype(np.uint8)
+    return orig, proc
+
+
+def _input_photo() -> tuple[np.ndarray, np.ndarray]:
+    rng = np.random.default_rng(20261103)
+    base = rng.integers(0, 256, size=(16, 16, 3), dtype=np.uint8)
+    orig = np.repeat(np.repeat(base, 16, axis=0), 16, axis=1)
+    proc = np.clip(orig.astype(np.int16) // 2 + 64, 0, 255).astype(np.uint8)
+    return orig, proc
+
+
 def _input_mark(k: int) -> tuple[np.ndarray, np.ndarray]:
     orig = np.full((256, 256, 3), (40 * k + 3) % 256, dtype=np.uint8)
     proc = np.full((256, 256, 3), (255 - 40 * k) % 256, dtype=np.uint8)
@@ -99,9 +123,11 @@ class TraceLog:
 
     def __init__(self):
         self.events: list[tuple[str, object]] = []
+        self.times: list[float] = []          # 与 events 一一对应（判据 6 量停顿用）
 
     def add(self, kind: str, detail=None) -> int:
         self.events.append((kind, detail))
+        self.times.append(time.monotonic())
         return len(self.events) - 1
 
     def indices(self, kind: str) -> list[int]:
@@ -189,6 +215,10 @@ class TracedPipeline(dd.DisplayPipeline):
     def _write_block(self, slot: int, frame: np.ndarray) -> None:
         super()._write_block(slot, frame)
         self.log.add("block_write", int(slot))
+
+    def _prefill_blocks(self) -> None:
+        super()._prefill_blocks()
+        self.log.add("prefill", None)          # 判据 8：预填必须早于 enable=1
 
 
 def _new(log: TraceLog, snapshot=None):
@@ -339,11 +369,276 @@ def judge3_atomic() -> None:
 
 
 # ---------------------------------------------------------------------------
+# ---------------------------------------------------------------------------
+# 判据 4：参数校验
+# ---------------------------------------------------------------------------
+class _NoAddrAlloc:
+    """分配块没有 ``device_address``（非 PYNQ 后端返回裸数组）⇒ 必须 ``RegError``。"""
+
+    def __call__(self, nbytes: int) -> np.ndarray:
+        return np.zeros(int(nbytes), dtype=np.uint8)
+
+
+def judge4_guards() -> None:
+    print("\n[判据 4] 参数校验：坏输入必须直接抛（不许静默降级）")
+
+    def expect(exc, fn, desc) -> None:
+        try:
+            fn()
+        except exc as e:
+            check(True, f"{desc} ⇒ {type(e).__name__}")
+            print(f"  ✅ {desc:<34s} ⇒ {type(e).__name__}: {str(e)[:46]}")
+        except Exception as e:  # noqa: BLE001
+            check(False, f"{desc} 抛了 {type(e).__name__}（应为 {exc.__name__}）: {e}")
+        else:
+            check(False, f"{desc} 没有抛异常")
+
+    log = TraceLog()
+    pipe = TracedPipeline(log, reg_io=RecordingRegIo(log), mode=3, allocator=FakeAllocator(log))
+    orig, proc = _input_color()
+
+    for bad in (4, -1, "3", None, True, 3.5):
+        expect(ValueError, lambda b=bad: dd.DisplayPipeline(reg_io=RecordingRegIo(TraceLog()), mode=b),
+               f"mode={bad!r}")
+    expect(ho.RegError, lambda: pipe.show(orig, proc), "未 setup() 就 show()")
+
+    pipe.setup()
+    expect(ValueError, lambda: pipe.show(orig[:255], proc), "orig 形状 (255,256,3)")
+    expect(ValueError, lambda: pipe.show(orig.astype(np.float32), proc), "orig dtype float32")
+    expect(ValueError, lambda: pipe.show(orig.tolist(), proc), "orig 是 list")
+    expect(ValueError, lambda: pipe.show(orig, proc[:, :100]), "proc 形状 (256,100,3)")
+
+    expect(ValueError, lambda: pipe._check_stride(3841), "_check_stride(3841) 未 64B 对齐")
+    expect(ValueError, lambda: pipe._check_stride(1280), "_check_stride(1280) < W*3")
+    try:
+        pipe._check_stride(3840)
+        check(True, "_check_stride(3840) 合法（3840 = 60*64）")
+    except ValueError as e:
+        check(False, f"_check_stride(3840) 不该炸: {e}")
+
+    expect(ValueError,
+           lambda: dd.DisplayPipeline(reg_io=RecordingRegIo(TraceLog()), mode=3,
+                                      allocator=lambda n: FakeBlock(int(n), 0x1F00_0008)).setup(),
+           "分配地址未 64 B 对齐")
+    expect(ho.RegError,
+           lambda: dd.DisplayPipeline(reg_io=RecordingRegIo(TraceLog()), mode=3,
+                                      allocator=_NoAddrAlloc()).setup(),
+           "分配块没有 device_address")
+
+    for bad in (0, -1, 0.0):
+        expect(ValueError, lambda b=bad: pipe.pix_alive(b), f"pix_alive(window_ms={bad})")
+    fb = pipe._rd("FB_STRIDE")
+    check(fb == 3840, f"FB_STRIDE 应写 3840，实测 {fb}")
+
+
+# ---------------------------------------------------------------------------
+# 判据 5：心跳反推（§8.13 口径）
+# ---------------------------------------------------------------------------
+class HbIo:
+    """物理自洽的假 0x30：按**真实流逝时间**推进像素时间轴（不是按读次数），
+    这样“沿数 × 2^16 / 墙钟秒数”才等价于真实像素时钟。"""
+
+    def __init__(self, mhz: float):
+        self.f = float(mhz) * 1e6
+        self.t0 = time.monotonic()
+
+    def read32(self, off: int) -> int:
+        if off != ho.REG["PIX_HB"]:
+            return 0
+        return int(((time.monotonic() - self.t0) * self.f) // dd.HB_HALF_DIV) & 1
+
+    def write32(self, off: int, v: int) -> None:  # pragma: no cover
+        pass
+
+
+class DeadHbIo:
+    """像素时钟停摆：``0x30[0]`` 恒 0（``[1]`` 还给 1，即“锁了但不翻”这种更坑的反例）。"""
+
+    def read32(self, off: int) -> int:
+        return 0x2 if off == ho.REG["PIX_HB"] else 0
+
+    def write32(self, off: int, v: int) -> None:  # pragma: no cover
+        pass
+
+
+def judge5_heartbeat() -> None:
+    print("\n[判据 5] 心跳反推（§8.13：100 ms 只判活；2 s 才谈精度）")
+
+    mhz = 37.109375
+    p = dd.DisplayPipeline(reg_io=HbIo(mhz), mode=3, allocator=lambda n: None)
+    alive, got = p.pix_alive(100)
+    err = 100 * (got - mhz) / mhz if got else 0.0
+    edges = int(round(got * 1e6 * p.stats()["pix_window_ms"] / 1e3 / dd.HB_HALF_DIV))
+    check(alive, f"{mhz} MHz 下 100 ms 窗口应判“活着”（≥5 沿）")
+    check(abs(err) <= 10.0, f"100 ms 只判活（容忍 ±10%），实测 {err:+.2f}%")
+    check(edges >= 5, f"沿数应 ≥5，实测 {edges}")
+    print(f"  100 ms : {got:.4f} MHz（{err:+.2f}%，沿数 {edges}）⇒ 只判“活着”，"
+          f"**不作精度声称**（理论 ±1.8%）")
+
+    p = dd.DisplayPipeline(reg_io=DeadHbIo(), mode=3, allocator=lambda n: None)
+    alive, got = p.pix_alive(100)
+    check(alive is False, "0x30[0] 不翻必须判“死”（哪怕 [1] mmcm_locked=1）")
+    check(got == 0.0, f"死时钟反推应为 0.0 MHz，实测 {got}")
+    print(f"  停摆   : alive={alive}  {got:.4f} MHz  ⇒ 立刻停手，不要继续 AXI 访问（§8.2）")
+
+    for mhz in (37.109375, 74.21875, 148.4375):
+        p = dd.DisplayPipeline(reg_io=HbIo(mhz), mode=3, allocator=lambda n: None)
+        t0 = time.monotonic()
+        alive, got = p.pix_alive(2000)
+        dt = time.monotonic() - t0
+        win = p.stats()["pix_window_ms"]
+        err = 100 * (got - mhz) / mhz
+        n_edges = int(round(got * 1e6 * win / 1e3 / dd.HB_HALF_DIV))
+        check(alive, f"{mhz} MHz 在 2 s 窗口应判活")
+        check(abs(err) <= 0.1, f"{mhz} MHz 在 2 s 窗口误差应 ≤0.1%，实测 {err:+.4f}%")
+        check(win >= 1900.0, f"2 s 窗口不得被截短，实测 {win:.0f} ms")
+        print(f"  2 s    : {mhz:>10.6f} → {got:10.4f} MHz  err {err:+.4f}%  "
+              f"(窗口 {win:.0f} ms, dt {dt:.3f} s, 沿数 ≈{n_edges})")
+
+
+# ---------------------------------------------------------------------------
+# 判据 6：模式切换写入顺序
+# ---------------------------------------------------------------------------
+CTRL_EN = 1 << 0
+
+
+def _switch_report(log: TraceLog, mode_code: int, fps: float, tag: str) -> None:
+    ev = log.events
+    i_en0 = next((i for i, (k, d) in enumerate(ev)
+                  if k == "reg_write" and d[0] == ho.REG["CTRL"] and not (d[1] & CTRL_EN)), None)
+    i_vm = next((i for i, (k, d) in enumerate(ev)
+                 if k == "reg_write" and d[0] == ho.REG["VIDEO_MODE"] and d[1] == mode_code), None)
+    i_en1 = next((i for i in range(len(ev) - 1, -1, -1)
+                  if ev[i][0] == "reg_write" and ev[i][1][0] == ho.REG["CTRL"]
+                  and (ev[i][1][1] & CTRL_EN)), None)
+    ok = None not in (i_en0, i_vm, i_en1) and i_en0 < i_vm < i_en1
+    gap = (log.times[i_en1] - log.times[i_en0]) if ok else -1.0
+    need = 2.0 / fps
+    mid = [i for i in range(i_en0 + 1, i_en1)
+           if ev[i][0] == "reg_write" and ev[i][1][0] == ho.REG["CTRL"] and (ev[i][1][1] & CTRL_EN)] \
+        if ok else [-1]
+    check(ok, f"{tag}: 写序必须 enable=0 < VIDEO_MODE={mode_code} < enable=1（实测 {i_en0}/{i_vm}/{i_en1}）")
+    check(gap >= need, f"{tag}: enable=0→enable=1 应 ≥2 帧 {need * 1e3:.1f} ms，实测 {gap * 1e3:.1f} ms")
+    check(not mid, f"{tag}: 切模式过程中不许提前 enable=1（实测 {mid}）")
+    print(f"  {tag:<16s}: enable=0(seq {i_en0}) → VIDEO_MODE={mode_code}(seq {i_vm}) → "
+          f"停 {gap * 1e3:5.1f} ms（≥{need * 1e3:.1f}）→ enable=1(seq {i_en1})")
+
+
+def judge6_mode_switch() -> None:
+    print("\n[判据 6] 模式切换写入顺序（契约 §8.11 协议）")
+    log = TraceLog()
+    alloc = FakeAllocator(log)
+    pipe = TracedPipeline(log, reg_io=RecordingRegIo(log), mode=3, allocator=alloc)
+    pipe.setup()
+    _switch_report(log, 3, ho.MODES[3].fps, "setup(720p30)")
+
+    log.events.clear()
+    log.times.clear()
+    fb0, nb0 = pipe.fb_addr, len(alloc.blocks)
+    pipe.set_mode(0)
+    _switch_report(log, 0, ho.MODES[0].fps, "3→0(720p60)")
+    check(len(alloc.blocks) == nb0 and pipe.fb_addr == fb0,
+          "720p30→720p60 几何相同 ⇒ 必须复用缓冲，不许重分配")
+    check(pipe._rd("VIDEO_MODE") == 0, "VIDEO_MODE 应已写 0")
+
+    log.events.clear()
+    log.times.clear()
+    pipe.set_mode(1)
+    _switch_report(log, 1, ho.MODES[1].fps, "0→1(1080p60)")
+    m1 = ho.MODES[1]
+    stride1 = m1.W * 3
+    blk1 = ho.align64(stride1 * m1.H)
+    check(pipe.block_bytes == blk1, f"1080p60 块大小应 {blk1}，实测 {pipe.block_bytes}")
+    check(len(alloc.blocks) == nb0 + 1, "几何变化必须重分配恰好一次")
+    check(alloc.requests[-1][0] == 2 * blk1, f"必须一次分到两块 {2 * blk1} B")
+    check(pipe.fb_addr % 64 == 0, f"新帧缓冲地址必须 64 B 对齐（实测 0x{pipe.fb_addr:X}）")
+    check(pipe._rd("FB_STRIDE") == stride1, f"FB_STRIDE 应写 {stride1}")
+    check(pipe._rd("FB_W") == 1920 and pipe._rd("FB_H") == 1080, "FB_W/FB_H 应写 1920/1080")
+    print(f"  几何变化: 复用到 1080p60 ⇒ 重分配 1 次，{2 * blk1:,} B，stride={stride1}")
+
+
+# ---------------------------------------------------------------------------
+# 判据 7：三种图案 × 两种模式
+# ---------------------------------------------------------------------------
+def judge7_patterns_modes() -> None:
+    print("\n[判据 7] 三种图案 × 两种模式（720p30 / 720p60）+ 1080p60 补一点")
+    patterns = (("color", _input_color), ("checker", _input_checker), ("photo", _input_photo))
+
+    for mode_code in (3, 0):
+        log = TraceLog()
+        alloc = FakeAllocator(log)
+        pipe = TracedPipeline(log, reg_io=RecordingRegIo(log), mode=mode_code, allocator=alloc)
+        pipe.setup()
+        m = ho.MODES[mode_code]
+        blk = ho.align64(m.W * 3 * m.H)
+        for name, gen in patterns:
+            orig, proc = gen()
+            fid = pipe.show(orig, proc)
+            exp = compose(orig, proc, m.W, m.H)
+            off = (fid & 1) * pipe.block_bytes
+            got = alloc.memory[off:off + exp.nbytes]
+            check(np.array_equal(got, exp.reshape(-1)),
+                  f"{m.name}/{name}: 字节应逐字节相同（{exp.nbytes:,} B）")
+            check(pipe.block_bytes == blk,
+                  f"{m.name}/{name}: 块大小应为 align64(stride*H)={blk}")
+            check((fid & 1) == pipe._slot(fid),
+                  f"{m.name}/{name}: 块序号应等于 FRAME_ID&1")
+        print(f"  {m.name:<8s}: {m.W}x{m.H} stride={m.W * 3} block={blk:,} B × 3 图案 ⇒ 逐字节一致")
+
+    log = TraceLog()
+    alloc = FakeAllocator(log)
+    pipe = TracedPipeline(log, reg_io=RecordingRegIo(log), mode=1, allocator=alloc)
+    pipe.setup()
+    m = ho.MODES[1]
+    orig, proc = _input_color()
+    fid = pipe.show(orig, proc)
+    exp = compose(orig, proc, m.W, m.H)
+    off = (fid & 1) * pipe.block_bytes
+    check(np.array_equal(alloc.memory[off:off + exp.nbytes], exp.reshape(-1)),
+          "1080p60/color: 字节应逐字节相同（6,220,800 B）")
+    print(f"  1080p60 : {m.W}x{m.H} block={pipe.block_bytes:,} B ⇒ 逐字节一致")
+
+    check(ho.MODES[3].W == ho.MODES[0].W == 1280 and ho.MODES[3].H == ho.MODES[0].H == 720,
+          "720p30 与 720p60 几何应相同（1280x720），只有像素时钟不同")
+    check(abs(ho.MODES[3].pix_clk_mhz - 37.109375) < 1e-9
+          and abs(ho.MODES[0].pix_clk_mhz - 74.25) < 1e-6,
+          f"像素时钟口径：mode3={ho.MODES[3].pix_clk_mhz} / mode0={ho.MODES[0].pix_clk_mhz}")
+
+
+# ---------------------------------------------------------------------------
+# 判据 8：setup() 后两块全黑
+# ---------------------------------------------------------------------------
+def judge8_prefill() -> None:
+    print("\n[判据 8] setup() 后两块缓冲必须全黑（预填早于 enable=1）")
+    log = TraceLog()
+    alloc = FakeAllocator(log)
+    pipe = TracedPipeline(log, reg_io=RecordingRegIo(log), mode=3, allocator=alloc)
+    pipe.setup()
+
+    mem = alloc.memory
+    b = pipe.block_bytes
+    nz0 = int(np.count_nonzero(mem[:b]))
+    nz1 = int(np.count_nonzero(mem[b:2 * b]))
+    check(mem.nbytes == 2 * b, f"分配应覆盖两块 {2 * b:,} B，实测 {mem.nbytes:,} B")
+    check(nz0 == 0, f"块0 在 setup() 返回后必须全 0，实测非零 {nz0} B")
+    check(nz1 == 0, f"块1 在 setup() 返回后必须全 0，实测非零 {nz1} B")
+
+    i_pf = next((i for i, (k, _) in enumerate(log.events) if k == "prefill"), None)
+    en1 = [i for i, (k, d) in enumerate(log.events)
+           if k == "reg_write" and d[0] == ho.REG["CTRL"] and (d[1] & CTRL_EN)]
+    check(i_pf is not None, "必须存在预填动作")
+    check(bool(en1) and i_pf < en1[-1],
+          f"预填(seq {i_pf}) 必须早于最后一次 enable=1(seq {en1[-1] if en1 else None})")
+    print(f"  两块 {b:,} B × 2 = {2 * b:,} B 全零；prefill seq {i_pf} < enable=1 seq {en1[-1]}"
+          f" ⇒ 首帧之前屏幕是黑的，不是未初始化内存")
+
+
 def main() -> int:
     print("=" * 74)
-    print("显示流水线端到端自检（里程碑 1：判据 1~3；mode=3 / 720p30 / 1280x720）")
+    print("显示流水线端到端自检（判据 1~8；默认 mode=3 / 720p30 / 1280x720）")
     print("=" * 74)
-    judges = (judge1_bytes, judge2_double_buffer, judge3_atomic)
+    judges = (judge1_bytes, judge2_double_buffer, judge3_atomic, judge4_guards,
+              judge5_heartbeat, judge6_mode_switch, judge7_patterns_modes, judge8_prefill)
     try:
         for fn in judges:
             fn()
