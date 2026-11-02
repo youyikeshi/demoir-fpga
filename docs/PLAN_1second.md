@@ -4791,3 +4791,37 @@ $$\Rightarrow\ \text{v40 那次：跑整网 } 23\ \text{s 硬挂} \Rightarrow \t
 $$\Rightarrow\ \text{这次：} \texttt{load} \to 64^2 \text{ 一次} \Rightarrow \text{第 2 档就 } \texttt{sha1}\ \text{不符} \Rightarrow \textbf{停在同一档，板子毫发无损}$$
 $$\Rightarrow\ \textbf{纪律（第 89 条）}：\text{新位流一律}\textbf{分档点亮}（load → 64²×1 → 256²×1 → 256²×3），$$
 $$\quad\ \text{任何一档 sha1 不符就停；}\textbf{不许"一次上全尺寸 ×N"}。\text{代价是 2 分钟，收益是不用去救板子}$$
+
+### 70.23 ★★★★ v42 的真因不是 E1E2，是**读通路预取**；而且它是"非确定性数据错"（2026-11-02 09:00）
+
+T-45 的二分（同一 boot / 同一份 PS / 同一输入）：
+
+| 位流 | 开关 | 64² | 256² |
+|---|---|---|---|
+| v39 | 全关 | ✅ 命中冻结 | ✅ 命中冻结 |
+| v39 | ABC | ✅ 命中冻结 | ✅ 命中冻结 |
+| **v42** | 全关 | ❌ | ❌（两次互不相同）|
+| **v42** | **`BIN_PACK=off`**（完全不用 E1E2）| — | ❌ **仍然错** |
+
+$$\Rightarrow\ \textbf{锅在读通路预取，不在 E1E2 组自增}\ (\text{我原先的判断错了})$$
+$$\Rightarrow\ \text{决定性统计：}\textbf{v42 = 24 跑 → 24 种互不相同的 sha1};\quad \text{v39 = 10 跑 → 只有 2 种（每形状一种）}$$
+$$\Rightarrow\ \Rightarrow\ \text{v42 的输出是}\textbf{非确定的} \Rightarrow \text{不是"某层算错"，是}\textbf{每次取回的数据都不一样}$$
+
+**静态时序早就指在同一个地方（两条独立证据完全对上）**
+$$\Rightarrow\ \text{T-42 报的新增违例族：} \texttt{ph\_reg[3]} \to \texttt{pf\_tag[7]/CE}\ \text{118 条，} -4.719\ \text{ns}$$
+$$\quad\ \text{而 } \texttt{pf\_tag[7]}\ \text{这一行是 } \texttt{PF\_DEPTH } 4\to8\ \text{才多出来的}$$
+$$\Rightarrow\ \textbf{CE 错拍} \Rightarrow \text{预取 tag 写错} \Rightarrow \textbf{误判命中} \Rightarrow \text{取回错的线} \Rightarrow \text{非确定性数据错}$$
+$$\Rightarrow\ \text{v42 的 PL 还"变快了"（}2.341\to2.10\sim2.24\ \text{s}）\Rightarrow \textbf{快了但数据是错的}：\text{它跳过了等待，取回了错的线}$$
+
+**修正后的行动**
+$$\Rightarrow\ \textbf{v42b（全四个参数）必然也是坏的} \Rightarrow \text{取消，改 } \textbf{v42c}：$$
+$$\quad\ \textbf{只改一个参数}\ \texttt{PF\_AHEAD } 1\to2 \quad (\texttt{PF\_DEPTH/PF\_MAX/AR\_SLOTS}\ \text{保持 } 4/4/4)$$
+$$\quad\ \Rightarrow \text{这样}\textbf{根本不产生 } \texttt{pf\_tag[7]}\ \text{那一行} \Rightarrow \text{绕开那条 } -4.719\ \text{的新违例}$$
+$$\quad\ +\ \text{保留 4 个 32 位只读诊断计数器（不改行为，是唯一能证"冻结降没降"的手段）}$$
+
+**第 90 条纪律：sha1 门禁必须包含"确定性"检查**
+$$\Rightarrow\ \text{同一输入}\textbf{连跑两次}，\text{sha1 必须逐位相同}$$
+$$\Rightarrow\ \text{本轮正是这一条把结论从"某层算错"升级为"读通路取错数据"——前者会让人去查算子，后者直接指向访存}$$
+$$\Rightarrow\ \textbf{第 91 条纪律：一次只动一个参数}$$
+$$\quad\ \text{v42 一次改了 4 个预取参数 + 2 处 E1E2 逻辑} \Rightarrow \text{归因只能靠再花一轮板端二分才拆开}$$
+$$\quad\ \Rightarrow\ \text{改 N 个旋钮就丢掉 N−1 份可归因性；本轮的代价是两次构建 + 一轮隔离}$$
