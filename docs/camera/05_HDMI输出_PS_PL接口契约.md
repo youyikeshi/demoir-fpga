@@ -336,3 +336,36 @@ $$\Rightarrow\ 100\ \text{MHz} \Rightarrow 300\ \text{MB/s};\quad 150\ \text{MHz
 - 附加能力：由沿速率反推像素时钟
   - `hb_cnt[16]` 半周期 = $2^{16}$ 个像素时钟
   - （公式含中文，已改为文字说明） 的倒数关系 ⇒ 实测 148.4568 / 74.2319 MHz 与设计值差 $+0.013\%$ / $+0.018\%$
+
+### 8.10 ★ 用户决定：**720p30 就够用**，降低时序压力（2026-11-03 02:0x）
+
+$$\Rightarrow\ 	ext{720p30 像素时钟 } = 1650 	imes 750 	imes 30 = 37.125\ 	ext{MHz} \Rightarrow 	extbf{只有 720p60 的一半}$$
+$$\Rightarrow\ 	ext{PL 像素域时序从 } 13.47\ 	ext{ns 放宽到 } \mathbf{26.94\ ns} \Rightarrow 	ext{新逻辑的时序风险大幅下降}$$
+$$\Rightarrow\ 	ext{行内瞬时带宽 } = 3 	imes 37.125 = \mathbf{111\ MB/s} \Rightarrow 	ext{对 } 100\ 	ext{MHz AXI}(300)\ 	extbf{余量 63\%}$$
+$$\Rightarrow\ 	ext{平均 } = 1280 	imes 720 	imes 3 	imes 30 = \mathbf{82.9\ MB/s}$$
+
+**因此：P2 真画面默认 720p30。**
+
+### 8.11 时钟与模式表（改版，三路时钟）
+
+MMCM 单 VCO = 1187.5 MHz（输入 100 MHz，`M=11.875`，`DIVCLK=1`）：
+
+| MMCM 输出 | 分频 | 频率 | 对应模式 |
+|---|---:|---:|---|
+| `CLKOUT0` | ÷8 | 148.4375 MHz | `VIDEO_MODE=1` 1080p60 |
+| `CLKOUT1` | ÷16 | 74.21875 MHz | `VIDEO_MODE=0` 720p60 |
+| **`CLKOUT2`** | **÷32** | **37.109375 MHz** | **`VIDEO_MODE=3` 720p30（新默认）** |
+
+模式表（修订）：
+
+| `VIDEO_MODE` | 分辨率/刷新 | 像素时钟 | 时序参数（H/V 总/有效） | 状态 |
+|---|---|---:|---|---|
+| 0 | 720p60 | 74.21875 MHz | 1650/1280, 750/720 | ✅ 板端已点亮 |
+| 1 | 1080p60 | 148.4375 MHz | 2200/1920, 1125/1080 | ✅ 板端已点亮 |
+| 2 | 1080p30 | 74.21875 MHz | 2200/1920, 1125/1080 | 未验证 |
+| **3** | **720p30** | **37.109375 MHz** | **1650/1280, 750/720** | **P2 默认，待板端验证** |
+
+$$\Rightarrow\ 	ext{三输入时钟选择用两级 } 	exttt{BUFGMUX}\ 	ext{串联（}	ext{select[0] 选 CLKOUT0/1，再与 CLKOUT2 选）}$$
+$$\Rightarrow\ 	ext{切换协议不变：} 	exttt{enable=0} 	o 	ext{写 } 	exttt{VIDEO\_MODE} 	o 	ext{等 } \ge 2\ 	ext{帧} 	o 	exttt{enable=1}$$
+$$\Rightarrow\ 	ext{约束：三路像素时钟各自 } 	exttt{create\_clock}（6.737 / 13.474 / \mathbf{26.936}\ 	ext{ns}）	ext{，两两互斥、都与 } 	exttt{s\_axi\_aclk}\ 	ext{异步}$$
+$$\Rightarrow\ 	extbf{三路 } WNS \ge 0\ 	ext{是门禁}$$
