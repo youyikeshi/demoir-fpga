@@ -3,7 +3,7 @@
 # =============================================================================
 # 生成: python3 pynq_specialized_code/ps/tools/deps_closure.py --gen
 # 源根: pynq_specialized_code/ps/pynq（md5 与路径无关，冻结点目录里同名文件逐个比）
-# 时间: 2026-11-02 08:09:34
+# 时间: 2026-11-02 09:56:06
 # 规模: 13 个模块 / 19 个文件（13 个 .py + 6 个 .c）
 #
 # ── 校验（两条都要 rc=0；缺任何一条都不算「闭包完整」）─────────────────────
@@ -24,18 +24,18 @@
 # ── 闭包表 ──────────────────────────────────────────────────────────────────
 # 模块          | 热/冷 | 用途 / 缺了的代价 | 需要文件 | .so | 加载点（file:line）
 #  bin_net      | 热（每次整网必经） | 整网调度：227 层 DAG + PS/PL 重叠流水 + CLI | bin_net.py | — | （闭包根）
-#  bin_engine   | 热（每次整网必经） | PL 驱动 + 惰性内核装配（`_q8()/_deq_kernel()/_bpack()` 三个回落点都在这里） | bin_engine.py | — | bin_net:45 , bin_net:468@cost , bin_net:913@prepare , bin_net:1002@__init__ …(+12)
-#  bin_ref_numpy| 热（每次整网必经） | numpy 参考内核 + Blob 权重容器 + conv_rtl（主机 FakePL 的算术基线） | bin_ref_numpy.py | — | bin_net:57 , bin_engine:60 , bin_engine:3865@_execute , bin_engine:3899@_synth_layer …(+3)
-#  qcache       | 冷/可选（`Q8CACHE=1`，默认关） | f32 叶子量化缓存（按 C8 字节常驻，省重复量化） | qcache.py | — | bin_net:1357@_q8_segment [try] , bin_net:1762@run [try]
+#  bin_engine   | 热（每次整网必经） | PL 驱动 + 惰性内核装配（`_q8()/_deq_kernel()/_bpack()` 三个回落点都在这里） | bin_engine.py | — | bin_net:45 , bin_net:536@cost , bin_net:981@prepare , bin_net:1070@__init__ …(+12)
+#  bin_ref_numpy| 热（每次整网必经） | numpy 参考内核 + Blob 权重容器 + conv_rtl（主机 FakePL 的算术基线） | bin_ref_numpy.py | — | bin_net:57 , bin_engine:60 , bin_engine:3923@_execute , bin_engine:3957@_synth_layer …(+3)
+#  qcache       | 冷/可选（`Q8CACHE=1`，默认关） | f32 叶子量化缓存（按 C8 字节常驻，省重复量化） | qcache.py | — | bin_net:1464@_q8_segment [try] , bin_net:1896@run [try]
 #  board_safe   | 冷（可选看门狗；缺 ⇒ 只是没有看门狗，不报错） | PL 看门狗（长卷积超时停喂狗让板子复位） | board_safe.py | — | bin_engine:73 [try]
 #  mmio_batch   | 热/opt-in（`BIN_MMIO_C=1` 才启用；**默认关**。缺 ⇒ 静默回落 Python MMIO 直写路径，结果逐字节等价，只是每次写多一次 struct.pack） | 一批 MMIO 写 + start + 等 done 收进**一次 C 调用**（T-23 第 2 级；首次使用时 `cc -O2` 现场编译成 mmio_batch_<arch>.so） | mmio_batch.py + mmio_batch.c | 现场编 | bin_engine:878@mmio_fast_init [try]
-#  catpack      | 冷（`CATPACK=1` 的 R_RUN_UNIT=5 后端，默认不挂） | cat 不物化直读引擎（CatPackEngine） | catpack.py | — | bin_engine:1944@enable_catpack
-#  e1e2_sim     | 冷（`pack_segments`/`write_int8`/`pack_int8` 的 C8 填充 + 自检参考） | E1E2 描述符/命令的寄存器级模型 + quantize_int8 参考语义 | e1e2_sim.py | — | bin_engine:2365@write_int8 , bin_engine:2702@pack_int8 , bin_engine:4135@_selftest [try] , qcache:168@quantize_leaf_c8
-#  bpack        | 热（prologue 小头；缺 ⇒ +0.45 s） | f32 → uint64 二值化打包（按 64 通道字） | bpack.py + bpack.c | 现场编 | bin_engine:3334@_bpack [try]
-#  c8deq        | 热（epilogue；缺 ⇒ epilogue ×4.63） | C8 int8 → f32 一趟 burst 反量化（非缓存缓冲上 numpy 跨步视图的替代） | c8deq.py + c8deq.c | 现场编 | bin_engine:3358@_deq_kernel [try] , bin_engine:3418@from_c8_deq_into [try]
-#  q8           | 热（prologue；缺 ⇒ prologue ×3.69） | f32→int8 量化 + 一趟写进 C8 交错缓冲（NEON） | q8.py + q8.c | 现场编 | bin_engine:3607@_q8 [try]
+#  catpack      | 冷（`CATPACK=1` 的 R_RUN_UNIT=5 后端，默认不挂） | cat 不物化直读引擎（CatPackEngine） | catpack.py | — | bin_engine:1952@enable_catpack
+#  e1e2_sim     | 冷（`pack_segments`/`write_int8`/`pack_int8` 的 C8 填充 + 自检参考） | E1E2 描述符/命令的寄存器级模型 + quantize_int8 参考语义 | e1e2_sim.py | — | bin_engine:2373@write_int8 , bin_engine:2710@pack_int8 , bin_engine:4193@_selftest [try] , qcache:168@quantize_leaf_c8
+#  bpack        | 热（prologue 小头；缺 ⇒ +0.45 s） | f32 → uint64 二值化打包（按 64 通道字） | bpack.py + bpack.c | 现场编 | bin_engine:3342@_bpack [try]
+#  c8deq        | 热（epilogue；缺 ⇒ epilogue ×4.63） | C8 int8 → f32 一趟 burst 反量化（非缓存缓冲上 numpy 跨步视图的替代） | c8deq.py + c8deq.c | 现场编 | bin_engine:3367@_deq_kernel [try] , bin_engine:3379@_deq_kernel_tiled [try] , bin_engine:3449@from_c8_deq_into [try] , bin_engine:3452@from_c8_deq_into [try]
+#  q8           | 热（prologue；缺 ⇒ prologue ×3.69） | f32→int8 量化 + 一趟写进 C8 交错缓冲（NEON） | q8.py + q8.c | 现场编 | bin_engine:3646@_q8 [try]
 #  bilinear_c   | 热/opt-in（interp；`BIN_BILINEAR_C=1` 才加载 .so，默认关） | 双线性插值 C 内核（逐字节等价 numpy 版） | bilinear_c.py + bilinear_c.c | 现场编 | bin_ref_numpy:651@_bilinear_c_kernel [try]
-#  convpf_c     | 热/opt-in（`BIN_CONVPF_C=1` 且在 ARM 上才启用；缺 ⇒ 静默回落 numpy im2col，结果等价） | im2col-free 直接卷积 C/NEON 内核（逐字节等价比串行标量参考；T-17） | convpf_c.py + convpf_c.c | 现场编 | bin_ref_numpy:859@_convpf_c_try [try] , bin_ref_numpy:883@convpf_c_status [try]
+#  convpf_c     | 热/opt-in（`BIN_CONVPF_C=1` 且在 ARM 上才启用；缺 ⇒ 静默回落 numpy im2col，结果等价） | im2col-free 直接卷积 C/NEON 内核（逐字节等价比串行标量参考；T-17） | convpf_c.py + convpf_c.c | 现场编 | bin_ref_numpy:923@_convpf_c_try [try] , bin_ref_numpy:947@convpf_c_status [try]
 #
 # ── .so 决策（**不随包传**）──────────────────────────────────────────────────
 #   每个 native 模块都是首次使用时 `cc -O3 -std=c99 -fPIC -shared`（x86 还会加
@@ -46,7 +46,7 @@
 #     `board_ops` 的跑点门禁要求：`kernel_deps.*.so` 与 `so_build.built_now` 都要留证。
 #     mmio_batch   .c=mmio_batch.c  ⇒ .so=mmio_batch_<arch>.so  加载点 2 处（首个 L43: return ctypes.CDLL(so), None）
 #     bpack        .c=bpack.c  ⇒ .so=bpack_<arch>.so  加载点 5 处（首个 L40: return ctypes.CDLL(so), None）
-#     c8deq        .c=c8deq.c  ⇒ .so=c8deq_<arch>.so  加载点 5 处（首个 L40: return ctypes.CDLL(so), None）
+#     c8deq        .c=c8deq.c  ⇒ .so=c8deq_<arch>.so  加载点 7 处（首个 L40: return ctypes.CDLL(so), None）
 #     q8           .c=q8.c  ⇒ .so=q8_<arch>.so  加载点 5 处（首个 L42: lib = ctypes.CDLL(so)）
 #     bilinear_c   .c=bilinear_c.c  ⇒ .so=bilinear_c_<arch>.so  加载点 2 处（首个 L64: lib = ctypes.CDLL(so)）
 #     convpf_c     .c=convpf_c.c  ⇒ .so=convpf_c_<arch>.so  加载点 2 处（首个 L78: lib = ctypes.CDLL(so)）
@@ -61,9 +61,9 @@
 #   ⇒ 这三个不改变今天的数字，但任何「冻结点只挑热路径文件」的做法都会踩到。
 #
 # ── 文件清单（md5sum -c 用；顺序固定：模块名序，.py 在 .c 前）────────────────
-ee113f5b0061b86207da4c88c187e225  bin_net.py
-42e0b3fc7fd05d0dab9f4968a4a600cc  bin_engine.py
-3711d4fa02cb6cc45f1a8f16b348e221  bin_ref_numpy.py
+9235f5430aa49fef911963d59d49838b  bin_net.py
+4b1b25a7e3721db1147790dc3495f85e  bin_engine.py
+337fbe3a354e3939b60d03c39b909610  bin_ref_numpy.py
 4a0defde90cd956e9a9d0433b24b5eec  qcache.py
 d4d62fd06f74c963b643cec59566bf54  board_safe.py
 fe1bacff0fd4ca66da2c932725700772  mmio_batch.py
@@ -72,8 +72,8 @@ a51ec90452d80597da85564e41039362  mmio_batch.c
 2c4a6180fb74f88abb5e13b8e641b489  e1e2_sim.py
 63d6a9368827d36f81f64bc5f62c864b  bpack.py
 2a8e6c553cb3dec95460223fa800a0f6  bpack.c
-af33f47fbffe3751e360c77038afea3c  c8deq.py
-5019fab0f07720b0954d0b773c3d5523  c8deq.c
+41c61d97ddd266655a02e86855ce28de  c8deq.py
+8cd77f1c4290b81d3b1d74d971390ac7  c8deq.c
 e794a43dcb8ce314f323a9b07c4274a6  q8.py
 c744794c2dafc032ddc4dde3c05adb5b  q8.c
 48134b7b0056ea71be77a965f0adf633  bilinear_c.py

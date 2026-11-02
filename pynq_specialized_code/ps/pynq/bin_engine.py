@@ -1840,11 +1840,19 @@ class BinConvEngine:
         ★ 2026-10-31（C8 直读 / BIN_LAZY_DEQ）：`lazy=True` 时**不反量化**，返回
           `C8Tensor`（int8 C8 + 物理地址）。只有当消费者真要 f32 时才物化。
           拿不到物理地址（宿主内存）⇒ 自动退回下面的真反量化（行为不变）。
+
+        ★ T-18 刀③（`BIN_EPI_NOINV=1`，默认关）：惰性分支**不再** `_invalidate`。
+          安全性论证（不是"大概没事"）：本网 CPU 对这片 OUT 字节的**所有**读取都
+          汇到 `read_out(lazy=False)` 一处（`C8Tensor.materialize()` / `_materialize()`），
+          而那条路径在下面第一行就会 `_invalidate`；PL 侧走 AXI 读 DDR，与 CPU cache
+          无关。⇒ 跳过这一句不会读到旧影子，省的是每层 0.27 ms（板端实测）的固定开销，
+          在 198/227 层上**纯属浪费**（那些层 CPU 一个字节都不读）。
         """
         if lazy:
             pa = int(getattr(out_buf, "physical_address", 0) or 0)
             if pa:
-                _invalidate(out_buf)
+                if not _epi_noinv():
+                    _invalidate(out_buf)
                 return C8Tensor(out_buf, L.cout, L.Hout, L.Wout,
                                 int(L.d["act_fs_out"]), engine=self, layer=L,
                                 on_release=on_release, nref=nref)
@@ -3349,6 +3357,7 @@ def _bpack_pack_f32(mod, x3, adj):
 #   板端实测：原 numpy 单趟 `np.multiply(跨步视图, ...)` 在**非缓存 DMA 缓冲**上要 5.45 s
 #   （1 字节/次的标量读）；C 内核 + 一次 burst memcpy 只要 0.97 s。见 runs/epi256/REPORT.md。
 _c8deq = None
+_c8deq_t = None          # ★ T-18 刀④：tile 化入口（惰性 import）
 
 
 def _deq_kernel():
@@ -3360,6 +3369,18 @@ def _deq_kernel():
         except Exception:                       # noqa: BLE001
             _c8deq = False
     return _c8deq or None
+
+
+def _deq_kernel_tiled():
+    """★ T-18 刀④：`c8deq.deq_tiled`（tile 化）。不可用 ⇒ None（调用方回落）。"""
+    global _c8deq_t
+    if _c8deq_t is None:
+        try:
+            from c8deq import deq_tiled as _f
+            _c8deq_t = _f
+        except Exception:                       # noqa: BLE001
+            _c8deq_t = False
+    return _c8deq_t or None
 
 
 def from_c8_deq(raw, C, H, W, fs_out, dequant=True):
@@ -3379,6 +3400,16 @@ def from_c8_deq(raw, C, H, W, fs_out, dequant=True):
     cg = (C + C8 - 1) // C8
     n = cg * H * W * C8
     if dequant:
+        # ★ T-18 刀④：`BIN_DEQ_TILE=1` 走 tile 化内核；不可用 ⇒ 回落旧内核 ⇒ 回落 numpy
+        if _deq_tile():
+            kt = _deq_kernel_tiled()
+            if kt is not None:
+                try:
+                    y = kt(raw, C, H, W, int(fs_out))
+                    if y is not None:
+                        return y[:C]
+                except Exception:             # noqa: BLE001
+                    pass
         k = _deq_kernel()
         if k is not None:
             y = k(raw, C, H, W, int(fs_out))
@@ -3416,6 +3447,14 @@ def from_c8_deq_into(raw, C, H, W, fs_out, dst):
     if _deq_kernel() is not None:
         try:
             from c8deq import deq_into as _into
+            if _deq_tile():
+                try:
+                    from c8deq import deq_into_tiled as _into_t
+                    got = _into_t(raw, C, H, W, int(fs_out), dst[:n])
+                    if got is not None:
+                        return d.reshape(cg * C8, H, W)[:C]
+                except Exception:          # noqa: BLE001
+                    pass
             got = _into(raw, C, H, W, int(fs_out), dst[:n])
             if got is not None:
                 return d.reshape(cg * C8, H, W)[:C]
@@ -3680,6 +3719,25 @@ def _invalidate(buf):
         buf.invalidate()
     except Exception:                     # noqa: BLE001
         pass
+
+
+# ============================================================================
+# T-18 的四个开关（**全部 opt-in，默认关**；全关时逐字节等于改动前）
+# ============================================================================
+#   刀① `BIN_CAT_ECA_FUSE=1`  bin_net：cat3 不物化、eca 逐叶求均值
+#   刀② `BIN_SAM_TILE=1`      bin_ref_numpy：sam 分片单趟（`BIN_SAM_SLAB_KB`）
+#   刀③ `BIN_EPI_NOINV=1`     bin_engine：惰性 read_out 跳过 invalidate
+#   刀④ `BIN_DEQ_TILE=1`      c8deq.c 的 tile 化内核（新入口，旧入口保留）
+def _env_on(name):
+    return os.environ.get(name, "").strip().lower() in ("1", "on", "true", "yes")
+
+
+def _epi_noinv():
+    return _env_on("BIN_EPI_NOINV")
+
+
+def _deq_tile():
+    return _env_on("BIN_DEQ_TILE")
 
 
 # ============================================================================

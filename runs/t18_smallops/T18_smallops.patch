@@ -1,0 +1,547 @@
+--- a/pynq_specialized_code/ps/pynq/bin_engine.py
++++ b/pynq_specialized_code/ps/pynq/bin_engine.py
+@@ -1840,11 +1840,19 @@
+         ★ 2026-10-31（C8 直读 / BIN_LAZY_DEQ）：`lazy=True` 时**不反量化**，返回
+           `C8Tensor`（int8 C8 + 物理地址）。只有当消费者真要 f32 时才物化。
+           拿不到物理地址（宿主内存）⇒ 自动退回下面的真反量化（行为不变）。
++
++        ★ T-18 刀③（`BIN_EPI_NOINV=1`，默认关）：惰性分支**不再** `_invalidate`。
++          安全性论证（不是"大概没事"）：本网 CPU 对这片 OUT 字节的**所有**读取都
++          汇到 `read_out(lazy=False)` 一处（`C8Tensor.materialize()` / `_materialize()`），
++          而那条路径在下面第一行就会 `_invalidate`；PL 侧走 AXI 读 DDR，与 CPU cache
++          无关。⇒ 跳过这一句不会读到旧影子，省的是每层 0.27 ms（板端实测）的固定开销，
++          在 198/227 层上**纯属浪费**（那些层 CPU 一个字节都不读）。
+         """
+         if lazy:
+             pa = int(getattr(out_buf, "physical_address", 0) or 0)
+             if pa:
+-                _invalidate(out_buf)
++                if not _epi_noinv():
++                    _invalidate(out_buf)
+                 return C8Tensor(out_buf, L.cout, L.Hout, L.Wout,
+                                 int(L.d["act_fs_out"]), engine=self, layer=L,
+                                 on_release=on_release, nref=nref)
+@@ -3349,6 +3357,7 @@
+ #   板端实测：原 numpy 单趟 `np.multiply(跨步视图, ...)` 在**非缓存 DMA 缓冲**上要 5.45 s
+ #   （1 字节/次的标量读）；C 内核 + 一次 burst memcpy 只要 0.97 s。见 runs/epi256/REPORT.md。
+ _c8deq = None
++_c8deq_t = None          # ★ T-18 刀④：tile 化入口（惰性 import）
+ 
+ 
+ def _deq_kernel():
+@@ -3362,6 +3371,18 @@
+     return _c8deq or None
+ 
+ 
++def _deq_kernel_tiled():
++    """★ T-18 刀④：`c8deq.deq_tiled`（tile 化）。不可用 ⇒ None（调用方回落）。"""
++    global _c8deq_t
++    if _c8deq_t is None:
++        try:
++            from c8deq import deq_tiled as _f
++            _c8deq_t = _f
++        except Exception:                       # noqa: BLE001
++            _c8deq_t = False
++    return _c8deq_t or None
++
++
+ def from_c8_deq(raw, C, H, W, fs_out, dequant=True):
+     """C8 交错裸字节 → (C,H,W) float32（= `from_c8(...).astype(f32)/2^fs_out`）。
+ 
+@@ -3379,6 +3400,16 @@
+     cg = (C + C8 - 1) // C8
+     n = cg * H * W * C8
+     if dequant:
++        # ★ T-18 刀④：`BIN_DEQ_TILE=1` 走 tile 化内核；不可用 ⇒ 回落旧内核 ⇒ 回落 numpy
++        if _deq_tile():
++            kt = _deq_kernel_tiled()
++            if kt is not None:
++                try:
++                    y = kt(raw, C, H, W, int(fs_out))
++                    if y is not None:
++                        return y[:C]
++                except Exception:             # noqa: BLE001
++                    pass
+         k = _deq_kernel()
+         if k is not None:
+             y = k(raw, C, H, W, int(fs_out))
+@@ -3416,6 +3447,14 @@
+     if _deq_kernel() is not None:
+         try:
+             from c8deq import deq_into as _into
++            if _deq_tile():
++                try:
++                    from c8deq import deq_into_tiled as _into_t
++                    got = _into_t(raw, C, H, W, int(fs_out), dst[:n])
++                    if got is not None:
++                        return d.reshape(cg * C8, H, W)[:C]
++                except Exception:          # noqa: BLE001
++                    pass
+             got = _into(raw, C, H, W, int(fs_out), dst[:n])
+             if got is not None:
+                 return d.reshape(cg * C8, H, W)[:C]
+@@ -3683,6 +3722,25 @@
+ 
+ 
+ # ============================================================================
++# T-18 的四个开关（**全部 opt-in，默认关**；全关时逐字节等于改动前）
++# ============================================================================
++#   刀① `BIN_CAT_ECA_FUSE=1`  bin_net：cat3 不物化、eca 逐叶求均值
++#   刀② `BIN_SAM_TILE=1`      bin_ref_numpy：sam 分片单趟（`BIN_SAM_SLAB_KB`）
++#   刀③ `BIN_EPI_NOINV=1`     bin_engine：惰性 read_out 跳过 invalidate
++#   刀④ `BIN_DEQ_TILE=1`      c8deq.c 的 tile 化内核（新入口，旧入口保留）
++def _env_on(name):
++    return os.environ.get(name, "").strip().lower() in ("1", "on", "true", "yes")
++
++
++def _epi_noinv():
++    return _env_on("BIN_EPI_NOINV")
++
++
++def _deq_tile():
++    return _env_on("BIN_DEQ_TILE")
++
++
++# ============================================================================
+ # 5. 本机自检：用"寄存器级 RTL 模型"跑一遍驱动（不需要板子/pynq）
+ # ============================================================================
+ class FakeUnit:
+--- a/pynq_specialized_code/ps/pynq/bin_net.py
++++ b/pynq_specialized_code/ps/pynq/bin_net.py
+@@ -58,6 +58,7 @@
+     Blob, C8, binarize_pack, conv_rtl, sat8, out_hw, pixel_shuffle, pixel_unshuffle,
+     # ★ 非卷积快速内核（bin_ref_numpy 侧提供，逐字节等价；见各函数 docstring）
+     bilinear_f32, eca_attn_f32, conv2d_f32 as conv2d_f32_np,
++    eca_attn_f32_from_mean,                      # ★ T-18 刀①：逐叶均值入口
+     sam_mix_f32, add_f32, cat_last, tune_malloc,
+     # ★ T-17：opt-in 开关（默认全关）
+     CONVPF_FUSE,
+@@ -220,7 +221,15 @@
+     Conv1d 都 bias=False（fp_layers 里只有 weight）。
+     """
+     C = x.shape[0]
+-    m = np.asarray(x, np.float32).mean(axis=(1, 2)).reshape(1, 1, C)
++    m = np.asarray(x, np.float32).mean(axis=(1, 2))
++    return eca_attn_ref_from_mean(m, w1, w2)
++
++
++def eca_attn_ref_from_mean(m, w1, w2):
++    """`eca_attn_ref` 的后半段：输入已经是每通道空间均值 (C,)（T-18 刀①用）。"""
++    m = np.asarray(m, np.float32).reshape(-1)
++    C = int(m.shape[0])
++    m = m.reshape(1, 1, C)
+     v = np.pad(m, ((0, 0), (0, 0), (4, 4)))
+     w1 = np.asarray(w1, np.float32).reshape(-1)
+     w2 = np.asarray(w2, np.float32).reshape(-1)
+@@ -256,6 +265,65 @@
+     return eca_attn_ref(x, w1, w2)
+ 
+ 
++# ---------------------------------------------------------------------------
++# ★ T-18 刀①：`cat3 → eca` 逐叶求均值（`BIN_CAT_ECA_FUSE=1`，默认关）
++# ---------------------------------------------------------------------------
++# 为什么这刀值得做：本网 116 个 cat 里只剩 6 个物化，而那 6 个都是
++# `*_sam_blocks.0:cat3`，**唯一消费者是 eca**，而 eca 只要 (3C,) 的逐通道空间均值。
++# ⇒ 那次 33 MB 的 concat 在数学上不存在（"必要字节 = 0"）。
++#
++# 逐位等价：均值沿 (H,W) 归约，每个输出通道的元素序列与在整块 cat 里**完全一致**
++# （C 序、同一 pairwise 分块），只是外层通道维被切开 ⇒ 逐位相同。
++def _cat_eca_fuse():
++    return os.environ.get("BIN_CAT_ECA_FUSE", "").strip().lower() in (
++        "1", "on", "true", "yes")
++
++
++_cat_eca_why = None          # 回落原因（只打印一次，不污染正常输出）
++
++
++def _cat_eca_note(why):
++    global _cat_eca_why
++    if _cat_eca_why is None:
++        _cat_eca_why = why
++        print("[bin_net] ⚠ BIN_CAT_ECA_FUSE=1 但本层回落原路径：%s" % why,
++              flush=True)
++
++
++class _CatEcaChunks:
++    """`cat` 的**未物化**标记：唯一消费者是 eca ⇒ 只保留叶子数组 + 叶子 id。
++
++    只被 `_exec_ps` 的 eca 分支消费；任何别的地方拿到它都会走 `__array__`
++    自动物化（安全网，不会静默错数据）。
++    """
++
++    __slots__ = ("arrays", "ids")
++
++    def __init__(self, arrays, ids):
++        self.arrays = arrays
++        self.ids = ids
++
++    def __len__(self):
++        return len(self.arrays)
++
++    def __array__(self, dtype=None, copy=None):
++        y = np.concatenate([np.asarray(a, np.float32) for a in self.arrays], 0)
++        if dtype is None or np.dtype(dtype) == y.dtype:
++            return y
++        return y.astype(dtype)
++
++    def __repr__(self):
++        return "_CatEcaChunks(%d leaves, %d ch)" % (
++            len(self.arrays), sum(int(a.shape[0]) for a in self.arrays))
++
++
++def eca_from_mean(m, w1, w2):
++    """ECA 入口（输入已是逐通道空间均值）。fast/ref 两条路都**逐位等于**原路径。"""
++    if FAST_ECA:
++        return eca_attn_f32_from_mean(m, w1, w2)
++    return eca_attn_ref_from_mean(m, w1, w2)
++
++
+ # ============================================================================
+ # 2. 调度计划（真的按网络结构走一遍，用容器断形状）
+ # ============================================================================
+@@ -1323,6 +1391,45 @@
+             print("  [cat] %-46s 不融合（%s）"
+                   % ((op.name if op is not None else "?")[-46:], why), flush=True)
+ 
++    # ---- T-18 刀①：cat3 → eca 的"不物化"标记 ----
++    def _cat_eca_marker(self, op):
++        """这个 cat 能不能**只留叶子、不 concat**？能 ⇒ 返回标记，否则 None。
++
++        结构前提（任何一条不满足就返回 None，走原路径）：
++          · 消费者**恰好一个**，且它是 `eca`；
++          · 所有 deps 都已求值，且都是 (C,H,W) float32 的普通 ndarray；
++          · `eca` 的 dep 数 ≥ 1（本网正好 1）。
++        标记里的叶子要**钉住**（`_catpins`）直到 eca 算完均值，否则 BV_FREE 会提前
++        把它们的 `.val` 清掉（那会让均值读到 None ⇒ 静默错数据）。
++        """
++        try:
++            g = self._graph
++            if g is None or op.out.id >= len(g.dependents):
++                return None
++            cons = g.dependents[op.out.id]
++            if not cons or len(cons) != 1:
++                return None
++            co = g.ops[cons[0]]
++            if co.kind != "eca" or len(co.deps) != 1:
++                return None
++            arrays, ids = [], []
++            for t in op.deps:
++                a = t.val
++                if isinstance(a, np.ndarray) and a.dtype == np.float32 \
++                        and a.ndim == 3:
++                    arrays.append(a)
++                    ids.append(t.id)
++                else:
++                    return None                 # 惰性/未求值/非 f32 ⇒ 原路径
++            if not arrays:
++                return None
++            for tid in ids:
++                self._catpins[tid] = True
++            return _CatEcaChunks(arrays, ids)
++        except Exception as _ex:                # noqa: BLE001
++            _cat_eca_note("扫描异常：%r" % (_ex,))
++            return None
++
+     # ---- S2 配套：f32 叶子的量化缓存 ----
+     def _q8_segment(self, a, L):
+         """f32 叶子 → **带物理地址的 C8 int8 段**（量化缓存）；做不到 ⇒ None。
+@@ -1578,6 +1685,16 @@
+                 st["cat_s"][_cls] = st["cat_s"].get(_cls, 0.0) + \
+                     (time.perf_counter() - _t_cat)
+ 
++            # ★ T-18 刀①（`BIN_CAT_ECA_FUSE=1`，默认关）：这个 cat 的**唯一消费者是 eca**
++            #   ⇒ 它要的只是"逐通道空间均值"，那次 concat **在数学上不存在**。
++            #   这里返回一个惰性标记（叶子先钉住，eca 算完均值再解钉），
++            #   不物化 ⇒ 省掉 读 33 MB + 写 33 MB。
++            #   逐位等价：见 bin_ref_numpy.eca_attn_f32_from_mean 的说明。
++            if _cat_eca_fuse():
++                _mk = self._cat_eca_marker(op)
++                if _mk is not None:
++                    _note_cat()
++                    return _mk
+             if self._cat_fusion and op.out.id in self._needs_f32:
+                 self._cat_fallback("needs_f32", op)
+             lazy_i8 = bool(self._cat_fusion
+@@ -1646,6 +1763,23 @@
+             a = op.args
+             w1 = self.blob.fp_layer(a["w1"])[0]
+             w2 = self.blob.fp_layer(a["w2"])[0]
++            # ★ T-18 刀①：输入是"未物化的 cat3" ⇒ 逐叶求均值再拼（逐位等价）
++            if isinstance(v[0], _CatEcaChunks):
++                ch = v[0]
++                try:
++                    m = np.concatenate(
++                        [np.asarray(x, np.float32).mean(axis=(1, 2))
++                         for x in ch.arrays], 0)
++                except Exception as _ex:          # noqa: BLE001
++                    for tid in ch.ids:            # 解钉后按老路径重算（等价）
++                        self._catpins.pop(tid, None)
++                    _cat_eca_note("leaf_mean 异常：%r" % (_ex,))
++                    m = np.concatenate([np.asarray(x, np.float32)
++                                        for x in ch.arrays], 0).mean(axis=(1, 2))
++                else:
++                    for tid in ch.ids:
++                        self._catpins.pop(tid, None)
++                return eca_from_mean(m, w1, w2)
+             return eca_attn(v[0], w1, w2)
+         if k == "sam":
+             x, y0, y2, y4, w = v
+--- a/pynq_specialized_code/ps/pynq/bin_ref_numpy.py
++++ b/pynq_specialized_code/ps/pynq/bin_ref_numpy.py
+@@ -773,6 +773,21 @@
+     """
+     C = int(x.shape[0])
+     m = np.asarray(x, np.float32).mean(axis=(1, 2)).reshape(-1)
++    return eca_attn_f32_from_mean(m, w1, w2, C)
++
++
++def eca_attn_f32_from_mean(m, w1, w2, C=None):
++    """`eca_attn_f32` 的**后半段**：输入已经是每通道空间均值 (C,)。
++
++    ★ T-18 刀①（`BIN_CAT_ECA_FUSE`）：把算均值的**输入**从"整块 cat3"换成
++      "逐叶子分别求均值再拼"时走这条入口。
++      逐位等价：均值沿 (H,W) 归约，每个通道的元素序列与在整块 cat 里完全一致
++      （C 序、同一 pairwise 分块），只是外层通道维被切开 ⇒ 结果逐位相同。
++      （实测 6 个真实形状 + 整网 sha1，见 runs/t18_smallops/REPORT_phase2.md）
++    """
++    m = np.asarray(m, np.float32).reshape(-1)
++    if C is None:
++        C = int(m.shape[0])
+     v = np.pad(m, (4, 4))
+     y = _windowed_dot_exact(v, w2, C)
+     y = np.maximum(y, 0)
+@@ -796,6 +811,53 @@
+     o += x[c0:c1]
+ 
+ 
++# ---------------------------------------------------------------- T-18 刀②
++# `BIN_SAM_TILE=1`（默认关）：把上面那 6 个**全尺寸** ufunc 切成"每片 2 个数组驻留
++# L2"的分片循环，逐元素运算序列**一个都没变**（因此逐位相同），只是 `o`/`t` 的
++# 中间值不再各回来一次 DDR。字节账：15S → 5S（S = 输出张量字节）。
++#
++# 片大小：`BIN_SAM_SLAB_KB`（默认 **96 KB**，保守——板端 2 线程共享 512 KB L2，
++# 分片时 o+t 两份 ≈ 2×96 KB/线程；主机上片大一点更好，可用 256）。
++_SAM_SLAB_KB_DEF = 96
++
++
++def _sam_slab_kb():
++    raw = os.environ.get("BIN_SAM_SLAB_KB", "").strip()
++    try:
++        v = int(float(raw)) if raw else _SAM_SLAB_KB_DEF
++    except (TypeError, ValueError):
++        v = _SAM_SLAB_KB_DEF
++    return max(8, min(4096, v))
++
++
++def _sam_tile_on():
++    return os.environ.get("BIN_SAM_TILE", "").strip().lower() in (
++        "1", "on", "true", "yes")
++
++
++def _sam_slab_tiled(x, y0, y2, y4, w0, w2, w4, c0, c1, out):
++    """`_sam_slab` 的分片版：**逐位相同**，但中间量留在 cache 里。
++
++    `cs` = 每片的通道数（片内 `o`+`t` 两份 ≈ 2×cs×H×W×4 B）。
++    """
++    hw = int(y0.shape[1]) * int(y0.shape[2])
++    per_ch = 4 * hw
++    cs = max(1, (_sam_slab_kb() << 10) // max(1, per_ch))
++    if cs >= (c1 - c0):                          # 整块就一片 ⇒ 等价于老路径，零额外开销
++        _sam_slab(x, y0, y2, y4, w0, w2, w4, c0, c1, out)
++        return
++    for c in range(c0, c1, cs):
++        cb = min(c1, c + cs)
++        o = out[c:cb]
++        t = np.empty_like(o)
++        np.multiply(y0[c:cb], np.reshape(w0[c:cb], (-1, 1, 1)), out=o)
++        np.multiply(y2[c:cb], np.reshape(w2[c:cb], (-1, 1, 1)), out=t)
++        o += t
++        np.multiply(y4[c:cb], np.reshape(w4[c:cb], (-1, 1, 1)), out=t)
++        o += t
++        o += x[c:cb]
++
++
+ def sam_mix_f32(x, y0, y2, y4, w0, w2, w4):
+     """SAM 三分支加权 `x + (w0*y0 + w2*y2 + w4*y4)`，逐位等价（加法可交换）。
+ 
+@@ -816,16 +878,18 @@
+         return out
+     C = int(y0.shape[0])
+     out = np.empty(y0.shape, np.float32)
++    # ★ T-18 刀②：分片（默认关）。两个分支的**逐元素运算序列完全相同** ⇒ 逐位相同。
++    _slab = _sam_slab_tiled if _sam_tile_on() else _sam_slab
+     nth = ps_threads()
+     if nth <= 1 or C < 2 or out.nbytes < _PS_MIN_BYTES:
+-        _sam_slab(x, y0, y2, y4, w0, w2, w4, 0, C, out)
++        _slab(x, y0, y2, y4, w0, w2, w4, 0, C, out)
+         return out
+     edges = _split_edges(C, nth)
+-    works = [(lambda a, b: lambda: _sam_slab(
++    works = [(lambda a, b: lambda: _slab(
+         x, y0, y2, y4, w0, w2, w4, a, b, out))(edges[i], edges[i + 1])
+         for i in range(nth) if edges[i + 1] > edges[i]]
+     if not _run_split(works):                   # 任何异常 ⇒ 静默回落，整块重算
+-        _sam_slab(x, y0, y2, y4, w0, w2, w4, 0, C, out)
++        _slab(x, y0, y2, y4, w0, w2, w4, 0, C, out)
+     return out
+ 
+ 
+--- a/pynq_specialized_code/ps/pynq/c8deq.c
++++ b/pynq_specialized_code/ps/pynq/c8deq.c
+@@ -56,4 +56,53 @@
+     }
+ }
+ 
+-int c8deq_version(void) { return 1; }
++/* ---------------------------------------------------------------------------
++ * ★ T-18 刀④（`BIN_DEQ_TILE=1`，默认关）：tile 化版 `c8deq_chw_t`
++ *
++ * 动机（为什么不是"再调调参"）：上面那一版对**每个像素**写 8 个相距 HW*4 B 的
++ * f32 ⇒ 8 条交错写流，每条流的相邻写之间隔了 4 个 cache line。A9 的 L2 是
++ * PL310（32 B/line、write-allocate）⇒ 这种"半线写"每个 line 都要先 RFO 读回来，
++ * 写 33 MB 实际要在 DDR 上走 66 MB，而读只有 8 MB ⇒ 有效速率 0.2 GB/s
++ * （板端实测 41.66 MB / 0.194 s，见 runs/t18_smallops/REPORT_attribution.md §3）。
++ *
++ * 这一版把它拆成两相：**先把一小片（TI 个像素 ≈ 8 KB）读进 L1**，
++ * 再**按通道**把这一片整块写出去（每次 TI 个连续 float = 4~8 KB = 整条整条的
++ * cache line 覆盖写）⇒ 写不再需要 RFO，读仍然是一次顺序扫过。
++ * 位精确：每个元素仍是 `(float)(int8_t)b * k`，与 `one8()` 逐条相同。
++ * ------------------------------------------------------------------------- */
++#define C8DEQ_TI 512
++
++void c8deq_chw_t(const int8_t *raw, float *out, int cg, int H, int W, float k)
++{
++    size_t HW = (size_t)H * W;
++    float tile[8][C8DEQ_TI];          /* 8 通道 × TI 像素 ≈ 16 KB，常驻 L1 */
++    for (int g = 0; g < cg; ++g) {
++        const int8_t *p0 = raw + (size_t)g * HW * 8;
++        float *o0 = out + (size_t)g * 8 * HW;
++        size_t i0 = 0;
++        while (i0 < HW) {
++            size_t n = HW - i0;
++            if (n > (size_t)C8DEQ_TI) n = (size_t)C8DEQ_TI;
++            const int8_t *p = p0 + i0 * 8;
++            /* ① 一趟顺序读：每 8 B 是一个像素的 8 个通道 */
++            for (size_t j = 0; j < n; ++j) {
++                uint64_t v;
++                memcpy(&v, p + j * 8, 8);
++                tile[0][j] = (float)(int8_t)(v & 0xff) * k;
++                tile[1][j] = (float)(int8_t)((v >> 8) & 0xff) * k;
++                tile[2][j] = (float)(int8_t)((v >> 16) & 0xff) * k;
++                tile[3][j] = (float)(int8_t)((v >> 24) & 0xff) * k;
++                tile[4][j] = (float)(int8_t)((v >> 32) & 0xff) * k;
++                tile[5][j] = (float)(int8_t)((v >> 40) & 0xff) * k;
++                tile[6][j] = (float)(int8_t)((v >> 48) & 0xff) * k;
++                tile[7][j] = (float)(int8_t)((v >> 56) & 0xff) * k;
++            }
++            /* ② 每个通道写一整块连续 f32（整条 cache line 覆盖写 ⇒ 不该再有 RFO） */
++            for (int c = 0; c < 8; ++c)
++                memcpy(o0 + (size_t)c * HW + i0, tile[c], n * sizeof(float));
++            i0 += n;
++        }
++    }
++}
++
++int c8deq_version(void) { return 2; }
+--- a/pynq_specialized_code/ps/pynq/c8deq.py
++++ b/pynq_specialized_code/ps/pynq/c8deq.py
+@@ -58,6 +58,16 @@
+                               ctypes.c_float]
+     lib.c8deq_chw.restype = None
+     lib.c8deq_version.restype = ctypes.c_int
++    # ★ T-18 刀④：tile 化入口。**旧 .so 没有这个符号** ⇒ 绑定失败就记 False，
++    #   调用方（`deq_tiled`/`deq_into_tiled`）返回 None ⇒ 静默回落旧入口。
++    try:
++        lib.c8deq_chw_t.argtypes = [ctypes.c_void_p, ctypes.c_void_p,
++                                    ctypes.c_int, ctypes.c_int, ctypes.c_int,
++                                    ctypes.c_float]
++        lib.c8deq_chw_t.restype = None
++        _STATE["tile"] = True
++    except AttributeError:
++        _STATE["tile"] = False
+ 
+ 
+ def _ref(raw, C, H, W, fs):
+@@ -76,7 +86,7 @@
+     allb = np.arange(-128, 128, dtype=np.int8)
+     for C in (8, 24, 64, 544):
+         cg = (C + 7) // 8
+-        for (H, W) in ((1, 1), (2, 3), (8, 8), (16, 24)):
++        for (H, W) in ((1, 1), (2, 3), (8, 8), (16, 24), (33, 47)):
+             n = cg * H * W * 8
+             raw = np.empty(n, np.uint8)
+             m = min(256, n)
+@@ -86,13 +96,23 @@
+             for fs in (0, 1, 2, 3, 4, 5, 6, 8, 12):
+                 want = _ref(raw, C, H, W, fs)
+                 got = np.empty((cg * 8, H, W), np.float32)
+-                lib.c8deq_chw(raw.ctypes.data, got.ctypes.data, cg, H, W,
+-                              float(np.float32(1.0 / float(1 << fs))))
++                k = float(np.float32(1.0 / float(1 << fs)))
++                lib.c8deq_chw(raw.ctypes.data, got.ctypes.data, cg, H, W, k)
+                 if got.tobytes() != want.tobytes():
+                     nb = int((got.view(np.uint32).ravel()
+                               != want.view(np.uint32).ravel()).sum())
+                     return False, ("c8deq_chw 与 numpy 版不一致：%d/%d 元素"
+                                    "（C=%d %dx%d fs=%d）" % (nb, got.size, C, H, W, fs))
++                # ★ T-18 刀④：tile 化内核必须与 _ref **逐位**相同（含 HW>TI 的跨界）
++                if _STATE.get("tile"):
++                    got2 = np.empty((cg * 8, H, W), np.float32)
++                    lib.c8deq_chw_t(raw.ctypes.data, got2.ctypes.data, cg, H, W, k)
++                    if got2.tobytes() != want.tobytes():
++                        nb = int((got2.view(np.uint32).ravel()
++                                  != want.view(np.uint32).ravel()).sum())
++                        return False, ("c8deq_chw_t 与 numpy 版不一致：%d/%d 元素"
++                                       "（C=%d %dx%d fs=%d）"
++                                       % (nb, got2.size, C, H, W, fs))
+     return True, ""
+ 
+ 
+@@ -187,3 +207,47 @@
+     lib.c8deq_chw(src.ctypes.data, out.ctypes.data, cg, H, W,
+                   float(np.float32(1.0 / float(1 << int(fs)))))
+     return out
++
++
++# ---------------------------------------------------------------- T-18 刀④
++# tile 化入口（`BIN_DEQ_TILE=1` 才走）。**任何一个前提不满足就返回 None**，
++# 调用方回落 `deq`/`deq_into`（字节完全相同，见 `_selftest` 的逐位比对）。
++def _tile_ok(lib):
++    return bool(lib is not None and _STATE.get("tile"))
++
++
++def deq_tiled(raw, C, H, W, fs):
++    """`deq` 的 tile 化版（读一次、按通道整块写）。失败返回 None。"""
++    lib = _fast_lib()
++    if not _tile_ok(lib):
++        return None
++    cg = (C + 7) // 8
++    n = cg * H * W * 8
++    src = _prep_src(raw, n)
++    if src is None:
++        return None
++    out = np.empty((cg * 8, H, W), np.float32)
++    lib.c8deq_chw_t(src.ctypes.data, out.ctypes.data, cg, H, W,
++                    float(np.float32(1.0 / float(1 << int(fs)))))
++    return out
++
++
++def deq_into_tiled(raw, C, H, W, fs, out):
++    """`deq_into` 的 tile 化版。失败返回 None（调用方回落）。"""
++    lib = _fast_lib()
++    if not _tile_ok(lib) or out is None:
++        return None
++    if not isinstance(out, np.ndarray) or out.dtype != np.float32:
++        return None
++    if not out.flags["C_CONTIGUOUS"]:
++        return None
++    cg = (C + 7) // 8
++    n = cg * H * W * 8
++    if out.size < n:
++        return None
++    src = _prep_src(raw, n)
++    if src is None:
++        return None
++    lib.c8deq_chw_t(src.ctypes.data, out.ctypes.data, cg, H, W,
++                    float(np.float32(1.0 / float(1 << int(fs)))))
++    return out

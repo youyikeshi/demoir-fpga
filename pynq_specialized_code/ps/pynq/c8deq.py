@@ -58,6 +58,16 @@ def _wrap(lib):
                               ctypes.c_float]
     lib.c8deq_chw.restype = None
     lib.c8deq_version.restype = ctypes.c_int
+    # ★ T-18 刀④：tile 化入口。**旧 .so 没有这个符号** ⇒ 绑定失败就记 False，
+    #   调用方（`deq_tiled`/`deq_into_tiled`）返回 None ⇒ 静默回落旧入口。
+    try:
+        lib.c8deq_chw_t.argtypes = [ctypes.c_void_p, ctypes.c_void_p,
+                                    ctypes.c_int, ctypes.c_int, ctypes.c_int,
+                                    ctypes.c_float]
+        lib.c8deq_chw_t.restype = None
+        _STATE["tile"] = True
+    except AttributeError:
+        _STATE["tile"] = False
 
 
 def _ref(raw, C, H, W, fs):
@@ -76,7 +86,7 @@ def _selftest(lib):
     allb = np.arange(-128, 128, dtype=np.int8)
     for C in (8, 24, 64, 544):
         cg = (C + 7) // 8
-        for (H, W) in ((1, 1), (2, 3), (8, 8), (16, 24)):
+        for (H, W) in ((1, 1), (2, 3), (8, 8), (16, 24), (33, 47)):
             n = cg * H * W * 8
             raw = np.empty(n, np.uint8)
             m = min(256, n)
@@ -86,13 +96,23 @@ def _selftest(lib):
             for fs in (0, 1, 2, 3, 4, 5, 6, 8, 12):
                 want = _ref(raw, C, H, W, fs)
                 got = np.empty((cg * 8, H, W), np.float32)
-                lib.c8deq_chw(raw.ctypes.data, got.ctypes.data, cg, H, W,
-                              float(np.float32(1.0 / float(1 << fs))))
+                k = float(np.float32(1.0 / float(1 << fs)))
+                lib.c8deq_chw(raw.ctypes.data, got.ctypes.data, cg, H, W, k)
                 if got.tobytes() != want.tobytes():
                     nb = int((got.view(np.uint32).ravel()
                               != want.view(np.uint32).ravel()).sum())
                     return False, ("c8deq_chw 与 numpy 版不一致：%d/%d 元素"
                                    "（C=%d %dx%d fs=%d）" % (nb, got.size, C, H, W, fs))
+                # ★ T-18 刀④：tile 化内核必须与 _ref **逐位**相同（含 HW>TI 的跨界）
+                if _STATE.get("tile"):
+                    got2 = np.empty((cg * 8, H, W), np.float32)
+                    lib.c8deq_chw_t(raw.ctypes.data, got2.ctypes.data, cg, H, W, k)
+                    if got2.tobytes() != want.tobytes():
+                        nb = int((got2.view(np.uint32).ravel()
+                                  != want.view(np.uint32).ravel()).sum())
+                        return False, ("c8deq_chw_t 与 numpy 版不一致：%d/%d 元素"
+                                       "（C=%d %dx%d fs=%d）"
+                                       % (nb, got2.size, C, H, W, fs))
     return True, ""
 
 
@@ -186,4 +206,48 @@ def deq_into(raw, C, H, W, fs, out):
         return None
     lib.c8deq_chw(src.ctypes.data, out.ctypes.data, cg, H, W,
                   float(np.float32(1.0 / float(1 << int(fs)))))
+    return out
+
+
+# ---------------------------------------------------------------- T-18 刀④
+# tile 化入口（`BIN_DEQ_TILE=1` 才走）。**任何一个前提不满足就返回 None**，
+# 调用方回落 `deq`/`deq_into`（字节完全相同，见 `_selftest` 的逐位比对）。
+def _tile_ok(lib):
+    return bool(lib is not None and _STATE.get("tile"))
+
+
+def deq_tiled(raw, C, H, W, fs):
+    """`deq` 的 tile 化版（读一次、按通道整块写）。失败返回 None。"""
+    lib = _fast_lib()
+    if not _tile_ok(lib):
+        return None
+    cg = (C + 7) // 8
+    n = cg * H * W * 8
+    src = _prep_src(raw, n)
+    if src is None:
+        return None
+    out = np.empty((cg * 8, H, W), np.float32)
+    lib.c8deq_chw_t(src.ctypes.data, out.ctypes.data, cg, H, W,
+                    float(np.float32(1.0 / float(1 << int(fs)))))
+    return out
+
+
+def deq_into_tiled(raw, C, H, W, fs, out):
+    """`deq_into` 的 tile 化版。失败返回 None（调用方回落）。"""
+    lib = _fast_lib()
+    if not _tile_ok(lib) or out is None:
+        return None
+    if not isinstance(out, np.ndarray) or out.dtype != np.float32:
+        return None
+    if not out.flags["C_CONTIGUOUS"]:
+        return None
+    cg = (C + 7) // 8
+    n = cg * H * W * 8
+    if out.size < n:
+        return None
+    src = _prep_src(raw, n)
+    if src is None:
+        return None
+    lib.c8deq_chw_t(src.ctypes.data, out.ctypes.data, cg, H, W,
+                    float(np.float32(1.0 / float(1 << int(fs)))))
     return out

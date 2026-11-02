@@ -773,6 +773,21 @@ def eca_attn_f32(x, w1, w2):
     """
     C = int(x.shape[0])
     m = np.asarray(x, np.float32).mean(axis=(1, 2)).reshape(-1)
+    return eca_attn_f32_from_mean(m, w1, w2, C)
+
+
+def eca_attn_f32_from_mean(m, w1, w2, C=None):
+    """`eca_attn_f32` 的**后半段**：输入已经是每通道空间均值 (C,)。
+
+    ★ T-18 刀①（`BIN_CAT_ECA_FUSE`）：把算均值的**输入**从"整块 cat3"换成
+      "逐叶子分别求均值再拼"时走这条入口。
+      逐位等价：均值沿 (H,W) 归约，每个通道的元素序列与在整块 cat 里完全一致
+      （C 序、同一 pairwise 分块），只是外层通道维被切开 ⇒ 结果逐位相同。
+      （实测 6 个真实形状 + 整网 sha1，见 runs/t18_smallops/REPORT_phase2.md）
+    """
+    m = np.asarray(m, np.float32).reshape(-1)
+    if C is None:
+        C = int(m.shape[0])
     v = np.pad(m, (4, 4))
     y = _windowed_dot_exact(v, w2, C)
     y = np.maximum(y, 0)
@@ -796,6 +811,53 @@ def _sam_slab(x, y0, y2, y4, w0, w2, w4, c0, c1, out):
     o += x[c0:c1]
 
 
+# ---------------------------------------------------------------- T-18 刀②
+# `BIN_SAM_TILE=1`（默认关）：把上面那 6 个**全尺寸** ufunc 切成"每片 2 个数组驻留
+# L2"的分片循环，逐元素运算序列**一个都没变**（因此逐位相同），只是 `o`/`t` 的
+# 中间值不再各回来一次 DDR。字节账：15S → 5S（S = 输出张量字节）。
+#
+# 片大小：`BIN_SAM_SLAB_KB`（默认 **96 KB**，保守——板端 2 线程共享 512 KB L2，
+# 分片时 o+t 两份 ≈ 2×96 KB/线程；主机上片大一点更好，可用 256）。
+_SAM_SLAB_KB_DEF = 96
+
+
+def _sam_slab_kb():
+    raw = os.environ.get("BIN_SAM_SLAB_KB", "").strip()
+    try:
+        v = int(float(raw)) if raw else _SAM_SLAB_KB_DEF
+    except (TypeError, ValueError):
+        v = _SAM_SLAB_KB_DEF
+    return max(8, min(4096, v))
+
+
+def _sam_tile_on():
+    return os.environ.get("BIN_SAM_TILE", "").strip().lower() in (
+        "1", "on", "true", "yes")
+
+
+def _sam_slab_tiled(x, y0, y2, y4, w0, w2, w4, c0, c1, out):
+    """`_sam_slab` 的分片版：**逐位相同**，但中间量留在 cache 里。
+
+    `cs` = 每片的通道数（片内 `o`+`t` 两份 ≈ 2×cs×H×W×4 B）。
+    """
+    hw = int(y0.shape[1]) * int(y0.shape[2])
+    per_ch = 4 * hw
+    cs = max(1, (_sam_slab_kb() << 10) // max(1, per_ch))
+    if cs >= (c1 - c0):                          # 整块就一片 ⇒ 等价于老路径，零额外开销
+        _sam_slab(x, y0, y2, y4, w0, w2, w4, c0, c1, out)
+        return
+    for c in range(c0, c1, cs):
+        cb = min(c1, c + cs)
+        o = out[c:cb]
+        t = np.empty_like(o)
+        np.multiply(y0[c:cb], np.reshape(w0[c:cb], (-1, 1, 1)), out=o)
+        np.multiply(y2[c:cb], np.reshape(w2[c:cb], (-1, 1, 1)), out=t)
+        o += t
+        np.multiply(y4[c:cb], np.reshape(w4[c:cb], (-1, 1, 1)), out=t)
+        o += t
+        o += x[c:cb]
+
+
 def sam_mix_f32(x, y0, y2, y4, w0, w2, w4):
     """SAM 三分支加权 `x + (w0*y0 + w2*y2 + w4*y4)`，逐位等价（加法可交换）。
 
@@ -816,16 +878,18 @@ def sam_mix_f32(x, y0, y2, y4, w0, w2, w4):
         return out
     C = int(y0.shape[0])
     out = np.empty(y0.shape, np.float32)
+    # ★ T-18 刀②：分片（默认关）。两个分支的**逐元素运算序列完全相同** ⇒ 逐位相同。
+    _slab = _sam_slab_tiled if _sam_tile_on() else _sam_slab
     nth = ps_threads()
     if nth <= 1 or C < 2 or out.nbytes < _PS_MIN_BYTES:
-        _sam_slab(x, y0, y2, y4, w0, w2, w4, 0, C, out)
+        _slab(x, y0, y2, y4, w0, w2, w4, 0, C, out)
         return out
     edges = _split_edges(C, nth)
-    works = [(lambda a, b: lambda: _sam_slab(
+    works = [(lambda a, b: lambda: _slab(
         x, y0, y2, y4, w0, w2, w4, a, b, out))(edges[i], edges[i + 1])
         for i in range(nth) if edges[i + 1] > edges[i]]
     if not _run_split(works):                   # 任何异常 ⇒ 静默回落，整块重算
-        _sam_slab(x, y0, y2, y4, w0, w2, w4, 0, C, out)
+        _slab(x, y0, y2, y4, w0, w2, w4, 0, C, out)
     return out
 
 

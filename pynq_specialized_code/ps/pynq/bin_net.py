@@ -58,6 +58,7 @@ from bin_ref_numpy import (                     # noqa: E402
     Blob, C8, binarize_pack, conv_rtl, sat8, out_hw, pixel_shuffle, pixel_unshuffle,
     # ★ 非卷积快速内核（bin_ref_numpy 侧提供，逐字节等价；见各函数 docstring）
     bilinear_f32, eca_attn_f32, conv2d_f32 as conv2d_f32_np,
+    eca_attn_f32_from_mean,                      # ★ T-18 刀①：逐叶均值入口
     sam_mix_f32, add_f32, cat_last, tune_malloc,
     # ★ T-17：opt-in 开关（默认全关）
     CONVPF_FUSE,
@@ -220,7 +221,15 @@ def eca_attn_ref(x, w1, w2):
     Conv1d 都 bias=False（fp_layers 里只有 weight）。
     """
     C = x.shape[0]
-    m = np.asarray(x, np.float32).mean(axis=(1, 2)).reshape(1, 1, C)
+    m = np.asarray(x, np.float32).mean(axis=(1, 2))
+    return eca_attn_ref_from_mean(m, w1, w2)
+
+
+def eca_attn_ref_from_mean(m, w1, w2):
+    """`eca_attn_ref` 的后半段：输入已经是每通道空间均值 (C,)（T-18 刀①用）。"""
+    m = np.asarray(m, np.float32).reshape(-1)
+    C = int(m.shape[0])
+    m = m.reshape(1, 1, C)
     v = np.pad(m, ((0, 0), (0, 0), (4, 4)))
     w1 = np.asarray(w1, np.float32).reshape(-1)
     w2 = np.asarray(w2, np.float32).reshape(-1)
@@ -254,6 +263,65 @@ def eca_attn(x, w1, w2):
     if FAST_ECA:
         return eca_attn_f32(x, w1, w2)
     return eca_attn_ref(x, w1, w2)
+
+
+# ---------------------------------------------------------------------------
+# ★ T-18 刀①：`cat3 → eca` 逐叶求均值（`BIN_CAT_ECA_FUSE=1`，默认关）
+# ---------------------------------------------------------------------------
+# 为什么这刀值得做：本网 116 个 cat 里只剩 6 个物化，而那 6 个都是
+# `*_sam_blocks.0:cat3`，**唯一消费者是 eca**，而 eca 只要 (3C,) 的逐通道空间均值。
+# ⇒ 那次 33 MB 的 concat 在数学上不存在（"必要字节 = 0"）。
+#
+# 逐位等价：均值沿 (H,W) 归约，每个输出通道的元素序列与在整块 cat 里**完全一致**
+# （C 序、同一 pairwise 分块），只是外层通道维被切开 ⇒ 逐位相同。
+def _cat_eca_fuse():
+    return os.environ.get("BIN_CAT_ECA_FUSE", "").strip().lower() in (
+        "1", "on", "true", "yes")
+
+
+_cat_eca_why = None          # 回落原因（只打印一次，不污染正常输出）
+
+
+def _cat_eca_note(why):
+    global _cat_eca_why
+    if _cat_eca_why is None:
+        _cat_eca_why = why
+        print("[bin_net] ⚠ BIN_CAT_ECA_FUSE=1 但本层回落原路径：%s" % why,
+              flush=True)
+
+
+class _CatEcaChunks:
+    """`cat` 的**未物化**标记：唯一消费者是 eca ⇒ 只保留叶子数组 + 叶子 id。
+
+    只被 `_exec_ps` 的 eca 分支消费；任何别的地方拿到它都会走 `__array__`
+    自动物化（安全网，不会静默错数据）。
+    """
+
+    __slots__ = ("arrays", "ids")
+
+    def __init__(self, arrays, ids):
+        self.arrays = arrays
+        self.ids = ids
+
+    def __len__(self):
+        return len(self.arrays)
+
+    def __array__(self, dtype=None, copy=None):
+        y = np.concatenate([np.asarray(a, np.float32) for a in self.arrays], 0)
+        if dtype is None or np.dtype(dtype) == y.dtype:
+            return y
+        return y.astype(dtype)
+
+    def __repr__(self):
+        return "_CatEcaChunks(%d leaves, %d ch)" % (
+            len(self.arrays), sum(int(a.shape[0]) for a in self.arrays))
+
+
+def eca_from_mean(m, w1, w2):
+    """ECA 入口（输入已是逐通道空间均值）。fast/ref 两条路都**逐位等于**原路径。"""
+    if FAST_ECA:
+        return eca_attn_f32_from_mean(m, w1, w2)
+    return eca_attn_ref_from_mean(m, w1, w2)
 
 
 # ============================================================================
@@ -1323,6 +1391,45 @@ class BinNet:
             print("  [cat] %-46s 不融合（%s）"
                   % ((op.name if op is not None else "?")[-46:], why), flush=True)
 
+    # ---- T-18 刀①：cat3 → eca 的"不物化"标记 ----
+    def _cat_eca_marker(self, op):
+        """这个 cat 能不能**只留叶子、不 concat**？能 ⇒ 返回标记，否则 None。
+
+        结构前提（任何一条不满足就返回 None，走原路径）：
+          · 消费者**恰好一个**，且它是 `eca`；
+          · 所有 deps 都已求值，且都是 (C,H,W) float32 的普通 ndarray；
+          · `eca` 的 dep 数 ≥ 1（本网正好 1）。
+        标记里的叶子要**钉住**（`_catpins`）直到 eca 算完均值，否则 BV_FREE 会提前
+        把它们的 `.val` 清掉（那会让均值读到 None ⇒ 静默错数据）。
+        """
+        try:
+            g = self._graph
+            if g is None or op.out.id >= len(g.dependents):
+                return None
+            cons = g.dependents[op.out.id]
+            if not cons or len(cons) != 1:
+                return None
+            co = g.ops[cons[0]]
+            if co.kind != "eca" or len(co.deps) != 1:
+                return None
+            arrays, ids = [], []
+            for t in op.deps:
+                a = t.val
+                if isinstance(a, np.ndarray) and a.dtype == np.float32 \
+                        and a.ndim == 3:
+                    arrays.append(a)
+                    ids.append(t.id)
+                else:
+                    return None                 # 惰性/未求值/非 f32 ⇒ 原路径
+            if not arrays:
+                return None
+            for tid in ids:
+                self._catpins[tid] = True
+            return _CatEcaChunks(arrays, ids)
+        except Exception as _ex:                # noqa: BLE001
+            _cat_eca_note("扫描异常：%r" % (_ex,))
+            return None
+
     # ---- S2 配套：f32 叶子的量化缓存 ----
     def _q8_segment(self, a, L):
         """f32 叶子 → **带物理地址的 C8 int8 段**（量化缓存）；做不到 ⇒ None。
@@ -1578,6 +1685,16 @@ class BinNet:
                 st["cat_s"][_cls] = st["cat_s"].get(_cls, 0.0) + \
                     (time.perf_counter() - _t_cat)
 
+            # ★ T-18 刀①（`BIN_CAT_ECA_FUSE=1`，默认关）：这个 cat 的**唯一消费者是 eca**
+            #   ⇒ 它要的只是"逐通道空间均值"，那次 concat **在数学上不存在**。
+            #   这里返回一个惰性标记（叶子先钉住，eca 算完均值再解钉），
+            #   不物化 ⇒ 省掉 读 33 MB + 写 33 MB。
+            #   逐位等价：见 bin_ref_numpy.eca_attn_f32_from_mean 的说明。
+            if _cat_eca_fuse():
+                _mk = self._cat_eca_marker(op)
+                if _mk is not None:
+                    _note_cat()
+                    return _mk
             if self._cat_fusion and op.out.id in self._needs_f32:
                 self._cat_fallback("needs_f32", op)
             lazy_i8 = bool(self._cat_fusion
@@ -1646,6 +1763,23 @@ class BinNet:
             a = op.args
             w1 = self.blob.fp_layer(a["w1"])[0]
             w2 = self.blob.fp_layer(a["w2"])[0]
+            # ★ T-18 刀①：输入是"未物化的 cat3" ⇒ 逐叶求均值再拼（逐位等价）
+            if isinstance(v[0], _CatEcaChunks):
+                ch = v[0]
+                try:
+                    m = np.concatenate(
+                        [np.asarray(x, np.float32).mean(axis=(1, 2))
+                         for x in ch.arrays], 0)
+                except Exception as _ex:          # noqa: BLE001
+                    for tid in ch.ids:            # 解钉后按老路径重算（等价）
+                        self._catpins.pop(tid, None)
+                    _cat_eca_note("leaf_mean 异常：%r" % (_ex,))
+                    m = np.concatenate([np.asarray(x, np.float32)
+                                        for x in ch.arrays], 0).mean(axis=(1, 2))
+                else:
+                    for tid in ch.ids:
+                        self._catpins.pop(tid, None)
+                return eca_from_mean(m, w1, w2)
             return eca_attn(v[0], w1, w2)
         if k == "sam":
             x, y0, y2, y4, w = v
