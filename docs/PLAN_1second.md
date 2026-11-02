@@ -5920,3 +5920,33 @@ $$\Rightarrow\ \text{要不停核需 } K\ge 40;\ \text{本网 } K=9,18,27,4,8\ \
 $$\Rightarrow\ \Rightarrow\ \textbf{唯一方向：提高排空速率} —— \text{两半平面各攒 } 8\ \text{beat 成一笔 burst（写合并）}$$
 
 **顺手发现（未改）**：非融合 done 判据 `wr_all_idle` 含 `!p_valid&&!pw_valid` 但不含 `wr_split_pend_i`；融合通路的 `seg_band_done` 反而含了。仿真里该窗口 = 0 拍 ⇒ 不是 ±1 的原因。
+
+### 70.65 ★★★★★ T-98 判决：是**时序**，且 WNS +0.113 是**假安全**（2026-11-02 21:2x）
+
+**一次 load / 一个 session / 地址恒定，唯一自变量 = `fclk0`**
+
+| 层 | 100 MHz | 75 MHz | 50 MHz | 回 100 MHz 复跑 |
+|---|---|---|---|---|
+| `cin112` (65536) | 2238 / 2226（两次 diff 3286 B）| **0 / 0** | **0 / 0** | 2361 / 2324（diff 3441）|
+| `cin512` (196608) | 3291 / 4228（diff 1310）| **0 / 0** | **0 / 0** | 3266 / 2769（diff 2056）|
+
+$$\Rightarrow\ \text{75/50 MHz：}\textbf{逐字节等于 golden，且两次运行逐字节相同}（\text{cin112 } \mathtt{2d6a3dae}、\text{cin512 } \mathtt{b5ecf17a}）$$
+$$\Rightarrow\ \Rightarrow\ \textbf{RTL 功能面无误};\ \textbf{"两次不同"只发生在 100 MHz} \Rightarrow \text{时钟相关的}\textbf{时序失效（亚稳态/竞争签名）}$$
+$$\Rightarrow\ \text{不是"独立于频率的硬件非确定"}$$
+
+$$\Rightarrow\ \textbf{WNS } +0.113\ \text{ns 是}\mathbf{假安全}：\text{真实缺口} > 0.113\ \text{ns}，\text{且 } \le 3.33\ \text{ns}（75\ \text{MHz 多出的周期）$$
+$$\Rightarrow\ \Rightarrow\ \text{存在一条}\textbf{STA 没覆盖到/覆盖错}的路径（\mathtt{false\_path}\ 误切 / CDC / 时钟源与实际树不一致）$$
+$$\quad\ \text{本 build 只有 } \mathtt{create\_clock -period 10 \$clk\_pin} + \text{catpack 三件套}$$
+$$\Rightarrow\ \text{最差路径恰是 } \mathtt{win\_q\_reg\_15/CLKBWRCLK \to g\_conv.u\_core/s1\_pc\_q\_reg[14][5]/D}$$
+$$\quad\ \Rightarrow\ \textbf{即"激活字（win）寄存器"}，\text{与"同像素成簇、多通道、错在共享激活字"}\textbf{完全吻合}$$
+$$\quad\ \Rightarrow\ \textbf{首要嫌疑：}\text{BRAM 写时钟 } \mathtt{CLKBWRCLK}\ \text{到逻辑时钟的路径被 } \mathtt{false\_path}\ \text{切掉了}$$
+
+**两条重要方法论**
+$$\Rightarrow\ \text{100 MHz 的错误数}\textbf{不可当门禁}：\text{同层 T-96 测 24476、本轮测 2238，每次 run 都变}$$
+$$\quad\ \Rightarrow\ \textbf{第 117 条：时序失效的证据是"}\textbf{降频后归零 + 两次运行逐字节相同}\text{"，不是错误数}$$
+$$\Rightarrow\ \text{75 MHz 已验证两层功能全对且确定} \Rightarrow \text{可作}\textbf{安全运行点}$$
+
+**但要注意代价（我算的）**
+$$\Rightarrow\ \text{16-lane 省一半周期，}\text{但 75 MHz 只有 150 MHz 的一半} \Rightarrow \text{墙钟} \approx \text{持平（甚至略慢）}$$
+$$\Rightarrow\ 100\ \text{MHz}：0.55C/100M = 0.825\times\ \text{原} \Rightarrow \textbf{只有 100 MHz 才把收益变成墙钟}$$
+$$\Rightarrow\ \Rightarrow\ \textbf{必须在 100 MHz 上跑通}，\text{否则这半年的 16-lane 等于白做}$$
