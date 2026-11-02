@@ -5402,3 +5402,23 @@ $$\quad\ \Rightarrow\ \textbf{1 s 在本图的当前数据流下不可达};\ \te
 **最大风险**
 $$\Rightarrow\ \texttt{shuffle/unshuffle}\ \text{段要按"4 通道块"切条带，而 } \mathtt{out1}\ \text{是 3 通道} \Rightarrow \textbf{C8 交错失效}，\text{需单独 3 通道路径}$$
 $$\Rightarrow\ \mathtt{eca}\ \text{的 fp32 归约顺序一变 } \mathbf{sha1\ \text{必挂}} \Rightarrow \text{这是"逐字节"判据最容易破的点}$$
+
+### 70.46 ⚠ 代理静默死亡已成模式（4 次）：**任务书太长/阶段太多是主因**（2026-11-02 15:13）
+
+| 代理 | 任务 | 结果 |
+|---|---|---|
+| T-64 | lane16 地图 + RTL + TB（**三件事**）| 静默死亡，零产物 |
+| T-69 | lane16 核 RTL（**整篇重写 896 行**）| 静默死亡，零产物 |
+| T-68 | v44 上板（**6 个档 + 部署 + 报告**）| 静默死亡，**开工前就死了**（板子未被碰）|
+| T-66 / T-67 / T-65 | 只做一件事（地图 / 分段 / 架子）| **全部成功** |
+
+$$\Rightarrow\ \textbf{对照实验的结论很清楚}：\text{一件窄任务的代理}\textbf{全部成功};\ \text{多阶段/大改写的代理}\textbf{全部死亡}$$
+$$\Rightarrow\ \textbf{第 107 条纪律：一个代理只做一件可在一轮内交付的事}$$
+$$\quad\ \ \text{把"部署+6 个档+报告"拆成"部署+冒烟"与"整网验证"两次派单}$$
+$$\quad\ \ \text{把"重写 896 行"改成"定点改 30 处"，并明令不许整篇重写}$$
+
+**板端安全性（本次复核）**
+$$\Rightarrow\ \text{板子健康：无挂死进程、无 OOM、}\mathtt{dmesg}\ \text{只有正常的 } \mathtt{zocl}\ \text{客户端退出}$$
+$$\Rightarrow\ \text{T-68 死在开工前，}\textbf{没有碰板子};\ \text{PL 仍是上一次的 v39}$$
+$$\Rightarrow\ \Rightarrow\ \text{这说明"}\textbf{代理死掉不会弄坏板子}\text{"——因为它没发过任何板端命令}$$
+$$\quad\ \text{但也提醒：}\textbf{若代理死在 load 与验证之间，板子会停在一颗未验证的位流上}$$
