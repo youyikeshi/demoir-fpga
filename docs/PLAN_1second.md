@@ -5093,3 +5093,34 @@ $$\Rightarrow\ \text{本项目一直在用一颗}\textbf{冻结的 BD}\ \text{�
 $$\quad\ \text{于是所有"加个单元"的计划都建立在一个}\textbf{没人验过的前提}\text{上}$$
 $$\Rightarrow\ \text{与刚才 8-lane 的决定同一条理由：}\textbf{两颗不稳定性叠加就归因不了}$$
 $$\Rightarrow\ \textbf{判据}：\text{任何"往既有硬件里加东西"的任务，第一步是}\textbf{对一个空改动跑一遍生成流程}，\text{确认它能原样重做}$$
+
+### 70.36 BD 重生成的关键修正：**RTL 注解本身写错了**（2026-11-02 11:05）
+
+T-57 开工即抓到两条现场事实，比任务本身更值钱：
+
+**① 之前那个"150 MHz 能过"是假的**
+$$\Rightarrow\ \text{T-56 探针里那 150 MHz 来自它}\textbf{临时 sed 过 RTL 外壳}（\text{事后已回滚）}$$
+$$\Rightarrow\ \text{而 HEAD 的外壳写的是 } \texttt{FREQ\_HZ 40000000} \Rightarrow \text{"按当前 RTL 重登记 ⇒ 150 MHz"}\textbf{不成立}$$
+$$\Rightarrow\ \text{按 HEAD RTL 重登记：} \texttt{validate}\ \text{直接挂在 4 条 bus + 2 条 pin 的 } \texttt{FREQ\_HZ 40 vs 150}$$
+$$\Rightarrow\ \texttt{set\_property CONFIG.FREQ\_HZ}\ \text{只读（41-737）} \Rightarrow \textbf{不碰 RTL 注解，BD 重建必挂}$$
+
+**② 但"改注解"这次是改正，不是作弊（端口真值证据）**
+$$\Rightarrow\ \texttt{bin\_unit\_axi\_wrap\_bd.v}\ \text{的 } \texttt{s\_axi}\ \text{只有 } \texttt{awaddr/araddr/rdata/rresp/bresp/wstrb/\dots}，\textbf{没有 } \texttt{awlen/awprot/awburst/wid}$$
+$$\Rightarrow\ \texttt{s\_axi\_wdata}\ \text{是 } \mathbf{[31{:}0]} \Rightarrow \textbf{它本来就是 AXI4-Lite/32}$$
+$$\Rightarrow\ \text{而旧 } \texttt{.hwh}\ \text{记的正是 AXI4LITE/32} \Rightarrow \textbf{旧 .hwh 是对的，是 RTL 注解写成了 AXI3/64}$$
+$$\Rightarrow\ \text{把注解放到 } \texttt{s\_axi=AXI4-Lite/32,\ FREQ=150MHz}\ \text{后重登记} \Rightarrow \texttt{s\_axi}\ \textbf{0 变化}$$
+$$\quad\ \Rightarrow\ \text{只剩 } \texttt{m\_axi}\ \text{少数几项 + FREQ 会变} \Rightarrow \textbf{BD 重建的中性程度大大提高}$$
+
+$$\Rightarrow\ \textbf{第 101 条纪律：元数据错误会伪装成"基础设施坏了"}$$
+$$\quad\ \text{先看到的是"BD 过不了 validate"，真相却是"RTL 的接口注解与端口不一致"}$$
+$$\quad\ \Rightarrow\ \textbf{判据}：\text{遇到"生成/校验失败"，先拿}\textbf{端口真值}\text{去核注解，再怀疑工具或流程}$$
+
+**③ 主工程被一次未归属的 10:56 尝试弄坏，已定位恢复源**
+$$\Rightarrow\ \texttt{hw\_handoff/design\_1.hwh}\ \text{被删、}\texttt{.bd}\ \text{变成 } \texttt{baac784a}（\text{应 } \texttt{5708c030}）\Rightarrow \textbf{按 } \texttt{.gen}\ \text{流程已不可构建}$$
+$$\Rightarrow\ \text{恢复源}：\texttt{worktrees/T-51-v42e/.../proj\_engine}（\texttt{hwh } \texttt{c1686bd8}、\texttt{bd } \texttt{5708c030}、\texttt{synth } \texttt{c5d88680}）$$
+$$\Rightarrow\ \text{T-57 已受命先恢复主工程并逐字节校验 5 个 md5，再在副本上重建 BD}$$
+
+$$\Rightarrow\ \textbf{第 102 条纪律：主工程不许被"实验"碰到}$$
+$$\quad\ \text{本轮 10:56 那次尝试直接跑在主工程上（脚本里 } \texttt{set proj .../proj\_engine}\text{）} \Rightarrow \text{一次试探就把可构建状态弄没了}$$
+$$\quad\ \Rightarrow\ \textbf{判据}：\text{任何 BD/工程级实验，脚本第一行必须是 } \texttt{set proj <副本路径>}；$$
+$$\quad\ \text{主工程只允许"构建"和"从副本恢复"两种操作}$$
