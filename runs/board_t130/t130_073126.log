@@ -1,0 +1,239 @@
+[t130] python=3.10.4 numpy=1.21.5 mach=armv7l
+[t130] 日志 = /home/xilinx/demoir/t130_out/t130_073126.log
+[t130] 运行点 = {"BIN_PACK": "e1e2", "BIN_LAZY_DEQ": "0", "BIN_LAZY_SLOTS": "24", "BIN_CAT_FUSION": "1", "BIN_BILINEAR_C": "1", "BIN_PRECOMP": "1", "Q8CACHE": "1", "BIN_F32DIRECT": "1", "BIN_CAT_ECA_FUSE": "1", "BIN_EPI_NOINV": "1", "BIN_PROFILE": "1"}
+[t130] vlanes_now=8 prm_layout={'VLANES': 8, 'PRM_W': 16, 'PB_S': 0, 'PB_B': 2, 'PB_Z': 6, 'PB_G': 10, 'PB_SL': 14, 'seg': {'alpha': (0, 2), 'bias': (2, 6), 'zeta': (6, 10), 'gamma': (10, 14), 'slope': (14, 16)}, 'words': {'alpha': 2, 'bias': 4, 'zeta': 4, 'gamma': 4, 'slope': 2}}
+[t130] spec = /tmp/probe_T130/t130_spec.json（conv 35 + ps 14）
+
+==============================================================================
+  第 1 步：load overlay + 指纹（本进程唯一一次 download=True）
+==============================================================================
+  Overlay(design_1_150v53.bit) 用时 2.695 s
+  IP 清单：['bin_unit_0', 'conv_uni_0', 'ps7']
+  conv_uni_0  base=0x40040000 length=0x20000 （期望 0x40040000）✓
+  bin_unit_0  base=0x40060000 length=0x20000 （期望 0x40060000）✓
+  0x40070314 = 0x50300001   (CFG+0x314)
+  0x40060310 = 0x00000000   (0x310 CHAIN_STATUS)
+  **magic(0x314) = 0x50300001 期望 0x50300001 ⇒ 寄存器块在位 ✓**
+  **目标 50 MHz → 读回 50 MHz**；magic=0x50300001 0x310=0x00000000（第 119 条）
+  [DEPS] q8=fast c8deq=fast bpack=fast e1e2=fast catpack=fast safe=fast  ⇒ deps_closure_ok=True
+
+==============================================================================
+  第 2 步：conv 形状矩阵（整网真实 × T-122 覆盖盒外；每个 2 跑）
+==============================================================================
+  权重容器已搬入 DDR：blob_pa=0x30900000
+  IN  区 = 294976 B @0x30100000 ；OUT 区 = 1310784 B @0x30148040（金丝雀 slack = 524288 B）
+  [ 1/35] c48_o96_k3_s2   cin=48  cout=96  k=3 s=2 pad=1 sh=5  64x64→32x32
+       cb=1 K=9 npad=16 | C8 组=12 16 通道组=6 | 线 256 条 | act=32768 B out=98304 B
+       run1: 越界 **     0 B** | 不符 **     0/98304** | PL    6.732 ms =    206399 拍@50MHz | 0x310=0x00000403 | sha1=107a6ea6c8af
+       run2: 越界 **     0 B** | 不符 **     0/98304** | PL    6.198 ms =    205672 拍@50MHz | 0x310=0x00000403 | sha1=107a6ea6c8af
+       判据：0 越界=True 0 不符=True 两跑相同=True 组平面恒等=True | RPReLU 依赖字节 87416
+  [ 2/35] c64_o96_k3_s1   cin=64  cout=96  k=3 s=1 pad=1 sh=5  64x64→64x64
+       cb=1 K=9 npad=0 | C8 组=12 16 通道组=6 | 线 256 条 | act=32768 B out=393216 B
+       run1: 越界 **     0 B** | 不符 **     0/393216** | PL   18.284 ms =    817168 拍@50MHz | 0x310=0x00000403 | sha1=ac3214e7509e
+       run2: 越界 **     0 B** | 不符 **     0/393216** | PL   17.967 ms =    816560 拍@50MHz | 0x310=0x00000403 | sha1=ac3214e7509e
+       判据：0 越界=True 0 不符=True 两跑相同=True 组平面恒等=True 
+  [ 3/35] c96_o192_k3_s2  cin=96  cout=192 k=3 s=2 pad=1 sh=7  64x64→32x32
+       cb=2 K=18 npad=32 | C8 组=24 16 通道组=12 | 线 512 条 | act=65536 B out=196608 B
+       run1: 越界 **     0 B** | 不符 **     0/196608** | PL   11.121 ms =    440645 拍@50MHz | 0x310=0x00000403 | sha1=5b7574789146
+       run2: 越界 **     0 B** | 不符 **     0/196608** | PL   10.193 ms =    427258 拍@50MHz | 0x310=0x00000403 | sha1=5b7574789146
+       判据：0 越界=True 0 不符=True 两跑相同=True 组平面恒等=True 
+  [ 4/35] c160_o32_k1_s1  cin=160 cout=32  k=1 s=1 pad=0 sh=5  64x64→64x64
+       cb=3 K=3 npad=32 | C8 组=4 16 通道组=2 | 线 768 条 | act=98304 B out=131072 B
+       run1: 越界 **     0 B** | 不符 **     0/131072** | PL    7.658 ms =    274336 拍@50MHz | 0x310=0x00000403 | sha1=31e575dfb016
+       run2: 越界 **     0 B** | 不符 **     0/131072** | PL    7.248 ms =    280082 拍@50MHz | 0x310=0x00000403 | sha1=31e575dfb016
+       判据：0 越界=True 0 不符=True 两跑相同=True 组平面恒等=True 
+  [ 5/35] c160_o48_k1_s1  cin=160 cout=48  k=1 s=1 pad=0 sh=4  64x64→64x64
+       cb=3 K=3 npad=32 | C8 组=6 16 通道组=3 | 线 768 条 | act=98304 B out=196608 B
+       run1: 越界 **     0 B** | 不符 **     0/196608** | PL   10.235 ms =    409377 拍@50MHz | 0x310=0x00000403 | sha1=a7117171e34a
+       run2: 越界 **     0 B** | 不符 **     0/196608** | PL    9.813 ms =    409937 拍@50MHz | 0x310=0x00000403 | sha1=a7117171e34a
+       判据：0 越界=True 0 不符=True 两跑相同=True 组平面恒等=True | RPReLU 依赖字节 188600
+  [ 6/35] c160_o64_k3_s1  cin=160 cout=64  k=3 s=1 pad=2 sh=8  64x64→64x64
+       cb=3 K=27 npad=32 | C8 组=8 16 通道组=4 | 线 768 条 | act=98304 B out=262144 B
+       run1: 越界 **     0 B** | 不符 **     0/262144** | PL   16.129 ms =    704777 拍@50MHz | 0x310=0x00000403 | sha1=c6ffcdfcaeed
+       run2: 越界 **     0 B** | 不符 **     0/262144** | PL   15.706 ms =    700319 拍@50MHz | 0x310=0x00000403 | sha1=c6ffcdfcaeed
+       判据：0 越界=True 0 不符=True 两跑相同=True 组平面恒等=True 
+  [ 7/35] c160_o96_k3_s1  cin=160 cout=96  k=3 s=1 pad=2 sh=7  64x64→64x64
+       cb=3 K=27 npad=32 | C8 组=12 16 通道组=6 | 线 768 条 | act=98304 B out=393216 B
+       run1: 越界 **     0 B** | 不符 **     0/393216** | PL   23.009 ms =   1053107 拍@50MHz | 0x310=0x00000403 | sha1=cc10a8c97003
+       run2: 越界 **     0 B** | 不符 **     0/393216** | PL   22.851 ms =   1057374 拍@50MHz | 0x310=0x00000403 | sha1=cc10a8c97003
+       判据：0 越界=True 0 不符=True 两跑相同=True 组平面恒等=True 
+  [ 8/35] c176_o32_k1_s1  cin=176 cout=32  k=1 s=1 pad=0 sh=5  64x64→64x64
+       cb=3 K=3 npad=16 | C8 组=4 16 通道组=2 | 线 768 条 | act=98304 B out=131072 B
+       run1: 越界 **     0 B** | 不符 **     0/131072** | PL    7.613 ms =    273585 拍@50MHz | 0x310=0x00000403 | sha1=0dbb9761a784
+       run2: 越界 **     0 B** | 不符 **     0/131072** | PL    7.239 ms =    278461 拍@50MHz | 0x310=0x00000403 | sha1=0dbb9761a784
+       判据：0 越界=True 0 不符=True 两跑相同=True 组平面恒等=True 
+  [ 9/35] c176_o64_k3_s1  cin=176 cout=64  k=3 s=1 pad=1 sh=8  64x64→64x64
+       cb=3 K=27 npad=16 | C8 组=8 16 通道组=4 | 线 768 条 | act=98304 B out=262144 B
+       run1: 越界 **     0 B** | 不符 **     0/262144** | PL   16.067 ms =    699186 拍@50MHz | 0x310=0x00000403 | sha1=d333ed124f0a
+       run2: 越界 **     0 B** | 不符 **     0/262144** | PL   15.865 ms =    708127 拍@50MHz | 0x310=0x00000403 | sha1=d333ed124f0a
+       判据：0 越界=True 0 不符=True 两跑相同=True 组平面恒等=True 
+  [10/35] c192_o32_k1_s1  cin=192 cout=32  k=1 s=1 pad=0 sh=4  64x64→64x64
+       cb=3 K=3 npad=0 | C8 组=4 16 通道组=2 | 线 768 条 | act=98304 B out=131072 B
+       run1: 越界 **     0 B** | 不符 **     0/131072** | PL    7.798 ms =    278509 拍@50MHz | 0x310=0x00000403 | sha1=ea17247db930
+       run2: 越界 **     0 B** | 不符 **     0/131072** | PL    7.173 ms =    273883 拍@50MHz | 0x310=0x00000403 | sha1=ea17247db930
+       判据：0 越界=True 0 不符=True 两跑相同=True 组平面恒等=True 
+  [11/35] c192_o64_k3_s1  cin=192 cout=64  k=3 s=1 pad=1 sh=8  64x64→64x64
+       cb=3 K=27 npad=0 | C8 组=8 16 通道组=4 | 线 768 条 | act=98304 B out=262144 B
+       run1: 越界 **     0 B** | 不符 **     0/262144** | PL   16.135 ms =    697541 拍@50MHz | 0x310=0x00000403 | sha1=f34eec18d630
+       run2: 越界 **     0 B** | 不符 **     0/262144** | PL   15.771 ms =    703883 拍@50MHz | 0x310=0x00000403 | sha1=f34eec18d630
+       判据：0 越界=True 0 不符=True 两跑相同=True 组平面恒等=True 
+  [12/35] c224_o32_k1_s1  cin=224 cout=32  k=1 s=1 pad=0 sh=5  64x64→64x64
+       cb=4 K=4 npad=32 | C8 组=4 16 通道组=2 | 线 1024 条 | act=131072 B out=131072 B
+       run1: 越界 **     0 B** | 不符 **     0/131072** | PL    7.730 ms =    280058 拍@50MHz | 0x310=0x00000403 | sha1=79e67948c934
+       run2: 越界 **     0 B** | 不符 **     0/131072** | PL    7.357 ms =    278747 拍@50MHz | 0x310=0x00000403 | sha1=79e67948c934
+       判据：0 越界=True 0 不符=True 两跑相同=True 组平面恒等=True 
+  [13/35] c224_o64_k3_s1  cin=224 cout=64  k=3 s=1 pad=1 sh=7  64x64→64x64
+       cb=4 K=36 npad=32 | C8 组=8 16 通道组=4 | 线 1024 条 | act=131072 B out=262144 B
+       run1: 越界 **     0 B** | 不符 **     0/262144** | PL   20.606 ms =    929153 拍@50MHz | 0x310=0x00000403 | sha1=688bd57afe88
+       run2: 越界 **     0 B** | 不符 **     0/262144** | PL   20.207 ms =    927687 拍@50MHz | 0x310=0x00000403 | sha1=688bd57afe88
+       判据：0 越界=True 0 不符=True 两跑相同=True 组平面恒等=True | RPReLU 依赖字节 256484
+  [14/35] c240_o32_k1_s1  cin=240 cout=32  k=1 s=1 pad=0 sh=5  64x64→64x64
+       cb=4 K=4 npad=16 | C8 组=4 16 通道组=2 | 线 1024 条 | act=131072 B out=131072 B
+       run1: 越界 **     0 B** | 不符 **     0/131072** | PL    7.684 ms =    276208 拍@50MHz | 0x310=0x00000403 | sha1=90fa8005c704
+       run2: 越界 **     0 B** | 不符 **     0/131072** | PL    7.233 ms =    278556 拍@50MHz | 0x310=0x00000403 | sha1=90fa8005c704
+       判据：0 越界=True 0 不符=True 两跑相同=True 组平面恒等=True 
+  [15/35] c240_o48_k1_s1  cin=240 cout=48  k=1 s=1 pad=0 sh=4  64x64→64x64
+       cb=4 K=4 npad=16 | C8 组=6 16 通道组=3 | 线 1024 条 | act=131072 B out=196608 B
+       run1: 越界 **     0 B** | 不符 **     0/196608** | PL   10.205 ms =    411689 拍@50MHz | 0x310=0x00000403 | sha1=5fdf67595a91
+       run2: 越界 **     0 B** | 不符 **     0/196608** | PL    9.866 ms =    411654 拍@50MHz | 0x310=0x00000403 | sha1=5fdf67595a91
+       判据：0 越界=True 0 不符=True 两跑相同=True 组平面恒等=True 
+  [16/35] c256_o32_k1_s1  cin=256 cout=32  k=1 s=1 pad=0 sh=5  64x64→64x64
+       cb=4 K=4 npad=0 | C8 组=4 16 通道组=2 | 线 1024 条 | act=131072 B out=131072 B
+       run1: 越界 **     0 B** | 不符 **     0/131072** | PL    7.531 ms =    275826 拍@50MHz | 0x310=0x00000403 | sha1=c3bd90d71070
+       run2: 越界 **     0 B** | 不符 **     0/131072** | PL    7.270 ms =    275862 拍@50MHz | 0x310=0x00000403 | sha1=c3bd90d71070
+       判据：0 越界=True 0 不符=True 两跑相同=True 组平面恒等=True 
+  [17/35] c256_o48_k1_s1  cin=256 cout=48  k=1 s=1 pad=0 sh=5  64x64→64x64
+       cb=4 K=4 npad=0 | C8 组=6 16 通道组=3 | 线 1024 条 | act=131072 B out=196608 B
+       run1: 越界 **     0 B** | 不符 **     0/196608** | PL   10.099 ms =    407684 拍@50MHz | 0x310=0x00000403 | sha1=f2bb7f05ac7d
+       run2: 越界 **     0 B** | 不符 **     0/196608** | PL    9.962 ms =    416553 拍@50MHz | 0x310=0x00000403 | sha1=f2bb7f05ac7d
+       判据：0 越界=True 0 不符=True 两跑相同=True 组平面恒等=True 
+  [18/35] c256_o64_k3_s1  cin=256 cout=64  k=3 s=1 pad=2 sh=7  64x64→64x64
+       cb=4 K=36 npad=0 | C8 组=8 16 通道组=4 | 线 1024 条 | act=131072 B out=262144 B
+       run1: 越界 **     0 B** | 不符 **     0/262144** | PL   20.614 ms =    930059 拍@50MHz | 0x310=0x00000403 | sha1=069f520451fe
+       run2: 越界 **     0 B** | 不符 **     0/262144** | PL   20.167 ms =    928283 拍@50MHz | 0x310=0x00000403 | sha1=069f520451fe
+       判据：0 越界=True 0 不符=True 两跑相同=True 组平面恒等=True 
+  [19/35] c256_o96_k3_s1  cin=256 cout=96  k=3 s=1 pad=1 sh=6  64x64→64x64
+       cb=4 K=36 npad=0 | C8 组=12 16 通道组=6 | 线 1024 条 | act=131072 B out=393216 B
+       run1: 越界 **     0 B** | 不符 **     0/393216** | PL   29.754 ms =   1389575 拍@50MHz | 0x310=0x00000403 | sha1=e9ea82ad153c
+       run2: 越界 **     0 B** | 不符 **     0/393216** | PL   29.482 ms =   1393461 拍@50MHz | 0x310=0x00000403 | sha1=e9ea82ad153c
+       判据：0 越界=True 0 不符=True 两跑相同=True 组平面恒等=True 
+  [20/35] c288_o32_k1_s1  cin=288 cout=32  k=1 s=1 pad=0 sh=6  64x64→64x64
+       cb=5 K=5 npad=32 | C8 组=4 16 通道组=2 | 线 1280 条 | act=163840 B out=131072 B
+       run1: 越界 **     0 B** | 不符 **     0/131072** | PL    7.461 ms =    274265 拍@50MHz | 0x310=0x00000403 | sha1=8c8bbd2bab61
+       run2: 越界 **     0 B** | 不符 **     0/131072** | PL    7.179 ms =    274062 拍@50MHz | 0x310=0x00000403 | sha1=8c8bbd2bab61
+       判据：0 越界=True 0 不符=True 两跑相同=True 组平面恒等=True 
+  [21/35] c288_o96_k1_s1  cin=288 cout=96  k=1 s=1 pad=0 sh=5  64x64→64x64
+       cb=5 K=5 npad=32 | C8 组=12 16 通道组=6 | 线 1280 条 | act=163840 B out=393216 B
+       run1: 越界 **     0 B** | 不符 **     0/393216** | PL   18.329 ms =    816965 拍@50MHz | 0x310=0x00000403 | sha1=31eb27118569
+       run2: 越界 **     0 B** | 不符 **     0/393216** | PL   18.002 ms =    820005 拍@50MHz | 0x310=0x00000403 | sha1=31eb27118569
+       判据：0 越界=True 0 不符=True 两跑相同=True 组平面恒等=True 
+  [22/35] c304_o32_k1_s1  cin=304 cout=32  k=1 s=1 pad=0 sh=6  64x64→64x64
+       cb=5 K=5 npad=16 | C8 组=4 16 通道组=2 | 线 1280 条 | act=163840 B out=131072 B
+       run1: 越界 **     0 B** | 不符 **     0/131072** | PL    7.423 ms =    272632 拍@50MHz | 0x310=0x00000403 | sha1=65217bec7c48
+       run2: 越界 **     0 B** | 不符 **     0/131072** | PL    7.157 ms =    276995 拍@50MHz | 0x310=0x00000403 | sha1=65217bec7c48
+       判据：0 越界=True 0 不符=True 两跑相同=True 组平面恒等=True 
+  [23/35] c320_o32_k1_s1  cin=320 cout=32  k=1 s=1 pad=0 sh=6  64x64→64x64
+       cb=5 K=5 npad=0 | C8 组=4 16 通道组=2 | 线 1280 条 | act=163840 B out=131072 B
+       run1: 越界 **     0 B** | 不符 **     0/131072** | PL    7.432 ms =    276625 拍@50MHz | 0x310=0x00000403 | sha1=8c437e9ab14c
+       run2: 越界 **     0 B** | 不符 **     0/131072** | PL    7.202 ms =    279236 拍@50MHz | 0x310=0x00000403 | sha1=8c437e9ab14c
+       判据：0 越界=True 0 不符=True 两跑相同=True 组平面恒等=True 
+  [24/35] c320_o64_k3_s1  cin=320 cout=64  k=3 s=1 pad=1 sh=8  64x64→64x64
+       cb=5 K=45 npad=0 | C8 组=8 16 通道组=4 | 线 1280 条 | act=163840 B out=262144 B
+       run1: 越界 **     0 B** | 不符 **     0/262144** | PL   25.066 ms =   1152921 拍@50MHz | 0x310=0x00000403 | sha1=f7d32663ef53
+       run2: 越界 **     0 B** | 不符 **     0/262144** | PL   24.651 ms =   1147866 拍@50MHz | 0x310=0x00000403 | sha1=f7d32663ef53
+       判据：0 越界=True 0 不符=True 两跑相同=True 组平面恒等=True 
+  [25/35] c352_o32_k1_s1  cin=352 cout=32  k=1 s=1 pad=0 sh=6  64x64→64x64
+       cb=6 K=6 npad=32 | C8 组=4 16 通道组=2 | 线 1536 条 | act=196608 B out=131072 B
+       run1: 越界 **     0 B** | 不符 **     0/131072** | PL    7.517 ms =    275445 拍@50MHz | 0x310=0x00000403 | sha1=ee4da6a9b9e0
+       run2: 越界 **     0 B** | 不符 **     0/131072** | PL    7.204 ms =    279725 拍@50MHz | 0x310=0x00000403 | sha1=ee4da6a9b9e0
+       判据：0 越界=True 0 不符=True 两跑相同=True 组平面恒等=True 
+  [26/35] c352_o48_k1_s1  cin=352 cout=48  k=1 s=1 pad=0 sh=6  64x64→64x64
+       cb=6 K=6 npad=32 | C8 组=6 16 通道组=3 | 线 1536 条 | act=196608 B out=196608 B
+       run1: 越界 **     0 B** | 不符 **     0/196608** | PL   10.113 ms =    410545 拍@50MHz | 0x310=0x00000403 | sha1=ce66a98284a6
+       run2: 越界 **     0 B** | 不符 **     0/196608** | PL    9.833 ms =    411093 拍@50MHz | 0x310=0x00000403 | sha1=ce66a98284a6
+       判据：0 越界=True 0 不符=True 两跑相同=True 组平面恒等=True 
+  [27/35] c352_o64_k1_s1  cin=352 cout=64  k=1 s=1 pad=0 sh=4  64x64→64x64
+       cb=6 K=6 npad=32 | C8 组=8 16 通道组=4 | 线 1536 条 | act=196608 B out=262144 B
+       run1: 越界 **     0 B** | 不符 **     0/262144** | PL   12.824 ms =    544727 拍@50MHz | 0x310=0x00000403 | sha1=4f25e2e4ea7c
+       run2: 越界 **     0 B** | 不符 **     0/262144** | PL   12.681 ms =    553679 拍@50MHz | 0x310=0x00000403 | sha1=4f25e2e4ea7c
+       判据：0 越界=True 0 不符=True 两跑相同=True 组平面恒等=True 
+  [28/35] c368_o48_k1_s1  cin=368 cout=48  k=1 s=1 pad=0 sh=6  64x64→64x64
+       cb=6 K=6 npad=16 | C8 组=6 16 通道组=3 | 线 1536 条 | act=196608 B out=196608 B
+       run1: 越界 **     0 B** | 不符 **     0/196608** | PL   10.179 ms =    410557 拍@50MHz | 0x310=0x00000403 | sha1=3f9f9c7962ed
+       run2: 越界 **     0 B** | 不符 **     0/196608** | PL    9.796 ms =    408864 拍@50MHz | 0x310=0x00000403 | sha1=3f9f9c7962ed
+       判据：0 越界=True 0 不符=True 两跑相同=True 组平面恒等=True 
+  [29/35] c384_o32_k1_s1  cin=384 cout=32  k=1 s=1 pad=0 sh=6  64x64→64x64
+       cb=6 K=6 npad=0 | C8 组=4 16 通道组=2 | 线 1536 条 | act=196608 B out=131072 B
+       run1: 越界 **     0 B** | 不符 **     0/131072** | PL    7.531 ms =    279999 拍@50MHz | 0x310=0x00000403 | sha1=2c92d36bc42f
+       run2: 越界 **     0 B** | 不符 **     0/131072** | PL    7.129 ms =    275528 拍@50MHz | 0x310=0x00000403 | sha1=2c92d36bc42f
+       判据：0 越界=True 0 不符=True 两跑相同=True 组平面恒等=True 
+  [30/35] c384_o192_k1_s1 cin=384 cout=192 k=1 s=1 pad=0 sh=5  64x64→64x64
+       cb=6 K=6 npad=0 | C8 组=24 16 通道组=12 | 线 1536 条 | act=196608 B out=786432 B
+       run1: 越界 **     0 B** | 不符 **     0/786432** | PL   34.637 ms =   1636100 拍@50MHz | 0x310=0x00000403 | sha1=4c6eb5b83095
+       run2: 越界 **     0 B** | 不符 **     0/786432** | PL   34.349 ms =   1636803 拍@50MHz | 0x310=0x00000403 | sha1=4c6eb5b83095
+       判据：0 越界=True 0 不符=True 两跑相同=True 组平面恒等=True 
+  [31/35] c416_o96_k1_s1  cin=416 cout=96  k=1 s=1 pad=0 sh=6  64x64→64x64
+       cb=7 K=7 npad=32 | C8 组=12 16 通道组=6 | 线 1792 条 | act=229376 B out=393216 B
+       run1: 越界 **     0 B** | 不符 **     0/393216** | PL   18.752 ms =    826323 拍@50MHz | 0x310=0x00000403 | sha1=cbc609ca977d
+       run2: 越界 **     0 B** | 不符 **     0/393216** | PL   17.996 ms =    818777 拍@50MHz | 0x310=0x00000403 | sha1=cbc609ca977d
+       判据：0 越界=True 0 不符=True 两跑相同=True 组平面恒等=True | RPReLU 依赖字节 345799
+  [32/35] c448_o32_k1_s1  cin=448 cout=32  k=1 s=1 pad=0 sh=6  64x64→64x64
+       cb=7 K=7 npad=0 | C8 组=4 16 通道组=2 | 线 1792 条 | act=229376 B out=131072 B
+       run1: 越界 **     0 B** | 不符 **     0/131072** | PL    7.588 ms =    277793 拍@50MHz | 0x310=0x00000403 | sha1=7761e7f4a5a4
+       run2: 越界 **     0 B** | 不符 **     0/131072** | PL    7.095 ms =    273538 拍@50MHz | 0x310=0x00000403 | sha1=7761e7f4a5a4
+       判据：0 越界=True 0 不符=True 两跑相同=True 组平面恒等=True 
+  [33/35] c448_o48_k1_s1  cin=448 cout=48  k=1 s=1 pad=0 sh=6  64x64→64x64
+       cb=7 K=7 npad=0 | C8 组=6 16 通道组=3 | 线 1792 条 | act=229376 B out=196608 B
+       run1: 越界 **     0 B** | 不符 **     0/196608** | PL   10.184 ms =    413537 拍@50MHz | 0x310=0x00000403 | sha1=7f02a9eec071
+       run2: 越界 **     0 B** | 不符 **     0/196608** | PL    9.865 ms =    411689 拍@50MHz | 0x310=0x00000403 | sha1=7f02a9eec071
+       判据：0 越界=True 0 不符=True 两跑相同=True 组平面恒等=True 
+  [34/35] c512_o192_k1_s1 cin=512 cout=192 k=1 s=1 pad=0 sh=6  64x64→64x64
+       cb=8 K=8 npad=0 | C8 组=24 16 通道组=12 | 线 2048 条 | act=262144 B out=786432 B
+       run1: 越界 **     0 B** | 不符 **     0/786432** | PL   34.743 ms =   1640821 拍@50MHz | 0x310=0x00000403 | sha1=591e3948a3fc
+       run2: 越界 **     0 B** | 不符 **     0/786432** | PL   34.430 ms =   1636219 拍@50MHz | 0x310=0x00000403 | sha1=591e3948a3fc
+       判据：0 越界=True 0 不符=True 两跑相同=True 组平面恒等=True | RPReLU 依赖字节 634383
+  [35/35] c544_o64_k1_s1  cin=544 cout=64  k=1 s=1 pad=0 sh=6  64x64→64x64
+       cb=9 K=9 npad=32 | C8 组=8 16 通道组=4 | 线 2304 条 | act=294912 B out=262144 B
+       run1: 越界 **     0 B** | 不符 **     0/262144** | PL   13.018 ms =    547385 拍@50MHz | 0x310=0x00000403 | sha1=ed3306f55132
+       run2: 越界 **     0 B** | 不符 **     0/262144** | PL   12.568 ms =    546587 拍@50MHz | 0x310=0x00000403 | sha1=ed3306f55132
+       判据：0 越界=True 0 不符=True 两跑相同=True 组平面恒等=True 
+
+==============================================================================
+  第 3 步：非 conv 算子（整网真实参数；interp C/NEON、eca、sam、rprelu）
+==============================================================================
+  bilinear C 内核 = 可用
+  bilinear_c.load() 状态：{'tried': True, 'lib': <CDLL '/home/xilinx/demoir/ps/pynq/bilinear_c_armv7l.so', handle 2210970 at 0xb2d3c808>, 'why': 'ok', 'checked': True}
+  ps_encoder_1_sam_blocks_0_x2                 interp [48, 64, 64]→[48, 32, 32]
+       sha1=d5081b7cf5cc | 主机=d5081b7cf5cc ✓ | fast==numpy=True (5.7/20.6 ms)
+  ps_encoder_1_sam_blocks_0_x4                 interp [48, 64, 64]→[48, 16, 16]
+       sha1=bb3250d8fbf6 | 主机=bb3250d8fbf6 ✓ | fast==numpy=True (3.4/6.4 ms)
+  ps_encoder_1_sam_blocks_0_b2_up              interp [48, 32, 32]→[48, 64, 64]
+       sha1=65a5944ced0d | 主机=65a5944ced0d ✓ | fast==numpy=True (10.6/49.3 ms)
+  ps_encoder_1_sam_blocks_0_b4_up              interp [48, 16, 16]→[48, 64, 64]
+       sha1=4daa06366f82 | 主机=4daa06366f82 ✓ | fast==numpy=True (7.6/46.3 ms)
+  ps_decoder_2_feat_up                         interp [64, 32, 32]→[64, 64, 64]
+       sha1=0b3abac78ce2 | 主机=0b3abac78ce2 ✓ | fast==numpy=True (9.4/63.0 ms)
+  ps_encoder_3_sam_blocks_0_x4                 interp [192, 16, 16]→[192, 4, 4]
+       sha1=f385923e950f | 主机=f385923e950f ✓ | fast==numpy=True (2.5/2.1 ms)
+  ps_encoder_2_sam_blocks_0_b2_up              interp [96, 16, 16]→[96, 32, 32]
+       sha1=5641956d7427 | 主机=5641956d7427 ✓ | fast==numpy=True (8.2/23.7 ms)
+  ps_encoder_1_sam_blocks_0_fusion             eca    [144, 64, 64]→[144, 1, 1]
+       sha1=0c3d5ff6fca6 | 主机=e92f7b9ca65f ✗
+  ps_encoder_2_sam_blocks_0_fusion             eca    [288, 32, 32]→[288, 1, 1]
+       sha1=d6cc572d75bc | 主机=dfddd9a5aeb4 ✗
+  ps_encoder_3_sam_blocks_0_fusion             eca    [576, 16, 16]→[576, 1, 1]
+       sha1=48e888e033ac | 主机=2a71b3f4c28c ✗
+  ps_decoder_1_sam_blocks_0_fusion             eca    [192, 64, 64]→[192, 1, 1]
+       sha1=277f44772674 | 主机=54b42840a88f ✗
+  ps_encoder_1_sam_blocks_0_weighted_sum       sam    [48, 64, 64]→[48, 64, 64]
+       sha1=ace9d6f4501f | 主机=0441b72e86ea ✗
+       2 线程 == 1 线程：True ；w(eca) 同主机：False
+  ps_encoder_2_sam_blocks_0_weighted_sum       sam    [96, 32, 32]→[96, 32, 32]
+       sha1=377ab8b1c7c2 | 主机=59e9736b0d95 ✗
+       2 线程 == 1 线程：True ；w(eca) 同主机：False
+  ps_decoder_1_sam_blocks_0_weighted_sum       sam    [64, 64, 64]→[64, 64, 64]
+       sha1=6f45793c0c04 | 主机=9c1b881db955 ✗
+       2 线程 == 1 线程：True ；w(eca) 同主机：False
+
+收尾：magic=0x50300001 0x310=0x00000000 fclk=50 MHz
+===== 汇总：conv 35/35 过；PS 7/14 过 =====

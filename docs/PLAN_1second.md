@@ -6688,3 +6688,27 @@ $$\Rightarrow\ \textbf{至此：结构维度全测干净，且"很多 op"也被 
 $$\Rightarrow\ \Rightarrow\ \text{剩下的只能是}\textbf{"整网真实用到、但我从未测过的形状"}：$$
 $$\quad\ \mathtt{cin}\in\{176,256,544\}、\mathtt{cout}\in\{96,192\}、k{=}5、\text{以及 } \mathtt{interp/sam/eca/rprelu}\ \text{这些}\textbf{非 conv 算子}$$
 $$\quad\ \text{T-122 测到的最大 } \mathtt{cin}{=}112、\mathtt{cout}{=}64 \Rightarrow \textbf{这两个维度上是空白}$$
+
+### 70.95 ★★★★★ T-130：形状维度清零（35/35 全对），但**暴露一个非硬件非确定性源**（2026-11-03 05:0x）
+
+**conv 35/35 全对（8.68 MB 输出逐字节）**
+$$\Rightarrow\ \text{整网真实取值：}\mathtt{cin}\ 21\ \text{个值（}32\dots544，\mathbf{544\ \text{有 }9\ \text{层}}）；\mathtt{cout}\ \{32{:}90,48{:}94,64{:}24,\mathbf{96{:}14,192{:}5}\}$$
+$$\Rightarrow\ \mathtt{k}\ \{1{:}114,\ 3{:}113\} \Rightarrow \textbf{整网无 } k{=}5$$
+$$\Rightarrow\ \text{T-122 覆盖盒 = } \mathtt{cin}\le112\ \&\ \mathtt{cout}\le64\ \&\ s{=}1 \Rightarrow \textbf{盒外 35 个三元组 / 115 层}$$
+$$\Rightarrow\ \textbf{35/35 全对}：\text{错字节 } 0 / \text{越界 } 0\ \text{B}（\text{OUT 尾 512 KB 全填 } 0\mathtt{xA5}\ \text{整段复查）/ 2 跑同 sha1 / 组平面恒等}$$
+$$\quad\ \Rightarrow\ \text{含 } \mathtt{cout}{=}192（\mathbf{24}\ \text{个 C8 组} \Rightarrow \mathtt{pix\_q}\ \text{每像素回绕 }24\ \text{次）与 } \mathtt{cin}{=}544（\mathtt{cb}{=}9、\text{线数 }2304）\ \text{两个最极端档}$$
+$$\Rightarrow\ \text{另含 } 2\ \text{个 } s{=}2\ \text{层} \Rightarrow \text{也全对}$$
+$$\Rightarrow\ \text{非 conv：}\mathtt{interp}\ \mathbf{7/7}\ \text{逐字节}（\text{ARM 现场编译 } \mathtt{bilinear\_c\_armv7l.so} \equiv \text{numpy}）；\mathtt{sam}\ 3/3；\mathtt{rprelu}\ \text{融合在 } 227/227\ \text{conv 收尾}$$
+$$\Rightarrow\ \Rightarrow\ \textbf{形状维度测干净，无未知量}$$
+
+**★ 但它抓到一个我和所有子代理都没考虑过的非确定性源**
+$$\Rightarrow\ \mathtt{eca}/\mathtt{sam}\ \text{与}\textbf{主机}\ \text{sha1 不同} \Rightarrow \text{已定位到函数级}：$$
+$$\quad\ \text{mean / 9-tap 串行点积 / relu}\ \textbf{逐位全同}（38\ \text{个中间阶段里 }28\ \text{个 }0\ \text{差异）}$$
+$$\quad\ \textbf{只有 sigmoid 的 } \mathtt{np.exp}\ \text{差 } \le 2\ \text{ULP}（\max|\Delta| = 5.96\text{e-}08，9\sim18\%\ \text{的通道）$$
+$$\quad\ \text{sam 输出 } \max|\Delta| = 1.4\text{e-}06$$
+$$\Rightarrow\ \Rightarrow\ \textbf{主机 numpy 算的整网 golden 只要经过任何 } \mathtt{eca}/\mathtt{sam}，\textbf{不可能}与板端逐字节相同$$
+$$\quad\ \Rightarrow\ \text{下游 i8 只在舍入边界翻 } \pm1\ \text{LSB} \Rightarrow \textbf{"}\pm1\ \text{LSB、个别字节、位置随重跑漂移"存在一个}\textbf{纯 PS 宿主}$$
+$$\Rightarrow\ \textbf{第 127 条：判 }128^2/256^2\ \text{必须用}\textbf{板端自算 golden} \text{ 或 板端↔板端 A/B}，\textbf{不能用主机 numpy 当逐字节参照}$$
+$$\quad\ \Rightarrow\ \text{我们现有的 } \mathtt{v39}\ \text{参照是板端跑的，}\textbf{这条不推翻已有结论}；\text{但它解释了"为什么} \pm1\ \text{级差异看起来像硬件错"}$$
+
+$$\Rightarrow\ \text{剩余唯一维度仍是"跨 op 上下文"}，\text{但形状/结构/流水都干净} \Rightarrow \textbf{下一步转向"非硬件非确定性"}$$
