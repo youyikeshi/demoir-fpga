@@ -6827,3 +6827,36 @@ $$\quad\ \text{⑦ }\textbf{256}^2\ \text{在 }3\ \text{ms 下仍错}：\text{�
 
 $$\Rightarrow\ \textbf{第 130 条：}\text{"加延时就好"}+\text{"fence 无效"}+\text{"读侧 xsim 干净"}\ \Rightarrow\ \textbf{写回还在飞}$$
 $$\quad\ \Rightarrow\ \text{判据：}\textbf{所需延时是否} \propto \text{缓冲大小} \Rightarrow \text{已派 T-135 验（128}^2\ 294912\ \text{B vs }256^2\ 1179648\ \text{B）}$$
+
+### 70.100 ★★★★★★ 三尺寸全部逐位正确 + 机制二次修正（T-135，2026-11-03 06:5x）
+
+**剂量曲线（sleep 加在每次 flush 后）**
+$$\Rightarrow\ \mathbf{128^2}：0.5\ \text{✗✗} / 1.0\ \text{✗✗} / 1.2\ \textbf{双稳态}（2✓2✗，\text{判不可靠}）/ \mathbf{1.4\ ✓✓} / 1.5\ ✓✓ / 2.0 / 2.5 / 3.0\ ✓✓$$
+$$\Rightarrow\ \mathbf{256^2}：3\ \text{✗} / 6\ \text{✗} / 6.5\ \text{✗} / 7.0\ \text{✗} / \mathbf{9\ ✓} / 12\ ✓ / 15\ ✓$$
+$$\Rightarrow\ t_{256}/t_{128} = 9.0/1.4 = 6.43 \ne 4 \Rightarrow \textbf{"}t \propto \text{缓冲大小}"\ \textbf{被否}$$
+
+**★ 机制二次修正（这是本轮最重要的）**
+$$\Rightarrow\ 5\ \text{种 flush 尺寸全归两个调用点}：9437184/1179648/1152/576\ \text{来自 } \mathtt{E1E2Engine.pack\_int8};\ 294912\ \text{来自 } \mathtt{push\_input}$$
+$$\Rightarrow\ \mathtt{pack}\ \text{的 4 个视图在 } 64^2/128^2/256^2\ \text{三档字节数}\textbf{完全相同}（9.4\ \text{MB，与分辨率无关）}$$
+$$\Rightarrow\ \Rightarrow\ \textbf{不是"}\mathnormal{t} \propto \text{被 flush 的缓冲"};\ \text{真正的墙} = \textbf{每 op 的排空时间}：6\ \text{ms}(128^2) / 32\ \text{ms}(256^2) = 5.33\times$$
+$$\quad\ \Rightarrow\ \text{多出来的成分与"PL 每 op 时长"叠加一致}$$
+
+**★ 窗口定位（把我上一轮的"5:1 杠杆"也否了）**
+$$\Rightarrow\ \text{窗口在 } \mathtt{pack\_int8}\ \text{写完"打包输入视图"之后、}\text{它立刻 } \mathtt{kick}\ \text{之前}$$
+$$\Rightarrow\ \text{只睡 } \mathtt{push\_input}（294912\ \text{B 那组）2.0/2.5/3.0\ \text{ms} \Rightarrow \textbf{全 ✗}$$
+$$\Rightarrow\ \text{只睡 pack 输入视图}：1.5\ \text{✗} / 3.0\ \text{✗} / 4.5\ \text{✗} / \mathbf{6.0\ ✓}$$
+$$\quad\ \Rightarrow\ \text{与"全睡 1.4\ \text{ms} \Rightarrow kick 前累积 } 4\times1.4 = 5.6\ \text{ms}"\ \text{自洽}$$
+
+**★★ 最小护栏（三尺寸全对，这才是交付物）**
+| 尺寸 | T | 结果 | 耗时 |
+|---|---|---|---|
+| 64² | **0（无需护栏）** | ✓✓ `bfa246d3/226bd39e/762d84b9` | **4.54 s** |
+| 128² | **6.0 ms**（227×6=1.37 s）| ✓✓ `27e25cf6/b82b83f3/6db4e9bb` | **7.92 s** |
+| 256² | **32 ms**（227×32=7.27 s）| ✓✓ `9b1940c8/f86a7035/025757a8` | **23.60 s** |
+$$\Rightarrow\ \text{规则：只在 } \mathtt{pack}\ \text{输入视图那 }227\ \text{次 flush 后睡 }T，\text{其余 }908\ \text{次一秒不睡}$$
+$$\Rightarrow\ \text{经验式：}T \approx 6.0\ \text{ms}\times(n_{\text{in}}/294912)^{1.21}（\text{只能查表，}\text{不是解析式}）$$
+$$\Rightarrow\ \text{相对"全睡 3 ms"省 }2.0\sim2.6\ \text{s}（-25\%）,\text{但没到 } \le7.2\ \text{s}$$
+
+$$\Rightarrow\ \textbf{里程碑}：\text{16-lane 的 } \mathtt{v53}\ \text{在 } 64^2/128^2/256^2\ \textbf{三个尺寸上全部逐位正确}$$
+$$\quad\ \Rightarrow\ \text{64}^2\ \textbf{不需要护栏} \Rightarrow \text{这正是 16-lane 优势能兑现的那一档}$$
+$$\Rightarrow\ \textbf{待解决}：256^2\ \text{的 }32\ \text{ms}\times227 = 7.27\ \text{s}\ \text{护栏代价太大} \Rightarrow \text{要真修必须消除"kick 早于排空"这件事本身}$$

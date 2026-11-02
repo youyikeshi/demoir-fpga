@@ -1,0 +1,528 @@
+[boardlock] 取得板级独占 06:32:35  使用者=T135b
+[boardlock] 已签发唯一 load 令牌
+[t135b] repo = /media/felix/Data/coding/demoir-fpga
+[t135b] board = xilinx@192.168.7.2
+[t135b] 探针 md5 = 977ef9326ee2557b8cc140b862db29f4
+[t135b] 清单 md5 = 9de3d60c9abda79ff01b40801f3b809e
+[t135b] 参考剂量 128²=1.5 256²=6.0 ；精化 128²=1.2,1.4 256²=6.5,7.0 （每档 2 跑）
+[t135b] 护栏臂 2 跑 ；@ 50.0 MHz，24 槽
+[t135b] ⓪ v53 bit/hwh = 冻结值 ✓
+[t135b] ⓪ 主机自测 rc=0（✓ 全部自测通过）
+[t135b] ⓪ 打包 158 个文件（1.1M）
+--- uptime
+ 09:07:45 up  4:50,  1 user,  load average: 0.13, 0.50, 0.37
+--- disk
+/dev/root        28G  8.7G   18G  34% /
+/dev/root      3751936 209275 3542661    6% /
+--- mem/cma
+MemTotal:        1028264 kB
+MemFree:          804084 kB
+MemAvailable:     902424 kB
+SwapTotal:        524284 kB
+SwapFree:         524284 kB
+CmaTotal:         262144 kB
+CmaFree:          116332 kB
+--- 现存 python（pgrep -x python3）
+600 python3 /usr/local/bin/redirect_server
+--- 杀后残留
+  (无)
+--- 现有位流
+-rwxrwxr-x 1 xilinx xilinx 3510798 May  8 13:17 /home/xilinx/demoir/design_1_150v42.bit
+-rwxrwxr-x 1 xilinx xilinx 3510798 May  8 14:04 /home/xilinx/demoir/design_1_150v42c.bit
+-rwxrwxr-x 1 xilinx xilinx 3510798 May  8 14:33 /home/xilinx/demoir/design_1_150v42d.bit
+-rwxrwxr-x 1 xilinx xilinx 3510798 May  8 15:13 /home/xilinx/demoir/design_1_150v42e.bit
+-rwxrwxr-x 1 xilinx xilinx 3510798 May  9 00:13 /home/xilinx/demoir/design_1_150v50.bit
+-rwxrwxr-x 1 xilinx xilinx 3510798 May  9 04:12 /home/xilinx/demoir/design_1_150v51.bit
+-rwxrwxr-x 1 xilinx xilinx 3510798 May  9 04:05 /home/xilinx/demoir/design_1_150v52.bit
+-rwxrwxr-x 1 xilinx xilinx 3510798 May  9 08:54 /home/xilinx/demoir/design_1_150v53.bit
+--- PACK 目录
+/home/xilinx/demoir/deploy/bin_weights_new
+5a793dd66daf650a4825b687fe4b24b4  /home/xilinx/demoir/deploy/bin_weights_new/index.json
+--- 真 python
+lrwxrwxrwx 1 root root 16 May  3 18:01 /usr/local/share/pynq-venv/bin/python3 -> /usr/bin/python3
+--- 腾 CMA：drop_caches 前
+CmaFree:          116280 kB
+  ✓ drop_caches
+--- 腾 CMA：drop_caches 后
+CmaFree:          153492 kB
+[t135b] ① done
+[t135b] ② scp done（ps 包 + md5 + 探针 + 清单 + bit/hwh）
+=== ③-a 位流落位 + md5 ===
+  design_1_150v53.bit = e19de0326fe657fc8de9ddd241ecc729 （期望 e19de0326fe657fc8de9ddd241ecc729）
+  design_1_150v53.hwh = 5235764602921d03351e121a81e35613 （期望 5235764602921d03351e121a81e35613）
+  ✓ bit/hwh = 冻结值，成对
+=== ③-b 解包 ps 源码 + 逐文件 md5 ===
+tar: ps/README.md: time stamp 2026-10-23 13:48:58 is 45981665.244165153 s in the future
+tar: ps/baremetal/main.c: time stamp 2026-10-21 04:36:48 is 45775735.234837937 s in the future
+tar: ps/c8/c8lib.py: time stamp 2026-10-22 18:21:23 is 45911610.233193529 s in the future
+tar: ps/c8/ops_c8.py: time stamp 2026-10-22 20:05:31 is 45917858.232008031 s in the future
+tar: ps/c8/run_all.sh: time stamp 2026-10-22 18:21:23 is 45911610.230639149 s in the future
+tar: ps/c8/txn_model.py: time stamp 2026-10-22 20:07:21 is 45917968.229644169 s in the future
+tar: ps/docs/REPORT.md: time stamp 2026-10-31 04:40:05 is 46639932.221039653 s in the future
+tar: ps/manifest_512.json: time stamp 2026-10-21 04:36:48 is 45775735.214570771 s in the future
+tar: ps/manifest_608x416.json: time stamp 2026-10-21 04:36:48 is 45775735.208271317 s in the future
+tar: ps/manifest_64.json: time stamp 2026-10-21 04:36:48 is 45775735.200950974 s in the future
+tar: ps/manifest_640.json: time stamp 2026-10-21 04:36:48 is 45775735.193264884 s in the future
+tar: ps/pynq/bilinear_c.c: time stamp 2026-10-31 12:23:53 is 46667760.190191474 s in the future
+tar: ps/pynq/bilinear_c.py: time stamp 2026-11-01 17:30:03 is 46772530.18198795 s in the future
+tar: ps/pynq/bin_catpack.py: time stamp 2026-10-30 19:41:05 is 46607592.180945252 s in the future
+tar: ps/pynq/bin_engine.py: time stamp 2026-11-02 09:30:49 is 46830176.161449476 s in the future
+tar: ps/pynq/bin_engine.py.bak_20261031_ps256: time stamp 2026-10-30 16:03:53 is 46594560.156129606 s in the future
+tar: ps/pynq/bin_engine.py.bak_before_c8direct: time stamp 2026-10-31 04:42:31 is 46640078.148562142 s in the future
+tar: ps/pynq/bin_engine.py.bak_before_catpack: time stamp 2026-10-31 04:10:49 is 46638176.140357424 s in the future
+tar: ps/pynq/bin_engine.py.bak_e1e2_20261031: time stamp 2026-10-30 19:27:49 is 46606796.136307544 s in the future
+tar: ps/pynq/bin_engine.py.bak_f32pool_20261031: time stamp 2026-10-30 21:20:05 is 46613532.130739106 s in the future
+tar: ps/pynq/bin_net.py: time stamp 2026-11-02 09:32:35 is 46830282.120690912 s in the future
+tar: ps/pynq/bin_net.py.bak_20261030: time stamp 2026-10-30 15:23:11 is 46592118.11858964 s in the future
+tar: ps/pynq/bin_net.py.bak_before_c8direct: time stamp 2026-10-31 04:42:31 is 46640078.116201034 s in the future
+tar: ps/pynq/bin_net.py.bak_before_catfusion: time stamp 2026-10-31 04:50:56 is 46640583.110638638 s in the future
+tar: ps/pynq/bin_net.py.bak_before_catpack: time stamp 2026-10-31 04:10:56 is 46638183.106759818 s in the future
+tar: ps/pynq/bin_net.py.bak_before_s2merge: time stamp 2026-10-31 05:22:23 is 46642470.101450555 s in the future
+tar: ps/pynq/bin_net.py.bak_f32pool_20261031: time stamp 2026-10-30 20:58:48 is 46612255.098183075 s in the future
+tar: ps/pynq/bin_ref_numpy.py: time stamp 2026-11-02 01:56:02 is 46802889.093146639 s in the future
+tar: ps/pynq/bin_ref_numpy.py.bak_20261030: time stamp 2026-10-30 15:23:11 is 46592118.090936677 s in the future
+tar: ps/pynq/bin_ref_numpy.py.bak_20261031_ps256: time stamp 2026-10-30 16:10:22 is 46594949.088801259 s in the future
+tar: ps/pynq/bin_test_staged.py: time stamp 2026-10-30 17:58:17 is 46601424.086906825 s in the future
+tar: ps/pynq/board_cat_fusion_ab.py: time stamp 2026-10-31 05:29:49 is 46642916.085053947 s in the future
+tar: ps/pynq/board_catpack.py: time stamp 2026-10-31 04:22:13 is 46638860.083133893 s in the future
+tar: ps/pynq/board_e1e2_smoke.py: time stamp 2026-10-30 20:53:49 is 46611956.074170541 s in the future
+tar: ps/pynq/board_fconv_verify.py: time stamp 2026-10-31 13:11:33 is 46670620.072269675 s in the future
+tar: ps/pynq/board_freq_sweep.py: time stamp 2026-10-31 07:23:09 is 46649716.071042165 s in the future
+tar: ps/pynq/board_lazy_ab.py: time stamp 2026-10-31 05:23:04 is 46642511.070062155 s in the future
+tar: ps/pynq/board_pack_ab.py: time stamp 2026-10-30 19:24:31 is 46606598.069127403 s in the future
+tar: ps/pynq/board_q8_bench.py: time stamp 2026-10-31 05:17:26 is 46642173.068200853 s in the future
+tar: ps/pynq/board_safe.py: time stamp 2026-10-30 04:08:36 is 46551643.067354469 s in the future
+tar: ps/pynq/board_test_staged.py: time stamp 2026-10-30 08:55:04 is 46568831.066489047 s in the future
+tar: ps/pynq/board_v39_verify.py: time stamp 2026-11-01 17:35:23 is 46772850.065305925 s in the future
+tar: ps/pynq/board_wrst_probe.py: time stamp 2026-10-31 10:57:51 is 46662598.064330445 s in the future
+tar: ps/pynq/bpack.c: time stamp 2026-10-30 19:19:59 is 46606326.063463385 s in the future
+tar: ps/pynq/bpack.py: time stamp 2026-10-30 19:23:30 is 46606537.062448527 s in the future
+tar: ps/pynq/c8_layout.py: time stamp 2026-10-22 20:05:10 is 45917837.061465997 s in the future
+tar: ps/pynq/c8deq.c: time stamp 2026-11-02 01:56:02 is 46802889.060531383 s in the future
+tar: ps/pynq/c8deq.py: time stamp 2026-11-02 01:56:02 is 46802889.059532293 s in the future
+tar: ps/pynq/c8deq.py.bak_f32pool_20261031: time stamp 2026-10-30 21:27:34 is 46613981.058510481 s in the future
+tar: ps/pynq/catpack.py: time stamp 2026-10-31 04:27:50 is 46639197.057188627 s in the future
+tar: ps/pynq/conv_engine.py: time stamp 2026-10-22 20:08:29 is 45918036.055729415 s in the future
+tar: ps/pynq/conv_ref_fast.c: time stamp 2026-10-27 18:04:38 is 46342605.054855965 s in the future
+tar: ps/pynq/conv_ref_fast.py: time stamp 2026-10-27 17:46:24 is 46341511.054036227 s in the future
+tar: ps/pynq/convpf_c.c: time stamp 2026-11-01 17:52:14 is 46773861.052599449 s in the future
+tar: ps/pynq/convpf_c.py: time stamp 2026-11-01 18:11:08 is 46774995.050797853 s in the future
+tar: ps/pynq/convpf_neon_shim.h: time stamp 2026-11-01 17:50:14 is 46773741.049136405 s in the future
+tar: ps/pynq/display_demo.py: time stamp 2026-11-02 17:42:10 is 46859657.040011155 s in the future
+tar: ps/pynq/display_layout.py: time stamp 2026-11-02 14:22:13 is 46847660.038922545 s in the future
+tar: ps/pynq/e1e2_sim.py: time stamp 2026-10-30 20:51:59 is 46611846.038057813 s in the future
+tar: ps/pynq/fconv.py: time stamp 2026-10-31 13:10:39 is 46670566.037018673 s in the future
+tar: ps/pynq/hdmi_out.py: time stamp 2026-11-02 17:37:21 is 46859368.035867933 s in the future
+tar: ps/pynq/i8_fast.c: time stamp 2026-10-23 00:54:10 is 45935177.034809521 s in the future
+tar: ps/pynq/i8_fast.py: time stamp 2026-10-23 00:53:07 is 45935114.033934253 s in the future
+tar: ps/pynq/k1_engine.py: time stamp 2026-10-27 15:25:15 is 46333042.032604359 s in the future
+tar: ps/pynq/k3_engine.py: time stamp 2026-10-27 02:43:42 is 46287349.029886311 s in the future
+tar: ps/pynq/k5_engine.py: time stamp 2026-10-27 03:09:46 is 46288913.027644021 s in the future
+tar: ps/pynq/lut_util.py: time stamp 2026-10-23 00:30:16 is 45933743.025666361 s in the future
+tar: ps/pynq/mmio_batch.c: time stamp 2026-11-01 23:57:51 is 46795798.024735485 s in the future
+tar: ps/pynq/mmio_batch.py: time stamp 2026-11-01 23:57:51 is 46795798.023780177 s in the future
+tar: ps/pynq/ops_numpy.py: time stamp 2026-10-27 12:24:18 is 46322185.022211069 s in the future
+tar: ps/pynq/perf_probe.py: time stamp 2026-10-30 15:16:14 is 46591701.020263577 s in the future
+tar: ps/pynq/pp_engine.py: time stamp 2026-10-22 03:44:16 is 45858983.011931203 s in the future
+tar: ps/pynq/pp_ops.py: time stamp 2026-10-22 20:18:37 is 45918644.010135811 s in the future
+tar: ps/pynq/q8.c: time stamp 2026-10-31 05:09:23 is 46641690.008682869 s in the future
+tar: ps/pynq/q8.py: time stamp 2026-10-31 05:10:30 is 46641757.007771973 s in the future
+tar: ps/pynq/qcache.py: time stamp 2026-11-02 07:23:55 is 46822562.006701333 s in the future
+tar: ps/pynq/ref_numpy.py: time stamp 2026-10-30 10:16:27 is 46573714.005646089 s in the future
+tar: ps/pynq/run_network_on_board.py: time stamp 2026-10-27 02:42:30 is 46287277.004629413 s in the future
+tar: ps/pynq/runner.py: time stamp 2026-10-30 10:16:45 is 46573731.998229806 s in the future
+tar: ps/pynq/sam_sum_fast.c: time stamp 2026-10-22 20:53:09 is 45920715.997114922 s in the future
+tar: ps/pynq/tap_pack.py: time stamp 2026-10-30 10:16:33 is 46573719.996206678 s in the future
+tar: ps/pynq/test_k1_on_board.py: time stamp 2026-10-23 13:42:06 is 45981252.995300222 s in the future
+tar: ps/pynq/test_on_board.py: time stamp 2026-10-23 00:04:43 is 45932209.994370762 s in the future
+tar: ps/pynq/uni_engine.py: time stamp 2026-10-30 10:56:56 is 46576142.993303266 s in the future
+tar: ps/tools/_diag_pool.py: time stamp 2026-10-21 04:36:48 is 45775734.991482422 s in the future
+tar: ps/tools/bench_blas_ab.py: time stamp 2026-10-31 04:36:48 is 46639734.990608 s in the future
+tar: ps/tools/bench_conv_overhead.py: time stamp 2026-10-22 20:51:35 is 45920621.989789024 s in the future
+tar: ps/tools/bench_grid_2d.py: time stamp 2026-10-23 06:07:58 is 45954004.98880884 s in the future
+tar: ps/tools/bench_ops.py: time stamp 2026-10-27 12:25:34 is 46322260.987678434 s in the future
+tar: ps/tools/bench_phase_split.py: time stamp 2026-10-22 21:22:42 is 45922488.986727212 s in the future
+tar: ps/tools/bench_qcache.py: time stamp 2026-10-31 05:17:12 is 46642158.985799552 s in the future
+tar: ps/tools/bin_fp_ref.py: time stamp 2026-10-30 10:41:34 is 46575220.984814898 s in the future
+tar: ps/tools/board_safe_run.sh: time stamp 2026-10-22 21:28:47 is 45922853.98387984 s in the future
+tar: ps/tools/build_manifest.py: time stamp 2026-10-21 04:36:48 is 45775734.982749836 s in the future
+tar: ps/tools/cat_phase_diag.py: time stamp 2026-10-23 00:10:09 is 45932535.981743624 s in the future
+tar: ps/tools/check_bin_driver.py: time stamp 2026-10-30 10:55:48 is 46576074.980779844 s in the future
+tar: ps/tools/check_consistency.py: time stamp 2026-10-23 00:04:48 is 45932214.979851422 s in the future
+tar: ps/tools/check_i8_scaling.py: time stamp 2026-10-23 00:58:34 is 45935440.978952538 s in the future
+tar: ps/tools/check_numpy_ref.py: time stamp 2026-10-21 04:36:48 is 45775734.978074228 s in the future
+tar: ps/tools/check_pack_ref.py: time stamp 2026-10-21 04:36:48 is 45775734.977235986 s in the future
+tar: ps/tools/check_tap_pack.py: time stamp 2026-10-30 10:20:19 is 46573945.97624592 s in the future
+tar: ps/tools/convpf_ab.py: time stamp 2026-11-01 18:11:29 is 46775015.975263336 s in the future
+tar: ps/tools/convpf_neon_sim.py: time stamp 2026-11-01 17:50:29 is 46773755.974343122 s in the future
+tar: ps/tools/convpf_project.py: time stamp 2026-11-01 17:53:47 is 46773953.973285406 s in the future
+tar: ps/tools/convpf_timing.py: time stamp 2026-11-01 18:11:29 is 46775015.97238531 s in the future
+tar: ps/tools/deps_closure.py: time stamp 2026-11-02 07:31:49 is 46823035.971391872 s in the future
+tar: ps/tools/diag_pp_arena.py: time stamp 2026-10-22 20:02:27 is 45917673.970492058 s in the future
+tar: ps/tools/diag_sam_all.py: time stamp 2026-10-22 20:09:31 is 45918097.969709844 s in the future
+tar: ps/tools/diag_sam_num.py: time stamp 2026-10-22 20:08:23 is 45918029.968827196 s in the future
+tar: ps/tools/diag_scale.py: time stamp 2026-10-21 04:36:48 is 45775734.967890596 s in the future
+tar: ps/tools/dump_ref.cpp: time stamp 2026-10-21 04:36:48 is 45775734.96705968 s in the future
+tar: ps/tools/eval_generalize.py: time stamp 2026-10-21 04:36:48 is 45775734.966270074 s in the future
+tar: ps/tools/export_network.py: time stamp 2026-11-01 17:30:03 is 46772529.965125646 s in the future
+tar: ps/tools/gen_e1e2_desc.py: time stamp 2026-10-30 16:12:44 is 46595090.963659258 s in the future
+tar: ps/tools/img_io.py: time stamp 2026-10-21 04:36:48 is 45775734.962682854 s in the future
+tar: ps/tools/ip_route_coverage.py: time stamp 2026-10-27 02:44:48 is 46287414.961716602 s in the future
+tar: ps/tools/make_board_bundle.py: time stamp 2026-10-27 02:42:41 is 46287287.960868532 s in the future
+tar: ps/tools/make_image_pack.py: time stamp 2026-10-21 10:47:17 is 45797963.960118574 s in the future
+tar: ps/tools/make_mock_pack.py: time stamp 2026-10-23 00:04:43 is 45932209.959348936 s in the future
+tar: ps/tools/merge_gate.sh: time stamp 2026-11-02 00:08:17 is 46796423.95848589 s in the future
+tar: ps/tools/outlier_report.py: time stamp 2026-10-21 04:36:48 is 45775734.957547004 s in the future
+tar: ps/tools/pack_bin_weights.py: time stamp 2026-10-30 10:38:59 is 46575065.956275904 s in the future
+tar: ps/tools/prep_input.py: time stamp 2026-10-21 04:36:48 is 45775734.955373216 s in the future
+tar: ps/tools/probe_atlas_order.py: time stamp 2026-10-31 04:10:25 is 46638151.954423446 s in the future
+tar: ps/tools/probe_convfp_contract.py: time stamp 2026-10-31 04:12:44 is 46638290.953383202 s in the future
+tar: ps/tools/probe_serial_k.py: time stamp 2026-11-01 17:52:40 is 46773886.952395848 s in the future
+tar: ps/tools/render_compare.py: time stamp 2026-10-21 04:36:48 is 45775734.951491282 s in the future
+tar: ps/tools/repack_k3_pad12.py: time stamp 2026-10-22 23:30:22 is 45930148.950549684 s in the future
+tar: ps/tools/repack_k5_pad28.py: time stamp 2026-10-23 00:05:08 is 45932234.949563098 s in the future
+tar: ps/tools/repack_tap_stride.py: time stamp 2026-10-30 10:21:48 is 46574034.948531302 s in the future
+tar: ps/tools/run_blas_ab.sh: time stamp 2026-10-31 04:06:58 is 46637944.947610158 s in the future
+tar: ps/tools/run_image.py: time stamp 2026-10-22 17:36:54 is 45908940.94660358 s in the future
+tar: ps/tools/sgemm_bench.c: time stamp 2026-10-31 04:20:35 is 46638761.945693326 s in the future
+tar: ps/tools/sim_pp_net.py: time stamp 2026-10-22 20:04:18 is 45917784.944800232 s in the future
+tar: ps/tools/test_c8_ab.py: time stamp 2026-10-22 20:05:49 is 45917875.94349306 s in the future
+tar: ps/tools/test_driver_discovery.py: time stamp 2026-10-21 04:36:48 is 45775734.942639434 s in the future
+tar: ps/tools/test_eca_batch_ab.py: time stamp 2026-10-31 04:04:32 is 46637798.9417701 s in the future
+tar: ps/tools/test_fuse_out_ab.py: time stamp 2026-10-22 13:01:47 is 45892433.940802756 s in the future
+tar: ps/tools/test_fuse_sum_ab.py: time stamp 2026-10-22 15:45:32 is 45902258.939707546 s in the future
+tar: ps/tools/test_k1_dispatch.py: time stamp 2026-10-27 02:56:26 is 46288112.93872627 s in the future
+tar: ps/tools/test_k1_route.py: time stamp 2026-10-27 02:55:54 is 46288080.937635584 s in the future
+tar: ps/tools/test_k3k5_route.py: time stamp 2026-10-27 02:44:08 is 46287374.936280772 s in the future
+tar: ps/tools/test_ops_vs_torch.py: time stamp 2026-10-21 04:36:48 is 45775734.935344934 s in the future
+tar: ps/tools/test_pool_plan.py: time stamp 2026-10-21 13:49:28 is 45808894.934395974 s in the future
+tar: ps/tools/test_pp_on_board.py: time stamp 2026-10-22 03:44:54 is 45859020.933312956 s in the future
+tar: ps/tools/test_pp_vs_numpy.py: time stamp 2026-10-21 17:39:45 is 45822711.932398544 s in the future
+tar: ps/tools/test_ps_opt.py: time stamp 2026-10-21 13:48:46 is 45808852.931462124 s in the future
+tar: ps/tools/test_runner_local.py: time stamp 2026-10-21 04:36:48 is 45775734.930611996 s in the future
+tar: ps/tools/test_t16_ab.py: time stamp 2026-11-01 18:33:34 is 46776340.929568218 s in the future
+tar: ps/tools/test_tap_restride.py: time stamp 2026-10-30 08:57:21 is 46568967.928501562 s in the future
+tar: ps/tools/tiled_infer.py: time stamp 2026-10-21 04:36:48 is 45775734.92746388 s in the future
+tar: ps/tools/torchless_ckpt.py: time stamp 2026-10-30 10:12:25 is 46573471.92650409 s in the future
+tar: ps/tools/verify_bin_weights.py: time stamp 2026-10-30 12:22:12 is 46581258.925413728 s in the future
+tar: ps/tools/verify_cat_fusion.py: time stamp 2026-10-31 05:02:42 is 46641288.924327368 s in the future
+tar: ps/tools/verify_e1e2_direct.py: time stamp 2026-10-31 04:47:11 is 46640357.923183318 s in the future
+tar: ps/tools/verify_e1e2_path.py: time stamp 2026-10-30 20:57:36 is 46612182.920638286 s in the future
+tar: ps/tools/verify_lazy_net.py: time stamp 2026-11-01 15:19:30 is 46764696.9195458 s in the future
+tar: ps/tools/verify_t23_mmio.py: time stamp 2026-11-01 23:57:51 is 46795797.918509828 s in the future
+  解包完成（389 个文件）
+  ✓ md5 -c 全过：158 个文件
+  python = /usr/local/share/pynq-venv/bin/python3
+=== ③-c 依赖闭包清单（与 ps/ 一起同步）===
+  主清单 md5 = 9de3d60c9abda79ff01b40801f3b809e ；镜像 md5 = 9de3d60c9abda79ff01b40801f3b809e （主机 9de3d60c9abda79ff01b40801f3b809e）
+  判据①：cd ps/pynq && md5sum -c <主清单>
+    ✓ rc=0（一致文件数 = 20）
+  判据②：deps_closure --check
+✓ deps_closure --check PASS：14 模块 / 20 文件；目录 = /home/xilinx/demoir/ps/pynq
+  闭包：bin_net, bin_engine, bin_ref_numpy, qcache, fconv, board_safe, mmio_batch, catpack, e1e2_sim, bpack, c8deq, q8, bilinear_c, convpf_c
+    rc=0
+  pl_server = /usr/local/share/pynq-venv/lib/python3.10/site-packages/pynq/pl_server
+=== ③-d 清 PYNQ 残留状态 + 释放页缓存（load 之前）===
+CmaTotal:         262144 kB
+CmaFree:          135544 kB
+  ✓ drop_caches
+===================================================================
+  单进程 一次 load：参考 128²=1.5 256²=6.0 精化 128²=1.2,1.4 256²=6.5,7.0 每档 2 跑  @ 50.0 MHz
+===================================================================
+[t135] arm=t135 python=3.10.4 numpy=1.21.5 mach=armv7l
+[t135] 运行点 = {"BIN_PACK": "e1e2", "BIN_LAZY_DEQ": "0", "BIN_LAZY_SLOTS": "24", "BIN_CAT_FUSION": "1", "BIN_BILINEAR_C": "1", "BIN_PRECOMP": "1", "Q8CACHE": "1", "BIN_F32DIRECT": "1", "BIN_CAT_ECA_FUSE": "1", "BIN_EPI_NOINV": "1", "BIN_V50_FUSE": "", "BIN_VLANES": "", "BIN_SETTLE_MS": ""}
+[t135] BIN_V50_* 残留=[]
+[t135b] 日志 = /home/xilinx/demoir/t135b_out/t135b_t135b_090818.log
+[t135b] bit = /home/xilinx/demoir/design_1_150v53.bit
+[t135b] 参考剂量 128² = 1.50 ms ；256² = 6.00 ms ；精化 128²=[1.2, 1.4] 256²=[6.5, 7.0]
+[t135b] 每档 2 跑 / 护栏臂 2 跑 / 墙钟预算 1500 s
+[t135b] meminfo = {'MemTotal': 1028264, 'MemFree': 769476, 'MemAvailable': 854404, 'SwapTotal': 524284, 'SwapFree': 524284, 'CmaTotal': 262144, 'CmaFree': 71376}
+
+==============================================================================
+  第 0 步：load v53 overlay + 指纹（本进程唯一一次 download=True）
+==============================================================================
+  Overlay(design_1_150v53.bit) 用时 2.521 s
+  IP 清单：['bin_unit_0', 'conv_uni_0', 'ps7']
+  conv_uni_0  base=0x40040000 length=0x20000 （期望 0x40040000）✓
+  bin_unit_0  base=0x40060000 length=0x20000 （期望 0x40060000）✓
+  **magic(0x314) = 0x50300001 期望 0x50300001 ⇒ 寄存器块在位 ✓**
+  **0x310 = 0x00000000 ⇒ 空闲 ✓**（load 后 PL 必须空闲）
+  load 后 fclk0 读回 = 125 MHz
+  ★ fclk0 目标 50 → 读回 50 MHz ；PL = {"fclk": 50.0, "base": "0x40060000", "magic": "0x50300001", "magic_ok": true, "st310": "0x00000000", "st310_zero": true, "done": false, "err": 0, "busy": false, "ap_ret_bin_unit_0": "0x00000000", "ap_ret_conv_uni_0": "0x00000000"}
+
+==============================================================================
+  第 0b 步：q8/c8deq/bpack 一次性装载（单独计时，不进稳态）
+==============================================================================
+  q8     load=0.269 s loaded=True why=ok
+  c8deq  load=4.353 s loaded=True why=ok
+  bpack  load=1.801 s loaded=True why=ok
+  **一次性装载合计 = 6.423 s**
+
+==============================================================================
+  第 1 步 · 128²：对照 + 精化剂量 + 6 个「按调用点分组」的护栏臂
+==============================================================================
+  128² 形状：max_in 294912 B / max_out 393216 B / 227 个 conv / 395 个 op
+  arena 需求：24 槽 × (294912 + 393216 + 4096) + 64 KB = **16.68 MB**
+  分配前 CmaFree = 7.12 MB
+  arena t135b_arena128 16.68 MB / 24 槽 @0x30100000  （槽输入容量 = 294912 B）
+
+==============================================================================
+  run1    hw=128  tag=128_ctrl_all_1.50           sel=all      ms=1.5    site=-  sizes=-
+==============================================================================
+  输入 x0 sha1 = 26c9796e18f0e6883680693b805ce8bb7ad51486（冻结口径 26c9796e18f0e6883680693b805ce8bb7ad51486） ✓
+[DEPS] q8=fast c8deq=fast bpack=fast e1e2=fast catpack=fast safe=fast  ⇒ deps_closure_ok=True
+  墙钟 9.401 s | PL 2.999 s | PS 7.852 s | conv 227
+  **三 sha1 = 27e25cf67fda / b82b83f3d7eb / 6db4e9bb19e0**
+  与 v39 冻结值 **✓ 全中** ；flush 1135 次（其中 push_input 227 次）睡 1135 次 = 1.724 s
+  flush 尺寸 top=[[9437184, 227], [1179648, 227], [1152, 227], [576, 227], [294912, 227]] ；每 op 输入尺寸=[[294912, 227]]
+  跑后 0x310=0x00000000 magic=0x50300001 ✓ 归零（第 120 条）
+
+==============================================================================
+  run2    hw=128  tag=128_refine_1.20             sel=all      ms=1.2    site=-  sizes=-
+==============================================================================
+  输入 x0 sha1 = 26c9796e18f0e6883680693b805ce8bb7ad51486（冻结口径 26c9796e18f0e6883680693b805ce8bb7ad51486） ✓
+  墙钟 7.669 s | PL 1.991 s | PS 6.210 s | conv 227
+  **三 sha1 = 27e25cf67fda / b82b83f3d7eb / 6db4e9bb19e0**
+  与 v39 冻结值 **✓ 全中** ；flush 1135 次（其中 push_input 227 次）睡 1135 次 = 1.382 s
+  flush 尺寸 top=[[9437184, 227], [1179648, 227], [1152, 227], [576, 227], [294912, 227]] ；每 op 输入尺寸=[[294912, 227]]
+  跑后 0x310=0x00000000 magic=0x50300001 ✓ 归零（第 120 条）
+
+==============================================================================
+  run3    hw=128  tag=128_refine_1.20             sel=all      ms=1.2    site=-  sizes=-
+==============================================================================
+  输入 x0 sha1 = 26c9796e18f0e6883680693b805ce8bb7ad51486（冻结口径 26c9796e18f0e6883680693b805ce8bb7ad51486） ✓
+  墙钟 7.700 s | PL 2.038 s | PS 6.243 s | conv 227
+  **三 sha1 = 27e25cf67fda / b82b83f3d7eb / 6db4e9bb19e0**
+  与 v39 冻结值 **✓ 全中** ；flush 1135 次（其中 push_input 227 次）睡 1135 次 = 1.382 s
+  flush 尺寸 top=[[9437184, 227], [1179648, 227], [1152, 227], [576, 227], [294912, 227]] ；每 op 输入尺寸=[[294912, 227]]
+  跑后 0x310=0x00000000 magic=0x50300001 ✓ 归零（第 120 条）
+
+==============================================================================
+  run4    hw=128  tag=128_refine_1.40             sel=all      ms=1.4    site=-  sizes=-
+==============================================================================
+  输入 x0 sha1 = 26c9796e18f0e6883680693b805ce8bb7ad51486（冻结口径 26c9796e18f0e6883680693b805ce8bb7ad51486） ✓
+  墙钟 7.899 s | PL 2.112 s | PS 6.445 s | conv 227
+  **三 sha1 = 27e25cf67fda / b82b83f3d7eb / 6db4e9bb19e0**
+  与 v39 冻结值 **✓ 全中** ；flush 1135 次（其中 push_input 227 次）睡 1135 次 = 1.609 s
+  flush 尺寸 top=[[9437184, 227], [1179648, 227], [1152, 227], [576, 227], [294912, 227]] ；每 op 输入尺寸=[[294912, 227]]
+  跑后 0x310=0x00000000 magic=0x50300001 ✓ 归零（第 120 条）
+
+==============================================================================
+  run5    hw=128  tag=128_refine_1.40             sel=all      ms=1.4    site=-  sizes=-
+==============================================================================
+  输入 x0 sha1 = 26c9796e18f0e6883680693b805ce8bb7ad51486（冻结口径 26c9796e18f0e6883680693b805ce8bb7ad51486） ✓
+  墙钟 7.915 s | PL 2.108 s | PS 6.464 s | conv 227
+  **三 sha1 = 27e25cf67fda / b82b83f3d7eb / 6db4e9bb19e0**
+  与 v39 冻结值 **✓ 全中** ；flush 1135 次（其中 push_input 227 次）睡 1135 次 = 1.609 s
+  flush 尺寸 top=[[9437184, 227], [1179648, 227], [1152, 227], [576, 227], [294912, 227]] ；每 op 输入尺寸=[[294912, 227]]
+  跑后 0x310=0x00000000 magic=0x50300001 ✓ 归零（第 120 条）
+  pack_int8 的 4 个尺寸（降序）= [9437184, 1179648, 1152, 576]
+  ⇒ 打包输入视图 = 9437184 B ；打包输出视图 = 1179648 B ；阈值/描述符 = 1152 / 576 B
+
+==============================================================================
+  run6    hw=128  tag=128_vin@1.50                sel=site     ms=1.5    site=pack_int8  sizes=-
+==============================================================================
+  输入 x0 sha1 = 26c9796e18f0e6883680693b805ce8bb7ad51486（冻结口径 26c9796e18f0e6883680693b805ce8bb7ad51486） ✓
+  墙钟 6.663 s | PL 1.606 s | PS 5.177 s | conv 227
+  **三 sha1 = cb1340f7dda1 / d4a321bdb565 / f2a27b96df2b**
+  与 v39 冻结值 ✗ 不中 ；flush 1135 次（其中 push_input 227 次）睡 227 次 = 0.345 s
+  flush 尺寸 top=[[9437184, 227], [1179648, 227], [1152, 227], [576, 227], [294912, 227]] ；每 op 输入尺寸=[[294912, 227]]
+  跑后 0x310=0x00000000 magic=0x50300001 ✓ 归零（第 120 条）
+
+==============================================================================
+  run7    hw=128  tag=128_vin@1.50                sel=site     ms=1.5    site=pack_int8  sizes=-
+==============================================================================
+  输入 x0 sha1 = 26c9796e18f0e6883680693b805ce8bb7ad51486（冻结口径 26c9796e18f0e6883680693b805ce8bb7ad51486） ✓
+  墙钟 6.677 s | PL 1.620 s | PS 5.189 s | conv 227
+  **三 sha1 = 625a71c7b294 / d4d9331fd59c / cefe3ab02ac5**
+  与 v39 冻结值 ✗ 不中 ；flush 1135 次（其中 push_input 227 次）睡 227 次 = 0.345 s
+  flush 尺寸 top=[[9437184, 227], [1179648, 227], [1152, 227], [576, 227], [294912, 227]] ；每 op 输入尺寸=[[294912, 227]]
+  跑后 0x310=0x00000000 magic=0x50300001 ✓ 归零（第 120 条）
+  ⟹ vin@1.50               ✗（sha1 相同=False 命中=False）睡 227 次 = 0.345 s ；墙钟 6.67 s
+
+==============================================================================
+  run8    hw=128  tag=128_vin+small@1.50          sel=sites    ms=1.5    site=pack_int8  sizes=[9437184, 1152, 576]
+==============================================================================
+  输入 x0 sha1 = 26c9796e18f0e6883680693b805ce8bb7ad51486（冻结口径 26c9796e18f0e6883680693b805ce8bb7ad51486） ✓
+  墙钟 7.314 s | PL 1.866 s | PS 5.865 s | conv 227
+  **三 sha1 = dfa13a629557 / b82b83f3d7eb / 6db4e9bb19e0**
+  与 v39 冻结值 ✗ 不中 ；flush 1135 次（其中 push_input 227 次）睡 681 次 = 1.034 s
+  flush 尺寸 top=[[9437184, 227], [1179648, 227], [1152, 227], [576, 227], [294912, 227]] ；每 op 输入尺寸=[[294912, 227]]
+  跑后 0x310=0x00000000 magic=0x50300001 ✓ 归零（第 120 条）
+
+==============================================================================
+  run9    hw=128  tag=128_vin+small@1.50          sel=sites    ms=1.5    site=pack_int8  sizes=[9437184, 1152, 576]
+==============================================================================
+  输入 x0 sha1 = 26c9796e18f0e6883680693b805ce8bb7ad51486（冻结口径 26c9796e18f0e6883680693b805ce8bb7ad51486） ✓
+  墙钟 7.330 s | PL 1.883 s | PS 5.881 s | conv 227
+  **三 sha1 = ff0344b3a6b2 / b82b83f3d7eb / 6db4e9bb19e0**
+  与 v39 冻结值 ✗ 不中 ；flush 1135 次（其中 push_input 227 次）睡 681 次 = 1.034 s
+  flush 尺寸 top=[[9437184, 227], [1179648, 227], [1152, 227], [576, 227], [294912, 227]] ；每 op 输入尺寸=[[294912, 227]]
+  跑后 0x310=0x00000000 magic=0x50300001 ✓ 归零（第 120 条）
+  ⟹ vin+small@1.50         ✗（sha1 相同=False 命中=False）睡 681 次 = 1.034 s ；墙钟 7.322 s
+
+==============================================================================
+  run10   hw=128  tag=128_pack4(all4)@1.50        sel=siteany  ms=1.5    site=pack_int8  sizes=-
+==============================================================================
+  输入 x0 sha1 = 26c9796e18f0e6883680693b805ce8bb7ad51486（冻结口径 26c9796e18f0e6883680693b805ce8bb7ad51486） ✓
+  墙钟 7.684 s | PL 2.031 s | PS 6.197 s | conv 227
+  **三 sha1 = 27e25cf67fda / b82b83f3d7eb / 6db4e9bb19e0**
+  与 v39 冻结值 **✓ 全中** ；flush 1135 次（其中 push_input 227 次）睡 908 次 = 1.378 s
+  flush 尺寸 top=[[9437184, 227], [1179648, 227], [1152, 227], [576, 227], [294912, 227]] ；每 op 输入尺寸=[[294912, 227]]
+  跑后 0x310=0x00000000 magic=0x50300001 ✓ 归零（第 120 条）
+
+==============================================================================
+  run11   hw=128  tag=128_pack4(all4)@1.50        sel=siteany  ms=1.5    site=pack_int8  sizes=-
+==============================================================================
+  输入 x0 sha1 = 26c9796e18f0e6883680693b805ce8bb7ad51486（冻结口径 26c9796e18f0e6883680693b805ce8bb7ad51486） ✓
+  墙钟 7.654 s | PL 2.012 s | PS 6.204 s | conv 227
+  **三 sha1 = 27e25cf67fda / b82b83f3d7eb / 6db4e9bb19e0**
+  与 v39 冻结值 **✓ 全中** ；flush 1135 次（其中 push_input 227 次）睡 908 次 = 1.378 s
+  flush 尺寸 top=[[9437184, 227], [1179648, 227], [1152, 227], [576, 227], [294912, 227]] ；每 op 输入尺寸=[[294912, 227]]
+  跑后 0x310=0x00000000 magic=0x50300001 ✓ 归零（第 120 条）
+  ⟹ pack4(all4)@1.50       **✓**（sha1 相同=True 命中=True）睡 908 次 = 1.378 s ；墙钟 7.669 s
+
+==============================================================================
+  run12   hw=128  tag=128_vin@4.50                sel=site     ms=4.5    site=pack_int8  sizes=-
+==============================================================================
+  输入 x0 sha1 = 26c9796e18f0e6883680693b805ce8bb7ad51486（冻结口径 26c9796e18f0e6883680693b805ce8bb7ad51486） ✓
+  墙钟 7.270 s | PL 1.890 s | PS 5.822 s | conv 227
+  **三 sha1 = d51244283739 / b82b83f3d7eb / 6db4e9bb19e0**
+  与 v39 冻结值 ✗ 不中 ；flush 1135 次（其中 push_input 227 次）睡 227 次 = 1.026 s
+  flush 尺寸 top=[[9437184, 227], [1179648, 227], [1152, 227], [576, 227], [294912, 227]] ；每 op 输入尺寸=[[294912, 227]]
+  跑后 0x310=0x00000000 magic=0x50300001 ✓ 归零（第 120 条）
+
+==============================================================================
+  run13   hw=128  tag=128_vin@4.50                sel=site     ms=4.5    site=pack_int8  sizes=-
+==============================================================================
+  输入 x0 sha1 = 26c9796e18f0e6883680693b805ce8bb7ad51486（冻结口径 26c9796e18f0e6883680693b805ce8bb7ad51486） ✓
+  墙钟 7.239 s | PL 1.861 s | PS 5.784 s | conv 227
+  **三 sha1 = 3dc2097f1bf6 / b82b83f3d7eb / 6db4e9bb19e0**
+  与 v39 冻结值 ✗ 不中 ；flush 1135 次（其中 push_input 227 次）睡 227 次 = 1.026 s
+  flush 尺寸 top=[[9437184, 227], [1179648, 227], [1152, 227], [576, 227], [294912, 227]] ；每 op 输入尺寸=[[294912, 227]]
+  跑后 0x310=0x00000000 magic=0x50300001 ✓ 归零（第 120 条）
+  ⟹ vin@4.50               ✗（sha1 相同=False 命中=False）睡 227 次 = 1.026 s ；墙钟 7.255 s
+
+==============================================================================
+  run14   hw=128  tag=128_small2@1.50             sel=sites    ms=1.5    site=pack_int8  sizes=[1152, 576]
+==============================================================================
+  输入 x0 sha1 = 26c9796e18f0e6883680693b805ce8bb7ad51486（冻结口径 26c9796e18f0e6883680693b805ce8bb7ad51486） ✓
+  墙钟 6.905 s | PL 1.738 s | PS 5.459 s | conv 227
+  **三 sha1 = 586cd6dc3277 / b82b83f3d7eb / 6db4e9bb19e0**
+  与 v39 冻结值 ✗ 不中 ；flush 1135 次（其中 push_input 227 次）睡 454 次 = 0.689 s
+  flush 尺寸 top=[[9437184, 227], [1179648, 227], [1152, 227], [576, 227], [294912, 227]] ；每 op 输入尺寸=[[294912, 227]]
+  跑后 0x310=0x00000000 magic=0x50300001 ✓ 归零（第 120 条）
+
+==============================================================================
+  run15   hw=128  tag=128_small2@1.50             sel=sites    ms=1.5    site=pack_int8  sizes=[1152, 576]
+==============================================================================
+  输入 x0 sha1 = 26c9796e18f0e6883680693b805ce8bb7ad51486（冻结口径 26c9796e18f0e6883680693b805ce8bb7ad51486） ✓
+  墙钟 6.956 s | PL 1.763 s | PS 5.505 s | conv 227
+  **三 sha1 = 44e3f603b434 / b82b83f3d7eb / 6db4e9bb19e0**
+  与 v39 冻结值 ✗ 不中 ；flush 1135 次（其中 push_input 227 次）睡 454 次 = 0.689 s
+  flush 尺寸 top=[[9437184, 227], [1179648, 227], [1152, 227], [576, 227], [294912, 227]] ；每 op 输入尺寸=[[294912, 227]]
+  跑后 0x310=0x00000000 magic=0x50300001 ✓ 归零（第 120 条）
+  ⟹ small2@1.50            ✗（sha1 相同=False 命中=False）睡 454 次 = 0.689 s ；墙钟 6.931 s
+
+==============================================================================
+  run16   hw=128  tag=128_vout@1.50               sel=site     ms=1.5    site=pack_int8  sizes=-
+==============================================================================
+  输入 x0 sha1 = 26c9796e18f0e6883680693b805ce8bb7ad51486（冻结口径 26c9796e18f0e6883680693b805ce8bb7ad51486） ✓
+  墙钟 6.553 s | PL 1.635 s | PS 5.108 s | conv 227
+  **三 sha1 = f232307cd8c8 / bc824c627925 / 21e800c43a1a**
+  与 v39 冻结值 ✗ 不中 ；flush 1135 次（其中 push_input 227 次）睡 227 次 = 0.345 s
+  flush 尺寸 top=[[9437184, 227], [1179648, 227], [1152, 227], [576, 227], [294912, 227]] ；每 op 输入尺寸=[[294912, 227]]
+  跑后 0x310=0x00000000 magic=0x50300001 ✓ 归零（第 120 条）
+
+==============================================================================
+  run17   hw=128  tag=128_vout@1.50               sel=site     ms=1.5    site=pack_int8  sizes=-
+==============================================================================
+  输入 x0 sha1 = 26c9796e18f0e6883680693b805ce8bb7ad51486（冻结口径 26c9796e18f0e6883680693b805ce8bb7ad51486） ✓
+  墙钟 6.588 s | PL 1.619 s | PS 5.134 s | conv 227
+  **三 sha1 = 84d1da2967d5 / 64bee6ddd751 / 96a5f5b320f3**
+  与 v39 冻结值 ✗ 不中 ；flush 1135 次（其中 push_input 227 次）睡 227 次 = 0.345 s
+  flush 尺寸 top=[[9437184, 227], [1179648, 227], [1152, 227], [576, 227], [294912, 227]] ；每 op 输入尺寸=[[294912, 227]]
+  跑后 0x310=0x00000000 magic=0x50300001 ✓ 归零（第 120 条）
+  ⟹ vout@1.50              ✗（sha1 相同=False 命中=False）睡 227 次 = 0.345 s ；墙钟 6.571 s
+
+==============================================================================
+  run18   hw=128  tag=128_vin@3.00                sel=site     ms=3.0    site=pack_int8  sizes=-
+==============================================================================
+  输入 x0 sha1 = 26c9796e18f0e6883680693b805ce8bb7ad51486（冻结口径 26c9796e18f0e6883680693b805ce8bb7ad51486） ✓
+  墙钟 6.893 s | PL 1.730 s | PS 5.448 s | conv 227
+  **三 sha1 = 86c4374e116b / b82b83f3d7eb / 6db4e9bb19e0**
+  与 v39 冻结值 ✗ 不中 ；flush 1135 次（其中 push_input 227 次）睡 227 次 = 0.685 s
+  flush 尺寸 top=[[9437184, 227], [1179648, 227], [1152, 227], [576, 227], [294912, 227]] ；每 op 输入尺寸=[[294912, 227]]
+  跑后 0x310=0x00000000 magic=0x50300001 ✓ 归零（第 120 条）
+
+==============================================================================
+  run19   hw=128  tag=128_vin@3.00                sel=site     ms=3.0    site=pack_int8  sizes=-
+==============================================================================
+  输入 x0 sha1 = 26c9796e18f0e6883680693b805ce8bb7ad51486（冻结口径 26c9796e18f0e6883680693b805ce8bb7ad51486） ✓
+  墙钟 6.887 s | PL 1.732 s | PS 5.440 s | conv 227
+  **三 sha1 = bbea541771ec / b82b83f3d7eb / 6db4e9bb19e0**
+  与 v39 冻结值 ✗ 不中 ；flush 1135 次（其中 push_input 227 次）睡 227 次 = 0.685 s
+  flush 尺寸 top=[[9437184, 227], [1179648, 227], [1152, 227], [576, 227], [294912, 227]] ；每 op 输入尺寸=[[294912, 227]]
+  跑后 0x310=0x00000000 magic=0x50300001 ✓ 归零（第 120 条）
+  ⟹ vin@3.00               ✗（sha1 相同=False 命中=False）睡 227 次 = 0.685 s ；墙钟 6.89 s
+
+==============================================================================
+  run20   hw=128  tag=128_vin@6.00                sel=site     ms=6.0    site=pack_int8  sizes=-
+==============================================================================
+  输入 x0 sha1 = 26c9796e18f0e6883680693b805ce8bb7ad51486（冻结口径 26c9796e18f0e6883680693b805ce8bb7ad51486） ✓
+  墙钟 7.611 s | PL 1.993 s | PS 6.159 s | conv 227
+  **三 sha1 = 27e25cf67fda / b82b83f3d7eb / 6db4e9bb19e0**
+  与 v39 冻结值 **✓ 全中** ；flush 1135 次（其中 push_input 227 次）睡 227 次 = 1.367 s
+  flush 尺寸 top=[[9437184, 227], [1179648, 227], [1152, 227], [576, 227], [294912, 227]] ；每 op 输入尺寸=[[294912, 227]]
+  跑后 0x310=0x00000000 magic=0x50300001 ✓ 归零（第 120 条）
+
+==============================================================================
+  run21   hw=128  tag=128_vin@6.00                sel=site     ms=6.0    site=pack_int8  sizes=-
+==============================================================================
+  输入 x0 sha1 = 26c9796e18f0e6883680693b805ce8bb7ad51486（冻结口径 26c9796e18f0e6883680693b805ce8bb7ad51486） ✓
+  墙钟 7.609 s | PL 2.008 s | PS 6.156 s | conv 227
+  **三 sha1 = 27e25cf67fda / b82b83f3d7eb / 6db4e9bb19e0**
+  与 v39 冻结值 **✓ 全中** ；flush 1135 次（其中 push_input 227 次）睡 227 次 = 1.367 s
+  flush 尺寸 top=[[9437184, 227], [1179648, 227], [1152, 227], [576, 227], [294912, 227]] ；每 op 输入尺寸=[[294912, 227]]
+  跑后 0x310=0x00000000 magic=0x50300001 ✓ 归零（第 120 条）
+  ⟹ vin@6.00               **✓**（sha1 相同=True 命中=True）睡 227 次 = 1.367 s ；墙钟 7.61 s
+
+==============================================================================
+  run22   hw=128  tag=128_vin+small@2.00          sel=sites    ms=2.0    site=pack_int8  sizes=[9437184, 1152, 576]
+==============================================================================
+  输入 x0 sha1 = 26c9796e18f0e6883680693b805ce8bb7ad51486（冻结口径 26c9796e18f0e6883680693b805ce8bb7ad51486） ✓
+  墙钟 7.660 s | PL 2.019 s | PS 6.209 s | conv 227
+  **三 sha1 = 27e25cf67fda / b82b83f3d7eb / 6db4e9bb19e0**
+  与 v39 冻结值 **✓ 全中** ；flush 1135 次（其中 push_input 227 次）睡 681 次 = 1.375 s
+  flush 尺寸 top=[[9437184, 227], [1179648, 227], [1152, 227], [576, 227], [294912, 227]] ；每 op 输入尺寸=[[294912, 227]]
+  跑后 0x310=0x00000000 magic=0x50300001 ✓ 归零（第 120 条）
+
+==============================================================================
+  run23   hw=128  tag=128_vin+small@2.00          sel=sites    ms=2.0    site=pack_int8  sizes=[9437184, 1152, 576]
+==============================================================================
+  输入 x0 sha1 = 26c9796e18f0e6883680693b805ce8bb7ad51486（冻结口径 26c9796e18f0e6883680693b805ce8bb7ad51486） ✓
+  墙钟 7.718 s | PL 2.036 s | PS 6.226 s | conv 227
+  **三 sha1 = 27e25cf67fda / b82b83f3d7eb / 6db4e9bb19e0**
+  与 v39 冻结值 **✓ 全中** ；flush 1135 次（其中 push_input 227 次）睡 681 次 = 1.375 s
+  flush 尺寸 top=[[9437184, 227], [1179648, 227], [1152, 227], [576, 227], [294912, 227]] ；每 op 输入尺寸=[[294912, 227]]
+  跑后 0x310=0x00000000 magic=0x50300001 ✓ 归零（第 120 条）
+  ⟹ vin+small@2.00         **✓**（sha1 相同=True 命中=True）睡 681 次 = 1.375 s ；墙钟 7.689 s
+✗✗ 顶层异常：TypeError("dict() got multiple values for keyword argument 'name'")
+Traceback (most recent call last):
+  File "/tmp/probe_T135bb/probe_t135b.py", line 1082, in <module>
+    rc = main()
+  File "/tmp/probe_T135bb/probe_t135b.py", line 961, in main
+    win = dict(name=name, **st["arm"], sleep_s=st["sleep_s"],
+TypeError: dict() got multiple values for keyword argument 'name'
+[json] 已落盘 /home/xilinx/demoir/t135b_out/t135b_t135b_090818.json
+  [t135b] 探针 rc=6  用时 208 s
+  ✗✗ 探针 rc=6（异常/超时/信号）⇒ 停、报
+MemTotal:        1028264 kB
+MemFree:          777816 kB
+MemAvailable:     898832 kB
+CmaTotal:         262144 kB
+CmaFree:           88344 kB
+[t135b] ③ 返回 rc=30
+[t135b] ④ 产物已拉回 /media/felix/Data/coding/demoir-fpga/runs/board_t135/stage2
+[t135b] DONE rc=30
+[boardlock] 释放板级锁 06:36:23  rc=30

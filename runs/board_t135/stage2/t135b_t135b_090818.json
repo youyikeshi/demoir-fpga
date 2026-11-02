@@ -1,0 +1,124 @@
+{
+ "env_at_start": {
+  "BIN_PACK": "e1e2",
+  "BIN_LAZY_DEQ": "0",
+  "BIN_LAZY_SLOTS": "24",
+  "BIN_CAT_FUSION": "1",
+  "BIN_BILINEAR_C": "1",
+  "BIN_PRECOMP": "1",
+  "Q8CACHE": "1",
+  "BIN_F32DIRECT": "1",
+  "BIN_CAT_ECA_FUSE": "1",
+  "BIN_EPI_NOINV": "1",
+  "BIN_V50_FUSE": "",
+  "BIN_VLANES": "",
+  "BIN_SETTLE_MS": ""
+ },
+ "steps": {
+  "load": {
+   "bit": "/home/xilinx/demoir/design_1_150v53.bit",
+   "seconds": 2.5212,
+   "ips": [
+    "bin_unit_0",
+    "conv_uni_0",
+    "ps7"
+   ],
+   "addr": {
+    "conv_uni_0": {
+     "base": "0x40040000",
+     "length": 131072,
+     "ok": true
+    },
+    "bin_unit_0": {
+     "base": "0x40060000",
+     "length": 131072,
+     "ok": true
+    }
+   },
+   "stat_after_load": {
+    "fclk": 125.0,
+    "base": "0x40060000",
+    "magic": "0x50300001",
+    "magic_ok": true,
+    "st310": "0x00000000",
+    "st310_zero": true,
+    "done": false,
+    "err": 0,
+    "busy": false,
+    "ap_ret_bin_unit_0": "0x00000000",
+    "ap_ret_conv_uni_0": "0x00000000"
+   },
+   "downloads": 1,
+   "fclk0_at_load": 125.0,
+   "meminfo_after_load": {
+    "MemTotal": 1028264,
+    "MemFree": 734128,
+    "MemAvailable": 834812,
+    "SwapTotal": 524284,
+    "SwapFree": 524284,
+    "CmaTotal": 262144,
+    "CmaFree": 40584
+   },
+   "fp_ok": true
+  },
+  "kernel_load": {
+   "q8": {
+    "loaded": true,
+    "seconds": 0.2688,
+    "why": "ok"
+   },
+   "c8deq": {
+    "loaded": true,
+    "seconds": 4.3529,
+    "why": "ok"
+   },
+   "bpack": {
+    "loaded": true,
+    "seconds": 1.8011,
+    "why": "ok"
+   }
+  },
+  "arena128": {
+   "hw": 128,
+   "slots": 24,
+   "need": 16678912,
+   "cma_free_before": null,
+   "cma_free_after": 53248,
+   "pa": "0x30100000",
+   "max_in": 294912,
+   "max_out": 393216,
+   "n_conv": 227
+  }
+ },
+ "python": "3.10.4",
+ "numpy": "1.21.5",
+ "machine": "armv7l",
+ "arm": "t135b",
+ "meminfo_at_start": {
+  "MemTotal": 1028264,
+  "MemFree": 769476,
+  "MemAvailable": 854404,
+  "SwapTotal": 524284,
+  "SwapFree": 524284,
+  "CmaTotal": 262144,
+  "CmaFree": 71376
+ },
+ "args": {
+  "bit": "/home/xilinx/demoir/design_1_150v53.bit",
+  "pack": "/home/xilinx/demoir/deploy/bin_weights_new",
+  "outdir": "/home/xilinx/demoir/t135b_out",
+  "freq": 50.0,
+  "slots": 24,
+  "dose128": 1.5,
+  "dose256": 6.0,
+  "refine128": "1.2,1.4",
+  "refine256": "6.5,7.0",
+  "reps": 2,
+  "guard_reps": 2,
+  "arm": "t135b",
+  "tag": "t135b",
+  "wd": 300.0,
+  "tmax": 1500.0
+ },
+ "fclk_readback": 50.0
+}
