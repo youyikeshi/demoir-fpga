@@ -5713,3 +5713,29 @@ $$\quad\ \quad\ \text{③若已派出} \Rightarrow \text{把替身改成}\textbf
 $$\Rightarrow\ \text{band 每个 64-bit 字 = 8 通道} \Rightarrow \texttt{drain 字数} = \lceil \mathtt{cout}/8 \rceil，\textbf{与 lane 数无关}$$
 $$\Rightarrow\ \text{而 T-89 写的是 } \lceil \mathtt{cout}/\mathtt{VLANES} \rceil \Rightarrow \mathtt{VLANES}=16\ \text{时}\textbf{ drain 字数少一半} \Rightarrow \text{少写一半输出}$$
 $$\Rightarrow\ \text{已要求 T-90 给 } \mathtt{VLANES}=8/16\ \text{两种口径的具体数值并判定}$$
+
+### 70.58 独立验收（T-90，只读）确认了修复，并抓出**第五个静默 bug**（2026-11-02 17:39）
+
+**确认成立（逐项可复算）**
+$$\Rightarrow\ \text{V1 四条 FSM：新旧 segq 同一 21 项 TB 各 }\mathbf{21\ ok/0\ fail}，\text{两份检查行}\textbf{逐字 diff 为空}$$
+$$\Rightarrow\ \text{V2 越界 } \mathtt{out\_pa}\ \text{报 } \mathtt{E\_RANGE(2)}\ \text{且 } \mathtt{n\_wr==0}（\textbf{一个写都不发}）;\ \text{合法时首条 } \mathtt{st\_wa==out\_pa}\ (0x3000\to0x3018)$$
+$$\Rightarrow\ \text{V3 } \mathtt{FUSE=0}：\text{三 sha1 全中，stdout 归一化 0 差异}$$
+$$\Rightarrow\ \text{V4 } \mathtt{FUSE=1}：\mathbf{90/223}\ \text{段融合（140 条）};\ \mathtt{op\_mask}\ \text{全 } 0x1\subseteq0x3 \Rightarrow \text{不报 } \mathtt{E\_OPMASK}$$
+$$\Rightarrow\ \text{V6 } \S14\ \text{全 13 项字段逐条对齐}$$
+$$\Rightarrow\ \text{drain 字数 } \mathtt{cout}\in\{32,48,64,96,192\}\Rightarrow 4/6/8/12/24\ \text{字/像素，}\mathbf{V8\ \text{与}\ V16\ \text{相同}}$$
+$$\quad\ \Rightarrow\ \textbf{"少一半"已被 } \mathtt{geo\_goutw}=(\mathtt{cout}+7)>>3\ \text{修掉};\ 90\ \text{段 V8/V16 }\mathbf{0\ \text{段不一致}}$$
+
+**新阻断①（第五个静默错数）：排空地址没有带偏移**
+$$\Rightarrow\ \mathtt{st\_wa} = \mathtt{out\_pa} + \mathtt{cnt}\times 8\ \text{——}\textbf{无 } \mathtt{y0}\ \text{偏移}$$
+$$\Rightarrow\ \text{band 是"按带压紧"布局，而 DDR 张量有 } \mathtt{y0}\ \text{与 } h_{\text{out}}\ \text{面间距}$$
+$$\Rightarrow\ \textbf{命中 30/90 段}（h=32\to4\ \text{带}、h=16\to2\ \text{带}）$$
+$$\quad\ \text{S6 每带 } 1024\ \text{字}=8\ \text{KB}\ \text{全写 } \mathtt{out\_pa}，\text{而张量 } 32\ \text{KB} \Rightarrow \textbf{3/4 从未写、面间距小 }4\times$$
+$$\Rightarrow\ \text{h}\le8\ \text{的 60 段只有 1 带，}\textbf{恰好正确} \Rightarrow \text{不测 } h\ge16\ \text{就发现不了}$$
+
+**另两条次要**
+$$\Rightarrow\ \text{V2b}：\text{arena 默认值 }\Rightarrow \text{kick 确被门控（900 拍 0 个 AR），但 } \mathtt{AP\_RETURN[15{:}8]}\ \text{读到 } \mathbf{0}$$
+$$\quad\ （\mathtt{err\_show}\ \text{只在 } \mathtt{run\_unit\_q}==4\ \text{时选 } \mathtt{u\_err}）\Rightarrow \textbf{静默拒绝、PS 只能超时}$$
+$$\Rightarrow\ \mathtt{translate\_off}\ \text{断言在 fuse 启动后、首条描述符前用 } \mathtt{sh\_*}=0\ \text{判几何} \Rightarrow \text{每拍 } \mathtt{\$error}\ \text{刷屏}$$
+
+$$\Rightarrow\ \Rightarrow\ \mathtt{FUSE=1}\ \text{现在有 }\mathbf{4\ \text{个阻断}}\text{：①带偏移 ②带内级联序列器 ③带级联集成 TB ④}k\ge3\ \text{的 } \mathtt{cfg\_h}$$
+$$\Rightarrow\ \text{本轮实际增量因此}\textbf{主要是 16-lane 的 } -0.56 \Rightarrow 5.83\to\mathbf{\approx5.3}$$

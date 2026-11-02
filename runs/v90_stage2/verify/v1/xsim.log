@@ -1,0 +1,72 @@
+#-----------------------------------------------------------
+# xsim v2025.2.1 (64-bit)
+# SW Build 6403652 on Thu Mar 19 13:47:00 MDT 2026
+# IP Build 6403511 on Thu Mar 19 12:41:45 MDT 2026
+# SharedData Build 6403650 on Thu Mar 19 14:02:13 MDT 2026
+# Start of session at: Mon Nov  2 17:29:04 2026
+# Process ID         : 685949
+# Current directory  : /media/felix/Data/coding/demoir-fpga/runs/v90_stage2/verify/v1
+# Command line       : xsim -log xsim.log -mode tcl -source {xsim.dir/segq_v1/xsim_script.tcl}
+# Log file           : /media/felix/Data/coding/demoir-fpga/runs/v90_stage2/verify/v1/xsim.log
+# Journal file       : /media/felix/Data/coding/demoir-fpga/runs/v90_stage2/verify/v1/xsim.jou
+# Running On         : 2
+# Platform           : Ubuntu
+# Operating System   : Ubuntu 22.04.5 LTS
+# Processor Detail   : Intel(R) Core(TM) Ultra 7 155H
+# CPU Frequency      : 1663.954 MHz
+# CPU Physical cores : 16
+# CPU Logical cores  : 22
+# Host memory        : 33236 MB
+# Swap memory        : 0 MB
+# Total Virtual      : 33236 MB
+# Available Virtual  : 16838 MB
+#-----------------------------------------------------------
+source xsim.dir/segq_v1/xsim_script.tcl
+# xsim {segq_v1} -autoloadwcfg -runall
+Time resolution is 1 ps
+run -all
+
+=== ① 推进 / ② 链尾：2 条描述符的链 ===
+  [ ok ] progress == 2 (two descriptors)
+  [ ok ] done == 1 (tail + wr_all_idle)
+  [ ok ] err == 0
+  [ ok ] busy == 0
+
+=== ③-a 出错即停：描述符地址非 4 KB 对齐 ===
+  [ ok ] err == 1
+  [ ok ] err_code == E_ALIGN(1)
+  [ ok ] no hdr_req after error
+
+=== ③-b 出错即停：描述符越出 arena ===
+bin_segq: kick 重启 err 状态 @1435000
+  [ ok ] err == 1
+  [ ok ] err_code == E_RANGE(2)
+
+=== ③-c 出错即停：金丝雀错 ===
+bin_segq: kick 重启 err 状态 @2055000
+  [ ok ] err == 1
+  [ ok ] err_code == E_CANARY(4)
+  [ ok ] band_abort pulse seen in ERR
+
+=== ④ 重启：err 之后再 kick 一条合法链 ===
+  [ ok ] err == 1 before restart
+bin_segq: kick 重启 err 状态 @2425000
+  [ ok ] err cleared to 0
+  [ ok ] progress == 1 (recount after restart)
+  [ ok ] done == 1
+
+=== ②-b done must wait for wr_all_idle ===
+  [ ok ] done stays 0 while wr_all_idle=0
+  [ ok ] progress already 1 at that point
+  [ ok ] done rises only after wr_all_idle=1
+
+=== ⑤ 空链（chain_head=0 ⇒ 立即 TAIL）===
+  [ ok ] empty chain done == 1
+  [ ok ] empty chain err == 0
+
+===== result: 0 errors =====
+B3 PASS (4 paths + empty chain)
+$finish called at time : 7145 ns : File "/media/felix/Data/coding/demoir-fpga/runs/v90_stage2/verify/v1/tb_bin_segq.v" Line 225
+exit
+INFO: xsimkernel Simulation Memory Usage: 291320 KB (Peak: 339880 KB), Simulation CPU Usage: 810 ms
+INFO: [Common 17-206] Exiting xsim at Mon Nov  2 17:29:06 2026...

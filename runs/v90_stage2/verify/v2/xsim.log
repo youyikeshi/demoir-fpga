@@ -1,0 +1,67 @@
+#-----------------------------------------------------------
+# xsim v2025.2.1 (64-bit)
+# SW Build 6403652 on Thu Mar 19 13:47:00 MDT 2026
+# IP Build 6403511 on Thu Mar 19 12:41:45 MDT 2026
+# SharedData Build 6403650 on Thu Mar 19 14:02:13 MDT 2026
+# Start of session at: Mon Nov  2 17:30:29 2026
+# Process ID         : 689063
+# Current directory  : /media/felix/Data/coding/demoir-fpga/runs/v90_stage2/verify/v2
+# Command line       : xsim -log xsim.log -mode tcl -source {xsim.dir/v2/xsim_script.tcl}
+# Log file           : /media/felix/Data/coding/demoir-fpga/runs/v90_stage2/verify/v2/xsim.log
+# Journal file       : /media/felix/Data/coding/demoir-fpga/runs/v90_stage2/verify/v2/xsim.jou
+# Running On         : 2
+# Platform           : Ubuntu
+# Operating System   : Ubuntu 22.04.5 LTS
+# Processor Detail   : Intel(R) Core(TM) Ultra 7 155H
+# CPU Frequency      : 2472.731 MHz
+# CPU Physical cores : 16
+# CPU Logical cores  : 22
+# Host memory        : 33236 MB
+# Swap memory        : 0 MB
+# Total Virtual      : 33236 MB
+# Available Virtual  : 16872 MB
+#-----------------------------------------------------------
+source xsim.dir/v2/xsim_script.tcl
+# xsim {v2} -autoloadwcfg -runall
+Time resolution is 1 ps
+run -all
+
+=== A out_pa=0x8000 out of arena[0x2000,0x4000) ===
+  [ ok ] A err == 1
+  [ ok ] A err_code == E_RANGE(2)
+  [ ok ] A no write issued on range error (n_wr==0)
+  [ ok ] A done == 1 (PS polling can exit)
+
+=== B in_pa=0x8000 out of arena ===
+bin_segq: kick 重启 err 状态 @2095000
+  [ ok ] B err == 1
+  [ ok ] B err_code == E_RANGE(2)
+  [ ok ] B no write issued on range error (n_wr==0)
+
+=== C legal out_pa=0x3000 / cin=0 / flags=0 ===
+bin_segq: kick 重启 err 状态 @4185000
+  [ ok ] C err == 0 (cin=0/flags=0 no longer E_NULL)
+  [ ok ] C progress == 1
+  [ ok ] C done == 1
+  [ ok ] C drained 4 words
+  [ ok ] C first st_wa == out_pa(0x3000)
+  [ ok ] C last st_wa == 0x3018
+
+=== D fallback window desc + out-of-window out_pa=0x2000_0000 ===
+  [ ok ] D err == 1
+  [ ok ] D err_code == E_RANGE(2)
+  [ ok ] D no write issued on range error (n_wr==0)
+
+=== E inside fallback window out_pa=0x3002_0000 ===
+bin_segq: kick 重启 err 状态 @6765000
+  [ ok ] E err == 0
+  [ ok ] E progress == 1
+  [ ok ] E done == 1
+  [ ok ] E first st_wa == out_pa(0x3002_0000)
+
+===== V2 result: 0 errors =====
+V2 PASS (out-of-range out_pa/in_pa always raise E_RANGE)
+$finish called at time : 7235 ns : File "/media/felix/Data/coding/demoir-fpga/runs/v90_stage2/verify/v2/tb_v90_range.v" Line 221
+exit
+INFO: xsimkernel Simulation Memory Usage: 291296 KB (Peak: 339856 KB), Simulation CPU Usage: 810 ms
+INFO: [Common 17-206] Exiting xsim at Mon Nov  2 17:30:31 2026...
