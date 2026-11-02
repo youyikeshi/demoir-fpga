@@ -4765,3 +4765,29 @@ $$\Rightarrow\ \textbf{至此三条软件路线的结局}：$$
 $$\quad\ \text{① convfp 换 C 内核} \Rightarrow \text{负收益（A9 慢 2×）} \quad\ \text{② 轮询减访问} \Rightarrow \text{负收益（读是免费的）}$$
 $$\quad\ \text{③ prologue 三刀} \Rightarrow \mathbf{-0.45\sim-0.54\ s}\ \text{（唯一真收益，已进 v4）}$$
 $$\quad\ \Rightarrow\ \textbf{软件侧基本挖到底了}；\text{剩下的墙是}\textbf{RTL/架构}（\text{预取、pack 字节、融合}）$$
+
+### 70.22 ⚠ v42 不可用：64² 就 data-wrong；以及"分档点亮"第一次真的救了场（2026-11-02 08:40）
+
+$$\Rightarrow\ \text{v42（} \texttt{f1b5dd2a} \text{）板端 } 64^2\ \text{整网 sha1} = \texttt{b908aa5a/38373f52/c8ca2999}$$
+$$\quad\ \neq \text{冻结 } \texttt{bfa246d3/226bd39e/762d84b9} \Rightarrow \textbf{数据错，不是超时、不是挂死}$$
+
+**归因（同一 session 内排除，不是猜）**
+
+| 臂 | 位流 | 开关 | 64² sha1 | 256² sha1 |
+|---|---|---|---|---|
+| 失败 | v42 | ABC | ❌ | —（按红线停）|
+| 对照 1 | **v39** | **ABC** | ✅ 3/3 | ✅ 3/3 |
+| 对照 2 | v39 | 全关 | ✅ 3/3 | ✅ |
+| 对照 3 | v39 | ABC | ✅（`v39_ABC64`）| — |
+
+$$\Rightarrow\ \textbf{锅在 v42 的 RTL}：\text{开关、部署、环境全部被同一 session 的对照排除}$$
+$$\Rightarrow\ \text{v42 相对 v39 只差两个文件：}\texttt{bin\_unit\_axi\_wrap.v}\ (91\ \text{行，预取参数+计数器})\ \text{与}\ \texttt{bin\_e1e2.v}\ (292\ \text{行，空 lane + 组自增})$$
+$$\Rightarrow\ \textbf{最可疑的是组自增}：\text{它改了"一条命令内部的地址推进"} \Rightarrow \text{若 PS 仍按老契约发 } cb\ \text{条命令，}$$
+$$\quad\ \text{每条都自增一次} \Rightarrow \text{描述符/输出地址错} \Rightarrow \textbf{正是观察到的现象（数据错而非挂死）}$$
+$$\Rightarrow\ \text{它的收益本来只有 } 0.02\sim0.07\ \text{s} \Rightarrow \textbf{先摘掉}：\text{建 } \texttt{v42b} = \text{v39 的 } \texttt{bin\_e1e2.v} + \text{新的预取参数（T-46）}$$
+
+**★ 流程胜果：分档点亮把"挂板"变成了"一条 sha1 不符"**
+$$\Rightarrow\ \text{v40 那次：跑整网 } 23\ \text{s 硬挂} \Rightarrow \text{越界写踩烂内核页缓存} \Rightarrow \text{要 } \texttt{drop\_caches}\ \text{才恢复}$$
+$$\Rightarrow\ \text{这次：} \texttt{load} \to 64^2 \text{ 一次} \Rightarrow \text{第 2 档就 } \texttt{sha1}\ \text{不符} \Rightarrow \textbf{停在同一档，板子毫发无损}$$
+$$\Rightarrow\ \textbf{纪律（第 89 条）}：\text{新位流一律}\textbf{分档点亮}（load → 64²×1 → 256²×1 → 256²×3），$$
+$$\quad\ \text{任何一档 sha1 不符就停；}\textbf{不许"一次上全尺寸 ×N"}。\text{代价是 2 分钟，收益是不用去救板子}$$
