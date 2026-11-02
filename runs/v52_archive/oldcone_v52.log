@@ -1,0 +1,217 @@
+
+****** Vivado v2025.2.1 (64-bit)
+  **** SW Build 6403652 on Thu Mar 19 13:47:00 MDT 2026
+  **** IP Build 6403511 on Thu Mar 19 12:41:45 MDT 2026
+  **** SharedData Build 6403650 on Thu Mar 19 14:02:13 MDT 2026
+  **** Start of session at: Mon Nov  2 22:50:34 2026
+    ** Copyright 1986-2022 Xilinx, Inc. All Rights Reserved.
+    ** Copyright 2022-2026 Advanced Micro Devices, Inc. All Rights Reserved.
+
+source ../runs/timing_v50/oldcone_v52.tcl
+# set _args $argv
+# if {[llength $_args] < 2} { error "用法: -tclargs <dcp1> <label1> ..." }
+# proc _worst_slack {paths} {
+#     set mn 999.0
+#     set has 0
+#     foreach p $paths {
+#         if {[catch {set s [get_property SLACK $p]} e]} { continue }
+#         if {[string is double -strict $s]} {
+#             set has 1
+#             if {$s < $mn} { set mn $s }
+#         }
+#     }
+#     if {!$has} { return "" }
+#     return $mn
+# }
+# foreach {_dcp _lab} $_args {
+#     puts ""
+#     puts "############################################################"
+#     puts "#  旧锥分针脚判定：$_lab"
+#     puts "#  $_dcp"
+#     puts "############################################################"
+#     open_checkpoint $_dcp
+# 
+#     set _fr [get_cells -hier -quiet -filter {NAME =~ *win_q_reg*}]
+#     set _to [get_cells -hier -quiet -filter {NAME =~ *s1_pc_q_reg*}]
+#     puts "   *win_q_reg* cell = [llength $_fr]    *s1_pc_q_reg* cell = [llength $_to]"
+# 
+#     # ---- 1) cell→cell 全量（父代理字面口径，含 /D 与 /CE）----
+#     set _all [get_timing_paths -from $_fr -to $_to -max_paths 200 -nworst 20 -setup]
+#     puts "   1) 字面口径（cell→cell，含 /D 与 /CE）= [llength $_all] 条（上限 200）"
+#     set _n 0
+#     foreach _p [lrange $_all 0 4] {
+#         incr _n
+#         puts "      \[$_n\] slack=[get_property SLACK $_p]  [get_property STARTPOINT_PIN $_p] -> [get_property ENDPOINT_PIN $_p]"
+#     }
+# 
+#     # ---- 2) 数据锥：终点针脚为 /D ----
+#     set _d  [get_pins -hier -quiet -filter {NAME =~ *s1_pc_q_reg*/D}]
+#     set _pd [get_timing_paths -from $_fr -to $_d -max_paths 200 -nworst 20 -setup]
+#     set _wd [_worst_slack $_pd]
+#     puts "   2) 数据锥（→ /D，T-101 要切断的那条）= [llength $_pd] 条（上限 200）  终点 /D 针脚数 = [llength $_d]"
+#     if {$_wd ne ""} { puts "      最差 slack = $_wd ns" }
+#     set _n 0
+#     foreach _p [lrange $_pd 0 4] {
+#         incr _n
+#         puts "      \[$_n\] slack=[get_property SLACK $_p]  [get_property STARTPOINT_PIN $_p] -> [get_property ENDPOINT_PIN $_p]"
+#     }
+# 
+#     # ---- 3) 使能网：终点针脚为 /CE ----
+#     set _ce [get_pins -hier -quiet -filter {NAME =~ *s1_pc_q_reg*/CE}]
+#     set _pce [get_timing_paths -from $_fr -to $_ce -max_paths 200 -nworst 20 -setup]
+#     set _wc [_worst_slack $_pce]
+#     puts "   3) 使能网（→ /CE，控制网）= [llength $_pce] 条（上限 200）  终点 /CE 针脚数 = [llength $_ce]"
+#     if {$_wc ne ""} { puts "      最差 slack = $_wc ns" }
+#     set _n 0
+#     foreach _p [lrange $_pce 0 3] {
+#         incr _n
+#         puts "      \[$_n\] slack=[get_property SLACK $_p]  levels=[get_property LOGIC_LEVELS $_p]"
+#         puts "          [get_property STARTPOINT_PIN $_p] -> [get_property ENDPOINT_PIN $_p]"
+#     }
+# 
+#     # ---- 4) 全局 WNS（对照）----
+#     set _w [get_timing_paths -max_paths 1 -nworst 1 -setup]
+#     puts "   4) 全局 WNS = [get_property SLACK $_w] ns"
+#     puts "        from = [get_property STARTPOINT_PIN $_w]"
+#     puts "        to   = [get_property ENDPOINT_PIN $_w]"
+# }
+
+############################################################
+#  旧锥分针脚判定：v51_baseline
+#  /media/felix/Data/coding/demoir-fpga/runs/v51_archive/design_1_150v51_routed.dcp
+############################################################
+Command: open_checkpoint /media/felix/Data/coding/demoir-fpga/runs/v51_archive/design_1_150v51_routed.dcp
+
+Starting open_checkpoint Task
+
+Time (s): cpu = 00:00:00.04 ; elapsed = 00:00:00.02 . Memory (MB): peak = 1514.039 ; gain = 0.000 ; free physical = 5744 ; free virtual = 13197
+INFO: [Device 21-403] Loading part xc7z015clg485-2
+Netlist sorting complete. Time (s): cpu = 00:00:00.15 ; elapsed = 00:00:00.15 . Memory (MB): peak = 1821.602 ; gain = 0.000 ; free physical = 5530 ; free virtual = 12985
+INFO: [Netlist 29-17] Analyzing 3856 Unisim elements for replacement
+INFO: [Netlist 29-28] Unisim Transformation completed in 0 CPU seconds
+INFO: [Project 1-479] Netlist was created with Vivado 2025.2.1
+INFO: [Project 1-570] Preparing netlist for logic optimization
+Read ShapeDB Complete: Time (s): cpu = 00:00:00.05 ; elapsed = 00:00:00.05 . Memory (MB): peak = 1937.352 ; gain = 3.250 ; free physical = 5370 ; free virtual = 12850
+INFO: [Timing 38-478] Restoring timing data from binary archive.
+INFO: [Timing 38-479] Binary timing data restore complete.
+INFO: [Project 1-856] Restoring constraints from binary archive.
+INFO: [Constraints 18-5170] The checkpoint was created with non-default parameter values which do not match the current Vivado settings.  Mismatching parameters are:
+  general.maxThreads
+INFO: [Project 1-853] Binary constraint restore complete.
+INFO: [Designutils 20-5722] Start Reading Physical Databases.
+Reading placement.
+Read Netlist Cache: Time (s): cpu = 00:00:00.04 ; elapsed = 00:00:00.04 . Memory (MB): peak = 2561.352 ; gain = 0.000 ; free physical = 4870 ; free virtual = 12325
+Reading placer database...
+Read Device Cache: Time (s): cpu = 00:00:00.01 ; elapsed = 00:00:00.01 . Memory (MB): peak = 2561.352 ; gain = 0.000 ; free physical = 4870 ; free virtual = 12325
+Read PlaceDB: Time (s): cpu = 00:00:00 ; elapsed = 00:00:00 . Memory (MB): peak = 2561.352 ; gain = 0.000 ; free physical = 4870 ; free virtual = 12325
+Read placeStorage: Time (s): cpu = 00:00:00.69 ; elapsed = 00:00:00.69 . Memory (MB): peak = 2585.352 ; gain = 24.000 ; free physical = 4867 ; free virtual = 12292
+Read PulsedLatchDB: Time (s): cpu = 00:00:00 ; elapsed = 00:00:00 . Memory (MB): peak = 2585.352 ; gain = 0.000 ; free physical = 4867 ; free virtual = 12291
+Reading routing.
+Read RouteStorage: Time (s): cpu = 00:00:00.74 ; elapsed = 00:00:00.23 . Memory (MB): peak = 2610.203 ; gain = 24.852 ; free physical = 4846 ; free virtual = 12256
+Read Physdb Files: Time (s): cpu = 00:00:01 ; elapsed = 00:00:00.98 . Memory (MB): peak = 2610.203 ; gain = 48.852 ; free physical = 4846 ; free virtual = 12256
+Restored from archive | CPU: 1.530000 secs | Memory: 41.621155 MB |
+Finished XDEF File Restore: Time (s): cpu = 00:00:02 ; elapsed = 00:00:01 . Memory (MB): peak = 2610.203 ; gain = 55.789 ; free physical = 4846 ; free virtual = 12256
+Netlist sorting complete. Time (s): cpu = 00:00:00 ; elapsed = 00:00:00 . Memory (MB): peak = 2625.023 ; gain = 0.000 ; free physical = 4847 ; free virtual = 12257
+INFO: [Project 1-111] Unisim Transformation Summary:
+  A total of 192 instances were transformed.
+  RAM64M => RAM64M (RAMD64E(x4)): 168 instances
+  RAM64X1D => RAM64X1D (RAMD64E(x2)): 24 instances
+
+INFO: [Project 1-604] Checkpoint was created with Vivado v2025.2.1 (64-bit) build 6403652
+open_checkpoint: Time (s): cpu = 00:00:19 ; elapsed = 00:00:12 . Memory (MB): peak = 2633.059 ; gain = 1119.020 ; free physical = 4847 ; free virtual = 12257
+   *win_q_reg* cell = 328    *s1_pc_q_reg* cell = 144
+   1) 字面口径（cell→cell，含 /D 与 /CE）= 200 条（上限 200）
+      [1] slack=0.113  design_1_i/bin_unit_0/inst/u_bin_unit/win_q_reg_15/CLKBWRCLK -> design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_core/s1_pc_q_reg[14][5]/D
+      [2] slack=0.113  design_1_i/bin_unit_0/inst/u_bin_unit/win_q_reg_15/CLKBWRCLK -> design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_core/s1_pc_q_reg[14][5]/D
+      [3] slack=0.113  design_1_i/bin_unit_0/inst/u_bin_unit/win_q_reg_15/CLKBWRCLK -> design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_core/s1_pc_q_reg[14][5]/D
+      [4] slack=0.113  design_1_i/bin_unit_0/inst/u_bin_unit/win_q_reg_15/CLKBWRCLK -> design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_core/s1_pc_q_reg[14][5]/D
+      [5] slack=0.113  design_1_i/bin_unit_0/inst/u_bin_unit/win_q_reg_15/CLKBWRCLK -> design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_core/s1_pc_q_reg[14][5]/D
+   2) 数据锥（→ /D，T-101 要切断的那条）= 200 条（上限 200）  终点 /D 针脚数 = 112
+      最差 slack = 0.113 ns
+      [1] slack=0.113  design_1_i/bin_unit_0/inst/u_bin_unit/win_q_reg_15/CLKBWRCLK -> design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_core/s1_pc_q_reg[14][5]/D
+      [2] slack=0.113  design_1_i/bin_unit_0/inst/u_bin_unit/win_q_reg_15/CLKBWRCLK -> design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_core/s1_pc_q_reg[14][5]/D
+      [3] slack=0.113  design_1_i/bin_unit_0/inst/u_bin_unit/win_q_reg_15/CLKBWRCLK -> design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_core/s1_pc_q_reg[14][5]/D
+      [4] slack=0.113  design_1_i/bin_unit_0/inst/u_bin_unit/win_q_reg_15/CLKBWRCLK -> design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_core/s1_pc_q_reg[14][5]/D
+      [5] slack=0.113  design_1_i/bin_unit_0/inst/u_bin_unit/win_q_reg_15/CLKBWRCLK -> design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_core/s1_pc_q_reg[14][5]/D
+   3) 使能网（→ /CE，控制网）= 200 条（上限 200）  终点 /CE 针脚数 = 112
+      [1] slack=  levels=15
+          design_1_i/bin_unit_0/inst/u_bin_unit/win_q_reg_7/CLKBWRCLK -> design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_core/s1_pc_q_reg[2][4]/CE
+      [2] slack=  levels=15
+          design_1_i/bin_unit_0/inst/u_bin_unit/win_q_reg_7/CLKBWRCLK -> design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_core/s1_pc_q_reg[2][4]/CE
+      [3] slack=  levels=15
+          design_1_i/bin_unit_0/inst/u_bin_unit/win_q_reg_7/CLKBWRCLK -> design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_core/s1_pc_q_reg[2][4]/CE
+      [4] slack=  levels=15
+          design_1_i/bin_unit_0/inst/u_bin_unit/win_q_reg_7/CLKBWRCLK -> design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_core/s1_pc_q_reg[2][4]/CE
+   4) 全局 WNS = 0.113 ns
+        from = design_1_i/bin_unit_0/inst/u_bin_unit/win_q_reg_15/CLKBWRCLK
+        to   = design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_core/s1_pc_q_reg[14][5]/D
+
+############################################################
+#  旧锥分针脚判定：v52_new
+#  /media/felix/Data/coding/demoir-fpga/pynq_specialized_code/board/overlay_engine_150mhz/design_1_150v52_routed.dcp
+############################################################
+Command: open_checkpoint /media/felix/Data/coding/demoir-fpga/pynq_specialized_code/board/overlay_engine_150mhz/design_1_150v52_routed.dcp
+
+Starting open_checkpoint Task
+
+Time (s): cpu = 00:00:00 ; elapsed = 00:00:00 . Memory (MB): peak = 2750.586 ; gain = 0.000 ; free physical = 4749 ; free virtual = 12129
+Netlist sorting complete. Time (s): cpu = 00:00:00.11 ; elapsed = 00:00:00.12 . Memory (MB): peak = 2814.516 ; gain = 0.000 ; free physical = 4688 ; free virtual = 12067
+INFO: [Netlist 29-17] Analyzing 3759 Unisim elements for replacement
+INFO: [Netlist 29-28] Unisim Transformation completed in 0 CPU seconds
+INFO: [Project 1-479] Netlist was created with Vivado 2025.2.1
+INFO: [Project 1-570] Preparing netlist for logic optimization
+Read ShapeDB Complete: Time (s): cpu = 00:00:00.04 ; elapsed = 00:00:00.04 . Memory (MB): peak = 2909.422 ; gain = 6.250 ; free physical = 4601 ; free virtual = 11959
+INFO: [Timing 38-478] Restoring timing data from binary archive.
+INFO: [Timing 38-479] Binary timing data restore complete.
+INFO: [Project 1-856] Restoring constraints from binary archive.
+INFO: [Constraints 18-5170] The checkpoint was created with non-default parameter values which do not match the current Vivado settings.  Mismatching parameters are:
+  general.maxThreads
+INFO: [Project 1-853] Binary constraint restore complete.
+INFO: [Designutils 20-5722] Start Reading Physical Databases.
+Reading placement.
+Read Netlist Cache: Time (s): cpu = 00:00:00.04 ; elapsed = 00:00:00.04 . Memory (MB): peak = 3081.375 ; gain = 3.586 ; free physical = 4448 ; free virtual = 11805
+Reading placer database...
+Read Device Cache: Time (s): cpu = 00:00:00.01 ; elapsed = 00:00:00.01 . Memory (MB): peak = 3084.375 ; gain = 3.000 ; free physical = 4444 ; free virtual = 11801
+Read PlaceDB: Time (s): cpu = 00:00:00 ; elapsed = 00:00:00 . Memory (MB): peak = 3084.375 ; gain = 0.000 ; free physical = 4444 ; free virtual = 11801
+Read placeStorage: Time (s): cpu = 00:00:00.68 ; elapsed = 00:00:00.69 . Memory (MB): peak = 3103.375 ; gain = 19.000 ; free physical = 4424 ; free virtual = 11783
+Read PulsedLatchDB: Time (s): cpu = 00:00:00 ; elapsed = 00:00:00 . Memory (MB): peak = 3103.375 ; gain = 0.000 ; free physical = 4424 ; free virtual = 11783
+Reading routing.
+Read RouteStorage: Time (s): cpu = 00:00:00.79 ; elapsed = 00:00:00.25 . Memory (MB): peak = 3127.188 ; gain = 23.812 ; free physical = 4410 ; free virtual = 11766
+Read Physdb Files: Time (s): cpu = 00:00:02 ; elapsed = 00:00:00.99 . Memory (MB): peak = 3127.188 ; gain = 49.398 ; free physical = 4410 ; free virtual = 11766
+Restored from archive | CPU: 1.580000 secs | Memory: 40.096832 MB |
+Finished XDEF File Restore: Time (s): cpu = 00:00:02 ; elapsed = 00:00:01 . Memory (MB): peak = 3127.188 ; gain = 49.398 ; free physical = 4410 ; free virtual = 11766
+Netlist sorting complete. Time (s): cpu = 00:00:00.01 ; elapsed = 00:00:00.01 . Memory (MB): peak = 3141.008 ; gain = 0.000 ; free physical = 4400 ; free virtual = 11755
+INFO: [Project 1-111] Unisim Transformation Summary:
+  A total of 192 instances were transformed.
+  RAM64M => RAM64M (RAMD64E(x4)): 168 instances
+  RAM64X1D => RAM64X1D (RAMD64E(x2)): 24 instances
+
+INFO: [Project 1-604] Checkpoint was created with Vivado v2025.2.1 (64-bit) build 6403652
+   *win_q_reg* cell = 268    *s1_pc_q_reg* cell = 144
+   1) 字面口径（cell→cell，含 /D 与 /CE）= 200 条（上限 200）
+      [1] slack=  design_1_i/bin_unit_0/inst/u_bin_unit/win_q_reg_1/CLKBWRCLK -> design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_core/s1_pc_q_reg[13][4]/CE
+      [2] slack=  design_1_i/bin_unit_0/inst/u_bin_unit/win_q_reg_1/CLKBWRCLK -> design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_core/s1_pc_q_reg[13][4]/CE
+      [3] slack=  design_1_i/bin_unit_0/inst/u_bin_unit/win_q_reg_1/CLKBWRCLK -> design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_core/s1_pc_q_reg[13][4]/CE
+      [4] slack=  design_1_i/bin_unit_0/inst/u_bin_unit/win_q_reg_1/CLKBWRCLK -> design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_core/s1_pc_q_reg[13][4]/CE
+      [5] slack=  design_1_i/bin_unit_0/inst/u_bin_unit/win_q_reg_1/CLKBWRCLK -> design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_core/s1_pc_q_reg[13][4]/CE
+WARNING: [Vivado 12-975] No timing paths matched 'get_timing_paths -from [get_cells -hier -quiet -filter {NAME =~ *win_q_reg*}] -to [get_pins -hier -quiet -filter {NAME =~ *s1_pc_q_reg*/D}] -max_paths 200 -nworst 20 -setup'.
+   2) 数据锥（→ /D，T-101 要切断的那条）= 0 条（上限 200）  终点 /D 针脚数 = 112
+   3) 使能网（→ /CE，控制网）= 200 条（上限 200）  终点 /CE 针脚数 = 112
+      [1] slack=  levels=19
+          design_1_i/bin_unit_0/inst/u_bin_unit/win_q_reg_1/CLKBWRCLK -> design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_core/s1_pc_q_reg[13][4]/CE
+      [2] slack=  levels=19
+          design_1_i/bin_unit_0/inst/u_bin_unit/win_q_reg_1/CLKBWRCLK -> design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_core/s1_pc_q_reg[13][4]/CE
+      [3] slack=  levels=19
+          design_1_i/bin_unit_0/inst/u_bin_unit/win_q_reg_1/CLKBWRCLK -> design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_core/s1_pc_q_reg[13][4]/CE
+      [4] slack=  levels=19
+          design_1_i/bin_unit_0/inst/u_bin_unit/win_q_reg_1/CLKBWRCLK -> design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_core/s1_pc_q_reg[13][4]/CE
+   4) 全局 WNS = 0.524 ns
+        from = design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_core/g_wram[8].wmem_reg/CLKARDCLK
+        to   = design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_core/s1_pc_q_reg[8][5]/D
+
+############################################################
+#  旧锥分针脚判定：-nolog
+#  -nojournal
+############################################################
+ERROR: [Common 17-170] Unknown option '-nojournal', please type 'open_checkpoint -help' for usage info.
+INFO: [Common 17-206] Exiting Vivado at Mon Nov  2 22:51:03 2026...

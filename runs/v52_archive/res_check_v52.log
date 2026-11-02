@@ -1,0 +1,166 @@
+
+****** Vivado v2025.2.1 (64-bit)
+  **** SW Build 6403652 on Thu Mar 19 13:47:00 MDT 2026
+  **** IP Build 6403511 on Thu Mar 19 12:41:45 MDT 2026
+  **** SharedData Build 6403650 on Thu Mar 19 14:02:13 MDT 2026
+  **** Start of session at: Mon Nov  2 22:56:25 2026
+    ** Copyright 1986-2022 Xilinx, Inc. All Rights Reserved.
+    ** Copyright 2022-2026 Advanced Micro Devices, Inc. All Rights Reserved.
+
+source ../runs/timing_v50/res_check_v52.tcl
+# proc _one {dcp lab} {
+#     puts ""
+#     puts "########## $lab ##########"
+#     open_checkpoint $dcp
+#     foreach r {FDRE FDCE FDSE FDPE LDCE LDPE RAMB36E1 RAMB18E1 RAMD64E DSP48E1} {
+#         puts [format "   %-9s = %5d" $r [llength [get_cells -hier -quiet -filter "REF_NAME == $r"]]]
+#     }
+#     puts "   IS_SEQUENTIAL 合计 = [llength [get_cells -hier -quiet -filter {IS_SEQUENTIAL == 1}]]"
+#     foreach h {bin_unit_0/inst/u_bin_unit g_conv.u_core u_bin_unit} {
+#         set c [get_cells -hier -quiet -filter "NAME =~ *$h && IS_SEQUENTIAL == 1"]
+#         puts [format "   层次 %-28s FF = %5d" $h [llength $c]]
+#     }
+#     set ce [llength [get_cells -hier -quiet -filter {REF_NAME == bin_conv_core_v50}]]
+#     puts "   bin_conv_core_v50 实例 = $ce"
+#     set core [get_cells -hier -quiet -filter {REF_NAME == bin_conv_core_v50}]
+#     if {[llength $core]} {
+#         puts "   u_core FF = [llength [get_cells -quiet -of_objects [lindex $core 0] -filter {IS_SEQUENTIAL == 1}]]"
+#     }
+#     set out [file join [file dirname $dcp] "exceptions_$lab.rpt"]
+#     if {[catch {report_exceptions -file $out} e]} { puts "   report_exceptions: $e" }
+#     if {[file exists $out]} {
+#         set fh [open $out r]; set dt [read $fh]; close $fh
+#         set nf 0
+#         foreach l [split $dt \n] { if {[string match "*set_false_path*" [string trim $l]]} { incr nf } }
+#         puts "   例外表 [file size $out] B；含 set_false_path 的行 = $nf"
+#     }
+#     close_design
+# }
+# _one [lindex $argv 0] v52
+
+########## v52 ##########
+Command: open_checkpoint /media/felix/Data/coding/demoir-fpga/pynq_specialized_code/board/overlay_engine_150mhz/design_1_150v52_routed.dcp
+
+Starting open_checkpoint Task
+
+Time (s): cpu = 00:00:00.04 ; elapsed = 00:00:00.03 . Memory (MB): peak = 1581.484 ; gain = 0.000 ; free physical = 5695 ; free virtual = 13408
+INFO: [Device 21-403] Loading part xc7z015clg485-2
+Netlist sorting complete. Time (s): cpu = 00:00:00.14 ; elapsed = 00:00:00.14 . Memory (MB): peak = 1822.258 ; gain = 0.000 ; free physical = 5384 ; free virtual = 13140
+INFO: [Netlist 29-17] Analyzing 3759 Unisim elements for replacement
+INFO: [Netlist 29-28] Unisim Transformation completed in 0 CPU seconds
+INFO: [Project 1-479] Netlist was created with Vivado 2025.2.1
+INFO: [Project 1-570] Preparing netlist for logic optimization
+Read ShapeDB Complete: Time (s): cpu = 00:00:00.03 ; elapsed = 00:00:00.04 . Memory (MB): peak = 1938.039 ; gain = 4.250 ; free physical = 5228 ; free virtual = 12980
+INFO: [Timing 38-478] Restoring timing data from binary archive.
+INFO: [Timing 38-479] Binary timing data restore complete.
+INFO: [Project 1-856] Restoring constraints from binary archive.
+INFO: [Constraints 18-5170] The checkpoint was created with non-default parameter values which do not match the current Vivado settings.  Mismatching parameters are:
+  general.maxThreads
+INFO: [Project 1-853] Binary constraint restore complete.
+INFO: [Designutils 20-5722] Start Reading Physical Databases.
+Reading placement.
+Read Netlist Cache: Time (s): cpu = 00:00:00.03 ; elapsed = 00:00:00.04 . Memory (MB): peak = 2563.008 ; gain = 0.000 ; free physical = 4822 ; free virtual = 12553
+Reading placer database...
+Read Device Cache: Time (s): cpu = 00:00:00.01 ; elapsed = 00:00:00.01 . Memory (MB): peak = 2563.008 ; gain = 0.000 ; free physical = 4822 ; free virtual = 12553
+Read PlaceDB: Time (s): cpu = 00:00:00 ; elapsed = 00:00:00 . Memory (MB): peak = 2563.008 ; gain = 0.000 ; free physical = 4822 ; free virtual = 12553
+Read placeStorage: Time (s): cpu = 00:00:00.67 ; elapsed = 00:00:00.68 . Memory (MB): peak = 2585.008 ; gain = 22.000 ; free physical = 4802 ; free virtual = 12520
+Read PulsedLatchDB: Time (s): cpu = 00:00:00 ; elapsed = 00:00:00 . Memory (MB): peak = 2585.008 ; gain = 0.000 ; free physical = 4802 ; free virtual = 12520
+Reading routing.
+Read RouteStorage: Time (s): cpu = 00:00:00.71 ; elapsed = 00:00:00.24 . Memory (MB): peak = 2609.820 ; gain = 24.812 ; free physical = 4775 ; free virtual = 12493
+Read Physdb Files: Time (s): cpu = 00:00:01 ; elapsed = 00:00:00.99 . Memory (MB): peak = 2609.820 ; gain = 46.812 ; free physical = 4775 ; free virtual = 12493
+Restored from archive | CPU: 1.520000 secs | Memory: 41.234695 MB |
+Finished XDEF File Restore: Time (s): cpu = 00:00:01 ; elapsed = 00:00:01 . Memory (MB): peak = 2609.820 ; gain = 55.719 ; free physical = 4775 ; free virtual = 12493
+Netlist sorting complete. Time (s): cpu = 00:00:00 ; elapsed = 00:00:00 . Memory (MB): peak = 2624.641 ; gain = 0.000 ; free physical = 4763 ; free virtual = 12479
+INFO: [Project 1-111] Unisim Transformation Summary:
+  A total of 192 instances were transformed.
+  RAM64M => RAM64M (RAMD64E(x4)): 168 instances
+  RAM64X1D => RAM64X1D (RAMD64E(x2)): 24 instances
+
+INFO: [Project 1-604] Checkpoint was created with Vivado v2025.2.1 (64-bit) build 6403652
+open_checkpoint: Time (s): cpu = 00:00:17 ; elapsed = 00:00:11 . Memory (MB): peak = 2632.676 ; gain = 1051.191 ; free physical = 4763 ; free virtual = 12479
+   FDRE      = 11030
+   FDCE      = 10560
+   FDSE      =    19
+   FDPE      =   196
+   LDCE      =     0
+   LDPE      =     0
+   RAMB36E1  =    39
+   RAMB18E1  =     8
+   RAMD64E   =   720
+   DSP48E1   =   126
+   IS_SEQUENTIAL 合计 = 22766
+   层次 bin_unit_0/inst/u_bin_unit   FF =     0
+   层次 g_conv.u_core                FF =     0
+   层次 u_bin_unit                   FF =     0
+   bin_conv_core_v50 实例 = 1
+   u_core FF = 0
+INFO: [Timing 38-91] UpdateTimingParams: Speed grade: -2, Delay Type: min_max.
+INFO: [Timing 38-191] Multithreading enabled for timing update using a maximum of 8 CPUs
+INFO: [Timing 38-35] Done setting XDC timing constraints.
+   例外表 2938 B；含 set_false_path 的行 = 0
+# _one [lindex $argv 1] v51
+
+########## v51 ##########
+Command: open_checkpoint /media/felix/Data/coding/demoir-fpga/runs/v51_archive/design_1_150v51_routed.dcp
+
+Starting open_checkpoint Task
+
+Time (s): cpu = 00:00:00 ; elapsed = 00:00:00 . Memory (MB): peak = 2772.078 ; gain = 0.000 ; free physical = 4608 ; free virtual = 12316
+Netlist sorting complete. Time (s): cpu = 00:00:00.14 ; elapsed = 00:00:00.14 . Memory (MB): peak = 2772.078 ; gain = 0.000 ; free physical = 4617 ; free virtual = 12322
+INFO: [Netlist 29-17] Analyzing 3856 Unisim elements for replacement
+INFO: [Netlist 29-28] Unisim Transformation completed in 0 CPU seconds
+INFO: [Project 1-479] Netlist was created with Vivado 2025.2.1
+INFO: [Project 1-570] Preparing netlist for logic optimization
+Read ShapeDB Complete: Time (s): cpu = 00:00:00.03 ; elapsed = 00:00:00.04 . Memory (MB): peak = 2772.078 ; gain = 0.000 ; free physical = 4621 ; free virtual = 12332
+INFO: [Timing 38-478] Restoring timing data from binary archive.
+INFO: [Timing 38-479] Binary timing data restore complete.
+INFO: [Project 1-856] Restoring constraints from binary archive.
+INFO: [Constraints 18-5170] The checkpoint was created with non-default parameter values which do not match the current Vivado settings.  Mismatching parameters are:
+  general.maxThreads
+INFO: [Project 1-853] Binary constraint restore complete.
+INFO: [Designutils 20-5722] Start Reading Physical Databases.
+Reading placement.
+Read Netlist Cache: Time (s): cpu = 00:00:00.04 ; elapsed = 00:00:00.04 . Memory (MB): peak = 2772.078 ; gain = 0.000 ; free physical = 4614 ; free virtual = 12311
+Reading placer database...
+Read Device Cache: Time (s): cpu = 00:00:00.01 ; elapsed = 00:00:00.01 . Memory (MB): peak = 2772.078 ; gain = 0.000 ; free physical = 4613 ; free virtual = 12310
+Read PlaceDB: Time (s): cpu = 00:00:00 ; elapsed = 00:00:00 . Memory (MB): peak = 2772.078 ; gain = 0.000 ; free physical = 4613 ; free virtual = 12310
+Read placeStorage: Time (s): cpu = 00:00:00.7 ; elapsed = 00:00:00.7 . Memory (MB): peak = 2772.078 ; gain = 0.000 ; free physical = 4623 ; free virtual = 12317
+Read PulsedLatchDB: Time (s): cpu = 00:00:00 ; elapsed = 00:00:00 . Memory (MB): peak = 2772.078 ; gain = 0.000 ; free physical = 4623 ; free virtual = 12317
+Reading routing.
+Read RouteStorage: Time (s): cpu = 00:00:00.71 ; elapsed = 00:00:00.23 . Memory (MB): peak = 2772.078 ; gain = 0.000 ; free physical = 4621 ; free virtual = 12316
+Read Physdb Files: Time (s): cpu = 00:00:01 ; elapsed = 00:00:00.99 . Memory (MB): peak = 2772.078 ; gain = 0.000 ; free physical = 4621 ; free virtual = 12316
+Restored from archive | CPU: 1.490000 secs | Memory: 40.498520 MB |
+Finished XDEF File Restore: Time (s): cpu = 00:00:01 ; elapsed = 00:00:00.99 . Memory (MB): peak = 2772.078 ; gain = 0.000 ; free physical = 4621 ; free virtual = 12316
+Netlist sorting complete. Time (s): cpu = 00:00:00 ; elapsed = 00:00:00 . Memory (MB): peak = 2772.078 ; gain = 0.000 ; free physical = 4619 ; free virtual = 12315
+INFO: [Project 1-111] Unisim Transformation Summary:
+  A total of 192 instances were transformed.
+  RAM64M => RAM64M (RAMD64E(x4)): 168 instances
+  RAM64X1D => RAM64X1D (RAMD64E(x2)): 24 instances
+
+INFO: [Project 1-604] Checkpoint was created with Vivado v2025.2.1 (64-bit) build 6403652
+open_checkpoint: Time (s): cpu = 00:00:09 ; elapsed = 00:00:08 . Memory (MB): peak = 2772.113 ; gain = 0.035 ; free physical = 4620 ; free virtual = 12315
+   FDRE      = 11109
+   FDCE      = 10491
+   FDSE      =    19
+   FDPE      =   203
+   LDCE      =     0
+   LDPE      =     0
+   RAMB36E1  =    39
+   RAMB18E1  =     8
+   RAMD64E   =   720
+   DSP48E1   =   126
+   IS_SEQUENTIAL 合计 = 22783
+   层次 bin_unit_0/inst/u_bin_unit   FF =     0
+   层次 g_conv.u_core                FF =     0
+   层次 u_bin_unit                   FF =     0
+   bin_conv_core_v50 实例 = 1
+   u_core FF = 0
+INFO: [Timing 38-91] UpdateTimingParams: Speed grade: -2, Delay Type: min_max.
+INFO: [Timing 38-191] Multithreading enabled for timing update using a maximum of 8 CPUs
+INFO: [Timing 38-35] Done setting XDC timing constraints.
+report_exceptions: Time (s): cpu = 00:00:25 ; elapsed = 00:00:05 . Memory (MB): peak = 2789.078 ; gain = 16.965 ; free physical = 4565 ; free virtual = 12259
+   例外表 2893 B；含 set_false_path 的行 = 0
+# puts "RES_CHECK_DONE"
+RES_CHECK_DONE
+# exit
+INFO: [Common 17-206] Exiting Vivado at Mon Nov  2 22:56:57 2026...

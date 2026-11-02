@@ -1,0 +1,81 @@
+
+****** Vivado v2025.2.1 (64-bit)
+  **** SW Build 6403652 on Thu Mar 19 13:47:00 MDT 2026
+  **** IP Build 6403511 on Thu Mar 19 12:41:45 MDT 2026
+  **** SharedData Build 6403650 on Thu Mar 19 14:02:13 MDT 2026
+  **** Start of session at: Mon Nov  2 22:53:42 2026
+    ** Copyright 1986-2022 Xilinx, Inc. All Rights Reserved.
+    ** Copyright 2022-2026 Advanced Micro Devices, Inc. All Rights Reserved.
+
+source ../runs/timing_v50/drc_v52.tcl
+# set dcp [lindex $argv 0]
+# open_checkpoint $dcp
+Command: open_checkpoint /media/felix/Data/coding/demoir-fpga/pynq_specialized_code/board/overlay_engine_150mhz/design_1_150v52_routed.dcp
+
+Starting open_checkpoint Task
+
+Time (s): cpu = 00:00:00.04 ; elapsed = 00:00:00.02 . Memory (MB): peak = 1581.074 ; gain = 0.000 ; free physical = 5790 ; free virtual = 13287
+INFO: [Device 21-403] Loading part xc7z015clg485-2
+Netlist sorting complete. Time (s): cpu = 00:00:00.11 ; elapsed = 00:00:00.11 . Memory (MB): peak = 1820.809 ; gain = 0.000 ; free physical = 5569 ; free virtual = 13049
+INFO: [Netlist 29-17] Analyzing 3759 Unisim elements for replacement
+INFO: [Netlist 29-28] Unisim Transformation completed in 0 CPU seconds
+INFO: [Project 1-479] Netlist was created with Vivado 2025.2.1
+INFO: [Project 1-570] Preparing netlist for logic optimization
+Read ShapeDB Complete: Time (s): cpu = 00:00:00.04 ; elapsed = 00:00:00.03 . Memory (MB): peak = 1937.590 ; gain = 4.250 ; free physical = 5428 ; free virtual = 12931
+INFO: [Timing 38-478] Restoring timing data from binary archive.
+INFO: [Timing 38-479] Binary timing data restore complete.
+INFO: [Project 1-856] Restoring constraints from binary archive.
+INFO: [Constraints 18-5170] The checkpoint was created with non-default parameter values which do not match the current Vivado settings.  Mismatching parameters are:
+  general.maxThreads
+INFO: [Project 1-853] Binary constraint restore complete.
+INFO: [Designutils 20-5722] Start Reading Physical Databases.
+Reading placement.
+Read Netlist Cache: Time (s): cpu = 00:00:00.04 ; elapsed = 00:00:00.04 . Memory (MB): peak = 2562.559 ; gain = 0.000 ; free physical = 4890 ; free virtual = 12371
+Reading placer database...
+Read Device Cache: Time (s): cpu = 00:00:00.01 ; elapsed = 00:00:00.01 . Memory (MB): peak = 2562.559 ; gain = 0.000 ; free physical = 4890 ; free virtual = 12371
+Read PlaceDB: Time (s): cpu = 00:00:00 ; elapsed = 00:00:00.01 . Memory (MB): peak = 2562.559 ; gain = 0.000 ; free physical = 4890 ; free virtual = 12371
+Read placeStorage: Time (s): cpu = 00:00:00.65 ; elapsed = 00:00:00.66 . Memory (MB): peak = 2584.559 ; gain = 22.000 ; free physical = 4876 ; free virtual = 12356
+Read PulsedLatchDB: Time (s): cpu = 00:00:00 ; elapsed = 00:00:00 . Memory (MB): peak = 2584.559 ; gain = 0.000 ; free physical = 4876 ; free virtual = 12356
+Reading routing.
+Read RouteStorage: Time (s): cpu = 00:00:00.73 ; elapsed = 00:00:00.22 . Memory (MB): peak = 2610.371 ; gain = 25.812 ; free physical = 4842 ; free virtual = 12323
+Read Physdb Files: Time (s): cpu = 00:00:01 ; elapsed = 00:00:00.95 . Memory (MB): peak = 2610.371 ; gain = 47.812 ; free physical = 4842 ; free virtual = 12322
+Restored from archive | CPU: 1.490000 secs | Memory: 41.235245 MB |
+Finished XDEF File Restore: Time (s): cpu = 00:00:01 ; elapsed = 00:00:00.97 . Memory (MB): peak = 2610.371 ; gain = 56.719 ; free physical = 4842 ; free virtual = 12322
+Netlist sorting complete. Time (s): cpu = 00:00:00 ; elapsed = 00:00:00 . Memory (MB): peak = 2624.191 ; gain = 0.000 ; free physical = 4826 ; free virtual = 12307
+INFO: [Project 1-111] Unisim Transformation Summary:
+  A total of 192 instances were transformed.
+  RAM64M => RAM64M (RAMD64E(x4)): 168 instances
+  RAM64X1D => RAM64X1D (RAMD64E(x2)): 24 instances
+
+INFO: [Project 1-604] Checkpoint was created with Vivado v2025.2.1 (64-bit) build 6403652
+open_checkpoint: Time (s): cpu = 00:00:17 ; elapsed = 00:00:11 . Memory (MB): peak = 2632.227 ; gain = 1051.152 ; free physical = 4824 ; free virtual = 12305
+# set out [file join [file dirname $dcp] drc_v52.rpt]
+# report_drc -file $out
+Command: report_drc -file /media/felix/Data/coding/demoir-fpga/pynq_specialized_code/board/overlay_engine_150mhz/drc_v52.rpt
+INFO: [IP_Flow 19-234] Refreshing IP repositories
+INFO: [IP_Flow 19-1704] No user IP repositories specified
+INFO: [IP_Flow 19-2313] Loaded Vivado IP repository '/data/xilinx/2025.2/2025.2.1/data/ip'.
+INFO: [DRC 23-27] Running DRC with 8 threads
+INFO: [Vivado_Tcl 2-168] The results of DRC are in file /media/felix/Data/coding/demoir-fpga/pynq_specialized_code/board/overlay_engine_150mhz/drc_v52.rpt.
+report_drc completed successfully
+# set fh [open $out r]
+# set t [read $fh]
+# close $fh
+# set ne 0
+# set ncw 0
+# set nw 0
+# foreach l [split $t \n] {
+#     if {[string match "ERROR*" [string trim $l]]} { incr ne }
+#     if {[string match "*CRITICAL WARNING*" $l]} { incr ncw }
+#     if {[string match "WARNING*" [string trim $l]]} { incr nw }
+# }
+# puts "DRC_SUMMARY: ERROR_lines=$ne CRITICAL_WARNING=$ncw WARNING_lines=$nw  file=$out"
+DRC_SUMMARY: ERROR_lines=0 CRITICAL_WARNING=0 WARNING_lines=0  file=/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/board/overlay_engine_150mhz/drc_v52.rpt
+# set sev_c [llength [get_drc_violations -quiet -filter {SEVERITY == "Critical"}]]
+# set sev_w [llength [get_drc_violations -quiet -filter {SEVERITY == "Warning"}]]
+# puts "DRC_OBJECTS: Critical=$sev_c Warning=$sev_w"
+DRC_OBJECTS: Critical=0 Warning=434
+# puts "DRC_DONE"
+DRC_DONE
+# exit
+INFO: [Common 17-206] Exiting Vivado at Mon Nov  2 22:53:57 2026...
