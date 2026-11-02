@@ -1,0 +1,991 @@
+{
+ "env_at_start": {
+  "BIN_PACK": "e1e2",
+  "BIN_LAZY_DEQ": "0",
+  "BIN_LAZY_SLOTS": "24",
+  "BIN_CAT_FUSION": "1",
+  "BIN_BILINEAR_C": "1",
+  "BIN_PRECOMP": "1",
+  "Q8CACHE": "1",
+  "BIN_F32DIRECT": "1",
+  "BIN_CAT_ECA_FUSE": "1",
+  "BIN_EPI_NOINV": "1",
+  "BIN_PROFILE": "1",
+  "BIN_V50_FUSE": "",
+  "BIN_VLANES": ""
+ },
+ "steps": {
+  "load": {
+   "bit": "/home/xilinx/demoir/design_1_150v53.bit",
+   "seconds": 2.5774,
+   "ips": [
+    "bin_unit_0",
+    "conv_uni_0",
+    "ps7"
+   ],
+   "has_fconv": false,
+   "addr": {
+    "conv_uni_0": {
+     "base": "0x40040000",
+     "length": 131072,
+     "ok": true
+    },
+    "bin_unit_0": {
+     "base": "0x40060000",
+     "length": 131072,
+     "ok": true
+    }
+   },
+   "magic": {
+    "CFG+0x314": {
+     "abs_addr": "0x40070314",
+     "hex": "0x50300001"
+    },
+    "0x310 CHAIN_STATUS": {
+     "abs_addr": "0x40060310",
+     "hex": "0x00000000"
+    },
+    "0x308 BAND_ROWS": {
+     "abs_addr": "0x40060308",
+     "hex": "0x00000000"
+    }
+   },
+   "magic_ok": true,
+   "st310_zero": true,
+   "fclk0_at_load": 125.0,
+   "downloads": 1,
+   "fp_ok": true
+  },
+  "tenured_50": {
+   "target": 50.0,
+   "readback": 50.0,
+   "base": "0x40060000",
+   "magic": "0x50300001",
+   "magic_ok": true,
+   "st310": "0x00000000",
+   "st310_zero": true,
+   "fclk": 50.0
+  },
+  "ladder": [
+   {
+    "tag": "net64_50",
+    "hw": 64,
+    "slots": 24,
+    "fclk": 50.0,
+    "x0_sha1": "bbae82e46e363a776d8fce8d9004e94502456bdc",
+    "x0_ok": true,
+    "conv_cyc": 28605312,
+    "nrun": 1,
+    "runs": [
+     {
+      "run": 1,
+      "wall_s": 9.999,
+      "total_s": 9.990309000015259,
+      "pl_s": 1.4647507667541504,
+      "ps_s": 8.52180988262387,
+      "prologue": 2.4427356719970703,
+      "epilogue": 4.525243587000091,
+      "nonconv": 1.553830623626709,
+      "overlap": 1.3175556659698486,
+      "wait": 4.4700706005096436,
+      "pack_pl": 0.0,
+      "n_conv_ops": 227,
+      "mmio_writes": 6115,
+      "deps_closure_ok": true,
+      "perf_warm": false,
+      "run_valid": true,
+      "lazy_deq": false,
+      "lazy": {
+       "pinned": 0,
+       "released": 0,
+       "starved": 0,
+       "direct_layers": 0,
+       "mixed_layers": 0,
+       "ps_layers": 0,
+       "deq_skipped": 0,
+       "direct_bytes": 0,
+       "f32_bytes": 0
+      },
+      "conv_cyc": 28605312,
+      "pl_cyc_meas": 73237538,
+      "sha1": {
+       "out1": "bfa246d34681e748311bbcd2f1b87317a56923fe",
+       "out2": "226bd39e522aa373b8fc183acae5280931f8b63f",
+       "out3": "762d84b9618eab8922edd6da4f07ba06de865628"
+      },
+      "sha_ok": true,
+      "st310_after": "0x00000000",
+      "st310_after_zero": true,
+      "magic_after": "0x50300001",
+      "pre_ok": true,
+      "fclk": 50.0
+     }
+    ],
+    "same_across_runs": null,
+    "sha_ok_all": true,
+    "st310_ok_all": true,
+    "lazy_deq": "0",
+    "pass": true,
+    "freq_req": 50.0,
+    "pass_": true
+   },
+   {
+    "tag": "net64_75",
+    "hw": 64,
+    "slots": 24,
+    "fclk": 75.0,
+    "x0_sha1": "bbae82e46e363a776d8fce8d9004e94502456bdc",
+    "x0_ok": true,
+    "conv_cyc": 28605312,
+    "nrun": 1,
+    "runs": [
+     {
+      "run": 1,
+      "wall_s": 3.767,
+      "total_s": 3.7600924968719482,
+      "pl_s": 0.5676665306091309,
+      "ps_s": 2.482814636299878,
+      "prologue": 1.9222159385681152,
+      "epilogue": 0.2021921540000733,
+      "nonconv": 0.35840654373168945,
+      "overlap": 0.45052027702331543,
+      "wait": 0.11771917343139648,
+      "pack_pl": 0.0,
+      "n_conv_ops": 227,
+      "mmio_writes": 6106,
+      "deps_closure_ok": true,
+      "perf_warm": false,
+      "run_valid": true,
+      "lazy_deq": false,
+      "lazy": {
+       "pinned": 0,
+       "released": 0,
+       "starved": 0,
+       "direct_layers": 0,
+       "mixed_layers": 0,
+       "ps_layers": 0,
+       "deq_skipped": 0,
+       "direct_bytes": 0,
+       "f32_bytes": 0
+      },
+      "conv_cyc": 28605312,
+      "pl_cyc_meas": 42574990,
+      "sha1": {
+       "out1": "bfa246d34681e748311bbcd2f1b87317a56923fe",
+       "out2": "226bd39e522aa373b8fc183acae5280931f8b63f",
+       "out3": "762d84b9618eab8922edd6da4f07ba06de865628"
+      },
+      "sha_ok": true,
+      "st310_after": "0x00000000",
+      "st310_after_zero": true,
+      "magic_after": "0x50300001",
+      "pre_ok": true,
+      "fclk": 75.0
+     }
+    ],
+    "same_across_runs": null,
+    "sha_ok_all": true,
+    "st310_ok_all": true,
+    "lazy_deq": "0",
+    "pass": true,
+    "freq_req": 75.0,
+    "pass_": true
+   },
+   {
+    "tag": "net64_79",
+    "hw": 64,
+    "slots": 24,
+    "fclk": 78.947368,
+    "x0_sha1": "bbae82e46e363a776d8fce8d9004e94502456bdc",
+    "x0_ok": true,
+    "conv_cyc": 28605312,
+    "nrun": 1,
+    "runs": [
+     {
+      "run": 1,
+      "wall_s": 3.759,
+      "total_s": 3.752242088317871,
+      "pl_s": 0.5519888401031494,
+      "ps_s": 2.472822123922441,
+      "prologue": 1.9067764282226562,
+      "epilogue": 0.20126431600007777,
+      "nonconv": 0.36478137969970703,
+      "overlap": 0.4377903938293457,
+      "wait": 0.11520504951477051,
+      "pack_pl": 0.0,
+      "n_conv_ops": 227,
+      "mmio_writes": 6106,
+      "deps_closure_ok": true,
+      "perf_warm": false,
+      "run_valid": true,
+      "lazy_deq": false,
+      "lazy": {
+       "pinned": 0,
+       "released": 0,
+       "starved": 0,
+       "direct_layers": 0,
+       "mixed_layers": 0,
+       "ps_layers": 0,
+       "deq_skipped": 0,
+       "direct_bytes": 0,
+       "f32_bytes": 0
+      },
+      "conv_cyc": 28605312,
+      "pl_cyc_meas": 43578066,
+      "sha1": {
+       "out1": "bfa246d34681e748311bbcd2f1b87317a56923fe",
+       "out2": "226bd39e522aa373b8fc183acae5280931f8b63f",
+       "out3": "762d84b9618eab8922edd6da4f07ba06de865628"
+      },
+      "sha_ok": true,
+      "st310_after": "0x00000000",
+      "st310_after_zero": true,
+      "magic_after": "0x50300001",
+      "pre_ok": true,
+      "fclk": 78.947368
+     }
+    ],
+    "same_across_runs": null,
+    "sha_ok_all": true,
+    "st310_ok_all": true,
+    "lazy_deq": "0",
+    "pass": true,
+    "freq_req": 79.0,
+    "pass_": true
+   },
+   {
+    "tag": "net64_83.33",
+    "hw": 64,
+    "slots": 24,
+    "fclk": 83.333333,
+    "x0_sha1": "bbae82e46e363a776d8fce8d9004e94502456bdc",
+    "x0_ok": true,
+    "conv_cyc": 28605312,
+    "nrun": 1,
+    "runs": [
+     {
+      "run": 1,
+      "wall_s": 3.752,
+      "total_s": 3.744316339492798,
+      "pl_s": 0.5539443492889404,
+      "ps_s": 2.4764396984948007,
+      "prologue": 1.918046474456787,
+      "epilogue": 0.20241068200004975,
+      "nonconv": 0.35598254203796387,
+      "overlap": 0.4410667419433594,
+      "wait": 0.11403894424438477,
+      "pack_pl": 0.0,
+      "n_conv_ops": 227,
+      "mmio_writes": 6106,
+      "deps_closure_ok": true,
+      "perf_warm": false,
+      "run_valid": true,
+      "lazy_deq": false,
+      "lazy": {
+       "pinned": 0,
+       "released": 0,
+       "starved": 0,
+       "direct_layers": 0,
+       "mixed_layers": 0,
+       "ps_layers": 0,
+       "deq_skipped": 0,
+       "direct_bytes": 0,
+       "f32_bytes": 0
+      },
+      "conv_cyc": 28605312,
+      "pl_cyc_meas": 46162029,
+      "sha1": {
+       "out1": "bfa246d34681e748311bbcd2f1b87317a56923fe",
+       "out2": "226bd39e522aa373b8fc183acae5280931f8b63f",
+       "out3": "762d84b9618eab8922edd6da4f07ba06de865628"
+      },
+      "sha_ok": true,
+      "st310_after": "0x00000000",
+      "st310_after_zero": true,
+      "magic_after": "0x50300001",
+      "pre_ok": true,
+      "fclk": 83.333333
+     }
+    ],
+    "same_across_runs": null,
+    "sha_ok_all": true,
+    "st310_ok_all": true,
+    "lazy_deq": "0",
+    "pass": true,
+    "freq_req": 83.33,
+    "pass_": true
+   },
+   {
+    "tag": "net64_88.24",
+    "hw": 64,
+    "slots": 24,
+    "fclk": 88.235294,
+    "x0_sha1": "bbae82e46e363a776d8fce8d9004e94502456bdc",
+    "x0_ok": true,
+    "conv_cyc": 28605312,
+    "nrun": 1,
+    "runs": [
+     {
+      "run": 1,
+      "wall_s": 3.714,
+      "total_s": 3.706449270248413,
+      "pl_s": 0.5375504493713379,
+      "ps_s": 2.450150196141351,
+      "prologue": 1.9000325202941895,
+      "epilogue": 0.20190900999938322,
+      "nonconv": 0.3482086658477783,
+      "overlap": 0.4269387722015381,
+      "wait": 0.11236310005187988,
+      "pack_pl": 0.0,
+      "n_conv_ops": 227,
+      "mmio_writes": 6106,
+      "deps_closure_ok": true,
+      "perf_warm": false,
+      "run_valid": true,
+      "lazy_deq": false,
+      "lazy": {
+       "pinned": 0,
+       "released": 0,
+       "starved": 0,
+       "direct_layers": 0,
+       "mixed_layers": 0,
+       "ps_layers": 0,
+       "deq_skipped": 0,
+       "direct_bytes": 0,
+       "f32_bytes": 0
+      },
+      "conv_cyc": 28605312,
+      "pl_cyc_meas": 47430922,
+      "sha1": {
+       "out1": "aaa9a062adefd538288898a7cdc7ae1700289028",
+       "out2": "7e1916da441acf5c97bc780aef5f66e3edc8229d",
+       "out3": "4566e1803c2db746d5ec7f112c2b2bae54816666"
+      },
+      "sha_ok": false,
+      "st310_after": "0x00000000",
+      "st310_after_zero": true,
+      "magic_after": "0x50300001",
+      "pre_ok": true,
+      "fclk": 88.235294
+     }
+    ],
+    "same_across_runs": null,
+    "sha_ok_all": false,
+    "st310_ok_all": true,
+    "lazy_deq": "0",
+    "pass": false,
+    "freq_req": 88.24,
+    "pass_": false
+   },
+   {
+    "tag": "net64_93.75",
+    "hw": 64,
+    "slots": 24,
+    "fclk": 93.75,
+    "x0_sha1": "bbae82e46e363a776d8fce8d9004e94502456bdc",
+    "x0_ok": true,
+    "conv_cyc": 28605312,
+    "nrun": 1,
+    "runs": [
+     {
+      "run": 1,
+      "wall_s": 3.71,
+      "total_s": 3.702648162841797,
+      "pl_s": 0.5432155132293701,
+      "ps_s": 2.44132689179213,
+      "prologue": 1.8827366828918457,
+      "epilogue": 0.19915488899977163,
+      "nonconv": 0.3594353199005127,
+      "overlap": 0.4334261417388916,
+      "wait": 0.11156606674194336,
+      "pack_pl": 0.0,
+      "n_conv_ops": 227,
+      "mmio_writes": 6103,
+      "deps_closure_ok": true,
+      "perf_warm": false,
+      "run_valid": true,
+      "lazy_deq": false,
+      "lazy": {
+       "pinned": 0,
+       "released": 0,
+       "starved": 0,
+       "direct_layers": 0,
+       "mixed_layers": 0,
+       "ps_layers": 0,
+       "deq_skipped": 0,
+       "direct_bytes": 0,
+       "f32_bytes": 0
+      },
+      "conv_cyc": 28605312,
+      "pl_cyc_meas": 50926454,
+      "sha1": {
+       "out1": "e5447076f235a6e0f725a321da8eff797ece75f3",
+       "out2": "34d468d08d29638465c8d1bb47794d1921903a3d",
+       "out3": "c986a9567a4557923eb871fe848278d3ea3171f8"
+      },
+      "sha_ok": false,
+      "st310_after": "0x00000000",
+      "st310_after_zero": true,
+      "magic_after": "0x50300001",
+      "pre_ok": true,
+      "fclk": 93.75
+     }
+    ],
+    "same_across_runs": null,
+    "sha_ok_all": false,
+    "st310_ok_all": true,
+    "lazy_deq": "0",
+    "pass": false,
+    "freq_req": 93.75,
+    "pass_": false
+   },
+   {
+    "tag": "net64_100",
+    "hw": 64,
+    "slots": 24,
+    "fclk": 100.0,
+    "x0_sha1": "bbae82e46e363a776d8fce8d9004e94502456bdc",
+    "x0_ok": true,
+    "conv_cyc": 28605312,
+    "nrun": 1,
+    "runs": [
+     {
+      "run": 1,
+      "wall_s": 3.731,
+      "total_s": 3.7233855724334717,
+      "pl_s": 0.5292797088623047,
+      "ps_s": 2.4289779345690476,
+      "prologue": 1.8695120811462402,
+      "epilogue": 0.1983966509997117,
+      "nonconv": 0.3610692024230957,
+      "overlap": 0.42127275466918945,
+      "wait": 0.10920095443725586,
+      "pack_pl": 0.0,
+      "n_conv_ops": 227,
+      "mmio_writes": 6106,
+      "deps_closure_ok": true,
+      "perf_warm": false,
+      "run_valid": true,
+      "lazy_deq": false,
+      "lazy": {
+       "pinned": 0,
+       "released": 0,
+       "starved": 0,
+       "direct_layers": 0,
+       "mixed_layers": 0,
+       "ps_layers": 0,
+       "deq_skipped": 0,
+       "direct_bytes": 0,
+       "f32_bytes": 0
+      },
+      "conv_cyc": 28605312,
+      "pl_cyc_meas": 52927971,
+      "sha1": {
+       "out1": "a3f48b77b8714f5ab34ecdbef36af2c9ac723e4a",
+       "out2": "a226a6cdcf1d27fd4cc03e0b78f22f717b9243e0",
+       "out3": "81a9ceb5213dfc2eed63c2077d7d05414439cf53"
+      },
+      "sha_ok": false,
+      "st310_after": "0x00000000",
+      "st310_after_zero": true,
+      "magic_after": "0x50300001",
+      "pre_ok": true,
+      "fclk": 100.0
+     }
+    ],
+    "same_across_runs": null,
+    "sha_ok_all": false,
+    "st310_ok_all": true,
+    "lazy_deq": "0",
+    "pass": false,
+    "freq_req": 100.0,
+    "pass_": false
+   }
+  ],
+  "top": {
+   "freq_req": 83.33,
+   "fclk": 83.333333,
+   "next_above": [
+    {
+     "freq_req": 88.24,
+     "fclk": 88.235294,
+     "pass_": false,
+     "err": null
+    },
+    {
+     "freq_req": 93.75,
+     "fclk": 93.75,
+     "pass_": false,
+     "err": null
+    },
+    {
+     "freq_req": 100.0,
+     "fclk": 100.0,
+     "pass_": false,
+     "err": null
+    }
+   ]
+  },
+  "confirm3": {
+   "fclk": 83.333333,
+   "rows": {
+    "tag": "net64_top_confirm",
+    "hw": 64,
+    "slots": 24,
+    "fclk": 83.333333,
+    "x0_sha1": "bbae82e46e363a776d8fce8d9004e94502456bdc",
+    "x0_ok": true,
+    "conv_cyc": 28605312,
+    "nrun": 2,
+    "runs": [
+     {
+      "run": 1,
+      "wall_s": 3.698,
+      "total_s": 3.690657377243042,
+      "pl_s": 0.553546667098999,
+      "ps_s": 2.4251316151436413,
+      "prologue": 1.8722100257873535,
+      "epilogue": 0.19795900199972039,
+      "nonconv": 0.3549625873565674,
+      "overlap": 0.44129037857055664,
+      "wait": 0.11347818374633789,
+      "pack_pl": 0.0,
+      "n_conv_ops": 227,
+      "mmio_writes": 6106,
+      "deps_closure_ok": true,
+      "perf_warm": false,
+      "run_valid": true,
+      "lazy_deq": false,
+      "lazy": {
+       "pinned": 0,
+       "released": 0,
+       "starved": 0,
+       "direct_layers": 0,
+       "mixed_layers": 0,
+       "ps_layers": 0,
+       "deq_skipped": 0,
+       "direct_bytes": 0,
+       "f32_bytes": 0
+      },
+      "conv_cyc": 28605312,
+      "pl_cyc_meas": 46128889,
+      "sha1": {
+       "out1": "ebbc58c78c321d50173b9de78fe3f2780a63020c",
+       "out2": "226bd39e522aa373b8fc183acae5280931f8b63f",
+       "out3": "762d84b9618eab8922edd6da4f07ba06de865628"
+      },
+      "sha_ok": false,
+      "st310_after": "0x00000000",
+      "st310_after_zero": true,
+      "magic_after": "0x50300001",
+      "pre_ok": true,
+      "fclk": 83.333333
+     },
+     {
+      "run": 2,
+      "wall_s": 3.706,
+      "total_s": 3.6988604068756104,
+      "pl_s": 0.5470216274261475,
+      "ps_s": 2.4381431078922446,
+      "prologue": 1.881377935409546,
+      "epilogue": 0.19928321600076515,
+      "nonconv": 0.3574819564819336,
+      "overlap": 0.43480563163757324,
+      "wait": 0.11289143562316895,
+      "pack_pl": 0.0,
+      "n_conv_ops": 227,
+      "mmio_writes": 6106,
+      "deps_closure_ok": true,
+      "perf_warm": false,
+      "run_valid": true,
+      "lazy_deq": false,
+      "lazy": {
+       "pinned": 0,
+       "released": 0,
+       "starved": 0,
+       "direct_layers": 0,
+       "mixed_layers": 0,
+       "ps_layers": 0,
+       "deq_skipped": 0,
+       "direct_bytes": 0,
+       "f32_bytes": 0
+      },
+      "conv_cyc": 28605312,
+      "pl_cyc_meas": 45585135,
+      "sha1": {
+       "out1": "e59ce8a9ad460ea83884e92b5596bdb27d9d2fe2",
+       "out2": "226bd39e522aa373b8fc183acae5280931f8b63f",
+       "out3": "762d84b9618eab8922edd6da4f07ba06de865628"
+      },
+      "sha_ok": false,
+      "st310_after": "0x00000000",
+      "st310_after_zero": true,
+      "magic_after": "0x50300001",
+      "pre_ok": true,
+      "fclk": 83.333333
+     }
+    ],
+    "same_across_runs": false,
+    "sha_ok_all": false,
+    "st310_ok_all": true,
+    "lazy_deq": "0",
+    "pass": false
+   },
+   "same3": false,
+   "ok3": false,
+   "trips": [
+    [
+     "bfa246d34681e748311bbcd2f1b87317a56923fe",
+     "226bd39e522aa373b8fc183acae5280931f8b63f",
+     "762d84b9618eab8922edd6da4f07ba06de865628"
+    ],
+    [
+     "ebbc58c78c321d50173b9de78fe3f2780a63020c",
+     "226bd39e522aa373b8fc183acae5280931f8b63f",
+     "762d84b9618eab8922edd6da4f07ba06de865628"
+    ],
+    [
+     "e59ce8a9ad460ea83884e92b5596bdb27d9d2fe2",
+     "226bd39e522aa373b8fc183acae5280931f8b63f",
+     "762d84b9618eab8922edd6da4f07ba06de865628"
+    ]
+   ]
+  },
+  "big": {
+   "tag": "net256_83.3333",
+   "hw": 256,
+   "slots": 4,
+   "fclk": 83.333333,
+   "x0_sha1": "cfc75bc3f15d306b07787325fdc9ae715cfadd0a",
+   "x0_ok": true,
+   "conv_cyc": 451072512,
+   "nrun": 2,
+   "runs": [
+    {
+     "run": 1,
+     "wall_s": 15.907,
+     "total_s": 15.899137258529663,
+     "pl_s": 3.546313524246216,
+     "ps_s": 14.100259523711088,
+     "prologue": 9.611977100372314,
+     "epilogue": 1.0506882480000286,
+     "nonconv": 3.437594175338745,
+     "overlap": 2.937080144882202,
+     "wait": 0.9397375583648682,
+     "pack_pl": 0.0,
+     "n_conv_ops": 227,
+     "mmio_writes": 6113,
+     "deps_closure_ok": true,
+     "perf_warm": false,
+     "run_valid": true,
+     "lazy_deq": false,
+     "lazy": {
+      "pinned": 0,
+      "released": 0,
+      "starved": 0,
+      "direct_layers": 0,
+      "mixed_layers": 0,
+      "ps_layers": 0,
+      "deq_skipped": 0,
+      "direct_bytes": 0,
+      "f32_bytes": 0
+     },
+     "conv_cyc": 451072512,
+     "pl_cyc_meas": 295526126,
+     "sha1": {
+      "out1": "ee5533720bb531168821b3fd3f9a409dd6e3a30e",
+      "out2": "0656b8e2c3a3f1a14ab8e39358415e6839039490",
+      "out3": "0971777c5e9abb317b4c8ee36eda1f61da6a6eef"
+     },
+     "sha_ok": false,
+     "st310_after": "0x00000000",
+     "st310_after_zero": true,
+     "magic_after": "0x50300001",
+     "pre_ok": true,
+     "fclk": 83.333333
+    },
+    {
+     "run": 2,
+     "wall_s": 15.445,
+     "total_s": 15.4379723072052,
+     "pl_s": 3.3031868934631348,
+     "ps_s": 13.670327221657374,
+     "prologue": 9.3500497341156,
+     "epilogue": 1.0475516670003913,
+     "nonconv": 3.272725820541382,
+     "overlap": 2.6950621604919434,
+     "wait": 0.9401760101318359,
+     "pack_pl": 0.0,
+     "n_conv_ops": 227,
+     "mmio_writes": 6113,
+     "deps_closure_ok": true,
+     "perf_warm": false,
+     "run_valid": true,
+     "lazy_deq": false,
+     "lazy": {
+      "pinned": 0,
+      "released": 0,
+      "starved": 0,
+      "direct_layers": 0,
+      "mixed_layers": 0,
+      "ps_layers": 0,
+      "deq_skipped": 0,
+      "direct_bytes": 0,
+      "f32_bytes": 0
+     },
+     "conv_cyc": 451072512,
+     "pl_cyc_meas": 275265573,
+     "sha1": {
+      "out1": "701cc00dc4355132af32d55e69cf760c0107c38b",
+      "out2": "e15f5f8e374a8e8d0653288a627839aaa3d4969a",
+      "out3": "c60f39630123334584381c442f42110f365e7b3c"
+     },
+     "sha_ok": false,
+     "st310_after": "0x00000000",
+     "st310_after_zero": true,
+     "magic_after": "0x50300001",
+     "pre_ok": true,
+     "fclk": 83.333333
+    }
+   ],
+   "same_across_runs": false,
+   "sha_ok_all": false,
+   "st310_ok_all": true,
+   "lazy_deq": "0",
+   "pass": false
+  },
+  "lazy": {
+   "net64": {
+    "tag": "lazy64_83.3333",
+    "hw": 64,
+    "slots": 24,
+    "fclk": 83.333333,
+    "x0_sha1": "bbae82e46e363a776d8fce8d9004e94502456bdc",
+    "x0_ok": true,
+    "conv_cyc": 28605312,
+    "nrun": 2,
+    "runs": [
+     {
+      "run": 1,
+      "wall_s": 3.202,
+      "total_s": 3.1938257217407227,
+      "pl_s": 0.91520094871521,
+      "ps_s": 1.2673916445023679,
+      "prologue": 0.9369440078735352,
+      "epilogue": 0.0607030020005368,
+      "nonconv": 0.2697446346282959,
+      "overlap": 0.20487713813781738,
+      "wait": 0.08596420288085938,
+      "pack_pl": 0.6002805233001709,
+      "n_conv_ops": 227,
+      "mmio_writes": 6213,
+      "deps_closure_ok": true,
+      "perf_warm": false,
+      "run_valid": true,
+      "lazy_deq": true,
+      "lazy": {
+       "pinned": 198,
+       "released": 198,
+       "starved": 0,
+       "direct_layers": 227,
+       "mixed_layers": 0,
+       "ps_layers": 0,
+       "deq_skipped": 198,
+       "direct_bytes": 8030144,
+       "f32_bytes": 483840
+      },
+      "conv_cyc": 28605312,
+      "pl_cyc_meas": 76266745,
+      "sha1": {
+       "out1": "b91ec26de49b405172246ca41964bf7b91e53507",
+       "out2": "9d034f1c8358a921aaed6e4679d437ce3507df74",
+       "out3": "24b8fb94a96d84635281ce4b017f6f5a51e05fba"
+      },
+      "sha_ok": false,
+      "st310_after": "0x00000000",
+      "st310_after_zero": true,
+      "magic_after": "0x50300001",
+      "pre_ok": true,
+      "fclk": 83.333333
+     },
+     {
+      "run": 2,
+      "wall_s": 2.827,
+      "total_s": 2.818692684173584,
+      "pl_s": 0.8720614910125732,
+      "ps_s": 0.8780679258326813,
+      "prologue": 0.5497081279754639,
+      "epilogue": 0.06009312000077216,
+      "nonconv": 0.2682666778564453,
+      "overlap": 0.1538076400756836,
+      "wait": 0.0817420482635498,
+      "pack_pl": 0.6099371910095215,
+      "n_conv_ops": 227,
+      "mmio_writes": 6216,
+      "deps_closure_ok": true,
+      "perf_warm": false,
+      "run_valid": true,
+      "lazy_deq": true,
+      "lazy": {
+       "pinned": 198,
+       "released": 198,
+       "starved": 0,
+       "direct_layers": 227,
+       "mixed_layers": 0,
+       "ps_layers": 0,
+       "deq_skipped": 198,
+       "direct_bytes": 8030144,
+       "f32_bytes": 483840
+      },
+      "conv_cyc": 28605312,
+      "pl_cyc_meas": 72671791,
+      "sha1": {
+       "out1": "a52ba1c070ad86d3fdf9bd167b1fb2d1d9169e58",
+       "out2": "f110df1b0b1ea180f82ed2b2afdf20989bacf340",
+       "out3": "d03083b9884ab6cf4cbd28259f541fef939692d9"
+      },
+      "sha_ok": false,
+      "st310_after": "0x00000000",
+      "st310_after_zero": true,
+      "magic_after": "0x50300001",
+      "pre_ok": true,
+      "fclk": 83.333333
+     }
+    ],
+    "same_across_runs": false,
+    "sha_ok_all": false,
+    "st310_ok_all": true,
+    "lazy_deq": "1",
+    "pass": false
+   },
+   "net256": {
+    "tag": "lazy256",
+    "error": "MemoryError('arena 不够：需要 1179648，剩 475136')",
+    "pass_": false
+   },
+   "cost": {
+    "64": {
+     "n_lazy0": 2,
+     "n_lazy1": 2,
+     "lazy0_min_s": 3.691,
+     "lazy1_min_s": 2.819,
+     "d_min_s": -0.872,
+     "d_min_pct": -23.63,
+     "lazy0_first_s": 3.691,
+     "lazy1_first_s": 3.194,
+     "lazy0_pl_s": 0.554,
+     "lazy1_pl_s": 0.915,
+     "lazy0_ps_s": 2.425,
+     "lazy1_ps_s": 1.267,
+     "lazy1_2runs_same": false,
+     "lazy1_sha_ok_all": false,
+     "lazy_stats": {
+      "pinned": 198,
+      "released": 198,
+      "starved": 0,
+      "direct_layers": 227,
+      "mixed_layers": 0,
+      "ps_layers": 0,
+      "deq_skipped": 198,
+      "direct_bytes": 8030144,
+      "f32_bytes": 483840
+     }
+    },
+    "256": null
+   }
+  },
+  "after": {
+   "base": "0x40060000",
+   "magic": "0x50300001",
+   "magic_ok": true,
+   "st310": "0x00000000",
+   "st310_zero": true,
+   "fclk": 50.0
+  }
+ },
+ "python": "3.10.4",
+ "numpy": "1.21.5",
+ "machine": "armv7l",
+ "fclk_ladder": {
+  "50": {
+   "target": 50.0,
+   "readback": 50.0,
+   "magic": "0x50300001",
+   "st310": "0x00000000"
+  },
+  "75": {
+   "target": 75.0,
+   "readback": 75.0,
+   "magic": "0x50300001",
+   "st310": "0x00000000"
+  },
+  "79": {
+   "target": 79.0,
+   "readback": 78.947368,
+   "magic": "0x50300001",
+   "st310": "0x00000000"
+  },
+  "83.33": {
+   "target": 83.33,
+   "readback": 83.333333,
+   "magic": "0x50300001",
+   "st310": "0x00000000"
+  },
+  "88.24": {
+   "target": 88.24,
+   "readback": 88.235294,
+   "magic": "0x50300001",
+   "st310": "0x00000000"
+  },
+  "93.75": {
+   "target": 93.75,
+   "readback": 93.75,
+   "magic": "0x50300001",
+   "st310": "0x00000000"
+  },
+  "100": {
+   "target": 100.0,
+   "readback": 100.0,
+   "magic": "0x50300001",
+   "st310": "0x00000000"
+  }
+ },
+ "verdict": {
+  "freq_top_req": 83.33,
+  "freq_top": 83.333333,
+  "same3": false,
+  "ok3": false,
+  "next_above_fails": true,
+  "big_ok": false,
+  "lazy_cost": {
+   "64": {
+    "n_lazy0": 2,
+    "n_lazy1": 2,
+    "lazy0_min_s": 3.691,
+    "lazy1_min_s": 2.819,
+    "d_min_s": -0.872,
+    "d_min_pct": -23.63,
+    "lazy0_first_s": 3.691,
+    "lazy1_first_s": 3.194,
+    "lazy0_pl_s": 0.554,
+    "lazy1_pl_s": 0.915,
+    "lazy0_ps_s": 2.425,
+    "lazy1_ps_s": 1.267,
+    "lazy1_2runs_same": false,
+    "lazy1_sha_ok_all": false,
+    "lazy_stats": {
+     "pinned": 198,
+     "released": 198,
+     "starved": 0,
+     "direct_layers": 227,
+     "mixed_layers": 0,
+     "ps_layers": 0,
+     "deq_skipped": 198,
+     "direct_bytes": 8030144,
+     "f32_bytes": 483840
+    }
+   },
+   "256": null
+  }
+ }
+}

@@ -6264,3 +6264,29 @@ $$\quad\ \text{剩下的是}\textbf{频率}（\text{现在 50 MHz 太保守}）\
 **未覆盖（T-108 自己标出）**
 $$\Rightarrow\ \text{未做频率阶梯}（\mathtt{WNS}\ +0.041\ \text{极薄，需单独一轮）$$
 $$\Rightarrow\ \mathtt{BIN\_LAZY\_DEQ=1}\ \text{的非确定问题本轮按指令绕开、未复测}$$
+
+### 70.77 板子已恢复 + v53 频率阶梯开跑（2026-11-03 00:25）
+
+$$\Rightarrow\ \text{00:18 HDMI 那把板子挂死（}\text{MMCM 门控 AXI，}\text{carrier 有电、ARP 不应答）}$$
+$$\Rightarrow\ \text{00:25 复核：}\mathbf{\text{板子已恢复}}（\mathtt{ping}\ \text{通、}\mathtt{ip\ neigh}\ \text{有 MAC）}$$
+$$\Rightarrow\ \text{直接跑 T-109 已就绪的脚本（}\mathtt{bash\ -n}\ \text{与 } \mathtt{py\_compile}\ \text{都已验）} \Rightarrow \text{一次 load + 一个探针进程}$$
+$$\Rightarrow\ \text{脚本内容：阶梯 } 50\to75\to79\to83.33\to88.24\to93.75\to100\ \text{每档 1 次 64}^2\ \text{整网}$$
+$$\quad\ +\ \text{最高档再跑 2 次确认}\ +\ \text{该档 } 256^2\ \text{计时}\ +\ \mathtt{LAZY=1}\ \text{非确定性与代价}$$
+
+### 70.78 v53 频率阶梯结果：**64² 上限 83.33 MHz；但 256² 在上限档仍失败**（2026-11-03 00:4x）
+
+$$\Rightarrow\ \textbf{64}^2\ \text{整网最高通过档} = \mathbf{83.3333\ \text{MHz}};\ \text{上一档 } 88.235\ \textbf{失败} \Rightarrow \text{是真上限，不是碰巧}$$
+$$\Rightarrow\ \text{板子刚断电重启过}（\text{uptime 2 min）} \Rightarrow \text{00:18 HDMI 挂死那次的恢复确认}$$
+
+**但 256² 在最该通过的这一档也失败**
+$$\Rightarrow\ 256^2 @ 83.3333\ \text{MHz}：\text{sha1 三件套}\textbf{全不中}，\text{且}\mathbf{同跑不相同}$$
+$$\Rightarrow\ \text{墙钟 } \mathbf{15.907\ \text{s}}（\text{PL } 3.546\ \text{s}）；\text{conv 拍数 } 451{,}072{,}512 \Rightarrow @83.33\ \text{纯算 } 5.413\ \text{s}$$
+$$\quad\ \Rightarrow\ \text{拍数 } 5.4\ \text{s vs 墙钟 } 15.9\ \text{s} \Rightarrow \textbf{大量时间不在 conv 上}$$
+$$\Rightarrow\ \Rightarrow\ \textbf{又是"小尺寸过、大尺寸不过"} \Rightarrow \text{与 } s{=}2\ \text{那次同型的覆盖盲区（64}^2\ \text{与 } 256^2\ \text{走到的层/形状不同）}$$
+
+**LAZY=1 的代价（重要，反向预期）**
+$$\Rightarrow\ \mathbf{\mathtt{LAZY=1}\ \text{反而快 } 23.6\%}：64^2\ \text{热态 } 3.691\to\mathbf{2.819}\ \text{s}（\text{PS } 2.425\to1.267）$$
+$$\Rightarrow\ \text{但 } \mathtt{LAZY=1}\ \text{两次运行不同}（\text{非确定，B 类）};\ 256^2\ \text{还 } \mathtt{MemoryError}（\text{arena 不够}）$$
+$$\Rightarrow\ \Rightarrow\ \textbf{现在用的 } \mathtt{LAZY=0}\ \text{是"正确但慢 0.87 s"的绕行方案} \Rightarrow \text{B 类值得修}$$
+
+$$\Rightarrow\ \textbf{结论}：\text{16-lane 的}\textbf{64}^2\ \text{逻辑已完全正确};\ \text{256}^2\ \text{仍需同一套逐 op 二分}$$

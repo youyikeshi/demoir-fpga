@@ -1,0 +1,267 @@
+[t109] python=3.10.4 numpy=1.21.5 mach=armv7l
+[t109] vlanes_now()=8 prm_layout={'VLANES': 8, 'PRM_W': 16, 'PB_S': 0, 'PB_B': 2, 'PB_Z': 6, 'PB_G': 10, 'PB_SL': 14, 'seg': {'alpha': (0, 2), 'bias': (2, 6), 'zeta': (6, 10), 'gamma': (10, 14), 'slope': (14, 16)}, 'words': {'alpha': 2, 'bias': 4, 'zeta': 4, 'gamma': 4, 'slope': 2}} BIN_V50_* 残留=[]
+[t109] 日志 = /home/xilinx/demoir/t109_out/t109_042045.log
+[t109] bit = /home/xilinx/demoir/design_1_150v53.bit
+[t109] 运行点 = {"BIN_PACK": "e1e2", "BIN_LAZY_DEQ": "0", "BIN_LAZY_SLOTS": "24", "BIN_CAT_FUSION": "1", "BIN_BILINEAR_C": "1", "BIN_PRECOMP": "1", "Q8CACHE": "1", "BIN_F32DIRECT": "1", "BIN_CAT_ECA_FUSE": "1", "BIN_EPI_NOINV": "1", "BIN_PROFILE": "1", "BIN_V50_FUSE": "", "BIN_VLANES": ""}
+
+==============================================================================
+  第 1 步：load overlay + 指纹（本进程唯一一次 download=True）
+==============================================================================
+  Overlay(design_1_150v53.bit) 用时 2.577 s
+  IP 清单：['bin_unit_0', 'conv_uni_0', 'ps7']
+  conv_uni_0  base=0x40040000 length=0x20000 （期望 0x40040000）✓
+  bin_unit_0  base=0x40060000 length=0x20000 （期望 0x40060000）✓
+  0x40070314 = 0x50300001   (CFG+0x314)
+  0x40060310 = 0x00000000   (0x310 CHAIN_STATUS)
+  0x40060308 = 0x00000000   (0x308 BAND_ROWS)
+  **magic(0x314) = 0x50300001 期望 0x50300001 ⇒ 寄存器块在位 ✓**
+  **0x310 = 0x00000000 ⇒ 空闲 ✓**（load 后 PL 必须空闲）
+  load 后 fclk0 读回 = 125 MHz
+
+  ★ 第 1 步收尾：fclk0 目标 50 → **读回 50 MHz**；magic=0x50300001 0x310=0x00000000（第 119 条）
+
+==============================================================================
+  准备 64² arena（24 槽）
+==============================================================================
+  arena t109_arena64 4.29 MB（24 槽 × (in 0.07 + out 0.10 MB)）@0x30100000
+  CmaFree = 13.4 MB
+
+==============================================================================
+  第 2 步：频率阶梯（每档 1 次 64² 整网；判三个 sha1）
+==============================================================================
+
+################ 目标 50 MHz → **fclk0 读回 50 MHz**；magic=0x50300001 0x310=0x00000000（第 119 条：改频后重读）
+
+==============================================================================
+  整网 64²（冻结运行点，LAZY_DEQ=0）fclk 读回 50 MHz，连跑 1 次
+==============================================================================
+  conv 总拍数（RTL 公式，频率无关）= 28,605,312 ⇒ @50 MHz 纯算 0.572 s
+  arena 槽数 = 24（arena 复用，reset() 不改尺寸）| CmaFree 13.4 MB
+  输入 x0 sha1 = bbae82e46e363a776d8fce8d9004e94502456bdc（冻结口径 bbae82e46e363a776d8fce8d9004e94502456bdc）✓
+  [DEPS] q8=fast c8deq=fast bpack=fast e1e2=fast catpack=fast safe=fast  ⇒ deps_closure_ok=True
+[DEPS] q8=fast c8deq=fast bpack=fast e1e2=fast catpack=fast safe=fast  ⇒ deps_closure_ok=True
+  run1: 墙钟 9.999 s | 总 9.990 = PL 1.465 + PS 8.522 - overlap 1.318 + wait 4.470
+        sha1 bfa246d34681 / 226bd39e522a / 762d84b9618e  OK = 冻结 ✓ | 整网后 0x310=0x00000000 （归零 ✓）
+  ⇒ 本块判据：sha1 全中=True，0x310 每跑后归零=True，**通过 ✓**
+[json] 已落盘 /home/xilinx/demoir/t109_out/t109_042045.json
+
+################ 目标 75 MHz → **fclk0 读回 75 MHz**；magic=0x50300001 0x310=0x00000000（第 119 条：改频后重读）
+
+==============================================================================
+  整网 64²（冻结运行点，LAZY_DEQ=0）fclk 读回 75 MHz，连跑 1 次
+==============================================================================
+  conv 总拍数（RTL 公式，频率无关）= 28,605,312 ⇒ @75 MHz 纯算 0.381 s
+  arena 槽数 = 24（arena 复用，reset() 不改尺寸）| CmaFree 1.5 MB
+  输入 x0 sha1 = bbae82e46e363a776d8fce8d9004e94502456bdc（冻结口径 bbae82e46e363a776d8fce8d9004e94502456bdc）✓
+  [DEPS] q8=fast c8deq=fast bpack=fast e1e2=fast catpack=fast safe=fast  ⇒ deps_closure_ok=True
+  run1: 墙钟 3.767 s | 总 3.760 = PL 0.568 + PS 2.483 - overlap 0.451 + wait 0.118
+        sha1 bfa246d34681 / 226bd39e522a / 762d84b9618e  OK = 冻结 ✓ | 整网后 0x310=0x00000000 （归零 ✓）
+  ⇒ 本块判据：sha1 全中=True，0x310 每跑后归零=True，**通过 ✓**
+[json] 已落盘 /home/xilinx/demoir/t109_out/t109_042045.json
+
+################ 目标 79 MHz → **fclk0 读回 78.9474 MHz**；magic=0x50300001 0x310=0x00000000（第 119 条：改频后重读）
+
+==============================================================================
+  整网 64²（冻结运行点，LAZY_DEQ=0）fclk 读回 78.9474 MHz，连跑 1 次
+==============================================================================
+  conv 总拍数（RTL 公式，频率无关）= 28,605,312 ⇒ @78.9474 MHz 纯算 0.362 s
+  arena 槽数 = 24（arena 复用，reset() 不改尺寸）| CmaFree 1.6 MB
+  输入 x0 sha1 = bbae82e46e363a776d8fce8d9004e94502456bdc（冻结口径 bbae82e46e363a776d8fce8d9004e94502456bdc）✓
+  [DEPS] q8=fast c8deq=fast bpack=fast e1e2=fast catpack=fast safe=fast  ⇒ deps_closure_ok=True
+  run1: 墙钟 3.759 s | 总 3.752 = PL 0.552 + PS 2.473 - overlap 0.438 + wait 0.115
+        sha1 bfa246d34681 / 226bd39e522a / 762d84b9618e  OK = 冻结 ✓ | 整网后 0x310=0x00000000 （归零 ✓）
+  ⇒ 本块判据：sha1 全中=True，0x310 每跑后归零=True，**通过 ✓**
+[json] 已落盘 /home/xilinx/demoir/t109_out/t109_042045.json
+
+################ 目标 83.33 MHz → **fclk0 读回 83.3333 MHz**；magic=0x50300001 0x310=0x00000000（第 119 条：改频后重读）
+
+==============================================================================
+  整网 64²（冻结运行点，LAZY_DEQ=0）fclk 读回 83.3333 MHz，连跑 1 次
+==============================================================================
+  conv 总拍数（RTL 公式，频率无关）= 28,605,312 ⇒ @83.3333 MHz 纯算 0.343 s
+  arena 槽数 = 24（arena 复用，reset() 不改尺寸）| CmaFree 1.7 MB
+  输入 x0 sha1 = bbae82e46e363a776d8fce8d9004e94502456bdc（冻结口径 bbae82e46e363a776d8fce8d9004e94502456bdc）✓
+  [DEPS] q8=fast c8deq=fast bpack=fast e1e2=fast catpack=fast safe=fast  ⇒ deps_closure_ok=True
+  run1: 墙钟 3.752 s | 总 3.744 = PL 0.554 + PS 2.476 - overlap 0.441 + wait 0.114
+        sha1 bfa246d34681 / 226bd39e522a / 762d84b9618e  OK = 冻结 ✓ | 整网后 0x310=0x00000000 （归零 ✓）
+  ⇒ 本块判据：sha1 全中=True，0x310 每跑后归零=True，**通过 ✓**
+[json] 已落盘 /home/xilinx/demoir/t109_out/t109_042045.json
+
+################ 目标 88.24 MHz → **fclk0 读回 88.2353 MHz**；magic=0x50300001 0x310=0x00000000（第 119 条：改频后重读）
+
+==============================================================================
+  整网 64²（冻结运行点，LAZY_DEQ=0）fclk 读回 88.2353 MHz，连跑 1 次
+==============================================================================
+  conv 总拍数（RTL 公式，频率无关）= 28,605,312 ⇒ @88.2353 MHz 纯算 0.324 s
+  arena 槽数 = 24（arena 复用，reset() 不改尺寸）| CmaFree 1.5 MB
+  输入 x0 sha1 = bbae82e46e363a776d8fce8d9004e94502456bdc（冻结口径 bbae82e46e363a776d8fce8d9004e94502456bdc）✓
+  [DEPS] q8=fast c8deq=fast bpack=fast e1e2=fast catpack=fast safe=fast  ⇒ deps_closure_ok=True
+        ✗ out1 冻结 = bfa246d34681e748311bbcd2f1b87317a56923fe
+        ✗ out2 冻结 = 226bd39e522aa373b8fc183acae5280931f8b63f
+        ✗ out3 冻结 = 762d84b9618eab8922edd6da4f07ba06de865628
+  run1: 墙钟 3.714 s | 总 3.706 = PL 0.538 + PS 2.450 - overlap 0.427 + wait 0.112
+        sha1 aaa9a062adef / 7e1916da441a / 4566e1803c2d  **≠ 冻结 ✗✗** | 整网后 0x310=0x00000000 （归零 ✓）
+  ⇒ 本块判据：sha1 全中=False，0x310 每跑后归零=True，**未通过 ✗✗**
+[json] 已落盘 /home/xilinx/demoir/t109_out/t109_042045.json
+
+################ 目标 93.75 MHz → **fclk0 读回 93.75 MHz**；magic=0x50300001 0x310=0x00000000（第 119 条：改频后重读）
+
+==============================================================================
+  整网 64²（冻结运行点，LAZY_DEQ=0）fclk 读回 93.75 MHz，连跑 1 次
+==============================================================================
+  conv 总拍数（RTL 公式，频率无关）= 28,605,312 ⇒ @93.75 MHz 纯算 0.305 s
+  arena 槽数 = 24（arena 复用，reset() 不改尺寸）| CmaFree 1.3 MB
+  输入 x0 sha1 = bbae82e46e363a776d8fce8d9004e94502456bdc（冻结口径 bbae82e46e363a776d8fce8d9004e94502456bdc）✓
+  [DEPS] q8=fast c8deq=fast bpack=fast e1e2=fast catpack=fast safe=fast  ⇒ deps_closure_ok=True
+        ✗ out1 冻结 = bfa246d34681e748311bbcd2f1b87317a56923fe
+        ✗ out2 冻结 = 226bd39e522aa373b8fc183acae5280931f8b63f
+        ✗ out3 冻结 = 762d84b9618eab8922edd6da4f07ba06de865628
+  run1: 墙钟 3.710 s | 总 3.703 = PL 0.543 + PS 2.441 - overlap 0.433 + wait 0.112
+        sha1 e5447076f235 / 34d468d08d29 / c986a9567a45  **≠ 冻结 ✗✗** | 整网后 0x310=0x00000000 （归零 ✓）
+  ⇒ 本块判据：sha1 全中=False，0x310 每跑后归零=True，**未通过 ✗✗**
+[json] 已落盘 /home/xilinx/demoir/t109_out/t109_042045.json
+
+################ 目标 100 MHz → **fclk0 读回 100 MHz**；magic=0x50300001 0x310=0x00000000（第 119 条：改频后重读）
+
+==============================================================================
+  整网 64²（冻结运行点，LAZY_DEQ=0）fclk 读回 100 MHz，连跑 1 次
+==============================================================================
+  conv 总拍数（RTL 公式，频率无关）= 28,605,312 ⇒ @100 MHz 纯算 0.286 s
+  arena 槽数 = 24（arena 复用，reset() 不改尺寸）| CmaFree 1.5 MB
+  输入 x0 sha1 = bbae82e46e363a776d8fce8d9004e94502456bdc（冻结口径 bbae82e46e363a776d8fce8d9004e94502456bdc）✓
+  [DEPS] q8=fast c8deq=fast bpack=fast e1e2=fast catpack=fast safe=fast  ⇒ deps_closure_ok=True
+        ✗ out1 冻结 = bfa246d34681e748311bbcd2f1b87317a56923fe
+        ✗ out2 冻结 = 226bd39e522aa373b8fc183acae5280931f8b63f
+        ✗ out3 冻结 = 762d84b9618eab8922edd6da4f07ba06de865628
+  run1: 墙钟 3.731 s | 总 3.723 = PL 0.529 + PS 2.429 - overlap 0.421 + wait 0.109
+        sha1 a3f48b77b871 / a226a6cdcf1d / 81a9ceb5213d  **≠ 冻结 ✗✗** | 整网后 0x310=0x00000000 （归零 ✓）
+  ⇒ 本块判据：sha1 全中=False，0x310 每跑后归零=True，**未通过 ✗✗**
+[json] 已落盘 /home/xilinx/demoir/t109_out/t109_042045.json
+
+  === 阶梯小结 ===
+     50.000 MHz（实际  50.0000）→ 通过 ✓
+     75.000 MHz（实际  75.0000）→ 通过 ✓
+     79.000 MHz（实际  78.9474）→ 通过 ✓
+     83.330 MHz（实际  83.3333）→ 通过 ✓
+     88.240 MHz（实际  88.2353）→ 失败 ✗（sha1/0x310 不符）
+     93.750 MHz（实际  93.7500）→ 失败 ✗（sha1/0x310 不符）
+    100.000 MHz（实际 100.0000）→ 失败 ✗（sha1/0x310 不符）
+  ★ **最高通过档 = 请求 83.33 MHz / 实际读回 83.3333 MHz**
+
+==============================================================================
+  第 3 步：最高通过档 83.3333 MHz 再跑 2 次（共 3 次）⇒ 三次 sha1 必须相同
+==============================================================================
+  回到最高通过档：目标 83.3333 → 读回 83.3333 MHz；magic=0x50300001 0x310=0x00000000（第 119 条）
+
+==============================================================================
+  整网 64²（冻结运行点，LAZY_DEQ=0）fclk 读回 83.3333 MHz，连跑 2 次
+==============================================================================
+  conv 总拍数（RTL 公式，频率无关）= 28,605,312 ⇒ @83.3333 MHz 纯算 0.343 s
+  arena 槽数 = 24（arena 复用，reset() 不改尺寸）| CmaFree 1.5 MB
+  输入 x0 sha1 = bbae82e46e363a776d8fce8d9004e94502456bdc（冻结口径 bbae82e46e363a776d8fce8d9004e94502456bdc）✓
+  [DEPS] q8=fast c8deq=fast bpack=fast e1e2=fast catpack=fast safe=fast  ⇒ deps_closure_ok=True
+        ✗ out1 冻结 = bfa246d34681e748311bbcd2f1b87317a56923fe
+  run1: 墙钟 3.698 s | 总 3.691 = PL 0.554 + PS 2.425 - overlap 0.441 + wait 0.113
+        sha1 ebbc58c78c32 / 226bd39e522a / 762d84b9618e  **≠ 冻结 ✗✗** | 整网后 0x310=0x00000000 （归零 ✓）
+        ✗ out1 冻结 = bfa246d34681e748311bbcd2f1b87317a56923fe
+  run2: 墙钟 3.706 s | 总 3.699 = PL 0.547 + PS 2.438 - overlap 0.435 + wait 0.113
+        sha1 e59ce8a9ad46 / 226bd39e522a / 762d84b9618e  **≠ 冻结 ✗✗** | 整网后 0x310=0x00000000 （归零 ✓）
+  ⇒ 本块判据：sha1 全中=False，0x310 每跑后归零=True，**未通过 ✗✗**
+  ★ 三次（阶梯 1 次 + 确认 2 次）sha1 互比：**不同 ✗✗**；= 冻结：✓
+
+==============================================================================
+  第 4 步：最高通过档 83.3333 MHz 上量 256² 整网（LAZY_DEQ=0）
+==============================================================================
+  CmaFree = 1.4 MB（分配前）
+  跑前 magic=0x50300001 0x310=0x00000000（第 119/120 条）
+  ⚠ 槽数从 24 降到 4（CmaFree 1.4 MB，need 11.1 MB）
+  arena t109_arena256 11.09 MB（4 槽 × (in 1.18 + out 1.57 MB)）@0x31300000
+  CmaFree = 0.5 MB（分配后）
+
+==============================================================================
+  整网 256²（冻结运行点，LAZY_DEQ=0）fclk 读回 83.3333 MHz，连跑 2 次
+==============================================================================
+  conv 总拍数（RTL 公式，频率无关）= 451,072,512 ⇒ @83.3333 MHz 纯算 5.413 s
+  arena 槽数 = 4（arena 复用，reset() 不改尺寸）| CmaFree 0.5 MB
+  输入 x0 sha1 = cfc75bc3f15d306b07787325fdc9ae715cfadd0a（冻结口径 cfc75bc3f15d306b07787325fdc9ae715cfadd0a）✓
+  [DEPS] q8=fast c8deq=fast bpack=fast e1e2=fast catpack=fast safe=fast  ⇒ deps_closure_ok=True
+        ✗ out1 冻结 = 9b1940c8955be53ccffd7905e333deffcea31f0a
+        ✗ out2 冻结 = f86a7035621bed133374a1bef42a27db204e7019
+        ✗ out3 冻结 = 025757a83c3993c8f592e31219b6a97906020363
+  run1: 墙钟 15.907 s | 总 15.899 = PL 3.546 + PS 14.100 - overlap 2.937 + wait 0.940
+        sha1 ee5533720bb5 / 0656b8e2c3a3 / 0971777c5e9a  **≠ 冻结 ✗✗** | 整网后 0x310=0x00000000 （归零 ✓）
+        ✗ out1 冻结 = 9b1940c8955be53ccffd7905e333deffcea31f0a
+        ✗ out2 冻结 = f86a7035621bed133374a1bef42a27db204e7019
+        ✗ out3 冻结 = 025757a83c3993c8f592e31219b6a97906020363
+  run2: 墙钟 15.445 s | 总 15.438 = PL 3.303 + PS 13.670 - overlap 2.695 + wait 0.940
+        sha1 701cc00dc435 / e15f5f8e374a / c60f39630123  **≠ 冻结 ✗✗** | 整网后 0x310=0x00000000 （归零 ✓）
+  ⇒ 本块判据：sha1 全中=False，0x310 每跑后归零=True，**未通过 ✗✗**
+
+==============================================================================
+  第 5 步：LAZY_DEQ=1 的代价（最高通过档 83.3333 MHz）
+==============================================================================
+  运行点切到 BIN_LAZY_DEQ=1（BIN_LAZY_SLOTS=24）
+  跑前 magic=0x50300001 0x310=0x00000000
+
+==============================================================================
+  整网 64²（冻结运行点，LAZY_DEQ=1）fclk 读回 83.3333 MHz，连跑 2 次
+==============================================================================
+  conv 总拍数（RTL 公式，频率无关）= 28,605,312 ⇒ @83.3333 MHz 纯算 0.343 s
+  arena 槽数 = 24（arena 复用，reset() 不改尺寸）| CmaFree 0.9 MB
+  输入 x0 sha1 = bbae82e46e363a776d8fce8d9004e94502456bdc（冻结口径 bbae82e46e363a776d8fce8d9004e94502456bdc）✓
+  [DEPS] q8=fast c8deq=fast bpack=fast e1e2=fast catpack=fast safe=fast  ⇒ deps_closure_ok=True
+  [LAZY_DEQ] IN/OUT 槽数 = 24（BIN_LAZY_SLOTS）
+  [PERF] 本跑含一次性内核装载（q8/c8deq/bpack 的 load+自检）⇒ 口径 a，门槛按热态语义**不判**（下一次跑才是稳态；要一次到位就先调 BE.load_kernels()）
+        ✗ out1 冻结 = bfa246d34681e748311bbcd2f1b87317a56923fe
+        ✗ out2 冻结 = 226bd39e522aa373b8fc183acae5280931f8b63f
+        ✗ out3 冻结 = 762d84b9618eab8922edd6da4f07ba06de865628
+  run1: 墙钟 3.202 s | 总 3.194 = PL 0.915 + PS 1.267 - overlap 0.205 + wait 0.086
+        sha1 b91ec26de49b / 9d034f1c8358 / 24b8fb94a96d  **≠ 冻结 ✗✗** | 整网后 0x310=0x00000000 （归零 ✓）
+  [LAZY_DEQ] IN/OUT 槽数 = 24（BIN_LAZY_SLOTS）
+  [PERF] 本跑含一次性内核装载（q8/c8deq/bpack 的 load+自检）⇒ 口径 a，门槛按热态语义**不判**（下一次跑才是稳态；要一次到位就先调 BE.load_kernels()）
+        ✗ out1 冻结 = bfa246d34681e748311bbcd2f1b87317a56923fe
+        ✗ out2 冻结 = 226bd39e522aa373b8fc183acae5280931f8b63f
+        ✗ out3 冻结 = 762d84b9618eab8922edd6da4f07ba06de865628
+  run2: 墙钟 2.827 s | 总 2.819 = PL 0.872 + PS 0.878 - overlap 0.154 + wait 0.082
+        sha1 a52ba1c070ad / f110df1b0b1e / d03083b9884a  **≠ 冻结 ✗✗** | 整网后 0x310=0x00000000 （归零 ✓）
+  ⇒ 本块判据：sha1 全中=False，0x310 每跑后归零=True，**未通过 ✗✗**
+
+==============================================================================
+  整网 256²（冻结运行点，LAZY_DEQ=1）fclk 读回 83.3333 MHz，连跑 2 次
+==============================================================================
+  conv 总拍数（RTL 公式，频率无关）= 451,072,512 ⇒ @83.3333 MHz 纯算 5.413 s
+  arena 槽数 = 4（arena 复用，reset() 不改尺寸）| CmaFree 33.7 MB
+  输入 x0 sha1 = cfc75bc3f15d306b07787325fdc9ae715cfadd0a（冻结口径 cfc75bc3f15d306b07787325fdc9ae715cfadd0a）✓
+  [DEPS] q8=fast c8deq=fast bpack=fast e1e2=fast catpack=fast safe=fast  ⇒ deps_closure_ok=True
+  [LAZY_DEQ] IN/OUT 槽数 = 24（BIN_LAZY_SLOTS）
+  ✗✗ LAZY=1 256² 异常：MemoryError('arena 不够：需要 1179648，剩 475136')
+Traceback (most recent call last):
+  File "/tmp/probe_T109/probe_t109.py", line 614, in main
+    lb = run_net(ov, a.big_hw, arbig2, ftop,
+  File "/tmp/probe_T109/probe_t109.py", line 369, in run_net
+    outs, st = with_alarm(watchdog, net.run, x0, pipeline=True,
+  File "/tmp/probe_T109/probe_t109.py", line 148, in with_alarm
+    return fn(*a, **kw)
+  File "/home/xilinx/demoir/ps/pynq/bin_net.py", line 3029, in run
+    be = _PlBackend(self, arena, max_in, max_out, nbuf=nbuf, verify=verify)
+  File "/home/xilinx/demoir/ps/pynq/bin_net.py", line 805, in __init__
+    b, _pa = arena.region(nin, align=64, name="IN%d" % i)
+  File "/home/xilinx/demoir/ps/pynq/bin_engine.py", line 433, in region
+    raise MemoryError("arena 不够：需要 %d，剩 %d" % (n, self.size - off))
+MemoryError: arena 不够：需要 1179648，剩 475136
+
+==============================================================================
+  收尾：把时钟放回 50 MHz 并确认 PL 空闲
+==============================================================================
+  fclk0 回到 50 MHz；magic=0x50300001（✓）0x310=0x00000000
+
+==============================================================================
+  判据汇总
+==============================================================================
+  最高通过档 = 83.3333 MHz（请求 83.33）
+  三次确认：same3=False ok3=False
+  上一档：请求 88.24（实际 88.2353）⇒ 失败 ✓（真上限）
+  256² @ 83.3333 MHz：sha1 全中=False 同跑相同=False；墙钟 15.907 s（总 15.899，PL 3.546）
+  LAZY=1 代价：{"64": {"n_lazy0": 2, "n_lazy1": 2, "lazy0_min_s": 3.691, "lazy1_min_s": 2.819, "d_min_s": -0.872, "d_min_pct": -23.63, "lazy0_first_s": 3.691, "lazy1_first_s": 3.194, "lazy0_pl_s": 0.554, "lazy1_pl_s": 0.915, "lazy0_ps_s": 2.425, "lazy1_ps_s": 1.267, "lazy1_2runs_same": false, "lazy1_sha_ok_all": false, "lazy_stats": {"pinned": 198, "released": 198, "starved": 0, "direct_layers": 227, "mixed_layers": 0, "ps_layers": 0, "deq_skipped": 198, "direct_bytes": 8030144, "f32_bytes": 483840}}, "256": null}
+[t109] DONE
+[json] 已落盘 /home/xilinx/demoir/t109_out/t109_042045.json
