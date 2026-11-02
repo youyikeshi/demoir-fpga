@@ -10,13 +10,13 @@
 module conv_uni_axi_wrap_bd #(
     parameter AXI_ID_W = 6
 ) (
-    (* X_INTERFACE_PARAMETER = "XIL_INTERFACENAME s_axi_aclk, ASSOCIATED_BUSIF s_axi:m_axi, FREQ_HZ 40000000" *)
+    (* X_INTERFACE_PARAMETER = "XIL_INTERFACENAME s_axi_aclk, ASSOCIATED_BUSIF s_axi:m_axi, FREQ_HZ 150000000" *)
     (* X_INTERFACE_INFO = "xilinx.com:signal:clock:1.0 s_axi_aclk CLK" *)
     input        s_axi_aclk,
     (* X_INTERFACE_PARAMETER = "XIL_INTERFACENAME s_axi_aresetn, POLARITY ACTIVE_LOW" *)
     (* X_INTERFACE_INFO = "xilinx.com:signal:reset:1.0 s_axi_aresetn RST" *)
     input        s_axi_aresetn,
-    (* X_INTERFACE_PARAMETER = "XIL_INTERFACENAME s_axi, PROTOCOL AXI3, ADDR_WIDTH 32, DATA_WIDTH 64, FREQ_HZ 40000000, HAS_BURST 1, HAS_CACHE 0, HAS_QOS 0, HAS_REGION 0, HAS_LOCK 0, HAS_PROT 1, HAS_WSTRB 1, MAX_BURST_LENGTH 16, NUM_READ_OUTSTANDING 16, NUM_WRITE_OUTSTANDING 16" *)
+    (* X_INTERFACE_PARAMETER = "XIL_INTERFACENAME s_axi, PROTOCOL AXI4LITE, ADDR_WIDTH 32, DATA_WIDTH 32, FREQ_HZ 150000000, HAS_BURST 0, HAS_CACHE 0, HAS_QOS 0, HAS_REGION 0, HAS_LOCK 0, HAS_PROT 0, HAS_WSTRB 1, NUM_READ_OUTSTANDING 1, NUM_WRITE_OUTSTANDING 1" *)
     (* X_INTERFACE_INFO = "xilinx.com:interface:aximm:1.0 s_axi AWADDR" *)
     input  [31:0] s_axi_awaddr,
     (* X_INTERFACE_INFO = "xilinx.com:interface:aximm:1.0 s_axi AWVALID" *)
@@ -51,7 +51,7 @@ module conv_uni_axi_wrap_bd #(
     output       s_axi_rvalid,
     (* X_INTERFACE_INFO = "xilinx.com:interface:aximm:1.0 s_axi RREADY" *)
     input        s_axi_rready,
-    (* X_INTERFACE_PARAMETER = "XIL_INTERFACENAME m_axi, PROTOCOL AXI3, ADDR_WIDTH 32, DATA_WIDTH 64, FREQ_HZ 40000000, HAS_BURST 1, HAS_CACHE 0, HAS_QOS 0, HAS_REGION 0, HAS_LOCK 0, HAS_PROT 1, HAS_WSTRB 1, MAX_BURST_LENGTH 16, NUM_READ_OUTSTANDING 16, NUM_WRITE_OUTSTANDING 16" *)
+    (* X_INTERFACE_PARAMETER = "XIL_INTERFACENAME m_axi, PROTOCOL AXI3, ADDR_WIDTH 32, DATA_WIDTH 64, FREQ_HZ 150000000, HAS_BURST 1, HAS_CACHE 0, HAS_QOS 0, HAS_REGION 0, HAS_LOCK 0, HAS_PROT 0, HAS_WSTRB 1, MAX_BURST_LENGTH 16, NUM_READ_OUTSTANDING 16, NUM_WRITE_OUTSTANDING 16" *)
     (* X_INTERFACE_INFO = "xilinx.com:interface:aximm:1.0 m_axi ARVALID" *)
     output       m_axi_arvalid,
     (* X_INTERFACE_INFO = "xilinx.com:interface:aximm:1.0 m_axi ARREADY" *)
