@@ -5456,3 +5456,34 @@ $$\Rightarrow\ \textbf{③ 权重 BRAM } 8\to16\ \text{块}，\text{资源/时�
 $$\Rightarrow\ \textbf{④ 未做 } \mathtt{VLANES=16}\ \text{的 xelab 展开与上板}$$
 
 **工具路径**：本机 `xvlog` 在 `/media/felix/325/xilinx/2025.2/2025.2.1/Vivado/bin/xvlog`，**必须带 `-sv`**（否则 `always_comb`/signed 会报一串假错）。
+
+### 70.48 ★★★★ SIM 找到两个真 bug（一个 16-lane 阻断，一个是 v39 潜伏继承）（2026-11-02 15:35）
+
+$$\Rightarrow\ \text{S1 } \mathtt{VLANES=8}\ \text{回归：}\mathbf{24/24}\ \text{组 0 diff，1389 笔写事务 addr+data+sel 逐 bit 全等}$$
+$$\Rightarrow\ \text{S2 } \mathtt{VLANES=16}：\mathbf{24/24}\ \text{组 0 diff，9977 个 lane 全等} \Rightarrow \text{128 位写口拼接顺序 = 两趟 8-lane}$$
+$$\Rightarrow\ \text{S5 } \mathtt{xelab}\ \text{首次展开 } \mathtt{VLANES=16}\ \text{成功（0 err 0 warn）}$$
+
+**F1（16-lane 新增，阻断）**：`bin_conv_core.v:695`
+$$\Rightarrow\ \mathtt{hwout8\_q <= (hout*wout) << 3}\ \text{—— 组平面步长写死 }\mathbf{8\ \text{字节/像素}}，\text{应为 } \mathtt{*VLANES}$$
+$$\Rightarrow\ \text{后果：}\mathtt{cout}>16\ \text{时第 } g+1\ \text{组从 } g\cdot P\cdot 8\ \text{开始、按 } 16\ \text{B/像素写} \Rightarrow \text{与前一组平面}\mathbf{重叠一半}$$
+$$\Rightarrow\ \text{实测：}\mathtt{cout}=17,h=5,w=8 \Rightarrow \text{期望 } \mathtt{0x280}\ \text{实际 } \mathtt{0x140};\ \textbf{全量 278 笔地址错}$$
+$$\Rightarrow\ \text{修法：}\mathtt{*VLANES}\ (\text{顺手改名 } \mathtt{plane\_stride\_q})$$
+$$\Rightarrow\ \textbf{为什么之前没发现}：\mathtt{cout}=16\ \text{单组不触发} \Rightarrow \textbf{只测 } \mathtt{cout}=16\ \text{会完全漏掉}$$
+
+**F2（v39 继承的潜伏 bug）**：`:758`
+$$\Rightarrow\ \mathtt{nvalid\_q <= (cout\_q - o\_q > VLANES) ? VLANES : (cout\_q - o\_q)}\ \text{用了}\textbf{旧的 } \mathtt{o\_q}（\text{:755 非阻塞更新）}$$
+$$\Rightarrow\ \text{应为 } \mathtt{cout\_q - (o\_q + VLANES)} \Rightarrow \text{否则 } \mathtt{cout}\%\mathtt{VLANES}\neq 0\ \text{时}\textbf{末组掩码恒全 1}$$
+$$\Rightarrow\ \text{证据：}\mathtt{v39} = 167\ \text{处、new8 = 167 处（}\textbf{逐字相同 ⇒ 继承}\text{），16-lane = 186 处、非法字节 2230 个}$$
+$$\Rightarrow\ \Rightarrow\ \textbf{v39 硬件也有这个 bug，只是当前网络 } \mathtt{cout}\in\{32,48,64,96,192\}\ \textbf{全是 8/16 的倍数} \Rightarrow \text{从不触发}$$
+$$\quad\ \text{但这是}\textbf{一把挂着的刀}：\text{将来任何 } \mathtt{cout}\%\ 8\neq 0\ \text{的层都会静默写坏输出}$$
+
+**优化点（SIM 按价值排序，都带证据类型）**
+$$\Rightarrow\ \mathtt{O1}\ \text{权重装载 2 拍/字 → 1 拍/字}（\mathtt{wld}=576\ \text{拍只 } \mathtt{rd}=288）\Rightarrow \text{小图 } -15\%\ \text{总拍数}\ [\text{确认}]$$
+$$\Rightarrow\ \mathtt{O2}\ \mathtt{wrsel\_q}\ \text{变量桶形寄存器化} \Rightarrow \text{写口路径 } -4\sim5\ \text{级}\ [\text{推测}]$$
+$$\Rightarrow\ \mathtt{O3}\ \mathtt{PRM}\ \text{每组 33 拍重读 + 1 拍空转} \Rightarrow \text{参数常驻 } -3.5\%\ [\text{确认}]$$
+$$\Rightarrow\ \mathtt{O4}\ \text{越界 term 跳拍} \Rightarrow \text{小图 } \mathtt{CMP}\ -40\%,\ 112^2\ \text{仅 } \sim3.5\%\ [\text{确认，低优先}]$$
+$$\Rightarrow\ \mathtt{O5}\ \mathtt{prm\_addr}\ \text{组合 if-chain 换 } +8\ \text{累加器}\ [\text{推测}]$$
+
+**参数化上限**：`wl_lane` 只有 4 bit（:207）⇒ `VLANES=32` 会**永远进不了 ST_CMP（挂死）** ⇒ 上限只能 16。
+
+**其余全清**：写口/读地址 X=0；末块补零**双侧消隐**结构断言 0 违例；`p_acc` 16 位无溢出（≤16384）；`ST_CMP` 无气泡（cmp 拍数 ≡ P×K）。
