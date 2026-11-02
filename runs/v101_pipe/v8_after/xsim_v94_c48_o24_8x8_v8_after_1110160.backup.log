@@ -1,0 +1,94 @@
+#-----------------------------------------------------------
+# xsim v2025.2.1 (64-bit)
+# SW Build 6403652 on Thu Mar 19 13:47:00 MDT 2026
+# IP Build 6403511 on Thu Mar 19 12:41:45 MDT 2026
+# SharedData Build 6403650 on Thu Mar 19 14:02:13 MDT 2026
+# Start of session at: Mon Nov  2 21:41:13 2026
+# Process ID         : 1110160
+# Current directory  : /media/felix/Data/coding/demoir-fpga/runs/v101_pipe/v8_after
+# Command line       : xsim -log xsim_v94_c48_o24_8x8_v8_after.log -mode tcl -source {xsim.dir/snap/xsim_script.tcl}
+# Log file           : /media/felix/Data/coding/demoir-fpga/runs/v101_pipe/v8_after/xsim_v94_c48_o24_8x8_v8_after.log
+# Journal file       : /media/felix/Data/coding/demoir-fpga/runs/v101_pipe/v8_after/xsim.jou
+# Running On         : 2
+# Platform           : Ubuntu
+# Operating System   : Ubuntu 22.04.5 LTS
+# Processor Detail   : Intel(R) Core(TM) Ultra 7 155H
+# CPU Frequency      : 1726.705 MHz
+# CPU Physical cores : 16
+# CPU Logical cores  : 22
+# Host memory        : 33236 MB
+# Swap memory        : 0 MB
+# Total Virtual      : 33236 MB
+# Available Virtual  : 8772 MB
+#-----------------------------------------------------------
+source xsim.dir/snap/xsim_script.tcl
+# xsim {snap} -testplusarg GOLDEN=/media/felix/Data/coding/demoir-fpga/runs/v94_wrpath/golden/v94_c48_o24_8x8 -testplusarg SHAPE_NAME=v94_c48_o24_8x8 -testplusarg NOSTOP=1 -testplusarg T94FILL=1 -testplusarg T94LOG=wr_v94_c48_o24_8x8_v8_after.txt -testplusarg T101LOG=w101_v94_c48_o24_8x8_v8_after.txt -testplusarg CIN=48 -testplusarg COUT=24 -testplusarg K=1 -testplusarg S=1 -testplusarg D=1 -testplusarg PAD=0 -testplusarg H=8 -testplusarg W=8 -testplusarg SHIFT=7 -autoloadwcfg -runall
+Time resolution is 1 ps
+run -all
+bin_band_buf: CAP=245776 B (240 KB) <= BUDGET=270 KB  [NGRP=6 ROWS_ALLOC=10 SLOT_WORDS=15360]
+[BIN-WRAP] 步骤④ 直接映射线缓存：LC_N=512（64 KB, 9 位散列, 槽=16）
+[TB] NOTE: 形状 v94_c48_o24_8x8 不在内置表里，参数将全部取自 plusarg
+[TB] =========================================================
+[TB] unit=0 shape=v94_c48_o24_8x8 C=48 COUT=24 K=1 S=1 D=1 PAD=0 H=8 W=8 SHIFT=7
+[TB] 输出: NCH=24 HOUT=8 WOUT=8  => 1536 字节（C8 交错布局）
+[TB] conv: C_B=1 每像素 term 数 K=C_B*k^2=1，写口是 1 字节/term 的模式(b)
+[TB] 读侧预取 R_PF_EN=0（0xF8；旧实现忽略该寄存器）
+[TB] AXI3 从模型: 读延迟 1..20 拍、burst 额外 0 拍、在飞上限 16、arready 反压=1、写反压=1、乱序=1、seed=0x12345678
+[TB] DUT 参数: RD_WIN_WORDS=16 AXI_ID_W=4 WR_BUF_BEATS=16 WR_BURST_MAX=8
+[TB] =========================================================
+[TB] ---- 装载黄金向量（/media/felix/Data/coding/demoir-fpga/runs/v94_wrpath/golden/v94_c48_o24_8x8）
+[TB] 装载       act_pack.bin -> 0x0010000  512 字节
+[TB] 装载       wgt_pack.bin -> 0x0050000  192 字节
+[TB] 装载          alpha.bin -> 0x00c0000  48 字节
+[TB] 装载           bias.bin -> 0x0080000  96 字节
+[TB] 装载           zeta.bin -> 0x0090000  96 字节
+[TB] 装载          gamma.bin -> 0x00a0000  96 字节
+[TB] 装载          slope.bin -> 0x00b0000  48 字节
+[TB] 装载    expected_c8.bin -> 0x0300000  1536 字节
+[TB] ---- T0 AXI3 从模型自检（arlen=0/1/3/7/15 + 同 ID 保序）----
+[TB] PASS T0 AXI3 从模型自检（burst/rid/rlast/同 ID 保序 全对）
+[TB] ---- T1 AXI4-Lite 寄存器回环 ----
+[TB] PASS T1 R_C   readback = 0x00000030
+[TB] PASS T1 R_H   readback = 0x00000008
+[TB] PASS T1 R_W   readback = 0x00000008
+[TB] PASS T1 R_SHIFT readback = 0x00000007
+[TB] PASS T1 alpha_shift reset=9 = 0x00000009
+[TB] PASS T1 slope_shift reset=8 = 0x00000008
+[TB] PASS T1 B_IN readback = 0x00010000
+[TB] PASS T1 AP_CTRL.bit0 selfclr = 0x00000000
+[TB] PASS T1 done=0 before start = 0x00000000
+[TB] ---- T2 契约 §7.3-②：C%8!=0 ⇒ ERR_LAYOUT(4)，引擎不许启动 ----
+[TB] PASS T2 C%8!=0 -> ERR_LAYOUT(4)+done = 0x00000401
+[TB] PASS T2 校验失败时单元未被启动
+[TB] ---- T3 契约 §7.3-①：基址非 8 字节对齐 ⇒ ERR_ALIGN(5) ----
+[TB] PASS T3 base not 8B aligned -> ERR_ALIGN(5)+done = 0x00000501
+[TB] ---- T4 基址为 0 ⇒ ERR_NULL(1) ----
+[TB] PASS T4 base==0 -> ERR_NULL(1)+done = 0x00000101
+[TB] ---- T5 功能跑：start → done → 逐字节比对 expected_c8.bin ----
+[TB] v94: OUT 区预铺 0xA5（0..9728）
+[TB] T101 start 绝对 c101=798
+[TB] done 在 1255 拍后到达（AP_RETURN=0x00000001） 绝对 c101=2057
+[TB] PASS T5 AP_RETURN(done=1,err=0) = 0x00000001
+[TB] 逐字节一致 : 1536 / 1536 字节（X/Z=0）
+[TB] PASS T6 AXI protocol errors = 0x00000000
+[TB] PASS T6 per-cycle read-data errors = 0x00000000
+[TB] PASS T6 max outstanding reads >= 1 = 8 (>= 1)
+[TB] DBG_FLAG=0x00000000 (hi_bad=0 misalign=0 rid_bad=0 busy=0)
+[TB] PASS T6 flg_rd_misalign=0 = 0x00000000
+[TB] PASS T6 flg_rid_bad=0 = 0x00000000
+[TB] 统计: AR=18(18 为 burst) R拍=288 AW=36 W拍=192 最大在飞=8 最大arlen=15
+[TB] 读侧形态: 出现了 18 笔 burst，最大 arlen=15（16 拍/笔）
+[TB] 覆盖: arready 反压 347 次 / awready 反压 362 次 / 读延迟 1..20 拍 / 拍数=1255
+[TB] DBG_RD=0x00120108 (需求读=264 填线=18)
+[TB] DBG_WR=0x00c00024 (AW笔数=36 W拍数=192)  => 平均 5.33 拍/AW
+[TB] 写侧: 从机侧 AW=36 / W拍=192 => 5.33 拍/AW（1.00 = 攒包退化成 1 字节/笔）
+=========================================================
+[TB-v94] 串行化探针: core_wr=365 (c_wr_en 拍) / uce=1 捕获=192 / cw_beat_en 拍=365 / p1_v 拍=0 / c_wr_en&!u_ce=173 / press 拍=155
+[TB-SUMMARY] module=bin_unit_axi_wrap unit=0 shape=v94_c48_o24_8x8 bytes=1536/1536 cases=21/21 cycles=1255 max_rq=8 max_arlen=15 axi_errors=0 rd_bad=0 unknown=0 status=PASS
+[TB] PASS=21 FAIL=0
+=========================================================
+[TB] v94: 逐笔写记录已落盘 wr_v94_c48_o24_8x8_v8_after.txt（192 拍）
+$finish called at time : 20995 ns : File "/media/felix/Data/coding/demoir-fpga/runs/v101_pipe/tb_v101_wrap.v" Line 1440
+exit
+INFO: xsimkernel Simulation Memory Usage: 298696 KB (Peak: 342964 KB), Simulation CPU Usage: 920 ms
+INFO: [Common 17-206] Exiting xsim at Mon Nov  2 21:41:15 2026...

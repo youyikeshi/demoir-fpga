@@ -1,0 +1,122 @@
+--- rtl_before/lane16/bin_conv_core_v50.v	2026-11-02 15:44:42.970898700 +0800
++++ rtl_after/lane16/bin_conv_core_v50.v	2026-11-02 21:36:10.675327700 +0800
+@@ -241,11 +241,28 @@
+ 
+     // ========================================================================
+     // 6. 读流水线登记（T 发读 → T+1 数据有效 → T+2 累加）
++    //
++    //  ★ 2026-11-02 T-101：在 act_c 与 xn_c 之间插一级 **act_q（64 FF）**，
++    //    把 T-100 实测的 9.720 ns 锥切开（DO 2.125 + DO→act_c 3.096 + pop64 4.499）。
++    //    为此必须配套三件（缺一件就错）：
++    //      ① 权重读地址 l_q **延后一拍**（l_qd）：act_q 比 act_c 晚一拍，
++    //         wrd 也必须晚一拍，否则权重与激活错配一个 term；
++    //      ② 新增 r2_* 控制级：s1_* 改从 r2_* 取（r1_vld/r1_last/r1_l0/r1_oaddr），
++    //         即 popcount 的控制位与数据位一起晚一拍；
++    //      ③ act_q 必须挂 ap_ce（"冻结式反压"时不许刷新，否则漏一拍）。
++    //    等价性：算术（pop64 树 / p_acc / nvalid / PRM / 移位）一位未动，
++    //            每 term 仍是 1 拍、每 pixel 仍是 K 拍，只多 **+1 拍固定延迟**。
+     // ========================================================================
+     logic            r1_vld, r1_rd, r1_last, r1_bm1, r1_l0;
+     logic [15:0]     r1_b;
+     logic [31:0]     r1_oaddr;
+ 
++    // ★ T-101 新增：第 2 级控制（r2_*）与延后一拍的权重读地址（l_qd）+ 激活字寄存器
++    logic            r2_vld, r2_last, r2_l0;
++    logic [31:0]     r2_oa;
++    logic [LW-1:0]   l_qd;
++    logic [63:0]     act_q;
++
+     // ========================================================================
+     // 7. 权重 BRAM：VLANES 块独立 RAM（256×64，整字写 + 整字同步读）
+     //    为什么分块而不是一块 VLANES*64 宽的大 RAM：宽度决定 BRAM 块数
+@@ -267,12 +284,20 @@
+                     wmem[wl_l] <= wdata_c;
+             end
+             // 读口：同步读（地址是 FF ⇒ wrd 在下一拍有效）
++            // ★ T-101：地址改用 **延后一拍** 的 l_qd（与 act_q 配套；详见 §6 注释）
+             always_ff @(posedge ap_clk) begin
+-                if (ap_ce) wrd[gk] <= wmem[l_q];
++                if (ap_ce) wrd[gk] <= wmem[l_qd];
+             end
+         end
+     endgenerate
+ 
++    // ★ T-101：l_q 的延后一拍副本（权重读地址）。只在 ap_ce 下推进，
++    //   这样"发读拍计数"与 wmem 读口永远差一拍，正好抵消 act_q 引入的那一拍。
++    always_ff @(posedge ap_clk or negedge ap_rst_n) begin
++        if (!ap_rst_n) l_qd <= {LW{1'b0}};
++        else if (ap_ce) l_qd <= l_q;
++    end
++
+     // ========================================================================
+     // 8. 参数装载：PRM 期 PRM_W 个 64-bit 字直接落进 pw[0..PRM_W-1]
+     //      VLANES=8 时（原文布局，逐字不变）：
+@@ -360,11 +385,20 @@
+     wire [63:0] pad_or_c = r1_bm1 ? ~mask_last_q : 64'd0;
+     wire [63:0] act_c    = (r1_rd ? mem_rd_data : 64'd0) | pad_or_c;
+ 
++    // ★ T-101：切开 popcount 锥的那一级。act_c（= BRAM DO 直达的高扇出网）
++    //   只驱动 64 个 FF；xn_c/pop64 改从 act_q 出发 ⇒ DO→act_c 的 3.096 ns
++    //   （含 2.093 ns 两条高扇出网）被移到 register 之前，pop 树只剩"FF→ OR/XOR→树"。
++    //   必须挂 ap_ce（冻结式反压）；复位值无意义（由 r2_vld 门控）。
++    always_ff @(posedge ap_clk or negedge ap_rst_n) begin
++        if (!ap_rst_n) act_q <= 64'd0;
++        else if (ap_ce) act_q <= act_c;
++    end
++
+     logic [63:0] xn_c [0:VLANES-1];
+     logic [6:0]  pc_c [0:VLANES-1];
+     always_comb begin
+         for (int k = 0; k < VLANES; k++) begin
+-            xn_c[k] = ~(act_c ^ wrd[k]);
++            xn_c[k] = ~(act_q ^ wrd[k]);
+             pc_c[k] = pop64(xn_c[k]);
+         end
+     end
+@@ -394,16 +428,30 @@
+         end
+     end
+ 
++    // ---- ★ T-101 第 2 级控制：与 act_q 同拍（r2_* 就是"act_q 这一拍"的控制位）----
++    //   r2_last 不再与 r1_vld 相与（保持与 r1_last 同源），在 s1 处再相与，
++    //   语义与原文 `s1_last_q <= r1_vld & r1_last` 完全一致。
++    always_ff @(posedge ap_clk or negedge ap_rst_n) begin
++        if (!ap_rst_n) begin
++            r2_vld <= 1'b0; r2_last <= 1'b0; r2_l0 <= 1'b1; r2_oa <= 32'd0;
++        end else if (ap_ce) begin
++            r2_vld  <= r1_vld;
++            r2_last <= r1_last;
++            r2_l0   <= r1_l0;
++            r2_oa   <= r1_oaddr;
++        end
++    end
++
+     // ---- popcount 结果寄存一拍（拆开 pop 树与 16 位累加进位链）----
+     always_ff @(posedge ap_clk or negedge ap_rst_n) begin
+         if (!ap_rst_n) begin
+             s1_v_q <= 1'b0; s1_last_q <= 1'b0; s1_l0_q <= 1'b1; s1_oa_q <= 32'd0;
+         end else if (ap_ce) begin
+-            s1_v_q    <= r1_vld;
+-            s1_last_q <= r1_vld & r1_last;
+-            if (r1_vld) begin
+-                s1_l0_q <= r1_l0;
+-                s1_oa_q <= r1_oaddr;
++            s1_v_q    <= r2_vld;
++            s1_last_q <= r2_vld & r2_last;
++            if (r2_vld) begin
++                s1_l0_q <= r2_l0;
++                s1_oa_q <= r2_oa;
+                 for (int k = 0; k < VLANES; k++) s1_pc_q[k] <= pc_c[k];
+             end
+         end
+@@ -450,7 +498,9 @@
+     logic        v1_q, v2_q, v3_q, v4_q, v5_q, v6_q, v7_q, v8_q;
+ 
+     localparam logic [3:0] DRN_MIN = 4'd12;
+-    wire tail_empty = !(r1_vld | s1_v_q | ps_vld | v1_q | v2_q | v3_q | v4_q |
++    // ★ T-101：tail 里加上 r2_vld（act_q 这一级的有效位）——最后那个 term 的
++    //   pc 要到 t_last+2 才落进 s1_pc_q，若不认这一级会被排空判定提前截断。
++    wire tail_empty = !(r1_vld | r2_vld | s1_v_q | ps_vld | v1_q | v2_q | v3_q | v4_q |
+                         v5_q | v6_q | v7_q | v8_q);
+     wire drn_done = (dr_q >= DRN_MIN) && tail_empty;
+ 

@@ -1,0 +1,7 @@
+== after  (win_q=127 s1_pc_q=144 wmem=105 act_q=64)
+  ① 整体 WNS (setup)                           slack=+0.515 ns  级= 8  design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_core/g_wram[15].wmem_reg/CLKARDCLK -> design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_core/s1_pc_q_reg[15][5]/D
+  ② win_q -> s1_pc_q  (T-100 旧锥)             （无路径）
+  ③ 任何 -> s1_pc_q (pop 输出侧)                  slack=+0.515 ns  级= 8  design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_core/g_wram[15].wmem_reg/CLKARDCLK -> design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_core/s1_pc_q_reg[15][5]/D
+  ④ wmem -> s1_pc_q (权重侧)                    slack=+0.515 ns  级= 8  design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_core/g_wram[15].wmem_reg/CLKARDCLK -> design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_core/s1_pc_q_reg[15][5]/D
+  ⑤ win_q -> act_q (新加的寄存级)                  slack=+4.710 ns  级= 2  design_1_i/bin_unit_0/inst/u_bin_unit/win_q_reg_14/CLKBWRCLK -> design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_core/act_q_reg[59]/D
+  ⑥ act_q -> *                               slack=+1.963 ns  级= 9  design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_core/act_q_reg[47]/C -> design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_core/s1_pc_q_reg[3][5]/D

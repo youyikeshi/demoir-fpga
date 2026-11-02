@@ -6039,3 +6039,30 @@ $$\Rightarrow\ \text{而且它动的正是刚出过 } \pm1/\text{越界两个 bu
 $$\Rightarrow\ \mathtt{after\_rtl\_coalescer/bin\_unit\_axi\_wrap\_v50.v}（= \mathtt{26d58123}）$$
 $$\Rightarrow\ \mathtt{rtl\_t99.diff}（312\ \text{行}，\textbf{实测 } \mathtt{patch -p0}\ \text{能逐字节复原）$$
 $$\Rightarrow\ \mathtt{before\_rtl/}（\text{T-94 快照}）、\mathtt{MATRIX\_v99.txt}、\text{报告（含"复活步骤"）}、60\ \text{份 } \mathtt{xsim}\ \text{日志（种子 } \mathtt{0x12345678}）$$
+
+### 70.69 ★★★★ T-101 完成：popcount 锥切开，**等价性铁证 + 时序改善 4×**（2026-11-02 22:31）
+
+**第一判据（等价性）全过 —— 这是新目标的唯一门槛**
+$$\Rightarrow\ \mathtt{VLANES}=8：\mathbf{10/10\ \text{形状逐字节 0 差异}}、0\ \text{越界、}21/21\ \text{case}$$
+$$\Rightarrow\ \textbf{阶段拍数 before = after 逐形状相同}：\mathtt{CMP}(term) = 73728/2304/3456/4608/1536/192/320/128/64/9216$$
+$$\quad\ \mathtt{PRM/WLD/DRN}\ \text{亦相同} \Rightarrow \textbf{控制位完全跟上，没有漏拍/多拍}$$
+$$\Rightarrow\ \mathtt{VLANES}=16：\mathbf{10/10\ \text{形状 0 差异}}（\mathtt{CMP} = 36864/.../4608）$$
+$$\Rightarrow\ \text{核级 24 组：before/after }\textbf{日志逐行相同}（\mathtt{STAT8/STAT16}\ \text{的 }\mathtt{prm/wld/cmp/drn}\ \text{全等）}$$
+$$\Rightarrow\ \text{写事务级：条数相同（V8 11328、V16 5760）、地址序列逐条相同、字节 0 差异}$$
+
+**改动（只 1 个文件，代码净增 30 行）**
+$$\Rightarrow\ \mathtt{lane16/bin\_conv\_core\_v50.v}\ \text{md5 } \mathtt{61568f39}\to\mathbf{\mathtt{c04302ce}}$$
+$$\Rightarrow\ \text{5 处：}\mathtt{act\_q[63{:}0]}\ \text{声明};\ \mathtt{wmem[l\_q]}\to\mathtt{wmem[l\_qd]};\ \mathtt{act\_q}\le\mathtt{act\_c}（\text{挂 }\mathtt{ap\_ce}）$$
+$$\quad\ \mathtt{xn\_c} = \sim(\mathtt{act\_q}\oplus\mathtt{wrd});\ \text{新增 }\mathtt{r2\_*}\ \text{控制级，}\mathtt{s1\_*}\ \text{改从 }\mathtt{r2\_*}\ \text{取};\ \mathtt{tail\_empty}\ \text{加 }\mathtt{r2\_vld}$$
+$$\Rightarrow\ \textbf{算术一行未动}（\mathtt{pop64/p\_acc/nvalid/PRM/}\text{移位）}$$
+
+**时序（place，同 v51 配方）**
+$$\Rightarrow\ \textbf{WNS } +0.202 \to \mathbf{+0.515}（\text{place，目标 } \ge+0.5）$$
+$$\Rightarrow\ \text{旧锥}\mathbf{\text{已无路径}}：\text{被切成 }\mathtt{win\_q}\to\mathtt{act\_q} = +4.710（2\ \text{级）} + \mathtt{act\_q}\to\text{pop 树} = +1.963（9\ \text{级）}$$
+$$\Rightarrow\ \text{新最差落在}\textbf{权重侧 } \mathtt{wmem}\to\mathtt{s1\_pc\_q}（\text{改前第二族 } +0.594）\Rightarrow \textbf{"第二族上位"，比估的 } +0.39\ \text{更好}$$
+$$\Rightarrow\ \text{基线实测 } \text{place}\to\text{route}\ \text{差 } -0.089\ \text{ns} \Rightarrow \text{route 后约 } \mathbf{+0.42\sim0.45}$$
+
+**资源反而降**：LUT $21873\to\mathbf{21524}（-349，\text{高扇出网不再复制}）$；FF $21822\to21805$；BRAM 43/DSP 126 不变；Latch 0
+
+$$\Rightarrow\ \textbf{但按真实不确定性折算仍偏薄}：+0.42 - (0.5-0.035) \approx \mathbf{-0.05}\ \text{ns}$$
+$$\quad\ \Rightarrow\ \textbf{100 MHz 可能仍不稳};\ \text{若失败退 } 95/90\ \text{MHz 再验} \Rightarrow \text{这是"用实测定频率"，不是猜}$$

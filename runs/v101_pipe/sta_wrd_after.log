@@ -1,0 +1,100 @@
+[memgate] ===== 构建前预检 =====
+[memgate]   内存  MemAvailable  13.09 GB / 总  30.95 GB   (SwapTotal 0.0 GB)
+[memgate]   闸门  需 峰值 6 GB + 保留 4 GB = 10.00 GB   余量 3.09 GB
+[memgate]   根分区 /   31.67 GB 可用 / 98 GB    /tmp 当前占 3176 MB
+[memgate]   大分区 /media/felix/Data/tmp   83.42 GB 可用
+[memgate]   放行  TMPDIR=/media/felix/Data/tmp  (波形库/临时目录落这里)
+[memgate]   已持锁 /tmp/dsh_vivado.lock  2026-11-02 22:29:00  tag=felix
+[memgate]   复测 MemAvailable 13.08 GB >= 10.00 GB  ✔
+[memgate] ===== 放行 2026-11-02 22:29:00 =====
+[memgate]   令牌 DSH_BUILD_TOKEN=1793629740-1195877-383022873  BUILD_OWNER=/media/felix/Data/coding/demoir-fpga/runs/resguard/BUILD_OWNER
+
+****** Vivado v2025.2.1 (64-bit)
+  **** SW Build 6403652 on Thu Mar 19 13:47:00 MDT 2026
+  **** IP Build 6403511 on Thu Mar 19 12:41:45 MDT 2026
+  **** SharedData Build 6403650 on Thu Mar 19 14:02:13 MDT 2026
+  **** Start of session at: Mon Nov  2 22:29:01 2026
+    ** Copyright 1986-2022 Xilinx, Inc. All Rights Reserved.
+    ** Copyright 2022-2026 Advanced Micro Devices, Inc. All Rights Reserved.
+
+source /media/felix/Data/coding/demoir-fpga/runs/v101_pipe/sta_wrd.tcl
+# set dcp [lindex $argv 0]
+# set tag [lindex $argv 1]
+# open_checkpoint $dcp
+Command: open_checkpoint /media/felix/Data/coding/demoir-fpga/runs/v101_pipe/viv_after/t101_placed.dcp
+
+Starting open_checkpoint Task
+
+Time (s): cpu = 00:00:00.05 ; elapsed = 00:00:00.02 . Memory (MB): peak = 1514.488 ; gain = 0.000 ; free physical = 4722 ; free virtual = 13254
+INFO: [Device 21-403] Loading part xc7z015clg485-2
+Netlist sorting complete. Time (s): cpu = 00:00:00.1 ; elapsed = 00:00:00.11 . Memory (MB): peak = 1822.074 ; gain = 0.000 ; free physical = 4504 ; free virtual = 13044
+INFO: [Netlist 29-17] Analyzing 3759 Unisim elements for replacement
+INFO: [Netlist 29-28] Unisim Transformation completed in 0 CPU seconds
+INFO: [Project 1-479] Netlist was created with Vivado 2025.2.1
+INFO: [Project 1-570] Preparing netlist for logic optimization
+Read ShapeDB Complete: Time (s): cpu = 00:00:00.03 ; elapsed = 00:00:00.04 . Memory (MB): peak = 1937.824 ; gain = 4.250 ; free physical = 4390 ; free virtual = 12929
+INFO: [Timing 38-478] Restoring timing data from binary archive.
+INFO: [Timing 38-479] Binary timing data restore complete.
+INFO: [Project 1-856] Restoring constraints from binary archive.
+INFO: [Constraints 18-5170] The checkpoint was created with non-default parameter values which do not match the current Vivado settings.  Mismatching parameters are:
+  general.maxThreads
+INFO: [Project 1-853] Binary constraint restore complete.
+INFO: [Designutils 20-5722] Start Reading Physical Databases.
+Reading placement.
+Read Netlist Cache: Time (s): cpu = 00:00:00.04 ; elapsed = 00:00:00.03 . Memory (MB): peak = 2561.793 ; gain = 0.000 ; free physical = 3859 ; free virtual = 12366
+Reading placer database...
+Read Device Cache: Time (s): cpu = 00:00:00.01 ; elapsed = 00:00:00.01 . Memory (MB): peak = 2561.793 ; gain = 0.000 ; free physical = 3859 ; free virtual = 12366
+Read PlaceDB: Time (s): cpu = 00:00:00 ; elapsed = 00:00:00 . Memory (MB): peak = 2561.793 ; gain = 0.000 ; free physical = 3859 ; free virtual = 12366
+Read placeStorage: Time (s): cpu = 00:00:00.61 ; elapsed = 00:00:00.63 . Memory (MB): peak = 2584.793 ; gain = 23.000 ; free physical = 3843 ; free virtual = 12350
+Read PulsedLatchDB: Time (s): cpu = 00:00:00 ; elapsed = 00:00:00 . Memory (MB): peak = 2584.793 ; gain = 0.000 ; free physical = 3843 ; free virtual = 12350
+Reading routing.
+Read RouteStorage: Time (s): cpu = 00:00:00 ; elapsed = 00:00:00.01 . Memory (MB): peak = 2587.176 ; gain = 2.383 ; free physical = 3843 ; free virtual = 12350
+Read Physdb Files: Time (s): cpu = 00:00:00.68 ; elapsed = 00:00:00.68 . Memory (MB): peak = 2587.176 ; gain = 25.383 ; free physical = 3843 ; free virtual = 12350
+Restored from archive | CPU: 0.710000 secs | Memory: 24.138718 MB |
+Finished XDEF File Restore: Time (s): cpu = 00:00:00.7 ; elapsed = 00:00:00.71 . Memory (MB): peak = 2587.176 ; gain = 33.320 ; free physical = 3843 ; free virtual = 12350
+Netlist sorting complete. Time (s): cpu = 00:00:00 ; elapsed = 00:00:00 . Memory (MB): peak = 2608.996 ; gain = 0.000 ; free physical = 3632 ; free virtual = 12139
+INFO: [Project 1-111] Unisim Transformation Summary:
+  A total of 192 instances were transformed.
+  RAM64M => RAM64M (RAMD64E(x4)): 168 instances
+  RAM64X1D => RAM64X1D (RAMD64E(x2)): 24 instances
+
+INFO: [Project 1-604] Checkpoint was created with Vivado v2025.2.1 (64-bit) build 6403652
+open_checkpoint: Time (s): cpu = 00:00:15 ; elapsed = 00:00:10 . Memory (MB): peak = 2617.031 ; gain = 1102.543 ; free physical = 3637 ; free virtual = 12144
+# puts "== $tag"
+== after
+# foreach pat {.*l_qd.* .*l_q_reg.* .*wrd_reg.*} {
+#     set c [get_cells -hier -quiet -regexp $pat]
+#     puts "   cells /$pat/ = [llength $c]"
+#     foreach x [lrange $c 0 3] { puts "      [get_property NAME $x]  [get_property REF_NAME $x]" }
+# }
+   cells /.*l_qd.*/ = 8
+      design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_core/l_qd_reg_rep[0]  FDCE
+      design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_core/l_qd_reg_rep[1]  FDCE
+      design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_core/l_qd_reg_rep[2]  FDCE
+      design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_core/l_qd_reg_rep[3]  FDCE
+   cells /.*l_q_reg.*/ = 38
+      design_1_i/bin_unit_0/inst/u_bin_unit/ar_addr_sel_q_reg[10]  FDCE
+      design_1_i/bin_unit_0/inst/u_bin_unit/ar_addr_sel_q_reg[11]  FDCE
+      design_1_i/bin_unit_0/inst/u_bin_unit/ar_addr_sel_q_reg[12]  FDCE
+      design_1_i/bin_unit_0/inst/u_bin_unit/ar_addr_sel_q_reg[13]  FDCE
+   cells /.*wrd_reg.*/ = 0
+# set br [get_cells -hier -quiet -regexp {^design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_core/g_wram\[0\].wmem_reg$}]
+# puts "   BRAM g_wram[0] = [llength $br]  ref=[get_property REF_NAME $br]"
+   BRAM g_wram[0] = 1  ref=RAMB36E1
+# foreach pn {ADDRARDADDR ADDRBWRADDR} {
+#     set p [get_pins -quiet -of_objects $br -filter "REF_PIN_NAME == $pn"]
+#     if {[llength $p] == 0} { puts "   pin $pn: 无"; continue }
+#     set net [get_nets -quiet -of_objects $p]
+#     set drv [get_cells -quiet -of_objects $net]
+#     puts "   pin $pn: net=[get_property NAME $net]  驱动器=[llength $drv] 个"
+#     foreach d [lrange $drv 0 12] { puts "        <- [get_property NAME $d] ([get_property REF_NAME $d])" }
+# }
+   pin ADDRARDADDR: 无
+   pin ADDRBWRADDR: 无
+# set nff [llength [get_cells -hier -quiet -regexp {^design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_core/.*} -filter {IS_SEQUENTIAL == 1}]]
+# puts "   u_core 时序 cell 总数 = $nff"
+   u_core 时序 cell 总数 = 7663
+# puts "T101_WRD_DONE"
+T101_WRD_DONE
+INFO: [Common 17-206] Exiting Vivado at Mon Nov  2 22:29:13 2026...
+[memgate] 命令结束 rc=0  2026-11-02 22:29:14

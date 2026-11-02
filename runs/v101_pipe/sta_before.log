@@ -1,0 +1,101 @@
+[memgate] ===== 构建前预检 =====
+[memgate]   内存  MemAvailable  12.91 GB / 总  30.95 GB   (SwapTotal 0.0 GB)
+[memgate]   闸门  需 峰值 6 GB + 保留 4 GB = 10.00 GB   余量 2.91 GB
+[memgate]   根分区 /   31.67 GB 可用 / 98 GB    /tmp 当前占 3176 MB
+[memgate]   大分区 /media/felix/Data/tmp   83.42 GB 可用
+[memgate]   放行  TMPDIR=/media/felix/Data/tmp  (波形库/临时目录落这里)
+[memgate]   已持锁 /tmp/dsh_vivado.lock  2026-11-02 22:27:41  tag=felix
+[memgate]   复测 MemAvailable 12.91 GB >= 10.00 GB  ✔
+[memgate] ===== 放行 2026-11-02 22:27:41 =====
+[memgate]   令牌 DSH_BUILD_TOKEN=1793629661-1193752-63731094  BUILD_OWNER=/media/felix/Data/coding/demoir-fpga/runs/resguard/BUILD_OWNER
+
+****** Vivado v2025.2.1 (64-bit)
+  **** SW Build 6403652 on Thu Mar 19 13:47:00 MDT 2026
+  **** IP Build 6403511 on Thu Mar 19 12:41:45 MDT 2026
+  **** SharedData Build 6403650 on Thu Mar 19 14:02:13 MDT 2026
+  **** Start of session at: Mon Nov  2 22:27:42 2026
+    ** Copyright 1986-2022 Xilinx, Inc. All Rights Reserved.
+    ** Copyright 2022-2026 Advanced Micro Devices, Inc. All Rights Reserved.
+
+source /media/felix/Data/coding/demoir-fpga/runs/v101_pipe/sta_cone.tcl
+# set dcp  [lindex $argv 0]
+# set tag  [lindex $argv 1]
+# set odir [lindex $argv 2]
+# file mkdir $odir
+# open_checkpoint $dcp
+Command: open_checkpoint /media/felix/Data/coding/demoir-fpga/runs/v101_pipe/viv_before/t101_placed.dcp
+
+Starting open_checkpoint Task
+
+Time (s): cpu = 00:00:00.04 ; elapsed = 00:00:00.02 . Memory (MB): peak = 1581.410 ; gain = 0.000 ; free physical = 4623 ; free virtual = 13093
+INFO: [Device 21-403] Loading part xc7z015clg485-2
+Netlist sorting complete. Time (s): cpu = 00:00:00.11 ; elapsed = 00:00:00.11 . Memory (MB): peak = 1821.191 ; gain = 0.000 ; free physical = 4402 ; free virtual = 12922
+INFO: [Netlist 29-17] Analyzing 3856 Unisim elements for replacement
+INFO: [Netlist 29-28] Unisim Transformation completed in 0 CPU seconds
+INFO: [Project 1-479] Netlist was created with Vivado 2025.2.1
+INFO: [Project 1-570] Preparing netlist for logic optimization
+Read ShapeDB Complete: Time (s): cpu = 00:00:00.04 ; elapsed = 00:00:00.04 . Memory (MB): peak = 1938.973 ; gain = 5.250 ; free physical = 4323 ; free virtual = 12844
+INFO: [Timing 38-478] Restoring timing data from binary archive.
+INFO: [Timing 38-479] Binary timing data restore complete.
+INFO: [Project 1-856] Restoring constraints from binary archive.
+INFO: [Constraints 18-5170] The checkpoint was created with non-default parameter values which do not match the current Vivado settings.  Mismatching parameters are:
+  general.maxThreads
+INFO: [Project 1-853] Binary constraint restore complete.
+INFO: [Designutils 20-5722] Start Reading Physical Databases.
+Reading placement.
+Read Netlist Cache: Time (s): cpu = 00:00:00.03 ; elapsed = 00:00:00.04 . Memory (MB): peak = 2562.004 ; gain = 0.000 ; free physical = 3760 ; free virtual = 12283
+Reading placer database...
+Read Device Cache: Time (s): cpu = 00:00:00.01 ; elapsed = 00:00:00.01 . Memory (MB): peak = 2562.004 ; gain = 0.000 ; free physical = 3760 ; free virtual = 12283
+Read PlaceDB: Time (s): cpu = 00:00:00 ; elapsed = 00:00:00 . Memory (MB): peak = 2562.004 ; gain = 0.000 ; free physical = 3760 ; free virtual = 12283
+Read placeStorage: Time (s): cpu = 00:00:00.64 ; elapsed = 00:00:00.65 . Memory (MB): peak = 2585.004 ; gain = 23.000 ; free physical = 3732 ; free virtual = 12255
+Read PulsedLatchDB: Time (s): cpu = 00:00:00 ; elapsed = 00:00:00 . Memory (MB): peak = 2585.004 ; gain = 0.000 ; free physical = 3732 ; free virtual = 12255
+Reading routing.
+Read RouteStorage: Time (s): cpu = 00:00:00 ; elapsed = 00:00:00 . Memory (MB): peak = 2587.387 ; gain = 2.383 ; free physical = 3732 ; free virtual = 12255
+Read Physdb Files: Time (s): cpu = 00:00:00.69 ; elapsed = 00:00:00.72 . Memory (MB): peak = 2587.387 ; gain = 25.383 ; free physical = 3731 ; free virtual = 12254
+Restored from archive | CPU: 0.730000 secs | Memory: 24.338959 MB |
+Finished XDEF File Restore: Time (s): cpu = 00:00:00.72 ; elapsed = 00:00:00.74 . Memory (MB): peak = 2587.387 ; gain = 33.320 ; free physical = 3731 ; free virtual = 12254
+Netlist sorting complete. Time (s): cpu = 00:00:00 ; elapsed = 00:00:00.01 . Memory (MB): peak = 2609.207 ; gain = 0.000 ; free physical = 3707 ; free virtual = 12230
+INFO: [Project 1-111] Unisim Transformation Summary:
+  A total of 192 instances were transformed.
+  RAM64M => RAM64M (RAMD64E(x4)): 168 instances
+  RAM64X1D => RAM64X1D (RAMD64E(x2)): 24 instances
+
+INFO: [Project 1-604] Checkpoint was created with Vivado v2025.2.1 (64-bit) build 6403652
+open_checkpoint: Time (s): cpu = 00:00:16 ; elapsed = 00:00:11 . Memory (MB): peak = 2617.242 ; gain = 1035.832 ; free physical = 3707 ; free virtual = 12230
+# set fh [open [file join $odir "cone_${tag}.rpt"] w]
+# proc P {s} { global fh; puts $s; puts $fh $s }
+# proc FP {label plist} {
+#     if {[llength $plist] == 0} { P [format "  %-42s （无路径）" $label]; return }
+#     set p [lindex $plist 0]
+#     set sl [get_property SLACK $p]
+#     if {$sl eq ""} { set sls "inf/无约束" } else { set sls [format "%+.3f" $sl] }
+#     P [format "  %-42s slack=%s ns  级=%2d  %s -> %s" $label $sls \
+#         [get_property LOGIC_LEVELS $p] \
+#         [get_property STARTPOINT_PIN $p] [get_property ENDPOINT_PIN $p]]
+# }
+# set wq [get_cells -hier -quiet -regexp {^design_1_i/bin_unit_0/inst/u_bin_unit/win_q_reg[^/]*$}]
+# set s1 [get_cells -hier -quiet -regexp {^design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_core/s1_pc_q_reg[^/]*$}]
+# set wm [get_cells -hier -quiet -regexp {^design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_core/g_wram.*wmem_reg[^/]*$}]
+# set aq [get_cells -hier -quiet -regexp {^design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_core/act_q_reg[^/]*$}]
+# set s1d  [get_pins -quiet -of_objects $s1 -filter {REF_PIN_NAME == "D"}]
+# set aqd  [get_pins -quiet -of_objects $aq -filter {REF_PIN_NAME == "D"}]
+# P "== $tag  (win_q=[llength $wq] s1_pc_q=[llength $s1] wmem=[llength $wm] act_q=[llength $aq])"
+== before  (win_q=127 s1_pc_q=144 wmem=104 act_q=0)
+# FP "① 整体 WNS (setup)"              [get_timing_paths -max_paths 1 -nworst 1 -setup]
+  ① 整体 WNS (setup)                           slack=+0.202 ns  级=11  design_1_i/bin_unit_0/inst/u_bin_unit/win_q_reg_15/CLKBWRCLK -> design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_core/s1_pc_q_reg[5][5]/D
+# FP "② win_q -> s1_pc_q  (T-100 旧锥)" [get_timing_paths -from $wq -to $s1d -max_paths 1 -nworst 1 -setup]
+  ② win_q -> s1_pc_q  (T-100 旧锥)             slack=+0.202 ns  级=11  design_1_i/bin_unit_0/inst/u_bin_unit/win_q_reg_15/CLKBWRCLK -> design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_core/s1_pc_q_reg[5][5]/D
+# FP "③ 任何 -> s1_pc_q (pop 输出侧)"    [get_timing_paths -to $s1d -max_paths 1 -nworst 1 -setup]
+  ③ 任何 -> s1_pc_q (pop 输出侧)                  slack=+0.202 ns  级=11  design_1_i/bin_unit_0/inst/u_bin_unit/win_q_reg_15/CLKBWRCLK -> design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_core/s1_pc_q_reg[5][5]/D
+# FP "④ wmem -> s1_pc_q (权重侧)"        [get_timing_paths -from $wm -to $s1d -max_paths 1 -nworst 1 -setup]
+  ④ wmem -> s1_pc_q (权重侧)                    slack=+0.594 ns  级= 7  design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_core/g_wram[3].wmem_reg/CLKARDCLK -> design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_core/s1_pc_q_reg[3][5]/D
+# if {[llength $aq]} {
+#     FP "⑤ win_q -> act_q (新加的寄存级)" [get_timing_paths -from $wq -to $aqd -max_paths 1 -nworst 1 -setup]
+#     FP "⑥ act_q -> *"                    [get_timing_paths -from $aq -max_paths 1 -nworst 1 -setup]
+# }
+# catch { report_utilization -file [file join $odir "util_${tag}.rpt"] }
+# close $fh
+# puts "== $tag done"
+== before done
+INFO: [Common 17-206] Exiting Vivado at Mon Nov  2 22:27:59 2026...
+[memgate] 命令结束 rc=0  2026-11-02 22:27:59
