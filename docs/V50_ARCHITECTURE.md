@@ -168,3 +168,21 @@ $$\Rightarrow\ \text{REVIEW + SIM 迭代 }2\sim3\ \text{轮}\Rightarrow \mathbf{
 $$\Rightarrow\ \text{上板调通（按 R8 低频验证）}\Rightarrow \mathbf{+2\sim3\ 天}$$
 $$\Rightarrow\ \textbf{总计 } 6\sim8\ \text{天到 } 2.0\sim2.5\ \text{s}$$
 $$\Rightarrow\ \text{再往 }1\ \text{s 需要：}\text{200 MHz 收时序} + \text{剩余 PS 桶全搬 PL} \Rightarrow \mathbf{+5\sim8\ 天}$$
+
+---
+
+## 9. 命名契约（2026-11-02 15:35 补充，**解决 IMP-B 与 BD 的接不上**）
+
+$$\Rightarrow\ \text{v39 有}\textbf{两层}：\mathtt{bin\_unit\_axi\_wrap.v}（\text{单元}）\ \text{与}\ \mathtt{bin\_unit\_axi\_wrap\_bd.v}（\text{BD 外壳，module-ref 指向它}）$$
+$$\Rightarrow\ \text{v50 也必须给两层，且}\textbf{名字不能与旧文件重名}（\text{T-65 的 } \mathtt{bd\_v50.tcl}\ \text{有重名断言）}$$
+
+| 层 | v50 文件名 | 模块名 | 拥有者 |
+|---|---|---|---|
+| 单元 | `bin_unit_axi_wrap_v50.v` | `bin_unit_axi_wrap_v50` | IMP-B |
+| **BD 外壳** | `bin_unit_axi_wrap_bd_v50.v` | **`bin_unit_axi_wrap_bd_v50`** | **IMP-B**（外壳 `FREQ_HZ 150000000`、端口不窄于旧外壳）|
+| conv 核 | `bin_conv_core.v` | `bin_conv_core`（`LANES` 参数）| IMP-A |
+| band 缓冲 | `bin_band_buf.v` | `bin_band_buf` | IMP-B |
+| 描述符链 | `bin_segq.v` | `bin_segq` | IMP-B |
+
+$$\Rightarrow\ \mathtt{bd\_v50.tcl}\ \text{的 module-ref 必须指向 } \mathbf{\mathtt{bin\_unit\_axi\_wrap\_bd\_v50}}$$
+$$\Rightarrow\ \text{所有新模块名}\textbf{不得与 } \mathtt{rtl\_v50/}\ \text{里既有的 25 个模块重名}$$
