@@ -5690,3 +5690,26 @@ $$\quad\ \Rightarrow\ \textbf{裁定：本阶段融合锁 } \mathbf{k=1}（\math
 
 $$\Rightarrow\ \textbf{第 112 条（已入库 §14）：契约必须从"已验证的实现"反推，不能凭意图先写}$$
 $$\quad\ \text{我写了三版字段表（§3/§12.3/§13）}\textbf{每版都和 RTL 对不上} \Rightarrow \text{四个代理按不同版本实现} \Rightarrow \text{全靠下游发现冲突}$$
+
+### 70.57 ⚠ 第 3 次撞车：**我给在跑的代理发指令后又派了替身**（2026-11-02 17:28）
+
+$$\Rightarrow\ \text{我给 T-89 发了"六条裁定"（\text{它当时在跑）} \Rightarrow \text{它被唤醒后}\textbf{直接进了第二阶段}$$
+$$\Rightarrow\ \text{我同时派了 T-90 做同一件事} \Rightarrow \textbf{同批文件两个写者}$$
+$$\Rightarrow\ \text{T-90 开工先查 mtime：17:24 segq 被改、17:27 wrap 仍在增长} \Rightarrow \textbf{它按铁规停手、0 改动}$$
+
+**三次撞车的共同模式**
+| # | 我做了什么 | 结果 |
+|---|---|---|
+| 1 | 给已收工的 T-55 `send_message` | 它被唤醒并开始写，与 T-56 撞 |
+| 2 | 给已收工的 T-56 `send_message` | 同上，与 T-57 撞 |
+| 3 | **给还在跑的 T-89 发指令 + 同时派 T-90** | 两条线同批文件 |
+
+$$\Rightarrow\ \textbf{第 113 条（把 98/103/107 合成一条可执行规则）}：$$
+$$\quad\ \textbf{"派替身之前，必须先确认原主不会再动"}\ \text{——判据是 mtime，不是"它发过收尾消息"}$$
+$$\quad\ \text{具体：}\text{①派活前 } \mathtt{ls -l --time-style=+%H{:}％M}\ \text{看目标文件};\ \text{②}\textbf{刚给某代理发过指令} \Rightarrow \textbf{不许派替身}$$
+$$\quad\ \quad\ \text{③若已派出} \Rightarrow \text{把替身改成}\textbf{只读验收}\text{（本次这样做，反而白赚一个独立复核）}$$
+
+**本次的实际收益**：T-90 转成只读验收，并当场指出一个**可能的第二个静默 bug**：
+$$\Rightarrow\ \text{band 每个 64-bit 字 = 8 通道} \Rightarrow \texttt{drain 字数} = \lceil \mathtt{cout}/8 \rceil，\textbf{与 lane 数无关}$$
+$$\Rightarrow\ \text{而 T-89 写的是 } \lceil \mathtt{cout}/\mathtt{VLANES} \rceil \Rightarrow \mathtt{VLANES}=16\ \text{时}\textbf{ drain 字数少一半} \Rightarrow \text{少写一半输出}$$
+$$\Rightarrow\ \text{已要求 T-90 给 } \mathtt{VLANES}=8/16\ \text{两种口径的具体数值并判定}$$
