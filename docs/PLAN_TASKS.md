@@ -47,3 +47,19 @@
 
 $$\Rightarrow\ \mathtt{bin\_segq.v:465}\ \text{排空地址 } \mathtt{st\_base + cnt\times8}\ \textbf{不含 } \mathtt{band\_y0}$$
 $$\Rightarrow\ \text{一旦 } \mathtt{FUSE=1}，256^2\ \text{下 } \mathtt{bands}=16\ \text{只填 } 1/16\ \text{行} \Rightarrow \textbf{必错}$$
+
+**▶ P2 位流交付（2026-11-03 03:1x）—— 主机侧全绿，只等板子**
+- 位流 `runs/hdmi_p1/hdmi_p1.bit`（3,510,797 B），**设计指纹 `SW_CRC=bd345bcd`**（`.bit` 头 payload CRC）
+  ⚠ `.bit` 的 md5 每轮不同（头里含构建时间戳）⇒ **跨构建比对设计用 SW_CRC，不用 md5**
+- hwh md5 `24d07045…`，基址 `0x400A0000 / 64 KB`
+- 三路 WNS **+1.500 / +8.087 / +21.952** ns（+ AXI +3.402），TNS 0，0 failing
+- 整 BD **1549 LUT / 2161 FF / 1.5 BRAM / 0 DSP / Latch 0**；`u_hdmi_out_top` 1037 LUT；**BUFGCTRL=7**
+- 五处结构断言全过；`BD 41-759` 本次 0 条；5b 白名单 4 条逐轮打印
+- 三时钟 place 失败用 `CLOCK_DEDICATED_ROUTE ANY_CMT_COLUMN` 解决（WNS −0.295，仍为正）；
+  **红线见契约 §8.18②**：若吃到负，改 RTL 不放宽周期
+
+**▶ 待板端验证（排队，板子已移交他人）**
+1. P2 真画面：`CTRL.test_pattern=0` + `display_demo` 推一帧 ⇒ 左原图 / 右处理图 / 上下 40 px 黑边
+2. **720p30 是否被 SIL9134 接受**（`VIDEO_MODE=3`；37.109375 MHz 已在 RTL 侧验过）
+3. 切换帧计 1 行 `UNDERFLOW_CNT` 的板端表现（判据是稳态 0 增长）
+4. 上板全程走"心跳先行"六步协议；`Clocks.fclk0_mhz` 报 1.5 倍 ⇒ 写 150 才是真 100 MHz
