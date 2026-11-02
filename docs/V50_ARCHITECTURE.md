@@ -329,3 +329,135 @@ $$\Rightarrow\ \Rightarrow\ \textbf{裁定：字 0 在 } \mathtt{FUSE\_MODE=1}\ 
 
 $$\Rightarrow\ \textbf{填充器必须}：\text{行宽取 } \mathtt{w4}，\text{带内有效行数取 } \mathtt{w3}\ \text{低 16}，\text{输入高度取 } \mathtt{w3}\ \text{高 16}$$
 $$\Rightarrow\ \textbf{不许}：\text{把 } \mathtt{w3}\ \text{低 16 当 } W（\text{IMP-B2 的写法，必须改}）$$
+
+---
+
+## 14. 描述符字段**权威表**（2026-11-02 T-89，**以 RTL 实测解码为准**）
+
+> ## ⚠ **本节以 `bin_segq.v` 的实际解码为唯一真相源：§3、§12.3、§13 全部作废。**
+> 三版字段表（§3 / §12.3 / §13）**每一版都与 RTL 对不上**，且对不上的**不是命名，是位**。
+> 本节保留即生效；§13 的表格只作历史记录，**不许再据此接线、填描述符、写填充器**。
+> 依据：T-88 的逐字节实测 + T-89 通读 `lane16/bin_segq.v`（483 行，md5 `191bda10…`）、
+> `bin_band_fill_v50.v`（`1b0407bd…`）、`bin_unit_axi_wrap_v50.v`（`0229c186…`）。
+> 完整逐行证据表：`runs/v89_desc/AUTHORITATIVE_DESC_FIELDS.md`、`runs/v89_desc/desc_field_map.csv`。
+
+### 14.1 第一性事实：`dw[i]` 是「64-bit 拍」，不是「字」
+
+$$\Rightarrow\ \mathtt{DESC\_WORDS}=10,\ \mathtt{HDR\_BEATS}=(10\times4+7)/8=\mathbf{5}\ (\text{segq:55-56})$$
+$$\Rightarrow\ \mathtt{dw[hdr\_beat]}\le\mathtt{hdr\_q}\ (\text{segq:304}),\quad \mathtt{hdr\_addr}=\mathtt{cur\_pa}+\mathtt{beat}\times8\ (\text{segq:204})$$
+
+| 拍 | 字节 | 覆盖的字 |
+|---|---|---|
+| `dw[0]` | 0..7 | 字 0 ‖ 字 1 |
+| `dw[1]` | 8..15 | **字 2** ‖ 字 3 |
+| `dw[2]` | 16..23 | 字 4 ‖ 字 5 |
+| `dw[3]` | 24..31 | 字 6 ‖ 字 7 |
+| `dw[4]` | 32..39 | 字 8 ‖ 字 9 |
+
+$$\Rightarrow\ \textbf{凡把 } \mathtt{dw[1]}\ \text{当"字 1"的写法都错位了一个字：}\mathtt{dw[1][31{:}0]}\ \text{是字 2，不是字 1}$$
+
+### 14.2 权威字段表（bit 段 → 语义 → 行号 → 消费者）
+
+行号：RTL = `bin_segq.v`；消费方 = `bin_unit_axi_wrap_v50.v`。
+
+| 拍/bit | 字节 | =字 | 语义（RTL 实际行为） | segq 行 | 消费者 |
+|---|---|---|---|---|---|
+| `dw[0][31:0]` | 0..3 | w0 | `in_pa`（装载源 + arena 检查） | 339, 346, 240, 243 | 填充器 `.in_pa`(1809)、S_LOAD 地址(206) |
+| `dw[0][63:32]` | 4..7 | **w1** | **无人读取（悬空）** | — | 无 —— 本应在此的 `out_pa` 被丢弃 |
+| `dw[1][15:0]` | 8..9 | w2 | `cin`(=`cfg_c`) | 326 | conv `.cfg_cin`(1372) |
+| `dw[1][31:0]` | 8..11 | w2 | **被当 `out_pa`/排空基址** ⇒ 实为 cin | 340, 347, 240, 244 | 排空 DDR 地址(462) |
+| `dw[1][47:32]` | 12..13 | w3 低 | `cfg_h`=本带有效输出行数（RTL 名叫 `d_w`） | 328 | 填充器 `.cfg_h`(1811)、`fill_rows`(1348)、`band_words`(1660) |
+| `dw[1][63:48]` | 14..15 | w3 高 | `H_in`（RTL 名叫 `d_h`） | 327 | 填充器 `.h_in`(1812) |
+| `dw[2][15:0]` | 16..17 | w4 低 | `cfg_w`=行宽 `W`（RTL 名叫 `d_cout`） | 329 | conv `.cfg_w`(1381)、填充器 `.w_row`(1813) |
+| `dw[2][31:16]` | 18..19 | w4 高 | 未读 | — | — |
+| `dw[2][39:32]` | 20 | w5[7:0] | RTL 名 `d_k`（PS 填的是 `cfg_group`） | 330 | conv `.cfg_k`(1374) |
+| `dw[2][47:40]` | 21 | w5[15:8] | RTL 名 `d_s` | 331 | conv `.cfg_s`(1375) |
+| `dw[2][55:48]` | 22 | w5[23:16] | RTL 名 `d_d` | 332 | conv `.cfg_d`(1376) |
+| `dw[2][63:56]` | 23 | w5[31:24] | RTL 名 `d_pad` | 333 | conv `.cfg_pad`(1377) |
+| `dw[3][15:0]` | 24..25 | w6 低 | `band_y0`（绝对行号） | 334 | 填充器 `.y0`(1810) |
+| `dw[3][31:16]` | 26..27 | w6 高 | 未读 | — | — |
+| `dw[3][63:32]` | 28..31 | w7 | `flags`；**且被 E_NULL 要求非 0** | 335, 241 | 无消费者（`seg_flags` 接了不用） |
+| `dw[4][31:0]` | 32..35 | w8 | `next_pa`（0=链尾） | 336, 404, 407, 410 | segq 内部 |
+| `dw[4][47:32]` | 36..37 | w9 低 | `nband`；**E_SIZE 要求非 0** | 337, 236 | conv `.cfg_h`(1379)、填充器 `.nband`(1814)、`band_words`(1658) |
+| `dw[4][63:48]` | 38..39 | w9 高 | `op_mask`；**OP_MASK_SUP 检查** | 338, 238 | `fill_conv_en`(1346)、`band_opmask`(1755) |
+
+### 14.3 `dw[0]` 与 `dw[1]` 低 32 位的真相（本次要澄清的那一条）
+
+$$\mathtt{dw[0][31{:}0]}=\text{字 0}=\mathtt{in\_pa}\ (\textbf{地址})\quad✔$$
+$$\mathtt{dw[1][31{:}0]}=\text{字 2}=\mathtt{cfg\_c}=\mathtt{cin}\ (\textbf{不是地址})\quad✘$$
+
+四条独立证据：
+$$\Rightarrow\ \text{① } \mathtt{dw[1][15{:}0]}\ \text{已被单独锁成 } \mathtt{f\_cin}(326)\text{，同一 32 位段不可能既是 cin 又是地址}$$
+$$\Rightarrow\ \text{② 该当 } \mathtt{out\_pa}\ \text{的 } \mathtt{dw[0][63{:}32]}\ \text{在整份文件里}\textbf{零读取}\text{（"必须存在的字段没人读"只有一个解释）}$$
+$$\Rightarrow\ \text{③ segq:318-325 的注释自述"字2=dw[1][31:0]、字3=dw[1][63:32]"，只有 240/244/340/347 四行违反同一份注释}$$
+$$\Rightarrow\ \text{④ 模块头注释(20-21)写"字0 in_pa / 字1 out_pa"，与代码在"字 1"上分叉}$$
+
+$$\Rightarrow\ \textbf{判定：这是 } \mathtt{dw}\ \text{把"字"当"拍"的 off-by-one（4 处），不是设计取向}$$
+与 v39 布局（`in_pa/out_pa/cin/{h,w}/cout/{pad,d,s,k}`）完全一致，只错在索引。
+
+### 14.4 后果（四条，全部**静默**）
+
+| # | 后果 | 证据 |
+|---|---|---|
+| ① | **排空写到 DDR 低地址**：`st_wa = cin + cnt*8`，PS 的 `out_pa` 被整体丢弃 | segq:347, 462 |
+| ② | `cin=0` 的描述符被判 E_NULL | segq:240 |
+| ③ | `in_arena` 把 **cin 当缓冲区**查包含性 ⇒ PS 一旦写 `0x318/0x31C`，第一条描述符就 E_RANGE | segq:244 |
+| ④ | `flags=0`（非末带、不需物化）被判 E_NULL，违反 §10.2"未定义位忽略" | segq:241 |
+
+$$\Rightarrow\ \text{why 至今没炸：}\mathtt{ARENA\_LO/HI}\ \text{复位 } \mathtt{0/0xFFFF\_FFFF}\ (\text{wrap:891})\text{，PS 从不写 } \mathtt{0x318/0x31C}$$
+$$\Rightarrow\ \Rightarrow\ \texttt{in\_arena}\ \text{恒真、E\_NULL 只卡 cin=0 ⇒ \textbf{segq 一条 err 都不报，输出静默写到地址 cin}}$$
+同 `docs/板端事故_内存踩踏_真相.md` 的失效类型（PL 写到不该写的地方）。
+
+### 14.5 PS 填 ↔ RTL 读 逐条对照：**6 处对不上**
+
+$$\Rightarrow\ \text{位置错位 }1\ (\mathtt{out\_pa}\to\text{w1 悬空，RTL 读 w2})\ +\ \text{字段不存在 }5\ (\mathtt{cout,k,s,d,pad})$$
+$$\Rightarrow\ \text{另有 }1\ \text{处校验误伤（}\mathtt{flags}=0\Rightarrow\mathtt{E\_NULL}\text{）、}1\ \text{处接了不消费（}\mathtt{flags}\text{）}$$
+
+| 字 | PS 填 | RTL 读 | 判定 |
+|---|---|---|---|
+| w0 | `in_pa` | `dw[0][31:0]` | ✅ |
+| w1 | `out_pa` | **无** | ❌ 错位 |
+| w2 | `cfg_c` | `dw[1][31:0]`(当 out_pa) + `dw[1][15:0]`(cin) | ⚠ 一错一对 |
+| w3 低/高 | `cfg_h` / `H_in` | `d_w` / `d_h` | ✅ 值对名错（T-88 已按名改接） |
+| w4 | `cfg_w`=W | `d_cout` | ✅ 值对名错（T-88 已按名改接） |
+| w5 | `cfg_group`=0 | `d_k/d_s/d_d/d_pad` | ❌ conv 拿到 k=s=d=pad=0 |
+| w6 / w7 / w8 / w9 | `band_y0` / `flags` / `next_pa` / `nband\|op_mask` | 同 | ✅（w7 无人消费 + E_NULL 误伤） |
+
+$$\Rightarrow\ \textbf{结构性缺口}：\mathtt{cout}\ \text{在 10 个字里}\textbf{没有位置}（\text{w4 被 } W \text{ 占、w5 被 } \mathtt{cfg\_group}\ \text{占}）$$
+$$\Rightarrow\ \text{现在融合模式下 conv 的 } \mathtt{cfg\_cout} = \mathtt{w4} = W（\text{行宽，例如 224}），\textbf{不是通道数}$$
+
+### 14.6 必须改 `bin_segq.v` 的 4 行（T-89 提案，**未改**，等裁定）
+
+```diff
+- 240: (dw[0][31:0]==0) || (dw[1][31:0]==0) || (dw[3][63:32]==0)
++ 240: (dw[0][31:0]==0) || (dw[0][63:32]==0)
+- 244: in_arena({32'd0, dw[1][31:0]}, ...)
++ 244: in_arena({32'd0, dw[0][63:32]}, ...)
+- 340: f_out    <= dw[1][31:0] & 32'hFFFF_FFFF;
++ 340: f_out    <= dw[0][63:32];
+- 347: st_base <= dw[1][31:0];
++ 347: st_base <= dw[0][63:32];
+```
+$$\Rightarrow\ \text{不改状态机、不改时间轴、不改端口、不改 } \mathtt{DESC\_WORDS}\text{；四条已验证路径语义不变}$$
+
+### 14.7 新发现（需裁定）：conv 核的 `cfg_h` **双用途**
+
+$$\mathtt{hout\_c}=((\mathtt{cfg\_h}-1)>>s)+1\ (\text{conv:156})\quad\text{vs}\quad \mathtt{hw8\_c}=\mathtt{cfg\_h}\cdot\mathtt{cfg\_w}\cdot8\ (\text{conv:163})$$
+$$\Rightarrow\ \mathtt{cfg\_h}\ \text{同时是"输出行数"和"64-通道块步长乘数"（}\mathtt{cp1}=(\mathtt{cb}-1)\cdot\mathtt{hw8}\text{，conv:805）}$$
+$$\Rightarrow\ \text{band 布局要求块步长}=\mathtt{rows\_fill}\cdot W\cdot8\text{，输出行数要求}=\mathtt{nband}$$
+$$\Rightarrow\ \mathtt{halo}\neq0\ \text{时 } \mathtt{rows\_fill}=\mathtt{nband}+2\mathtt{HALO}\neq\mathtt{nband}\ \Rightarrow\ \textbf{无法同时满足（} \mathtt{cin}>64 \text{ 时必错）}$$
+$$\Rightarrow\ \text{T-88 的 } \mathtt{c\_cfg\_h}=\mathtt{nband}\ \text{对"输出行数"对、对"块步长"错；缺口④ 的 } \mathtt{base\_act}=\mathtt{HALO}\cdot W\cdot8\ \text{修不了它}$$
+
+**建议**：本阶段融合只跑 `k=1`（`halo=0` ⇒ 两用途自洽），`k=3/5` 段继续走 v39 路径，
+不碰 `bin_conv_core_v50.v`。（三条备选方案见 `runs/v89_desc/AUTHORITATIVE_DESC_FIELDS.md` §6。）
+
+### 14.8 悬空字段清单（供后续清理）
+
+$$\Rightarrow\ \mathtt{dw[0][63{:}32]}\ (\text{w1})、\mathtt{dw[2][31{:}16]}\ (\text{w4 高})、\mathtt{dw[3][31{:}16]}\ (\text{w6 高})\ \textbf{零读取}$$
+$$\Rightarrow\ \mathtt{d\_out\_pa}、\mathtt{d\_flags}\ \text{在包装层}\textbf{接了不消费}$$
+
+### 14.9 附带登记：`.OP_MASK_SUP` 会把 `conv→cat` 融合段全拒
+
+$$\Rightarrow\ \text{包装层传 } \mathtt{.OP\_MASK\_SUP(16'h0001)}\ (\text{segq 默认 } \mathtt{32'h00FF})，\text{而 PS 的 } \mathtt{V50\_OP\_BITS}=\{\mathtt{conv}{:}0,\mathtt{cat}{:}1,\dots\}$$
+$$\Rightarrow\ \text{融合段 } \mathtt{op\_mask}=0x3\Rightarrow \mathtt{segq:238}\ \text{判 } \mathtt{E\_OPMASK}=6\Rightarrow \textbf{第一条描述符就被拒}$$
+$$\Rightarrow\ \text{修法：} \mathtt{.OP\_MASK\_SUP(16'h0003)}，\text{并核 cat 在带模式下的读口（E1E2 已接 band C 口）}$$

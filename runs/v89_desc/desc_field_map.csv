@@ -1,0 +1,19 @@
+beat,bits,byte_off,word,segq_latch,segq_lines,segq_internal_use,segq_port,wrap_consumer,ps_field,ps_source,verdict
+dw[0],[31:0],0..3,w0,f_in,339;346;206;240;243,ld_base->ld_addr;E_NULL;in_arena,d_in_pa,bin_band_fill_v50.in_pa (wrap:1809),in_pa (v50_seg_descs: in_pa),OK
+dw[0],[63:32],4..7,w1,(none),(no reads at all),none,none,none,out_pa (v50_desc word[1]),W1_DANGLING_PS_FIELD_IS_DROPPED
+dw[1],[15:0],8..9,w2[15:0],f_cin,326,none,d_cin,c_cfg_cin (wrap:1372) -> conv.cfg_cin,cfg_c (=seg.c_in),OK
+dw[1],[31:0],8..11,w2,f_out,340;347;240;244,st_base->st_wa (462);E_NULL;in_arena,d_out_pa,seg_out_pa (no consumer); effective path = seg_st_wa,cfg_c (=seg.c_in) — NOT an address,MISMATCH_off_by_one_uses_cin_as_out_pa
+dw[1],[47:32],12..13,w3[15:0],f_w,328,none,d_w,bin_band_fill_v50.cfg_h (wrap:1811); fill_rows(1348); band_words(1660),cfg_h (=nband) (v50_desc w3 low),OK_VALUE_NAME_MISMATCH
+dw[1],[63:48],14..15,w3[31:16],f_h,327,none,d_h,bin_band_fill_v50.h_in (wrap:1812) via seg_h_in(1370),h_in (=seg.h_in) (v50_desc w3 high),OK_VALUE_NAME_MISMATCH
+dw[2],[15:0],16..17,w4[15:0],f_cout,329,none,d_cout,seg_w4(1371) -> conv.cfg_w(1381) + filler.w_row(1813) + band_words(1661),cfg_w (=seg.w_in) (v50_desc w4),OK_VALUE_NAME_MISMATCH
+dw[2],[31:16],18..19,w4[31:16],(none),(none),none,none,none,-,-,UNUSED_BITS
+dw[2],[39:32],20,w5[7:0],f_k,330,none,d_k,c_cfg_k (wrap:1374) -> conv.cfg_k,cfg_group (v50_desc w5) always 0,MISMATCH_CONV_GETS_k_cfg_group
+dw[2],[47:40],21,w5[15:8],f_s,331,none,d_s,c_cfg_s (wrap:1375) -> conv.cfg_s,cfg_group (w5) always 0,MISMATCH_CONV_GETS_s_cfg_group
+dw[2],[55:48],22,w5[23:16],f_d,332,none,d_d,c_cfg_d (wrap:1376) -> conv.cfg_d,cfg_group (w5) always 0,MISMATCH_CONV_GETS_d_cfg_group
+dw[2],[63:56],23,w5[31:24],f_pad,333,none,d_pad,c_cfg_pad (wrap:1377) -> conv.cfg_pad,cfg_group (w5) always 0,MISMATCH_CONV_GETS_pad_cfg_group
+dw[3],[15:0],24..25,w6[15:0],f_y0,334,none,d_band_y0,bin_band_fill_v50.y0 (wrap:1810),band_y0 (v50_desc w6),OK
+dw[3],[31:16],26..27,w6[31:16],(none),(none),none,none,none,-,-,UNUSED_BITS
+dw[3],[63:32],28..31,w7,f_flags,335;241,E_NULL requires !=0,d_flags,seg_flags (no consumer),flags (v50_desc w7),OK_FIELD_BUT_E_NULL_FALSE_POSITIVE
+dw[4],[31:0],32..35,w8,f_next,336;404;407;410,chain next pointer,d_next_pa,internal,next_pa (v50_chain_words),OK
+dw[4],[47:32],36..37,w9[15:0],f_nband,337;236,E_SIZE requires !=0,d_nband,conv.cfg_h(1379)+filler.nband(1814)+band_words(1658),nband (v50_desc w9 low),OK
+dw[4],[63:48],38..39,w9[31:16],f_opmask,338;238,OP_MASK_SUP check,d_op_mask,fill_conv_en(1346)+band_opmask(1755),op_mask (v50_desc w9 high),OK (but wrap OP_MASK_SUP=16'h0001 rejects bit1=pack)

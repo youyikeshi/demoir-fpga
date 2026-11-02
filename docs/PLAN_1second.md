@@ -5663,3 +5663,30 @@ $$\Rightarrow\ \Rightarrow \text{根因：RTL 的 } \mathtt{w\_b4k}\ \text{拿�
 $$\Rightarrow\ \text{待修：}\text{首拍不比较 } \mathtt{wstart}（\text{记入低优先级）}$$
 
 **板子现状**：PL = v45、\mathtt{fclk0}=25\ MHz、仍开机、PS 已同步到冻结点、v39 位流未动。
+
+### 70.56 ★★★★★ 描述符真相：**索引 off-by-one 导致静默越界写**（T-89，2026-11-02 17:30）
+
+**根基纠正：描述符是 5 个 64-bit 拍，不是 10 个 32-bit 字**
+$$\Rightarrow\ \mathtt{HDR\_BEATS}=5 \Rightarrow \mathtt{dw[0]}=\text{字}0\|\text{字}1,\ \mathtt{dw[1]}=\text{字}2\|\text{字}3,\ \dots$$
+
+**真冲突：索引 off-by-one（4 处），不是"两种设计之争"**
+$$\Rightarrow\ \mathtt{dw[0][31{:}0]} = \text{字}0 = \mathtt{in\_pa}\ (\text{地址，正确})$$
+$$\Rightarrow\ \mathtt{dw[1][31{:}0]} = \textbf{字}2 = \mathtt{cfg\_c/cin}，\text{但 } 4\ \text{处（}\mathtt{240/244/340/347}\text{）把它当 }\mathtt{out\_pa}\ \text{用}$$
+$$\Rightarrow\ \textbf{真 } \mathtt{out\_pa} = \text{字}1 = \mathtt{dw[0][63{:}32]} \Rightarrow \textbf{全文件零读取（悬空）}$$
+
+**后果：静默越界写（与踩烂板子那一族同族）**
+$$\Rightarrow\ \text{排空写到 } \mathtt{cin}+\text{偏移}（\mathtt{segq:347}\to\mathtt{462}）;\ \text{PS 的 } \mathtt{out\_pa}\ \textbf{整条丢弃}$$
+$$\Rightarrow\ \mathtt{ARENA\_LO/HI}\ \text{复位 } 0/0xFFFFFFFF\ \text{且 PS 从不写 } \mathtt{0x318/0x31C} \Rightarrow \mathtt{in\_arena}\ \textbf{恒真}$$
+$$\Rightarrow\ \Rightarrow \textbf{一条 err 都不报}，\text{输出静默写 DDR 低地址}（\mathtt{cin}=32 \Rightarrow 0x20）$$
+
+**PS↔RTL 共 6 处对不上**
+$$\Rightarrow\ \mathtt{out\_pa}\ \text{错位 } 1\ \text{处};\ \mathtt{cout}/k/s/d/\mathtt{pad}\ \textbf{5 个在 §13 描述符里没有位置}（\mathtt{w4}\ \text{被 } W\ \text{占、}\mathtt{w5}\ \text{被 } \mathtt{cfg\_group}\ \text{占）$$
+$$\Rightarrow\ \Rightarrow\ \text{conv 现在 } \mathtt{cfg\_cout} = W \Rightarrow \textbf{必然错}$$
+
+**另两个阻断项**
+$$\Rightarrow\ \mathtt{wrap}\ \text{传 } \mathtt{OP\_MASK\_SUP=0x0001}，\text{而融合段要 } 0x3 \Rightarrow \mathtt{segq:238}\ \text{判 } \mathtt{E\_OPMASK} \Rightarrow \textbf{45 条融合段第一条就被拒}$$
+$$\Rightarrow\ \text{conv 核 } \mathtt{cfg\_h}\ \textbf{双用途}（\mathtt{hout\_c}\ \text{输出行数} + \mathtt{hw8\_c}\ \text{通道块步长}）\Rightarrow \mathtt{halo}\neq0\ \text{不可兼得}$$
+$$\quad\ \Rightarrow\ \textbf{裁定：本阶段融合锁 } \mathbf{k=1}（\mathtt{halo}=0\ \text{自洽}）;\ k=3/5\ \text{继续走 v39 老路径}$$
+
+$$\Rightarrow\ \textbf{第 112 条（已入库 §14）：契约必须从"已验证的实现"反推，不能凭意图先写}$$
+$$\quad\ \text{我写了三版字段表（§3/§12.3/§13）}\textbf{每版都和 RTL 对不上} \Rightarrow \text{四个代理按不同版本实现} \Rightarrow \text{全靠下游发现冲突}$$
