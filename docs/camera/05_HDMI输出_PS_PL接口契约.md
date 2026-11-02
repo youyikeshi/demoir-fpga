@@ -317,3 +317,22 @@ $$\Rightarrow\ 100\ \text{MHz} \Rightarrow 300\ \text{MB/s};\quad 150\ \text{MHz
 | 720p60 | **74.2319 MHz** | +0.018% |
 
 ⇒ 两路都在 ±500 ppm 内，HDMI 余量充足；`BUFGMUX` 切换实测使心跳半周期 ×2.000，证明切的是 `pix_clk_b`。
+
+### 8.8 ★ 结论：SIL9134 同时接受 1080p60 与 720p60（2026-11-03 01:2x，用户肉眼双确认）
+
+| 模式 | 像素时钟实测 | 用户肉眼 | `init_done` |
+|---|---|---|---|
+| 1080p60（`VIDEO_MODE=1`） | 148.4568 MHz | ✅ 彩条 | 1 |
+| 720p60（`VIDEO_MODE=0`） | 74.2319 MHz | ✅ **彩条** | 1（切换期间未掉） |
+
+$$\Rightarrow\ 	ext{厂商那 2 条 I2C 寄存器写}	extbf{不锁死输出模式} \Rightarrow 	ext{芯片随输入像素时钟自适应}$$
+$$\Rightarrow\ 	extbf{因此 P2（真画面）用 720p60} \Rightarrow 	ext{行内瞬时 } 223\ 	ext{MB/s} \Rightarrow 100\ 	ext{MHz AXI 余量 } 26\%$$
+$$\Rightarrow\ 	ext{不必把 } 	exttt{s\_axi\_aclk}\ 	ext{提到 } 150\ 	ext{MHz}（	ext{那条路只剩 } 1\%\ 	ext{余量）}$$
+$$\Rightarrow\ 	ext{1080p60 保留给"要看更大画面"的场合} \Rightarrow 	ext{需 AXI } \ge 150\ 	ext{MHz}$$
+
+### 8.9 心跳判据的最终写法（对 §8.2 的修订）
+- 不用"两次读必须不同"。
+- 用：**有界窗口 poll ≥ 100 ms，要求至少 5 个 `0x30[0]` 翻转沿**。
+- 附加能力：由沿速率反推像素时钟
+  - `hb_cnt[16]` 半周期 = $2^{16}$ 个像素时钟
+  - $	ext{像素时钟} = \dfrac{	ext{沿数}}{2 \cdot \Delta t} \cdot 2^{16}$ 的倒数关系 ⇒ 实测 148.4568 / 74.2319 MHz 与设计值差 $+0.013\%$ / $+0.018\%$
