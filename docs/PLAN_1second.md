@@ -4857,3 +4857,22 @@ $$\Rightarrow\ \text{G2-E 组剩下 3 条} (\texttt{pf\_busy\_reg[0..2]/D}，\te
 $$\Rightarrow\ \text{同一个"加深预取"的想法，}\texttt{PF\_AHEAD 1\to2}\ \text{几乎免费，}\texttt{PF\_DEPTH 4\to8}\ \text{直接造出 118 条} -4.719\ \text{的 CE 违例}$$
 $$\quad\ \text{而那条违例的失效模式是}\textbf{预取 tag 写错} \Rightarrow \text{误判命中} \Rightarrow \text{取回错的线} \Rightarrow \textbf{非确定性数据错（v42 的 24/24）}$$
 $$\Rightarrow\ \textbf{判据}：\text{加深度类参数前，先问"它是否新增一行存储/比较器"，并}\textbf{单独看那一行的 CE/D 引脚 slack}$$
+
+### 70.25 ⚠⚠ v42c 也错，而且**在 100 MHz 下也错** ⇒ 不是时序，是预取逻辑的功能 bug（2026-11-02 09:30）
+
+$$\Rightarrow\ \text{v42c 板端 } 64^2\ \text{两次 sha1}：\texttt{bd8f848d…}\ \text{与}\ \texttt{ba212720…} \Rightarrow \textbf{互不相同，且都不等于冻结}$$
+$$\Rightarrow\ \text{同一 session 里把时钟降到 } \mathbf{100\ MHz}\ \text{再跑：}\textbf{仍然错};\quad \text{v39 在 } 100\ MHz\ \text{两次都对、都命中冻结}$$
+$$\Rightarrow\ \Rightarrow\ \textbf{时钟降到 100 MHz 仍错 ⇒ 不是 setup 违例，是功能错}$$
+$$\Rightarrow\ \text{诊断读数：} \texttt{cnt\_cyc}=503{,}255{,}728（\text{已在跑}），\texttt{frz/cyc}=0.0\%,\ \texttt{fd}=288,\ \texttt{fa}=560$$
+$$\quad\ \text{而 } \texttt{AP\_RETURN}=0x2（done=0,\ busy=1）\Rightarrow \textbf{"卡在等线"}：\text{预取发出了请求但线没回到该回的地方}$$
+
+$$\Rightarrow\ \textbf{结论}：\texttt{PF\_AHEAD } 1\to2\ \text{不是"调参"，是}\textbf{改了预取的簿记语义}；\text{v39 的读通路}\textbf{只能安全地超前 1 条线}$$
+$$\Rightarrow\ \text{最可能的机制：}2\ \text{笔预取同时在飞时，AXI 响应可能}\textbf{乱序}（按 ID），而}\ \text{RTL 的 tag/槽簿记假设了顺序}$$
+$$\quad\ \Rightarrow\ \text{响应被写到错的槽} \Rightarrow \text{需求读命中一条"标签对、内容错"的线} \Rightarrow \textbf{非确定性数据错}$$
+$$\Rightarrow\ \textbf{为什么仿真没抓到（第 93 条）}：\text{T-38 的 TB 用的是固定延迟的行为存储器模型} \Rightarrow \textbf{响应永远按序}$$
+$$\quad\ \Rightarrow\ \textbf{纪律}：\text{凡是改"多条请求在飞"的逻辑，TB 必须}\textbf{能乱序/背压返回}；\text{否则 0 差只是"模型 0 差"}$$
+
+**行动**
+$$\Rightarrow\ \text{先做隔离构建 } \textbf{v42d} = \text{v39} + \text{只读计数器（T-48）} \Rightarrow \text{判明"是不是那 4 个计数器干的"}$$
+$$\quad\ \text{若 v42d 正确} \Rightarrow \text{计数器无罪，锅在 } \texttt{PF\_AHEAD=2}\ \text{的簿记} \Rightarrow \text{回到 RTL 设计 + 乱序 TB}$$
+$$\quad\ \text{若 v42d 也错} \Rightarrow \text{计数器逻辑（} \texttt{clr\_t34}\ \text{挂 start\_fire）有副作用，反而是更便宜的修法}$$
