@@ -1,0 +1,870 @@
+
+****** Vivado v2025.2.1 (64-bit)
+  **** SW Build 6403652 on Thu Mar 19 13:47:00 MDT 2026
+  **** IP Build 6403511 on Thu Mar 19 12:41:45 MDT 2026
+  **** SharedData Build 6403650 on Thu Mar 19 14:02:13 MDT 2026
+  **** Start of session at: Tue Nov  3 00:08:25 2026
+    ** Copyright 1986-2022 Xilinx, Inc. All Rights Reserved.
+    ** Copyright 2022-2026 Advanced Micro Devices, Inc. All Rights Reserved.
+
+source pl/vivado/hdmi_p1/build_hdmi_p1.tcl
+# if {[info exists ::env(HDMI_P1_STANDALONE)] && $::env(HDMI_P1_STANDALONE) eq "1"} {
+#     puts "== 独立模式（HDMI_P1_STANDALONE=1）：跳过 _guard_build.tcl，自行限流 =="
+# } else {
+#     source [file join [file dirname [file normalize [info script]]] .. .. scripts _guard_build.tcl]
+# }
+== 独立模式（HDMI_P1_STANDALONE=1）：跳过 _guard_build.tcl，自行限流 ==
+# set_param general.maxThreads 2                  
+# foreach _p {general.enable_parallel_synth general.enableParallelSynth} {
+#     if {[catch {set_param $_p 0} _e]} { puts "    (set_param $_p 不支持：$_e)" }
+# }
+    (set_param general.enable_parallel_synth 不支持：ERROR: [Common 17-153] Param 'general.enable_parallel_synth' does not exist
+)
+    (set_param general.enableParallelSynth 不支持：ERROR: [Common 17-153] Param 'general.enableParallelSynth' does not exist
+)
+# set HERE     [file dirname [file normalize [info script]]]
+# set PSCODE   [file normalize [file join $HERE .. .. ..]]
+# set REPO     [file normalize [file join $PSCODE ..]]
+# set PROJDIR  [file join $HERE proj]
+# set XPR      [file join $PROJDIR hdmi_p1.xpr]
+# set RTL      [file join $HERE rtl]
+# set FROZEN   [file join $HERE rtl_frozen]
+# set XDCFROZ  [file join $HERE constraints_frozen]
+# set XDCMINE  [file join $HERE constraints]
+# set OUT      [file join $REPO runs hdmi_p1]
+# set LIVE_MOD [file join $PSCODE pl rtl_hand modules]
+# set LIVE_XDC [file join $PSCODE pl constraints]
+# set STAGE "full"
+# if {[info exists ::env(STAGE)]} { set STAGE $::env(STAGE) }
+# set REBUILD 1
+# if {[info exists ::env(REBUILD_BD)]} { set REBUILD [expr {$::env(REBUILD_BD) eq "1"}] }
+# file mkdir $OUT
+# set PART       xc7z015clg485-2
+# set ADDR_HDMI  0x400A0000
+# set RANGE_HDMI 64K
+# set ::STEP 0
+# proc step {m} { incr ::STEP; puts ""; puts "\[[format %02d $::STEP]\] $m"; flush stdout }
+# proc ok   {m} { puts "    OK   $m"; flush stdout }
+# proc note {m} { puts "    ..   $m"; flush stdout }
+# proc md5f {f} { return [lindex [exec md5sum $f] 0] }
+# proc tstamp {} { return [clock format [clock seconds] -format "%H:%M:%S"] }
+# proc mem_avail_gb {} {
+#     set fh [open /proc/meminfo r]; set t [read $fh]; close $fh
+#     regexp {MemAvailable:\s+(\d+) kB} $t -> kb
+#     return [expr {$kb / 1048576.0}]
+# }
+# proc wait_mem {need tag} {
+#     for {set i 0} {$i < 40} {incr i} {
+#         set gb [mem_avail_gb]
+#         puts "    \[mem\] $tag : MemAvailable = [format %.2f $gb] GB (need >= $need)"
+#         if {$gb >= $need} { return }
+#         puts "    \[mem\] 不足，睡 60 s 再看（绝不硬上）"
+#         after 60000
+#     }
+#     error "内存长期 < $need GB，放弃（$tag）"
+# }
+# puts "==========================================================================="
+===========================================================================
+# puts " HDMI P1 独立 BD   STAGE=$STAGE  REBUILD=$REBUILD  [tstamp]"
+ HDMI P1 独立 BD   STAGE=full  REBUILD=0  00:08:27
+# puts " Vivado [version -short]  part=$PART"
+ Vivado 2025.2.1  part=xc7z015clg485-2
+# puts " 工程=$XPR"
+ 工程=/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/vivado/hdmi_p1/proj/hdmi_p1.xpr
+# puts " 产物=$OUT"
+ 产物=/media/felix/Data/coding/demoir-fpga/runs/hdmi_p1
+# puts "==========================================================================="
+===========================================================================
+# step "1) 冻结输入 md5 / 端口硬断言"
+
+[01] 1) 冻结输入 md5 / 端口硬断言
+# array set EXP_FROZEN {
+#     hdmi_out_top.v    718971613e4b517231667212f7683bb4
+#     hdmi_timing_gen.v d42fc295946ad07230de8a3b5bb49045
+#     hdmi_color_bar.v  ffaf1bcd6e9237d756efb1f140a2fcec
+#     sil9134_init.v    fb55cf255e004c68024fefea31a4509a
+# }
+# set EXP_XDC c1183e22470b121efd48f747ca24fdac
+# foreach f [lsort [array names EXP_FROZEN]] {
+#     set p [file join $FROZEN $f]
+#     if {![file exists $p]} { error "缺冻结副本：$p" }
+#     if {[md5f $p] ne $EXP_FROZEN($f)} { error "冻结副本 md5 不符：$f" }
+#     ok "$f  [md5f $p]"
+# }
+    OK   hdmi_color_bar.v  ffaf1bcd6e9237d756efb1f140a2fcec
+    OK   hdmi_out_top.v  718971613e4b517231667212f7683bb4
+    OK   hdmi_timing_gen.v  d42fc295946ad07230de8a3b5bb49045
+    OK   sil9134_init.v  fb55cf255e004c68024fefea31a4509a
+# set px [file join $XDCFROZ hdmi_out_pins.xdc]
+# if {[md5f $px] ne $EXP_XDC} { error "冻结 XDC md5 不符：[md5f $px]" }
+# ok "hdmi_out_pins.xdc  $EXP_XDC"
+    OK   hdmi_out_pins.xdc  c1183e22470b121efd48f747ca24fdac
+# set _fh [open [file join $FROZEN hdmi_out_top.v] r]
+# set _t [read $_fh]
+# close $_fh
+# foreach _sig {pix_clk_a pix_clk_b} {
+#     if {![regexp "input\\s+wire\\s+$_sig" $_t]} { error "冻结 top 缺 $_sig —— 不是双时钟版" }
+# }
+# foreach _sig {hdmi_scl hdmi_sda} {
+#     if {![regexp "inout\\s+wire\\s+$_sig" $_t]} { error "冻结 top 的 $_sig 不是 inout" }
+# }
+# foreach _sig {cfg_upd fid_upd} {
+#     if {![regexp "output\\s+wire\\s+$_sig" $_t]} { error "冻结 top 缺 $_sig" }
+# }
+# if {![regexp "UNDERFLOW_CNT" $_t]} { error "冻结 top 缺 0x2C UNDERFLOW_CNT" }
+# ok "冻结 top 端口/寄存器核对通过（双时钟 + inout + cfg_upd/fid_upd + 0x2C）"
+    OK   冻结 top 端口/寄存器核对通过（双时钟 + inout + cfg_upd/fid_upd + 0x2C）
+# foreach f [lsort [array names EXP_FROZEN]] {
+#     set lp [file join $LIVE_MOD $f]
+#     if {[file exists $lp] && [md5f $lp] ne $EXP_FROZEN($f)} {
+#         note "⚠ live $f = [md5f $lp]（本构建用冻结副本）"
+#     }
+# }
+# step "2) 工程（$PROJDIR）"
+
+[02] 2) 工程（/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/vivado/hdmi_p1/proj）
+# if {[file exists $XPR] && !$REBUILD} {
+#     open_project $XPR
+#     set _needbd 0
+#     if {[llength [get_files -quiet *.bd]] == 0} { set _needbd 1 }
+#     ok "复用已有工程"
+# } else {
+#     if {[file exists $PROJDIR]} { file delete -force $PROJDIR }
+#     create_project -force hdmi_p1 $PROJDIR -part $PART
+#     set _needbd 1
+#     add_files -norecurse [list \
+#         [file join $RTL    hdmi_p1_top.v] \
+#         [file join $FROZEN hdmi_out_top.v] \
+#         [file join $FROZEN hdmi_timing_gen.v] \
+#         [file join $FROZEN hdmi_color_bar.v] \
+#         [file join $FROZEN sil9134_init.v]]
+#     add_files -fileset constrs_1 -norecurse [list \
+#         [file join $XDCFROZ hdmi_out_pins.xdc] \
+#         [file join $XDCMINE hdmi_p1_clocks.xdc]]
+#     ok "新建工程 part=[get_property PART [current_project]]，+5 RTL +2 XDC"
+# }
+Scanning sources...
+Finished scanning sources
+WARNING: [Board 49-26] cannot add Board Part xilinx.com:emb-plus-vpr-4616:part0:1.0 available at /data/xilinx/2025.2/2025.2.1/data/xhub/boards/XilinxBoardStore/boards/Xilinx/emb-plus-vpr-4616/1.0/board.xml as part xcve2302-sfva784-2mp-e-s specified in board_part file is either invalid or not available
+WARNING: [Board 49-26] cannot add Board Part xilinx.com:emb-plus-vpr-4616:part0:1.1 available at /data/xilinx/2025.2/2025.2.1/data/xhub/boards/XilinxBoardStore/boards/Xilinx/emb-plus-vpr-4616/1.1/board.xml as part xcve2302-sfva784-2mp-e-s specified in board_part file is either invalid or not available
+WARNING: [Board 49-26] cannot add Board Part xilinx.com:k24c:part0:1.0 available at /data/xilinx/2025.2/2025.2.1/data/xhub/boards/XilinxBoardStore/boards/Xilinx/k24c/1.0/board.xml as part xck24-ubva530-2lv-c specified in board_part file is either invalid or not available
+WARNING: [Board 49-26] cannot add Board Part xilinx.com:k24c:part0:1.1 available at /data/xilinx/2025.2/2025.2.1/data/xhub/boards/XilinxBoardStore/boards/Xilinx/k24c/1.1/board.xml as part xck24-ubva530-2lv-c specified in board_part file is either invalid or not available
+WARNING: [Board 49-26] cannot add Board Part xilinx.com:k24i:part0:1.0 available at /data/xilinx/2025.2/2025.2.1/data/xhub/boards/XilinxBoardStore/boards/Xilinx/k24i/1.0/board.xml as part xck24-ubva530-2lvi-i specified in board_part file is either invalid or not available
+WARNING: [Board 49-26] cannot add Board Part xilinx.com:k26c:part0:1.2 available at /data/xilinx/2025.2/2025.2.1/data/xhub/boards/XilinxBoardStore/boards/Xilinx/k26c/1.2/board.xml as part xck26-sfvc784-2lv-c specified in board_part file is either invalid or not available
+WARNING: [Board 49-26] cannot add Board Part xilinx.com:k26c:part0:1.3 available at /data/xilinx/2025.2/2025.2.1/data/xhub/boards/XilinxBoardStore/boards/Xilinx/k26c/1.3/board.xml as part xck26-sfvc784-2lv-c specified in board_part file is either invalid or not available
+WARNING: [Board 49-26] cannot add Board Part xilinx.com:k26c:part0:1.4 available at /data/xilinx/2025.2/2025.2.1/data/xhub/boards/XilinxBoardStore/boards/Xilinx/k26c/1.4/board.xml as part xck26-sfvc784-2lv-c specified in board_part file is either invalid or not available
+WARNING: [Board 49-26] cannot add Board Part xilinx.com:k26i:part0:1.2 available at /data/xilinx/2025.2/2025.2.1/data/xhub/boards/XilinxBoardStore/boards/Xilinx/k26i/1.2/board.xml as part xck26-sfvc784-2lvi-i specified in board_part file is either invalid or not available
+WARNING: [Board 49-26] cannot add Board Part xilinx.com:k26i:part0:1.3 available at /data/xilinx/2025.2/2025.2.1/data/xhub/boards/XilinxBoardStore/boards/Xilinx/k26i/1.3/board.xml as part xck26-sfvc784-2lvi-i specified in board_part file is either invalid or not available
+WARNING: [Board 49-26] cannot add Board Part xilinx.com:k26i:part0:1.4 available at /data/xilinx/2025.2/2025.2.1/data/xhub/boards/XilinxBoardStore/boards/Xilinx/k26i/1.4/board.xml as part xck26-sfvc784-2lvi-i specified in board_part file is either invalid or not available
+WARNING: [Board 49-26] cannot add Board Part xilinx.com:kcu105:part0:1.6 available at /data/xilinx/2025.2/2025.2.1/data/xhub/boards/XilinxBoardStore/boards/Xilinx/kcu105/1.6/board.xml as part xcku040-ffva1156-2-e specified in board_part file is either invalid or not available
+WARNING: [Board 49-26] cannot add Board Part xilinx.com:kcu105:part0:1.7 available at /data/xilinx/2025.2/2025.2.1/data/xhub/boards/XilinxBoardStore/boards/Xilinx/kcu105/1.7/board.xml as part xcku040-ffva1156-2-e specified in board_part file is either invalid or not available
+WARNING: [Board 49-26] cannot add Board Part xilinx.com:kcu116:part0:1.4 available at /data/xilinx/2025.2/2025.2.1/data/xhub/boards/XilinxBoardStore/boards/Xilinx/kcu116/1.4/board.xml as part xcku5p-ffvb676-2-e specified in board_part file is either invalid or not available
+WARNING: [Board 49-26] cannot add Board Part xilinx.com:kcu116:part0:1.5 available at /data/xilinx/2025.2/2025.2.1/data/xhub/boards/XilinxBoardStore/boards/Xilinx/kcu116/1.5/board.xml as part xcku5p-ffvb676-2-e specified in board_part file is either invalid or not available
+WARNING: [Board 49-26] cannot add Board Part xilinx.com:kcu1500:part0:1.2 available at /data/xilinx/2025.2/2025.2.1/data/xhub/boards/XilinxBoardStore/boards/Xilinx/kcu1500/1.2/board.xml as part xcku115-flvb2104-2-e specified in board_part file is either invalid or not available
+WARNING: [Board 49-26] cannot add Board Part xilinx.com:kd240_som:part0:1.0 available at /data/xilinx/2025.2/2025.2.1/data/xhub/boards/XilinxBoardStore/boards/Xilinx/kd240_som/1.0/board.xml as part xck24-ubva530-2lv-c specified in board_part file is either invalid or not available
+WARNING: [Board 49-26] cannot add Board Part xilinx.com:kd240_som:part0:1.1 available at /data/xilinx/2025.2/2025.2.1/data/xhub/boards/XilinxBoardStore/boards/Xilinx/kd240_som/1.1/board.xml as part xck24-ubva530-2lv-c specified in board_part file is either invalid or not available
+WARNING: [Board 49-26] cannot add Board Part xilinx.com:kr260_som:part0:1.0 available at /data/xilinx/2025.2/2025.2.1/data/xhub/boards/XilinxBoardStore/boards/Xilinx/kr260_som/1.0/board.xml as part xck26-sfvc784-2lv-c specified in board_part file is either invalid or not available
+WARNING: [Board 49-26] cannot add Board Part xilinx.com:kr260_som:part0:1.1 available at /data/xilinx/2025.2/2025.2.1/data/xhub/boards/XilinxBoardStore/boards/Xilinx/kr260_som/1.1/board.xml as part xck26-sfvc784-2lv-c specified in board_part file is either invalid or not available
+WARNING: [Board 49-26] cannot add Board Part xilinx.com:kv260_som:part0:1.2 available at /data/xilinx/2025.2/2025.2.1/data/xhub/boards/XilinxBoardStore/boards/Xilinx/kv260_som/1.2/board.xml as part xck26-sfvc784-2lv-c specified in board_part file is either invalid or not available
+WARNING: [Board 49-26] cannot add Board Part xilinx.com:kv260_som:part0:1.3 available at /data/xilinx/2025.2/2025.2.1/data/xhub/boards/XilinxBoardStore/boards/Xilinx/kv260_som/1.3/board.xml as part xck26-sfvc784-2lv-c specified in board_part file is either invalid or not available
+WARNING: [Board 49-26] cannot add Board Part xilinx.com:kv260_som:part0:1.4 available at /data/xilinx/2025.2/2025.2.1/data/xhub/boards/XilinxBoardStore/boards/Xilinx/kv260_som/1.4/board.xml as part xck26-sfvc784-2lv-c specified in board_part file is either invalid or not available
+WARNING: [Board 49-26] cannot add Board Part xilinx.com:scu200:part0:1.0 available at /data/xilinx/2025.2/2025.2.1/data/xhub/boards/XilinxBoardStore/boards/Xilinx/scu200/1.0/board.xml as part xcsu200p-sbva1024-2-e specified in board_part file is either invalid or not available
+WARNING: [Board 49-26] cannot add Board Part xilinx.com:scu35:part0:1.0 available at /data/xilinx/2025.2/2025.2.1/data/xhub/boards/XilinxBoardStore/boards/Xilinx/scu35/1.0/board.xml as part xcsu35p-sbvb625-2-e specified in board_part file is either invalid or not available
+WARNING: [Board 49-26] cannot add Board Part xilinx.com:v80:part0:1.0 available at /data/xilinx/2025.2/2025.2.1/data/xhub/boards/XilinxBoardStore/boards/Xilinx/v80/1.0/board.xml as part xcv80-lsva4737-2mhp-e-s specified in board_part file is either invalid or not available
+WARNING: [Board 49-26] cannot add Board Part xilinx.com:vck190:part0:2.2 available at /data/xilinx/2025.2/2025.2.1/data/xhub/boards/XilinxBoardStore/boards/Xilinx/vck190/production/2.2/board.xml as part xcvc1902-vsva2197-2mp-e-s specified in board_part file is either invalid or not available
+WARNING: [Board 49-26] cannot add Board Part xilinx.com:vck190:part0:3.0 available at /data/xilinx/2025.2/2025.2.1/data/xhub/boards/XilinxBoardStore/boards/Xilinx/vck190/production/3.0/board.xml as part xcvc1902-vsva2197-2mp-e-s specified in board_part file is either invalid or not available
+WARNING: [Board 49-26] cannot add Board Part xilinx.com:vck190:part0:3.1 available at /data/xilinx/2025.2/2025.2.1/data/xhub/boards/XilinxBoardStore/boards/Xilinx/vck190/production/3.1/board.xml as part xcvc1902-vsva2197-2mp-e-s specified in board_part file is either invalid or not available
+WARNING: [Board 49-26] cannot add Board Part xilinx.com:vck190:part0:3.2 available at /data/xilinx/2025.2/2025.2.1/data/xhub/boards/XilinxBoardStore/boards/Xilinx/vck190/production/3.2/board.xml as part xcvc1902-vsva2197-2mp-e-s specified in board_part file is either invalid or not available
+WARNING: [Board 49-26] cannot add Board Part xilinx.com:vck190:part0:3.3 available at /data/xilinx/2025.2/2025.2.1/data/xhub/boards/XilinxBoardStore/boards/Xilinx/vck190/production/3.3/board.xml as part xcvc1902-vsva2197-2mp-e-s specified in board_part file is either invalid or not available
+WARNING: [Board 49-26] cannot add Board Part xilinx.com:vck190:part0:3.4 available at /data/xilinx/2025.2/2025.2.1/data/xhub/boards/XilinxBoardStore/boards/Xilinx/vck190/production/3.4/board.xml as part xcvc1902-vsva2197-2mp-e-s specified in board_part file is either invalid or not available
+WARNING: [Board 49-26] cannot add Board Part xilinx.com:vck190_newl:part0:1.0 available at /data/xilinx/2025.2/2025.2.1/data/xhub/boards/XilinxBoardStore/boards/Xilinx/vck190_newl/production/1.0/board.xml as part xcvc1902-vsva2197-2mp-e-s specified in board_part file is either invalid or not available
+WARNING: [Board 49-26] cannot add Board Part xilinx.com:vck190_newl:part0:1.1 available at /data/xilinx/2025.2/2025.2.1/data/xhub/boards/XilinxBoardStore/boards/Xilinx/vck190_newl/production/1.1/board.xml as part xcvc1902-vsva2197-2mp-e-s specified in board_part file is either invalid or not available
+WARNING: [Board 49-26] cannot add Board Part xilinx.com:vck190_newl:part0:1.2 available at /data/xilinx/2025.2/2025.2.1/data/xhub/boards/XilinxBoardStore/boards/Xilinx/vck190_newl/production/1.2/board.xml as part xcvc1902-vsva2197-2mp-e-s specified in board_part file is either invalid or not available
+WARNING: [Board 49-26] cannot add Board Part xilinx.com:vck190_newl:part0:1.3 available at /data/xilinx/2025.2/2025.2.1/data/xhub/boards/XilinxBoardStore/boards/Xilinx/vck190_newl/production/1.3/board.xml as part xcvc1902-vsva2197-2mp-e-s specified in board_part file is either invalid or not available
+WARNING: [Board 49-26] cannot add Board Part xilinx.com:vcu108:part0:1.6 available at /data/xilinx/2025.2/2025.2.1/data/xhub/boards/XilinxBoardStore/boards/Xilinx/vcu108/1.6/board.xml as part xcvu095-ffva2104-2-e specified in board_part file is either invalid or not available
+WARNING: [Board 49-26] cannot add Board Part xilinx.com:vcu108:part0:1.7 available at /data/xilinx/2025.2/2025.2.1/data/xhub/boards/XilinxBoardStore/boards/Xilinx/vcu108/1.7/board.xml as part xcvu095-ffva2104-2-e specified in board_part file is either invalid or not available
+WARNING: [Board 49-26] cannot add Board Part xilinx.com:vcu110:part0:1.4 available at /data/xilinx/2025.2/2025.2.1/data/xhub/boards/XilinxBoardStore/boards/Xilinx/vcu110/1.4/board.xml as part xcvu190-flgc2104-2-e specified in board_part file is either invalid or not available
+WARNING: [Board 49-26] cannot add Board Part xilinx.com:vcu118:part0:2.0 available at /data/xilinx/2025.2/2025.2.1/data/xhub/boards/XilinxBoardStore/boards/Xilinx/vcu118/2.0/board.xml as part xcvu9p-flga2104-2l-e specified in board_part file is either invalid or not available
+WARNING: [Board 49-26] cannot add Board Part xilinx.com:vcu118:part0:2.3 available at /data/xilinx/2025.2/2025.2.1/data/xhub/boards/XilinxBoardStore/boards/Xilinx/vcu118/2.3/board.xml as part xcvu9p-flga2104-2l-e specified in board_part file is either invalid or not available
+WARNING: [Board 49-26] cannot add Board Part xilinx.com:vcu118:part0:2.4 available at /data/xilinx/2025.2/2025.2.1/data/xhub/boards/XilinxBoardStore/boards/Xilinx/vcu118/2.4/board.xml as part xcvu9p-flga2104-2l-e specified in board_part file is either invalid or not available
+WARNING: [Board 49-26] cannot add Board Part xilinx.com:vcu128:part0:1.0 available at /data/xilinx/2025.2/2025.2.1/data/xhub/boards/XilinxBoardStore/boards/Xilinx/vcu128/production/1.0/board.xml as part xcvu37p-fsvh2892-2l-e specified in board_part file is either invalid or not available
+WARNING: [Board 49-26] cannot add Board Part xilinx.com:vcu129:part0:1.0 available at /data/xilinx/2025.2/2025.2.1/data/xhub/boards/XilinxBoardStore/boards/Xilinx/vcu129/production/1.0/board.xml as part xcvu29p-fsga2577-2l-e specified in board_part file is either invalid or not available
+WARNING: [Board 49-26] cannot add Board Part xilinx.com:vcu1525:part0:1.3 available at /data/xilinx/2025.2/2025.2.1/data/xhub/boards/XilinxBoardStore/boards/Xilinx/vcu1525/1.3/board.xml as part xcvu9p-fsgd2104-2l-e specified in board_part file is either invalid or not available
+WARNING: [Board 49-26] cannot add Board Part xilinx.com:vek280:part0:1.0 available at /data/xilinx/2025.2/2025.2.1/data/xhub/boards/XilinxBoardStore/boards/Xilinx/vek280/production/1.0/board.xml as part xcve2802-vsvh1760-2mp-e-s specified in board_part file is either invalid or not available
+WARNING: [Board 49-26] cannot add Board Part xilinx.com:vek280:part0:1.1 available at /data/xilinx/2025.2/2025.2.1/data/xhub/boards/XilinxBoardStore/boards/Xilinx/vek280/production/1.1/board.xml as part xcve2802-vsvh1760-2mp-e-s specified in board_part file is either invalid or not available
+WARNING: [Board 49-26] cannot add Board Part xilinx.com:vek280:part0:1.2 available at /data/xilinx/2025.2/2025.2.1/data/xhub/boards/XilinxBoardStore/boards/Xilinx/vek280/production/1.2/board.xml as part xcve2802-vsvh1760-2mp-e-s specified in board_part file is either invalid or not available
+WARNING: [Board 49-26] cannot add Board Part xilinx.com:vek385:part0:1.0 available at /data/xilinx/2025.2/2025.2.1/data/xhub/boards/XilinxBoardStore/boards/Xilinx/vek385/1.0/board.xml as part xc2ve3858-ssva2112-2mp-e-s specified in board_part file is either invalid or not available
+WARNING: [Board 49-26] cannot add Board Part xilinx.com:vek385:part0:1.1 available at /data/xilinx/2025.2/2025.2.1/data/xhub/boards/XilinxBoardStore/boards/Xilinx/vek385/1.1/board.xml as part xc2ve3858-ssva2112-2mp-e-s specified in board_part file is either invalid or not available
+WARNING: [Board 49-26] cannot add Board Part xilinx.com:vek385_1:part0:1.0 available at /data/xilinx/2025.2/2025.2.1/data/xhub/boards/XilinxBoardStore/boards/Xilinx/vek385_2/1.0/board.xml as part xc2ve3858-ssva2112-2mp-e-s specified in board_part file is either invalid or not available
+WARNING: [Board 49-26] cannot add Board Part xilinx.com:vermeo_t1_mpsoc:part0:1.0 available at /data/xilinx/2025.2/2025.2.1/data/xhub/boards/XilinxBoardStore/boards/Xilinx/vermeo_t1_mpsoc/1.0/board.xml as part xczu19eg-ffvd1760-2l-e specified in board_part file is either invalid or not available
+WARNING: [Board 49-26] cannot add Board Part xilinx.com:vermeo_t1_rfsoc:part0:1.0 available at /data/xilinx/2025.2/2025.2.1/data/xhub/boards/XilinxBoardStore/boards/Xilinx/vermeo_t1_rfsoc/1.0/board.xml as part xczu21dr-ffvd1156-2l-e specified in board_part file is either invalid or not available
+WARNING: [Board 49-26] cannot add Board Part xilinx.com:vhk158:part0:1.0 available at /data/xilinx/2025.2/2025.2.1/data/xhub/boards/XilinxBoardStore/boards/Xilinx/vhk158/production/1.0/board.xml as part xcvh1582-vsva3697-2mp-e-s specified in board_part file is either invalid or not available
+WARNING: [Board 49-26] cannot add Board Part xilinx.com:vhk158:part0:1.1 available at /data/xilinx/2025.2/2025.2.1/data/xhub/boards/XilinxBoardStore/boards/Xilinx/vhk158/production/1.1/board.xml as part xcvh1582-vsva3697-2mp-e-s specified in board_part file is either invalid or not available
+WARNING: [Board 49-26] cannot add Board Part xilinx.com:vhk158:part0:1.2 available at /data/xilinx/2025.2/2025.2.1/data/xhub/boards/XilinxBoardStore/boards/Xilinx/vhk158/production/1.2/board.xml as part xcvh1582-vsva3697-2mp-e-s specified in board_part file is either invalid or not available
+WARNING: [Board 49-26] cannot add Board Part xilinx.com:vmk180:part0:2.2 available at /data/xilinx/2025.2/2025.2.1/data/xhub/boards/XilinxBoardStore/boards/Xilinx/vmk180/production/2.2/board.xml as part xcvm1802-vsva2197-2mp-e-s specified in board_part file is either invalid or not available
+WARNING: [Board 49-26] cannot add Board Part xilinx.com:vmk180:part0:3.0 available at /data/xilinx/2025.2/2025.2.1/data/xhub/boards/XilinxBoardStore/boards/Xilinx/vmk180/production/3.0/board.xml as part xcvm1802-vsva2197-2mp-e-s specified in board_part file is either invalid or not available
+WARNING: [Board 49-26] cannot add Board Part xilinx.com:vmk180:part0:3.1 available at /data/xilinx/2025.2/2025.2.1/data/xhub/boards/XilinxBoardStore/boards/Xilinx/vmk180/production/3.1/board.xml as part xcvm1802-vsva2197-2mp-e-s specified in board_part file is either invalid or not available
+WARNING: [Board 49-26] cannot add Board Part xilinx.com:vmk180:part0:3.2 available at /data/xilinx/2025.2/2025.2.1/data/xhub/boards/XilinxBoardStore/boards/Xilinx/vmk180/production/3.2/board.xml as part xcvm1802-vsva2197-2mp-e-s specified in board_part file is either invalid or not available
+WARNING: [Board 49-26] cannot add Board Part xilinx.com:vmk180:part0:3.3 available at /data/xilinx/2025.2/2025.2.1/data/xhub/boards/XilinxBoardStore/boards/Xilinx/vmk180/production/3.3/board.xml as part xcvm1802-vsva2197-2mp-e-s specified in board_part file is either invalid or not available
+WARNING: [Board 49-26] cannot add Board Part xilinx.com:vmk180_newl:part0:1.0 available at /data/xilinx/2025.2/2025.2.1/data/xhub/boards/XilinxBoardStore/boards/Xilinx/vmk180_newl/production/1.0/board.xml as part xcvm1802-vsva2197-2mp-e-s specified in board_part file is either invalid or not available
+WARNING: [Board 49-26] cannot add Board Part xilinx.com:vmk180_newl:part0:1.1 available at /data/xilinx/2025.2/2025.2.1/data/xhub/boards/XilinxBoardStore/boards/Xilinx/vmk180_newl/production/1.1/board.xml as part xcvm1802-vsva2197-2mp-e-s specified in board_part file is either invalid or not available
+WARNING: [Board 49-26] cannot add Board Part xilinx.com:vpk120:part0:1.0 available at /data/xilinx/2025.2/2025.2.1/data/xhub/boards/XilinxBoardStore/boards/Xilinx/vpk120/production/1.0/board.xml as part xcvp1202-vsva2785-2mp-e-s specified in board_part file is either invalid or not available
+WARNING: [Board 49-26] cannot add Board Part xilinx.com:vpk120:part0:1.1 available at /data/xilinx/2025.2/2025.2.1/data/xhub/boards/XilinxBoardStore/boards/Xilinx/vpk120/production/1.1/board.xml as part xcvp1202-vsva2785-2mp-e-s specified in board_part file is either invalid or not available
+WARNING: [Board 49-26] cannot add Board Part xilinx.com:vpk120:part0:1.2 available at /data/xilinx/2025.2/2025.2.1/data/xhub/boards/XilinxBoardStore/boards/Xilinx/vpk120/production/1.2/board.xml as part xcvp1202-vsva2785-2mp-e-s specified in board_part file is either invalid or not available
+WARNING: [Board 49-26] cannot add Board Part xilinx.com:vpk180:part0:1.0 available at /data/xilinx/2025.2/2025.2.1/data/xhub/boards/XilinxBoardStore/boards/Xilinx/vpk180/production/1.0/board.xml as part xcvp1802-lsvc4072-2mp-e-s specified in board_part file is either invalid or not available
+WARNING: [Board 49-26] cannot add Board Part xilinx.com:vpk180:part0:1.1 available at /data/xilinx/2025.2/2025.2.1/data/xhub/boards/XilinxBoardStore/boards/Xilinx/vpk180/production/1.1/board.xml as part xcvp1802-lsvc4072-2mp-e-s specified in board_part file is either invalid or not available
+WARNING: [Board 49-26] cannot add Board Part xilinx.com:vpk180:part0:1.2 available at /data/xilinx/2025.2/2025.2.1/data/xhub/boards/XilinxBoardStore/boards/Xilinx/vpk180/production/1.2/board.xml as part xcvp1802-lsvc4072-2mp-e-s specified in board_part file is either invalid or not available
+WARNING: [Board 49-26] cannot add Board Part xilinx.com:vrk160:part0:1.0 available at /data/xilinx/2025.2/2025.2.1/data/xhub/boards/XilinxBoardStore/boards/Xilinx/vrk160/1.0/board.xml as part xcvr1602-vsva2488-2mp-e-s-es1 specified in board_part file is either invalid or not available
+WARNING: [Board 49-26] cannot add Board Part xilinx.com:vrk160:part0:1.1 available at /data/xilinx/2025.2/2025.2.1/data/xhub/boards/XilinxBoardStore/boards/Xilinx/vrk160/1.1/board.xml as part xcvr1602-vsva2488-2mp-e-s-es1 specified in board_part file is either invalid or not available
+WARNING: [Board 49-26] cannot add Board Part xilinx.com:vrk165_es:part0:1.0 available at /data/xilinx/2025.2/2025.2.1/data/xhub/boards/XilinxBoardStore/boards/Xilinx/vrk165/es/1.0/board.xml as part xcvr1652-vsva2488-2mp-e-s-es1 specified in board_part file is either invalid or not available
+WARNING: [Board 49-26] cannot add Board Part xilinx.com:zcu102:part0:3.3 available at /data/xilinx/2025.2/2025.2.1/data/xhub/boards/XilinxBoardStore/boards/Xilinx/zcu102/3.3/board.xml as part xczu9eg-ffvb1156-2-e specified in board_part file is either invalid or not available
+WARNING: [Board 49-26] cannot add Board Part xilinx.com:zcu102:part0:3.4 available at /data/xilinx/2025.2/2025.2.1/data/xhub/boards/XilinxBoardStore/boards/Xilinx/zcu102/3.4/board.xml as part xczu9eg-ffvb1156-2-e specified in board_part file is either invalid or not available
+WARNING: [Board 49-26] cannot add Board Part xilinx.com:zcu104:part0:1.1 available at /data/xilinx/2025.2/2025.2.1/data/xhub/boards/XilinxBoardStore/boards/Xilinx/zcu104/1.1/board.xml as part xczu7ev-ffvc1156-2-e specified in board_part file is either invalid or not available
+WARNING: [Board 49-26] cannot add Board Part xilinx.com:zcu106:part0:2.4 available at /data/xilinx/2025.2/2025.2.1/data/xhub/boards/XilinxBoardStore/boards/Xilinx/zcu106/2.4/board.xml as part xczu7ev-ffvc1156-2-e specified in board_part file is either invalid or not available
+WARNING: [Board 49-26] cannot add Board Part xilinx.com:zcu106:part0:2.5 available at /data/xilinx/2025.2/2025.2.1/data/xhub/boards/XilinxBoardStore/boards/Xilinx/zcu106/2.5/board.xml as part xczu7ev-ffvc1156-2-e specified in board_part file is either invalid or not available
+WARNING: [Board 49-26] cannot add Board Part xilinx.com:zcu106:part0:2.6 available at /data/xilinx/2025.2/2025.2.1/data/xhub/boards/XilinxBoardStore/boards/Xilinx/zcu106/2.6/board.xml as part xczu7ev-ffvc1156-2-e specified in board_part file is either invalid or not available
+WARNING: [Board 49-26] cannot add Board Part xilinx.com:zcu111:part0:1.2 available at /data/xilinx/2025.2/2025.2.1/data/xhub/boards/XilinxBoardStore/boards/Xilinx/zcu111/1.2/board.xml as part xczu28dr-ffvg1517-2-e specified in board_part file is either invalid or not available
+WARNING: [Board 49-26] cannot add Board Part xilinx.com:zcu111:part0:1.3 available at /data/xilinx/2025.2/2025.2.1/data/xhub/boards/XilinxBoardStore/boards/Xilinx/zcu111/1.3/board.xml as part xczu28dr-ffvg1517-2-e specified in board_part file is either invalid or not available
+WARNING: [Board 49-26] cannot add Board Part xilinx.com:zcu111:part0:1.4 available at /data/xilinx/2025.2/2025.2.1/data/xhub/boards/XilinxBoardStore/boards/Xilinx/zcu111/1.4/board.xml as part xczu28dr-ffvg1517-2-e specified in board_part file is either invalid or not available
+WARNING: [Board 49-26] cannot add Board Part xilinx.com:zcu1275:part0:1.0 available at /data/xilinx/2025.2/2025.2.1/data/xhub/boards/XilinxBoardStore/boards/Xilinx/zcu1275/1.0/board.xml as part xczu29dr-ffvf1760-2-e specified in board_part file is either invalid or not available
+WARNING: [Board 49-26] cannot add Board Part xilinx.com:zcu1285:part0:1.0 available at /data/xilinx/2025.2/2025.2.1/data/xhub/boards/XilinxBoardStore/boards/Xilinx/zcu1285/1.0/board.xml as part xczu39dr-ffvf1760-2-i specified in board_part file is either invalid or not available
+WARNING: [Board 49-26] cannot add Board Part xilinx.com:zcu208:part0:2.0 available at /data/xilinx/2025.2/2025.2.1/data/xhub/boards/XilinxBoardStore/boards/Xilinx/zcu208/production/2.0/board.xml as part xczu48dr-fsvg1517-2-e specified in board_part file is either invalid or not available
+WARNING: [Board 49-26] cannot add Board Part xilinx.com:zcu208ld:part0:2.0 available at /data/xilinx/2025.2/2025.2.1/data/xhub/boards/XilinxBoardStore/boards/Xilinx/zcu208ld/production/2.0/board.xml as part xczu58dr-fsvg1517-2-i specified in board_part file is either invalid or not available
+WARNING: [Board 49-26] cannot add Board Part xilinx.com:zcu216:part0:2.0 available at /data/xilinx/2025.2/2025.2.1/data/xhub/boards/XilinxBoardStore/boards/Xilinx/zcu216/production/2.0/board.xml as part xczu49dr-ffvf1760-2-e specified in board_part file is either invalid or not available
+WARNING: [Board 49-26] cannot add Board Part xilinx.com:zcu216ld:part0:2.0 available at /data/xilinx/2025.2/2025.2.1/data/xhub/boards/XilinxBoardStore/boards/Xilinx/zcu216ld/production/2.0/board.xml as part xczu59dr-ffvf1760-2-i specified in board_part file is either invalid or not available
+WARNING: [Board 49-26] cannot add Board Part xilinx.com:zcu670:part0:2.0 available at /data/xilinx/2025.2/2025.2.1/data/xhub/boards/XilinxBoardStore/boards/Xilinx/zcu670/2.0/board.xml as part xczu67dr-fsve1156-2-i specified in board_part file is either invalid or not available
+WARNING: [Board 49-26] cannot add Board Part xilinx.com:zcu670ld:part0:1.0 available at /data/xilinx/2025.2/2025.2.1/data/xhub/boards/XilinxBoardStore/boards/Xilinx/zcu670ld/1.0/board.xml as part xczu57dr-fsve1156-2-i specified in board_part file is either invalid or not available
+WARNING: [Project 1-5713] Board part '' set for the project  is not found. BoardPart property will be unset. Please select board from latest repo build 
+INFO: [IP_Flow 19-234] Refreshing IP repositories
+INFO: [IP_Flow 19-1704] No user IP repositories specified
+INFO: [IP_Flow 19-2313] Loaded Vivado IP repository '/data/xilinx/2025.2/2025.2.1/data/ip'.
+    OK   复用已有工程
+# step "3) 建 BD hdmi_p1"
+
+[03] 3) 建 BD hdmi_p1
+# if {$_needbd} {
+#     create_bd_design hdmi_p1
+# 
+#     create_bd_cell -type ip -vlnv xilinx.com:ip:processing_system7 ps7
+#     set ps7 [get_bd_cells ps7]
+#     # ★ UART1（MIO 12..13）必须排在 SD1（MIO 46..51）之前：逐个施加上，使能 UART1
+#     #   的那一步其 MIO 还是默认 48..49，与 SD1 冲突 ⇒ IP 19-3478 静默回退整个 PS7。
+#     set cfg [list \
+#         CONFIG.PCW_UIPARAM_DDR_PARTNO         {MT41J256M16 RE-125} \
+#         CONFIG.PCW_UIPARAM_DDR_BUS_WIDTH      {32 Bit} \
+#         CONFIG.PCW_UIPARAM_DDR_FREQ_MHZ       {533.333333} \
+#         CONFIG.PCW_DDR_RAM_HIGHADDR           {0x3FFFFFFF} \
+#         CONFIG.PCW_APU_PERIPHERAL_FREQMHZ     {666.666667} \
+#         CONFIG.PCW_FPGA0_PERIPHERAL_FREQMHZ   {100} \
+#         CONFIG.PCW_EN_CLK0_PORT               {1} \
+#         CONFIG.PCW_EN_RST0_PORT               {1} \
+#         CONFIG.PCW_USE_M_AXI_GP0              {1} \
+#         CONFIG.PCW_USE_S_AXI_HP0              {1} \
+#         CONFIG.PCW_S_AXI_HP0_DATA_WIDTH       {64} \
+#         CONFIG.PCW_EN_QSPI                    {1} \
+#         CONFIG.PCW_QSPI_PERIPHERAL_ENABLE     {1} \
+#         CONFIG.PCW_QSPI_QSPI_IO               {MIO 1 .. 6} \
+#         CONFIG.PCW_QSPI_GRP_SINGLE_SS_ENABLE  {1} \
+#         CONFIG.PCW_QSPI_GRP_SINGLE_SS_IO      {MIO 1 .. 6} \
+#         CONFIG.PCW_EN_UART1                   {1} \
+#         CONFIG.PCW_UART1_PERIPHERAL_ENABLE    {1} \
+#         CONFIG.PCW_UART1_UART1_IO             {MIO 12 .. 13} \
+#         CONFIG.PCW_EN_SDIO0                   {1} \
+#         CONFIG.PCW_SD0_PERIPHERAL_ENABLE      {1} \
+#         CONFIG.PCW_SD0_SD0_IO                 {MIO 40 .. 45} \
+#         CONFIG.PCW_SD0_GRP_CD_ENABLE          {1} \
+#         CONFIG.PCW_SD0_GRP_CD_IO              {MIO 10} \
+#         CONFIG.PCW_EN_SDIO1                   {1} \
+#         CONFIG.PCW_SD1_PERIPHERAL_ENABLE      {1} \
+#         CONFIG.PCW_SD1_SD1_IO                 {MIO 46 .. 51} \
+#         CONFIG.PCW_EN_ENET0                   {1} \
+#         CONFIG.PCW_ENET0_PERIPHERAL_ENABLE    {1} \
+#         CONFIG.PCW_ENET0_ENET0_IO             {MIO 16 .. 27} \
+#         CONFIG.PCW_ENET0_GRP_MDIO_ENABLE      {1} \
+#         CONFIG.PCW_ENET0_GRP_MDIO_IO          {MIO 52 .. 53} \
+#         CONFIG.PCW_ENET0_PERIPHERAL_FREQMHZ   {1000 Mbps} \
+#         CONFIG.PCW_EN_USB0                    {1} \
+#         CONFIG.PCW_USB0_PERIPHERAL_ENABLE     {1} \
+#         CONFIG.PCW_USB0_USB0_IO               {MIO 28 .. 39} \
+#         CONFIG.PCW_EN_GPIO                    {1} \
+#         CONFIG.PCW_GPIO_PERIPHERAL_ENABLE     {1} \
+#         CONFIG.PCW_GPIO_MIO_GPIO_ENABLE       {1}]
+#     if {[catch {set_property -dict $cfg $ps7} e]} { error "PS7 批量配置失败：$e" }
+#     set_property CONFIG.PCW_ENET0_RESET_ENABLE {1} $ps7   ;# 必须在 GPIO 之后
+#     set_property CONFIG.PCW_ENET0_RESET_IO     {MIO 7} $ps7
+#     foreach p {PCW_EN_DDR PCW_EN_UART1 PCW_EN_SDIO0 PCW_EN_ENET0 PCW_EN_USB0 \
+#                PCW_USE_S_AXI_HP0 PCW_USE_M_AXI_GP0 PCW_ENET0_RESET_ENABLE} {
+#         if {[get_property CONFIG.$p $ps7] ne "1"} { error "PS7 $p != 1（IP 静默回退过）" }
+#     }
+#     if {[get_property CONFIG.PCW_UART1_UART1_IO $ps7] ne "MIO 12 .. 13"} { error "UART1 MIO 不是 12..13" }
+#     if {[get_property CONFIG.PCW_SD1_SD1_IO $ps7] ne "MIO 46 .. 51"}   { error "SD1 MIO 不是 46..51" }
+#     ok "PS7：DDR3-533 32bit / UART1(MIO12-13) / SD0(40-45) / SD1(46-51) / ENET0(16-27)+RST(MIO7) / USB0(28-39) / QSPI(1-6) / HP0 保留"
+#     ok "FCLK0 = [get_property CONFIG.PCW_FPGA0_PERIPHERAL_FREQMHZ $ps7] MHz"
+# 
+#     create_bd_cell -type ip -vlnv xilinx.com:ip:proc_sys_reset rst_ps7_100M
+#     set_property -dict [list CONFIG.C_EXT_RESET_HIGH {0}] [get_bd_cells rst_ps7_100M]
+#     connect_bd_net [get_bd_pins ps7/FCLK_CLK0]     [get_bd_pins rst_ps7_100M/slowest_sync_clk]
+#     connect_bd_net [get_bd_pins ps7/FCLK_RESET0_N] [get_bd_pins rst_ps7_100M/ext_reset_in]
+# 
+#     create_bd_cell -type ip -vlnv xilinx.com:ip:axi_interconnect axi_ctrl
+#     set_property -dict [list CONFIG.NUM_MI {1}] [get_bd_cells axi_ctrl]
+# 
+#     create_bd_cell -type module -reference hdmi_p1_top hdmi_p1_top_0
+#     ok "module reference hdmi_p1_top_0（AXI 接口属性 + MMCM + 冻结 top）"
+# 
+#     connect_bd_net [get_bd_pins ps7/FCLK_CLK0] \
+#         [get_bd_pins axi_ctrl/ACLK] [get_bd_pins axi_ctrl/S00_ACLK] [get_bd_pins axi_ctrl/M00_ACLK] \
+#         [get_bd_pins ps7/M_AXI_GP0_ACLK] [get_bd_pins ps7/S_AXI_HP0_ACLK] \
+#         [get_bd_pins hdmi_p1_top_0/s_axi_aclk]
+#     connect_bd_net [get_bd_pins hdmi_p1_top_0/mmcm_locked] [get_bd_pins rst_ps7_100M/dcm_locked]
+#     connect_bd_net [get_bd_pins rst_ps7_100M/interconnect_aresetn] [get_bd_pins axi_ctrl/ARESETN]
+#     connect_bd_net [get_bd_pins rst_ps7_100M/peripheral_aresetn]  [get_bd_pins hdmi_p1_top_0/aresetn]
+#     connect_bd_intf_net [get_bd_intf_pins ps7/M_AXI_GP0]    [get_bd_intf_pins axi_ctrl/S00_AXI]
+#     connect_bd_intf_net [get_bd_intf_pins axi_ctrl/M00_AXI] [get_bd_intf_pins hdmi_p1_top_0/s_axi]
+# 
+#     foreach p {pix_clk hdmi_de hdmi_hs hdmi_vs hdmi_rst_n} {
+#         create_bd_port -dir O $p
+#         connect_bd_net [get_bd_ports $p] [get_bd_pins hdmi_p1_top_0/$p]
+#     }
+#     create_bd_port -dir O -from 23 -to 0 hdmi_d
+#     connect_bd_net [get_bd_ports hdmi_d] [get_bd_pins hdmi_p1_top_0/hdmi_d]
+#     foreach p {hdmi_scl hdmi_sda} {
+#         create_bd_port -dir IO $p
+#         connect_bd_net [get_bd_ports $p] [get_bd_pins hdmi_p1_top_0/$p]
+#     }
+# 
+#     assign_bd_address -target_address_space [get_bd_addr_spaces ps7/Data] \
+#         [get_bd_addr_segs hdmi_p1_top_0/s_axi/Reg] -force
+#     set seg [get_bd_addr_segs -of_objects [get_bd_addr_spaces ps7/Data] -quiet -filter {NAME =~ "*hdmi_p1_top_0*"}]
+#     if {[llength $seg] != 1} { error "找不到 hdmi 地址段：$seg" }
+#     # ★ 先改 range 再改 offset：assign_bd_address 给的默认 range 是整段 1G，
+#     #   先设 offset 会报 [BD 41-70] "0x400A_0000 [1G] 放不进 1G aperture"。
+#     set_property range  $RANGE_HDMI $seg
+#     set_property offset $ADDR_HDMI  $seg
+#     ok "地址：hdmi_out_top = [get_property offset $seg] / [get_property range $seg]"
+# 
+#     validate_bd_design
+#     save_bd_design
+#     ok "validate + save BD 通过"
+# } else {
+#     open_bd_design [get_files hdmi_p1.bd]
+# }
+Reading block design file </media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/vivado/hdmi_p1/proj/hdmi_p1.srcs/sources_1/bd/hdmi_p1/hdmi_p1.bd>...
+Adding component instance block -- xilinx.com:ip:processing_system7:5.5 - ps7
+Adding component instance block -- xilinx.com:ip:proc_sys_reset:5.0 - rst_ps7_100M
+Adding component instance block -- xilinx.com:ip:axi_interconnect:2.1 - axi_ctrl
+Adding component instance block -- xilinx.com:ip:axi_protocol_converter:2.1 - auto_pc
+Adding component instance block -- xilinx.com:module_ref:hdmi_p1_top:1.0 - hdmi_p1_top_0
+Successfully read diagram <hdmi_p1> from block design file </media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/vivado/hdmi_p1/proj/hdmi_p1.srcs/sources_1/bd/hdmi_p1/hdmi_p1.bd>
+# foreach s [get_bd_addr_segs -of_objects [get_bd_addr_spaces ps7/Data]] {
+#     note "addr seg [get_property NAME $s] offset=[get_property offset $s] range=[get_property range $s]"
+# }
+    ..   addr seg SEG_hdmi_p1_top_0_reg0 offset=0x400A0000 range=0x00010000
+# step "4) generate_target / make_wrapper / hwh"
+
+[04] 4) generate_target / make_wrapper / hwh
+# set bdfile [get_files -quiet hdmi_p1.bd]
+# generate_target all $bdfile
+INFO: [BD 41-1637] Generated targets are already up-to-date for block design 'hdmi_p1' - hence not re-generating.
+# set hwh [file join $PROJDIR hdmi_p1.gen sources_1 bd hdmi_p1 hw_handoff hdmi_p1.hwh]
+# if {![file exists $hwh]} { error "缺 hwh：$hwh" }
+# file copy -force $hwh [file join $OUT hdmi_p1.hwh]
+# ok "hwh → [file join $OUT hdmi_p1.hwh]  md5=[md5f [file join $OUT hdmi_p1.hwh]]"
+    OK   hwh → /media/felix/Data/coding/demoir-fpga/runs/hdmi_p1/hdmi_p1.hwh  md5=04113efa81b80a720018cbb075f2b171
+# if {[llength [get_files -quiet *hdmi_p1_wrapper.v]] == 0} {
+#     set w [make_wrapper -files $bdfile -top]
+#     add_files -norecurse $w
+# }
+# set_property top hdmi_p1_wrapper [current_fileset]
+# update_compile_order -fileset sources_1
+# ok "top = [get_property top [current_fileset]]"
+    OK   top = hdmi_p1_wrapper
+# set _cg [file join $XDCMINE p1_clock_groups.tcl]
+# set_property STEPS.SYNTH_DESIGN.TCL.POST $_cg [get_runs synth_1]
+# set_property STEPS.INIT_DESIGN.TCL.POST  $_cg [get_runs impl_1]
+# ok "clock groups 脚本挂到 STEPS.SYNTH_DESIGN.TCL.POST / STEPS.INIT_DESIGN.TCL.POST"
+    OK   clock groups 脚本挂到 STEPS.SYNTH_DESIGN.TCL.POST / STEPS.INIT_DESIGN.TCL.POST
+# step "5) launch_runs synth_1（jobs=2）"
+
+[05] 5) launch_runs synth_1（jobs=2）
+# wait_mem 4.0 "before synth"
+    [mem] before synth : MemAvailable = 11.79 GB (need >= 4.0)
+# set _t0 [clock seconds]
+# set sr [get_runs synth_1]
+# set_property STEPS.SYNTH_DESIGN.ARGS.DIRECTIVE Default $sr
+# if {[info exists ::env(FORCE)] && $::env(FORCE) eq "1"} {
+#     reset_run synth_1
+#     ok "FORCE=1 ⇒ 已 reset_run synth_1（连带清空 impl_1）"
+# }
+# if {[get_property PROGRESS $sr] ne "100%"} {
+#     launch_runs synth_1 -jobs 2
+#     wait_on_run synth_1
+# }
+# if {[get_property PROGRESS $sr] ne "100%" || [string match -nocase "*ERROR*" [get_property STATUS $sr]]} {
+#     error "synth_1 失败：status=[get_property STATUS $sr]"
+# }
+# set _t_synth [expr {[clock seconds] - $_t0}]
+# ok "synth_1 = [get_property STATUS $sr]，用时 ${_t_synth} s"
+    OK   synth_1 = synth_design Complete!，用时 0 s
+# open_run synth_1 -name synth_gate
+Design is defaulting to impl run constrset: constrs_1
+Design is defaulting to synth run part: xc7z015clg485-2
+INFO: [Device 21-403] Loading part xc7z015clg485-2
+INFO: [Project 1-5699] Read binary netlist with skipMacroContent - 1
+INFO: [Project 1-454] Reading design checkpoint '/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/vivado/hdmi_p1/proj/hdmi_p1.gen/sources_1/bd/hdmi_p1/ip/hdmi_p1_hdmi_p1_top_0_0/hdmi_p1_hdmi_p1_top_0_0.dcp' for cell 'hdmi_p1_i/hdmi_p1_top_0'
+INFO: [Project 1-454] Reading design checkpoint '/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/vivado/hdmi_p1/proj/hdmi_p1.gen/sources_1/bd/hdmi_p1/ip/hdmi_p1_ps7_0/hdmi_p1_ps7_0.dcp' for cell 'hdmi_p1_i/ps7'
+INFO: [Project 1-454] Reading design checkpoint '/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/vivado/hdmi_p1/proj/hdmi_p1.gen/sources_1/bd/hdmi_p1/ip/hdmi_p1_rst_ps7_100M_0/hdmi_p1_rst_ps7_100M_0.dcp' for cell 'hdmi_p1_i/rst_ps7_100M'
+INFO: [Project 1-454] Reading design checkpoint '/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/vivado/hdmi_p1/proj/hdmi_p1.gen/sources_1/bd/hdmi_p1/ip/hdmi_p1_axi_ctrl_imp_auto_pc_0/hdmi_p1_axi_ctrl_imp_auto_pc_0.dcp' for cell 'hdmi_p1_i/axi_ctrl/s00_couplers/auto_pc'
+Netlist sorting complete. Time (s): cpu = 00:00:00.02 ; elapsed = 00:00:00.02 . Memory (MB): peak = 1929.559 ; gain = 0.000 ; free physical = 1896 ; free virtual = 12934
+INFO: [Netlist 29-17] Analyzing 81 Unisim elements for replacement
+INFO: [Netlist 29-28] Unisim Transformation completed in 0 CPU seconds
+INFO: [Project 1-479] Netlist was created with Vivado 2025.2.1
+INFO: [Project 1-570] Preparing netlist for logic optimization
+Parsing XDC File [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/vivado/hdmi_p1/proj/hdmi_p1.gen/sources_1/bd/hdmi_p1/ip/hdmi_p1_ps7_0/hdmi_p1_ps7_0.xdc] for cell 'hdmi_p1_i/ps7/inst'
+CRITICAL WARNING: [Netlist 29-160] Cannot set property 'iostandard', because the property does not exist for objects of type 'pin'. [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/vivado/hdmi_p1/proj/hdmi_p1.gen/sources_1/bd/hdmi_p1/ip/hdmi_p1_ps7_0/hdmi_p1_ps7_0.xdc:30]
+Resolution: Modify the set_property command to apply the property on the correct object type. Since the property is being applied as a scoped constraint, ensure the proper connectivity of the object port objects can be translated into pin objects. This could be due to the insertion of IO Buffers between the top level terminal and cell pin. If the goal is to apply constraints that will migrate to top level ports it is required that IO Buffers manually be instanced.
+CRITICAL WARNING: [Netlist 29-160] Cannot set property 'PACKAGE_PIN', because the property does not exist for objects of type 'pin'. [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/vivado/hdmi_p1/proj/hdmi_p1.gen/sources_1/bd/hdmi_p1/ip/hdmi_p1_ps7_0/hdmi_p1_ps7_0.xdc:31]
+Resolution: Modify the set_property command to apply the property on the correct object type. Since the property is being applied as a scoped constraint, ensure the proper connectivity of the object port objects can be translated into pin objects. This could be due to the insertion of IO Buffers between the top level terminal and cell pin. If the goal is to apply constraints that will migrate to top level ports it is required that IO Buffers manually be instanced.
+CRITICAL WARNING: [Netlist 29-160] Cannot set property 'slew', because the property does not exist for objects of type 'pin'. [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/vivado/hdmi_p1/proj/hdmi_p1.gen/sources_1/bd/hdmi_p1/ip/hdmi_p1_ps7_0/hdmi_p1_ps7_0.xdc:32]
+Resolution: Modify the set_property command to apply the property on the correct object type. Since the property is being applied as a scoped constraint, ensure the proper connectivity of the object port objects can be translated into pin objects. This could be due to the insertion of IO Buffers between the top level terminal and cell pin. If the goal is to apply constraints that will migrate to top level ports it is required that IO Buffers manually be instanced.
+CRITICAL WARNING: [Netlist 29-160] Cannot set property 'drive', because the property does not exist for objects of type 'pin'. [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/vivado/hdmi_p1/proj/hdmi_p1.gen/sources_1/bd/hdmi_p1/ip/hdmi_p1_ps7_0/hdmi_p1_ps7_0.xdc:33]
+Resolution: Modify the set_property command to apply the property on the correct object type. Since the property is being applied as a scoped constraint, ensure the proper connectivity of the object port objects can be translated into pin objects. This could be due to the insertion of IO Buffers between the top level terminal and cell pin. If the goal is to apply constraints that will migrate to top level ports it is required that IO Buffers manually be instanced.
+CRITICAL WARNING: [Netlist 29-160] Cannot set property 'pullup', because the property does not exist for objects of type 'pin'. [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/vivado/hdmi_p1/proj/hdmi_p1.gen/sources_1/bd/hdmi_p1/ip/hdmi_p1_ps7_0/hdmi_p1_ps7_0.xdc:34]
+Resolution: Modify the set_property command to apply the property on the correct object type. Since the property is being applied as a scoped constraint, ensure the proper connectivity of the object port objects can be translated into pin objects. This could be due to the insertion of IO Buffers between the top level terminal and cell pin. If the goal is to apply constraints that will migrate to top level ports it is required that IO Buffers manually be instanced.
+CRITICAL WARNING: [Netlist 29-160] Cannot set property 'PIO_DIRECTION', because the property does not exist for objects of type 'pin'. [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/vivado/hdmi_p1/proj/hdmi_p1.gen/sources_1/bd/hdmi_p1/ip/hdmi_p1_ps7_0/hdmi_p1_ps7_0.xdc:35]
+Resolution: Modify the set_property command to apply the property on the correct object type. Since the property is being applied as a scoped constraint, ensure the proper connectivity of the object port objects can be translated into pin objects. This could be due to the insertion of IO Buffers between the top level terminal and cell pin. If the goal is to apply constraints that will migrate to top level ports it is required that IO Buffers manually be instanced.
+CRITICAL WARNING: [Netlist 29-160] Cannot set property 'iostandard', because the property does not exist for objects of type 'pin'. [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/vivado/hdmi_p1/proj/hdmi_p1.gen/sources_1/bd/hdmi_p1/ip/hdmi_p1_ps7_0/hdmi_p1_ps7_0.xdc:37]
+Resolution: Modify the set_property command to apply the property on the correct object type. Since the property is being applied as a scoped constraint, ensure the proper connectivity of the object port objects can be translated into pin objects. This could be due to the insertion of IO Buffers between the top level terminal and cell pin. If the goal is to apply constraints that will migrate to top level ports it is required that IO Buffers manually be instanced.
+CRITICAL WARNING: [Netlist 29-160] Cannot set property 'PACKAGE_PIN', because the property does not exist for objects of type 'pin'. [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/vivado/hdmi_p1/proj/hdmi_p1.gen/sources_1/bd/hdmi_p1/ip/hdmi_p1_ps7_0/hdmi_p1_ps7_0.xdc:38]
+Resolution: Modify the set_property command to apply the property on the correct object type. Since the property is being applied as a scoped constraint, ensure the proper connectivity of the object port objects can be translated into pin objects. This could be due to the insertion of IO Buffers between the top level terminal and cell pin. If the goal is to apply constraints that will migrate to top level ports it is required that IO Buffers manually be instanced.
+CRITICAL WARNING: [Netlist 29-160] Cannot set property 'slew', because the property does not exist for objects of type 'pin'. [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/vivado/hdmi_p1/proj/hdmi_p1.gen/sources_1/bd/hdmi_p1/ip/hdmi_p1_ps7_0/hdmi_p1_ps7_0.xdc:39]
+Resolution: Modify the set_property command to apply the property on the correct object type. Since the property is being applied as a scoped constraint, ensure the proper connectivity of the object port objects can be translated into pin objects. This could be due to the insertion of IO Buffers between the top level terminal and cell pin. If the goal is to apply constraints that will migrate to top level ports it is required that IO Buffers manually be instanced.
+CRITICAL WARNING: [Netlist 29-160] Cannot set property 'drive', because the property does not exist for objects of type 'pin'. [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/vivado/hdmi_p1/proj/hdmi_p1.gen/sources_1/bd/hdmi_p1/ip/hdmi_p1_ps7_0/hdmi_p1_ps7_0.xdc:40]
+Resolution: Modify the set_property command to apply the property on the correct object type. Since the property is being applied as a scoped constraint, ensure the proper connectivity of the object port objects can be translated into pin objects. This could be due to the insertion of IO Buffers between the top level terminal and cell pin. If the goal is to apply constraints that will migrate to top level ports it is required that IO Buffers manually be instanced.
+CRITICAL WARNING: [Netlist 29-160] Cannot set property 'pullup', because the property does not exist for objects of type 'pin'. [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/vivado/hdmi_p1/proj/hdmi_p1.gen/sources_1/bd/hdmi_p1/ip/hdmi_p1_ps7_0/hdmi_p1_ps7_0.xdc:41]
+Resolution: Modify the set_property command to apply the property on the correct object type. Since the property is being applied as a scoped constraint, ensure the proper connectivity of the object port objects can be translated into pin objects. This could be due to the insertion of IO Buffers between the top level terminal and cell pin. If the goal is to apply constraints that will migrate to top level ports it is required that IO Buffers manually be instanced.
+CRITICAL WARNING: [Netlist 29-160] Cannot set property 'PIO_DIRECTION', because the property does not exist for objects of type 'pin'. [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/vivado/hdmi_p1/proj/hdmi_p1.gen/sources_1/bd/hdmi_p1/ip/hdmi_p1_ps7_0/hdmi_p1_ps7_0.xdc:42]
+Resolution: Modify the set_property command to apply the property on the correct object type. Since the property is being applied as a scoped constraint, ensure the proper connectivity of the object port objects can be translated into pin objects. This could be due to the insertion of IO Buffers between the top level terminal and cell pin. If the goal is to apply constraints that will migrate to top level ports it is required that IO Buffers manually be instanced.
+CRITICAL WARNING: [Netlist 29-160] Cannot set property 'iostandard', because the property does not exist for objects of type 'pin'. [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/vivado/hdmi_p1/proj/hdmi_p1.gen/sources_1/bd/hdmi_p1/ip/hdmi_p1_ps7_0/hdmi_p1_ps7_0.xdc:44]
+Resolution: Modify the set_property command to apply the property on the correct object type. Since the property is being applied as a scoped constraint, ensure the proper connectivity of the object port objects can be translated into pin objects. This could be due to the insertion of IO Buffers between the top level terminal and cell pin. If the goal is to apply constraints that will migrate to top level ports it is required that IO Buffers manually be instanced.
+CRITICAL WARNING: [Netlist 29-160] Cannot set property 'PACKAGE_PIN', because the property does not exist for objects of type 'pin'. [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/vivado/hdmi_p1/proj/hdmi_p1.gen/sources_1/bd/hdmi_p1/ip/hdmi_p1_ps7_0/hdmi_p1_ps7_0.xdc:45]
+Resolution: Modify the set_property command to apply the property on the correct object type. Since the property is being applied as a scoped constraint, ensure the proper connectivity of the object port objects can be translated into pin objects. This could be due to the insertion of IO Buffers between the top level terminal and cell pin. If the goal is to apply constraints that will migrate to top level ports it is required that IO Buffers manually be instanced.
+CRITICAL WARNING: [Netlist 29-160] Cannot set property 'slew', because the property does not exist for objects of type 'pin'. [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/vivado/hdmi_p1/proj/hdmi_p1.gen/sources_1/bd/hdmi_p1/ip/hdmi_p1_ps7_0/hdmi_p1_ps7_0.xdc:46]
+Resolution: Modify the set_property command to apply the property on the correct object type. Since the property is being applied as a scoped constraint, ensure the proper connectivity of the object port objects can be translated into pin objects. This could be due to the insertion of IO Buffers between the top level terminal and cell pin. If the goal is to apply constraints that will migrate to top level ports it is required that IO Buffers manually be instanced.
+CRITICAL WARNING: [Netlist 29-160] Cannot set property 'drive', because the property does not exist for objects of type 'pin'. [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/vivado/hdmi_p1/proj/hdmi_p1.gen/sources_1/bd/hdmi_p1/ip/hdmi_p1_ps7_0/hdmi_p1_ps7_0.xdc:47]
+Resolution: Modify the set_property command to apply the property on the correct object type. Since the property is being applied as a scoped constraint, ensure the proper connectivity of the object port objects can be translated into pin objects. This could be due to the insertion of IO Buffers between the top level terminal and cell pin. If the goal is to apply constraints that will migrate to top level ports it is required that IO Buffers manually be instanced.
+CRITICAL WARNING: [Netlist 29-160] Cannot set property 'pullup', because the property does not exist for objects of type 'pin'. [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/vivado/hdmi_p1/proj/hdmi_p1.gen/sources_1/bd/hdmi_p1/ip/hdmi_p1_ps7_0/hdmi_p1_ps7_0.xdc:48]
+Resolution: Modify the set_property command to apply the property on the correct object type. Since the property is being applied as a scoped constraint, ensure the proper connectivity of the object port objects can be translated into pin objects. This could be due to the insertion of IO Buffers between the top level terminal and cell pin. If the goal is to apply constraints that will migrate to top level ports it is required that IO Buffers manually be instanced.
+CRITICAL WARNING: [Netlist 29-160] Cannot set property 'PIO_DIRECTION', because the property does not exist for objects of type 'pin'. [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/vivado/hdmi_p1/proj/hdmi_p1.gen/sources_1/bd/hdmi_p1/ip/hdmi_p1_ps7_0/hdmi_p1_ps7_0.xdc:49]
+Resolution: Modify the set_property command to apply the property on the correct object type. Since the property is being applied as a scoped constraint, ensure the proper connectivity of the object port objects can be translated into pin objects. This could be due to the insertion of IO Buffers between the top level terminal and cell pin. If the goal is to apply constraints that will migrate to top level ports it is required that IO Buffers manually be instanced.
+CRITICAL WARNING: [Netlist 29-160] Cannot set property 'iostandard', because the property does not exist for objects of type 'pin'. [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/vivado/hdmi_p1/proj/hdmi_p1.gen/sources_1/bd/hdmi_p1/ip/hdmi_p1_ps7_0/hdmi_p1_ps7_0.xdc:51]
+Resolution: Modify the set_property command to apply the property on the correct object type. Since the property is being applied as a scoped constraint, ensure the proper connectivity of the object port objects can be translated into pin objects. This could be due to the insertion of IO Buffers between the top level terminal and cell pin. If the goal is to apply constraints that will migrate to top level ports it is required that IO Buffers manually be instanced.
+CRITICAL WARNING: [Netlist 29-160] Cannot set property 'PACKAGE_PIN', because the property does not exist for objects of type 'pin'. [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/vivado/hdmi_p1/proj/hdmi_p1.gen/sources_1/bd/hdmi_p1/ip/hdmi_p1_ps7_0/hdmi_p1_ps7_0.xdc:52]
+Resolution: Modify the set_property command to apply the property on the correct object type. Since the property is being applied as a scoped constraint, ensure the proper connectivity of the object port objects can be translated into pin objects. This could be due to the insertion of IO Buffers between the top level terminal and cell pin. If the goal is to apply constraints that will migrate to top level ports it is required that IO Buffers manually be instanced.
+CRITICAL WARNING: [Netlist 29-160] Cannot set property 'slew', because the property does not exist for objects of type 'pin'. [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/vivado/hdmi_p1/proj/hdmi_p1.gen/sources_1/bd/hdmi_p1/ip/hdmi_p1_ps7_0/hdmi_p1_ps7_0.xdc:53]
+Resolution: Modify the set_property command to apply the property on the correct object type. Since the property is being applied as a scoped constraint, ensure the proper connectivity of the object port objects can be translated into pin objects. This could be due to the insertion of IO Buffers between the top level terminal and cell pin. If the goal is to apply constraints that will migrate to top level ports it is required that IO Buffers manually be instanced.
+CRITICAL WARNING: [Netlist 29-160] Cannot set property 'drive', because the property does not exist for objects of type 'pin'. [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/vivado/hdmi_p1/proj/hdmi_p1.gen/sources_1/bd/hdmi_p1/ip/hdmi_p1_ps7_0/hdmi_p1_ps7_0.xdc:54]
+Resolution: Modify the set_property command to apply the property on the correct object type. Since the property is being applied as a scoped constraint, ensure the proper connectivity of the object port objects can be translated into pin objects. This could be due to the insertion of IO Buffers between the top level terminal and cell pin. If the goal is to apply constraints that will migrate to top level ports it is required that IO Buffers manually be instanced.
+CRITICAL WARNING: [Netlist 29-160] Cannot set property 'pullup', because the property does not exist for objects of type 'pin'. [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/vivado/hdmi_p1/proj/hdmi_p1.gen/sources_1/bd/hdmi_p1/ip/hdmi_p1_ps7_0/hdmi_p1_ps7_0.xdc:55]
+Resolution: Modify the set_property command to apply the property on the correct object type. Since the property is being applied as a scoped constraint, ensure the proper connectivity of the object port objects can be translated into pin objects. This could be due to the insertion of IO Buffers between the top level terminal and cell pin. If the goal is to apply constraints that will migrate to top level ports it is required that IO Buffers manually be instanced.
+CRITICAL WARNING: [Netlist 29-160] Cannot set property 'PIO_DIRECTION', because the property does not exist for objects of type 'pin'. [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/vivado/hdmi_p1/proj/hdmi_p1.gen/sources_1/bd/hdmi_p1/ip/hdmi_p1_ps7_0/hdmi_p1_ps7_0.xdc:56]
+Resolution: Modify the set_property command to apply the property on the correct object type. Since the property is being applied as a scoped constraint, ensure the proper connectivity of the object port objects can be translated into pin objects. This could be due to the insertion of IO Buffers between the top level terminal and cell pin. If the goal is to apply constraints that will migrate to top level ports it is required that IO Buffers manually be instanced.
+CRITICAL WARNING: [Netlist 29-160] Cannot set property 'iostandard', because the property does not exist for objects of type 'pin'. [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/vivado/hdmi_p1/proj/hdmi_p1.gen/sources_1/bd/hdmi_p1/ip/hdmi_p1_ps7_0/hdmi_p1_ps7_0.xdc:58]
+Resolution: Modify the set_property command to apply the property on the correct object type. Since the property is being applied as a scoped constraint, ensure the proper connectivity of the object port objects can be translated into pin objects. This could be due to the insertion of IO Buffers between the top level terminal and cell pin. If the goal is to apply constraints that will migrate to top level ports it is required that IO Buffers manually be instanced.
+CRITICAL WARNING: [Netlist 29-160] Cannot set property 'PACKAGE_PIN', because the property does not exist for objects of type 'pin'. [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/vivado/hdmi_p1/proj/hdmi_p1.gen/sources_1/bd/hdmi_p1/ip/hdmi_p1_ps7_0/hdmi_p1_ps7_0.xdc:59]
+Resolution: Modify the set_property command to apply the property on the correct object type. Since the property is being applied as a scoped constraint, ensure the proper connectivity of the object port objects can be translated into pin objects. This could be due to the insertion of IO Buffers between the top level terminal and cell pin. If the goal is to apply constraints that will migrate to top level ports it is required that IO Buffers manually be instanced.
+CRITICAL WARNING: [Netlist 29-160] Cannot set property 'slew', because the property does not exist for objects of type 'pin'. [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/vivado/hdmi_p1/proj/hdmi_p1.gen/sources_1/bd/hdmi_p1/ip/hdmi_p1_ps7_0/hdmi_p1_ps7_0.xdc:60]
+Resolution: Modify the set_property command to apply the property on the correct object type. Since the property is being applied as a scoped constraint, ensure the proper connectivity of the object port objects can be translated into pin objects. This could be due to the insertion of IO Buffers between the top level terminal and cell pin. If the goal is to apply constraints that will migrate to top level ports it is required that IO Buffers manually be instanced.
+CRITICAL WARNING: [Netlist 29-160] Cannot set property 'drive', because the property does not exist for objects of type 'pin'. [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/vivado/hdmi_p1/proj/hdmi_p1.gen/sources_1/bd/hdmi_p1/ip/hdmi_p1_ps7_0/hdmi_p1_ps7_0.xdc:61]
+Resolution: Modify the set_property command to apply the property on the correct object type. Since the property is being applied as a scoped constraint, ensure the proper connectivity of the object port objects can be translated into pin objects. This could be due to the insertion of IO Buffers between the top level terminal and cell pin. If the goal is to apply constraints that will migrate to top level ports it is required that IO Buffers manually be instanced.
+CRITICAL WARNING: [Netlist 29-160] Cannot set property 'pullup', because the property does not exist for objects of type 'pin'. [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/vivado/hdmi_p1/proj/hdmi_p1.gen/sources_1/bd/hdmi_p1/ip/hdmi_p1_ps7_0/hdmi_p1_ps7_0.xdc:62]
+Resolution: Modify the set_property command to apply the property on the correct object type. Since the property is being applied as a scoped constraint, ensure the proper connectivity of the object port objects can be translated into pin objects. This could be due to the insertion of IO Buffers between the top level terminal and cell pin. If the goal is to apply constraints that will migrate to top level ports it is required that IO Buffers manually be instanced.
+CRITICAL WARNING: [Netlist 29-160] Cannot set property 'PIO_DIRECTION', because the property does not exist for objects of type 'pin'. [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/vivado/hdmi_p1/proj/hdmi_p1.gen/sources_1/bd/hdmi_p1/ip/hdmi_p1_ps7_0/hdmi_p1_ps7_0.xdc:63]
+Resolution: Modify the set_property command to apply the property on the correct object type. Since the property is being applied as a scoped constraint, ensure the proper connectivity of the object port objects can be translated into pin objects. This could be due to the insertion of IO Buffers between the top level terminal and cell pin. If the goal is to apply constraints that will migrate to top level ports it is required that IO Buffers manually be instanced.
+CRITICAL WARNING: [Netlist 29-160] Cannot set property 'iostandard', because the property does not exist for objects of type 'pin'. [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/vivado/hdmi_p1/proj/hdmi_p1.gen/sources_1/bd/hdmi_p1/ip/hdmi_p1_ps7_0/hdmi_p1_ps7_0.xdc:65]
+Resolution: Modify the set_property command to apply the property on the correct object type. Since the property is being applied as a scoped constraint, ensure the proper connectivity of the object port objects can be translated into pin objects. This could be due to the insertion of IO Buffers between the top level terminal and cell pin. If the goal is to apply constraints that will migrate to top level ports it is required that IO Buffers manually be instanced.
+CRITICAL WARNING: [Netlist 29-160] Cannot set property 'PACKAGE_PIN', because the property does not exist for objects of type 'pin'. [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/vivado/hdmi_p1/proj/hdmi_p1.gen/sources_1/bd/hdmi_p1/ip/hdmi_p1_ps7_0/hdmi_p1_ps7_0.xdc:66]
+Resolution: Modify the set_property command to apply the property on the correct object type. Since the property is being applied as a scoped constraint, ensure the proper connectivity of the object port objects can be translated into pin objects. This could be due to the insertion of IO Buffers between the top level terminal and cell pin. If the goal is to apply constraints that will migrate to top level ports it is required that IO Buffers manually be instanced.
+CRITICAL WARNING: [Netlist 29-160] Cannot set property 'slew', because the property does not exist for objects of type 'pin'. [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/vivado/hdmi_p1/proj/hdmi_p1.gen/sources_1/bd/hdmi_p1/ip/hdmi_p1_ps7_0/hdmi_p1_ps7_0.xdc:67]
+Resolution: Modify the set_property command to apply the property on the correct object type. Since the property is being applied as a scoped constraint, ensure the proper connectivity of the object port objects can be translated into pin objects. This could be due to the insertion of IO Buffers between the top level terminal and cell pin. If the goal is to apply constraints that will migrate to top level ports it is required that IO Buffers manually be instanced.
+CRITICAL WARNING: [Netlist 29-160] Cannot set property 'drive', because the property does not exist for objects of type 'pin'. [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/vivado/hdmi_p1/proj/hdmi_p1.gen/sources_1/bd/hdmi_p1/ip/hdmi_p1_ps7_0/hdmi_p1_ps7_0.xdc:68]
+Resolution: Modify the set_property command to apply the property on the correct object type. Since the property is being applied as a scoped constraint, ensure the proper connectivity of the object port objects can be translated into pin objects. This could be due to the insertion of IO Buffers between the top level terminal and cell pin. If the goal is to apply constraints that will migrate to top level ports it is required that IO Buffers manually be instanced.
+CRITICAL WARNING: [Netlist 29-160] Cannot set property 'pullup', because the property does not exist for objects of type 'pin'. [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/vivado/hdmi_p1/proj/hdmi_p1.gen/sources_1/bd/hdmi_p1/ip/hdmi_p1_ps7_0/hdmi_p1_ps7_0.xdc:69]
+Resolution: Modify the set_property command to apply the property on the correct object type. Since the property is being applied as a scoped constraint, ensure the proper connectivity of the object port objects can be translated into pin objects. This could be due to the insertion of IO Buffers between the top level terminal and cell pin. If the goal is to apply constraints that will migrate to top level ports it is required that IO Buffers manually be instanced.
+CRITICAL WARNING: [Netlist 29-160] Cannot set property 'PIO_DIRECTION', because the property does not exist for objects of type 'pin'. [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/vivado/hdmi_p1/proj/hdmi_p1.gen/sources_1/bd/hdmi_p1/ip/hdmi_p1_ps7_0/hdmi_p1_ps7_0.xdc:70]
+Resolution: Modify the set_property command to apply the property on the correct object type. Since the property is being applied as a scoped constraint, ensure the proper connectivity of the object port objects can be translated into pin objects. This could be due to the insertion of IO Buffers between the top level terminal and cell pin. If the goal is to apply constraints that will migrate to top level ports it is required that IO Buffers manually be instanced.
+CRITICAL WARNING: [Netlist 29-160] Cannot set property 'iostandard', because the property does not exist for objects of type 'pin'. [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/vivado/hdmi_p1/proj/hdmi_p1.gen/sources_1/bd/hdmi_p1/ip/hdmi_p1_ps7_0/hdmi_p1_ps7_0.xdc:72]
+Resolution: Modify the set_property command to apply the property on the correct object type. Since the property is being applied as a scoped constraint, ensure the proper connectivity of the object port objects can be translated into pin objects. This could be due to the insertion of IO Buffers between the top level terminal and cell pin. If the goal is to apply constraints that will migrate to top level ports it is required that IO Buffers manually be instanced.
+CRITICAL WARNING: [Netlist 29-160] Cannot set property 'PACKAGE_PIN', because the property does not exist for objects of type 'pin'. [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/vivado/hdmi_p1/proj/hdmi_p1.gen/sources_1/bd/hdmi_p1/ip/hdmi_p1_ps7_0/hdmi_p1_ps7_0.xdc:73]
+Resolution: Modify the set_property command to apply the property on the correct object type. Since the property is being applied as a scoped constraint, ensure the proper connectivity of the object port objects can be translated into pin objects. This could be due to the insertion of IO Buffers between the top level terminal and cell pin. If the goal is to apply constraints that will migrate to top level ports it is required that IO Buffers manually be instanced.
+CRITICAL WARNING: [Netlist 29-160] Cannot set property 'slew', because the property does not exist for objects of type 'pin'. [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/vivado/hdmi_p1/proj/hdmi_p1.gen/sources_1/bd/hdmi_p1/ip/hdmi_p1_ps7_0/hdmi_p1_ps7_0.xdc:74]
+Resolution: Modify the set_property command to apply the property on the correct object type. Since the property is being applied as a scoped constraint, ensure the proper connectivity of the object port objects can be translated into pin objects. This could be due to the insertion of IO Buffers between the top level terminal and cell pin. If the goal is to apply constraints that will migrate to top level ports it is required that IO Buffers manually be instanced.
+CRITICAL WARNING: [Netlist 29-160] Cannot set property 'drive', because the property does not exist for objects of type 'pin'. [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/vivado/hdmi_p1/proj/hdmi_p1.gen/sources_1/bd/hdmi_p1/ip/hdmi_p1_ps7_0/hdmi_p1_ps7_0.xdc:75]
+Resolution: Modify the set_property command to apply the property on the correct object type. Since the property is being applied as a scoped constraint, ensure the proper connectivity of the object port objects can be translated into pin objects. This could be due to the insertion of IO Buffers between the top level terminal and cell pin. If the goal is to apply constraints that will migrate to top level ports it is required that IO Buffers manually be instanced.
+CRITICAL WARNING: [Netlist 29-160] Cannot set property 'pullup', because the property does not exist for objects of type 'pin'. [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/vivado/hdmi_p1/proj/hdmi_p1.gen/sources_1/bd/hdmi_p1/ip/hdmi_p1_ps7_0/hdmi_p1_ps7_0.xdc:76]
+Resolution: Modify the set_property command to apply the property on the correct object type. Since the property is being applied as a scoped constraint, ensure the proper connectivity of the object port objects can be translated into pin objects. This could be due to the insertion of IO Buffers between the top level terminal and cell pin. If the goal is to apply constraints that will migrate to top level ports it is required that IO Buffers manually be instanced.
+CRITICAL WARNING: [Netlist 29-160] Cannot set property 'PIO_DIRECTION', because the property does not exist for objects of type 'pin'. [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/vivado/hdmi_p1/proj/hdmi_p1.gen/sources_1/bd/hdmi_p1/ip/hdmi_p1_ps7_0/hdmi_p1_ps7_0.xdc:77]
+Resolution: Modify the set_property command to apply the property on the correct object type. Since the property is being applied as a scoped constraint, ensure the proper connectivity of the object port objects can be translated into pin objects. This could be due to the insertion of IO Buffers between the top level terminal and cell pin. If the goal is to apply constraints that will migrate to top level ports it is required that IO Buffers manually be instanced.
+CRITICAL WARNING: [Netlist 29-160] Cannot set property 'iostandard', because the property does not exist for objects of type 'pin'. [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/vivado/hdmi_p1/proj/hdmi_p1.gen/sources_1/bd/hdmi_p1/ip/hdmi_p1_ps7_0/hdmi_p1_ps7_0.xdc:79]
+Resolution: Modify the set_property command to apply the property on the correct object type. Since the property is being applied as a scoped constraint, ensure the proper connectivity of the object port objects can be translated into pin objects. This could be due to the insertion of IO Buffers between the top level terminal and cell pin. If the goal is to apply constraints that will migrate to top level ports it is required that IO Buffers manually be instanced.
+CRITICAL WARNING: [Netlist 29-160] Cannot set property 'PACKAGE_PIN', because the property does not exist for objects of type 'pin'. [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/vivado/hdmi_p1/proj/hdmi_p1.gen/sources_1/bd/hdmi_p1/ip/hdmi_p1_ps7_0/hdmi_p1_ps7_0.xdc:80]
+Resolution: Modify the set_property command to apply the property on the correct object type. Since the property is being applied as a scoped constraint, ensure the proper connectivity of the object port objects can be translated into pin objects. This could be due to the insertion of IO Buffers between the top level terminal and cell pin. If the goal is to apply constraints that will migrate to top level ports it is required that IO Buffers manually be instanced.
+CRITICAL WARNING: [Netlist 29-160] Cannot set property 'slew', because the property does not exist for objects of type 'pin'. [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/vivado/hdmi_p1/proj/hdmi_p1.gen/sources_1/bd/hdmi_p1/ip/hdmi_p1_ps7_0/hdmi_p1_ps7_0.xdc:81]
+Resolution: Modify the set_property command to apply the property on the correct object type. Since the property is being applied as a scoped constraint, ensure the proper connectivity of the object port objects can be translated into pin objects. This could be due to the insertion of IO Buffers between the top level terminal and cell pin. If the goal is to apply constraints that will migrate to top level ports it is required that IO Buffers manually be instanced.
+CRITICAL WARNING: [Netlist 29-160] Cannot set property 'drive', because the property does not exist for objects of type 'pin'. [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/vivado/hdmi_p1/proj/hdmi_p1.gen/sources_1/bd/hdmi_p1/ip/hdmi_p1_ps7_0/hdmi_p1_ps7_0.xdc:82]
+Resolution: Modify the set_property command to apply the property on the correct object type. Since the property is being applied as a scoped constraint, ensure the proper connectivity of the object port objects can be translated into pin objects. This could be due to the insertion of IO Buffers between the top level terminal and cell pin. If the goal is to apply constraints that will migrate to top level ports it is required that IO Buffers manually be instanced.
+CRITICAL WARNING: [Netlist 29-160] Cannot set property 'pullup', because the property does not exist for objects of type 'pin'. [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/vivado/hdmi_p1/proj/hdmi_p1.gen/sources_1/bd/hdmi_p1/ip/hdmi_p1_ps7_0/hdmi_p1_ps7_0.xdc:83]
+Resolution: Modify the set_property command to apply the property on the correct object type. Since the property is being applied as a scoped constraint, ensure the proper connectivity of the object port objects can be translated into pin objects. This could be due to the insertion of IO Buffers between the top level terminal and cell pin. If the goal is to apply constraints that will migrate to top level ports it is required that IO Buffers manually be instanced.
+CRITICAL WARNING: [Netlist 29-160] Cannot set property 'PIO_DIRECTION', because the property does not exist for objects of type 'pin'. [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/vivado/hdmi_p1/proj/hdmi_p1.gen/sources_1/bd/hdmi_p1/ip/hdmi_p1_ps7_0/hdmi_p1_ps7_0.xdc:84]
+Resolution: Modify the set_property command to apply the property on the correct object type. Since the property is being applied as a scoped constraint, ensure the proper connectivity of the object port objects can be translated into pin objects. This could be due to the insertion of IO Buffers between the top level terminal and cell pin. If the goal is to apply constraints that will migrate to top level ports it is required that IO Buffers manually be instanced.
+CRITICAL WARNING: [Netlist 29-160] Cannot set property 'iostandard', because the property does not exist for objects of type 'pin'. [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/vivado/hdmi_p1/proj/hdmi_p1.gen/sources_1/bd/hdmi_p1/ip/hdmi_p1_ps7_0/hdmi_p1_ps7_0.xdc:86]
+Resolution: Modify the set_property command to apply the property on the correct object type. Since the property is being applied as a scoped constraint, ensure the proper connectivity of the object port objects can be translated into pin objects. This could be due to the insertion of IO Buffers between the top level terminal and cell pin. If the goal is to apply constraints that will migrate to top level ports it is required that IO Buffers manually be instanced.
+CRITICAL WARNING: [Netlist 29-160] Cannot set property 'PACKAGE_PIN', because the property does not exist for objects of type 'pin'. [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/vivado/hdmi_p1/proj/hdmi_p1.gen/sources_1/bd/hdmi_p1/ip/hdmi_p1_ps7_0/hdmi_p1_ps7_0.xdc:87]
+Resolution: Modify the set_property command to apply the property on the correct object type. Since the property is being applied as a scoped constraint, ensure the proper connectivity of the object port objects can be translated into pin objects. This could be due to the insertion of IO Buffers between the top level terminal and cell pin. If the goal is to apply constraints that will migrate to top level ports it is required that IO Buffers manually be instanced.
+CRITICAL WARNING: [Netlist 29-160] Cannot set property 'slew', because the property does not exist for objects of type 'pin'. [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/vivado/hdmi_p1/proj/hdmi_p1.gen/sources_1/bd/hdmi_p1/ip/hdmi_p1_ps7_0/hdmi_p1_ps7_0.xdc:88]
+Resolution: Modify the set_property command to apply the property on the correct object type. Since the property is being applied as a scoped constraint, ensure the proper connectivity of the object port objects can be translated into pin objects. This could be due to the insertion of IO Buffers between the top level terminal and cell pin. If the goal is to apply constraints that will migrate to top level ports it is required that IO Buffers manually be instanced.
+CRITICAL WARNING: [Netlist 29-160] Cannot set property 'drive', because the property does not exist for objects of type 'pin'. [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/vivado/hdmi_p1/proj/hdmi_p1.gen/sources_1/bd/hdmi_p1/ip/hdmi_p1_ps7_0/hdmi_p1_ps7_0.xdc:89]
+Resolution: Modify the set_property command to apply the property on the correct object type. Since the property is being applied as a scoped constraint, ensure the proper connectivity of the object port objects can be translated into pin objects. This could be due to the insertion of IO Buffers between the top level terminal and cell pin. If the goal is to apply constraints that will migrate to top level ports it is required that IO Buffers manually be instanced.
+CRITICAL WARNING: [Netlist 29-160] Cannot set property 'pullup', because the property does not exist for objects of type 'pin'. [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/vivado/hdmi_p1/proj/hdmi_p1.gen/sources_1/bd/hdmi_p1/ip/hdmi_p1_ps7_0/hdmi_p1_ps7_0.xdc:90]
+Resolution: Modify the set_property command to apply the property on the correct object type. Since the property is being applied as a scoped constraint, ensure the proper connectivity of the object port objects can be translated into pin objects. This could be due to the insertion of IO Buffers between the top level terminal and cell pin. If the goal is to apply constraints that will migrate to top level ports it is required that IO Buffers manually be instanced.
+CRITICAL WARNING: [Netlist 29-160] Cannot set property 'PIO_DIRECTION', because the property does not exist for objects of type 'pin'. [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/vivado/hdmi_p1/proj/hdmi_p1.gen/sources_1/bd/hdmi_p1/ip/hdmi_p1_ps7_0/hdmi_p1_ps7_0.xdc:91]
+Resolution: Modify the set_property command to apply the property on the correct object type. Since the property is being applied as a scoped constraint, ensure the proper connectivity of the object port objects can be translated into pin objects. This could be due to the insertion of IO Buffers between the top level terminal and cell pin. If the goal is to apply constraints that will migrate to top level ports it is required that IO Buffers manually be instanced.
+CRITICAL WARNING: [Netlist 29-160] Cannot set property 'iostandard', because the property does not exist for objects of type 'pin'. [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/vivado/hdmi_p1/proj/hdmi_p1.gen/sources_1/bd/hdmi_p1/ip/hdmi_p1_ps7_0/hdmi_p1_ps7_0.xdc:93]
+Resolution: Modify the set_property command to apply the property on the correct object type. Since the property is being applied as a scoped constraint, ensure the proper connectivity of the object port objects can be translated into pin objects. This could be due to the insertion of IO Buffers between the top level terminal and cell pin. If the goal is to apply constraints that will migrate to top level ports it is required that IO Buffers manually be instanced.
+CRITICAL WARNING: [Netlist 29-160] Cannot set property 'PACKAGE_PIN', because the property does not exist for objects of type 'pin'. [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/vivado/hdmi_p1/proj/hdmi_p1.gen/sources_1/bd/hdmi_p1/ip/hdmi_p1_ps7_0/hdmi_p1_ps7_0.xdc:94]
+Resolution: Modify the set_property command to apply the property on the correct object type. Since the property is being applied as a scoped constraint, ensure the proper connectivity of the object port objects can be translated into pin objects. This could be due to the insertion of IO Buffers between the top level terminal and cell pin. If the goal is to apply constraints that will migrate to top level ports it is required that IO Buffers manually be instanced.
+CRITICAL WARNING: [Netlist 29-160] Cannot set property 'slew', because the property does not exist for objects of type 'pin'. [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/vivado/hdmi_p1/proj/hdmi_p1.gen/sources_1/bd/hdmi_p1/ip/hdmi_p1_ps7_0/hdmi_p1_ps7_0.xdc:95]
+Resolution: Modify the set_property command to apply the property on the correct object type. Since the property is being applied as a scoped constraint, ensure the proper connectivity of the object port objects can be translated into pin objects. This could be due to the insertion of IO Buffers between the top level terminal and cell pin. If the goal is to apply constraints that will migrate to top level ports it is required that IO Buffers manually be instanced.
+CRITICAL WARNING: [Netlist 29-160] Cannot set property 'drive', because the property does not exist for objects of type 'pin'. [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/vivado/hdmi_p1/proj/hdmi_p1.gen/sources_1/bd/hdmi_p1/ip/hdmi_p1_ps7_0/hdmi_p1_ps7_0.xdc:96]
+Resolution: Modify the set_property command to apply the property on the correct object type. Since the property is being applied as a scoped constraint, ensure the proper connectivity of the object port objects can be translated into pin objects. This could be due to the insertion of IO Buffers between the top level terminal and cell pin. If the goal is to apply constraints that will migrate to top level ports it is required that IO Buffers manually be instanced.
+CRITICAL WARNING: [Netlist 29-160] Cannot set property 'pullup', because the property does not exist for objects of type 'pin'. [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/vivado/hdmi_p1/proj/hdmi_p1.gen/sources_1/bd/hdmi_p1/ip/hdmi_p1_ps7_0/hdmi_p1_ps7_0.xdc:97]
+Resolution: Modify the set_property command to apply the property on the correct object type. Since the property is being applied as a scoped constraint, ensure the proper connectivity of the object port objects can be translated into pin objects. This could be due to the insertion of IO Buffers between the top level terminal and cell pin. If the goal is to apply constraints that will migrate to top level ports it is required that IO Buffers manually be instanced.
+CRITICAL WARNING: [Netlist 29-160] Cannot set property 'PIO_DIRECTION', because the property does not exist for objects of type 'pin'. [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/vivado/hdmi_p1/proj/hdmi_p1.gen/sources_1/bd/hdmi_p1/ip/hdmi_p1_ps7_0/hdmi_p1_ps7_0.xdc:98]
+Resolution: Modify the set_property command to apply the property on the correct object type. Since the property is being applied as a scoped constraint, ensure the proper connectivity of the object port objects can be translated into pin objects. This could be due to the insertion of IO Buffers between the top level terminal and cell pin. If the goal is to apply constraints that will migrate to top level ports it is required that IO Buffers manually be instanced.
+CRITICAL WARNING: [Netlist 29-160] Cannot set property 'iostandard', because the property does not exist for objects of type 'pin'. [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/vivado/hdmi_p1/proj/hdmi_p1.gen/sources_1/bd/hdmi_p1/ip/hdmi_p1_ps7_0/hdmi_p1_ps7_0.xdc:100]
+Resolution: Modify the set_property command to apply the property on the correct object type. Since the property is being applied as a scoped constraint, ensure the proper connectivity of the object port objects can be translated into pin objects. This could be due to the insertion of IO Buffers between the top level terminal and cell pin. If the goal is to apply constraints that will migrate to top level ports it is required that IO Buffers manually be instanced.
+CRITICAL WARNING: [Netlist 29-160] Cannot set property 'PACKAGE_PIN', because the property does not exist for objects of type 'pin'. [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/vivado/hdmi_p1/proj/hdmi_p1.gen/sources_1/bd/hdmi_p1/ip/hdmi_p1_ps7_0/hdmi_p1_ps7_0.xdc:101]
+Resolution: Modify the set_property command to apply the property on the correct object type. Since the property is being applied as a scoped constraint, ensure the proper connectivity of the object port objects can be translated into pin objects. This could be due to the insertion of IO Buffers between the top level terminal and cell pin. If the goal is to apply constraints that will migrate to top level ports it is required that IO Buffers manually be instanced.
+CRITICAL WARNING: [Netlist 29-160] Cannot set property 'slew', because the property does not exist for objects of type 'pin'. [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/vivado/hdmi_p1/proj/hdmi_p1.gen/sources_1/bd/hdmi_p1/ip/hdmi_p1_ps7_0/hdmi_p1_ps7_0.xdc:102]
+Resolution: Modify the set_property command to apply the property on the correct object type. Since the property is being applied as a scoped constraint, ensure the proper connectivity of the object port objects can be translated into pin objects. This could be due to the insertion of IO Buffers between the top level terminal and cell pin. If the goal is to apply constraints that will migrate to top level ports it is required that IO Buffers manually be instanced.
+CRITICAL WARNING: [Netlist 29-160] Cannot set property 'drive', because the property does not exist for objects of type 'pin'. [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/vivado/hdmi_p1/proj/hdmi_p1.gen/sources_1/bd/hdmi_p1/ip/hdmi_p1_ps7_0/hdmi_p1_ps7_0.xdc:103]
+Resolution: Modify the set_property command to apply the property on the correct object type. Since the property is being applied as a scoped constraint, ensure the proper connectivity of the object port objects can be translated into pin objects. This could be due to the insertion of IO Buffers between the top level terminal and cell pin. If the goal is to apply constraints that will migrate to top level ports it is required that IO Buffers manually be instanced.
+CRITICAL WARNING: [Netlist 29-160] Cannot set property 'pullup', because the property does not exist for objects of type 'pin'. [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/vivado/hdmi_p1/proj/hdmi_p1.gen/sources_1/bd/hdmi_p1/ip/hdmi_p1_ps7_0/hdmi_p1_ps7_0.xdc:104]
+Resolution: Modify the set_property command to apply the property on the correct object type. Since the property is being applied as a scoped constraint, ensure the proper connectivity of the object port objects can be translated into pin objects. This could be due to the insertion of IO Buffers between the top level terminal and cell pin. If the goal is to apply constraints that will migrate to top level ports it is required that IO Buffers manually be instanced.
+CRITICAL WARNING: [Netlist 29-160] Cannot set property 'PIO_DIRECTION', because the property does not exist for objects of type 'pin'. [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/vivado/hdmi_p1/proj/hdmi_p1.gen/sources_1/bd/hdmi_p1/ip/hdmi_p1_ps7_0/hdmi_p1_ps7_0.xdc:105]
+Resolution: Modify the set_property command to apply the property on the correct object type. Since the property is being applied as a scoped constraint, ensure the proper connectivity of the object port objects can be translated into pin objects. This could be due to the insertion of IO Buffers between the top level terminal and cell pin. If the goal is to apply constraints that will migrate to top level ports it is required that IO Buffers manually be instanced.
+CRITICAL WARNING: [Netlist 29-160] Cannot set property 'iostandard', because the property does not exist for objects of type 'pin'. [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/vivado/hdmi_p1/proj/hdmi_p1.gen/sources_1/bd/hdmi_p1/ip/hdmi_p1_ps7_0/hdmi_p1_ps7_0.xdc:107]
+Resolution: Modify the set_property command to apply the property on the correct object type. Since the property is being applied as a scoped constraint, ensure the proper connectivity of the object port objects can be translated into pin objects. This could be due to the insertion of IO Buffers between the top level terminal and cell pin. If the goal is to apply constraints that will migrate to top level ports it is required that IO Buffers manually be instanced.
+CRITICAL WARNING: [Netlist 29-160] Cannot set property 'PACKAGE_PIN', because the property does not exist for objects of type 'pin'. [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/vivado/hdmi_p1/proj/hdmi_p1.gen/sources_1/bd/hdmi_p1/ip/hdmi_p1_ps7_0/hdmi_p1_ps7_0.xdc:108]
+Resolution: Modify the set_property command to apply the property on the correct object type. Since the property is being applied as a scoped constraint, ensure the proper connectivity of the object port objects can be translated into pin objects. This could be due to the insertion of IO Buffers between the top level terminal and cell pin. If the goal is to apply constraints that will migrate to top level ports it is required that IO Buffers manually be instanced.
+CRITICAL WARNING: [Netlist 29-160] Cannot set property 'slew', because the property does not exist for objects of type 'pin'. [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/vivado/hdmi_p1/proj/hdmi_p1.gen/sources_1/bd/hdmi_p1/ip/hdmi_p1_ps7_0/hdmi_p1_ps7_0.xdc:109]
+Resolution: Modify the set_property command to apply the property on the correct object type. Since the property is being applied as a scoped constraint, ensure the proper connectivity of the object port objects can be translated into pin objects. This could be due to the insertion of IO Buffers between the top level terminal and cell pin. If the goal is to apply constraints that will migrate to top level ports it is required that IO Buffers manually be instanced.
+CRITICAL WARNING: [Netlist 29-160] Cannot set property 'drive', because the property does not exist for objects of type 'pin'. [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/vivado/hdmi_p1/proj/hdmi_p1.gen/sources_1/bd/hdmi_p1/ip/hdmi_p1_ps7_0/hdmi_p1_ps7_0.xdc:110]
+Resolution: Modify the set_property command to apply the property on the correct object type. Since the property is being applied as a scoped constraint, ensure the proper connectivity of the object port objects can be translated into pin objects. This could be due to the insertion of IO Buffers between the top level terminal and cell pin. If the goal is to apply constraints that will migrate to top level ports it is required that IO Buffers manually be instanced.
+CRITICAL WARNING: [Netlist 29-160] Cannot set property 'pullup', because the property does not exist for objects of type 'pin'. [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/vivado/hdmi_p1/proj/hdmi_p1.gen/sources_1/bd/hdmi_p1/ip/hdmi_p1_ps7_0/hdmi_p1_ps7_0.xdc:111]
+Resolution: Modify the set_property command to apply the property on the correct object type. Since the property is being applied as a scoped constraint, ensure the proper connectivity of the object port objects can be translated into pin objects. This could be due to the insertion of IO Buffers between the top level terminal and cell pin. If the goal is to apply constraints that will migrate to top level ports it is required that IO Buffers manually be instanced.
+CRITICAL WARNING: [Netlist 29-160] Cannot set property 'PIO_DIRECTION', because the property does not exist for objects of type 'pin'. [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/vivado/hdmi_p1/proj/hdmi_p1.gen/sources_1/bd/hdmi_p1/ip/hdmi_p1_ps7_0/hdmi_p1_ps7_0.xdc:112]
+Resolution: Modify the set_property command to apply the property on the correct object type. Since the property is being applied as a scoped constraint, ensure the proper connectivity of the object port objects can be translated into pin objects. This could be due to the insertion of IO Buffers between the top level terminal and cell pin. If the goal is to apply constraints that will migrate to top level ports it is required that IO Buffers manually be instanced.
+CRITICAL WARNING: [Netlist 29-160] Cannot set property 'iostandard', because the property does not exist for objects of type 'pin'. [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/vivado/hdmi_p1/proj/hdmi_p1.gen/sources_1/bd/hdmi_p1/ip/hdmi_p1_ps7_0/hdmi_p1_ps7_0.xdc:114]
+Resolution: Modify the set_property command to apply the property on the correct object type. Since the property is being applied as a scoped constraint, ensure the proper connectivity of the object port objects can be translated into pin objects. This could be due to the insertion of IO Buffers between the top level terminal and cell pin. If the goal is to apply constraints that will migrate to top level ports it is required that IO Buffers manually be instanced.
+CRITICAL WARNING: [Netlist 29-160] Cannot set property 'PACKAGE_PIN', because the property does not exist for objects of type 'pin'. [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/vivado/hdmi_p1/proj/hdmi_p1.gen/sources_1/bd/hdmi_p1/ip/hdmi_p1_ps7_0/hdmi_p1_ps7_0.xdc:115]
+Resolution: Modify the set_property command to apply the property on the correct object type. Since the property is being applied as a scoped constraint, ensure the proper connectivity of the object port objects can be translated into pin objects. This could be due to the insertion of IO Buffers between the top level terminal and cell pin. If the goal is to apply constraints that will migrate to top level ports it is required that IO Buffers manually be instanced.
+CRITICAL WARNING: [Netlist 29-160] Cannot set property 'slew', because the property does not exist for objects of type 'pin'. [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/vivado/hdmi_p1/proj/hdmi_p1.gen/sources_1/bd/hdmi_p1/ip/hdmi_p1_ps7_0/hdmi_p1_ps7_0.xdc:116]
+Resolution: Modify the set_property command to apply the property on the correct object type. Since the property is being applied as a scoped constraint, ensure the proper connectivity of the object port objects can be translated into pin objects. This could be due to the insertion of IO Buffers between the top level terminal and cell pin. If the goal is to apply constraints that will migrate to top level ports it is required that IO Buffers manually be instanced.
+CRITICAL WARNING: [Netlist 29-160] Cannot set property 'drive', because the property does not exist for objects of type 'pin'. [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/vivado/hdmi_p1/proj/hdmi_p1.gen/sources_1/bd/hdmi_p1/ip/hdmi_p1_ps7_0/hdmi_p1_ps7_0.xdc:117]
+Resolution: Modify the set_property command to apply the property on the correct object type. Since the property is being applied as a scoped constraint, ensure the proper connectivity of the object port objects can be translated into pin objects. This could be due to the insertion of IO Buffers between the top level terminal and cell pin. If the goal is to apply constraints that will migrate to top level ports it is required that IO Buffers manually be instanced.
+CRITICAL WARNING: [Netlist 29-160] Cannot set property 'pullup', because the property does not exist for objects of type 'pin'. [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/vivado/hdmi_p1/proj/hdmi_p1.gen/sources_1/bd/hdmi_p1/ip/hdmi_p1_ps7_0/hdmi_p1_ps7_0.xdc:118]
+Resolution: Modify the set_property command to apply the property on the correct object type. Since the property is being applied as a scoped constraint, ensure the proper connectivity of the object port objects can be translated into pin objects. This could be due to the insertion of IO Buffers between the top level terminal and cell pin. If the goal is to apply constraints that will migrate to top level ports it is required that IO Buffers manually be instanced.
+CRITICAL WARNING: [Netlist 29-160] Cannot set property 'PIO_DIRECTION', because the property does not exist for objects of type 'pin'. [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/vivado/hdmi_p1/proj/hdmi_p1.gen/sources_1/bd/hdmi_p1/ip/hdmi_p1_ps7_0/hdmi_p1_ps7_0.xdc:119]
+Resolution: Modify the set_property command to apply the property on the correct object type. Since the property is being applied as a scoped constraint, ensure the proper connectivity of the object port objects can be translated into pin objects. This could be due to the insertion of IO Buffers between the top level terminal and cell pin. If the goal is to apply constraints that will migrate to top level ports it is required that IO Buffers manually be instanced.
+CRITICAL WARNING: [Netlist 29-160] Cannot set property 'iostandard', because the property does not exist for objects of type 'pin'. [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/vivado/hdmi_p1/proj/hdmi_p1.gen/sources_1/bd/hdmi_p1/ip/hdmi_p1_ps7_0/hdmi_p1_ps7_0.xdc:121]
+Resolution: Modify the set_property command to apply the property on the correct object type. Since the property is being applied as a scoped constraint, ensure the proper connectivity of the object port objects can be translated into pin objects. This could be due to the insertion of IO Buffers between the top level terminal and cell pin. If the goal is to apply constraints that will migrate to top level ports it is required that IO Buffers manually be instanced.
+CRITICAL WARNING: [Netlist 29-160] Cannot set property 'PACKAGE_PIN', because the property does not exist for objects of type 'pin'. [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/vivado/hdmi_p1/proj/hdmi_p1.gen/sources_1/bd/hdmi_p1/ip/hdmi_p1_ps7_0/hdmi_p1_ps7_0.xdc:122]
+Resolution: Modify the set_property command to apply the property on the correct object type. Since the property is being applied as a scoped constraint, ensure the proper connectivity of the object port objects can be translated into pin objects. This could be due to the insertion of IO Buffers between the top level terminal and cell pin. If the goal is to apply constraints that will migrate to top level ports it is required that IO Buffers manually be instanced.
+CRITICAL WARNING: [Netlist 29-160] Cannot set property 'slew', because the property does not exist for objects of type 'pin'. [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/vivado/hdmi_p1/proj/hdmi_p1.gen/sources_1/bd/hdmi_p1/ip/hdmi_p1_ps7_0/hdmi_p1_ps7_0.xdc:123]
+Resolution: Modify the set_property command to apply the property on the correct object type. Since the property is being applied as a scoped constraint, ensure the proper connectivity of the object port objects can be translated into pin objects. This could be due to the insertion of IO Buffers between the top level terminal and cell pin. If the goal is to apply constraints that will migrate to top level ports it is required that IO Buffers manually be instanced.
+CRITICAL WARNING: [Netlist 29-160] Cannot set property 'drive', because the property does not exist for objects of type 'pin'. [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/vivado/hdmi_p1/proj/hdmi_p1.gen/sources_1/bd/hdmi_p1/ip/hdmi_p1_ps7_0/hdmi_p1_ps7_0.xdc:124]
+Resolution: Modify the set_property command to apply the property on the correct object type. Since the property is being applied as a scoped constraint, ensure the proper connectivity of the object port objects can be translated into pin objects. This could be due to the insertion of IO Buffers between the top level terminal and cell pin. If the goal is to apply constraints that will migrate to top level ports it is required that IO Buffers manually be instanced.
+CRITICAL WARNING: [Netlist 29-160] Cannot set property 'pullup', because the property does not exist for objects of type 'pin'. [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/vivado/hdmi_p1/proj/hdmi_p1.gen/sources_1/bd/hdmi_p1/ip/hdmi_p1_ps7_0/hdmi_p1_ps7_0.xdc:125]
+Resolution: Modify the set_property command to apply the property on the correct object type. Since the property is being applied as a scoped constraint, ensure the proper connectivity of the object port objects can be translated into pin objects. This could be due to the insertion of IO Buffers between the top level terminal and cell pin. If the goal is to apply constraints that will migrate to top level ports it is required that IO Buffers manually be instanced.
+CRITICAL WARNING: [Netlist 29-160] Cannot set property 'PIO_DIRECTION', because the property does not exist for objects of type 'pin'. [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/vivado/hdmi_p1/proj/hdmi_p1.gen/sources_1/bd/hdmi_p1/ip/hdmi_p1_ps7_0/hdmi_p1_ps7_0.xdc:126]
+Resolution: Modify the set_property command to apply the property on the correct object type. Since the property is being applied as a scoped constraint, ensure the proper connectivity of the object port objects can be translated into pin objects. This could be due to the insertion of IO Buffers between the top level terminal and cell pin. If the goal is to apply constraints that will migrate to top level ports it is required that IO Buffers manually be instanced.
+CRITICAL WARNING: [Netlist 29-160] Cannot set property 'iostandard', because the property does not exist for objects of type 'pin'. [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/vivado/hdmi_p1/proj/hdmi_p1.gen/sources_1/bd/hdmi_p1/ip/hdmi_p1_ps7_0/hdmi_p1_ps7_0.xdc:128]
+Resolution: Modify the set_property command to apply the property on the correct object type. Since the property is being applied as a scoped constraint, ensure the proper connectivity of the object port objects can be translated into pin objects. This could be due to the insertion of IO Buffers between the top level terminal and cell pin. If the goal is to apply constraints that will migrate to top level ports it is required that IO Buffers manually be instanced.
+CRITICAL WARNING: [Netlist 29-160] Cannot set property 'PACKAGE_PIN', because the property does not exist for objects of type 'pin'. [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/vivado/hdmi_p1/proj/hdmi_p1.gen/sources_1/bd/hdmi_p1/ip/hdmi_p1_ps7_0/hdmi_p1_ps7_0.xdc:129]
+Resolution: Modify the set_property command to apply the property on the correct object type. Since the property is being applied as a scoped constraint, ensure the proper connectivity of the object port objects can be translated into pin objects. This could be due to the insertion of IO Buffers between the top level terminal and cell pin. If the goal is to apply constraints that will migrate to top level ports it is required that IO Buffers manually be instanced.
+CRITICAL WARNING: [Netlist 29-160] Cannot set property 'slew', because the property does not exist for objects of type 'pin'. [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/vivado/hdmi_p1/proj/hdmi_p1.gen/sources_1/bd/hdmi_p1/ip/hdmi_p1_ps7_0/hdmi_p1_ps7_0.xdc:130]
+Resolution: Modify the set_property command to apply the property on the correct object type. Since the property is being applied as a scoped constraint, ensure the proper connectivity of the object port objects can be translated into pin objects. This could be due to the insertion of IO Buffers between the top level terminal and cell pin. If the goal is to apply constraints that will migrate to top level ports it is required that IO Buffers manually be instanced.
+CRITICAL WARNING: [Netlist 29-160] Cannot set property 'drive', because the property does not exist for objects of type 'pin'. [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/vivado/hdmi_p1/proj/hdmi_p1.gen/sources_1/bd/hdmi_p1/ip/hdmi_p1_ps7_0/hdmi_p1_ps7_0.xdc:131]
+Resolution: Modify the set_property command to apply the property on the correct object type. Since the property is being applied as a scoped constraint, ensure the proper connectivity of the object port objects can be translated into pin objects. This could be due to the insertion of IO Buffers between the top level terminal and cell pin. If the goal is to apply constraints that will migrate to top level ports it is required that IO Buffers manually be instanced.
+CRITICAL WARNING: [Netlist 29-160] Cannot set property 'pullup', because the property does not exist for objects of type 'pin'. [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/vivado/hdmi_p1/proj/hdmi_p1.gen/sources_1/bd/hdmi_p1/ip/hdmi_p1_ps7_0/hdmi_p1_ps7_0.xdc:132]
+Resolution: Modify the set_property command to apply the property on the correct object type. Since the property is being applied as a scoped constraint, ensure the proper connectivity of the object port objects can be translated into pin objects. This could be due to the insertion of IO Buffers between the top level terminal and cell pin. If the goal is to apply constraints that will migrate to top level ports it is required that IO Buffers manually be instanced.
+CRITICAL WARNING: [Netlist 29-160] Cannot set property 'PIO_DIRECTION', because the property does not exist for objects of type 'pin'. [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/vivado/hdmi_p1/proj/hdmi_p1.gen/sources_1/bd/hdmi_p1/ip/hdmi_p1_ps7_0/hdmi_p1_ps7_0.xdc:133]
+Resolution: Modify the set_property command to apply the property on the correct object type. Since the property is being applied as a scoped constraint, ensure the proper connectivity of the object port objects can be translated into pin objects. This could be due to the insertion of IO Buffers between the top level terminal and cell pin. If the goal is to apply constraints that will migrate to top level ports it is required that IO Buffers manually be instanced.
+CRITICAL WARNING: [Netlist 29-160] Cannot set property 'iostandard', because the property does not exist for objects of type 'pin'. [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/vivado/hdmi_p1/proj/hdmi_p1.gen/sources_1/bd/hdmi_p1/ip/hdmi_p1_ps7_0/hdmi_p1_ps7_0.xdc:135]
+Resolution: Modify the set_property command to apply the property on the correct object type. Since the property is being applied as a scoped constraint, ensure the proper connectivity of the object port objects can be translated into pin objects. This could be due to the insertion of IO Buffers between the top level terminal and cell pin. If the goal is to apply constraints that will migrate to top level ports it is required that IO Buffers manually be instanced.
+CRITICAL WARNING: [Netlist 29-160] Cannot set property 'PACKAGE_PIN', because the property does not exist for objects of type 'pin'. [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/vivado/hdmi_p1/proj/hdmi_p1.gen/sources_1/bd/hdmi_p1/ip/hdmi_p1_ps7_0/hdmi_p1_ps7_0.xdc:136]
+Resolution: Modify the set_property command to apply the property on the correct object type. Since the property is being applied as a scoped constraint, ensure the proper connectivity of the object port objects can be translated into pin objects. This could be due to the insertion of IO Buffers between the top level terminal and cell pin. If the goal is to apply constraints that will migrate to top level ports it is required that IO Buffers manually be instanced.
+CRITICAL WARNING: [Netlist 29-160] Cannot set property 'slew', because the property does not exist for objects of type 'pin'. [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/vivado/hdmi_p1/proj/hdmi_p1.gen/sources_1/bd/hdmi_p1/ip/hdmi_p1_ps7_0/hdmi_p1_ps7_0.xdc:137]
+Resolution: Modify the set_property command to apply the property on the correct object type. Since the property is being applied as a scoped constraint, ensure the proper connectivity of the object port objects can be translated into pin objects. This could be due to the insertion of IO Buffers between the top level terminal and cell pin. If the goal is to apply constraints that will migrate to top level ports it is required that IO Buffers manually be instanced.
+CRITICAL WARNING: [Netlist 29-160] Cannot set property 'drive', because the property does not exist for objects of type 'pin'. [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/vivado/hdmi_p1/proj/hdmi_p1.gen/sources_1/bd/hdmi_p1/ip/hdmi_p1_ps7_0/hdmi_p1_ps7_0.xdc:138]
+Resolution: Modify the set_property command to apply the property on the correct object type. Since the property is being applied as a scoped constraint, ensure the proper connectivity of the object port objects can be translated into pin objects. This could be due to the insertion of IO Buffers between the top level terminal and cell pin. If the goal is to apply constraints that will migrate to top level ports it is required that IO Buffers manually be instanced.
+CRITICAL WARNING: [Netlist 29-160] Cannot set property 'pullup', because the property does not exist for objects of type 'pin'. [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/vivado/hdmi_p1/proj/hdmi_p1.gen/sources_1/bd/hdmi_p1/ip/hdmi_p1_ps7_0/hdmi_p1_ps7_0.xdc:139]
+Resolution: Modify the set_property command to apply the property on the correct object type. Since the property is being applied as a scoped constraint, ensure the proper connectivity of the object port objects can be translated into pin objects. This could be due to the insertion of IO Buffers between the top level terminal and cell pin. If the goal is to apply constraints that will migrate to top level ports it is required that IO Buffers manually be instanced.
+CRITICAL WARNING: [Netlist 29-160] Cannot set property 'PIO_DIRECTION', because the property does not exist for objects of type 'pin'. [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/vivado/hdmi_p1/proj/hdmi_p1.gen/sources_1/bd/hdmi_p1/ip/hdmi_p1_ps7_0/hdmi_p1_ps7_0.xdc:140]
+Resolution: Modify the set_property command to apply the property on the correct object type. Since the property is being applied as a scoped constraint, ensure the proper connectivity of the object port objects can be translated into pin objects. This could be due to the insertion of IO Buffers between the top level terminal and cell pin. If the goal is to apply constraints that will migrate to top level ports it is required that IO Buffers manually be instanced.
+CRITICAL WARNING: [Netlist 29-160] Cannot set property 'iostandard', because the property does not exist for objects of type 'pin'. [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/vivado/hdmi_p1/proj/hdmi_p1.gen/sources_1/bd/hdmi_p1/ip/hdmi_p1_ps7_0/hdmi_p1_ps7_0.xdc:142]
+Resolution: Modify the set_property command to apply the property on the correct object type. Since the property is being applied as a scoped constraint, ensure the proper connectivity of the object port objects can be translated into pin objects. This could be due to the insertion of IO Buffers between the top level terminal and cell pin. If the goal is to apply constraints that will migrate to top level ports it is required that IO Buffers manually be instanced.
+CRITICAL WARNING: [Netlist 29-160] Cannot set property 'PACKAGE_PIN', because the property does not exist for objects of type 'pin'. [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/vivado/hdmi_p1/proj/hdmi_p1.gen/sources_1/bd/hdmi_p1/ip/hdmi_p1_ps7_0/hdmi_p1_ps7_0.xdc:143]
+Resolution: Modify the set_property command to apply the property on the correct object type. Since the property is being applied as a scoped constraint, ensure the proper connectivity of the object port objects can be translated into pin objects. This could be due to the insertion of IO Buffers between the top level terminal and cell pin. If the goal is to apply constraints that will migrate to top level ports it is required that IO Buffers manually be instanced.
+CRITICAL WARNING: [Netlist 29-160] Cannot set property 'slew', because the property does not exist for objects of type 'pin'. [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/vivado/hdmi_p1/proj/hdmi_p1.gen/sources_1/bd/hdmi_p1/ip/hdmi_p1_ps7_0/hdmi_p1_ps7_0.xdc:144]
+Resolution: Modify the set_property command to apply the property on the correct object type. Since the property is being applied as a scoped constraint, ensure the proper connectivity of the object port objects can be translated into pin objects. This could be due to the insertion of IO Buffers between the top level terminal and cell pin. If the goal is to apply constraints that will migrate to top level ports it is required that IO Buffers manually be instanced.
+CRITICAL WARNING: [Netlist 29-160] Cannot set property 'drive', because the property does not exist for objects of type 'pin'. [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/vivado/hdmi_p1/proj/hdmi_p1.gen/sources_1/bd/hdmi_p1/ip/hdmi_p1_ps7_0/hdmi_p1_ps7_0.xdc:145]
+Resolution: Modify the set_property command to apply the property on the correct object type. Since the property is being applied as a scoped constraint, ensure the proper connectivity of the object port objects can be translated into pin objects. This could be due to the insertion of IO Buffers between the top level terminal and cell pin. If the goal is to apply constraints that will migrate to top level ports it is required that IO Buffers manually be instanced.
+INFO: [Common 17-14] Message 'Netlist 29-160' appears 100 times and further instances of the messages will be disabled. Use the Tcl command set_msg_config to change the current settings. [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/vivado/hdmi_p1/proj/hdmi_p1.gen/sources_1/bd/hdmi_p1/ip/hdmi_p1_ps7_0/hdmi_p1_ps7_0.xdc:145]
+Finished Parsing XDC File [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/vivado/hdmi_p1/proj/hdmi_p1.gen/sources_1/bd/hdmi_p1/ip/hdmi_p1_ps7_0/hdmi_p1_ps7_0.xdc] for cell 'hdmi_p1_i/ps7/inst'
+Parsing XDC File [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/vivado/hdmi_p1/proj/hdmi_p1.gen/sources_1/bd/hdmi_p1/ip/hdmi_p1_rst_ps7_100M_0/hdmi_p1_rst_ps7_100M_0_board.xdc] for cell 'hdmi_p1_i/rst_ps7_100M/U0'
+Finished Parsing XDC File [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/vivado/hdmi_p1/proj/hdmi_p1.gen/sources_1/bd/hdmi_p1/ip/hdmi_p1_rst_ps7_100M_0/hdmi_p1_rst_ps7_100M_0_board.xdc] for cell 'hdmi_p1_i/rst_ps7_100M/U0'
+Parsing XDC File [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/vivado/hdmi_p1/constraints_frozen/hdmi_out_pins.xdc]
+Finished Parsing XDC File [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/vivado/hdmi_p1/constraints_frozen/hdmi_out_pins.xdc]
+Parsing XDC File [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/vivado/hdmi_p1/constraints/hdmi_p1_clocks.xdc]
+Finished Parsing XDC File [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/vivado/hdmi_p1/constraints/hdmi_p1_clocks.xdc]
+INFO: [Project 1-1714] 2 XPM XDC files have been applied to the design.
+INFO: [Opt 31-138] Pushed 0 inverter(s) to 0 load pin(s).
+Netlist sorting complete. Time (s): cpu = 00:00:00 ; elapsed = 00:00:00 . Memory (MB): peak = 2594.875 ; gain = 0.000 ; free physical = 1265 ; free virtual = 12340
+INFO: [Project 1-111] Unisim Transformation Summary:
+  A total of 2 instances were transformed.
+  IOBUF => IOBUF (IBUF, OBUFT): 2 instances
+
+open_run: Time (s): cpu = 00:00:07 ; elapsed = 00:00:07 . Memory (MB): peak = 2594.910 ; gain = 777.863 ; free physical = 1266 ; free virtual = 12340
+# step "6) 门禁：时钟周期 / MMCM / latch"
+
+[06] 6) 门禁：时钟周期 / MMCM / latch
+# proc clk_by_period {lo hi} { return [get_clocks -quiet -filter "PERIOD > $lo && PERIOD < $hi"] }
+# proc wns_of {c} {
+#     if {$c eq ""} { return "" }
+#     set ps [get_timing_paths -quiet -delay_type max -max_paths 1 -from $c -to $c]
+#     if {[llength $ps] == 0} { return "" }
+#     return [get_property SLACK [lindex $ps 0]]
+# }
+# set c_pix0 [clk_by_period  6.0  7.5]
+# set c_pix1 [clk_by_period 12.0 15.0]
+# set c_axi  [get_clocks -quiet -filter {NAME =~ "clk_fpga_*"}]
+# foreach c [get_clocks] { note "clock [get_property NAME $c]  PERIOD=[get_property PERIOD $c]" }
+    ..   clock clk_fpga_0  PERIOD=10.000
+    ..   clock clkfb_out  PERIOD=10.000
+    ..   clock clk_pix_a  PERIOD=6.737
+    ..   clock clk_pix_b  PERIOD=13.474
+# if {[llength $c_pix0] != 1} { error "148.4375 MHz 时钟匹配数 [llength $c_pix0] != 1" }
+# if {[llength $c_pix1] != 1} { error "74.21875 MHz 时钟匹配数 [llength $c_pix1] != 1" }
+# if {[llength $c_axi]  != 1} { error "clk_fpga_* 匹配数 [llength $c_axi] != 1" }
+# set c_pix0 [lindex $c_pix0 0]
+# set c_pix1 [lindex $c_pix1 0]
+# set c_axi [lindex $c_axi 0]
+# set p_pix0 [get_property PERIOD $c_pix0]
+# set p_pix1 [get_property PERIOD $c_pix1]
+# set p_axi  [get_property PERIOD $c_axi]
+# foreach {nm got exp} [list PIX_a $p_pix0 6.7368 PIX_b $p_pix1 13.4737 AXI $p_axi 10.0000] {
+#     if {abs($got - $exp) > 0.02} { error "$nm 周期 $got ns 与期望 $exp ns 不符（门禁 3）" }
+#     ok "$nm period = $got ns（期望 $exp）"
+# }
+    OK   PIX_a period = 6.737 ns（期望 6.7368）
+    OK   PIX_b period = 13.474 ns（期望 13.4737）
+    OK   AXI period = 10.000 ns（期望 10.0000）
+# set mmcms [get_cells -hier -quiet -filter {REF_NAME =~ MMCME2*}]
+# if {[llength $mmcms] != 1} { error "MMCM 实例数 [llength $mmcms] != 1" }
+# set mmcm [lindex $mmcms 0]
+# set mult [get_property CLKFBOUT_MULT_F $mmcm]
+# set ddiv [get_property DIVCLK_DIVIDE $mmcm]
+# set d0   [get_property CLKOUT0_DIVIDE_F $mmcm]
+# set d1   [get_property CLKOUT1_DIVIDE $mmcm]
+# set tk   [get_property CLKIN1_PERIOD $mmcm]
+# set vco  [expr {1000.0 / $tk * $mult / $ddiv}]
+# if {abs($vco - 1187.5) > 1.0} { error "VCO=$vco MHz != 1187.5" }
+# if {abs($d0 - 8.0) > 0.01}  { error "CLKOUT0_DIVIDE_F=$d0 != 8.0" }
+# if {abs($d1 - 16.0) > 0.01} { error "CLKOUT1_DIVIDE=$d1 != 16" }
+# ok "MMCM：VCO=$vco MHz（M=$mult D=$ddiv）CLKOUT0 ÷$d0 / CLKOUT1 ÷$d1"
+    OK   MMCM：VCO=1187.5 MHz（M=11.875 D=1）CLKOUT0 ÷8.000 / CLKOUT1 ÷16
+# catch {set_clock_groups -physically_exclusive -group $c_pix0 -group $c_pix1}
+# catch {set_clock_groups -asynchronous -group [list $c_pix0 $c_pix1] -group $c_axi}
+# set latches [get_cells -hier -quiet -filter {REF_NAME =~ LDCE* || REF_NAME =~ LDPE*}]
+# if {[llength $latches] != 0} { error "综合后 latch [llength $latches] 个 != 0" }
+# ok "综合后 LDCE/LDPE = 0"
+    OK   综合后 LDCE/LDPE = 0
+# catch {report_utilization -file [file join $OUT util_synth.rpt]}
+# set w0s [wns_of $c_pix0]
+# set w1s [wns_of $c_pix1]
+# set was [wns_of $c_axi]
+# note "WNS(synth) PIX_a='$w0s' PIX_b='$w1s' AXI='$was'"
+    ..   WNS(synth) PIX_a='1.697' PIX_b='8.427' AXI='5.542'
+# close_design
+# step "7) launch_runs impl_1 -to_step write_bitstream（jobs=2）"
+
+[07] 7) launch_runs impl_1 -to_step write_bitstream（jobs=2）
+# wait_mem 4.0 "before impl"
+    [mem] before impl : MemAvailable = 11.05 GB (need >= 4.0)
+# set _t1 [clock seconds]
+# set ir [get_runs impl_1]
+# set_property STEPS.OPT_DESIGN.ARGS.DIRECTIVE   Default $ir
+# set_property STEPS.PLACE_DESIGN.ARGS.DIRECTIVE Default $ir
+# set_property STEPS.ROUTE_DESIGN.ARGS.DIRECTIVE Default $ir
+# if {[get_property PROGRESS $ir] ne "100%"} {
+#     launch_runs impl_1 -to_step write_bitstream -jobs 2
+#     wait_on_run impl_1
+# }
+# if {[get_property PROGRESS $ir] ne "100%" || [string match -nocase "*ERROR*" [get_property STATUS $ir]]} {
+#     error "impl_1 失败：status=[get_property STATUS $ir]"
+# }
+# set _t_impl [expr {[clock seconds] - $_t1}]
+# ok "impl_1 = [get_property STATUS $ir]，用时 ${_t_impl} s"
+    OK   impl_1 = write_bitstream Complete!，用时 0 s
+# set _rdcp [glob -nocomplain [file join $PROJDIR hdmi_p1.runs impl_1 *.routed.dcp]]
+# if {[llength $_rdcp] > 0} {
+#     file copy -force [lindex $_rdcp 0] [file join $OUT hdmi_p1_routed.dcp]
+#     ok "routed dcp → [file join $OUT hdmi_p1_routed.dcp]"
+# }
+# open_run impl_1 -name impl_gate
+Netlist sorting complete. Time (s): cpu = 00:00:00.02 ; elapsed = 00:00:00.01 . Memory (MB): peak = 2600.812 ; gain = 0.000 ; free physical = 1257 ; free virtual = 12317
+INFO: [Netlist 29-17] Analyzing 63 Unisim elements for replacement
+INFO: [Netlist 29-28] Unisim Transformation completed in 0 CPU seconds
+INFO: [Project 1-479] Netlist was created with Vivado 2025.2.1
+INFO: [Project 1-570] Preparing netlist for logic optimization
+Read ShapeDB Complete: Time (s): cpu = 00:00:00 ; elapsed = 00:00:00.01 . Memory (MB): peak = 2600.812 ; gain = 0.000 ; free physical = 1332 ; free virtual = 12345
+INFO: [Timing 38-478] Restoring timing data from binary archive.
+INFO: [Timing 38-479] Binary timing data restore complete.
+INFO: [Project 1-856] Restoring constraints from binary archive.
+INFO: [Project 1-853] Binary constraint restore complete.
+INFO: [Designutils 20-5722] Start Reading Physical Databases.
+Reading placement.
+Read Netlist Cache: Time (s): cpu = 00:00:00 ; elapsed = 00:00:00.01 . Memory (MB): peak = 2600.812 ; gain = 0.000 ; free physical = 1248 ; free virtual = 12295
+Reading placer database...
+Read Device Cache: Time (s): cpu = 00:00:00.01 ; elapsed = 00:00:00.01 . Memory (MB): peak = 2600.812 ; gain = 0.000 ; free physical = 1248 ; free virtual = 12295
+Read PlaceDB: Time (s): cpu = 00:00:00 ; elapsed = 00:00:00 . Memory (MB): peak = 2600.812 ; gain = 0.000 ; free physical = 1248 ; free virtual = 12295
+Read placeStorage: Time (s): cpu = 00:00:00.07 ; elapsed = 00:00:00.07 . Memory (MB): peak = 2600.812 ; gain = 0.000 ; free physical = 1255 ; free virtual = 12302
+Read PulsedLatchDB: Time (s): cpu = 00:00:00 ; elapsed = 00:00:00 . Memory (MB): peak = 2600.812 ; gain = 0.000 ; free physical = 1255 ; free virtual = 12302
+Reading routing.
+Read RouteStorage: Time (s): cpu = 00:00:00.02 ; elapsed = 00:00:00.01 . Memory (MB): peak = 2600.812 ; gain = 0.000 ; free physical = 1256 ; free virtual = 12303
+Read Physdb Files: Time (s): cpu = 00:00:00.1 ; elapsed = 00:00:00.1 . Memory (MB): peak = 2600.812 ; gain = 0.000 ; free physical = 1256 ; free virtual = 12303
+Restored from archive | CPU: 0.110000 secs | Memory: 0.933151 MB |
+Finished XDEF File Restore: Time (s): cpu = 00:00:00.1 ; elapsed = 00:00:00.1 . Memory (MB): peak = 2600.812 ; gain = 0.000 ; free physical = 1256 ; free virtual = 12303
+Netlist sorting complete. Time (s): cpu = 00:00:00 ; elapsed = 00:00:00 . Memory (MB): peak = 2600.812 ; gain = 0.000 ; free physical = 1255 ; free virtual = 12302
+INFO: [Project 1-111] Unisim Transformation Summary:
+  A total of 2 instances were transformed.
+  IOBUF => IOBUF (IBUF, OBUFT): 2 instances
+
+# set c_pix0 [lindex [clk_by_period  6.0  7.5] 0]
+# set c_pix1 [lindex [clk_by_period 12.0 15.0] 0]
+# set c_axi  [lindex [get_clocks -quiet -filter {NAME =~ "clk_fpga_*"}] 0]
+# note "impl 时钟：pix_a='$c_pix0' pix_b='$c_pix1' axi='$c_axi'"
+    ..   impl 时钟：pix_a='clk_pix_a' pix_b='clk_pix_b' axi='clk_fpga_0'
+# foreach {nm cmd} {
+#     util   {report_utilization -file [file join $OUT util.rpt]}
+#     timing {report_timing_summary -delay_type max -max_paths 20 -file [file join $OUT timing.rpt]}
+#     clk    {report_clocks -file [file join $OUT clocks.rpt]}
+# } {
+#     if {[catch {eval $cmd} e]} { note "报告 $nm 失败（不影响产物）：$e" }
+# }
+INFO: [Timing 38-91] UpdateTimingParams: Speed grade: -2, Delay Type: max.
+INFO: [Timing 38-191] Multithreading enabled for timing update using a maximum of 2 CPUs
+# step "8) 最终门禁"
+
+[08] 8) 最终门禁
+# set impl_lut -1
+# foreach f [list [file join $OUT util.rpt] [file join $OUT util_synth.rpt]] {
+#     if {$impl_lut < 0 && [file exists $f]} {
+#         set fh [open $f r]; set txt [read $fh]; close $fh
+#         foreach line [split $txt "\n"] {
+#             if {[regexp "\\|\\s+Slice LUTs\\s+\\|\\s+(\\d+)" $line -> n]} { set impl_lut $n; break }
+#         }
+#     }
+# }
+# set lat_net [llength [get_cells -hier -quiet -filter {REF_NAME =~ LDCE* || REF_NAME =~ LDPE*}]]
+# if {$lat_net != 0} { error "实现后 latch = $lat_net != 0（门禁 1）" }
+# ok "门禁1：Register as Latch = 0（网表指纹）"
+    OK   门禁1：Register as Latch = 0（网表指纹）
+# catch {set_clock_groups -physically_exclusive -group $c_pix0 -group $c_pix1}
+# catch {set_clock_groups -asynchronous -group [list $c_pix0 $c_pix1] -group $c_axi}
+# set w0 [wns_of $c_pix0]
+# set w1 [wns_of $c_pix1]
+# set wa [wns_of $c_axi]
+# note "WNS(impl) PIX_a='$w0'  PIX_b='$w1'  AXI='$wa'"
+    ..   WNS(impl) PIX_a='1.906'  PIX_b='8.636'  AXI='5.530'
+# foreach {nm v} [list PIX_a $w0 PIX_b $w1] {
+#     if {$v eq ""} { error "$nm 没有时序路径（门禁 2）" }
+#     if {$v < 0} { error "$nm WNS = $v ns < 0（门禁 2）" }
+# }
+# ok "门禁2：两路像素时钟 WNS = $w0 / $w1 ns ≥ 0"
+    OK   门禁2：两路像素时钟 WNS = 1.906 / 8.636 ns ≥ 0
+# if {$wa eq ""} { note "AXI 无路径（不正常）" } elseif {$wa < 0} { error "s_axi WNS = $wa < 0" }
+# if {$impl_lut > 2500} { error "LUT=$impl_lut > 2500（门禁 4）" }
+# ok "门禁4：LUT = $impl_lut ≤ 2500"
+    OK   门禁4：LUT = 315 ≤ 2500
+# close_design
+# step "9) 位流"
+
+[09] 9) 位流
+# set bit [file join $PROJDIR hdmi_p1.runs impl_1 hdmi_p1_wrapper.bit]
+# if {![file exists $bit]} { error "缺位流：$bit" }
+# file copy -force $bit [file join $OUT hdmi_p1.bit]
+# set _t_bit 0
+# ok "位流 = [file join $OUT hdmi_p1.bit]  size=[file size [file join $OUT hdmi_p1.bit]]  md5=[md5f [file join $OUT hdmi_p1.bit]]"
+    OK   位流 = /media/felix/Data/coding/demoir-fpga/runs/hdmi_p1/hdmi_p1.bit  size=3510797  md5=b658e0daf0d2c43cdf82043343698de3
+# step "10) 产物 MD5SUMS / build_manifest"
+
+[10] 10) 产物 MD5SUMS / build_manifest
+# set rtl_list [list \
+#     [file join $FROZEN hdmi_out_top.v] [file join $FROZEN hdmi_timing_gen.v] \
+#     [file join $FROZEN hdmi_color_bar.v] [file join $FROZEN sil9134_init.v] \
+#     [file join $RTL hdmi_p1_top.v] \
+#     [file join $XDCFROZ hdmi_out_pins.xdc] [file join $XDCMINE hdmi_p1_clocks.xdc] \
+#     [file join $HERE build_hdmi_p1.tcl]]
+# set fh [open [file join $OUT build_manifest.txt] w]
+# set _ts [clock format [clock seconds] -format {%Y-%m-%d %H:%M:%S}]
+# puts $fh "# HDMI P1 build manifest  $_ts"
+# puts $fh "# 用法：cd <repo>/pynq_specialized_code && md5sum -c ../runs/hdmi_p1/build_manifest.txt"
+# puts $fh "# 判据：位流 md5 与下列源码 md5 是同一次构建（上板前必须 md5sum -c 全过）"
+# foreach f $rtl_list {
+#     set rel [string range $f [expr {[string length $PSCODE] + 1}] end]
+#     puts $fh "[md5f $f]  $rel"
+# }
+# puts $fh "[md5f [file join $OUT hdmi_p1.bit]]  ../runs/hdmi_p1/hdmi_p1.bit"
+# puts $fh "[md5f [file join $OUT hdmi_p1.hwh]]  ../runs/hdmi_p1/hdmi_p1.hwh"
+# close $fh
+# ok "manifest → [file join $OUT build_manifest.txt]"
+    OK   manifest → /media/felix/Data/coding/demoir-fpga/runs/hdmi_p1/build_manifest.txt
+# set fh [open [file join $OUT MD5SUMS] w]
+# foreach f [list [file join $OUT hdmi_p1.bit] [file join $OUT hdmi_p1.hwh] \
+#                 [file join $OUT util.rpt] [file join $OUT timing.rpt] \
+#                 [file join $OUT hdmi_p1_routed.dcp]] {
+#     if {[file exists $f]} { puts $fh "[md5f $f]  [file tail $f]" }
+# }
+# close $fh
+# ok "MD5SUMS → [file join $OUT MD5SUMS]"
+    OK   MD5SUMS → /media/felix/Data/coding/demoir-fpga/runs/hdmi_p1/MD5SUMS
+# puts ""
+
+# puts "==========================================================================="
+===========================================================================
+# puts " HDMI_P1_SUMMARY  [tstamp]"
+ HDMI_P1_SUMMARY  00:08:48
+# puts "   bit        : [file join $OUT hdmi_p1.bit]"
+   bit        : /media/felix/Data/coding/demoir-fpga/runs/hdmi_p1/hdmi_p1.bit
+# puts "   bit md5    : [md5f [file join $OUT hdmi_p1.bit]]"
+   bit md5    : b658e0daf0d2c43cdf82043343698de3
+# puts "   bit size   : [file size [file join $OUT hdmi_p1.bit]] bytes"
+   bit size   : 3510797 bytes
+# puts "   hwh        : [file join $OUT hdmi_p1.hwh]  md5=[md5f [file join $OUT hdmi_p1.hwh]]"
+   hwh        : /media/felix/Data/coding/demoir-fpga/runs/hdmi_p1/hdmi_p1.hwh  md5=04113efa81b80a720018cbb075f2b171
+# puts "   addr       : hdmi_out_top = $ADDR_HDMI / $RANGE_HDMI"
+   addr       : hdmi_out_top = 0x400A0000 / 64K
+# puts "   clocks     : PIX_a=$p_pix0 ns  PIX_b=$p_pix1 ns  AXI=$p_axi ns  VCO=$vco MHz"
+   clocks     : PIX_a=6.737 ns  PIX_b=13.474 ns  AXI=10.000 ns  VCO=1187.5 MHz
+# puts "   WNS impl   : PIX_a=$w0  PIX_b=$w1  AXI=$wa"
+   WNS impl   : PIX_a=1.906  PIX_b=8.636  AXI=5.530
+# puts "   LUT        : $impl_lut   latch=$lat_net"
+   LUT        : 315   latch=0
+# puts "   time       : synth ${_t_synth}s + impl ${_t_impl}s + bit ${_t_bit}s"
+   time       : synth 0s + impl 0s + bit 0s
+# puts "==========================================================================="
+===========================================================================
+INFO: [Common 17-206] Exiting Vivado at Tue Nov  3 00:08:48 2026...

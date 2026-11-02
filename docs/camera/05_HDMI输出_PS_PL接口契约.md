@@ -226,3 +226,27 @@ $$\Rightarrow\ 100\ \text{MHz} \Rightarrow 300\ \text{MB/s};\quad 150\ \text{MHz
 
 **策略**：P1 点亮后**先用 720p60 / 1080p30 做真画面**（100 MHz AXI 就够）；
 只有当芯片确实只认 1080p60 时，才把 `s_axi_aclk` 提到 150 MHz，并用 `UNDERFLOW_CNT` 实测余量。
+
+---
+
+## 8. ★ 事故驱动的三条硬规则（2026-11-03 00:18，P1 首次上板把板子挂死）
+
+事故详情见 `runs/incident/20261103_0018_HDMI_P1首次上板挂死.md`。**根因：AXI 互联被 PL 侧 MMCM 锁定门控。**
+
+### 8.1 AXI 互联绝不许被 PL 时钟锁定门控
+- AXI 互联 + 寄存器文件：只用 `s_axi_aclk` 与 **PS 时钟域的复位**。
+- 像素域**单独一把复位**（可以 `dcm_locked` 门控）。它挂了只影响出图，**不影响总线**。
+- 判据（P3-b/P3-c 必须验）：**把 MMCM 输入故意设成非法频率，AXI 仍必须可读写**。
+
+### 8.2 必须先读心跳，再读状态
+- 在 AXI 时钟域新增 `0x30 PIX_HB`（RO）：像素域一个自由翻转位经 2FF 同步过来。
+- 上板顺序：**两次读 `PIX_HB` 必须变化** ⇒ 才允许读 `CTRL/STATUS/...`。
+- 若 `PIX_HB` 不变 ⇒ 像素时钟没跑 ⇒ **立刻停，不要再做任何 AXI 访问**。
+
+### 8.3 先设时钟，再 load
+- 顺序固定：改 `FCLK0` → 等 ≥100 ms → load overlay → 读 `PIX_HB` → 读 `STATUS`。
+- 事故当次的错误顺序是"先 load 再改 FCLK"（因为先改时钟拿不到 ZOCL 上下文，见下条）。
+
+### 8.4 PYNQ 侧的一条实用知识
+- 未 load 过 overlay 时 `from pynq import Clocks; Clocks.fclk0_mhz` 会抛 `RuntimeError: No device found`（ZOCL 无上下文）。
+- 因此"先设 FCLK 再 load"在这套镜像上做不到 ⇒ **必须靠 8.1/8.2 两条机制兜底**，不能靠顺序。
