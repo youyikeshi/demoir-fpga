@@ -5223,3 +5223,35 @@ $$\Rightarrow\ \text{已在 T-60 重出 } \texttt{v43base2}（\text{只换 RTL �
 **顺带确认两条风险不成立（T-59 的对照）**
 $$\Rightarrow\ \text{AWID 常 0、}\texttt{MAX\_BURST} 256\to16\ \textbf{都不是本次原因}：\text{v39 那套"旧元数据 + 两个 pc\_conv"挂死方式完全相同}$$
 $$\Rightarrow\ \text{交付的新事实：新 } \texttt{.hwh}\ \text{里 } \texttt{/ps7}\ \text{新增 } \texttt{C\_BASEADDR 0x0–0x3FFFFFFF}（\text{整片 DDR 窗口}）$$
+
+### 70.41 ★★★★ v43base2：BD 重建 = **中性**（manifest 级 RTL，Z1–Z6 全过）（2026-11-02 12:57）
+
+**RTL 根的来历（这次才对了）**
+$$\Rightarrow\ \text{根} = \texttt{runs/v42e\_archive/rtl\_v39\_exact/}：\texttt{b58964e}\ \text{的 25 文件，其中被 v40 刀改过的 2 个换回 } \texttt{.snapshots/verified\_v39/}$$
+$$\Rightarrow\ \text{判据 = v39 位流 manifest 逐条：}\mathbf{MATCH=12\ DIFF=0};\ 12(\text{manifest}) + 13(\texttt{b58964e}) = \mathbf{25/25}\ \text{有账}$$
+$$\Rightarrow\ \texttt{PF\_AHEAD=1 / PF\_DEPTH=4 / AR\_SLOTS=4};\ \text{关键 md5 } \texttt{0cf68b2e} / \texttt{28375eec}$$
+
+| 指标 | v39 | **v43base2** | Δ |
+|---|---:|---:|---:|
+| LUT | 20,552 | **20,202** | −350 |
+| FF | 18,963 | **18,448** | −515 |
+| BRAM / DSP | 35 / 101 | **35 / 101** | 0 |
+| **10 ns WNS** | −1.998 | **−2.140** | **−0.142（±0.2 内）** |
+| **150 MHz WNS** | −5.331 | **−5.473** | **同一 −0.142** |
+| 端点总数（150 MHz）| 20,706 | 21,069 | +1.75% |
+| **N2 Fatal** | 15,556 | **15,446** | **−110（不差于 v39）** |
+| IP_OTHER | 65 | 65 | 0 |
+| DRC / Latch | 0 / 0 | **0 / 0**（双查）| — |
+
+$$\Rightarrow\ \text{两口径给出}\textbf{同一个 } -0.142\ \text{ns} \Rightarrow \text{差异来自}\textbf{真实布局}，\text{不是审计手法}$$
+$$\Rightarrow\ \textbf{G1}：\text{数量级跃迁 } \mathbf{0}\ \text{个};\ \text{pc\_conv 相关 84 条按预期消失}$$
+$$\Rightarrow\ \textbf{G2 五组与 v39 逐组同判}：\text{A/B PASS→PASS},\ \text{C/D/E FAIL→FAIL}（254\to364 / 9\to16 / 136\to142）$$
+$$\quad\ \Rightarrow\ \textbf{无新违例族、无任何 PASS→FAIL} \Rightarrow \textbf{这是"BD 中性"最直接的静态证据}$$
+$$\Rightarrow\ \text{bit } \texttt{65ca57ef};\ \texttt{.hwh } \texttt{6b552758}（189{,}340\ \text{B}，\text{与 v39 的 } \texttt{c1686bd8}\ \text{不同是预期）}$$
+
+$$\Rightarrow\ \textbf{上板功能验证 = T-61 执行中}（\text{分档 + 确定性 + 写通路专项 + 同 session A/B}）$$
+$$\quad\ \text{静态中性}\textbf{不能代替上板}:\ \text{v43base（错 RTL）静态也"中性"，但板端挂死}$$
+
+**工具化建议（T-60 提的，值得做）**
+$$\Rightarrow\ \text{新增 } \texttt{tools/verify\_rtl\_root.sh <manifest>}：\text{逐条比对 manifest 的 } \texttt{(file, md5)}\ \text{并打印报表}$$
+$$\Rightarrow\ \text{任何构建脚本第一行调用它} \Rightarrow \text{把第 105/106 条纪律}\textbf{机制化}，\text{而不是靠人记得}$$
