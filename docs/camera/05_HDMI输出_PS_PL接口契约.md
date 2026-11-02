@@ -1,0 +1,162 @@
+# HDMI 输出：PS + PL 接口契约与实施顺序（v1）
+
+> **背景**：板上 HDMI 输出经 **SIL9134** 编码芯片（[厂商例程核实](04_厂商例程与硬件事实_HDMI与USB.md)）。
+> PL 只需输出 **24-bit 并行 RGB + HS/VS/DE + 像素时钟**，芯片内部做 8b/10b 与串行化 ⇒ **不需要 TMDS/OSERDES**。
+> **目标**：把 PS 烘好的整幅画面（含左右拼接与上下黑边，已由 `display_layout.compose()` 产出）送上显示器。
+> **顺序原则**：先证明"电与配置通"（彩条），再接"真数据"（DDR 扫描），最后合并进推理位流。
+
+---
+
+## 0. 三个阶段（不要跳）
+
+| 阶段 | 内容 | PL 增量 | 风险 |
+|---|---|---:|---|
+| **P1 彩条** | 视频时序 + 彩条图案 + SIL9134 I2C 初始化 | $\approx 500\sim700$ LUT | **最低**（不碰 DDR/AXI） |
+| **P2 真画面** | 加"AXI 读帧缓冲 → 行缓冲 → 像素流"扫描器 + PS 配置寄存器 | $+300\sim600$ LUT | 中（AXI 读、CDC、换帧） |
+| **P3 合并** | 把 P1+P2 合进推理位流（v39 基线） | 合计 $\approx 0.8\sim1.3$k LUT | 高（时序 + 需重跑 54/54 sha1） |
+
+- **P1 是唯一能"用最小代价排除最大不确定性"的一步**
+- 显示不亮 90% 的原因在时序参数/引脚/I2C 配置 ⇒ P1 正好只考这三样
+- **所以先做 P1，上板点亮，再谈 P2。**
+
+---
+
+## 1. 显示模式（参数化，默认 720p60）
+
+| 模式 | 像素时钟 | 行总/有效 | 场总/有效 | 说明 |
+|---|---:|---|---|---|
+| **0 = 720p60（默认）** | $74.25\ \text{MHz}$ | $1650 / 1280$ | $750 / 720$ | 兼容性最好 |
+| 1 = 1080p60 | $148.5\ \text{MHz}$ | $2200 / 1920$ | $1125 / 1080$ | SIL9134 支持，时序紧张些 |
+| 2 = 1080p30 | $74.25\ \text{MHz}$ | $2200 / 1920$ | $1125 / 1080$ | 折中 |
+| 3 = 640×480p60 | $25.175\ \text{MHz}$ | $800 / 640$ | $525 / 480$ | 最宽松，调试用 |
+
+- 同步极性：**HS/VS 均为正极性**（SIL9134 侧按厂商例程）。
+- `DE` 在有效像素期间为高；`rgb` 在 DE 之外输出 0。
+- 像素时钟由 MMCM 从 `s_axi_aclk`（100 MHz）分出：$74.25 = 100 \times 74.25/100$，用 `CLKFBOUT_MULT`/`DIVCLK_DIVIDE` 整数近似到 $<100\ \text{ppm}$ 即可（SIL9134 容差远大于此）。**若 100 MHz 分不出整数比，允许把 AXI 时钟设成 100 MHz 的整数倍关系并记录实际频率**。
+
+---
+
+## 2. 顶层与接口契约
+
+```
+module hdmi_out_top #(
+    parameter integer MODE_DEFAULT = 0        // 0=720p60 1=1080p60 2=1080p30 3=640x480p60
+)(
+    // ---- 时钟/复位 ----
+    input  wire        s_axi_aclk,
+    input  wire        aresetn,
+    // ---- AXI4-Lite 配置页（PS 用 mmap 写）----
+    input  wire [31:0] s_axi_awaddr,  input wire s_axi_awvalid, output wire s_axi_awready,
+    input  wire [31:0] s_axi_wdata,   input wire [3:0] s_axi_wstrb,
+    input  wire        s_axi_wvalid,  output wire s_axi_wready,
+    output wire [1:0]  s_axi_bresp,   output wire s_axi_bvalid, input wire s_axi_bready,
+    input  wire [31:0] s_axi_araddr,  input wire s_axi_arvalid, output wire s_axi_arready,
+    output wire [31:0] s_axi_rdata,   output wire [1:0] s_axi_rresp,
+    output wire        s_axi_rvalid,  input  wire s_axi_rready,
+    // ---- AXI4 master 读（P2 才用；P1 接 0，读通道保持 ready/bvalid 合法）----
+    output wire [31:0] m_axi_araddr,  output wire [7:0] m_axi_arlen,
+    output wire [2:0]  m_axi_arsize,  output wire [1:0] m_axi_arburst,
+    output wire        m_axi_arvalid, input  wire       m_axi_arready,
+    input  wire [63:0] m_axi_rdata,   input  wire [1:0] m_axi_rresp,
+    input  wire        m_axi_rlast,   input  wire       m_axi_rvalid,
+    output wire        m_axi_rready,
+    // ---- 视频输出（直连 SIL9134，引脚走 XDC）----
+    output wire        pix_clk,
+    output wire        hdmi_de,  output wire hdmi_hs, output wire hdmi_vs,
+    output wire [23:0] hdmi_d,
+    // ---- SIL9134 控制 ----
+    output wire        hdmi_rst_n,
+    output wire        i2c_scl_o, output wire i2c_scl_t,   // 1=释放(上拉)
+    input  wire        i2c_sda_i, output wire i2c_sda_o, output wire i2c_sda_t,
+    // ---- 状态 ----
+    output wire        irq_vsync,
+    output wire        init_done          // SIL9134 配置完成
+);
+```
+
+**AXI-Lite 寄存器图（4 字节对齐，只支持 32-bit 访问）**
+
+| 偏移 | 名称 | R/W | 位域 |
+|---|---|---|---|
+| `0x00` | `CTRL` | RW | `[0]` enable（彩条/扫描器使能）；`[1]` soft_reset；`[2]` test_pattern（1=彩条）；`[3]` frame_swap_req |
+| `0x04` | `STATUS` | RO | `[0]` init_done；`[1]` vsync 发生锁存；`[2]` scan_underflow（行缓冲被读空） |
+| `0x08` | `VIDEO_MODE` | RW | `[1:0]` 模式号（见 §1） |
+| `0x0C` | `FB_ADDR_LO` | RW | 帧缓冲物理地址 `[31:0]`，**64 B 对齐** |
+| `0x10` | `FB_ADDR_HI` | RW | `[31:0]`（本板 1 GB DDR ⇒ 实际只用低位，明确写 0） |
+| `0x14` | `FB_STRIDE` | RW | 每行字节数（1280×3 = 3840；1920×3 = 5760） |
+| `0x18` | `FB_W` | RW | 有效像素宽度 |
+| `0x1C` | `FB_H` | RW | 有效行数 |
+| `0x20` | `FRAME_ID` | RW | PS 写入新帧号；PL 在 **vsync 边界**采纳（双缓冲换帧） |
+| `0x24` | `FRAME_ID_LATCHED` | RO | PL 已采纳的帧号（PS 轮询确认切换完成） |
+| `0x28` | `PIXEL_FMT` | RW | 0 = RGB888（字节序 R,G,B） |
+
+- 地址必须落在独立 64 KB 块 ⇒ 与 `conv\_uni\_0=0x40040000`、`bin\_unit\_0=0x40060000` 不冲突
+- **建议 ** `hdmi\_out\_0 = 0x400A0000` (64 KB) ⇒ 最终以 .hwh 为准，写进文档
+
+---
+
+## 3. P1 的具体交付（先做这个）
+
+### 3.1 RTL（新文件，放 `pl/rtl_hand/modules/`）
+| 文件 | 内容 |
+|---|---|
+| `hdmi_timing_gen.v` | 参数化时序发生器：产生 `hs/vs/de/x/y`，参数=行总/行有效/场总/场有效 + 极性 |
+| `hdmi_color_bar.v` | 8 色竖条 / 渐变 + 边框（便于肉眼判断"是否整幅对齐"）；输入 `x,y,de` |
+| `sil9134_init.v` | I2C master（100 kHz）+ **初始化表 ROM**（照抄厂商 `lut_sil9134.v` 的寄存器序列） |
+| `hdmi_out_top.v` | 上面三个 + AXI-Lite 从机 + MMCM 输出 `pix_clk` + BUFG/IOBUF |
+
+### 3.2 约束
+- `hdmi_out_pins.xdc`：只用厂商给的引脚（CLK=H1, HS=E4, VS=E3, DE=G2, D[0..23], RST_N=L4, SCL=J8, SDA=K8），**不许自己猜引脚**。
+- 输入时钟：`s_axi_aclk` = 100 MHz（沿用工程既有约束命名）。
+
+### 3.3 仿真（xsim，必须 0 错）
+| TB | 判据 |
+|---|---|
+| `tb_hdmi_timing.v` | 一帧内：`hs` 周期 = 行总×`pix_clk`；`de` 高电平宽度 = 行有效；`vs` 周期 = 场总×行周期；`de` 行数 = 场有效；**首末像素坐标 (0,0) 与 (W-1,H-1) 精确** |
+| `tb_sil9134_i2c.v` | 起止条件合法（START/STOP）、每字节 8+ACK、**寄存器序列与 ROM 表逐条一致**、整体耗时 < 100 ms |
+| `tb_hdmi_top_cfg.v` | AXI-Lite 读写寄存器图（含只读位、越界地址不挂总线）、`test_pattern=1` 时输出彩条、`enable=0` 时 `de` 恒 0 |
+- 全部用 `xvlog/xelab/xsim`；**`rm -rf xsim.dir` 后再跑**；波形不落 wdb（`-debug off` 足够）。
+
+### 3.4 门禁
+1. xsim 三个 TB 全 0 错；
+2. `synthcheck`（工程既有脚本）：多驱动 0 / 组合环 0 / latch 0 / ERROR 0；
+3. 资源实测（OOC 综合）：LUT ≤ 800、BRAM ≤ 2、DSP 0；
+4. 时序：`pix_clk` 域 WNS ≥ 0（**P1 是新增功能，这一域必须正裕量**）。
+
+---
+
+## 4. P2 的具体交付（P1 点亮后立刻做）
+
+| 文件 | 内容 |
+|---|---|
+| `hdmi_fb_scan.v` | AXI4 读主（`arlen` 最多 15，64-bit beat）→ 异步 FIFO → 行缓冲 → 逐像素输出；读地址 = `fb_addr + y*stride + x*3` |
+| `hdmi_out_top.v` 增补 | `CTRL.test_pattern=0` 时走扫描器；**vsync 边界采纳 `FRAME_ID`**（双缓冲换帧） |
+| `ps/pynq/hdmi_out.py` | `HdmiOut(addr)`：`configure(mode, addr, stride, w, h)` / `put_frame(frame_id)` / `wait_frame(frame_id)` / `test_pattern(on)`；全部 mmap 寄存器操作 |
+| `tools/hdmi_selftest.py` | 主机侧：构造 4 种模式的画面 → 调 `compose()` → 截取"PL 会读到的字节流" → 与 `compose()` 输出逐字节比对（模拟扫描顺序） |
+
+**P2 关键判据**
+- 扫描顺序与 `compose()` 的 `(y,x,rgb)` 布局**逐字节一致**（用主机侧模型验证，不需要硬件）；
+- 换帧无撕裂：新帧只在 vsync 边界生效（TB 里造两帧不同图案，确认切换点落在 vsync）；
+- 行缓冲不 underflow（`STATUS[2]` 恒 0）。
+
+---
+
+## 5. 边界与禁令
+
+- **不许改**推理相关：`bin_net.py` / `bin_engine.py` / `bin_ref_numpy.py` / `q8*` / `bin_unit`/`conv_uni` 的 RTL。
+- **不许**动 v39 位流与 `runs/v40_archive`。
+- P1/P2 各自**独立 BD**（`hdmi_p1.bd` / `hdmi_p2.bd`），合并在 P3。
+- 一次只许**一个**综合/实现作业（`memgate`）；xsim 可并行但要 `nice`。
+- 引脚只用厂商 XDC 里出现过的；**新增引脚必须先在文档里登记来源**。
+
+---
+
+## 6. 上板清单（P1）
+
+```
+① 四项体检（df/df -i/sudo/from pynq import Overlay）
+② 一次 load：hdmi_p1.bit（唯一 load 令牌）
+③ 读 STATUS：init_done 必须为 1（SIL9134 配置完成）
+④ 接显示器：应看到彩条；若黑屏 ⇒ 查 ① pix_clk 是否在跑 ② hs/vs 极性 ③ I2C 是否真的写进去了（读回 SIL9134 寄存器）
+⑤ 记录：分辨率 / 刷新率 / 显示器是否识别
+```

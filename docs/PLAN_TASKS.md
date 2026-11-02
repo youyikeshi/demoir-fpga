@@ -200,6 +200,10 @@ T-44 负例实测：把 `mmio_batch` 两行从清单里删掉，`md5sum -c` **�
 | **T-66** | 摄像头：PetaLinux 开 PS USB Host（DWC2 + CDC_NCM + UVC + DT `usb0`） | 待分派 | ① `petalinux-build` rc=0 ② `system.dtb` 里 `usb@e0002000` = `okay`/`host` ③ 上板 `ls /sys/bus/usb/devices/` 非空、插 U 盘枚举出块设备 ④ 插 MaixCAM 后 `ping 10.13.148.1` 通 | `usb-host.cfg` + `system-user.dtsi`；日志 `/data/peta_prj/logs/03_usbhost.log`；文档 `docs/camera/` | **待分派** | — （工程已构建过一次，见 §1 现状） |
 | **T-67** | HDMI 输出运算结果（PL：时序+线性扫描/最近邻；SIL9134 内部编码无需 TMDS；PS：mmap 配寄存器 + 双缓冲换帧） | 待分派 | ① 彩条点亮显示器（先证明链路） ② 换真实结果无错位 ③ 双缓冲无撕裂 ④ **整网 sha1 与秒级不变**（显示不得拖慢推理，退化 ≤2%） ⑤ 违例性质仍在准静态 CE 或 WNS ≥ 0 | 新 RTL + `ps/pynq/hdmi_out.py`；`runs/hdmi/`；评估见 `docs/camera/01_*` | **待分派** | HP2 空闲（现空闲）；`+0.5~0.8k LUT`（SIL9134 方案，见 docs/camera/04） |
 
+| **T-67a** | HDMI P1：视频时序 + 彩条 + SIL9134 I2C 初始化 + AXI-Lite | `58b98243` | ① 三个 TB 全 0 错（四种模式行/场参数实测）② `synthcheck` 全 0 + **latch 0** ③ OOC LUT ≤ 800 / BRAM ≤ 2 / DSP 0 ④ `pix_clk` 域 WNS ≥ 0 | `pl/rtl_hand/modules/{hdmi_timing_gen,hdmi_color_bar,sil9134_init,hdmi_out_top}.v` + `tb/{tb_hdmi_timing,tb_sil9134_i2c,tb_hdmi_top_cfg}.v` + `pl/constraints/hdmi_out_pins.xdc` | **进行中** | 契约 `docs/camera/05_*` |
+| **T-67b** | HDMI P2：DDR 扫描器（AXI 读→行缓冲→像素流）+ PS mmap 驱动 | `e7d02147` | ① `tb_hdmi_fb_scan` 逐字节一致（含 stride≠w*3）② `hdmi_selftest.py` 4 模式×3 输入 PASS ③ OOC LUT ≤ 600 / BRAM ≤ 4 ④ 换帧只在 vsync 生效 | `modules/hdmi_fb_scan.v` + `ps/pynq/hdmi_out.py` + `tools/hdmi_selftest.py` | **进行中** | T-67a 的时序接口 |
+| **T-67c** | HDMI P3：两个独立 BD（p1/p2）→ 位流 → 上板点亮 → 合并进推理位流 | 待分派 | ① 彩条点亮 ② 真画面正确 ③ 合并后 54/54 sha1 不变 + 违例性质仍准静态 | `runs/hdmi/` | **待分派** | T-67a/b |
+
 **两条线的硬边界**
 - T-66 只改 PetaLinux 工程的 `project-spec/`，**不许碰** `ps/pynq/`（那是 T-15/T-16 的地盘）。
 - T-67 只新增 RTL 与一个独立 ps 模块，**不许改**位流里既有单元；新位流必须重新过 §3.3 的上板门槛。
