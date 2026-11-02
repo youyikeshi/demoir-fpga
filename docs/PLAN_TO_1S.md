@@ -63,7 +63,7 @@ $$\Rightarrow\ \text{预取那条已判死（4 颗位流 5 轮上板）} \Righta
 $$\quad\ (\text{v42d 证明直接监听从数据通路读信号会改时序 ⇒ 必须 } \texttt{KEEP\_DUPLICATE}\ \text{或 ILA})$$
 $$\Rightarrow\ \textbf{本里程碑的第一件事不是优化，是}\textbf{取得可信观测量}$$
 
-### M5 `全融合`（−0.8~1.2 s，1 秒的必经之路）
+### ~~M5 `全融合`~~ → 与 M6 合并为 **M56**（见 §7）
 $$\Rightarrow\ \text{描述符链 + 一次启动（消灭 925 条 MMIO 命令）}$$
 $$\Rightarrow\ \text{pack 与 conv 合并（写侧直产 E1E2，不落 DDR 再读）}$$
 $$\Rightarrow\ \text{sam/interp/eca/add 融进上下游读写窗口}$$
@@ -158,3 +158,39 @@ $$\Rightarrow\ \textbf{R4 金丝雀零容忍}：\text{报警一次即停，不�
 $$\Rightarrow\ \textbf{R5 一个目标一个代理}：\text{派活前查归属台账 + 给每个代理独立日志路径}$$
 $$\Rightarrow\ \textbf{R6 主工程不许被实验碰到}：\text{脚本第一行必须是副本路径}$$
 $$\Rightarrow\ \textbf{R7 判据用语义量不用产物指纹}：\texttt{.hwh}\ \text{不可逐字节复现}$$
+
+
+---
+
+## 7. ★★ 架构调整（2026-11-02 15:10，用户决策）：**M5 + M6 合并为 M56，按像素计算顺序逐段融合**
+
+$$\Rightarrow\ \text{原计划把 M5 写成"把 } \texttt{bin\_engine.py}\ \text{的调度器整个重写"（}\sim1400\ \text{行）}$$
+$$\quad\ \Rightarrow\ \textbf{一次性大爆炸}\text{，}\text{归因难、回退难、周期长}$$
+$$\Rightarrow\ \textbf{改成}：\text{按}\textbf{像素计算顺序}\text{把网络切成若干}\textbf{线性段}，\text{逐段把"写回 DDR 再读"改成"片上直通"}$$
+$$\quad\ \Rightarrow\ \text{每段融合}\textbf{独立可验}（\text{sha1 逐段对齐}）\Rightarrow \text{可增量推进、可随时停在任一段的版本上}$$
+
+### 7.1 什么叫"按像素顺序逐段融合"
+
+$$\Rightarrow\ \text{一个卷积层的输出像素只依赖输入的 }	k\times k\ \text{邻域（+ 下采样对齐）}$$
+$$\Rightarrow\ \Rightarrow\ \text{把输出按}\textbf{行带（row band）}\text{切块，}\text{每块只需要输入的}\textbf{一个带 + halo}$$
+$$\Rightarrow\ \text{若相邻两层能这样串起来，}\text{中间张量}\textbf{不必落 DDR}，\text{只在片上缓冲区里存在}$$
+$$\Rightarrow\ \text{片上预算：BRAM 现有 }35/95\ \text{个（}\text{剩 }60\times36\ \text{Kb}\approx 270\ \text{KB）}\Rightarrow \text{这是"一段能挂多宽"的硬上限}$$
+
+### 7.2 分段的判据（每段必须满足）
+$$\Rightarrow\ \textbf{S1 线性}：\text{段内每个 op 只有一个消费者}（\text{无 fan-out}）\Rightarrow \text{否则中间张量必须物化}$$
+$$\Rightarrow\ \textbf{S2 邻域有界}：\text{段的总 halo（}\sum k_i - 1\ \text{级联）}\times \text{通道} \times \text{行宽}\ \text{能放进片上缓冲}$$
+$$\Rightarrow\ \textbf{S3 无形状突变}：\text{段内含 down/up sample 时，}\text{halo 与对齐要单独算（风险最高）}$$
+$$\Rightarrow\ \textbf{S4 可独立验}：\text{段输出与该段"原路径"的 f32 结果}\textbf{逐字节相同}$$
+
+### 7.3 执行顺序（**本次要做的第一件事**）
+$$\Rightarrow\ \textbf{先出"分段地图"}：\text{把 256² 整网的 op 链按 } \texttt{by\_name}\ \text{拓扑排序，标出}$$
+$$\quad\ \text{① 每个 op 的消费者数};\quad \text{② 相邻 op 能否串};\quad \text{③ 每段的 halo/缓冲字节数};\quad \text{④ 每段的 PS 时间与 PL 时间}$$
+$$\Rightarrow\ \text{再按"收益/缓冲/风险"排序，}\textbf{从最便宜的一段开始融合}$$
+$$\Rightarrow\ \textbf{这一段做完，}\text{它对应的 PS 时间就从总时间里消失} \Rightarrow \text{进度}\textbf{可累加、可回退}$$
+
+### 7.4 M56 与 16-lane 的关系
+$$\Rightarrow\ \text{16-lane 是}\textbf{算力}\text{（conv 0.377}\to0.19\text{），\text{分段融合是}}\textbf{数据流}\text{（消灭中间写回）}$$
+$$\Rightarrow\ \text{两者}\textbf{正交}：\text{融合后的流式引擎}\textbf{更需要}\text{16 lane（因为不再等 DDR）}$$
+$$\Rightarrow\ \Rightarrow\ \text{同一个新版本 } \texttt{v50}\ \text{里做，但}\textbf{分两个可独立开关的特性}：\text{① lane16 ② 段数}（\text{逐段打开}）$$
+
+---
