@@ -1,0 +1,31 @@
+=== N4-a: bd_v50.tcl 的模块名（module-ref / 断言 / 兜底 glob）===
+6:#    ① bin_unit_0 的 module-ref：bin_unit_axi_wrap_bd -> bin_unit_axi_wrap_bd_v50
+9:#         原先误写的 `*_lane16` 名（已废弃）全部改成 bin_unit_axi_wrap_bd_v50 ——
+10:#         §9 定的是「单元 bin_unit_axi_wrap_v50 / BD 外壳 bin_unit_axi_wrap_bd_v50，
+11:#         两者都归 IMP-B」，并明写「bd_v50.tcl 的 module-ref 必须指向
+12:#         bin_unit_axi_wrap_bd_v50」。只改名字，BD 拓扑/地址图/断言一位未动。
+19:#  bin_unit_axi_wrap_bd_v50.v 必须声明 FREQ_HZ 150000000（不是 40 MHz）。
+38:# 16-lane 外壳文件名按契约应为 bin_unit_axi_wrap_bd_v50.v；若 T-64 换了文件名，
+39:# 就按"哪个 .v 定义了模块 bin_unit_axi_wrap_bd_v50"兜底找，名字不符也给出明确错误。
+40:set _shell [file join $lane16 bin_unit_axi_wrap_bd_v50.v]
+45:        if {[regexp {\mmodule[ \t]+bin_unit_axi_wrap_bd_v50[ \t(\r\n]} $_t]} { set _shell $_f; break }
+47:    if {$_shell eq ""} { error "lane16/ 里找不到定义模块 bin_unit_axi_wrap_bd_v50 的 .v（T-64 未交付 / 模块名不符），停止" }
+69:step "把 T-64 的 16-lane RTL 登记进工程（module-ref 才能解析 bin_unit_axi_wrap_bd_v50）"
+89:step "解 locked + 删 mref 缓存（让 module-ref 按当前 RTL 重新打包）"
+96:foreach m {conv_uni_axi_wrap_bd bin_unit_axi_wrap_bd_v50} {
+127:step "按当前 RTL 外壳重建两个 module-ref 单元"
+130:create_bd_cell -type module -reference bin_unit_axi_wrap_bd_v50 bin_unit_0
+131:ok "bin_unit_0 已建（module-ref = bin_unit_axi_wrap_bd_v50）"
+248:puts "    module-ref IP 目录："
+
+=== N4-b: build_final_150v50.tcl 的模块名 ===
+175:#   ⚠ 硬约束：lane16 里的文件必须用**全新模块名**（BD 外壳 bin_unit_axi_wrap_bd_v50、
+176:#     单元 bin_unit_axi_wrap_v50、核 bin_conv_core_v50 及其子模块；T-82/D4-D5 已按 §9 改名），
+198:        if {[dict exists $_lane_mods $_m]} {
+206:if {![dict exists $_lane_mods bin_unit_axi_wrap_bd_v50]} {
+207:    error "lane16/ 里没有模块 bin_unit_axi_wrap_bd_v50 —— bd_v50.tcl 的 module-ref 会找不到它"
+209:puts "   lane16 新 RTL [llength $_lane16] 个 / [dict size $_lane_mods] 个模块（含 bin_unit_axi_wrap_bd_v50），与基线无重名"
+
+=== N4-c: 两脚本里是否还有旧名（应 0 命中）===
+pynq_specialized_code/pl/scripts/bd_v50.tcl:0
+pynq_specialized_code/pl/scripts/build_final_150v50.tcl:0

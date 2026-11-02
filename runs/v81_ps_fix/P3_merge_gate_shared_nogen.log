@@ -1,0 +1,30 @@
+==================================================================
+ merge_gate —— 合并后必做（三判据；全绿才许 commit）
+==================================================================
+ 源码根 : /media/felix/Data/coding/demoir-fpga/pynq_specialized_code/ps/pynq
+ 清单   : /media/felix/Data/coding/demoir-fpga/runs/board_ops/20261102/deps_closure.txt
+ 时间   : 2026-11-02 15:51:15
+
+[①/③] --gen  跳过（--no-gen；只判 ②③，用于复核）
+
+[②/③] md5sum -c  逐字节核对
+      ✗ bin_net.py: 失败
+      ✗ bin_engine.py: 失败
+      ✗ md5sum: 警告：2 个校验和不匹配
+      清单 20 行 / 失败 2 行；rc=1
+
+[③/③] --check  结构齐 + 清单不漏行
+✗ deps_closure --check FAIL（3 项）
+   · 清单与源码树不一致（依赖图或文件内容变了）⇒ 请重跑 --gen
+   · md5 不符 bin_net.py：清单 78dbf19c908bb192031ac88fa157e4dd / 实际 fdfb40dddb2a44f7bc6e933e198a4c8e
+   · md5 不符 bin_engine.py：清单 8f77733b2e35f91c7a6ef172877f3d8a / 实际 c46e8cd317cdc4ef403c5f48ce95843a
+      rc=1
+
+--------------------------- rc 汇总 ---------------------------
+ ① --gen        rc=0 ✓
+ ② md5sum -c    rc=1 ✗ FAIL
+ ③ --check      rc=1 ✗ FAIL
+ ⇒ MERGE_GATE FAIL —— **不许 commit**。按上面标 ✗ 的那条去修：
+   ① 挂 ⇒ 源码树里有 DECL 没声明的模块（新模块没补 DECL）或声明了却扫不到
+   ② 挂 ⇒ 清单与磁盘文件不符（没重生成 / 文件被改 / 缺文件）
+   ③ 挂 ⇒ 清单结构不完整（漏行、缺文件、依赖图变了）⇒ 重跑本脚本

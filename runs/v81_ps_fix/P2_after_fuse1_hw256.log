@@ -1,0 +1,706 @@
+== verify_lazy_net：FakePL（conv + E1E2）整网 A/B，hw=256 ==
+[DEPS] q8=fast c8deq=fast bpack=fast e1e2=fast catpack=fast safe=fast  ⇒ deps_closure_ok=True
+== v50 段计划（P1）: 223 段 / 1184 条描述符 / 带宽 8 行 / 预算 270 KB / VLANES=8 / PRM 帧 16 字 ==
+  段表（halo=Σ(k-1) 行；buff=2×band_rows×W×C int8；halo_b=Σ(k-1)·W·cin int8）：
+  S0   n=2  unshuffle/convfp                   3x256x256->48x128x128  halo=0  band=16  buff=   96.0KB halo_b=   0.0KB prm=384 B×16 融合
+  S1   n=2  conv/cat                           48x128x128->112x128x128 halo=2  band=16  buff=  236.0KB halo_b=  12.0KB prm=896 B×16 融合
+  S2   n=2  conv/cat                           112x128x128->176x128x128 halo=2  band=16  buff=  380.0KB halo_b=  28.0KB prm=1408B×16 **不融合**（缓冲 380.0KB > 预算 270KB ⇒ 退回逐 op）
+  S3   n=4  conv/cat/conv/add                  176x128x128->48x128x128 halo=2  band=16  buff=  140.0KB halo_b=  44.0KB prm=384 B×16 融合
+  S4   n=1  interp                             48x128x128->48x64x64   halo=0  band=8   buff=   48.0KB halo_b=   0.0KB prm=384 B×8  融合
+  S5   n=1  interp                             48x128x128->48x32x32   halo=0  band=4   buff=   24.0KB halo_b=   0.0KB prm=384 B×4  融合
+  S6   n=1  conv                               48x128x128->32x128x128 halo=0  band=16  buff=   64.0KB halo_b=   0.0KB prm=256 B×16 融合
+  S7   n=2  conv/cat                           32x128x128->112x128x128 halo=2  band=16  buff=  232.0KB halo_b=   8.0KB prm=896 B×16 融合
+  S8   n=1  conv                               112x128x128->32x128x128 halo=0  band=16  buff=   64.0KB halo_b=   0.0KB prm=256 B×16 融合
+  S9   n=2  conv/cat                           32x128x128->176x128x128 halo=2  band=16  buff=  360.0KB halo_b=   8.0KB prm=1408B×16 **不融合**（缓冲 360.0KB > 预算 270KB ⇒ 退回逐 op）
+  S10  n=1  conv                               176x128x128->32x128x128 halo=0  band=16  buff=   64.0KB halo_b=   0.0KB prm=256 B×16 融合
+  S11  n=2  conv/cat                           32x128x128->240x128x128 halo=2  band=16  buff=  488.0KB halo_b=   8.0KB prm=1920B×16 **不融合**（缓冲 488.0KB > 预算 270KB ⇒ 退回逐 op）
+  S12  n=1  conv                               240x128x128->32x128x128 halo=0  band=16  buff=   64.0KB halo_b=   0.0KB prm=256 B×16 融合
+  S13  n=2  conv/cat                           32x128x128->304x128x128 halo=2  band=16  buff=  616.0KB halo_b=   8.0KB prm=2432B×16 **不融合**（缓冲 616.0KB > 预算 270KB ⇒ 退回逐 op）
+  S14  n=1  conv                               304x128x128->32x128x128 halo=0  band=16  buff=   64.0KB halo_b=   0.0KB prm=256 B×16 融合
+  S15  n=3  conv/cat/conv                      32x128x128->48x128x128 halo=2  band=16  buff=  104.0KB halo_b=   8.0KB prm=384 B×16 融合
+  S16  n=1  conv                               48x64x64->32x64x64     halo=0  band=8   buff=   32.0KB halo_b=   0.0KB prm=256 B×8  融合
+  S17  n=2  conv/cat                           32x64x64->112x64x64    halo=2  band=8   buff=  116.0KB halo_b=   4.0KB prm=896 B×8  融合
+  S18  n=1  conv                               112x64x64->32x64x64    halo=0  band=8   buff=   32.0KB halo_b=   0.0KB prm=256 B×8  融合
+  S19  n=2  conv/cat                           32x64x64->176x64x64    halo=2  band=8   buff=  180.0KB halo_b=   4.0KB prm=1408B×8  融合
+  S20  n=1  conv                               176x64x64->32x64x64    halo=0  band=8   buff=   32.0KB halo_b=   0.0KB prm=256 B×8  融合
+  S21  n=2  conv/cat                           32x64x64->240x64x64    halo=2  band=8   buff=  244.0KB halo_b=   4.0KB prm=1920B×8  融合
+  S22  n=1  conv                               240x64x64->32x64x64    halo=0  band=8   buff=   32.0KB halo_b=   0.0KB prm=256 B×8  融合
+  S23  n=2  conv/cat                           32x64x64->304x64x64    halo=2  band=8   buff=  308.0KB halo_b=   4.0KB prm=2432B×8  **不融合**（缓冲 308.0KB > 预算 270KB ⇒ 退回逐 op）
+  S24  n=1  conv                               304x64x64->32x64x64    halo=0  band=8   buff=   32.0KB halo_b=   0.0KB prm=256 B×8  融合
+  S25  n=4  conv/cat/conv/interp               32x64x64->48x128x128   halo=2  band=16  buff=  100.0KB halo_b=   4.0KB prm=384 B×16 融合
+  S26  n=1  conv                               48x32x32->32x32x32     halo=0  band=4   buff=   16.0KB halo_b=   0.0KB prm=256 B×4  融合
+  S27  n=2  conv/cat                           32x32x32->112x32x32    halo=2  band=4   buff=   58.0KB halo_b=   2.0KB prm=896 B×4  融合
+  S28  n=1  conv                               112x32x32->32x32x32    halo=0  band=4   buff=   16.0KB halo_b=   0.0KB prm=256 B×4  融合
+  S29  n=2  conv/cat                           32x32x32->176x32x32    halo=2  band=4   buff=   90.0KB halo_b=   2.0KB prm=1408B×4  融合
+  S30  n=1  conv                               176x32x32->32x32x32    halo=0  band=4   buff=   16.0KB halo_b=   0.0KB prm=256 B×4  融合
+  S31  n=2  conv/cat                           32x32x32->240x32x32    halo=2  band=4   buff=  122.0KB halo_b=   2.0KB prm=1920B×4  融合
+  S32  n=1  conv                               240x32x32->32x32x32    halo=0  band=4   buff=   16.0KB halo_b=   0.0KB prm=256 B×4  融合
+  S33  n=2  conv/cat                           32x32x32->304x32x32    halo=2  band=4   buff=  154.0KB halo_b=   2.0KB prm=2432B×4  融合
+  S34  n=1  conv                               304x32x32->32x32x32    halo=0  band=4   buff=   16.0KB halo_b=   0.0KB prm=256 B×4  融合
+  S35  n=4  conv/cat/conv/interp               32x32x32->48x128x128   halo=2  band=16  buff=   98.0KB halo_b=   2.0KB prm=384 B×16 融合
+  S36  n=3  cat/eca/sam                        48x128x128->48x128x128 halo=0  band=16  buff=   96.0KB halo_b=   0.0KB prm=384 B×16 融合
+  S37  n=1  conv                               48x128x128->96x64x64   halo=2  band=8   buff=  108.0KB halo_b=  12.0KB prm=768 B×8  融合
+  S38  n=2  conv/cat                           96x64x64->160x64x64    halo=2  band=8   buff=  172.0KB halo_b=  12.0KB prm=1280B×8  融合
+  S39  n=2  conv/cat                           160x64x64->224x64x64   halo=2  band=8   buff=  244.0KB halo_b=  20.0KB prm=1792B×8  融合
+  S40  n=4  conv/cat/conv/add                  224x64x64->96x64x64    halo=2  band=8   buff=  124.0KB halo_b=  28.0KB prm=768 B×8  融合
+  S41  n=1  interp                             96x64x64->96x32x32     halo=0  band=4   buff=   48.0KB halo_b=   0.0KB prm=768 B×4  融合
+  S42  n=1  interp                             96x64x64->96x16x16     halo=0  band=2   buff=   24.0KB halo_b=   0.0KB prm=768 B×2  融合
+  S43  n=1  conv                               96x64x64->32x64x64     halo=0  band=8   buff=   32.0KB halo_b=   0.0KB prm=256 B×8  融合
+  S44  n=2  conv/cat                           32x64x64->160x64x64    halo=2  band=8   buff=  164.0KB halo_b=   4.0KB prm=1280B×8  融合
+  S45  n=1  conv                               160x64x64->32x64x64    halo=0  band=8   buff=   32.0KB halo_b=   0.0KB prm=256 B×8  融合
+  S46  n=2  conv/cat                           32x64x64->224x64x64    halo=2  band=8   buff=  228.0KB halo_b=   4.0KB prm=1792B×8  融合
+  S47  n=1  conv                               224x64x64->32x64x64    halo=0  band=8   buff=   32.0KB halo_b=   0.0KB prm=256 B×8  融合
+  S48  n=2  conv/cat                           32x64x64->288x64x64    halo=2  band=8   buff=  292.0KB halo_b=   4.0KB prm=2304B×8  **不融合**（缓冲 292.0KB > 预算 270KB ⇒ 退回逐 op）
+  S49  n=1  conv                               288x64x64->32x64x64    halo=0  band=8   buff=   32.0KB halo_b=   0.0KB prm=256 B×8  融合
+  S50  n=2  conv/cat                           32x64x64->352x64x64    halo=2  band=8   buff=  356.0KB halo_b=   4.0KB prm=2816B×8  **不融合**（缓冲 356.0KB > 预算 270KB ⇒ 退回逐 op）
+  S51  n=1  conv                               352x64x64->32x64x64    halo=0  band=8   buff=   32.0KB halo_b=   0.0KB prm=256 B×8  融合
+  S52  n=3  conv/cat/conv                      32x64x64->96x64x64     halo=2  band=8   buff=  100.0KB halo_b=   4.0KB prm=768 B×8  融合
+  S53  n=1  conv                               96x32x32->32x32x32     halo=0  band=4   buff=   16.0KB halo_b=   0.0KB prm=256 B×4  融合
+  S54  n=2  conv/cat                           32x32x32->160x32x32    halo=2  band=4   buff=   82.0KB halo_b=   2.0KB prm=1280B×4  融合
+  S55  n=1  conv                               160x32x32->32x32x32    halo=0  band=4   buff=   16.0KB halo_b=   0.0KB prm=256 B×4  融合
+  S56  n=2  conv/cat                           32x32x32->224x32x32    halo=2  band=4   buff=  114.0KB halo_b=   2.0KB prm=1792B×4  融合
+  S57  n=1  conv                               224x32x32->32x32x32    halo=0  band=4   buff=   16.0KB halo_b=   0.0KB prm=256 B×4  融合
+  S58  n=2  conv/cat                           32x32x32->288x32x32    halo=2  band=4   buff=  146.0KB halo_b=   2.0KB prm=2304B×4  融合
+  S59  n=1  conv                               288x32x32->32x32x32    halo=0  band=4   buff=   16.0KB halo_b=   0.0KB prm=256 B×4  融合
+  S60  n=2  conv/cat                           32x32x32->352x32x32    halo=2  band=4   buff=  178.0KB halo_b=   2.0KB prm=2816B×4  融合
+  S61  n=1  conv                               352x32x32->32x32x32    halo=0  band=4   buff=   16.0KB halo_b=   0.0KB prm=256 B×4  融合
+  S62  n=4  conv/cat/conv/interp               32x32x32->96x64x64     halo=2  band=8   buff=   98.0KB halo_b=   2.0KB prm=768 B×8  融合
+  S63  n=1  conv                               96x16x16->32x16x16     halo=0  band=2   buff=    8.0KB halo_b=   0.0KB prm=256 B×2  融合
+  S64  n=2  conv/cat                           32x16x16->160x16x16    halo=2  band=2   buff=   41.0KB halo_b=   1.0KB prm=1280B×2  融合
+  S65  n=1  conv                               160x16x16->32x16x16    halo=0  band=2   buff=    8.0KB halo_b=   0.0KB prm=256 B×2  融合
+  S66  n=2  conv/cat                           32x16x16->224x16x16    halo=2  band=2   buff=   57.0KB halo_b=   1.0KB prm=1792B×2  融合
+  S67  n=1  conv                               224x16x16->32x16x16    halo=0  band=2   buff=    8.0KB halo_b=   0.0KB prm=256 B×2  融合
+  S68  n=2  conv/cat                           32x16x16->288x16x16    halo=2  band=2   buff=   73.0KB halo_b=   1.0KB prm=2304B×2  融合
+  S69  n=1  conv                               288x16x16->32x16x16    halo=0  band=2   buff=    8.0KB halo_b=   0.0KB prm=256 B×2  融合
+  S70  n=2  conv/cat                           32x16x16->352x16x16    halo=2  band=2   buff=   89.0KB halo_b=   1.0KB prm=2816B×2  融合
+  S71  n=1  conv                               352x16x16->32x16x16    halo=0  band=2   buff=    8.0KB halo_b=   0.0KB prm=256 B×2  融合
+  S72  n=4  conv/cat/conv/interp               32x16x16->96x64x64     halo=2  band=8   buff=   97.0KB halo_b=   1.0KB prm=768 B×8  融合
+  S73  n=3  cat/eca/sam                        96x64x64->96x64x64     halo=0  band=8   buff=   96.0KB halo_b=   0.0KB prm=768 B×8  融合
+  S74  n=1  conv                               96x64x64->192x32x32    halo=2  band=4   buff=  108.0KB halo_b=  12.0KB prm=1536B×4  融合
+  S75  n=2  conv/cat                           192x32x32->256x32x32   halo=2  band=4   buff=  140.0KB halo_b=  12.0KB prm=2048B×4  融合
+  S76  n=2  conv/cat                           256x32x32->320x32x32   halo=2  band=4   buff=  176.0KB halo_b=  16.0KB prm=2560B×4  融合
+  S77  n=4  conv/cat/conv/add                  320x32x32->192x32x32   halo=2  band=4   buff=  116.0KB halo_b=  20.0KB prm=1536B×4  融合
+  S78  n=1  interp                             192x32x32->192x16x16   halo=0  band=2   buff=   48.0KB halo_b=   0.0KB prm=1536B×2  融合
+  S79  n=1  interp                             192x32x32->192x8x8     halo=0  band=1   buff=   24.0KB halo_b=   0.0KB prm=1536B×1  融合
+  S80  n=1  conv                               192x32x32->32x32x32    halo=0  band=4   buff=   16.0KB halo_b=   0.0KB prm=256 B×4  融合
+  S81  n=2  conv/cat                           32x32x32->256x32x32    halo=2  band=4   buff=  130.0KB halo_b=   2.0KB prm=2048B×4  融合
+  S82  n=1  conv                               256x32x32->32x32x32    halo=0  band=4   buff=   16.0KB halo_b=   0.0KB prm=256 B×4  融合
+  S83  n=2  conv/cat                           32x32x32->320x32x32    halo=2  band=4   buff=  162.0KB halo_b=   2.0KB prm=2560B×4  融合
+  S84  n=1  conv                               320x32x32->32x32x32    halo=0  band=4   buff=   16.0KB halo_b=   0.0KB prm=256 B×4  融合
+  S85  n=2  conv/cat                           32x32x32->384x32x32    halo=2  band=4   buff=  194.0KB halo_b=   2.0KB prm=3072B×4  融合
+  S86  n=1  conv                               384x32x32->32x32x32    halo=0  band=4   buff=   16.0KB halo_b=   0.0KB prm=256 B×4  融合
+  S87  n=2  conv/cat                           32x32x32->448x32x32    halo=2  band=4   buff=  226.0KB halo_b=   2.0KB prm=3584B×4  融合
+  S88  n=1  conv                               448x32x32->32x32x32    halo=0  band=4   buff=   16.0KB halo_b=   0.0KB prm=256 B×4  融合
+  S89  n=3  conv/cat/conv                      32x32x32->192x32x32    halo=2  band=4   buff=   98.0KB halo_b=   2.0KB prm=1536B×4  融合
+  S90  n=1  conv                               192x16x16->32x16x16    halo=0  band=2   buff=    8.0KB halo_b=   0.0KB prm=256 B×2  融合
+  S91  n=2  conv/cat                           32x16x16->256x16x16    halo=2  band=2   buff=   65.0KB halo_b=   1.0KB prm=2048B×2  融合
+  S92  n=1  conv                               256x16x16->32x16x16    halo=0  band=2   buff=    8.0KB halo_b=   0.0KB prm=256 B×2  融合
+  S93  n=2  conv/cat                           32x16x16->320x16x16    halo=2  band=2   buff=   81.0KB halo_b=   1.0KB prm=2560B×2  融合
+  S94  n=1  conv                               320x16x16->32x16x16    halo=0  band=2   buff=    8.0KB halo_b=   0.0KB prm=256 B×2  融合
+  S95  n=2  conv/cat                           32x16x16->384x16x16    halo=2  band=2   buff=   97.0KB halo_b=   1.0KB prm=3072B×2  融合
+  S96  n=1  conv                               384x16x16->32x16x16    halo=0  band=2   buff=    8.0KB halo_b=   0.0KB prm=256 B×2  融合
+  S97  n=2  conv/cat                           32x16x16->448x16x16    halo=2  band=2   buff=  113.0KB halo_b=   1.0KB prm=3584B×2  融合
+  S98  n=1  conv                               448x16x16->32x16x16    halo=0  band=2   buff=    8.0KB halo_b=   0.0KB prm=256 B×2  融合
+  S99  n=4  conv/cat/conv/interp               32x16x16->192x32x32    halo=2  band=4   buff=   97.0KB halo_b=   1.0KB prm=1536B×4  融合
+  S100 n=1  conv                               192x8x8->32x8x8        halo=0  band=1   buff=    4.0KB halo_b=   0.0KB prm=256 B×1  融合
+  S101 n=2  conv/cat                           32x8x8->256x8x8        halo=0  band=1   buff=   32.5KB halo_b=   0.5KB prm=2048B×1  融合
+  S102 n=1  conv                               256x8x8->32x8x8        halo=0  band=1   buff=    4.0KB halo_b=   0.0KB prm=256 B×1  融合
+  S103 n=2  conv/cat                           32x8x8->320x8x8        halo=0  band=1   buff=   40.5KB halo_b=   0.5KB prm=2560B×1  融合
+  S104 n=1  conv                               320x8x8->32x8x8        halo=0  band=1   buff=    4.0KB halo_b=   0.0KB prm=256 B×1  融合
+  S105 n=2  conv/cat                           32x8x8->384x8x8        halo=0  band=1   buff=   48.5KB halo_b=   0.5KB prm=3072B×1  融合
+  S106 n=1  conv                               384x8x8->32x8x8        halo=0  band=1   buff=    4.0KB halo_b=   0.0KB prm=256 B×1  融合
+  S107 n=2  conv/cat                           32x8x8->448x8x8        halo=0  band=1   buff=   56.5KB halo_b=   0.5KB prm=3584B×1  融合
+  S108 n=1  conv                               448x8x8->32x8x8        halo=0  band=1   buff=    4.0KB halo_b=   0.0KB prm=256 B×1  融合
+  S109 n=4  conv/cat/conv/interp               32x8x8->192x32x32      halo=0  band=4   buff=   96.5KB halo_b=   0.5KB prm=1536B×4  融合
+  S110 n=4  cat/eca/sam/conv                   192x32x32->64x32x32    halo=2  band=4   buff=   44.0KB halo_b=  12.0KB prm=512 B×4  融合
+  S111 n=2  conv/cat                           64x32x32->160x32x32    halo=2  band=4   buff=   84.0KB halo_b=   4.0KB prm=1280B×4  融合
+  S112 n=2  conv/cat                           160x32x32->256x32x32   halo=2  band=4   buff=  138.0KB halo_b=  10.0KB prm=2048B×4  融合
+  S113 n=4  conv/cat/conv/add                  256x32x32->64x32x32    halo=2  band=4   buff=   48.0KB halo_b=  16.0KB prm=512 B×4  融合
+  S114 n=1  interp                             64x32x32->64x16x16     halo=0  band=2   buff=   16.0KB halo_b=   0.0KB prm=512 B×2  融合
+  S115 n=1  interp                             64x32x32->64x8x8       halo=0  band=1   buff=    8.0KB halo_b=   0.0KB prm=512 B×1  融合
+  S116 n=1  conv                               64x32x32->48x32x32     halo=0  band=4   buff=   24.0KB halo_b=   0.0KB prm=384 B×4  融合
+  S117 n=2  conv/cat                           48x32x32->160x32x32    halo=2  band=4   buff=   83.0KB halo_b=   3.0KB prm=1280B×4  融合
+  S118 n=1  conv                               160x32x32->48x32x32    halo=0  band=4   buff=   24.0KB halo_b=   0.0KB prm=384 B×4  融合
+  S119 n=2  conv/cat                           48x32x32->256x32x32    halo=2  band=4   buff=  131.0KB halo_b=   3.0KB prm=2048B×4  融合
+  S120 n=1  conv                               256x32x32->48x32x32    halo=0  band=4   buff=   24.0KB halo_b=   0.0KB prm=384 B×4  融合
+  S121 n=2  conv/cat                           48x32x32->352x32x32    halo=2  band=4   buff=  179.0KB halo_b=   3.0KB prm=2816B×4  融合
+  S122 n=1  conv                               352x32x32->48x32x32    halo=0  band=4   buff=   24.0KB halo_b=   0.0KB prm=384 B×4  融合
+  S123 n=2  conv/cat                           48x32x32->448x32x32    halo=2  band=4   buff=  227.0KB halo_b=   3.0KB prm=3584B×4  融合
+  S124 n=1  conv                               448x32x32->48x32x32    halo=0  band=4   buff=   24.0KB halo_b=   0.0KB prm=384 B×4  融合
+  S125 n=3  conv/cat/conv                      48x32x32->64x32x32     halo=2  band=4   buff=   35.0KB halo_b=   3.0KB prm=512 B×4  融合
+  S126 n=1  conv                               64x16x16->48x16x16     halo=0  band=2   buff=   12.0KB halo_b=   0.0KB prm=384 B×2  融合
+  S127 n=2  conv/cat                           48x16x16->160x16x16    halo=2  band=2   buff=   41.5KB halo_b=   1.5KB prm=1280B×2  融合
+  S128 n=1  conv                               160x16x16->48x16x16    halo=0  band=2   buff=   12.0KB halo_b=   0.0KB prm=384 B×2  融合
+  S129 n=2  conv/cat                           48x16x16->256x16x16    halo=2  band=2   buff=   65.5KB halo_b=   1.5KB prm=2048B×2  融合
+  S130 n=1  conv                               256x16x16->48x16x16    halo=0  band=2   buff=   12.0KB halo_b=   0.0KB prm=384 B×2  融合
+  S131 n=2  conv/cat                           48x16x16->352x16x16    halo=2  band=2   buff=   89.5KB halo_b=   1.5KB prm=2816B×2  融合
+  S132 n=1  conv                               352x16x16->48x16x16    halo=0  band=2   buff=   12.0KB halo_b=   0.0KB prm=384 B×2  融合
+  S133 n=2  conv/cat                           48x16x16->448x16x16    halo=2  band=2   buff=  113.5KB halo_b=   1.5KB prm=3584B×2  融合
+  S134 n=1  conv                               448x16x16->48x16x16    halo=0  band=2   buff=   12.0KB halo_b=   0.0KB prm=384 B×2  融合
+  S135 n=4  conv/cat/conv/interp               48x16x16->64x32x32     halo=2  band=4   buff=   33.5KB halo_b=   1.5KB prm=512 B×4  融合
+  S136 n=1  conv                               64x8x8->48x8x8         halo=0  band=1   buff=    6.0KB halo_b=   0.0KB prm=384 B×1  融合
+  S137 n=2  conv/cat                           48x8x8->160x8x8        halo=0  band=1   buff=   20.8KB halo_b=   0.8KB prm=1280B×1  融合
+  S138 n=1  conv                               160x8x8->48x8x8        halo=0  band=1   buff=    6.0KB halo_b=   0.0KB prm=384 B×1  融合
+  S139 n=2  conv/cat                           48x8x8->256x8x8        halo=0  band=1   buff=   32.8KB halo_b=   0.8KB prm=2048B×1  融合
+  S140 n=1  conv                               256x8x8->48x8x8        halo=0  band=1   buff=    6.0KB halo_b=   0.0KB prm=384 B×1  融合
+  S141 n=2  conv/cat                           48x8x8->352x8x8        halo=0  band=1   buff=   44.8KB halo_b=   0.8KB prm=2816B×1  融合
+  S142 n=1  conv                               352x8x8->48x8x8        halo=0  band=1   buff=    6.0KB halo_b=   0.0KB prm=384 B×1  融合
+  S143 n=2  conv/cat                           48x8x8->448x8x8        halo=0  band=1   buff=   56.8KB halo_b=   0.8KB prm=3584B×1  融合
+  S144 n=1  conv                               448x8x8->48x8x8        halo=0  band=1   buff=    6.0KB halo_b=   0.0KB prm=384 B×1  融合
+  S145 n=4  conv/cat/conv/interp               48x8x8->64x32x32       halo=0  band=4   buff=   32.8KB halo_b=   0.8KB prm=512 B×4  融合
+  S146 n=3  cat/eca/sam                        64x32x32->64x32x32     halo=0  band=4   buff=   32.0KB halo_b=   0.0KB prm=512 B×4  融合
+  S147 n=2  convfp/shuffle                     64x32x32->3x64x64      halo=0  band=8   buff=    3.0KB halo_b=   0.0KB prm=64  B×8  融合
+  S148 n=3  interp/cat/conv                    64x32x32->64x64x64     halo=2  band=8   buff=   84.0KB halo_b=  20.0KB prm=512 B×8  融合
+  S149 n=2  conv/cat                           64x64x64->160x64x64    halo=2  band=8   buff=  168.0KB halo_b=   8.0KB prm=1280B×8  融合
+  S150 n=2  conv/cat                           160x64x64->256x64x64   halo=2  band=8   buff=  276.0KB halo_b=  20.0KB prm=2048B×8  **不融合**（缓冲 276.0KB > 预算 270KB ⇒ 退回逐 op）
+  S151 n=4  conv/cat/conv/add                  256x64x64->64x64x64    halo=2  band=8   buff=   96.0KB halo_b=  32.0KB prm=512 B×8  融合
+  S152 n=1  interp                             64x64x64->64x32x32     halo=0  band=4   buff=   32.0KB halo_b=   0.0KB prm=512 B×4  融合
+  S153 n=1  interp                             64x64x64->64x16x16     halo=0  band=2   buff=   16.0KB halo_b=   0.0KB prm=512 B×2  融合
+  S154 n=1  conv                               64x64x64->48x64x64     halo=0  band=8   buff=   48.0KB halo_b=   0.0KB prm=384 B×8  融合
+  S155 n=2  conv/cat                           48x64x64->160x64x64    halo=2  band=8   buff=  166.0KB halo_b=   6.0KB prm=1280B×8  融合
+  S156 n=1  conv                               160x64x64->48x64x64    halo=0  band=8   buff=   48.0KB halo_b=   0.0KB prm=384 B×8  融合
+  S157 n=2  conv/cat                           48x64x64->256x64x64    halo=2  band=8   buff=  262.0KB halo_b=   6.0KB prm=2048B×8  融合
+  S158 n=1  conv                               256x64x64->48x64x64    halo=0  band=8   buff=   48.0KB halo_b=   0.0KB prm=384 B×8  融合
+  S159 n=2  conv/cat                           48x64x64->352x64x64    halo=2  band=8   buff=  358.0KB halo_b=   6.0KB prm=2816B×8  **不融合**（缓冲 358.0KB > 预算 270KB ⇒ 退回逐 op）
+  S160 n=1  conv                               352x64x64->48x64x64    halo=0  band=8   buff=   48.0KB halo_b=   0.0KB prm=384 B×8  融合
+  S161 n=2  conv/cat                           48x64x64->448x64x64    halo=2  band=8   buff=  454.0KB halo_b=   6.0KB prm=3584B×8  **不融合**（缓冲 454.0KB > 预算 270KB ⇒ 退回逐 op）
+  S162 n=1  conv                               448x64x64->48x64x64    halo=0  band=8   buff=   48.0KB halo_b=   0.0KB prm=384 B×8  融合
+  S163 n=3  conv/cat/conv                      48x64x64->64x64x64     halo=2  band=8   buff=   70.0KB halo_b=   6.0KB prm=512 B×8  融合
+  S164 n=1  conv                               64x32x32->48x32x32     halo=0  band=4   buff=   24.0KB halo_b=   0.0KB prm=384 B×4  融合
+  S165 n=2  conv/cat                           48x32x32->160x32x32    halo=2  band=4   buff=   83.0KB halo_b=   3.0KB prm=1280B×4  融合
+  S166 n=1  conv                               160x32x32->48x32x32    halo=0  band=4   buff=   24.0KB halo_b=   0.0KB prm=384 B×4  融合
+  S167 n=2  conv/cat                           48x32x32->256x32x32    halo=2  band=4   buff=  131.0KB halo_b=   3.0KB prm=2048B×4  融合
+  S168 n=1  conv                               256x32x32->48x32x32    halo=0  band=4   buff=   24.0KB halo_b=   0.0KB prm=384 B×4  融合
+  S169 n=2  conv/cat                           48x32x32->352x32x32    halo=2  band=4   buff=  179.0KB halo_b=   3.0KB prm=2816B×4  融合
+  S170 n=1  conv                               352x32x32->48x32x32    halo=0  band=4   buff=   24.0KB halo_b=   0.0KB prm=384 B×4  融合
+  S171 n=2  conv/cat                           48x32x32->448x32x32    halo=2  band=4   buff=  227.0KB halo_b=   3.0KB prm=3584B×4  融合
+  S172 n=1  conv                               448x32x32->48x32x32    halo=0  band=4   buff=   24.0KB halo_b=   0.0KB prm=384 B×4  融合
+  S173 n=4  conv/cat/conv/interp               48x32x32->64x64x64     halo=2  band=8   buff=   67.0KB halo_b=   3.0KB prm=512 B×8  融合
+  S174 n=1  conv                               64x16x16->48x16x16     halo=0  band=2   buff=   12.0KB halo_b=   0.0KB prm=384 B×2  融合
+  S175 n=2  conv/cat                           48x16x16->160x16x16    halo=2  band=2   buff=   41.5KB halo_b=   1.5KB prm=1280B×2  融合
+  S176 n=1  conv                               160x16x16->48x16x16    halo=0  band=2   buff=   12.0KB halo_b=   0.0KB prm=384 B×2  融合
+  S177 n=2  conv/cat                           48x16x16->256x16x16    halo=2  band=2   buff=   65.5KB halo_b=   1.5KB prm=2048B×2  融合
+  S178 n=1  conv                               256x16x16->48x16x16    halo=0  band=2   buff=   12.0KB halo_b=   0.0KB prm=384 B×2  融合
+  S179 n=2  conv/cat                           48x16x16->352x16x16    halo=2  band=2   buff=   89.5KB halo_b=   1.5KB prm=2816B×2  融合
+  S180 n=1  conv                               352x16x16->48x16x16    halo=0  band=2   buff=   12.0KB halo_b=   0.0KB prm=384 B×2  融合
+  S181 n=2  conv/cat                           48x16x16->448x16x16    halo=2  band=2   buff=  113.5KB halo_b=   1.5KB prm=3584B×2  融合
+  S182 n=1  conv                               448x16x16->48x16x16    halo=0  band=2   buff=   12.0KB halo_b=   0.0KB prm=384 B×2  融合
+  S183 n=4  conv/cat/conv/interp               48x16x16->64x64x64     halo=2  band=8   buff=   65.5KB halo_b=   1.5KB prm=512 B×8  融合
+  S184 n=3  cat/eca/sam                        64x64x64->64x64x64     halo=0  band=8   buff=   64.0KB halo_b=   0.0KB prm=512 B×8  融合
+  S185 n=2  convfp/shuffle                     64x64x64->3x128x128    halo=0  band=16  buff=    6.0KB halo_b=   0.0KB prm=64  B×16 融合
+  S186 n=3  interp/cat/conv                    64x64x64->64x128x128   halo=2  band=16  buff=  156.0KB halo_b=  28.0KB prm=512 B×16 融合
+  S187 n=2  conv/cat                           64x128x128->160x128x128 halo=2  band=16  buff=  336.0KB halo_b=  16.0KB prm=1280B×16 **不融合**（缓冲 336.0KB > 预算 270KB ⇒ 退回逐 op）
+  S188 n=2  conv/cat                           160x128x128->256x128x128 halo=2  band=16  buff=  552.0KB halo_b=  40.0KB prm=2048B×16 **不融合**（缓冲 552.0KB > 预算 270KB ⇒ 退回逐 op）
+  S189 n=4  conv/cat/conv/add                  256x128x128->64x128x128 halo=2  band=16  buff=  192.0KB halo_b=  64.0KB prm=512 B×16 融合
+  S190 n=1  interp                             64x128x128->64x64x64   halo=0  band=8   buff=   64.0KB halo_b=   0.0KB prm=512 B×8  融合
+  S191 n=1  interp                             64x128x128->64x32x32   halo=0  band=4   buff=   32.0KB halo_b=   0.0KB prm=512 B×4  融合
+  S192 n=1  conv                               64x128x128->48x128x128 halo=0  band=16  buff=   96.0KB halo_b=   0.0KB prm=384 B×16 融合
+  S193 n=2  conv/cat                           48x128x128->160x128x128 halo=2  band=16  buff=  332.0KB halo_b=  12.0KB prm=1280B×16 **不融合**（缓冲 332.0KB > 预算 270KB ⇒ 退回逐 op）
+  S194 n=1  conv                               160x128x128->48x128x128 halo=0  band=16  buff=   96.0KB halo_b=   0.0KB prm=384 B×16 融合
+  S195 n=2  conv/cat                           48x128x128->256x128x128 halo=2  band=16  buff=  524.0KB halo_b=  12.0KB prm=2048B×16 **不融合**（缓冲 524.0KB > 预算 270KB ⇒ 退回逐 op）
+  S196 n=1  conv                               256x128x128->48x128x128 halo=0  band=16  buff=   96.0KB halo_b=   0.0KB prm=384 B×16 融合
+  S197 n=2  conv/cat                           48x128x128->352x128x128 halo=2  band=16  buff=  716.0KB halo_b=  12.0KB prm=2816B×16 **不融合**（缓冲 716.0KB > 预算 270KB ⇒ 退回逐 op）
+  S198 n=1  conv                               352x128x128->48x128x128 halo=0  band=16  buff=   96.0KB halo_b=   0.0KB prm=384 B×16 融合
+  S199 n=2  conv/cat                           48x128x128->448x128x128 halo=2  band=16  buff=  908.0KB halo_b=  12.0KB prm=3584B×16 **不融合**（缓冲 908.0KB > 预算 270KB ⇒ 退回逐 op）
+  S200 n=1  conv                               448x128x128->48x128x128 halo=0  band=16  buff=   96.0KB halo_b=   0.0KB prm=384 B×16 融合
+  S201 n=3  conv/cat/conv                      48x128x128->64x128x128 halo=2  band=16  buff=  140.0KB halo_b=  12.0KB prm=512 B×16 融合
+  S202 n=1  conv                               64x64x64->48x64x64     halo=0  band=8   buff=   48.0KB halo_b=   0.0KB prm=384 B×8  融合
+  S203 n=2  conv/cat                           48x64x64->160x64x64    halo=2  band=8   buff=  166.0KB halo_b=   6.0KB prm=1280B×8  融合
+  S204 n=1  conv                               160x64x64->48x64x64    halo=0  band=8   buff=   48.0KB halo_b=   0.0KB prm=384 B×8  融合
+  S205 n=2  conv/cat                           48x64x64->256x64x64    halo=2  band=8   buff=  262.0KB halo_b=   6.0KB prm=2048B×8  融合
+  S206 n=1  conv                               256x64x64->48x64x64    halo=0  band=8   buff=   48.0KB halo_b=   0.0KB prm=384 B×8  融合
+  S207 n=2  conv/cat                           48x64x64->352x64x64    halo=2  band=8   buff=  358.0KB halo_b=   6.0KB prm=2816B×8  **不融合**（缓冲 358.0KB > 预算 270KB ⇒ 退回逐 op）
+  S208 n=1  conv                               352x64x64->48x64x64    halo=0  band=8   buff=   48.0KB halo_b=   0.0KB prm=384 B×8  融合
+  S209 n=2  conv/cat                           48x64x64->448x64x64    halo=2  band=8   buff=  454.0KB halo_b=   6.0KB prm=3584B×8  **不融合**（缓冲 454.0KB > 预算 270KB ⇒ 退回逐 op）
+  S210 n=1  conv                               448x64x64->48x64x64    halo=0  band=8   buff=   48.0KB halo_b=   0.0KB prm=384 B×8  融合
+  S211 n=4  conv/cat/conv/interp               48x64x64->64x128x128   halo=2  band=16  buff=  134.0KB halo_b=   6.0KB prm=512 B×16 融合
+  S212 n=1  conv                               64x32x32->48x32x32     halo=0  band=4   buff=   24.0KB halo_b=   0.0KB prm=384 B×4  融合
+  S213 n=2  conv/cat                           48x32x32->160x32x32    halo=2  band=4   buff=   83.0KB halo_b=   3.0KB prm=1280B×4  融合
+  S214 n=1  conv                               160x32x32->48x32x32    halo=0  band=4   buff=   24.0KB halo_b=   0.0KB prm=384 B×4  融合
+  S215 n=2  conv/cat                           48x32x32->256x32x32    halo=2  band=4   buff=  131.0KB halo_b=   3.0KB prm=2048B×4  融合
+  S216 n=1  conv                               256x32x32->48x32x32    halo=0  band=4   buff=   24.0KB halo_b=   0.0KB prm=384 B×4  融合
+  S217 n=2  conv/cat                           48x32x32->352x32x32    halo=2  band=4   buff=  179.0KB halo_b=   3.0KB prm=2816B×4  融合
+  S218 n=1  conv                               352x32x32->48x32x32    halo=0  band=4   buff=   24.0KB halo_b=   0.0KB prm=384 B×4  融合
+  S219 n=2  conv/cat                           48x32x32->448x32x32    halo=2  band=4   buff=  227.0KB halo_b=   3.0KB prm=3584B×4  融合
+  S220 n=1  conv                               448x32x32->48x32x32    halo=0  band=4   buff=   24.0KB halo_b=   0.0KB prm=384 B×4  融合
+  S221 n=4  conv/cat/conv/interp               48x32x32->64x128x128   halo=2  band=16  buff=  131.0KB halo_b=   3.0KB prm=512 B×16 融合
+  S222 n=5  cat/eca/sam/convfp/shuffle         64x128x128->3x256x256  halo=0  band=32  buff=   12.0KB halo_b=   0.0KB prm=64  B×32 融合
+  预算校验：205/223 段在 270 KB 内；**18 段超预算 => 标不融合**：S2,S9,S11,S13,S23,S48,S50,S150,S159,S161,S187,S188…
+  描述符链：1184 条 × 40 B @ 4 KB 步进 = 4.85 MB；链首 0x50800000
+  带几何自检（D2/D3 判据：band_y0 < h_out、y0+nband <= h_out、带输出不越张量）：1184 条描述符 / **0 条违规**
+  分段交叉校验（segments.json）：一致（223/223 段逐 op 相同）
+  ⚠ [V50] 链模式不可用（engine=None（纯 PS 参考后端，没有 PL 可提交链））⇒ 本跑仍走 v5 逐 op（数值逐字节不变）
+  [LAZY_DEQ] int8 直读：322 个张量可保持 int8（无需 f32）/ 396 个总张量；227 层 conv 的输入全在图里
+A 基线（纯 PS 参考）      sha1 = ('392d1ae02761', '7f68fb00d2b5', 'aa03751a2d1c')  总 31.79 s
+== v50 段计划（P1）: 223 段 / 1184 条描述符 / 带宽 8 行 / 预算 270 KB / VLANES=8 / PRM 帧 16 字 ==
+  段表（halo=Σ(k-1) 行；buff=2×band_rows×W×C int8；halo_b=Σ(k-1)·W·cin int8）：
+  S0   n=2  unshuffle/convfp                   3x256x256->48x128x128  halo=0  band=16  buff=   96.0KB halo_b=   0.0KB prm=384 B×16 融合
+  S1   n=2  conv/cat                           48x128x128->112x128x128 halo=2  band=16  buff=  236.0KB halo_b=  12.0KB prm=896 B×16 融合
+  S2   n=2  conv/cat                           112x128x128->176x128x128 halo=2  band=16  buff=  380.0KB halo_b=  28.0KB prm=1408B×16 **不融合**（缓冲 380.0KB > 预算 270KB ⇒ 退回逐 op）
+  S3   n=4  conv/cat/conv/add                  176x128x128->48x128x128 halo=2  band=16  buff=  140.0KB halo_b=  44.0KB prm=384 B×16 融合
+  S4   n=1  interp                             48x128x128->48x64x64   halo=0  band=8   buff=   48.0KB halo_b=   0.0KB prm=384 B×8  融合
+  S5   n=1  interp                             48x128x128->48x32x32   halo=0  band=4   buff=   24.0KB halo_b=   0.0KB prm=384 B×4  融合
+  S6   n=1  conv                               48x128x128->32x128x128 halo=0  band=16  buff=   64.0KB halo_b=   0.0KB prm=256 B×16 融合
+  S7   n=2  conv/cat                           32x128x128->112x128x128 halo=2  band=16  buff=  232.0KB halo_b=   8.0KB prm=896 B×16 融合
+  S8   n=1  conv                               112x128x128->32x128x128 halo=0  band=16  buff=   64.0KB halo_b=   0.0KB prm=256 B×16 融合
+  S9   n=2  conv/cat                           32x128x128->176x128x128 halo=2  band=16  buff=  360.0KB halo_b=   8.0KB prm=1408B×16 **不融合**（缓冲 360.0KB > 预算 270KB ⇒ 退回逐 op）
+  S10  n=1  conv                               176x128x128->32x128x128 halo=0  band=16  buff=   64.0KB halo_b=   0.0KB prm=256 B×16 融合
+  S11  n=2  conv/cat                           32x128x128->240x128x128 halo=2  band=16  buff=  488.0KB halo_b=   8.0KB prm=1920B×16 **不融合**（缓冲 488.0KB > 预算 270KB ⇒ 退回逐 op）
+  S12  n=1  conv                               240x128x128->32x128x128 halo=0  band=16  buff=   64.0KB halo_b=   0.0KB prm=256 B×16 融合
+  S13  n=2  conv/cat                           32x128x128->304x128x128 halo=2  band=16  buff=  616.0KB halo_b=   8.0KB prm=2432B×16 **不融合**（缓冲 616.0KB > 预算 270KB ⇒ 退回逐 op）
+  S14  n=1  conv                               304x128x128->32x128x128 halo=0  band=16  buff=   64.0KB halo_b=   0.0KB prm=256 B×16 融合
+  S15  n=3  conv/cat/conv                      32x128x128->48x128x128 halo=2  band=16  buff=  104.0KB halo_b=   8.0KB prm=384 B×16 融合
+  S16  n=1  conv                               48x64x64->32x64x64     halo=0  band=8   buff=   32.0KB halo_b=   0.0KB prm=256 B×8  融合
+  S17  n=2  conv/cat                           32x64x64->112x64x64    halo=2  band=8   buff=  116.0KB halo_b=   4.0KB prm=896 B×8  融合
+  S18  n=1  conv                               112x64x64->32x64x64    halo=0  band=8   buff=   32.0KB halo_b=   0.0KB prm=256 B×8  融合
+  S19  n=2  conv/cat                           32x64x64->176x64x64    halo=2  band=8   buff=  180.0KB halo_b=   4.0KB prm=1408B×8  融合
+  S20  n=1  conv                               176x64x64->32x64x64    halo=0  band=8   buff=   32.0KB halo_b=   0.0KB prm=256 B×8  融合
+  S21  n=2  conv/cat                           32x64x64->240x64x64    halo=2  band=8   buff=  244.0KB halo_b=   4.0KB prm=1920B×8  融合
+  S22  n=1  conv                               240x64x64->32x64x64    halo=0  band=8   buff=   32.0KB halo_b=   0.0KB prm=256 B×8  融合
+  S23  n=2  conv/cat                           32x64x64->304x64x64    halo=2  band=8   buff=  308.0KB halo_b=   4.0KB prm=2432B×8  **不融合**（缓冲 308.0KB > 预算 270KB ⇒ 退回逐 op）
+  S24  n=1  conv                               304x64x64->32x64x64    halo=0  band=8   buff=   32.0KB halo_b=   0.0KB prm=256 B×8  融合
+  S25  n=4  conv/cat/conv/interp               32x64x64->48x128x128   halo=2  band=16  buff=  100.0KB halo_b=   4.0KB prm=384 B×16 融合
+  S26  n=1  conv                               48x32x32->32x32x32     halo=0  band=4   buff=   16.0KB halo_b=   0.0KB prm=256 B×4  融合
+  S27  n=2  conv/cat                           32x32x32->112x32x32    halo=2  band=4   buff=   58.0KB halo_b=   2.0KB prm=896 B×4  融合
+  S28  n=1  conv                               112x32x32->32x32x32    halo=0  band=4   buff=   16.0KB halo_b=   0.0KB prm=256 B×4  融合
+  S29  n=2  conv/cat                           32x32x32->176x32x32    halo=2  band=4   buff=   90.0KB halo_b=   2.0KB prm=1408B×4  融合
+  S30  n=1  conv                               176x32x32->32x32x32    halo=0  band=4   buff=   16.0KB halo_b=   0.0KB prm=256 B×4  融合
+  S31  n=2  conv/cat                           32x32x32->240x32x32    halo=2  band=4   buff=  122.0KB halo_b=   2.0KB prm=1920B×4  融合
+  S32  n=1  conv                               240x32x32->32x32x32    halo=0  band=4   buff=   16.0KB halo_b=   0.0KB prm=256 B×4  融合
+  S33  n=2  conv/cat                           32x32x32->304x32x32    halo=2  band=4   buff=  154.0KB halo_b=   2.0KB prm=2432B×4  融合
+  S34  n=1  conv                               304x32x32->32x32x32    halo=0  band=4   buff=   16.0KB halo_b=   0.0KB prm=256 B×4  融合
+  S35  n=4  conv/cat/conv/interp               32x32x32->48x128x128   halo=2  band=16  buff=   98.0KB halo_b=   2.0KB prm=384 B×16 融合
+  S36  n=3  cat/eca/sam                        48x128x128->48x128x128 halo=0  band=16  buff=   96.0KB halo_b=   0.0KB prm=384 B×16 融合
+  S37  n=1  conv                               48x128x128->96x64x64   halo=2  band=8   buff=  108.0KB halo_b=  12.0KB prm=768 B×8  融合
+  S38  n=2  conv/cat                           96x64x64->160x64x64    halo=2  band=8   buff=  172.0KB halo_b=  12.0KB prm=1280B×8  融合
+  S39  n=2  conv/cat                           160x64x64->224x64x64   halo=2  band=8   buff=  244.0KB halo_b=  20.0KB prm=1792B×8  融合
+  S40  n=4  conv/cat/conv/add                  224x64x64->96x64x64    halo=2  band=8   buff=  124.0KB halo_b=  28.0KB prm=768 B×8  融合
+  S41  n=1  interp                             96x64x64->96x32x32     halo=0  band=4   buff=   48.0KB halo_b=   0.0KB prm=768 B×4  融合
+  S42  n=1  interp                             96x64x64->96x16x16     halo=0  band=2   buff=   24.0KB halo_b=   0.0KB prm=768 B×2  融合
+  S43  n=1  conv                               96x64x64->32x64x64     halo=0  band=8   buff=   32.0KB halo_b=   0.0KB prm=256 B×8  融合
+  S44  n=2  conv/cat                           32x64x64->160x64x64    halo=2  band=8   buff=  164.0KB halo_b=   4.0KB prm=1280B×8  融合
+  S45  n=1  conv                               160x64x64->32x64x64    halo=0  band=8   buff=   32.0KB halo_b=   0.0KB prm=256 B×8  融合
+  S46  n=2  conv/cat                           32x64x64->224x64x64    halo=2  band=8   buff=  228.0KB halo_b=   4.0KB prm=1792B×8  融合
+  S47  n=1  conv                               224x64x64->32x64x64    halo=0  band=8   buff=   32.0KB halo_b=   0.0KB prm=256 B×8  融合
+  S48  n=2  conv/cat                           32x64x64->288x64x64    halo=2  band=8   buff=  292.0KB halo_b=   4.0KB prm=2304B×8  **不融合**（缓冲 292.0KB > 预算 270KB ⇒ 退回逐 op）
+  S49  n=1  conv                               288x64x64->32x64x64    halo=0  band=8   buff=   32.0KB halo_b=   0.0KB prm=256 B×8  融合
+  S50  n=2  conv/cat                           32x64x64->352x64x64    halo=2  band=8   buff=  356.0KB halo_b=   4.0KB prm=2816B×8  **不融合**（缓冲 356.0KB > 预算 270KB ⇒ 退回逐 op）
+  S51  n=1  conv                               352x64x64->32x64x64    halo=0  band=8   buff=   32.0KB halo_b=   0.0KB prm=256 B×8  融合
+  S52  n=3  conv/cat/conv                      32x64x64->96x64x64     halo=2  band=8   buff=  100.0KB halo_b=   4.0KB prm=768 B×8  融合
+  S53  n=1  conv                               96x32x32->32x32x32     halo=0  band=4   buff=   16.0KB halo_b=   0.0KB prm=256 B×4  融合
+  S54  n=2  conv/cat                           32x32x32->160x32x32    halo=2  band=4   buff=   82.0KB halo_b=   2.0KB prm=1280B×4  融合
+  S55  n=1  conv                               160x32x32->32x32x32    halo=0  band=4   buff=   16.0KB halo_b=   0.0KB prm=256 B×4  融合
+  S56  n=2  conv/cat                           32x32x32->224x32x32    halo=2  band=4   buff=  114.0KB halo_b=   2.0KB prm=1792B×4  融合
+  S57  n=1  conv                               224x32x32->32x32x32    halo=0  band=4   buff=   16.0KB halo_b=   0.0KB prm=256 B×4  融合
+  S58  n=2  conv/cat                           32x32x32->288x32x32    halo=2  band=4   buff=  146.0KB halo_b=   2.0KB prm=2304B×4  融合
+  S59  n=1  conv                               288x32x32->32x32x32    halo=0  band=4   buff=   16.0KB halo_b=   0.0KB prm=256 B×4  融合
+  S60  n=2  conv/cat                           32x32x32->352x32x32    halo=2  band=4   buff=  178.0KB halo_b=   2.0KB prm=2816B×4  融合
+  S61  n=1  conv                               352x32x32->32x32x32    halo=0  band=4   buff=   16.0KB halo_b=   0.0KB prm=256 B×4  融合
+  S62  n=4  conv/cat/conv/interp               32x32x32->96x64x64     halo=2  band=8   buff=   98.0KB halo_b=   2.0KB prm=768 B×8  融合
+  S63  n=1  conv                               96x16x16->32x16x16     halo=0  band=2   buff=    8.0KB halo_b=   0.0KB prm=256 B×2  融合
+  S64  n=2  conv/cat                           32x16x16->160x16x16    halo=2  band=2   buff=   41.0KB halo_b=   1.0KB prm=1280B×2  融合
+  S65  n=1  conv                               160x16x16->32x16x16    halo=0  band=2   buff=    8.0KB halo_b=   0.0KB prm=256 B×2  融合
+  S66  n=2  conv/cat                           32x16x16->224x16x16    halo=2  band=2   buff=   57.0KB halo_b=   1.0KB prm=1792B×2  融合
+  S67  n=1  conv                               224x16x16->32x16x16    halo=0  band=2   buff=    8.0KB halo_b=   0.0KB prm=256 B×2  融合
+  S68  n=2  conv/cat                           32x16x16->288x16x16    halo=2  band=2   buff=   73.0KB halo_b=   1.0KB prm=2304B×2  融合
+  S69  n=1  conv                               288x16x16->32x16x16    halo=0  band=2   buff=    8.0KB halo_b=   0.0KB prm=256 B×2  融合
+  S70  n=2  conv/cat                           32x16x16->352x16x16    halo=2  band=2   buff=   89.0KB halo_b=   1.0KB prm=2816B×2  融合
+  S71  n=1  conv                               352x16x16->32x16x16    halo=0  band=2   buff=    8.0KB halo_b=   0.0KB prm=256 B×2  融合
+  S72  n=4  conv/cat/conv/interp               32x16x16->96x64x64     halo=2  band=8   buff=   97.0KB halo_b=   1.0KB prm=768 B×8  融合
+  S73  n=3  cat/eca/sam                        96x64x64->96x64x64     halo=0  band=8   buff=   96.0KB halo_b=   0.0KB prm=768 B×8  融合
+  S74  n=1  conv                               96x64x64->192x32x32    halo=2  band=4   buff=  108.0KB halo_b=  12.0KB prm=1536B×4  融合
+  S75  n=2  conv/cat                           192x32x32->256x32x32   halo=2  band=4   buff=  140.0KB halo_b=  12.0KB prm=2048B×4  融合
+  S76  n=2  conv/cat                           256x32x32->320x32x32   halo=2  band=4   buff=  176.0KB halo_b=  16.0KB prm=2560B×4  融合
+  S77  n=4  conv/cat/conv/add                  320x32x32->192x32x32   halo=2  band=4   buff=  116.0KB halo_b=  20.0KB prm=1536B×4  融合
+  S78  n=1  interp                             192x32x32->192x16x16   halo=0  band=2   buff=   48.0KB halo_b=   0.0KB prm=1536B×2  融合
+  S79  n=1  interp                             192x32x32->192x8x8     halo=0  band=1   buff=   24.0KB halo_b=   0.0KB prm=1536B×1  融合
+  S80  n=1  conv                               192x32x32->32x32x32    halo=0  band=4   buff=   16.0KB halo_b=   0.0KB prm=256 B×4  融合
+  S81  n=2  conv/cat                           32x32x32->256x32x32    halo=2  band=4   buff=  130.0KB halo_b=   2.0KB prm=2048B×4  融合
+  S82  n=1  conv                               256x32x32->32x32x32    halo=0  band=4   buff=   16.0KB halo_b=   0.0KB prm=256 B×4  融合
+  S83  n=2  conv/cat                           32x32x32->320x32x32    halo=2  band=4   buff=  162.0KB halo_b=   2.0KB prm=2560B×4  融合
+  S84  n=1  conv                               320x32x32->32x32x32    halo=0  band=4   buff=   16.0KB halo_b=   0.0KB prm=256 B×4  融合
+  S85  n=2  conv/cat                           32x32x32->384x32x32    halo=2  band=4   buff=  194.0KB halo_b=   2.0KB prm=3072B×4  融合
+  S86  n=1  conv                               384x32x32->32x32x32    halo=0  band=4   buff=   16.0KB halo_b=   0.0KB prm=256 B×4  融合
+  S87  n=2  conv/cat                           32x32x32->448x32x32    halo=2  band=4   buff=  226.0KB halo_b=   2.0KB prm=3584B×4  融合
+  S88  n=1  conv                               448x32x32->32x32x32    halo=0  band=4   buff=   16.0KB halo_b=   0.0KB prm=256 B×4  融合
+  S89  n=3  conv/cat/conv                      32x32x32->192x32x32    halo=2  band=4   buff=   98.0KB halo_b=   2.0KB prm=1536B×4  融合
+  S90  n=1  conv                               192x16x16->32x16x16    halo=0  band=2   buff=    8.0KB halo_b=   0.0KB prm=256 B×2  融合
+  S91  n=2  conv/cat                           32x16x16->256x16x16    halo=2  band=2   buff=   65.0KB halo_b=   1.0KB prm=2048B×2  融合
+  S92  n=1  conv                               256x16x16->32x16x16    halo=0  band=2   buff=    8.0KB halo_b=   0.0KB prm=256 B×2  融合
+  S93  n=2  conv/cat                           32x16x16->320x16x16    halo=2  band=2   buff=   81.0KB halo_b=   1.0KB prm=2560B×2  融合
+  S94  n=1  conv                               320x16x16->32x16x16    halo=0  band=2   buff=    8.0KB halo_b=   0.0KB prm=256 B×2  融合
+  S95  n=2  conv/cat                           32x16x16->384x16x16    halo=2  band=2   buff=   97.0KB halo_b=   1.0KB prm=3072B×2  融合
+  S96  n=1  conv                               384x16x16->32x16x16    halo=0  band=2   buff=    8.0KB halo_b=   0.0KB prm=256 B×2  融合
+  S97  n=2  conv/cat                           32x16x16->448x16x16    halo=2  band=2   buff=  113.0KB halo_b=   1.0KB prm=3584B×2  融合
+  S98  n=1  conv                               448x16x16->32x16x16    halo=0  band=2   buff=    8.0KB halo_b=   0.0KB prm=256 B×2  融合
+  S99  n=4  conv/cat/conv/interp               32x16x16->192x32x32    halo=2  band=4   buff=   97.0KB halo_b=   1.0KB prm=1536B×4  融合
+  S100 n=1  conv                               192x8x8->32x8x8        halo=0  band=1   buff=    4.0KB halo_b=   0.0KB prm=256 B×1  融合
+  S101 n=2  conv/cat                           32x8x8->256x8x8        halo=0  band=1   buff=   32.5KB halo_b=   0.5KB prm=2048B×1  融合
+  S102 n=1  conv                               256x8x8->32x8x8        halo=0  band=1   buff=    4.0KB halo_b=   0.0KB prm=256 B×1  融合
+  S103 n=2  conv/cat                           32x8x8->320x8x8        halo=0  band=1   buff=   40.5KB halo_b=   0.5KB prm=2560B×1  融合
+  S104 n=1  conv                               320x8x8->32x8x8        halo=0  band=1   buff=    4.0KB halo_b=   0.0KB prm=256 B×1  融合
+  S105 n=2  conv/cat                           32x8x8->384x8x8        halo=0  band=1   buff=   48.5KB halo_b=   0.5KB prm=3072B×1  融合
+  S106 n=1  conv                               384x8x8->32x8x8        halo=0  band=1   buff=    4.0KB halo_b=   0.0KB prm=256 B×1  融合
+  S107 n=2  conv/cat                           32x8x8->448x8x8        halo=0  band=1   buff=   56.5KB halo_b=   0.5KB prm=3584B×1  融合
+  S108 n=1  conv                               448x8x8->32x8x8        halo=0  band=1   buff=    4.0KB halo_b=   0.0KB prm=256 B×1  融合
+  S109 n=4  conv/cat/conv/interp               32x8x8->192x32x32      halo=0  band=4   buff=   96.5KB halo_b=   0.5KB prm=1536B×4  融合
+  S110 n=4  cat/eca/sam/conv                   192x32x32->64x32x32    halo=2  band=4   buff=   44.0KB halo_b=  12.0KB prm=512 B×4  融合
+  S111 n=2  conv/cat                           64x32x32->160x32x32    halo=2  band=4   buff=   84.0KB halo_b=   4.0KB prm=1280B×4  融合
+  S112 n=2  conv/cat                           160x32x32->256x32x32   halo=2  band=4   buff=  138.0KB halo_b=  10.0KB prm=2048B×4  融合
+  S113 n=4  conv/cat/conv/add                  256x32x32->64x32x32    halo=2  band=4   buff=   48.0KB halo_b=  16.0KB prm=512 B×4  融合
+  S114 n=1  interp                             64x32x32->64x16x16     halo=0  band=2   buff=   16.0KB halo_b=   0.0KB prm=512 B×2  融合
+  S115 n=1  interp                             64x32x32->64x8x8       halo=0  band=1   buff=    8.0KB halo_b=   0.0KB prm=512 B×1  融合
+  S116 n=1  conv                               64x32x32->48x32x32     halo=0  band=4   buff=   24.0KB halo_b=   0.0KB prm=384 B×4  融合
+  S117 n=2  conv/cat                           48x32x32->160x32x32    halo=2  band=4   buff=   83.0KB halo_b=   3.0KB prm=1280B×4  融合
+  S118 n=1  conv                               160x32x32->48x32x32    halo=0  band=4   buff=   24.0KB halo_b=   0.0KB prm=384 B×4  融合
+  S119 n=2  conv/cat                           48x32x32->256x32x32    halo=2  band=4   buff=  131.0KB halo_b=   3.0KB prm=2048B×4  融合
+  S120 n=1  conv                               256x32x32->48x32x32    halo=0  band=4   buff=   24.0KB halo_b=   0.0KB prm=384 B×4  融合
+  S121 n=2  conv/cat                           48x32x32->352x32x32    halo=2  band=4   buff=  179.0KB halo_b=   3.0KB prm=2816B×4  融合
+  S122 n=1  conv                               352x32x32->48x32x32    halo=0  band=4   buff=   24.0KB halo_b=   0.0KB prm=384 B×4  融合
+  S123 n=2  conv/cat                           48x32x32->448x32x32    halo=2  band=4   buff=  227.0KB halo_b=   3.0KB prm=3584B×4  融合
+  S124 n=1  conv                               448x32x32->48x32x32    halo=0  band=4   buff=   24.0KB halo_b=   0.0KB prm=384 B×4  融合
+  S125 n=3  conv/cat/conv                      48x32x32->64x32x32     halo=2  band=4   buff=   35.0KB halo_b=   3.0KB prm=512 B×4  融合
+  S126 n=1  conv                               64x16x16->48x16x16     halo=0  band=2   buff=   12.0KB halo_b=   0.0KB prm=384 B×2  融合
+  S127 n=2  conv/cat                           48x16x16->160x16x16    halo=2  band=2   buff=   41.5KB halo_b=   1.5KB prm=1280B×2  融合
+  S128 n=1  conv                               160x16x16->48x16x16    halo=0  band=2   buff=   12.0KB halo_b=   0.0KB prm=384 B×2  融合
+  S129 n=2  conv/cat                           48x16x16->256x16x16    halo=2  band=2   buff=   65.5KB halo_b=   1.5KB prm=2048B×2  融合
+  S130 n=1  conv                               256x16x16->48x16x16    halo=0  band=2   buff=   12.0KB halo_b=   0.0KB prm=384 B×2  融合
+  S131 n=2  conv/cat                           48x16x16->352x16x16    halo=2  band=2   buff=   89.5KB halo_b=   1.5KB prm=2816B×2  融合
+  S132 n=1  conv                               352x16x16->48x16x16    halo=0  band=2   buff=   12.0KB halo_b=   0.0KB prm=384 B×2  融合
+  S133 n=2  conv/cat                           48x16x16->448x16x16    halo=2  band=2   buff=  113.5KB halo_b=   1.5KB prm=3584B×2  融合
+  S134 n=1  conv                               448x16x16->48x16x16    halo=0  band=2   buff=   12.0KB halo_b=   0.0KB prm=384 B×2  融合
+  S135 n=4  conv/cat/conv/interp               48x16x16->64x32x32     halo=2  band=4   buff=   33.5KB halo_b=   1.5KB prm=512 B×4  融合
+  S136 n=1  conv                               64x8x8->48x8x8         halo=0  band=1   buff=    6.0KB halo_b=   0.0KB prm=384 B×1  融合
+  S137 n=2  conv/cat                           48x8x8->160x8x8        halo=0  band=1   buff=   20.8KB halo_b=   0.8KB prm=1280B×1  融合
+  S138 n=1  conv                               160x8x8->48x8x8        halo=0  band=1   buff=    6.0KB halo_b=   0.0KB prm=384 B×1  融合
+  S139 n=2  conv/cat                           48x8x8->256x8x8        halo=0  band=1   buff=   32.8KB halo_b=   0.8KB prm=2048B×1  融合
+  S140 n=1  conv                               256x8x8->48x8x8        halo=0  band=1   buff=    6.0KB halo_b=   0.0KB prm=384 B×1  融合
+  S141 n=2  conv/cat                           48x8x8->352x8x8        halo=0  band=1   buff=   44.8KB halo_b=   0.8KB prm=2816B×1  融合
+  S142 n=1  conv                               352x8x8->48x8x8        halo=0  band=1   buff=    6.0KB halo_b=   0.0KB prm=384 B×1  融合
+  S143 n=2  conv/cat                           48x8x8->448x8x8        halo=0  band=1   buff=   56.8KB halo_b=   0.8KB prm=3584B×1  融合
+  S144 n=1  conv                               448x8x8->48x8x8        halo=0  band=1   buff=    6.0KB halo_b=   0.0KB prm=384 B×1  融合
+  S145 n=4  conv/cat/conv/interp               48x8x8->64x32x32       halo=0  band=4   buff=   32.8KB halo_b=   0.8KB prm=512 B×4  融合
+  S146 n=3  cat/eca/sam                        64x32x32->64x32x32     halo=0  band=4   buff=   32.0KB halo_b=   0.0KB prm=512 B×4  融合
+  S147 n=2  convfp/shuffle                     64x32x32->3x64x64      halo=0  band=8   buff=    3.0KB halo_b=   0.0KB prm=64  B×8  融合
+  S148 n=3  interp/cat/conv                    64x32x32->64x64x64     halo=2  band=8   buff=   84.0KB halo_b=  20.0KB prm=512 B×8  融合
+  S149 n=2  conv/cat                           64x64x64->160x64x64    halo=2  band=8   buff=  168.0KB halo_b=   8.0KB prm=1280B×8  融合
+  S150 n=2  conv/cat                           160x64x64->256x64x64   halo=2  band=8   buff=  276.0KB halo_b=  20.0KB prm=2048B×8  **不融合**（缓冲 276.0KB > 预算 270KB ⇒ 退回逐 op）
+  S151 n=4  conv/cat/conv/add                  256x64x64->64x64x64    halo=2  band=8   buff=   96.0KB halo_b=  32.0KB prm=512 B×8  融合
+  S152 n=1  interp                             64x64x64->64x32x32     halo=0  band=4   buff=   32.0KB halo_b=   0.0KB prm=512 B×4  融合
+  S153 n=1  interp                             64x64x64->64x16x16     halo=0  band=2   buff=   16.0KB halo_b=   0.0KB prm=512 B×2  融合
+  S154 n=1  conv                               64x64x64->48x64x64     halo=0  band=8   buff=   48.0KB halo_b=   0.0KB prm=384 B×8  融合
+  S155 n=2  conv/cat                           48x64x64->160x64x64    halo=2  band=8   buff=  166.0KB halo_b=   6.0KB prm=1280B×8  融合
+  S156 n=1  conv                               160x64x64->48x64x64    halo=0  band=8   buff=   48.0KB halo_b=   0.0KB prm=384 B×8  融合
+  S157 n=2  conv/cat                           48x64x64->256x64x64    halo=2  band=8   buff=  262.0KB halo_b=   6.0KB prm=2048B×8  融合
+  S158 n=1  conv                               256x64x64->48x64x64    halo=0  band=8   buff=   48.0KB halo_b=   0.0KB prm=384 B×8  融合
+  S159 n=2  conv/cat                           48x64x64->352x64x64    halo=2  band=8   buff=  358.0KB halo_b=   6.0KB prm=2816B×8  **不融合**（缓冲 358.0KB > 预算 270KB ⇒ 退回逐 op）
+  S160 n=1  conv                               352x64x64->48x64x64    halo=0  band=8   buff=   48.0KB halo_b=   0.0KB prm=384 B×8  融合
+  S161 n=2  conv/cat                           48x64x64->448x64x64    halo=2  band=8   buff=  454.0KB halo_b=   6.0KB prm=3584B×8  **不融合**（缓冲 454.0KB > 预算 270KB ⇒ 退回逐 op）
+  S162 n=1  conv                               448x64x64->48x64x64    halo=0  band=8   buff=   48.0KB halo_b=   0.0KB prm=384 B×8  融合
+  S163 n=3  conv/cat/conv                      48x64x64->64x64x64     halo=2  band=8   buff=   70.0KB halo_b=   6.0KB prm=512 B×8  融合
+  S164 n=1  conv                               64x32x32->48x32x32     halo=0  band=4   buff=   24.0KB halo_b=   0.0KB prm=384 B×4  融合
+  S165 n=2  conv/cat                           48x32x32->160x32x32    halo=2  band=4   buff=   83.0KB halo_b=   3.0KB prm=1280B×4  融合
+  S166 n=1  conv                               160x32x32->48x32x32    halo=0  band=4   buff=   24.0KB halo_b=   0.0KB prm=384 B×4  融合
+  S167 n=2  conv/cat                           48x32x32->256x32x32    halo=2  band=4   buff=  131.0KB halo_b=   3.0KB prm=2048B×4  融合
+  S168 n=1  conv                               256x32x32->48x32x32    halo=0  band=4   buff=   24.0KB halo_b=   0.0KB prm=384 B×4  融合
+  S169 n=2  conv/cat                           48x32x32->352x32x32    halo=2  band=4   buff=  179.0KB halo_b=   3.0KB prm=2816B×4  融合
+  S170 n=1  conv                               352x32x32->48x32x32    halo=0  band=4   buff=   24.0KB halo_b=   0.0KB prm=384 B×4  融合
+  S171 n=2  conv/cat                           48x32x32->448x32x32    halo=2  band=4   buff=  227.0KB halo_b=   3.0KB prm=3584B×4  融合
+  S172 n=1  conv                               448x32x32->48x32x32    halo=0  band=4   buff=   24.0KB halo_b=   0.0KB prm=384 B×4  融合
+  S173 n=4  conv/cat/conv/interp               48x32x32->64x64x64     halo=2  band=8   buff=   67.0KB halo_b=   3.0KB prm=512 B×8  融合
+  S174 n=1  conv                               64x16x16->48x16x16     halo=0  band=2   buff=   12.0KB halo_b=   0.0KB prm=384 B×2  融合
+  S175 n=2  conv/cat                           48x16x16->160x16x16    halo=2  band=2   buff=   41.5KB halo_b=   1.5KB prm=1280B×2  融合
+  S176 n=1  conv                               160x16x16->48x16x16    halo=0  band=2   buff=   12.0KB halo_b=   0.0KB prm=384 B×2  融合
+  S177 n=2  conv/cat                           48x16x16->256x16x16    halo=2  band=2   buff=   65.5KB halo_b=   1.5KB prm=2048B×2  融合
+  S178 n=1  conv                               256x16x16->48x16x16    halo=0  band=2   buff=   12.0KB halo_b=   0.0KB prm=384 B×2  融合
+  S179 n=2  conv/cat                           48x16x16->352x16x16    halo=2  band=2   buff=   89.5KB halo_b=   1.5KB prm=2816B×2  融合
+  S180 n=1  conv                               352x16x16->48x16x16    halo=0  band=2   buff=   12.0KB halo_b=   0.0KB prm=384 B×2  融合
+  S181 n=2  conv/cat                           48x16x16->448x16x16    halo=2  band=2   buff=  113.5KB halo_b=   1.5KB prm=3584B×2  融合
+  S182 n=1  conv                               448x16x16->48x16x16    halo=0  band=2   buff=   12.0KB halo_b=   0.0KB prm=384 B×2  融合
+  S183 n=4  conv/cat/conv/interp               48x16x16->64x64x64     halo=2  band=8   buff=   65.5KB halo_b=   1.5KB prm=512 B×8  融合
+  S184 n=3  cat/eca/sam                        64x64x64->64x64x64     halo=0  band=8   buff=   64.0KB halo_b=   0.0KB prm=512 B×8  融合
+  S185 n=2  convfp/shuffle                     64x64x64->3x128x128    halo=0  band=16  buff=    6.0KB halo_b=   0.0KB prm=64  B×16 融合
+  S186 n=3  interp/cat/conv                    64x64x64->64x128x128   halo=2  band=16  buff=  156.0KB halo_b=  28.0KB prm=512 B×16 融合
+  S187 n=2  conv/cat                           64x128x128->160x128x128 halo=2  band=16  buff=  336.0KB halo_b=  16.0KB prm=1280B×16 **不融合**（缓冲 336.0KB > 预算 270KB ⇒ 退回逐 op）
+  S188 n=2  conv/cat                           160x128x128->256x128x128 halo=2  band=16  buff=  552.0KB halo_b=  40.0KB prm=2048B×16 **不融合**（缓冲 552.0KB > 预算 270KB ⇒ 退回逐 op）
+  S189 n=4  conv/cat/conv/add                  256x128x128->64x128x128 halo=2  band=16  buff=  192.0KB halo_b=  64.0KB prm=512 B×16 融合
+  S190 n=1  interp                             64x128x128->64x64x64   halo=0  band=8   buff=   64.0KB halo_b=   0.0KB prm=512 B×8  融合
+  S191 n=1  interp                             64x128x128->64x32x32   halo=0  band=4   buff=   32.0KB halo_b=   0.0KB prm=512 B×4  融合
+  S192 n=1  conv                               64x128x128->48x128x128 halo=0  band=16  buff=   96.0KB halo_b=   0.0KB prm=384 B×16 融合
+  S193 n=2  conv/cat                           48x128x128->160x128x128 halo=2  band=16  buff=  332.0KB halo_b=  12.0KB prm=1280B×16 **不融合**（缓冲 332.0KB > 预算 270KB ⇒ 退回逐 op）
+  S194 n=1  conv                               160x128x128->48x128x128 halo=0  band=16  buff=   96.0KB halo_b=   0.0KB prm=384 B×16 融合
+  S195 n=2  conv/cat                           48x128x128->256x128x128 halo=2  band=16  buff=  524.0KB halo_b=  12.0KB prm=2048B×16 **不融合**（缓冲 524.0KB > 预算 270KB ⇒ 退回逐 op）
+  S196 n=1  conv                               256x128x128->48x128x128 halo=0  band=16  buff=   96.0KB halo_b=   0.0KB prm=384 B×16 融合
+  S197 n=2  conv/cat                           48x128x128->352x128x128 halo=2  band=16  buff=  716.0KB halo_b=  12.0KB prm=2816B×16 **不融合**（缓冲 716.0KB > 预算 270KB ⇒ 退回逐 op）
+  S198 n=1  conv                               352x128x128->48x128x128 halo=0  band=16  buff=   96.0KB halo_b=   0.0KB prm=384 B×16 融合
+  S199 n=2  conv/cat                           48x128x128->448x128x128 halo=2  band=16  buff=  908.0KB halo_b=  12.0KB prm=3584B×16 **不融合**（缓冲 908.0KB > 预算 270KB ⇒ 退回逐 op）
+  S200 n=1  conv                               448x128x128->48x128x128 halo=0  band=16  buff=   96.0KB halo_b=   0.0KB prm=384 B×16 融合
+  S201 n=3  conv/cat/conv                      48x128x128->64x128x128 halo=2  band=16  buff=  140.0KB halo_b=  12.0KB prm=512 B×16 融合
+  S202 n=1  conv                               64x64x64->48x64x64     halo=0  band=8   buff=   48.0KB halo_b=   0.0KB prm=384 B×8  融合
+  S203 n=2  conv/cat                           48x64x64->160x64x64    halo=2  band=8   buff=  166.0KB halo_b=   6.0KB prm=1280B×8  融合
+  S204 n=1  conv                               160x64x64->48x64x64    halo=0  band=8   buff=   48.0KB halo_b=   0.0KB prm=384 B×8  融合
+  S205 n=2  conv/cat                           48x64x64->256x64x64    halo=2  band=8   buff=  262.0KB halo_b=   6.0KB prm=2048B×8  融合
+  S206 n=1  conv                               256x64x64->48x64x64    halo=0  band=8   buff=   48.0KB halo_b=   0.0KB prm=384 B×8  融合
+  S207 n=2  conv/cat                           48x64x64->352x64x64    halo=2  band=8   buff=  358.0KB halo_b=   6.0KB prm=2816B×8  **不融合**（缓冲 358.0KB > 预算 270KB ⇒ 退回逐 op）
+  S208 n=1  conv                               352x64x64->48x64x64    halo=0  band=8   buff=   48.0KB halo_b=   0.0KB prm=384 B×8  融合
+  S209 n=2  conv/cat                           48x64x64->448x64x64    halo=2  band=8   buff=  454.0KB halo_b=   6.0KB prm=3584B×8  **不融合**（缓冲 454.0KB > 预算 270KB ⇒ 退回逐 op）
+  S210 n=1  conv                               448x64x64->48x64x64    halo=0  band=8   buff=   48.0KB halo_b=   0.0KB prm=384 B×8  融合
+  S211 n=4  conv/cat/conv/interp               48x64x64->64x128x128   halo=2  band=16  buff=  134.0KB halo_b=   6.0KB prm=512 B×16 融合
+  S212 n=1  conv                               64x32x32->48x32x32     halo=0  band=4   buff=   24.0KB halo_b=   0.0KB prm=384 B×4  融合
+  S213 n=2  conv/cat                           48x32x32->160x32x32    halo=2  band=4   buff=   83.0KB halo_b=   3.0KB prm=1280B×4  融合
+  S214 n=1  conv                               160x32x32->48x32x32    halo=0  band=4   buff=   24.0KB halo_b=   0.0KB prm=384 B×4  融合
+  S215 n=2  conv/cat                           48x32x32->256x32x32    halo=2  band=4   buff=  131.0KB halo_b=   3.0KB prm=2048B×4  融合
+  S216 n=1  conv                               256x32x32->48x32x32    halo=0  band=4   buff=   24.0KB halo_b=   0.0KB prm=384 B×4  融合
+  S217 n=2  conv/cat                           48x32x32->352x32x32    halo=2  band=4   buff=  179.0KB halo_b=   3.0KB prm=2816B×4  融合
+  S218 n=1  conv                               352x32x32->48x32x32    halo=0  band=4   buff=   24.0KB halo_b=   0.0KB prm=384 B×4  融合
+  S219 n=2  conv/cat                           48x32x32->448x32x32    halo=2  band=4   buff=  227.0KB halo_b=   3.0KB prm=3584B×4  融合
+  S220 n=1  conv                               448x32x32->48x32x32    halo=0  band=4   buff=   24.0KB halo_b=   0.0KB prm=384 B×4  融合
+  S221 n=4  conv/cat/conv/interp               48x32x32->64x128x128   halo=2  band=16  buff=  131.0KB halo_b=   3.0KB prm=512 B×16 融合
+  S222 n=5  cat/eca/sam/convfp/shuffle         64x128x128->3x256x256  halo=0  band=32  buff=   12.0KB halo_b=   0.0KB prm=64  B×32 融合
+  预算校验：205/223 段在 270 KB 内；**18 段超预算 => 标不融合**：S2,S9,S11,S13,S23,S48,S50,S150,S159,S161,S187,S188…
+  描述符链：1184 条 × 40 B @ 4 KB 步进 = 4.85 MB；链首 0x50800000
+  带几何自检（D2/D3 判据：band_y0 < h_out、y0+nband <= h_out、带输出不越张量）：1184 条描述符 / **0 条违规**
+  分段交叉校验（segments.json）：一致（223/223 段逐 op 相同）
+  ⚠ [V50] 链模式不可用（CHAIN_ID(magic @0x10314) 期望 0x76355000 读回 0x00000000 ⇒ 这条位流里没有链引擎（v50 寄存器在 0x300 段，0x200 段是 E1E2））⇒ 本跑仍走 v5 逐 op（数值逐字节不变）
+  [CAT_FUSION] 开：cat 不物化，E1E2 按段直读
+  [LAZY_DEQ] int8 直读：322 个张量可保持 int8（无需 f32）/ 396 个总张量；227 层 conv 的输入全在图里
+  [LAZY_DEQ] IN/OUT 槽数 = 10（BIN_LAZY_SLOTS）
+  [V50] 描述符链已落到 arena：链首 0x31b5e000，1184 条，4.85 MB
+B E1E2 + LAZY_DEQ=1       sha1 = ('392d1ae02761', '7f68fb00d2b5', 'aa03751a2d1c')  总 31.26 s  prologue 0.19  epilogue 0.01
+  惰性统计：{}
+== v50 段计划（P1）: 223 段 / 1184 条描述符 / 带宽 8 行 / 预算 270 KB / VLANES=8 / PRM 帧 16 字 ==
+  段表（halo=Σ(k-1) 行；buff=2×band_rows×W×C int8；halo_b=Σ(k-1)·W·cin int8）：
+  S0   n=2  unshuffle/convfp                   3x256x256->48x128x128  halo=0  band=16  buff=   96.0KB halo_b=   0.0KB prm=384 B×16 融合
+  S1   n=2  conv/cat                           48x128x128->112x128x128 halo=2  band=16  buff=  236.0KB halo_b=  12.0KB prm=896 B×16 融合
+  S2   n=2  conv/cat                           112x128x128->176x128x128 halo=2  band=16  buff=  380.0KB halo_b=  28.0KB prm=1408B×16 **不融合**（缓冲 380.0KB > 预算 270KB ⇒ 退回逐 op）
+  S3   n=4  conv/cat/conv/add                  176x128x128->48x128x128 halo=2  band=16  buff=  140.0KB halo_b=  44.0KB prm=384 B×16 融合
+  S4   n=1  interp                             48x128x128->48x64x64   halo=0  band=8   buff=   48.0KB halo_b=   0.0KB prm=384 B×8  融合
+  S5   n=1  interp                             48x128x128->48x32x32   halo=0  band=4   buff=   24.0KB halo_b=   0.0KB prm=384 B×4  融合
+  S6   n=1  conv                               48x128x128->32x128x128 halo=0  band=16  buff=   64.0KB halo_b=   0.0KB prm=256 B×16 融合
+  S7   n=2  conv/cat                           32x128x128->112x128x128 halo=2  band=16  buff=  232.0KB halo_b=   8.0KB prm=896 B×16 融合
+  S8   n=1  conv                               112x128x128->32x128x128 halo=0  band=16  buff=   64.0KB halo_b=   0.0KB prm=256 B×16 融合
+  S9   n=2  conv/cat                           32x128x128->176x128x128 halo=2  band=16  buff=  360.0KB halo_b=   8.0KB prm=1408B×16 **不融合**（缓冲 360.0KB > 预算 270KB ⇒ 退回逐 op）
+  S10  n=1  conv                               176x128x128->32x128x128 halo=0  band=16  buff=   64.0KB halo_b=   0.0KB prm=256 B×16 融合
+  S11  n=2  conv/cat                           32x128x128->240x128x128 halo=2  band=16  buff=  488.0KB halo_b=   8.0KB prm=1920B×16 **不融合**（缓冲 488.0KB > 预算 270KB ⇒ 退回逐 op）
+  S12  n=1  conv                               240x128x128->32x128x128 halo=0  band=16  buff=   64.0KB halo_b=   0.0KB prm=256 B×16 融合
+  S13  n=2  conv/cat                           32x128x128->304x128x128 halo=2  band=16  buff=  616.0KB halo_b=   8.0KB prm=2432B×16 **不融合**（缓冲 616.0KB > 预算 270KB ⇒ 退回逐 op）
+  S14  n=1  conv                               304x128x128->32x128x128 halo=0  band=16  buff=   64.0KB halo_b=   0.0KB prm=256 B×16 融合
+  S15  n=3  conv/cat/conv                      32x128x128->48x128x128 halo=2  band=16  buff=  104.0KB halo_b=   8.0KB prm=384 B×16 融合
+  S16  n=1  conv                               48x64x64->32x64x64     halo=0  band=8   buff=   32.0KB halo_b=   0.0KB prm=256 B×8  融合
+  S17  n=2  conv/cat                           32x64x64->112x64x64    halo=2  band=8   buff=  116.0KB halo_b=   4.0KB prm=896 B×8  融合
+  S18  n=1  conv                               112x64x64->32x64x64    halo=0  band=8   buff=   32.0KB halo_b=   0.0KB prm=256 B×8  融合
+  S19  n=2  conv/cat                           32x64x64->176x64x64    halo=2  band=8   buff=  180.0KB halo_b=   4.0KB prm=1408B×8  融合
+  S20  n=1  conv                               176x64x64->32x64x64    halo=0  band=8   buff=   32.0KB halo_b=   0.0KB prm=256 B×8  融合
+  S21  n=2  conv/cat                           32x64x64->240x64x64    halo=2  band=8   buff=  244.0KB halo_b=   4.0KB prm=1920B×8  融合
+  S22  n=1  conv                               240x64x64->32x64x64    halo=0  band=8   buff=   32.0KB halo_b=   0.0KB prm=256 B×8  融合
+  S23  n=2  conv/cat                           32x64x64->304x64x64    halo=2  band=8   buff=  308.0KB halo_b=   4.0KB prm=2432B×8  **不融合**（缓冲 308.0KB > 预算 270KB ⇒ 退回逐 op）
+  S24  n=1  conv                               304x64x64->32x64x64    halo=0  band=8   buff=   32.0KB halo_b=   0.0KB prm=256 B×8  融合
+  S25  n=4  conv/cat/conv/interp               32x64x64->48x128x128   halo=2  band=16  buff=  100.0KB halo_b=   4.0KB prm=384 B×16 融合
+  S26  n=1  conv                               48x32x32->32x32x32     halo=0  band=4   buff=   16.0KB halo_b=   0.0KB prm=256 B×4  融合
+  S27  n=2  conv/cat                           32x32x32->112x32x32    halo=2  band=4   buff=   58.0KB halo_b=   2.0KB prm=896 B×4  融合
+  S28  n=1  conv                               112x32x32->32x32x32    halo=0  band=4   buff=   16.0KB halo_b=   0.0KB prm=256 B×4  融合
+  S29  n=2  conv/cat                           32x32x32->176x32x32    halo=2  band=4   buff=   90.0KB halo_b=   2.0KB prm=1408B×4  融合
+  S30  n=1  conv                               176x32x32->32x32x32    halo=0  band=4   buff=   16.0KB halo_b=   0.0KB prm=256 B×4  融合
+  S31  n=2  conv/cat                           32x32x32->240x32x32    halo=2  band=4   buff=  122.0KB halo_b=   2.0KB prm=1920B×4  融合
+  S32  n=1  conv                               240x32x32->32x32x32    halo=0  band=4   buff=   16.0KB halo_b=   0.0KB prm=256 B×4  融合
+  S33  n=2  conv/cat                           32x32x32->304x32x32    halo=2  band=4   buff=  154.0KB halo_b=   2.0KB prm=2432B×4  融合
+  S34  n=1  conv                               304x32x32->32x32x32    halo=0  band=4   buff=   16.0KB halo_b=   0.0KB prm=256 B×4  融合
+  S35  n=4  conv/cat/conv/interp               32x32x32->48x128x128   halo=2  band=16  buff=   98.0KB halo_b=   2.0KB prm=384 B×16 融合
+  S36  n=3  cat/eca/sam                        48x128x128->48x128x128 halo=0  band=16  buff=   96.0KB halo_b=   0.0KB prm=384 B×16 融合
+  S37  n=1  conv                               48x128x128->96x64x64   halo=2  band=8   buff=  108.0KB halo_b=  12.0KB prm=768 B×8  融合
+  S38  n=2  conv/cat                           96x64x64->160x64x64    halo=2  band=8   buff=  172.0KB halo_b=  12.0KB prm=1280B×8  融合
+  S39  n=2  conv/cat                           160x64x64->224x64x64   halo=2  band=8   buff=  244.0KB halo_b=  20.0KB prm=1792B×8  融合
+  S40  n=4  conv/cat/conv/add                  224x64x64->96x64x64    halo=2  band=8   buff=  124.0KB halo_b=  28.0KB prm=768 B×8  融合
+  S41  n=1  interp                             96x64x64->96x32x32     halo=0  band=4   buff=   48.0KB halo_b=   0.0KB prm=768 B×4  融合
+  S42  n=1  interp                             96x64x64->96x16x16     halo=0  band=2   buff=   24.0KB halo_b=   0.0KB prm=768 B×2  融合
+  S43  n=1  conv                               96x64x64->32x64x64     halo=0  band=8   buff=   32.0KB halo_b=   0.0KB prm=256 B×8  融合
+  S44  n=2  conv/cat                           32x64x64->160x64x64    halo=2  band=8   buff=  164.0KB halo_b=   4.0KB prm=1280B×8  融合
+  S45  n=1  conv                               160x64x64->32x64x64    halo=0  band=8   buff=   32.0KB halo_b=   0.0KB prm=256 B×8  融合
+  S46  n=2  conv/cat                           32x64x64->224x64x64    halo=2  band=8   buff=  228.0KB halo_b=   4.0KB prm=1792B×8  融合
+  S47  n=1  conv                               224x64x64->32x64x64    halo=0  band=8   buff=   32.0KB halo_b=   0.0KB prm=256 B×8  融合
+  S48  n=2  conv/cat                           32x64x64->288x64x64    halo=2  band=8   buff=  292.0KB halo_b=   4.0KB prm=2304B×8  **不融合**（缓冲 292.0KB > 预算 270KB ⇒ 退回逐 op）
+  S49  n=1  conv                               288x64x64->32x64x64    halo=0  band=8   buff=   32.0KB halo_b=   0.0KB prm=256 B×8  融合
+  S50  n=2  conv/cat                           32x64x64->352x64x64    halo=2  band=8   buff=  356.0KB halo_b=   4.0KB prm=2816B×8  **不融合**（缓冲 356.0KB > 预算 270KB ⇒ 退回逐 op）
+  S51  n=1  conv                               352x64x64->32x64x64    halo=0  band=8   buff=   32.0KB halo_b=   0.0KB prm=256 B×8  融合
+  S52  n=3  conv/cat/conv                      32x64x64->96x64x64     halo=2  band=8   buff=  100.0KB halo_b=   4.0KB prm=768 B×8  融合
+  S53  n=1  conv                               96x32x32->32x32x32     halo=0  band=4   buff=   16.0KB halo_b=   0.0KB prm=256 B×4  融合
+  S54  n=2  conv/cat                           32x32x32->160x32x32    halo=2  band=4   buff=   82.0KB halo_b=   2.0KB prm=1280B×4  融合
+  S55  n=1  conv                               160x32x32->32x32x32    halo=0  band=4   buff=   16.0KB halo_b=   0.0KB prm=256 B×4  融合
+  S56  n=2  conv/cat                           32x32x32->224x32x32    halo=2  band=4   buff=  114.0KB halo_b=   2.0KB prm=1792B×4  融合
+  S57  n=1  conv                               224x32x32->32x32x32    halo=0  band=4   buff=   16.0KB halo_b=   0.0KB prm=256 B×4  融合
+  S58  n=2  conv/cat                           32x32x32->288x32x32    halo=2  band=4   buff=  146.0KB halo_b=   2.0KB prm=2304B×4  融合
+  S59  n=1  conv                               288x32x32->32x32x32    halo=0  band=4   buff=   16.0KB halo_b=   0.0KB prm=256 B×4  融合
+  S60  n=2  conv/cat                           32x32x32->352x32x32    halo=2  band=4   buff=  178.0KB halo_b=   2.0KB prm=2816B×4  融合
+  S61  n=1  conv                               352x32x32->32x32x32    halo=0  band=4   buff=   16.0KB halo_b=   0.0KB prm=256 B×4  融合
+  S62  n=4  conv/cat/conv/interp               32x32x32->96x64x64     halo=2  band=8   buff=   98.0KB halo_b=   2.0KB prm=768 B×8  融合
+  S63  n=1  conv                               96x16x16->32x16x16     halo=0  band=2   buff=    8.0KB halo_b=   0.0KB prm=256 B×2  融合
+  S64  n=2  conv/cat                           32x16x16->160x16x16    halo=2  band=2   buff=   41.0KB halo_b=   1.0KB prm=1280B×2  融合
+  S65  n=1  conv                               160x16x16->32x16x16    halo=0  band=2   buff=    8.0KB halo_b=   0.0KB prm=256 B×2  融合
+  S66  n=2  conv/cat                           32x16x16->224x16x16    halo=2  band=2   buff=   57.0KB halo_b=   1.0KB prm=1792B×2  融合
+  S67  n=1  conv                               224x16x16->32x16x16    halo=0  band=2   buff=    8.0KB halo_b=   0.0KB prm=256 B×2  融合
+  S68  n=2  conv/cat                           32x16x16->288x16x16    halo=2  band=2   buff=   73.0KB halo_b=   1.0KB prm=2304B×2  融合
+  S69  n=1  conv                               288x16x16->32x16x16    halo=0  band=2   buff=    8.0KB halo_b=   0.0KB prm=256 B×2  融合
+  S70  n=2  conv/cat                           32x16x16->352x16x16    halo=2  band=2   buff=   89.0KB halo_b=   1.0KB prm=2816B×2  融合
+  S71  n=1  conv                               352x16x16->32x16x16    halo=0  band=2   buff=    8.0KB halo_b=   0.0KB prm=256 B×2  融合
+  S72  n=4  conv/cat/conv/interp               32x16x16->96x64x64     halo=2  band=8   buff=   97.0KB halo_b=   1.0KB prm=768 B×8  融合
+  S73  n=3  cat/eca/sam                        96x64x64->96x64x64     halo=0  band=8   buff=   96.0KB halo_b=   0.0KB prm=768 B×8  融合
+  S74  n=1  conv                               96x64x64->192x32x32    halo=2  band=4   buff=  108.0KB halo_b=  12.0KB prm=1536B×4  融合
+  S75  n=2  conv/cat                           192x32x32->256x32x32   halo=2  band=4   buff=  140.0KB halo_b=  12.0KB prm=2048B×4  融合
+  S76  n=2  conv/cat                           256x32x32->320x32x32   halo=2  band=4   buff=  176.0KB halo_b=  16.0KB prm=2560B×4  融合
+  S77  n=4  conv/cat/conv/add                  320x32x32->192x32x32   halo=2  band=4   buff=  116.0KB halo_b=  20.0KB prm=1536B×4  融合
+  S78  n=1  interp                             192x32x32->192x16x16   halo=0  band=2   buff=   48.0KB halo_b=   0.0KB prm=1536B×2  融合
+  S79  n=1  interp                             192x32x32->192x8x8     halo=0  band=1   buff=   24.0KB halo_b=   0.0KB prm=1536B×1  融合
+  S80  n=1  conv                               192x32x32->32x32x32    halo=0  band=4   buff=   16.0KB halo_b=   0.0KB prm=256 B×4  融合
+  S81  n=2  conv/cat                           32x32x32->256x32x32    halo=2  band=4   buff=  130.0KB halo_b=   2.0KB prm=2048B×4  融合
+  S82  n=1  conv                               256x32x32->32x32x32    halo=0  band=4   buff=   16.0KB halo_b=   0.0KB prm=256 B×4  融合
+  S83  n=2  conv/cat                           32x32x32->320x32x32    halo=2  band=4   buff=  162.0KB halo_b=   2.0KB prm=2560B×4  融合
+  S84  n=1  conv                               320x32x32->32x32x32    halo=0  band=4   buff=   16.0KB halo_b=   0.0KB prm=256 B×4  融合
+  S85  n=2  conv/cat                           32x32x32->384x32x32    halo=2  band=4   buff=  194.0KB halo_b=   2.0KB prm=3072B×4  融合
+  S86  n=1  conv                               384x32x32->32x32x32    halo=0  band=4   buff=   16.0KB halo_b=   0.0KB prm=256 B×4  融合
+  S87  n=2  conv/cat                           32x32x32->448x32x32    halo=2  band=4   buff=  226.0KB halo_b=   2.0KB prm=3584B×4  融合
+  S88  n=1  conv                               448x32x32->32x32x32    halo=0  band=4   buff=   16.0KB halo_b=   0.0KB prm=256 B×4  融合
+  S89  n=3  conv/cat/conv                      32x32x32->192x32x32    halo=2  band=4   buff=   98.0KB halo_b=   2.0KB prm=1536B×4  融合
+  S90  n=1  conv                               192x16x16->32x16x16    halo=0  band=2   buff=    8.0KB halo_b=   0.0KB prm=256 B×2  融合
+  S91  n=2  conv/cat                           32x16x16->256x16x16    halo=2  band=2   buff=   65.0KB halo_b=   1.0KB prm=2048B×2  融合
+  S92  n=1  conv                               256x16x16->32x16x16    halo=0  band=2   buff=    8.0KB halo_b=   0.0KB prm=256 B×2  融合
+  S93  n=2  conv/cat                           32x16x16->320x16x16    halo=2  band=2   buff=   81.0KB halo_b=   1.0KB prm=2560B×2  融合
+  S94  n=1  conv                               320x16x16->32x16x16    halo=0  band=2   buff=    8.0KB halo_b=   0.0KB prm=256 B×2  融合
+  S95  n=2  conv/cat                           32x16x16->384x16x16    halo=2  band=2   buff=   97.0KB halo_b=   1.0KB prm=3072B×2  融合
+  S96  n=1  conv                               384x16x16->32x16x16    halo=0  band=2   buff=    8.0KB halo_b=   0.0KB prm=256 B×2  融合
+  S97  n=2  conv/cat                           32x16x16->448x16x16    halo=2  band=2   buff=  113.0KB halo_b=   1.0KB prm=3584B×2  融合
+  S98  n=1  conv                               448x16x16->32x16x16    halo=0  band=2   buff=    8.0KB halo_b=   0.0KB prm=256 B×2  融合
+  S99  n=4  conv/cat/conv/interp               32x16x16->192x32x32    halo=2  band=4   buff=   97.0KB halo_b=   1.0KB prm=1536B×4  融合
+  S100 n=1  conv                               192x8x8->32x8x8        halo=0  band=1   buff=    4.0KB halo_b=   0.0KB prm=256 B×1  融合
+  S101 n=2  conv/cat                           32x8x8->256x8x8        halo=0  band=1   buff=   32.5KB halo_b=   0.5KB prm=2048B×1  融合
+  S102 n=1  conv                               256x8x8->32x8x8        halo=0  band=1   buff=    4.0KB halo_b=   0.0KB prm=256 B×1  融合
+  S103 n=2  conv/cat                           32x8x8->320x8x8        halo=0  band=1   buff=   40.5KB halo_b=   0.5KB prm=2560B×1  融合
+  S104 n=1  conv                               320x8x8->32x8x8        halo=0  band=1   buff=    4.0KB halo_b=   0.0KB prm=256 B×1  融合
+  S105 n=2  conv/cat                           32x8x8->384x8x8        halo=0  band=1   buff=   48.5KB halo_b=   0.5KB prm=3072B×1  融合
+  S106 n=1  conv                               384x8x8->32x8x8        halo=0  band=1   buff=    4.0KB halo_b=   0.0KB prm=256 B×1  融合
+  S107 n=2  conv/cat                           32x8x8->448x8x8        halo=0  band=1   buff=   56.5KB halo_b=   0.5KB prm=3584B×1  融合
+  S108 n=1  conv                               448x8x8->32x8x8        halo=0  band=1   buff=    4.0KB halo_b=   0.0KB prm=256 B×1  融合
+  S109 n=4  conv/cat/conv/interp               32x8x8->192x32x32      halo=0  band=4   buff=   96.5KB halo_b=   0.5KB prm=1536B×4  融合
+  S110 n=4  cat/eca/sam/conv                   192x32x32->64x32x32    halo=2  band=4   buff=   44.0KB halo_b=  12.0KB prm=512 B×4  融合
+  S111 n=2  conv/cat                           64x32x32->160x32x32    halo=2  band=4   buff=   84.0KB halo_b=   4.0KB prm=1280B×4  融合
+  S112 n=2  conv/cat                           160x32x32->256x32x32   halo=2  band=4   buff=  138.0KB halo_b=  10.0KB prm=2048B×4  融合
+  S113 n=4  conv/cat/conv/add                  256x32x32->64x32x32    halo=2  band=4   buff=   48.0KB halo_b=  16.0KB prm=512 B×4  融合
+  S114 n=1  interp                             64x32x32->64x16x16     halo=0  band=2   buff=   16.0KB halo_b=   0.0KB prm=512 B×2  融合
+  S115 n=1  interp                             64x32x32->64x8x8       halo=0  band=1   buff=    8.0KB halo_b=   0.0KB prm=512 B×1  融合
+  S116 n=1  conv                               64x32x32->48x32x32     halo=0  band=4   buff=   24.0KB halo_b=   0.0KB prm=384 B×4  融合
+  S117 n=2  conv/cat                           48x32x32->160x32x32    halo=2  band=4   buff=   83.0KB halo_b=   3.0KB prm=1280B×4  融合
+  S118 n=1  conv                               160x32x32->48x32x32    halo=0  band=4   buff=   24.0KB halo_b=   0.0KB prm=384 B×4  融合
+  S119 n=2  conv/cat                           48x32x32->256x32x32    halo=2  band=4   buff=  131.0KB halo_b=   3.0KB prm=2048B×4  融合
+  S120 n=1  conv                               256x32x32->48x32x32    halo=0  band=4   buff=   24.0KB halo_b=   0.0KB prm=384 B×4  融合
+  S121 n=2  conv/cat                           48x32x32->352x32x32    halo=2  band=4   buff=  179.0KB halo_b=   3.0KB prm=2816B×4  融合
+  S122 n=1  conv                               352x32x32->48x32x32    halo=0  band=4   buff=   24.0KB halo_b=   0.0KB prm=384 B×4  融合
+  S123 n=2  conv/cat                           48x32x32->448x32x32    halo=2  band=4   buff=  227.0KB halo_b=   3.0KB prm=3584B×4  融合
+  S124 n=1  conv                               448x32x32->48x32x32    halo=0  band=4   buff=   24.0KB halo_b=   0.0KB prm=384 B×4  融合
+  S125 n=3  conv/cat/conv                      48x32x32->64x32x32     halo=2  band=4   buff=   35.0KB halo_b=   3.0KB prm=512 B×4  融合
+  S126 n=1  conv                               64x16x16->48x16x16     halo=0  band=2   buff=   12.0KB halo_b=   0.0KB prm=384 B×2  融合
+  S127 n=2  conv/cat                           48x16x16->160x16x16    halo=2  band=2   buff=   41.5KB halo_b=   1.5KB prm=1280B×2  融合
+  S128 n=1  conv                               160x16x16->48x16x16    halo=0  band=2   buff=   12.0KB halo_b=   0.0KB prm=384 B×2  融合
+  S129 n=2  conv/cat                           48x16x16->256x16x16    halo=2  band=2   buff=   65.5KB halo_b=   1.5KB prm=2048B×2  融合
+  S130 n=1  conv                               256x16x16->48x16x16    halo=0  band=2   buff=   12.0KB halo_b=   0.0KB prm=384 B×2  融合
+  S131 n=2  conv/cat                           48x16x16->352x16x16    halo=2  band=2   buff=   89.5KB halo_b=   1.5KB prm=2816B×2  融合
+  S132 n=1  conv                               352x16x16->48x16x16    halo=0  band=2   buff=   12.0KB halo_b=   0.0KB prm=384 B×2  融合
+  S133 n=2  conv/cat                           48x16x16->448x16x16    halo=2  band=2   buff=  113.5KB halo_b=   1.5KB prm=3584B×2  融合
+  S134 n=1  conv                               448x16x16->48x16x16    halo=0  band=2   buff=   12.0KB halo_b=   0.0KB prm=384 B×2  融合
+  S135 n=4  conv/cat/conv/interp               48x16x16->64x32x32     halo=2  band=4   buff=   33.5KB halo_b=   1.5KB prm=512 B×4  融合
+  S136 n=1  conv                               64x8x8->48x8x8         halo=0  band=1   buff=    6.0KB halo_b=   0.0KB prm=384 B×1  融合
+  S137 n=2  conv/cat                           48x8x8->160x8x8        halo=0  band=1   buff=   20.8KB halo_b=   0.8KB prm=1280B×1  融合
+  S138 n=1  conv                               160x8x8->48x8x8        halo=0  band=1   buff=    6.0KB halo_b=   0.0KB prm=384 B×1  融合
+  S139 n=2  conv/cat                           48x8x8->256x8x8        halo=0  band=1   buff=   32.8KB halo_b=   0.8KB prm=2048B×1  融合
+  S140 n=1  conv                               256x8x8->48x8x8        halo=0  band=1   buff=    6.0KB halo_b=   0.0KB prm=384 B×1  融合
+  S141 n=2  conv/cat                           48x8x8->352x8x8        halo=0  band=1   buff=   44.8KB halo_b=   0.8KB prm=2816B×1  融合
+  S142 n=1  conv                               352x8x8->48x8x8        halo=0  band=1   buff=    6.0KB halo_b=   0.0KB prm=384 B×1  融合
+  S143 n=2  conv/cat                           48x8x8->448x8x8        halo=0  band=1   buff=   56.8KB halo_b=   0.8KB prm=3584B×1  融合
+  S144 n=1  conv                               448x8x8->48x8x8        halo=0  band=1   buff=    6.0KB halo_b=   0.0KB prm=384 B×1  融合
+  S145 n=4  conv/cat/conv/interp               48x8x8->64x32x32       halo=0  band=4   buff=   32.8KB halo_b=   0.8KB prm=512 B×4  融合
+  S146 n=3  cat/eca/sam                        64x32x32->64x32x32     halo=0  band=4   buff=   32.0KB halo_b=   0.0KB prm=512 B×4  融合
+  S147 n=2  convfp/shuffle                     64x32x32->3x64x64      halo=0  band=8   buff=    3.0KB halo_b=   0.0KB prm=64  B×8  融合
+  S148 n=3  interp/cat/conv                    64x32x32->64x64x64     halo=2  band=8   buff=   84.0KB halo_b=  20.0KB prm=512 B×8  融合
+  S149 n=2  conv/cat                           64x64x64->160x64x64    halo=2  band=8   buff=  168.0KB halo_b=   8.0KB prm=1280B×8  融合
+  S150 n=2  conv/cat                           160x64x64->256x64x64   halo=2  band=8   buff=  276.0KB halo_b=  20.0KB prm=2048B×8  **不融合**（缓冲 276.0KB > 预算 270KB ⇒ 退回逐 op）
+  S151 n=4  conv/cat/conv/add                  256x64x64->64x64x64    halo=2  band=8   buff=   96.0KB halo_b=  32.0KB prm=512 B×8  融合
+  S152 n=1  interp                             64x64x64->64x32x32     halo=0  band=4   buff=   32.0KB halo_b=   0.0KB prm=512 B×4  融合
+  S153 n=1  interp                             64x64x64->64x16x16     halo=0  band=2   buff=   16.0KB halo_b=   0.0KB prm=512 B×2  融合
+  S154 n=1  conv                               64x64x64->48x64x64     halo=0  band=8   buff=   48.0KB halo_b=   0.0KB prm=384 B×8  融合
+  S155 n=2  conv/cat                           48x64x64->160x64x64    halo=2  band=8   buff=  166.0KB halo_b=   6.0KB prm=1280B×8  融合
+  S156 n=1  conv                               160x64x64->48x64x64    halo=0  band=8   buff=   48.0KB halo_b=   0.0KB prm=384 B×8  融合
+  S157 n=2  conv/cat                           48x64x64->256x64x64    halo=2  band=8   buff=  262.0KB halo_b=   6.0KB prm=2048B×8  融合
+  S158 n=1  conv                               256x64x64->48x64x64    halo=0  band=8   buff=   48.0KB halo_b=   0.0KB prm=384 B×8  融合
+  S159 n=2  conv/cat                           48x64x64->352x64x64    halo=2  band=8   buff=  358.0KB halo_b=   6.0KB prm=2816B×8  **不融合**（缓冲 358.0KB > 预算 270KB ⇒ 退回逐 op）
+  S160 n=1  conv                               352x64x64->48x64x64    halo=0  band=8   buff=   48.0KB halo_b=   0.0KB prm=384 B×8  融合
+  S161 n=2  conv/cat                           48x64x64->448x64x64    halo=2  band=8   buff=  454.0KB halo_b=   6.0KB prm=3584B×8  **不融合**（缓冲 454.0KB > 预算 270KB ⇒ 退回逐 op）
+  S162 n=1  conv                               448x64x64->48x64x64    halo=0  band=8   buff=   48.0KB halo_b=   0.0KB prm=384 B×8  融合
+  S163 n=3  conv/cat/conv                      48x64x64->64x64x64     halo=2  band=8   buff=   70.0KB halo_b=   6.0KB prm=512 B×8  融合
+  S164 n=1  conv                               64x32x32->48x32x32     halo=0  band=4   buff=   24.0KB halo_b=   0.0KB prm=384 B×4  融合
+  S165 n=2  conv/cat                           48x32x32->160x32x32    halo=2  band=4   buff=   83.0KB halo_b=   3.0KB prm=1280B×4  融合
+  S166 n=1  conv                               160x32x32->48x32x32    halo=0  band=4   buff=   24.0KB halo_b=   0.0KB prm=384 B×4  融合
+  S167 n=2  conv/cat                           48x32x32->256x32x32    halo=2  band=4   buff=  131.0KB halo_b=   3.0KB prm=2048B×4  融合
+  S168 n=1  conv                               256x32x32->48x32x32    halo=0  band=4   buff=   24.0KB halo_b=   0.0KB prm=384 B×4  融合
+  S169 n=2  conv/cat                           48x32x32->352x32x32    halo=2  band=4   buff=  179.0KB halo_b=   3.0KB prm=2816B×4  融合
+  S170 n=1  conv                               352x32x32->48x32x32    halo=0  band=4   buff=   24.0KB halo_b=   0.0KB prm=384 B×4  融合
+  S171 n=2  conv/cat                           48x32x32->448x32x32    halo=2  band=4   buff=  227.0KB halo_b=   3.0KB prm=3584B×4  融合
+  S172 n=1  conv                               448x32x32->48x32x32    halo=0  band=4   buff=   24.0KB halo_b=   0.0KB prm=384 B×4  融合
+  S173 n=4  conv/cat/conv/interp               48x32x32->64x64x64     halo=2  band=8   buff=   67.0KB halo_b=   3.0KB prm=512 B×8  融合
+  S174 n=1  conv                               64x16x16->48x16x16     halo=0  band=2   buff=   12.0KB halo_b=   0.0KB prm=384 B×2  融合
+  S175 n=2  conv/cat                           48x16x16->160x16x16    halo=2  band=2   buff=   41.5KB halo_b=   1.5KB prm=1280B×2  融合
+  S176 n=1  conv                               160x16x16->48x16x16    halo=0  band=2   buff=   12.0KB halo_b=   0.0KB prm=384 B×2  融合
+  S177 n=2  conv/cat                           48x16x16->256x16x16    halo=2  band=2   buff=   65.5KB halo_b=   1.5KB prm=2048B×2  融合
+  S178 n=1  conv                               256x16x16->48x16x16    halo=0  band=2   buff=   12.0KB halo_b=   0.0KB prm=384 B×2  融合
+  S179 n=2  conv/cat                           48x16x16->352x16x16    halo=2  band=2   buff=   89.5KB halo_b=   1.5KB prm=2816B×2  融合
+  S180 n=1  conv                               352x16x16->48x16x16    halo=0  band=2   buff=   12.0KB halo_b=   0.0KB prm=384 B×2  融合
+  S181 n=2  conv/cat                           48x16x16->448x16x16    halo=2  band=2   buff=  113.5KB halo_b=   1.5KB prm=3584B×2  融合
+  S182 n=1  conv                               448x16x16->48x16x16    halo=0  band=2   buff=   12.0KB halo_b=   0.0KB prm=384 B×2  融合
+  S183 n=4  conv/cat/conv/interp               48x16x16->64x64x64     halo=2  band=8   buff=   65.5KB halo_b=   1.5KB prm=512 B×8  融合
+  S184 n=3  cat/eca/sam                        64x64x64->64x64x64     halo=0  band=8   buff=   64.0KB halo_b=   0.0KB prm=512 B×8  融合
+  S185 n=2  convfp/shuffle                     64x64x64->3x128x128    halo=0  band=16  buff=    6.0KB halo_b=   0.0KB prm=64  B×16 融合
+  S186 n=3  interp/cat/conv                    64x64x64->64x128x128   halo=2  band=16  buff=  156.0KB halo_b=  28.0KB prm=512 B×16 融合
+  S187 n=2  conv/cat                           64x128x128->160x128x128 halo=2  band=16  buff=  336.0KB halo_b=  16.0KB prm=1280B×16 **不融合**（缓冲 336.0KB > 预算 270KB ⇒ 退回逐 op）
+  S188 n=2  conv/cat                           160x128x128->256x128x128 halo=2  band=16  buff=  552.0KB halo_b=  40.0KB prm=2048B×16 **不融合**（缓冲 552.0KB > 预算 270KB ⇒ 退回逐 op）
+  S189 n=4  conv/cat/conv/add                  256x128x128->64x128x128 halo=2  band=16  buff=  192.0KB halo_b=  64.0KB prm=512 B×16 融合
+  S190 n=1  interp                             64x128x128->64x64x64   halo=0  band=8   buff=   64.0KB halo_b=   0.0KB prm=512 B×8  融合
+  S191 n=1  interp                             64x128x128->64x32x32   halo=0  band=4   buff=   32.0KB halo_b=   0.0KB prm=512 B×4  融合
+  S192 n=1  conv                               64x128x128->48x128x128 halo=0  band=16  buff=   96.0KB halo_b=   0.0KB prm=384 B×16 融合
+  S193 n=2  conv/cat                           48x128x128->160x128x128 halo=2  band=16  buff=  332.0KB halo_b=  12.0KB prm=1280B×16 **不融合**（缓冲 332.0KB > 预算 270KB ⇒ 退回逐 op）
+  S194 n=1  conv                               160x128x128->48x128x128 halo=0  band=16  buff=   96.0KB halo_b=   0.0KB prm=384 B×16 融合
+  S195 n=2  conv/cat                           48x128x128->256x128x128 halo=2  band=16  buff=  524.0KB halo_b=  12.0KB prm=2048B×16 **不融合**（缓冲 524.0KB > 预算 270KB ⇒ 退回逐 op）
+  S196 n=1  conv                               256x128x128->48x128x128 halo=0  band=16  buff=   96.0KB halo_b=   0.0KB prm=384 B×16 融合
+  S197 n=2  conv/cat                           48x128x128->352x128x128 halo=2  band=16  buff=  716.0KB halo_b=  12.0KB prm=2816B×16 **不融合**（缓冲 716.0KB > 预算 270KB ⇒ 退回逐 op）
+  S198 n=1  conv                               352x128x128->48x128x128 halo=0  band=16  buff=   96.0KB halo_b=   0.0KB prm=384 B×16 融合
+  S199 n=2  conv/cat                           48x128x128->448x128x128 halo=2  band=16  buff=  908.0KB halo_b=  12.0KB prm=3584B×16 **不融合**（缓冲 908.0KB > 预算 270KB ⇒ 退回逐 op）
+  S200 n=1  conv                               448x128x128->48x128x128 halo=0  band=16  buff=   96.0KB halo_b=   0.0KB prm=384 B×16 融合
+  S201 n=3  conv/cat/conv                      48x128x128->64x128x128 halo=2  band=16  buff=  140.0KB halo_b=  12.0KB prm=512 B×16 融合
+  S202 n=1  conv                               64x64x64->48x64x64     halo=0  band=8   buff=   48.0KB halo_b=   0.0KB prm=384 B×8  融合
+  S203 n=2  conv/cat                           48x64x64->160x64x64    halo=2  band=8   buff=  166.0KB halo_b=   6.0KB prm=1280B×8  融合
+  S204 n=1  conv                               160x64x64->48x64x64    halo=0  band=8   buff=   48.0KB halo_b=   0.0KB prm=384 B×8  融合
+  S205 n=2  conv/cat                           48x64x64->256x64x64    halo=2  band=8   buff=  262.0KB halo_b=   6.0KB prm=2048B×8  融合
+  S206 n=1  conv                               256x64x64->48x64x64    halo=0  band=8   buff=   48.0KB halo_b=   0.0KB prm=384 B×8  融合
+  S207 n=2  conv/cat                           48x64x64->352x64x64    halo=2  band=8   buff=  358.0KB halo_b=   6.0KB prm=2816B×8  **不融合**（缓冲 358.0KB > 预算 270KB ⇒ 退回逐 op）
+  S208 n=1  conv                               352x64x64->48x64x64    halo=0  band=8   buff=   48.0KB halo_b=   0.0KB prm=384 B×8  融合
+  S209 n=2  conv/cat                           48x64x64->448x64x64    halo=2  band=8   buff=  454.0KB halo_b=   6.0KB prm=3584B×8  **不融合**（缓冲 454.0KB > 预算 270KB ⇒ 退回逐 op）
+  S210 n=1  conv                               448x64x64->48x64x64    halo=0  band=8   buff=   48.0KB halo_b=   0.0KB prm=384 B×8  融合
+  S211 n=4  conv/cat/conv/interp               48x64x64->64x128x128   halo=2  band=16  buff=  134.0KB halo_b=   6.0KB prm=512 B×16 融合
+  S212 n=1  conv                               64x32x32->48x32x32     halo=0  band=4   buff=   24.0KB halo_b=   0.0KB prm=384 B×4  融合
+  S213 n=2  conv/cat                           48x32x32->160x32x32    halo=2  band=4   buff=   83.0KB halo_b=   3.0KB prm=1280B×4  融合
+  S214 n=1  conv                               160x32x32->48x32x32    halo=0  band=4   buff=   24.0KB halo_b=   0.0KB prm=384 B×4  融合
+  S215 n=2  conv/cat                           48x32x32->256x32x32    halo=2  band=4   buff=  131.0KB halo_b=   3.0KB prm=2048B×4  融合
+  S216 n=1  conv                               256x32x32->48x32x32    halo=0  band=4   buff=   24.0KB halo_b=   0.0KB prm=384 B×4  融合
+  S217 n=2  conv/cat                           48x32x32->352x32x32    halo=2  band=4   buff=  179.0KB halo_b=   3.0KB prm=2816B×4  融合
+  S218 n=1  conv                               352x32x32->48x32x32    halo=0  band=4   buff=   24.0KB halo_b=   0.0KB prm=384 B×4  融合
+  S219 n=2  conv/cat                           48x32x32->448x32x32    halo=2  band=4   buff=  227.0KB halo_b=   3.0KB prm=3584B×4  融合
+  S220 n=1  conv                               448x32x32->48x32x32    halo=0  band=4   buff=   24.0KB halo_b=   0.0KB prm=384 B×4  融合
+  S221 n=4  conv/cat/conv/interp               48x32x32->64x128x128   halo=2  band=16  buff=  131.0KB halo_b=   3.0KB prm=512 B×16 融合
+  S222 n=5  cat/eca/sam/convfp/shuffle         64x128x128->3x256x256  halo=0  band=32  buff=   12.0KB halo_b=   0.0KB prm=64  B×32 融合
+  预算校验：205/223 段在 270 KB 内；**18 段超预算 => 标不融合**：S2,S9,S11,S13,S23,S48,S50,S150,S159,S161,S187,S188…
+  描述符链：1184 条 × 40 B @ 4 KB 步进 = 4.85 MB；链首 0x50800000
+  带几何自检（D2/D3 判据：band_y0 < h_out、y0+nband <= h_out、带输出不越张量）：1184 条描述符 / **0 条违规**
+  分段交叉校验（segments.json）：一致（223/223 段逐 op 相同）
+  ⚠ [V50] 链模式不可用（CHAIN_ID(magic @0x10314) 期望 0x76355000 读回 0x00000000 ⇒ 这条位流里没有链引擎（v50 寄存器在 0x300 段，0x200 段是 E1E2））⇒ 本跑仍走 v5 逐 op（数值逐字节不变）
+  [LAZY_DEQ] int8 直读：322 个张量可保持 int8（无需 f32）/ 396 个总张量；227 层 conv 的输入全在图里
+  [V50] 描述符链已落到 arena：链首 0x30656000，1184 条，4.85 MB
+C E1E2 + LAZY_DEQ=0       sha1 = ('392d1ae02761', '7f68fb00d2b5', 'aa03751a2d1c')  总 33.65 s  prologue 1.40  epilogue 0.04
+   冻结 256² 基线（主机 FakePL）('392d1ae02761', '7f68fb00d2b5', 'aa03751a2d1c') ⇒ 一致
+== 总结：PASS（96.8 s）==
+RC=0

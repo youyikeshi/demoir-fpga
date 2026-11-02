@@ -1,0 +1,26 @@
+==================================================================
+ merge_gate —— 合并后必做（三判据；全绿才许 commit）
+==================================================================
+ 源码根 : /media/felix/Data/coding/demoir-fpga/pynq_specialized_code/ps/pynq
+ 清单   : /media/felix/Data/coding/demoir-fpga/runs/v81_ps_fix/deps_closure.txt
+ 时间   : 2026-11-02 15:51:15
+
+[①/③] --gen  重生成清单
+✓ 已写 /tmp/tmp.wtv8Pnqeuh（14 模块 / 20 文件）
+      rc=0
+
+[②/③] md5sum -c  逐字节核对
+      清单 20 行 / 失败 0 行；rc=0
+
+[③/③] --check  结构齐 + 清单不漏行
+✓ deps_closure --check PASS：14 模块 / 20 文件；目录 = /media/felix/Data/coding/demoir-fpga/pynq_specialized_code/ps/pynq
+  闭包：bin_net, bin_engine, bin_ref_numpy, qcache, fconv, board_safe, mmio_batch, catpack, e1e2_sim, bpack, c8deq, q8, bilinear_c, convpf_c
+      rc=0
+
+--------------------------- rc 汇总 ---------------------------
+ ① --gen        rc=0 ✓
+ ② md5sum -c    rc=0 ✓
+ ③ --check      rc=0 ✓
+ ⇒ MERGE_GATE PASS（3/3 全绿）—— 可以 commit
+   ⚠ 下一步：若本轮新增/删除了 .py 或 .c 模块，确认 DECL 里已有对应行；
+     否则下次 --gen 会当场报「DECL 未声明的模块」。

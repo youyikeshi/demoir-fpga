@@ -1,0 +1,30 @@
+# C4 —— cfg_h / halo / pad 三条语义：代码里的注释 + 断言（不是文档约定）
+
+## (1) cfg_h = nband（不含 halo）
+1369:        wire [15:0]  c_cfg_h     = fuse_m ? seg_nband : r_h[15:0];
+2002:                // (R2-1) cfg_h 送给核的必须是 **nband**，且不带 halo
+
+## (2) band 行数 = nband + 2*HALO（硬件算，PS 不传）
+1660:        wire [15:0]  geo_rows   = geo_conv_en ? (geo_nband + 16'(2*BAND_HALO)) : geo_nband;
+1661:        wire [15:0]  geo_halo   = geo_conv_en ? 16'(BAND_HALO) : 16'd0;
+2005:                // (R2-1b) band 行数必须由硬件按 nband + 2*HALO 算出来
+138:            if (rows_fill != (nband + 2*halo))
+
+## (3) pad 归 E 口填充路径（conv 的 cfg_pad 恒 0、读侧零边界分支）
+1366:        wire [15:0]  c_cfg_pad   = fuse_m ? 16'd0 : r_pad[15:0];
+2008:                // (R2-2) pad 归 E 口：conv 的 cfg_pad 必须恒 0（读侧零边界分支）
+2011:                // (R2-3) halo 必须覆盖核的 k：(k-1)/2 <= BAND_HALO
+2015:                // (R2-0) 影子副本必须与 segq 锁存的字段一致（防止影子错拍）
+2020:                // (R2-4) 带内数据窗口必须落在 DDR 地址空间之下（否则窗口分流会误判）
+8://         若 yr < 0 或 yr ≥ H_in ⇒ **整行写 0、不发起 DMA**；
+134:            // ① pad 行绝不发起 DMA（R2 §11.3 的硬要求）
+136:                $error("bin_band_fill_v50: pad 行却发起了 DMA（yr=%0d）", yr);
+144:            // ④ pad 字必须整字写 0（R2：整行写 0）
+146:                $error("bin_band_fill_v50: pad 字不是 0");
+
+## (4) 串联不变量（读带≠写带 / 换带前写静默 / 每级等 done / 跳级不启动）
+247:                $error("bin_band_seq: 级 %0d 的读带==写带（ping-pong 被破坏）", cur);
+250:                $error("bin_band_seq: 在写没静默时启动下一级");
+252:            if ((cur == SC_CONV) && !en_conv && start_q) $error("bin_band_seq: CONV 未使能却启动");
+253:            if ((cur == SC_PACK) && !en_pack && start_q) $error("bin_band_seq: PACK 未使能却启动");
+254:            if ((cur == SC_SAM)  && !en_sam  && start_q) $error("bin_band_seq: SAM 未使能却启动");

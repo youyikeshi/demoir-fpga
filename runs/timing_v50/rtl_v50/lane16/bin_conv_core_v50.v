@@ -1,5 +1,5 @@
 // ============================================================================
-//  bin_conv_core.v —— 二值卷积核 v2（8/16 lane 参数化版）：**8 条并行 XNOR+popcount 通道**
+//  bin_conv_core_v50.v —— 二值卷积核 v50（8/16 lane 参数化版）：**8 条并行 XNOR+popcount 通道**
 //
 //  目标：把"1 term/拍"变成"8 term/拍"，面积反而减半（现状 5,845 LUT / 1 lane）。
 //  设计依据：docs/binary/09_架构重构方案_一秒目标.md §3.1
@@ -49,7 +49,7 @@
 // ============================================================================
 `timescale 1ns/1ps
 
-module bin_conv_core #(
+module bin_conv_core_v50 #(
     // ---- 兼容旧参数名（bin_unit_axi_wrap 按名字传这两个）----
     //   ⚠ 注意：本参数被包装层按名绑定（.LANES(LANES)），语义是 **popcount 位宽**，
     //     不是 lane 数。lane 数请用下面的 VLANES（8 → 8 lane，16 → 16 lane）。

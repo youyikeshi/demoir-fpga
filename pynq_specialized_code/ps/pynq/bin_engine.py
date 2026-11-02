@@ -1809,22 +1809,46 @@ class BinConvEngine:
                         layer=L, hout=L.Hout, wout=L.Wout, dbg={})
 
     # ================================================================ v50 链
-    # P2/P3：**一次提交链首 + 等整链 done**，轮询 PROGRESS；err 置位即抛异常并停。
+    # P2/P3：**一次提交链首 + 等整链 done**，轮询 `CHAIN_STATUS`；err 置位即抛异常并停。
     # 全部由 `BIN_V50_FUSE=1` 把关；默认关时这些方法一个都不会被调用。
+    # ★ 契约 R1（`docs/V50_ARCHITECTURE.md` §10.1）：v50 寄存器在 **0x300 段**，
+    #   `0x200..0x20C` 是 E1E2 的 RUN_UNIT/E_GROUP/E_DESC/E_DESC_HI，**一个字节都不动**
+    #   ⇒ FUSE=1 时 E1E2 可以照常挂（两者不再互斥，见 `enable_e1e2`）。
+    # ★ 契约 R1/D9：`0x314 CHAIN_ID` 是**只读 magic**（`0x7635_5000`）；读不回等值就
+    #   说明这条位流里没有链引擎 ⇒ 拒绝走链。这是**机制**，不是人工开关：
+    #   `BIN_V50_CHAIN_RTL=1` 已退役（只保留给老脚本做兼容性 no-op）。
+    def v50_chain_magic(self):
+        """链引擎 magic 的**期望值**（默认 0x76355000，`BIN_V50_CHAIN_MAGIC` 可改期望值）。"""
+        v = os.environ.get("BIN_V50_CHAIN_MAGIC", "").strip()
+        if not v:
+            return int(V50_CHAIN_MAGIC)
+        try:
+            return int(v, 0)
+        except Exception:                                 # noqa: BLE001
+            return int(V50_CHAIN_MAGIC)
+
+    def v50_chain_status(self):
+        """读 `0x310 CHAIN_STATUS` 并解析（契约 R1 §10.1）。
+
+        bit0 = done / bit1 = err / bit2 = busy / bit8~15 = err_code。
+        """
+        raw = int(self._rd(CFG + V50_CHAIN_REG["CHAIN_STATUS"]))
+        return dict(raw=raw, done=raw & 1, err=(raw >> 1) & 1,
+                    busy=(raw >> 2) & 1, code=(raw >> 8) & 0xFF)
+
     def v50_chain_ready(self):
         """PL 侧 `bin_segq` 是否真的就位（**默认 False，绝不假装**）。
 
-        三个条件同时成立才返回 True：
-          ① `BIN_V50_FUSE=1`；② `BIN_V50_CHAIN_RTL=1`（承认 RTL 已到位）；
-          ③ BAND_ROWS 能读回（0x208 写 8 读回 8）——寄存器不通说明这条链
-             根本接不到 RTL，此时**必须**回落到 v5 逐 op。
+        两个条件同时成立才返回 True：
+          ① `BIN_V50_FUSE=1`；
+          ② **`0x314 CHAIN_ID` 读回 magic**（期望 `0x76355000`）—— 这是唯一判据。
+             写 `0x308 BAND_ROWS` 再读回只是**第二道自检**（magic 对但 BAND_ROWS
+             读不回 ⇒ 报错并拒绝），因为"写什么读回什么"的寄存器回声（v39 的
+             `0x208`）本质上无法区分，只有 RTL 里硬写死的常量能区分。
         结果缓存（探针只做一次）；`BIN_V50_REPROBE=1` 可强制重探。
         """
         if not v50_fuse_on():
             self._v50_why = "BIN_V50_FUSE 未开"
-            return False
-        if not v50_chain_rtl_on():
-            self._v50_why = ("BIN_V50_CHAIN_RTL 未开（`bin_segq` RTL 未就位）")
             return False
         if (getattr(self, "_v50_ok", None) is not None
                 and not _v50_env_on("BIN_V50_REPROBE")):
@@ -1832,14 +1856,24 @@ class BinConvEngine:
         self._v50_ok = False
         self._v50_why = ""
         try:
+            want = int(self.v50_chain_magic())
+            got = int(self._rd(CFG + V50_CHAIN_REG["CHAIN_ID"]))
+            if got != want:
+                self._v50_why = (
+                    "CHAIN_ID(magic @%#x) 期望 %#010x 读回 %#010x ⇒ 这条位流里"
+                    "没有链引擎（v50 寄存器在 0x300 段，0x200 段是 E1E2）"
+                    % (CFG + V50_CHAIN_REG["CHAIN_ID"], want, got))
+                return False
             wr = int(v50_band_rows())
             self._wr(CFG + V50_CHAIN_REG["BAND_ROWS"], wr, force=True)
-            got = int(self._rd(CFG + V50_CHAIN_REG["BAND_ROWS"]))
-            if got != wr:
-                self._v50_why = ("BAND_ROWS 写 %d 读回 %d ⇒ 0x208 不通"
-                                 "（RTL 侧 bin_segq 未综合进这条位流）" % (wr, got))
+            back = int(self._rd(CFG + V50_CHAIN_REG["BAND_ROWS"]))
+            if back != wr:
+                self._v50_why = ("BAND_ROWS(@%#x) 写 %d 读回 %d ⇒ 寄存器不通"
+                                 "（RTL 侧 bin_segq 未综合进这条位流）"
+                                 % (CFG + V50_CHAIN_REG["BAND_ROWS"], wr, back))
                 return False
             self._wr(CFG + V50_CHAIN_REG["FUSE_MODE"], 0, force=True)
+            self._v50_magic = got
             self._v50_ok = True
             self._v50_why = ""
             return True
@@ -1894,39 +1928,59 @@ class BinConvEngine:
         return self._v50_chain
 
     def v50_poll_chain(self):
-        """非阻塞：读 PROGRESS + AP_RET。完成 ⇒ 返回链 dict；否则 None。
+        """非阻塞：读 `0x310 CHAIN_STATUS` + `0x304 PROGRESS`（+ `AP_RET` 交叉校验）。
 
-        **err 置位 ⇒ 立刻抛 `BinRunError` 并把链状态清掉**（RTL 已停止推进，
-        PS 不许再 kick；契约 D3 / 不变量 ⑪）。
+        完成 ⇒ 返回链 dict；否则 None。
+        **err 置位 ⇒ 立刻抛 `BinRunError`**（err_code 来自 `CHAIN_STATUS[15:8]`），
+        并把链状态清掉（RTL 已停止推进，PS 不许再 kick；契约 D3 / 不变量 ⑪）。
+        ★ 契约 R1：done/err/busy/code 全部由 `0x310` 给出；`AP_RET` 只作交叉校验
+          （链模式下整机只有这条链在跑，两边 err 位必须一致；不一致 ⇒ 直接报错）。
+        ★ D9 自证：`PROGRESS` 必须**单调不减**；倒退 ⇒ 链被复位/寄存器接错 ⇒ 报错。
         """
         c = self._v50_chain
         if c is None:
             return None
         c["polls"] += 1
-        st = self._rd(CFG + BIN_REG["AP_RET"])
+        cs = self.v50_chain_status()
+        c["status_raw"] = cs["raw"]
         try:
             prog = int(self._rd(CFG + V50_CHAIN_REG["PROGRESS"]))
         except Exception:                                 # noqa: BLE001
             prog = -1
         if prog >= 0:
+            if prog < int(c.get("progress", 0)):
+                self._v50_chain = None
+                self._v50_poison = ("PROGRESS 倒退 %d→%d @head=%#x"
+                                    % (c["progress"], prog, c["head"]))
+                raise BinRunError(0xE0, msg="v50 链 PROGRESS 倒退（%d→%d，head=%#x）"
+                                   "⇒ 链被复位或寄存器接错，**不再发第二次 kick**"
+                                   % (c["progress"], prog, c["head"]))
             c["progress"] = prog
-        err = (st >> 8) & 0xFF
+        apret = int(self._rd(CFG + BIN_REG["AP_RET"]))
+        err = int(cs["code"]) if cs["err"] else 0
+        ap_err = (apret >> 8) & 0xFF
+        if not err and ap_err:
+            err = ap_err
+        if cs["err"] and not err:
+            err = 0xFF
         if err:
             c["err"] = err
             c["done"] = True
             self._v50_chain = None
-            self._v50_poison = ("err=%d %s @progress=%d/%d head=%#x"
+            self._v50_poison = ("err=%d %s @progress=%d/%d head=%#x status=%#010x"
                                 % (err, decode_err(err)[0], c["progress"],
-                                   c["n"], c["head"]))
-            raise BinRunError(err, msg="v50 链报错：%s（progress=%d/%d，head=%#x）；"
-                               "RTL 已停止推进，**不再发第二次 kick**"
+                                   c["n"], c["head"], cs["raw"]))
+            raise BinRunError(err, msg="v50 链报错：%s（progress=%d/%d，head=%#x，"
+                               "CHAIN_STATUS=%#010x）；RTL 已停止推进，"
+                               "**不再发第二次 kick**"
                                % (decode_err(err)[1], c["progress"], c["n"],
-                                  c["head"]))
-        if (st & 1) and not ((st >> 1) & 1):
+                                  c["head"], cs["raw"]))
+        if cs["done"] and not cs["busy"]:
             # done 且不 busy。PROGRESS 读不到（-1）时只认 done 位，不硬判
             if prog < 0 or prog >= c["n"] or not self._v50_strict_progress():
                 c["done"] = True
-                c["status"] = st
+                c["status"] = apret
+                c["chain_status"] = cs["raw"]
                 return c
         return None
 
@@ -1976,6 +2030,7 @@ class BinConvEngine:
         dt = time.time() - t0
         out = dict(head=c["head"], n=c["n"], seconds=dt,
                    status=c.get("status", 0), progress=c["progress"],
+                   chain_status=c.get("chain_status", c.get("status_raw", 0)),
                    band_rows=c["band_rows"], polls=c["polls"])
         st_ = getattr(self, "_v50_stats", None)
         if isinstance(st_, dict):
@@ -2142,15 +2197,11 @@ class BinConvEngine:
         0x200 页是保留页（写忽略、读 0）⇒ 直接拒绝，避免"E1E2 没跑、PS 读到
         旧输出"这种静默错数据。
 
-        ★ v50 互斥：`BIN_V50_FUSE=1` 时 0x200 已经是 **CHAIN_HEAD**（契约 A）⇒
-          E1E2 的探测（写 4 到 0x200）会把链首写成 4。这里直接拒绝挂载并给出
-          一行原因（调用方回落 PS 打包），避免"链首被 E1E2 探测踩坏"的静默故障。
+        ★ 2026-11-02（D1 / 契约修订 R1 §10.1）：v50 寄存器搬到 **0x300 段**，
+          `0x200` 仍然是 E1E2 的 `R_RUN_UNIT` ⇒ **FUSE=1 时也照常挂 E1E2**
+          （原先"0x200 是 CHAIN_HEAD ⇒ 互斥"的护栏已撤；融合模式下打包/量化
+          的 PS 加速不再被牺牲）。
         """
-        if v50_fuse_on():
-            print("  ⚠ [V50] BIN_V50_FUSE=1：0x200 是 CHAIN_HEAD（契约 A），"
-                  "E1E2 逐命令模式与之互斥 ⇒ 不挂 E1E2（回落 PS 打包）",
-                  flush=True)
-            return None
         if self._e1e2 is None:
             eng = E1E2Engine(self, desc_dir=desc_dir,
                              verbose=self.verbose if verbose is None else verbose)
@@ -2242,34 +2293,38 @@ _E1E2_DBG = os.environ.get("E1E2_DBG", "") not in ("", "0", "false", "False")
 # **全部 opt-in**（`BIN_V50_FUSE=1`）；默认关 ⇒ 本节每个函数都不会被调用，
 # v5 的寄存器序列 / sha1 / stdout 一个字节都不变（C-C3 的第一条）。
 #
-# 契约 A（寄存器，偏移相对配置页 +0x10000）：
-#     0x200 CHAIN_HEAD   链首描述符物理地址（写 1 次）
-#     0x204 PROGRESS     已完成描述符数（RO，轮询它而不是逐 op 等 done）
-#     0x208 BAND_ROWS    每带行数（参数，默认 8）
-#     0x20C FUSE_MODE    0 = v39 行为 / 1 = 段融合链
-#   ⚠⚠ **冲突（已上报 REVIEW）**：v39 的 E1E2 寄存器块也从 0x200 起
-#      （`E1E2_REG`: RUN_UNIT=0x200 / E_GROUP=0x204 / E_DESC=0x208 / E_DESC_HI=0x20C）。
-#      契约 A 把 0x200..0x20C 重新分配后 E1E2 必须整体搬家；在那之前
-#      **链模式与 E1E2 逐命令模式不允许同时开**（本文件的 `_v50_no_e1e2()` 会拦）。
+# 契约 A（寄存器，偏移相对配置页 +0x10000）——**契约修订 R1（§10.1）后的地址**：
+#     0x300 CHAIN_HEAD   链首描述符物理地址（写 1 次）
+#     0x304 PROGRESS     已完成描述符数（RO，轮询它而不是逐 op 等 done）
+#     0x308 BAND_ROWS    每带行数（参数，默认 8）
+#     0x30C FUSE_MODE    0 = v39 行为 / 1 = 段融合链
+#     0x310 CHAIN_STATUS bit0 done / bit1 err / bit2 busy / bit8~15 err_code（RO）
+#     0x314 CHAIN_ID     **只读 magic** = 0x7635_5000（链引擎在位的唯一判据）
+#   ★ 0x200..0x20C 是 **E1E2 的** RUN_UNIT/E_GROUP/E_DESC/E_DESC_HI，一个字节都不动
+#     ⇒ FUSE=1 与 E1E2 **可以同时挂**（原先的"0x200 互斥"护栏已撤）。
+#   ★ `0x250..0x25C` 仍禁止（v42d 教训）。
 #
 # 契约 B（描述符 = 10 字 = 40 B，**每条 4 KB 对齐**，`next_pa` 链式）：
 #     w0 desc      本带输入基址（低 32 位；RTL 只支持高字 = 0）
-#     w1 out       本带输出基址（低 32 位）
+#     w1 out       本带输出基址（低 32 位）== 段输出张量基址，**不含带偏移**
+#                  （带偏移只由 w6 `band_y0` 表达，见契约修订 R1 §10.2 / D3）
 #     w2 cfg_c     本段输入通道数 cin（C8 对齐后）
-#     w3 cfg_h     本带要读的输入行数 = band_rows + halo_rows
+#     w3 cfg_h     本带**有效输出行数** nband（契约修订 R2 §11.5：**不含 halo**）
 #     w4 cfg_w     宽度 W
 #     w5 cfg_group 权重组 / E1E2 组号（段内唯一；本实现恒 0）
-#     w6 band_y0   本带在**输出**张量里的起始行
+#     w6 band_y0   本带在**输出**张量里的起始行（绝对行号，< h_out）
 #     w7 flags     bit0=本段最后一带 bit1=段输出要物化 bit2=含 shuffle bit3=f32 输出
 #     w8 next_pa   下一个描述符物理地址（0 = 链尾）
-#     w9 nband(低 16) | op_mask(高 16)  ← 契约 B 原样：**nband 恒 1**
-#   ⚠ w6/w7 是契约 B 里留白的两个字（"cfg_group/…"），本文件给出定义；
-#     REVIEW 若要改，必须同步改契约 B 与 `bin_net.make_segment_plan`。
+#     w9 nband(低 16) | op_mask(高 16) — nband = 本带**有效输出行数**（R2 §11.1，
+#                  末带可 < BAND_ROWS；与 w3 同值）
 V50_DESC_WORDS = 10
 V50_DESC_STRIDE = 4096                 # 契约 B：4 KB 对齐 ⇒ 步进 4 KB
 V50_BUDGET_BYTES = 270 * 1024          # 契约 D4：BRAM 剩 ≈270 KB
-V50_CHAIN_REG = dict(CHAIN_HEAD=0x200, PROGRESS=0x204,
-                     BAND_ROWS=0x208, FUSE_MODE=0x20C)
+V50_CHAIN_REG = dict(CHAIN_HEAD=0x300, PROGRESS=0x304,
+                     BAND_ROWS=0x308, FUSE_MODE=0x30C,
+                     CHAIN_STATUS=0x310, CHAIN_ID=0x314)
+# 链引擎 magic（RTL 里硬写死的只读常量）：`0x314` 读回它就说明真在位。
+V50_CHAIN_MAGIC = 0x7635_5000
 # 段内小算子掩码的位序（契约 B 的 op_mask 高 16 位）
 V50_OP_BITS = dict(conv=0, cat=1, add=2, interp=3, eca=4, sam=5,
                    shuffle=6, unshuffle=7, convfp=8)
@@ -2288,10 +2343,11 @@ def v50_fuse_on():
 
 
 def v50_chain_rtl_on():
-    """`BIN_V50_CHAIN_RTL=1` ⇒ 承认"PL 侧 `bin_segq` 已就位"。
+    """**已退役**（2026-11-02，D9/D1）：链在不在位改由 `0x314 CHAIN_ID` magic 判定。
 
-    默认关：RTL 的 `bin_segq`（IMP-B 的 R4）现在**还不存在** ⇒ PS 侧绝不假装
-    链能跑；没有这个开关就一律回落 v5 逐 op 路径（并打印一行原因）。
+    留这个函数只为兼容老脚本的 `if v50_chain_rtl_on():` 判断；它**不再**是
+    `v50_chain_ready()` 的前置条件 —— 人工开关会被"寄存器回声"骗过（v39 的
+    `0x208` 就是写什么读回什么），而 RTL 里硬写死的 magic 骗不过。
     """
     return _v50_env_on("BIN_V50_CHAIN_RTL")
 
@@ -2760,13 +2816,9 @@ class E1E2Engine:
         unit = int(unit)
         if unit not in (0, 4):
             raise ValueError("R_RUN_UNIT 只能是 0(conv) 或 4(E1E2)，给的是 %d" % unit)
-        if v50_fuse_on() and int(E1E2_REG["RUN_UNIT"]) == int(V50_CHAIN_REG["CHAIN_HEAD"]):
-            # ★ v50 契约 A 把 0x200 从 R_RUN_UNIT 改成 CHAIN_HEAD ⇒ 链模式下
-            #   再写 0x200=0/4 就会把链首地址写成 4（下一拍的非法描述符）。
-            #   这条护栏只在 BIN_V50_FUSE=1 时生效；默认关 ⇒ 与原来逐字节相同。
-            raise RuntimeError(
-                "v50 链模式（BIN_V50_FUSE=1）下 0x200 是 CHAIN_HEAD，"
-                "不能再写 R_RUN_UNIT ⇒ E1E2 逐命令模式与链模式互斥")
+        # ★ 2026-11-02（D1 / 契约修订 R1）：v50 寄存器在 0x300 段，`0x200` 仍是
+        #   E1E2 的 R_RUN_UNIT ⇒ 这里**不需要**任何"链模式互斥"护栏；链首写 0x300
+        #   与 R_RUN_UNIT 写 0x200 互不影响（FUSE=1 时 E1E2 照常可用）。
         self.core._wr(CFG + E1E2_REG["RUN_UNIT"], unit, force=force)
         return unit
 
@@ -2945,7 +2997,8 @@ class E1E2Engine:
 
         if chain is not None:
             # ★ v50 链模式：**只登记描述符，不发 MMIO、不等 done**（P2/P3）。
-            #   select(4) 也不做：链模式下 0x200 是 CHAIN_HEAD（契约 A）。
+            #   select(4) 不必做：D1 之后链首在 0x300，`0x200` 仍是 R_RUN_UNIT
+            #   （E1E2 自己的寄存器块），两者不再互相踩。
             chain.append(v50_desc(
                 in_pa=int(desc_pa), out_pa=int(out_pa),
                 cfg_c=int(cfg_c), cfg_h=int(cfg_h), cfg_w=int(cfg_w),
@@ -3067,8 +3120,9 @@ class E1E2Engine:
             st = core.v50_wait_chain(timeout=timeout)
         finally:
             if restore:
-                # 链模式**不能** select(0)：0x200 是 CHAIN_HEAD（contract A）。
-                # 复位语义由 RTL 的 FUSE_MODE 位负责（IMP-B R4），PS 只写一次 0。
+                # ★ D1：链首在 0x300，`0x200` 是 E1E2 的 R_RUN_UNIT ⇒ 这里只关
+                #   FUSE_MODE（`0x30C`），不碰 E1E2 的寄存器块；复位语义由 RTL 的
+                #   FUSE_MODE 位负责（IMP-B R4），PS 只写一次 0。
                 try:
                     core._wr(CFG + V50_CHAIN_REG["FUSE_MODE"], 0, force=True)
                 except Exception:                         # noqa: BLE001

@@ -1,0 +1,26 @@
+### 0) 工具
+Vivado Simulator v2025.2.1
+
+### 1) xvlog --sv：IMP-B2 的 12 个文件 + 依赖（期望 0 error / 0 warning）
+xvlog rc=0
+
+### 2) xelab bin_unit_axi_wrap_bd_v50（C2）
+  VLANES=8  : Built simulation snapshot snap_l8
+  VLANES=16 : Built simulation snapshot snap_l16
+
+### 3) C3：op_mask 四种组合（001/011/101/111）—— elaboration 矩阵
+  xvlog(tb/elab_opmask4.v) : 0 ERROR / 0 WARNING
+  op_mask=001 : Built simulation snapshot snap_om1
+  op_mask=003 : Built simulation snapshot snap_om3
+  op_mask=005 : Built simulation snapshot snap_om5
+  op_mask=007 : Built simulation snapshot snap_om7
+
+### 4) 内部模块单独 elaboration
+  bin_band_seq           : Built simulation snapshot snap_bin_band_seq
+  bin_band_fill_v50      : Built simulation snapshot snap_bin_band_fill_v50
+  bin_band_buf           : Built simulation snapshot snap_bin_band_buf
+
+### 5) 干净库复验（全新 work 目录，排除旧库掩盖缺文件）
+  xvlog 16 文件 : ERROR/WARNING 行数 = 0
+  xelab VLANES=8  : Built simulation snapshot c8
+  xelab VLANES=16 : Built simulation snapshot c16

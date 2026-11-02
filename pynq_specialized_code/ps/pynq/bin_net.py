@@ -1179,6 +1179,81 @@ def v50_vlanes():
     return BE.vlanes_now()
 
 
+def v50_band_geoms(h_out, band_rows, bands=None):
+    """一段的带几何 `[(y0, nband), ...]` —— **唯一构造点**（契约修订 R2 §11.1）。
+
+    定义（与 `docs/V50_ARCHITECTURE.md` §11.1 逐字一致）：
+      · `y0`   = 本带**第一个有效输出行**（绝对行号），必须 `< h_out`；
+      · `nband`= 本带**有效输出行数**，末带可以 `< BAND_ROWS`；
+      · **halo 不参与分子**：`bands = ceil(h_out / band_rows)`。
+        （D2 的根因就是原来写成 `ceil((h_out + halo) / band_rows)` ⇒ 末带
+         `y0 = h_out` 的"幽灵带"，写到输出张量之外。）
+    `bands` 给了就用它（只用于校验），但 `nband <= 0` 的那一带**绝不产生**。
+    """
+    h_out = int(h_out)
+    br = max(1, int(band_rows))
+    nb = int(bands) if bands else max(1, (h_out + br - 1) // br)
+    out = []
+    for b in range(max(0, nb)):
+        y0 = b * br
+        n = min(br, h_out - y0)
+        if n <= 0:
+            break                        # 防御：绝不生成 y0 >= h_out 的幽灵带
+        out.append((y0, n))
+    return out
+
+
+def v50_seg_descs(seg, in_pa, out_pa, vlanes):
+    """`SegPlan` → 本段描述符列表（**离线 build_chain / materialize / 运行时提交共用**）。
+
+    三处曾各写一份（D2/D3 就是这么漏掉的：运行时段连 `min()` 都没有、还多算一次
+    带偏移）。
+
+    ★ D3 的唯一口径：`out_pa` 传**段输出张量基址**，**不含带偏移**；带的起始行
+      只由描述符 `w6 band_y0` 表达（契约修订 R1 §10.2）。所以这里**不加**
+      `y0 * row_bytes`。
+    ★ 字节/像素 = `VLANES`（`vlanes` 参数），不是字面 `8`；`VLANES=16` 时是 16。
+      本函数只用它做**几何自检**（带字节不许超出张量），不再拿它算地址。
+    ★ `cfg_h`（w3）= `nband`（**不含 halo**，R2 §11.5）；`w9` 低 16 位同值。
+    """
+    vlanes = int(vlanes or 8)
+    h_out = int(seg.h_out or 0)
+    # 一个 lane 组 = VLANES 个 8-bit 通道 = VLANES 字节/像素（**参数，不是字面 8**）；
+    # 一行 = W × VLANES × (cout/VLANES 个组) 字节 —— 原来只乘了字面 8 且**漏掉组数**，
+    # 那正是 D3 的"8 B/px 写死 + 带间地址互相覆盖"。
+    pix_bytes = max(vlanes, 8)
+    n_group = max(1, (int(seg.c_out or 0) + pix_bytes - 1) // pix_bytes)
+    row_bytes = int(seg.w_out or 0) * pix_bytes * n_group
+    have = h_out * row_bytes
+    geoms = v50_band_geoms(h_out, seg.band_rows, seg.bands)
+    if not geoms:
+        raise ValueError("S%s：段没有有效输出行（h_out=%r）" % (seg.seg_id, seg.h_out))
+    if geoms[-1][0] + geoms[-1][1] != h_out:
+        raise ValueError("S%s：末带结束行 %d != h_out=%d（bands=%s 与 geo 不一致）"
+                         % (seg.seg_id, geoms[-1][0] + geoms[-1][1], h_out, seg.bands))
+    descs = []
+    for i, (y0, nband) in enumerate(geoms):
+        last = (i == len(geoms) - 1)
+        flags = 0
+        if last:
+            flags |= 0x1                          # 本段最后一带
+        if out_pa:
+            flags |= 0x2                          # 段输出要物化（DDR）
+        if seg.has_shuffle:
+            flags |= 0x4
+        # 带输出 [y0, y0+nband) 必须落在段输出张量内（out_pa 是段基址 ⇒ 只加行偏移）
+        if have and (y0 + nband) * row_bytes > have:
+            raise ValueError("S%s：带 %d 输出到 %d B > 张量 %d B（y0=%d nband=%d "
+                             "W=%s VLANES=%d）" % (seg.seg_id, i, (y0 + nband) * row_bytes,
+                                                  have, y0, nband, seg.w_out, vlanes))
+        descs.append(BE.v50_desc(
+            in_pa=int(in_pa), out_pa=int(out_pa),
+            cfg_c=int(seg.c_in or 0), cfg_h=int(nband), cfg_w=int(seg.w_in or 0),
+            cfg_group=0, band_y0=int(y0), op_mask=int(seg.op_mask or 0),
+            flags=flags, nband=int(nband)))
+    return descs
+
+
 class SegPlan:
     """一段：op 列表 + 形状 + halo + band 数 + 缓冲字节 + PRM 字节 + 融合判定。"""
 
@@ -1297,6 +1372,11 @@ class SegmentPlan:
         lines.append("  描述符链：%d 条 × %d B @ 4 KB 步进 = %.2f MB；链首 %#x"
                      % (self.n_desc, BE.V50_DESC_WORDS * 4,
                         self.desc_bytes / 1e6, self.head_pa))
+        bad = self.check_chain_geometry(raise_on_bad=False)
+        lines.append("  带几何自检（D2/D3 判据：band_y0 < h_out、y0+nband <= h_out、"
+                     "带输出不越张量）：%d 条描述符 / **%d 条违规**%s"
+                     % (getattr(self, "_geom_n", self.n_desc), len(bad),
+                        "" if not bad else ("：" + "；".join(bad[:4]))))
         return "\n".join(lines)
 
     # ---- 链（D2：每条 10 字 + 链拓扑）----
@@ -1310,26 +1390,13 @@ class SegmentPlan:
             in_pa = 0
             if s.in_tids:
                 in_pa = self.pa_of(s.in_tids[0])
-            for b in range(int(s.bands)):
-                y0 = min(b, int(s.bands) - 1) * self.band_rows
-                ch = min(self.band_rows + int(s.halo_rows or 0),
-                         int(s.h_out or self.band_rows))
-                flags = 0
-                if b == int(s.bands) - 1:
-                    flags |= 0x1                       # 本段最后一带
-                if out_pa:
-                    flags |= 0x2                       # 段输出要物化（DDR）
-                if s.has_shuffle:
-                    flags |= 0x4
-                descs.append(BE.v50_desc(
-                    in_pa=in_pa, out_pa=out_pa,
-                    cfg_c=int(s.c_in or 0), cfg_h=int(ch),
-                    cfg_w=int(s.w_in or 0), cfg_group=0, band_y0=int(y0),
-                    op_mask=int(s.op_mask or 0), flags=flags, nband=1))
+            # ★ D2/D3：**唯一**的段→描述符构造点（带几何、cfg_h、out_pa 口径全在这儿）
+            descs.extend(v50_seg_descs(s, in_pa, out_pa, self.vlanes))
         base = int(base_pa) if base_pa else \
             (V50_VPA_BASE + 0x0080_0000)          # 离线：虚拟链首（4 KB 对齐）
         self.chain = BE.v50_chain_words(descs, base)
         self.head_pa = base if descs else 0
+        self.check_chain_geometry()
         return self.chain
 
     def materialize(self, arena=None):
@@ -1351,17 +1418,7 @@ class SegmentPlan:
                 continue
             out_pa = self.pa_of(s.out_tid) if s.out_tid is not None else 0
             in_pa = self.pa_of(s.in_tids[0]) if s.in_tids else 0
-            for b in range(int(s.bands)):
-                y0 = min(b, int(s.bands) - 1) * self.band_rows
-                ch = min(self.band_rows + int(s.halo_rows or 0),
-                         int(s.h_out or self.band_rows))
-                flags = (0x1 if b == int(s.bands) - 1 else 0) | \
-                        (0x2 if out_pa else 0) | (0x4 if s.has_shuffle else 0)
-                descs.append(BE.v50_desc(
-                    in_pa=in_pa, out_pa=out_pa, cfg_c=int(s.c_in or 0),
-                    cfg_h=int(ch), cfg_w=int(s.w_in or 0), cfg_group=0,
-                    band_y0=int(y0), op_mask=int(s.op_mask or 0), flags=flags,
-                    nband=1))
+            descs.extend(v50_seg_descs(s, in_pa, out_pa, self.vlanes))
         head, words = BE.v50_chain_store(view, pa, descs)
         self.chain = words
         self.head_pa = head
@@ -1379,6 +1436,50 @@ class SegmentPlan:
             raise RuntimeError("段链需要先 materialize(arena)")
         return BE.v50_chain_store(view, int(self.view_pa), descs,
                                   base_pa=int(self.head_pa) or None)
+
+    # ---- 带几何自检（D14：从"结构合法"升级成"几何合法"）----
+    def check_chain_geometry(self, raise_on_bad=True):
+        """逐段自检 `band_y0` / `nband` / 带输出字节（**判据，不是记账**）。
+
+        三条（契约修订 R2 §11.1~11.5 + D2/D3 的判据）：
+          ① 所有 `band_y0 < h_out`（幽灵带 = 0 条）；
+          ② `band_y0 + nband <= h_out`（末带可以 < BAND_ROWS，但不许越界）；
+          ③ `out_pa + (y0+nband)*W*VLANES <= 段输出张量字节`（`out_pa` 是**段基址**，
+             不许再叠带偏移 —— D3 的双重偏移就是在这里被抓住的）。
+        违规 ⇒ `raise`（`raise_on_bad=False` 只返回列表，给诊断脚本用）。
+        """
+        vlanes = int(self.vlanes or 8)
+        bad = []
+        n_desc = 0
+        for s in self.segments:
+            if not s.fused:
+                continue
+            h_out = int(s.h_out or 0)
+            geoms = v50_band_geoms(h_out, s.band_rows, s.bands)
+            n_desc += len(geoms)
+            if len(geoms) != max(1, int(s.bands or 1)):
+                bad.append("S%s：bands=%s 但只算出 %d 个有效带"
+                           % (s.seg_id, s.bands, len(geoms)))
+            row = int(s.w_out or 0) * max(vlanes, 8) * max(
+                1, (int(s.c_out or 0) + max(vlanes, 8) - 1) // max(vlanes, 8))
+            have = h_out * row
+            for y0, nb in geoms:
+                if y0 >= h_out:
+                    bad.append("S%s：band_y0=%d >= h_out=%d（幽灵带）"
+                               % (s.seg_id, y0, h_out))
+                if y0 + nb > h_out:
+                    bad.append("S%s：band_y0+nband=%d > h_out=%d"
+                               % (s.seg_id, y0 + nb, h_out))
+                need = (y0 + nb) * row
+                if have and need > have:
+                    bad.append("S%s：带输出 %d B > 张量 %d B（y0=%d nband=%d）"
+                               % (s.seg_id, need, have, y0, nb))
+        self._geom_bad = bad
+        self._geom_n = n_desc
+        if bad and raise_on_bad:
+            raise ValueError("v50 带几何自检失败（%d 条违规）：%s"
+                             % (len(bad), "；".join(bad[:6])))
+        return bad
 
     def dump_chain(self, max_desc=0, max_seg=0):
         """D2 的打印形态：每条描述符 10 个字 + 链拓扑 + 链尾/对齐检查。"""
@@ -1410,6 +1511,11 @@ class SegmentPlan:
                      for w in self.chain)
             lines.append("  链尾 next_pa = %#x（契约 B：0=链尾）；next_pa 4KB 对齐 %s"
                          % (self.chain[-1][8], "OK" if ok else "**不 OK**"))
+            bad = self.check_chain_geometry(raise_on_bad=False)
+            lines.append("  带几何自检（D2/D3 判据）：%d 条描述符 / %d 条违规%s"
+                         % (getattr(self, "_geom_n", len(self.chain)), len(bad),
+                            "" if not bad else
+                            ("：" + "；".join(bad[:4]))))
         return "\n".join(lines)
 
     # ---- 段计划 ↔ 帧间缓存键（P6）----
@@ -1501,7 +1607,11 @@ def make_segment_plan(g, outs, band_rows=None, budget=None, vlanes=None,
         # 不能超过输入张量的行数（多出来就是重复/多算）。
         if halo and (band_rows + halo) > h_in:
             halo = max(0, h_in - band_rows)      # 夹住：绝不读到输入之外
-        bands = max(1, (h_out + halo + band_rows - 1) // band_rows)
+        # ★ 契约修订 R2 §11.1（D2 的根因）：`bands = ceil(h_out / band_rows)`，
+        #   **halo 不参与分子**。原来写成 `ceil((h_out + halo) / band_rows)`，
+        #   halo=2/h_out=32/band_rows=8 时算出 5 带 ⇒ 第 5 条描述符 `band_y0=32=h_out`
+        #   是"幽灵带"（写到输出张量之外，还白读 10 行输入）。全网 45 条。
+        bands = len(v50_band_geoms(h_out, band_rows))
         # 契约 D4：双缓冲 = 2 × band_rows × W × C × 1 B（int8）
         band_bytes = 2 * band_rows * w_out * c_out
         buf_bytes = band_bytes + halo_b
@@ -2431,13 +2541,22 @@ class BinNet:
                 return op.id not in (ids[0], ids[-1])
         return False
 
-    def _v50_exec_one(self, o, be, prof):
-        """v5 的逐 op 执行体（原 `_run_serial` 的循环体，原样搬进来复用）。"""
+    def _v50_exec_one(self, o, be, prof, misc=None):
+        """v5 的逐 op 执行体（原 `_run_serial` 的循环体，原样搬进来复用）。
+
+        `misc` 只用来累计 **prologue/epilogue** 两个桶：v50 的 stats 原来把这两项
+        写死 0.0 ⇒ 融合跑永远打印 `prologue 0.00 / epilogue 0.00`，看起来像
+        "PS 打包加速全丢了"（REVIEW 的 D1 证据就被这一点误导过）。数值路径不变。
+        """
         t0 = time.time()
         if o.kind == "conv":
             task = be.submit(o)
             y, _rs, _te = be.finish(task)
             o.out.val = y
+            if misc is not None:
+                misc["prologue"] = misc.get("prologue", 0.0) + float(
+                    getattr(task, "pro_s", 0.0) or 0.0)
+                misc["epilogue"] = misc.get("epilogue", 0.0) + float(_te or 0.0)
             prof["conv"] = prof.get("conv", 0.0) + (time.time() - t0)
         else:
             o.out.val = self._exec_ps(o)
@@ -2473,19 +2592,16 @@ class BinNet:
             be._release_slot(slot)
             raise MissingPiece("段输出槽没有物理地址")
         try:
-            row_bytes = int(seg.w_out) * 8            # C8：一行 8 通道组 × W
-            descs = []
-            for b in range(int(seg.bands)):
-                y0 = min(b, int(seg.bands) - 1) * int(seg.band_rows)
-                flags = (0x1 if b == int(seg.bands) - 1 else 0) | 0x2
-                if seg.has_shuffle:
-                    flags |= 0x4
-                descs.append(BE.v50_desc(
-                    in_pa=int(src.pa), out_pa=out_pa + y0 * row_bytes,
-                    cfg_c=int(seg.c_in),
-                    cfg_h=int(seg.band_rows + (seg.halo_rows or 0)),
-                    cfg_w=int(seg.w_in), cfg_group=0, band_y0=int(y0),
-                    op_mask=int(seg.op_mask), flags=flags, nband=1))
+            # ★ D3：**和离线 `build_chain` 同一个构造函数**。`out_pa` 传段输出张量
+            #   基址（**不再** `+= y0*row_bytes`：带偏移只由描述符 `band_y0` 表达，
+            #   否则就是双重偏移）；字节/像素用 `VLANES` 参数，不是字面 8。
+            vlanes = int(getattr(self._segplan, "vlanes", 0) or BE.vlanes_now())
+            descs = v50_seg_descs(seg, int(src.pa), int(out_pa), vlanes)
+            if BE._v50_env_on("BIN_V50_DUMP"):
+                print("  [V50] S%s 运行时提交 %d 条：out_pa=%#x（段基址，无带偏移）"
+                      " / %d B/px(VLANES) / y0=%s"
+                      % (seg.seg_id, len(descs), out_pa, vlanes,
+                         ",".join(str(int(d[6])) for d in descs)), flush=True)
             head, _words = self._segplan.write_segment_chain(descs)
             e.v50_submit_chain(head, len(descs))
             e.v50_wait_chain()
@@ -2536,6 +2652,7 @@ class BinNet:
         """**段级调度**：融合段一次提交整链，非融合段逐 op；段边界处物化。"""
         plan = self._segplan
         prof = {}
+        misc = dict(prologue=0.0, epilogue=0.0)   # 只给 stats 用（见 _v50_exec_one）
         t_chain = 0.0
         n_chain_desc = 0
         n_seg_chain = 0
@@ -2559,7 +2676,7 @@ class BinNet:
                 n_seg_ps += 1
                 for o in ops:
                     if o.out.val is None:
-                        self._v50_exec_one(o, be, prof)
+                        self._v50_exec_one(o, be, prof, misc)
             # ---- 段边界：fan-out 张量在此物化（P4 的"只处理段边界"）----
             for tid in seg.boundary_out:
                 t = g.tensors[tid]
@@ -2567,12 +2684,16 @@ class BinNet:
                     t.val = self._materialize(t.val)
         dur = time.time() - t_all
         _kd = BE.kernel_deps()
+        _t_pro = float(misc.get("prologue", 0.0))
+        _t_epi = float(misc.get("epilogue", 0.0))
         self.stats = dict(prof=prof, total=dur, pipeline=False, backend="v50",
                           ps_nonconv=sum(prof.values()), convs=n_seg_chain,
                           ps_ops=n_seg_ps,
                           # 与 v5 的桶名对齐（门禁脚本按这些键取数；缺键会 KeyError）
-                          pl=t_chain, ps=sum(prof.values()),
-                          ps_prologue=0.0, ps_epilogue=0.0,
+                          # ★ 2026-11-02（D1）：prologue/epilogue **实测**，不再写死 0.0
+                          #   （写死会让人以为"融合模式下 PS 打包加速全丢了"）。
+                          pl=t_chain, ps=sum(prof.values()) + _t_pro + _t_epi,
+                          ps_prologue=_t_pro, ps_epilogue=_t_epi,
                           ps_prologue_overlap=0.0, wait=0.0, overlap=0.0,
                           cfg_hits=getattr(be, "cfg_hits", 0),
                           cfg_miss=getattr(be, "cfg_miss", 0),

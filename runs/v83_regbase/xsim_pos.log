@@ -1,0 +1,97 @@
+#-----------------------------------------------------------
+# xsim v2025.2.1 (64-bit)
+# SW Build 6403652 on Thu Mar 19 13:47:00 MDT 2026
+# IP Build 6403511 on Thu Mar 19 12:41:45 MDT 2026
+# SharedData Build 6403650 on Thu Mar 19 14:02:13 MDT 2026
+# Start of session at: Mon Nov  2 15:57:17 2026
+# Process ID         : 512705
+# Current directory  : /media/felix/Data/coding/demoir-fpga/runs/v83_regbase
+# Command line       : xsim -log xsim.log -mode tcl -source {xsim.dir/regbase/xsim_script.tcl}
+# Log file           : /media/felix/Data/coding/demoir-fpga/runs/v83_regbase/xsim.log
+# Journal file       : /media/felix/Data/coding/demoir-fpga/runs/v83_regbase/xsim.jou
+# Running On         : 2
+# Platform           : Ubuntu
+# Operating System   : Ubuntu 22.04.5 LTS
+# Processor Detail   : Intel(R) Core(TM) Ultra 7 155H
+# CPU Frequency      : 4300.000 MHz
+# CPU Physical cores : 16
+# CPU Logical cores  : 22
+# Host memory        : 33236 MB
+# Swap memory        : 0 MB
+# Total Virtual      : 33236 MB
+# Available Virtual  : 11164 MB
+#-----------------------------------------------------------
+source xsim.dir/regbase/xsim_script.tcl
+# xsim {regbase} -autoloadwcfg -runall
+Time resolution is 1 ps
+run -all
+bin_band_buf: CAP=245776 B (240 KB) <= BUDGET=270 KB  [NGRP=6 ROWS_ALLOC=10 SLOT_WORDS=15360]
+[BIN-WRAP] 步骤④ 直接映射线缓存：LC_N=512（64 KB, 9 位散列, 槽=16）
+================================================================
+ T-83  v50 register landing through BD shell (default params)
+ DUT = bin_unit_axi_wrap_bd_v50   (no CONFIG override)
+ PS addr = 0x4006_0000 + 0x1_0000 + off,  off = 0x300..0x314
+================================================================
+ PROBE shell  u_dut.V50_REG_BASE      = 16'h0300
+ PROBE unit   u_bin_unit.V50_REG_BASE = 16'h0300
+ PROBE unit   RW_CHAIN / RW_PROG      = 10'h300 / 10'h304
+ PROBE unit   RW_BROWS / RW_FUSE      = 10'h308 / 10'h30c
+ PROBE unit   RW_STAT  / RW_MAGIC     = 10'h310 / 10'h314
+[1] reset values
+  PASS                     0x300 CHAIN_HEAD    reset got=0x00000000
+  PASS                     0x304 PROGRESS      reset got=0x00000000
+  PASS          0x308 BAND_ROWS     reset (=param 8) got=0x00000008
+  PASS                     0x30C FUSE_MODE     reset got=0x00000000
+  NOTE        0x310 CHAIN_STATUS  reset (see report) got=0x00000403  (record only)
+  PASS             0x314 CHAIN_ID      reset = magic got=0x50300001
+ ---- 6 reads, full-addr vs offset form (after reset) ----
+  PASS                  0x300 CHAIN_HEAD   full==off got=0x00000000
+  PASS                  0x304 PROGRESS     full==off got=0x00000000
+  PASS                  0x308 BAND_ROWS    full==off got=0x00000008
+  PASS                  0x30C FUSE_MODE    full==off got=0x00000000
+  PASS                  0x310 CHAIN_STATUS full==off got=0x00000403
+  PASS                  0x314 CHAIN_ID     full==off got=0x50300001
+   0x314 readback = 0x50300001 (expect 0x50300001)
+[2] RW registers
+  PASS               0x300 CHAIN_HEAD    write->read got=0xdeadbeef
+  PASS               0x308 BAND_ROWS     write->read got=0x00000005
+  PASS               0x30C FUSE_MODE     write->read got=0x00000001
+[3] RO registers (write ignored)
+  PASS        0x304 PROGRESS      unchanged by write got=0x00000000
+  PASS        0x310 CHAIN_STATUS  unchanged by write got=0x00000403
+  PASS         0x314 CHAIN_ID      pre-write = magic got=0x50300001
+  PASS               0x314 still magic after write 0 got=0x50300001
+  PASS               0x314 still magic after write F got=0x50300001
+[4] 0x250..0x25C must stay empty
+  PASS              0x250 read must be 0 (forbidden) got=0x00000000
+  PASS              0x254 read must be 0 (forbidden) got=0x00000000
+  PASS              0x258 read must be 0 (forbidden) got=0x00000000
+  PASS              0x25c read must be 0 (forbidden) got=0x00000000
+  PASS                     0x250 still 0 after write got=0x00000000
+  PASS                     0x254 still 0 after write got=0x00000000
+  PASS                     0x258 still 0 after write got=0x00000000
+  PASS                     0x25c still 0 after write got=0x00000000
+  PASS          0x300 undisturbed by forbidden write got=0xdeadbeef
+[5] old 0x2E0..0x2F4 window must be empty
+  PASS               0x2E0 read must be 0 (old base) got=0x00000000
+  PASS               0x2E4 read must be 0 (old base) got=0x00000000
+  PASS               0x2E8 read must be 0 (old base) got=0x00000000
+  PASS               0x2EC read must be 0 (old base) got=0x00000000
+  PASS               0x2F0 read must be 0 (old base) got=0x00000000
+  PASS           0x2F4 must be 0 (old CHAIN_ID slot) got=0x00000000
+[6] final readback table
+   0x4007_0300 (0x300 CHAIN_HEAD  ) = 0xdeadbeef
+   0x4007_0304 (0x304 PROGRESS    ) = 0x00000000
+   0x4007_0308 (0x308 BAND_ROWS   ) = 0x00000005
+   0x4007_030C (0x30C FUSE_MODE   ) = 0x00000001
+   0x4007_0310 (0x310 CHAIN_STATUS) = 0x00000403
+   0x4007_0314 (0x314 CHAIN_ID    ) = 0x50300001  <= must be 0x50300001
+   0x4007_02E0 (0x2E0 old landing ) = 0x00000000  <= must be 0
+================================================================
+ RESULT: PASS=34 FAIL=0
+ RESULT: PASS
+================================================================
+$finish called at time : 2070 ns : File "/media/felix/Data/coding/demoir-fpga/runs/v83_regbase/tb_bd_v50_regbase.v" Line 336
+exit
+INFO: xsimkernel Simulation Memory Usage: 296844 KB (Peak: 341304 KB), Simulation CPU Usage: 930 ms
+INFO: [Common 17-206] Exiting xsim at Mon Nov  2 15:57:19 2026...

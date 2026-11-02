@@ -1,3 +1,17 @@
+# ============================================================================
+# rtl_v50_manifest.txt —— runs/timing_v50/rtl_v50 冻结副本清单
+#   25 条 = rtl_v50/ 顶层 .v（v39 位流输入的冻结副本，**任何字节都不许变**）
+#   9 条  = lane16/ 下 v50 新 RTL（T-64/IMP-A 的核 + T-82 从 IMP-B worktree 拷入的 8 个）
+#   ★ 2026-11-02 T-82 刷新：lane16/bin_conv_core.v -> bin_conv_core_v50.v（D4 改名），
+#     并拷入 IMP-B 的 8 个文件；这 9 个文件**待 IMP-B 续作覆盖**，续作落盘后必须重跑
+#     `md5sum` 刷新本清单（否则 build_final_150v50.tcl 第 0a② 步会判 DIFF）。
+#   ★ 2026-11-02 T-83 刷新：lane16/bin_unit_axi_wrap_bd_v50.v 的
+#     V50_REG_BASE 默认值 16'h02E0 -> 16'h0300（契约 §10.1；
+#     旧值使 BD 路径整块寄存器被平移到 0x2E0..0x2F4）。只改这一行。
+#   校验：bash pynq_specialized_code/pl/scripts/verify_rtl_root.sh \
+#           runs/timing_v50/rtl_v50_manifest.txt runs/timing_v50/rtl_v50
+#   期望：MATCH=34 DIFF=0 EXTRA=0 MISSING=0 RESULT: PASS
+# ============================================================================
 cfa8132264cb22256379d5fc4bff80bd  bin_catpack.v
 4e9887a9b125c61116ee3663ade425ce  bin_conv_core8.v
 acaa8540cd6e2701b370e0cff85a6821  bin_conv_core.v
@@ -23,4 +37,12 @@ fd8ac087100300c80dc01cb1584d0f84  k3_cfg_check.v
 21ae24b3f3c7c27ad5e0734881308014  k5_cfg_check.v
 fcc96728b5c8334ea594063ff0629703  _selftest_bad.v
 fcc96728b5c8334ea594063ff0629703  _selftest_ok.v
-4e6a42358a20d6488a508b39073f44fb  lane16/bin_conv_core.v
+daff1dd7f9ea96e0beefd9877e927590  lane16/bin_band_buf.v
+e5d7b3b7b4c5791e5a85815d15620c1f  lane16/bin_catpack_v50.v
+61568f39a5206e9f1e1c9f3b620dadb3  lane16/bin_conv_core_v50.v
+314a6f18e038c9c8cecde09706e1193b  lane16/bin_interp_v50.v
+dba8b606acdd9cdd8109a59599ebae71  lane16/bin_rprelu_v50.v
+8f242a2758dc715bc6d78a8e198a5a46  lane16/bin_sam_v50.v
+191bda10e6b6ac22b61810cbac355917  lane16/bin_segq.v
+0ba1aae3249c4aca59b859ce50028804  lane16/bin_unit_axi_wrap_bd_v50.v
+b4896f26fc0f44a6f6234ed0e2cf6395  lane16/bin_unit_axi_wrap_v50.v

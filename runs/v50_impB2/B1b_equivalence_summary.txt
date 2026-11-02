@@ -1,0 +1,26 @@
+# B1b —— FUSE_MODE=0 与 v39 的逐行对照（IMP-B2）
+# v39 2784 行 -> v50b 3478 行：新增 694 行，被替换的 v39 行 51 行（15 处）
+#
+# 每一处为什么在 fuse=0 时逐位不变：
+
+  v39   299-  299 -> v50b   299-  299  模块改名（§9 命名契约）；不影响语义
+  v39   358-  358 -> v50b   358-  382  参数表加逗号 + 追加 9 个带默认值的参数；不传参 = v39
+  v39   929-  929 -> v50b  1044- 1044  启动闸门加 !fuse_cfg_bad；FUSE_MODE=0 ⇒ fuse_cfg_bad≡0
+  v39   935-  935 -> v50b  1051- 1051  错误码三目：vcode_q!=0 时取原值，否则 ERR_UNIT（只在融合配置错时出现）
+  v39  1219- 1220 -> v50b  1337- 1340  c_wr_data/sel 位宽参数化；VLANES=8 ⇒ 64/8 与原等宽
+  v39  1229- 1230 -> v50b  1349- 1410  三根 start + cfg/base mux 块（§10.5）：全部 fuse_m 三目，fuse_m=0 ⇒ 右支 = v39 的 r_*/start 表达式
+  v39  1234- 1236 -> v50b  1416- 1419  核例化加 .VLANES(VLANES) + 实例名 u_core；端口名一个没改
+  v39  1243- 1261 -> v50b  1426- 1445  核的 cfg/base 接 c_* mux；fuse_m=0 ⇒ 右支 = r_*（逐根相同）
+  v39  1264- 1264 -> v50b  1448- 1448  核的 mem_rd_data 接 core_rd_data；fuse_m=0 ⇒ = u_rd_data
+  v39  1283- 1288 -> v50b  1467- 1475  E1E2 的 cfg/base 接 p_* mux；fuse_m=0 ⇒ 右支 = r_*（base_out=r_eout）
+  v39  1291- 1291 -> v50b  1478- 1478  E1E2 的 mem_rd_data 接 pack_rd_data；fuse_m=0 ⇒ = u_rd_data
+  v39  1327- 1335 -> v50b  1514- 1523  u_* 改名 u_*_i（v39 原路），最终 u_* 由 §10.7 mux 给；sel_fuse_q=0 ⇒ 右支
+  v39  1337- 1337 -> v50b  1525- 1525  u_err 同上
+  v39  1594- 1595 -> v50b  2274- 2275  wr_wide_b 用 wr_accept_ok；VLANES=8 ⇒ wr_xfer≡0 ⇒ = u_ce
+  v39  1620- 1620 -> v50b  2303- 2304  u_ce 加 !wr_split_busy；VLANES≤8 ⇒ ≡0
+
+# 新增代码在 fuse=0 时靠什么静默：
+#   · 所有融合 mux 一律写成 `fuse_m ? <融合支> : <v39 表达式>` 或 `sel_fuse_q ? ... : ...`
+#   · band/segq/seq/fill/sam 的输入全部带 fuse_m 与门（buf_reset 只在 start_fire/abort 时动）
+#   · segq 的 kick = start_fire && fuse_m ⇒ 不融合时永不推进（四路径一条都不走）
+#   · 描述符影子（sh_dw/sh_beat）只在 S_HDR 且 u_ce 时被写，不驱动任何 v39 信号

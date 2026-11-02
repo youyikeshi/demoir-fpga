@@ -1,0 +1,16 @@
+   lane16  bin_band_buf.v
+   lane16  bin_catpack_v50.v
+lane16/bin_conv_core_v50.v 重定义了基线模块 'bin_conv_core'（已在 bin_conv_core.v 里）—— 新 RTL 必须换新模块名
+    while executing
+"error "lane16/[file tail $_f] 重定义了基线模块 '$_m'（已在 [dict get $_base_mods $_m] 里）—— 新 RTL 必须换新模块名""
+    ("foreach" body line 3)
+    invoked from within
+"foreach {_all _m} [regexp -all -inline {\mmodule[ \t]+(\w+)} $_t] {
+        if {[dict exists $_base_mods $_m]} {
+            error "lane16/[file tail ..."
+    ("foreach" body line 3)
+    invoked from within
+"foreach _f $_lane16 {
+    set _fh [open $_f r]; set _t [read $_fh]; close $_fh
+    foreach {_all _m} [regexp -all -inline {\mmodule[ \t]+(\w+)} $_t] {..."
+    (file "runs/v82_naming/n6_dupname_check.tcl" line 22)

@@ -1,0 +1,31 @@
+== A) D1：寄存器段 / magic / CHAIN_STATUS / E1E2 共存 ==
+  V50_CHAIN_REG = {'CHAIN_HEAD': 768, 'PROGRESS': 772, 'BAND_ROWS': 776, 'FUSE_MODE': 780, 'CHAIN_STATUS': 784, 'CHAIN_ID': 788}
+  PASS 全部落在 0x300..0x314  [['0x300', '0x304', '0x308', '0x30c', '0x310', '0x314']]
+  PASS 与 E1E2 的 0x200 段无交集
+  PASS magic 期望值 = 0x76355000  [0x76355000]
+  PASS magic=0 ⇒ 不走链  [CHAIN_ID(magic @0x10314) 期望 0x76355000 读回 0x00000000 ⇒ 这条位流里没有链引擎（v50 寄存器在 0x300 段，0x200 段]
+  PASS magic=0x76355000 ⇒ 认链
+  （探针写过的 BAND_ROWS 寄存器 = 0x10308，值 8）
+  PASS FUSE=1 时 enable_e1e2() 不再拒绝
+  PASS FUSE=1 时 select(4) 可写 R_RUN_UNIT  [0x200=4]
+  PASS 提交写序 = BAND_ROWS(0x308) → FUSE_MODE(0x30C) → CHAIN_HEAD(0x300)  [['0x308', '0x30c', '0x300']]
+  PASS 提交期间没碰 0x200 段（E1E2 的 RUN_UNIT/E_GROUP/E_DESC/E_DESC_HI）  [['0x308', '0x30c', '0x300']]
+  PASS CHAIN_STATUS=0x1(done) + PROGRESS=4 ⇒ 完成  [{'progress': 4, 'cs': '0x1'}]
+  PASS 返回体带 chain_status=0x310 原值
+  v50_chain_status() 解析：{'raw': 1, 'done': 1, 'err': 0, 'busy': 0, 'code': 0}
+  PASS err 位 ⇒ 抛 BinRunError(code=5)  [code=5]
+== B) D3：段描述符 out_pa 恒为段基址（无双偏移）==
+  计划：223 段 / 387 条描述符
+  S1   h_out=32  W=32  bands=4  w1(out_pa)=['0x50004000']
+       带 y0=[0, 8, 16, 24] nband=[8, 8, 8, 8] cfg_h=[8, 8, 8, 8]
+       旧公式会给 out_pa=['0x50004000', '0x50004800', '0x50005000', '0x50005800']（每带不同 ⇒ 双重偏移）
+  S2   h_out=32  W=32  bands=4  w1(out_pa)=['0x50008000']
+       带 y0=[0, 8, 16, 24] nband=[8, 8, 8, 8] cfg_h=[8, 8, 8, 8]
+       旧公式会给 out_pa=['0x50008000', '0x50008800', '0x50009000', '0x50009800']（每带不同 ⇒ 双重偏移）
+  S6   h_out=32  W=32  bands=4  w1(out_pa)=['0x50018000']
+       带 y0=[0, 8, 16, 24] nband=[8, 8, 8, 8] cfg_h=[8, 8, 8, 8]
+       旧公式会给 out_pa=['0x50018000', '0x50018800', '0x50019000', '0x50019800']（每带不同 ⇒ 双重偏移）
+  PASS 所有融合段的所有带 w1 恒等于段基址
+  PASS hw=256：223 段 / 1184 条描述符 / 0 违规 / max(y0)=248
+  PASS out_pa 里不含字面 8 B/px 的带偏移（差值 = y0*W*8 已消失）  [见上面 S1/S2/S6 的旧/新对照]
+== 结论：PASS ==
