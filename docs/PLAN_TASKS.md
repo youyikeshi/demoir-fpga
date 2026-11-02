@@ -204,6 +204,9 @@ T-44 负例实测：把 `mmio_batch` 两行从清单里删掉，`md5sum -c` **�
 | **T-67b** | HDMI P2：DDR 扫描器（AXI 读→行缓冲→像素流）+ PS mmap 驱动 | `e7d02147` | ① `tb_hdmi_fb_scan` 逐字节一致（含 stride≠w*3）② `hdmi_selftest.py` 4 模式×3 输入 PASS ③ OOC LUT ≤ 600 / BRAM ≤ 4 ④ 换帧只在 vsync 生效 | `modules/hdmi_fb_scan.v` + `ps/pynq/hdmi_out.py` + `tools/hdmi_selftest.py` | **进行中** | T-67a 的时序接口 |
 | **T-67c** | HDMI P3：两个独立 BD（p1/p2）→ 位流 → 上板点亮 → 合并进推理位流 | `22df8a00`（P1 位流） | ① 彩条点亮 ② 真画面正确 ③ 合并后 54/54 sha1 不变 + 违例性质仍准静态 | `runs/hdmi/` | **待分派** | T-67a/b |
 
+| **T-67a2** | HDMI 修复：新增 `0x30 PIX_HB` 心跳（像素域翻转位 + `mmcm_locked`，2FF 跨域） | `7f046b46` | ① C-A 运行时两次读不同 ② **C-B 停掉像素时钟后 AXI 仍可读写** ③ C-C locked 跟随 ④ C-D 只读 ⑤ 三 TB + synthcheck + OOC 全过 | `modules/hdmi_out_top.v` + `tb_hdmi_top_cfg.v` + `reports/hdmi_p1/` | **进行中** | 事故 `runs/incident/20261103_0018*` |
+| **T-67c2** | HDMI 修复：BD 复位重构（`dcm_locked` 接常量、像素域单独复位）+ 结构断言 + 重建位流 | `0d69ee41` | ① `dcm_locked` 不再指向 MMCM.locked（Tcl 断言 ERROR 退出）② 两路像素时钟 WNS ≥ 0、latch 0 ③ 新 bit md5 + BD_NOTES §8 六步协议 | `pl/vivado/hdmi_p1/` + `runs/hdmi_p1/` | **进行中** | T-67a2 的新 md5 |
+
 **两条线的硬边界**
 - T-66 只改 PetaLinux 工程的 `project-spec/`，**不许碰** `ps/pynq/`（那是 T-15/T-16 的地盘）。
 - T-67 只新增 RTL 与一个独立 ps 模块，**不许改**位流里既有单元；新位流必须重新过 §3.3 的上板门槛。
