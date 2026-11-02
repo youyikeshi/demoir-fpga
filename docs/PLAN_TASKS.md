@@ -198,7 +198,7 @@ T-44 负例实测：把 `mmio_batch` 两行从清单里删掉，`md5sum -c` **�
 | 编号 | 计划 | 负责子代理 | 判据（可复算） | 交付物与落点 | 状态 | 依赖 |
 |---|---|---|---|---|---|---|
 | **T-66** | 摄像头：PetaLinux 开 PS USB Host（DWC2 + CDC_NCM + UVC + DT `usb0`） | 待分派 | ① `petalinux-build` rc=0 ② `system.dtb` 里 `usb@e0002000` = `okay`/`host` ③ 上板 `ls /sys/bus/usb/devices/` 非空、插 U 盘枚举出块设备 ④ 插 MaixCAM 后 `ping 10.13.148.1` 通 | `usb-host.cfg` + `system-user.dtsi`；日志 `/data/peta_prj/logs/03_usbhost.log`；文档 `docs/camera/` | **待分派** | — （工程已构建过一次，见 §1 现状） |
-| **T-67** | HDMI 输出运算结果（PL：时序+最近邻放大+TMDS；PS：mmap 配寄存器 + 双缓冲换帧） | 待分派 | ① 彩条点亮显示器（先证明链路） ② 换真实结果无错位 ③ 双缓冲无撕裂 ④ **整网 sha1 与秒级不变**（显示不得拖慢推理，退化 ≤2%） ⑤ 违例性质仍在准静态 CE 或 WNS ≥ 0 | 新 RTL + `ps/pynq/hdmi_out.py`；`runs/hdmi/`；评估见 `docs/camera/01_*` | **待分派** | HP2 空闲（现空闲）；`+1.5~2.5k LUT` |
+| **T-67** | HDMI 输出运算结果（PL：时序+线性扫描/最近邻；SIL9134 内部编码无需 TMDS；PS：mmap 配寄存器 + 双缓冲换帧） | 待分派 | ① 彩条点亮显示器（先证明链路） ② 换真实结果无错位 ③ 双缓冲无撕裂 ④ **整网 sha1 与秒级不变**（显示不得拖慢推理，退化 ≤2%） ⑤ 违例性质仍在准静态 CE 或 WNS ≥ 0 | 新 RTL + `ps/pynq/hdmi_out.py`；`runs/hdmi/`；评估见 `docs/camera/01_*` | **待分派** | HP2 空闲（现空闲）；`+0.5~0.8k LUT`（SIL9134 方案，见 docs/camera/04） |
 
 **两条线的硬边界**
 - T-66 只改 PetaLinux 工程的 `project-spec/`，**不许碰** `ps/pynq/`（那是 T-15/T-16 的地盘）。
