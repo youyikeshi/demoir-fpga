@@ -6238,3 +6238,29 @@ $$\Rightarrow\ \textbf{第 121 条：引用历史数字必须写清"哪个位流
 **资源竞争的旁况**
 $$\Rightarrow\ \text{另一会话}\textbf{绕过 } \mathtt{memgate}\ \text{裸起了 HDMI 的 vivado}（\text{未持锁）$$
 $$\Rightarrow\ \text{T-107 选择}\textbf{等它结束}，\text{没 } \mathtt{pkill} \Rightarrow \text{处置正确}$$
+
+### 70.76 ★★★★★ v53 板上双门禁全过：**整网回到冻结 sha1**（T-108，2026-11-03 00:13）
+
+**s=2 逐层门禁（A 类修好的直接证据）**
+| 层 | v51（同几何）| v53 |
+|---|---|---|
+| op65 `cin48 cout96 k3 s2` 32×32→16×16 | 6499/24576 错 + **4074 B 越界** + `f=(0,2,4,6,1,3,5,7,8,10,STALE,STALE)` | **0 B + 24576/24576**，`f=`恒等(0..11) |
+| op129 `cin96 cout192 k3 s2` 16×16→8×8 | — | **0 B + 0/12288**，`f=`恒等(0..23) |
+| `s=1` 对照 `cin512 k1` | — | 0 B + 0/196608，sha1 `b5ecf17a` = T-104 原值 |
+
+$$\Rightarrow\ \text{两次运行逐字节相同};\ \text{op65 sha1 } \mathtt{71b172ac};\ \text{op129 } \mathtt{575fb0d5}$$
+
+**整网门禁（本轮的核心结论）**
+$$\Rightarrow\ \mathtt{BIN\_LAZY\_DEQ=0}\ \text{冻结运行点，}\textbf{run1/run2 三 sha1 全 = } \mathtt{bfa246d3}/\mathtt{226bd39e}/\mathtt{762d84b9}\ \textbf{（冻结值）}$$
+$$\Rightarrow\ \text{两跑互比相同};\ \textbf{逐 op 395 个（conv 227）0 差异}$$
+$$\Rightarrow\ \textbf{交叉印证}：\text{与 T-104 的 v39 控制组 dump 比，op65 } \mathtt{c34c0594}、\text{op129 } \mathtt{a1b1605f}\ \textbf{sha1 完全相同}$$
+$$\quad\ \Rightarrow\ \text{这比"自己和自己一致"强得多} \Rightarrow \text{v53 的 } s{=}2\ \text{结果与 8-lane v39 一致}$$
+
+**PS 闭包**：`ps/` md5 -c **158/158**、deps 三处一致 + **20/20** + `--check` rc=0
+
+$$\Rightarrow\ \textbf{今天的第一个真实里程碑}：\text{16-lane 位流在 }\mathbf{50\ MHz}\ \text{下}\textbf{整网结果正确、可重复、且与 8-lane 基线一致}$$
+$$\quad\ \text{剩下的是}\textbf{频率}（\text{现在 50 MHz 太保守}）\ \text{与 }\mathtt{LAZY=1}\ \text{的 B 类}$$
+
+**未覆盖（T-108 自己标出）**
+$$\Rightarrow\ \text{未做频率阶梯}（\mathtt{WNS}\ +0.041\ \text{极薄，需单独一轮）$$
+$$\Rightarrow\ \mathtt{BIN\_LAZY\_DEQ=1}\ \text{的非确定问题本轮按指令绕开、未复测}$$
