@@ -1,0 +1,66 @@
+[t131] 日志 = /home/xilinx/demoir/t131_out/t131_seed0_074139.log
+[t131] arm = seed0 | bit = /home/xilinx/demoir/design_1_150v53.bit
+[t131] 目标频率 = 50 MHz | 槽数 = 24 | 跑 2 次
+[t131] 运行点 = {"BIN_PACK": "e1e2", "BIN_LAZY_DEQ": "0", "BIN_LAZY_SLOTS": "24", "BIN_CAT_FUSION": "1", "BIN_BILINEAR_C": "1", "BIN_PRECOMP": "1", "Q8CACHE": "1", "BIN_F32DIRECT": "1", "BIN_CAT_ECA_FUSE": "1", "BIN_EPI_NOINV": "1", "BIN_V50_FUSE": "", "BIN_VLANES": ""}
+[t131] meminfo = {'MemTotal': 1028264, 'MemFree': 764040, 'MemAvailable': 848544, 'SwapTotal': 524284, 'SwapFree': 524284, 'CmaTotal': 262144, 'CmaFree': 66032}
+
+==============================================================================
+  第 1 步：load v53 overlay + 指纹（本进程唯一一次 download=True）
+==============================================================================
+  Overlay(design_1_150v53.bit) 用时 2.514 s
+  IP 清单：['bin_unit_0', 'conv_uni_0', 'ps7']
+  conv_uni_0  base=0x40040000 length=0x20000 （期望 0x40040000）✓
+  bin_unit_0  base=0x40060000 length=0x20000 （期望 0x40060000）✓
+  **magic(0x314) = 0x50300001 期望 0x50300001 ⇒ 寄存器块在位 ✓**
+  **0x310 = 0x00000000 ⇒ 空闲 ✓**（load 后 PL 必须空闲）
+  load 后 fclk0 读回 = 125 MHz
+  ★ 第 1 步收尾：fclk0 目标 50 → **读回 50 MHz**；PL 状态 = {"fclk": 50.0, "base": "0x40060000", "magic": "0x50300001", "magic_ok": true, "st310": "0x00000000", "st310_zero": true, "done": false, "err": 0, "busy": false, "ap_ret_bin_unit_0": "0x00000000", "ap_ret_conv_uni_0": "0x00000000"}
+
+==============================================================================
+  第 1b 步：q8/c8deq/bpack 一次性装载（单独计时，不进稳态）
+==============================================================================
+  q8     load=0.259 s loaded=True why=ok
+  c8deq  load=4.399 s loaded=True why=ok
+  bpack  load=1.813 s loaded=True why=ok
+  **一次性装载合计 = 6.471 s**
+  128² 形状：max_in 0.295 MB / max_out 0.393 MB / 227 个 conv / 395 个 op
+  npix：max = 4096；npix ≥ 4096 的 op = 31 个
+  arena 需求：24 槽 × (0.295 + 0.393 MB + 4096) + 64 KB = **16.68 MB**
+  分配前 CmaFree = 2.00 MB
+  arena t131_arena128  16.68 MB / 24 槽 @0x30100000
+
+==============================================================================
+  整网 128²（LAZY_DEQ=0）arena 24 槽 / 16.68 MB，fclk 50 MHz，连跑 2 次
+==============================================================================
+  BV_FREE=0
+  conv 总拍数（RTL 公式，频率无关）= 113,098,752 ⇒ @50 MHz 纯算 2.262 s
+  输入 x0 sha1 = 26c9796e18f0e6883680693b805ce8bb7ad51486（冻结口径 26c9796e18f0e6883680693b805ce8bb7ad51486） ✓
+  [DEPS] q8=fast c8deq=fast bpack=fast e1e2=fast catpack=fast safe=fast  ⇒ deps_closure_ok=True
+  [layout] run1: 227 条 PL op 布局 → layout_net128_seed0_run1.json
+  [dump] run1: 395 个 op（conv 227）→ ops_net128_seed0_run1.json  digest=58326d5d43c6
+  run1: 墙钟 10.812 s | PL 3.632 s | PS 8.383 s | conv 227 | 布局 227 条
+        sha1 b611d7f18f57 / 33ada30f2513 / d34b5186f28d
+        布局指纹 = 0ee04d491ce1fc0d
+        整网后 0x310=0x00000000 magic=0x50300001 ✓ 归零（第 120 条）
+  [layout] run2: 227 条 PL op 布局 → layout_net128_seed0_run2.json
+  [dump] run2: 395 个 op（conv 227）→ ops_net128_seed0_run2.json  digest=f1546cb347e8
+  run2: 墙钟 9.281 s | PL 2.593 s | PS 6.966 s | conv 227 | 布局 227 条
+        sha1 5b631078c359 / d7baed673a01 / 735703d855a0
+        布局指纹 = 0ee04d491ce1fc0d
+        整网后 0x310=0x00000000 magic=0x50300001 ✓ 归零（第 120 条）
+  ⇒ 本臂 seed0：三 sha1 两次相同=False；布局两次相同=True
+       run1 b611d7f18f57fa54963f5ce2d4e84dbe8ebe7d15 / 33ada30f25137624c7fdbe9fe234782f1e16f474 / d34b5186f28d03bcd5cf4b09217ea30cba49237a
+       run2 5b631078c35911012b71cca71b3bd381763f4a1a / d7baed673a0143c64cf370e25e5587f2af981825 / 735703d855a0e532cd81632d590845caf4315d00
+
+==============================================================================
+  小结（arm=seed0）
+==============================================================================
+  PYTHONHASHSEED='0' hash_probe=0x2d83ca3a
+  128² run1 sha1 = b611d7f18f57fa54963f5ce2d4e84dbe8ebe7d15 / 33ada30f25137624c7fdbe9fe234782f1e16f474 / d34b5186f28d03bcd5cf4b09217ea30cba49237a
+       布局 = 0ee04d491ce1fc0d5bf6c5d44ab49d74cdb37a19
+  128² run2 sha1 = 5b631078c35911012b71cca71b3bd381763f4a1a / d7baed673a0143c64cf370e25e5587f2af981825 / 735703d855a0e532cd81632d590845caf4315d00
+       布局 = 0ee04d491ce1fc0d5bf6c5d44ab49d74cdb37a19
+  128² 两次相同 = False | 布局两次相同 = True
+  meminfo = {'MemTotal': 1028264, 'MemFree': 511440, 'MemAvailable': 624824, 'SwapTotal': 524284, 'SwapFree': 524284, 'CmaTotal': 262144, 'CmaFree': 704}
+[json] 已落盘 /home/xilinx/demoir/t131_out/t131_seed0_074139.json
+  ⇒ rc=4（两次 sha1 不同 = 结果，不是故障）

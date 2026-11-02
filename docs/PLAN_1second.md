@@ -6712,3 +6712,28 @@ $$\Rightarrow\ \textbf{第 127 条：判 }128^2/256^2\ \text{必须用}\textbf{�
 $$\quad\ \Rightarrow\ \text{我们现有的 } \mathtt{v39}\ \text{参照是板端跑的，}\textbf{这条不推翻已有结论}；\text{但它解释了"为什么} \pm1\ \text{级差异看起来像硬件错"}$$
 
 $$\Rightarrow\ \text{剩余唯一维度仍是"跨 op 上下文"}，\text{但形状/结构/流水都干净} \Rightarrow \textbf{下一步转向"非硬件非确定性"}$$
+
+### 70.96 T-131：PS 哈希序/布局非确定**被否**；首分歧恒为 op13/op15 的**缓冲尾部**（2026-11-03 05:1x）
+
+$$\Rightarrow\ \mathtt{PYTHONHASHSEED=0}\ \text{连跑两次：}\text{三 sha1}\textbf{仍不同} \Rightarrow \text{哈希序假设被否}$$
+$$\Rightarrow\ \text{seed }0/1/2\ \text{各两次} \Rightarrow \textbf{6 跑 6 组 sha1，15 对两两全不同}$$
+$$\Rightarrow\ \textbf{布局不是原因}：\text{15 对里 }\mathbf{10}\ \text{对逐字段全同}（\text{227 op 的 } \mathtt{idx/name/slot/in\_pa/out\_pa/in\_len/out\_len/cap）\ \text{而 sha1 不同}$$
+$$\Rightarrow\ \text{唯一布局差异 = }\mathtt{seed2\_run2}\ \text{的 2 行（}\mathtt{op79}/\mathtt{op109}\ \text{槽互换）}，\text{与种子无关、与输出无相关}$$
+$$\quad\ \Rightarrow\ \text{是 } \mathtt{\_free.pop(0)}\ \text{的自由表顺序翻转（}\mathtt{bin\_net.py:817\text{-}831/1129}）\text{，不是哈希序}$$
+$$\Rightarrow\ \text{主机静态三进程：395 op 的 } (\mathtt{id},\mathtt{kind},\mathtt{name})\ \text{逐 op 相同};\ \text{planner 无 str-keyed 迭代定序}$$
+
+**★ 最有价值的一条**
+$$\Rightarrow\ \textbf{首分歧恒为 } \mathtt{op13}（5\ \text{对）或 } \mathtt{op15}（10\ \text{对）}，\text{都是 } \mathtt{npix}{=}4096/\mathtt{cout}{=}32\ \text{的 PL conv}$$
+$$\Rightarrow\ \mathtt{op0}\dots\mathtt{op12}\ \text{六跑}\textbf{全同}（\text{PS 算子逐字节确定）}$$
+$$\Rightarrow\ \mathtt{op13/op15}\ \text{的}\mathbf{\text{前 }64\ \text{B 六跑逐字节相同}} \Rightarrow \textbf{差异只在缓冲尾部}$$
+$$\Rightarrow\ 142\ \text{个"变化的 PS 算子"全在其}\textbf{下游}（\text{继承，不是独立错）}$$
+$$\Rightarrow\ \Rightarrow\ \text{结论：仍指向 }\mathbf{\text{v53 PL 输出写回} \leftrightarrow \mathtt{done}\ \text{的尾部交接}}$$
+
+**★ 而 T-106 早就点过一处我一直没跟进的**
+$$\Rightarrow\ \mathtt{bin\_engine.py:2166\text{-}2177}\ \text{的 } \mathbf{\mathtt{BIN\_EPI\_NOINV}=1}\ \text{在 lazy 路径}\textbf{跳过 } \mathtt{\_invalidate}$$
+$$\quad\ \Rightarrow\ \text{其安全性论证是"所有 CPU 读都汇到 } \mathtt{read\_out(lazy=False)}\text{"——}\textbf{这个不变式从未被测过}$$
+$$\Rightarrow\ \text{而 T-125 实测 } \mathtt{arena.buf.cacheable = True} \Rightarrow \textbf{CPU 读是可缓存的}$$
+$$\Rightarrow\ \Rightarrow\ \textbf{若某块缓冲曾在前一个 op 被 CPU 读过（已被缓存），PL 覆盖它之后 CPU 再读} \Rightarrow \textbf{读到陈旧缓存}$$
+$$\quad\ \Rightarrow\ \text{这与全部现象吻合}：\text{只在整网（缓冲被复用）、}\text{尾部件（\text{部分行留在缓存里}）、\text{非确定（\text{取决于缓存状态}）}$$
+$$\quad\ \Rightarrow\ \text{而单层测试缓冲是"新鲜的"、从没被 CPU 读过} \Rightarrow \textbf{结构上测不到}$$
+$$\Rightarrow\ \text{已派 T-132 跑 } \mathbf{\mathtt{BIN\_EPI\_NOINV}=0}（\text{打开失效）} \Rightarrow \text{纯环境开关，不用改代码}$$
