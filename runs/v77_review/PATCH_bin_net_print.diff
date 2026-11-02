@@ -1,0 +1,19 @@
+--- worktrees/v50_impC/ps/pynq/bin_net.py	2026-11-02 15:25:49.293516400 +0800
++++ pynq_specialized_code/ps/pynq/bin_net.py	2026-11-02 15:33:32.295088200 +0800
+@@ -2613,7 +2613,15 @@
+             print(self._segplan.report(), flush=True)
+             if getattr(self._segplan, "segmap_ok", None) is not None:
+                 print("  分段交叉校验（segments.json）：%s"
+-                      % ("一致（%d 段逐 op 相同）" % self._segplan.segmap_n
++                      # ⚠ REVIEW 修（2026-11-02，1 行 print 格式）：segmap_n 是
++                      #   (map段数, 本实现段数) **二元组**，这里原来只写一个 %d
++                      #   ⇒ segments.json 存在时（= main 上恒定成立）`"%d" % (a,b)`
++                      #   抛 TypeError: not all arguments converted，整个
++                      #   `BIN_V50_FUSE=1` 在 `_v50_setup` 里当场 rc=1 崩掉。
++                      #   IMP-C 的 worktree 里 `worktrees/runs/m56_segments/` 不存在
++                      #   ⇒ segmap_ok=None ⇒ 这一行根本没执行，所以 D2 证据没暴露它。
++                      #   与 make_segment_plan 内第 1571 行的措辞/占位保持一致。
++                      % ("一致（%d/%d 段逐 op 相同）" % self._segplan.segmap_n
+                          if self._segplan.segmap_ok else
+                          "**不一致**（map %d / 本实现 %d）"
+                          % self._segplan.segmap_n), flush=True)

@@ -108,6 +108,49 @@ else:
     _ECA_WHY = "auto：sdot %s串行" % ("是" if FAST_ECA else "**不是**")
 
 # ============================================================================
+# 0.1 v50 两个新开关（**默认全关**；关着的时候一句话都不多说、一个字节都不改）
+#   BIN_V50_FUSE=1   段计划 + 描述符链（P1~P4/P6）
+#   BIN_CONVPF_PL=1  convfp 走 PL 的 fconv（P5）
+# ============================================================================
+_CONVPF_PL = os.environ.get("BIN_CONVPF_PL", "").strip().lower() in (
+    "1", "on", "true", "yes")
+_cpf_pl_why = None          # PL 回落原因（只打印一次）
+
+
+def _cpf_pl_note(why):
+    """convfp 的 PL 回落原因**只打印一次**（与 `bin_ref_numpy._cpf_note` 同款）。"""
+    global _cpf_pl_why
+    if _cpf_pl_why != why:
+        _cpf_pl_why = why
+        print("  [CONVPF_PL] %s ⇒ 回落 CPU 卷积（数值不变）" % (why,), flush=True)
+
+
+def convpf_pl_status():
+    """给报告/门禁用：`BIN_CONVPF_PL` 的状态（与 `convpf_c_status()` 并列，不替代）。"""
+    return dict(on=bool(_CONVPF_PL), why=(_cpf_pl_why or ""),
+                ok=bool(_CONVPF_PL and _cpf_pl_why is None))
+
+
+def _to_dev(a):
+    """numpy → 有物理地址的连续缓冲（板端 pynq.allocate；主机上原样返回并打标）。
+
+    主机/离线路径没有 pynq ⇒ 直接用 numpy 数组：`FconvEngine.launch` 只用到
+    `.physical_address`，取不到就抛 ⇒ `_fp_conv_pl` 捕获后**静默回落 CPU**
+    （D3 判据正是"没有 PL fconv 时能回落且 sha1 不变"）。
+    """
+    if a is None:
+        return None
+    try:
+        from pynq import allocate            # 只在板端有
+        n = int(np.asarray(a).nbytes)
+        buf = allocate(shape=(n,), dtype=np.uint8)
+        np.frombuffer(buf, np.uint8)[:] = np.ascontiguousarray(a).view(np.uint8).ravel()
+        buf.flush()
+        return buf
+    except Exception:                        # noqa: BLE001
+        return a                             # 没有 physical_address ⇒ 上层回落
+
+# ============================================================================
 # 0. 算子能力矩阵（**这一节就是"核实哪些能用 PS、哪些必须调 PL"的结论**）
 # ============================================================================
 CAPS = [
@@ -1107,6 +1150,432 @@ class _RefBackend:
                 None, 0.0)
 
 
+# ============================================================================
+# ★ v50（P1）：**一次算好整网段计划** —— `SegmentPlan`（段 + 描述符链 + 缓冲预算）
+# ----------------------------------------------------------------------------
+# 规格：`docs/V50_ARCHITECTURE.md` §2 D3/D6、§3 契约 B/D、§5 字节不变量。
+# 输入：`build_graph()` 的图（拓扑序 ops）+ `runs/m56_segments/segments.json`
+#       （分段地图；只用来**交叉校验**，不参与计算 —— 因为 hw=64/256 的图拓扑相同）。
+# 输出：每段 {op 列表、输入/输出形状、halo 行数、band 数、缓冲字节、PRM 字节、
+#        是否可融合}；每段展开成 `bands` 条描述符，段间用 `next_pa` 串成**整网一条链**。
+#
+# 分段规则（与 M56 的 223 段**逐 op 完全一致**，已验证 223/223）：
+#   按 `g.ops` 拓扑序游走；op 的输入张量若只被它一个消费者用（consumers==1），
+#   就并入**该张量生产者的段**，否则另起一段。⇔ "fan-out 处断段"。
+#   （等价说法：段边界 = 必须物化的张量，即 segments.json 里 consumers>1 的 220 张。）
+V50_VPA_BASE = 0x5000_0000        # 段计划里的"虚拟输出基址"（运行时被真 pa 替换）
+V50_SEGMAP_HINT = os.path.join(
+    os.path.dirname(os.path.dirname(os.path.dirname(
+        os.path.dirname(os.path.abspath(__file__))))),
+    "runs", "m56_segments", "segments.json")
+
+
+def v50_on():
+    """`BIN_V50_FUSE=1`（默认关）。P1~P6 全部挂在这一个开关下（C-C3）。"""
+    return BE.v50_fuse_on()
+
+
+def v50_vlanes():
+    return BE.vlanes_now()
+
+
+class SegPlan:
+    """一段：op 列表 + 形状 + halo + band 数 + 缓冲字节 + PRM 字节 + 融合判定。"""
+
+    __slots__ = ("seg_id", "op_ids", "names", "kinds", "ks", "band_rows", "bands",
+                 "halo_rows", "halo_bytes", "band_bytes", "buf_bytes", "prm_words",
+                 "prm_bytes", "h_in", "w_in", "c_in", "h_out", "w_out", "c_out",
+                 "over_budget", "fused", "why", "op_mask", "has_shuffle",
+                 "boundary_out", "in_tids", "out_tid", "n_desc")
+
+    def __init__(self, **kw):
+        for k in self.__slots__:
+            setattr(self, k, kw.get(k))
+
+    def __repr__(self):
+        return ("SegPlan(#%d %s halo=%s bands=%d buf=%.1fKB fused=%s)"
+                % (self.seg_id, "/".join(self.kinds or ()), self.halo_rows,
+                   self.bands, (self.buf_bytes or 0) / 1024.0, self.fused))
+
+    def report_row(self, vlanes=8):
+        kb = (self.buf_bytes or 0) / 1024.0
+        tag = "融合" if self.fused else ("**不融合**（%s）" % (self.why or "?"))
+        return ("  S%-3d n=%-2d %-34s %-22s halo=%-2s band=%-3d "
+                "buff=%7.1fKB halo_b=%6.1fKB prm=%-4dB×%-2d %s"
+                % (self.seg_id, len(self.op_ids or ()),
+                   "/".join(self.kinds or ())[:34],
+                   "%dx%dx%d->%dx%dx%d" % (self.c_in or 0, self.h_in or 0,
+                                           self.w_in or 0, self.c_out or 0,
+                                           self.h_out or 0, self.w_out or 0),
+                   self.halo_rows, self.bands, kb,
+                   (self.halo_bytes or 0) / 1024.0, self.prm_bytes or 0,
+                   int(self.bands or 1), tag))
+
+
+class SegmentPlan:
+    """整网段计划：段表 + 描述符链（10 字/条，4 KB 步进，next_pa 链式）。"""
+
+    def __init__(self, segments, band_rows, budget, vlanes, hw, hw_in):
+        self.segments = segments
+        self.band_rows = int(band_rows)
+        self.budget = int(budget)
+        self.vlanes = int(vlanes)
+        self.hw = int(hw)
+        self.hw_in = int(hw_in)
+        self.head_pa = 0
+        self.base_pa = 0
+        self.chain = []            # [[10 字], ...]
+        self.plan_pa = {}          # tid → 虚拟物理地址（0 = 不落 DDR）
+        self._pa_next = V50_VPA_BASE
+
+    # ---- 基本量 ----
+    @property
+    def n_seg(self):
+        return len(self.segments)
+
+    @property
+    def n_desc(self):
+        """描述符条数 = Σ(融合段的 bands)。**不融合的段退回逐 op ⇒ 不发描述符**。"""
+        return sum(int(s.bands) for s in self.segments if s.fused)
+
+    @property
+    def desc_bytes(self):
+        return BE.v50_chain_bytes(self.n_desc)
+
+    @property
+    def n_fused(self):
+        return sum(1 for s in self.segments if s.fused)
+
+    @property
+    def n_over(self):
+        return sum(1 for s in self.segments if s.over_budget)
+
+    def summary(self):
+        return dict(
+            n_seg=self.n_seg, n_desc=self.n_desc, n_fused=self.n_fused,
+            n_over_budget=self.n_over, band_rows=self.band_rows,
+            budget_bytes=self.budget, desc_bytes=self.desc_bytes,
+            chain_head=self.head_pa, vlanes=self.vlanes,
+            prm_words=BE.prm_words_per_group(self.vlanes),
+            total_band_bytes=int(sum((s.buf_bytes or 0) for s in self.segments)),
+            max_seg_buf=int(max([(s.buf_bytes or 0) for s in self.segments] or [0])),
+            seg_ids=[s.seg_id for s in self.segments])
+
+    # ---- 地址 ----
+    def _alloc_pa(self, nbytes):
+        """给"要落 DDR 的段输出"分配一个虚拟物理地址（64 B 对齐）。"""
+        n = int(nbytes)
+        pa = (self._pa_next + 63) // 64 * 64
+        self._pa_next = pa + max(64, n)
+        return pa
+
+    def pa_of(self, tid):
+        return int(self.plan_pa.get(tid, 0) or 0)
+
+    # ---- 报告（D4：每段缓冲字节 + 超预算标"不融合"）----
+    def report(self, max_rows=0, verbose=False):
+        lines = []
+        lines.append("== v50 段计划（P1）: %d 段 / %d 条描述符 / 带宽 %d 行 / "
+                     "预算 %.0f KB / VLANES=%d / PRM 帧 %d 字 =="
+                     % (self.n_seg, self.n_desc, self.band_rows,
+                        self.budget / 1024.0, self.vlanes,
+                        BE.prm_words_per_group(self.vlanes)))
+        lines.append("  段表（halo=Σ(k-1) 行；buff=2×band_rows×W×C int8；"
+                     "halo_b=Σ(k-1)·W·cin int8）：")
+        segs = self.segments if not max_rows else self.segments[:max_rows]
+        for s in segs:
+            lines.append(s.report_row(self.vlanes))
+        if max_rows and len(self.segments) > max_rows:
+            lines.append("  ...（共 %d 段，只打前 %d 段）"
+                         % (len(self.segments), max_rows))
+        over = [s for s in self.segments if s.over_budget]
+        lines.append("  预算校验：%d/%d 段在 %.0f KB 内；**%d 段超预算 => 标不融合**%s"
+                     % (self.n_seg - len(over), self.n_seg,
+                        self.budget / 1024.0, len(over),
+                        ("：S" + ",S".join(str(s.seg_id) for s in over[:12])
+                         + ("…" if len(over) > 12 else "")) if over else ""))
+        lines.append("  描述符链：%d 条 × %d B @ 4 KB 步进 = %.2f MB；链首 %#x"
+                     % (self.n_desc, BE.V50_DESC_WORDS * 4,
+                        self.desc_bytes / 1e6, self.head_pa))
+        return "\n".join(lines)
+
+    # ---- 链（D2：每条 10 字 + 链拓扑）----
+    def build_chain(self, base_pa=None):
+        """把段表展开成描述符链（纯计算，可离线跑）。返回 [[10 字], ...]。"""
+        descs = []
+        for s in self.segments:
+            if not s.fused:
+                continue                      # 退回逐 op 的段不进链
+            out_pa = self.pa_of(s.out_tid) if s.out_tid is not None else 0
+            in_pa = 0
+            if s.in_tids:
+                in_pa = self.pa_of(s.in_tids[0])
+            for b in range(int(s.bands)):
+                y0 = min(b, int(s.bands) - 1) * self.band_rows
+                ch = min(self.band_rows + int(s.halo_rows or 0),
+                         int(s.h_out or self.band_rows))
+                flags = 0
+                if b == int(s.bands) - 1:
+                    flags |= 0x1                       # 本段最后一带
+                if out_pa:
+                    flags |= 0x2                       # 段输出要物化（DDR）
+                if s.has_shuffle:
+                    flags |= 0x4
+                descs.append(BE.v50_desc(
+                    in_pa=in_pa, out_pa=out_pa,
+                    cfg_c=int(s.c_in or 0), cfg_h=int(ch),
+                    cfg_w=int(s.w_in or 0), cfg_group=0, band_y0=int(y0),
+                    op_mask=int(s.op_mask or 0), flags=flags, nband=1))
+        base = int(base_pa) if base_pa else \
+            (V50_VPA_BASE + 0x0080_0000)          # 离线：虚拟链首（4 KB 对齐）
+        self.chain = BE.v50_chain_words(descs, base)
+        self.head_pa = base if descs else 0
+        return self.chain
+
+    def materialize(self, arena=None):
+        """把链**写进 arena 的物理地址**（P2 的一半；另一半在 bin_engine）。
+
+        arena=None ⇒ 只算虚拟链首（离线打印用）。返回 `dict(head_pa=, n_desc=)`。
+        """
+        if not self.chain:
+            self.build_chain()
+        if arena is None:
+            return dict(head_pa=self.head_pa, n_desc=self.n_desc,
+                        bytes=self.desc_bytes, arena=False)
+        need = BE.v50_chain_bytes(self.n_desc)
+        view, pa = arena.region(need, align=BE.V50_DESC_STRIDE, name="v50desc")
+        # 重新按真实链首生成一遍（next_pa 必须落在真实 arena 内）
+        descs = []
+        for s in self.segments:
+            if not s.fused:
+                continue
+            out_pa = self.pa_of(s.out_tid) if s.out_tid is not None else 0
+            in_pa = self.pa_of(s.in_tids[0]) if s.in_tids else 0
+            for b in range(int(s.bands)):
+                y0 = min(b, int(s.bands) - 1) * self.band_rows
+                ch = min(self.band_rows + int(s.halo_rows or 0),
+                         int(s.h_out or self.band_rows))
+                flags = (0x1 if b == int(s.bands) - 1 else 0) | \
+                        (0x2 if out_pa else 0) | (0x4 if s.has_shuffle else 0)
+                descs.append(BE.v50_desc(
+                    in_pa=in_pa, out_pa=out_pa, cfg_c=int(s.c_in or 0),
+                    cfg_h=int(ch), cfg_w=int(s.w_in or 0), cfg_group=0,
+                    band_y0=int(y0), op_mask=int(s.op_mask or 0), flags=flags,
+                    nband=1))
+        head, words = BE.v50_chain_store(view, pa, descs)
+        self.chain = words
+        self.head_pa = head
+        self.base_pa = pa
+        # 这块视图同时当"段链暂存"（段一次只提交一条链 ⇒ 覆盖写安全），
+        # 于是 arena 只需要 desc_bytes 一块，不额外开第二块。
+        self.view = view
+        self.view_pa = int(pa)
+        return dict(head_pa=head, n_desc=len(descs), bytes=need, arena=True)
+
+    def write_segment_chain(self, descs):
+        """把**某一段**的链写进已分配的那块 arena（真实物理地址），返回 (链首, 字)。"""
+        view = getattr(self, "view", None)
+        if view is None:
+            raise RuntimeError("段链需要先 materialize(arena)")
+        return BE.v50_chain_store(view, int(self.view_pa), descs,
+                                  base_pa=int(self.head_pa) or None)
+
+    def dump_chain(self, max_desc=0, max_seg=0):
+        """D2 的打印形态：每条描述符 10 个字 + 链拓扑 + 链尾/对齐检查。"""
+        if not self.chain:
+            self.build_chain()
+        lines = ["== v50 描述符链（契约 B：10 字/40 B，4 KB 对齐，next_pa 链式）==",
+                 "  链首 %#x / %d 条 / %.2f MB"
+                 % (self.head_pa, self.n_desc, self.desc_bytes / 1e6)]
+        i = 0
+        for s in (self.segments if not max_seg else self.segments[:max_seg]):
+            if not s.fused:
+                lines.append("  -- S%d %s  **不融合（%s）⇒ 不发射描述符**"
+                             % (s.seg_id, "/".join(s.kinds or ()), s.why))
+                continue
+            lines.append("  -- S%d %s  bands=%d halo=%s 链段 [#%d..#%d)"
+                         % (s.seg_id, "/".join(s.kinds or ()), s.bands,
+                            s.halo_rows, i, i + int(s.bands) - 1))
+            for b in range(int(s.bands)):
+                if max_desc and i >= max_desc:
+                    break
+                w = self.chain[i]
+                lines.append("     [#%03d] %s" % (i, " ".join("%08x" % x for x in w)))
+                i += 1
+            if max_desc and i >= max_desc:
+                lines.append("     ...（只打前 %d 条）" % max_desc)
+                break
+        if self.chain:
+            ok = all((w[8] == 0) or (w[8] % BE.V50_DESC_STRIDE == 0)
+                     for w in self.chain)
+            lines.append("  链尾 next_pa = %#x（契约 B：0=链尾）；next_pa 4KB 对齐 %s"
+                         % (self.chain[-1][8], "OK" if ok else "**不 OK**"))
+        return "\n".join(lines)
+
+    # ---- 段计划 ↔ 帧间缓存键（P6）----
+    def sig(self):
+        return (self.vlanes, self.band_rows, self.budget,
+                tuple((s.seg_id, tuple(s.op_ids or ()), s.bands,
+                       s.c_in, s.h_in, s.w_in) for s in self.segments))
+
+    def sig_of_op(self, op_id):
+        for s in self.segments:
+            if op_id in (s.op_ids or ()):
+                return (s.seg_id, s.bands, s.c_in, s.h_in, s.w_in)
+        return None
+
+    def boundary_of(self, op_id):
+        """该 op 所在段 → 段边界张量 id 集合（fan-out 处必须物化）。"""
+        for s in self.segments:
+            if op_id in (s.op_ids or ()):
+                return tuple(s.boundary_out or ())
+        return ()
+
+
+def _load_segmap_hint(path=None):
+    """读 `segments.json`（只做交叉校验；读不到就返回 None，不报错）。"""
+    p = path or V50_SEGMAP_HINT
+    try:
+        with open(p, "r", encoding="utf-8") as f:
+            return json.load(f)
+    except Exception:                                    # noqa: BLE001
+        return None
+
+
+def make_segment_plan(g, outs, band_rows=None, budget=None, vlanes=None,
+                      segmap=None, segmap_path=None, verbose=False):
+    """**P1**：`build_graph()` 的图 → `SegmentPlan`（段 + 描述符链 + 缓冲预算）。
+
+    分段规则见本节顶部注释（与 M56 的 223 段逐 op 一致）。
+    `segmap` 给了就只在**段划分**上做一次交叉校验并打印"一致/不一致"，不用它算。
+    """
+    band_rows = int(BE.v50_band_rows() if band_rows is None else band_rows)
+    budget = int(BE.V50_BUDGET_BYTES if budget is None else budget)
+    V = int(BE.vlanes_now() if vlanes is None else vlanes)
+    prm_words = BE.prm_words_per_group(V)
+    cons = [len(v) for v in g.dependents]
+
+    # ---- 1) 分段：fan-out 处断段（op 只有一个消费者 ⇒ 并入生产者的段）----
+    groups, seg_of = [], {}
+    for o in g.ops:
+        cands = []
+        for d in o.deps:
+            p = d.producer
+            if p is not None and cons[d.id] == 1 and p.id in seg_of:
+                c = seg_of[p.id]
+                if c not in cands:
+                    cands.append(c)
+        if len(cands) == 1:
+            seg_of[o.id] = cands[0]
+            groups[cands[0]].append(o)
+        else:
+            seg_of[o.id] = len(groups)
+            groups.append([o])
+
+    tid2seg = {}
+    for si, ops in enumerate(groups):
+        for o in ops:
+            tid2seg[o.out.id] = si
+    net_outs = {t.id for t in outs.values()}
+    in_tids = {t.id for t in g.tensors if t.producer is None}
+
+    # ---- 2) 逐段：形状 / halo / band / 缓冲 / PRM / 融合判定 ----
+    segs = []
+    for si, ops in enumerate(groups):
+        kinds = [o.kind for o in ops]
+        first_shape = tuple(ops[0].deps[0].shape) if ops[0].deps else \
+            tuple(ops[0].out.shape)
+        out_shape = tuple(ops[-1].out.shape)
+        c_in, h_in, w_in = int(first_shape[0]), int(first_shape[1]), int(first_shape[2])
+        c_out, h_out, w_out = int(out_shape[0]), int(out_shape[1]), int(out_shape[2])
+        halo = 0
+        halo_b = 0
+        for o in ops:
+            if o.kind != "conv":
+                continue
+            k = int(o.layer.k)
+            if k > 1:
+                halo += k - 1
+                halo_b += (k - 1) * int(o.layer.W) * int(o.layer.cin)
+        # 守恒检查（§5-⑨：halo 不许少一行、不许重复累加）：段内要读的行数
+        # 不能超过输入张量的行数（多出来就是重复/多算）。
+        if halo and (band_rows + halo) > h_in:
+            halo = max(0, h_in - band_rows)      # 夹住：绝不读到输入之外
+        bands = max(1, (h_out + halo + band_rows - 1) // band_rows)
+        # 契约 D4：双缓冲 = 2 × band_rows × W × C × 1 B（int8）
+        band_bytes = 2 * band_rows * w_out * c_out
+        buf_bytes = band_bytes + halo_b
+        over = buf_bytes > budget
+        op_mask = 0
+        unsupported = sorted({k for k in kinds if k not in BE.V50_OP_BITS})
+        for k in kinds:
+            op_mask |= (1 << BE.V50_OP_BITS[k]) if k in BE.V50_OP_BITS else 0
+        why = None
+        if over:
+            why = "缓冲 %.1fKB > 预算 %.0fKB ⇒ 退回逐 op" % (
+                buf_bytes / 1024.0, budget / 1024.0)
+        elif unsupported:
+            why = "含 band 通路不支持的算子 %s ⇒ 退回逐 op" % (unsupported,)
+        # 段边界（fan-out 处必须物化）：段内产出、被段外读 或 是网络输出
+        boundary = []
+        for o in ops:
+            t = o.out
+            fed_outside = any(tid2seg.get(cid) not in (si, None) or cid in net_outs
+                              for cid in g.dependents[t.id])
+            if fed_outside or t.id in net_outs:
+                if t.id not in boundary:
+                    boundary.append(int(t.id))
+        last_tid = int(ops[-1].out.id)
+        if last_tid not in boundary:
+            boundary.append(last_tid)
+        seg = SegPlan(
+            seg_id=si, op_ids=[o.id for o in ops], names=[o.name for o in ops],
+            kinds=kinds, ks=[int(o.layer.k) for o in ops if o.kind == "conv"],
+            band_rows=band_rows, bands=bands, halo_rows=halo,
+            halo_bytes=halo_b, band_bytes=band_bytes, buf_bytes=buf_bytes,
+            prm_words=prm_words, prm_bytes=BE.v50_prm_bytes(c_out, V),
+            h_in=h_in, w_in=w_in, c_in=c_in, h_out=h_out, w_out=w_out,
+            c_out=c_out, over_budget=over, fused=(why is None), why=why,
+            op_mask=op_mask, has_shuffle=any(k in ("shuffle", "unshuffle")
+                                             for k in kinds),
+            boundary_out=boundary, in_tids=[t.id for t in ops[0].deps],
+            out_tid=ops[-1].out.id, n_desc=bands)
+        segs.append(seg)
+
+    plan = SegmentPlan(segs, band_rows, budget, V, g.ops[-1].out.shape[1],
+                       g.ops[0].deps[0].shape[1])
+
+    # ---- 3) 虚拟地址：只有"段输出要物化"的张量才落 DDR ----
+    for si, seg in enumerate(segs):
+        t = g.tensors[seg.out_tid]
+        c, h, w = (int(v) for v in t.shape)
+        c8 = (c + 7) // 8 * 8
+        plan.plan_pa[int(t.id)] = plan._alloc_pa(c8 * h * w)
+    for tid in in_tids:
+        t = g.tensors[tid]
+        c, h, w = (int(v) for v in t.shape)
+        plan.plan_pa[int(tid)] = plan._alloc_pa(c * h * w * 4)
+    plan.build_chain()
+
+    # ---- 4) 与 M56 分段地图交叉校验（只校验、不参与计算）----
+    sm = segmap if segmap is not None else _load_segmap_hint(segmap_path)
+    plan.segmap_ok = None
+    if sm is not None:
+        off = [set(int(x) for x in s.get("op_ids", ())) for s in sm.get("segments", ())]
+        mine = [set(s.op_ids) for s in segs]
+        plan.segmap_ok = (off == mine)
+        plan.segmap_n = (len(off), len(mine))
+    if verbose:
+        print(plan.report(), flush=True)
+        print("  分段交叉校验（segments.json）：%s"
+              % ("一致（%d/%d 段逐 op 相同）" % plan.segmap_n
+                 if plan.segmap_ok else
+                 ("**不一致**（map %d 段 / 本实现 %d 段）" % plan.segmap_n
+                  if plan.segmap_ok is not None else "无 segments.json，跳过")),
+              flush=True)
+    return plan
+
+
 class BinNet:
     def __init__(self, pack_dir, engine=None, H=64, W=64, verbose=True):
         self.pack_dir = pack_dir
@@ -1143,6 +1612,16 @@ class BinNet:
         self._qcache = None
         self._q8_fs_seen = {}
         self._q8_hits = 0
+        # ★ v50（`BIN_V50_FUSE=1`，默认关）：段计划 + 描述符链 + PL fconv 的状态。
+        #   默认全空 ⇒ v5 路径一个字节都不受影响（C-C3）。
+        self._v50 = False
+        self._segplan = None
+        self._v50_chain_ok = False
+        self._v50_why = ""
+        self._v50_skipped_ps = 0
+        self._fconv = None
+        self._fconv_why = ""
+        self._cpf_pl_stats = dict(n_pl=0, seconds=0.0, last="")
 
     @staticmethod
     def _new_cat_stats():
@@ -1457,8 +1936,16 @@ class BinNet:
             if not self._q8_multifs:
                 return None
         self._q8_fs_seen[tid] = fs
+        # ★ v50 P6：帧间缓存键含**段计划签名**（只有 `BIN_V50_FUSE=1` 才非 None；
+        #   默认 None ⇒ 键与命中行为逐字节不变）。
+        sig = None
+        if self._v50 and self._segplan is not None:
+            try:
+                sig = self._segplan.sig()
+            except Exception:                   # noqa: BLE001
+                sig = None
         try:
-            _buf, pa, _k, hit = c.get_c8(a, fs)
+            _buf, pa, _k, hit = c.get_c8(a, fs, plan_sig=sig)
         except Exception as _ex:                # noqa: BLE001
             try:
                 from qcache import QuantCacheStale
@@ -1520,6 +2007,16 @@ class BinNet:
 
     # ---- 非卷积算子（PS）----
     def _fp_conv(self, x, name, relu=False, stride=1, pad=0):
+        # ★ v50（P5，`BIN_CONVPF_PL=1`，默认关）：先把这一层交给 PL 的 fconv 单元
+        #   （`fconv.FconvEngine`，RTL 寄存器映射**一个字都不改**，C4）。
+        #   任何不满足的硬条件 / 异常 / 金丝雀失败 ⇒ **静默回落 CPU**，
+        #   只打一行原因（与 `bin_ref_numpy._cpf_note` 同款纪律）。
+        if _CONVPF_PL and not self._convfp_pl_ok(x, name, stride, pad):
+            pass                                    # 原因已在 _cpf_pl_note 里记过
+        elif _CONVPF_PL:
+            y = self._fp_conv_pl(x, name, relu, stride, pad)
+            if y is not None:
+                return y
         f = self.plan.fp[name]
         w = self.blob.fp_layer(name)[0]
         y = conv2d_f32(x, w, f.get("bias"), stride=stride, pad=pad)
@@ -1531,6 +2028,112 @@ class BinNet:
         if CONVPF_FUSE:
             return np.maximum(y, 0, out=y)
         return np.maximum(y, 0)
+
+    # ---- P5：convfp 走 PL（fconv_0；HP2 口，寄存器映射见 fconv.py）----
+    def _fconv_engine(self):
+        """惰性取 `FconvEngine`（板端 overlay 里找 `fconv_0`；拿不到 ⇒ None）。
+
+        **不改 `fconv.py`**：这里只是"调用方"，寄存器映射/校验/金丝雀全在 fconv.py。
+        """
+        if self._fconv is not None or self._fconv_why == "no-ov":
+            return self._fconv
+        ov = getattr(self.engine, "overlay", None)
+        if ov is None:
+            self._fconv_why = "no-ov"
+            _cpf_pl_note("没有 overlay（engine=None）")
+            return None
+        try:
+            import fconv as _fc
+            ip = None
+            for nm in ("fconv_0", "fconv"):
+                try:
+                    ip = getattr(ov, nm)
+                    break
+                except Exception:                     # noqa: BLE001
+                    ip = None
+            if ip is None:
+                _cpf_pl_note("overlay 里没有 fconv_0（BD 未加 fconv/HP2）")
+                self._fconv_why = "no-ip"
+                return None
+            self._fconv = _fc.FconvEngine(ip)
+            try:
+                self._fconv.nlanes()
+            except Exception as _ex:                  # noqa: BLE001
+                _cpf_pl_note("fconv 寄存器读不通（%r）" % (_ex,))
+                self._fconv = None
+                self._fconv_why = "no-reg"
+        except Exception as _ex:                      # noqa: BLE001
+            _cpf_pl_note("import fconv 失败（%r）" % (_ex,))
+            self._fconv_why = "no-mod"
+            self._fconv = None
+        return self._fconv
+
+    def _convfp_pl_ok(self, x, name, stride, pad):
+        """fconv 的硬条件（不满足就**不试**，直接回落 CPU 并记一行原因）。"""
+        f = self.plan.fp[name]
+        w = self.blob.fp_layer(name)[0]
+        cout, cin, k = int(w.shape[0]), int(w.shape[1]), int(w.shape[2])
+        H, W = int(x.shape[1]), int(x.shape[2])
+        if self._fconv_engine() is None:
+            return False
+        why = None
+        if stride != 1:
+            why = "stride=%d（fconv 只支持 1）" % stride
+        elif k not in (3, 5):
+            why = "k=%d（fconv 只支持 3/5）" % k
+        elif pad != (k - 1) // 2:
+            why = "pad=%d != (k-1)/2=%d" % (pad, (k - 1) // 2)
+        elif W % 32:
+            why = "W=%d 不是 32 的倍数（tile 宽 TW=32）" % W
+        elif not (1 <= cin <= 64):
+            why = "cin=%d 越界（1..64）" % cin
+        elif not (1 <= cout <= 48):
+            why = "cout=%d 越界（1..48）" % cout
+        elif cin * k * k > 1024:
+            why = "cin·k²=%d > 1024（wbank 深度）" % (cin * k * k)
+        elif f.get("bias") is None:
+            why = "没有 bias"
+        if why:
+            _cpf_pl_note("%s: %s" % (name, why))
+            return False
+        return True
+
+    def _fp_conv_pl(self, x, name, relu, stride, pad):
+        """把 x/w/b 搬进连续缓冲 → `FconvEngine.launch` → 逐位校验金丝雀。
+
+        失败（任何异常）⇒ 记一行原因并返回 None（调用方回落 CPU，sha1 不变）。
+        """
+        eng = self._fconv_engine()
+        if eng is None:
+            return None
+        try:
+            import numpy as _np
+            w = self.blob.fp_layer(name)[0]
+            b = self.plan.fp[name].get("bias")
+            cout, cin, k = (int(v) for v in w.shape[:3])
+            H, W = int(x.shape[1]), int(x.shape[2])
+            xa = _np.ascontiguousarray(x, _np.float32)
+            wa = _np.ascontiguousarray(w, _np.float32)
+            ba = None if b is None else _np.ascontiguousarray(b, _np.float32)
+            xb = _to_dev(xa)
+            wb = _to_dev(wa)
+            bb = _to_dev(ba) if ba is not None else None
+            t0 = time.time()
+            y = eng.launch(xb, wb, bb, cin=cin, cout=cout, k=k, stride=1,
+                           pad=pad, H=H, W=W, relu=int(bool(relu)),
+                           bias_en=int(ba is not None))
+            self._cpf_pl_stats["n_pl"] += 1
+            self._cpf_pl_stats["seconds"] += time.time() - t0
+            self._cpf_pl_stats["last"] = name
+            # fconv.py 已经在 launch 内查过金丝雀；这里再核一次尺寸
+            if tuple(y.shape) != (cout, H, W):
+                _cpf_pl_note("PL 输出形状 %s != (%d,%d,%d) ⇒ 回落 CPU"
+                             % (tuple(y.shape), cout, H, W))
+                return None
+            return _np.ascontiguousarray(y, _np.float32)
+        except Exception as _ex:                      # noqa: BLE001
+            _cpf_pl_note("PL 执行失败（%r）" % (_ex,))
+            return None
 
     # ------------------------------------------------------------------
     # 3.1 建图：把 run() 的递归改成"建节点"。**拓扑与运算顺序与原实现一一对应**
@@ -1661,6 +2264,13 @@ class BinNet:
     # 3.2 执行：单 PL 资源 + PS 资源的列表调度
     # ------------------------------------------------------------------
     def _exec_ps(self, op):
+        # ★ v50（P4）：**段内**小算子不再由 PS 逐个驱动 —— 融合段里除"段边界物化"
+        #   以外的算子都由 PL 的 band 通路按 `op_mask` 原地做。真被调到这里说明
+        #   调度有 bug ⇒ 明确报错（不静默算错）。默认 `_v50=False` ⇒ 直接跳过。
+        if self._v50 and self._v50_chain_ok and self._v50_is_interior(op):
+            raise RuntimeError(
+                "v50 段内算子不该由 PS 驱动：%s（段 #%s 的内部 op，应由 PL band "
+                "通路按 op_mask 完成）" % (op.name, self._v50_seg_of(op)))
         k = op.kind
         if k == "cat":
             # ★ CATPACK=1：所有叶子都在 PL 可读的 f32 池里 ⇒ **不物化**，只记录
@@ -1798,6 +2408,239 @@ class BinNet:
             return pixel_unshuffle(v[0], 2)
         raise MissingPiece("没有实现 op 类型 %s（%s）" % (k, op.name))
 
+    # ------------------------------------------------------------------
+    # 3.2b v50（P4）：段级驱动 —— 段内 op 不再逐个驱动，只处理段边界
+    # ------------------------------------------------------------------
+    def _v50_seg_of(self, op):
+        p = self._segplan
+        if p is None:
+            return None
+        for s in p.segments:
+            if op.id in (s.op_ids or ()):
+                return s.seg_id
+        return None
+
+    def _v50_is_interior(self, op):
+        """该 op 是不是"融合段内部"（既不是段首也不是段尾）。"""
+        p = self._segplan
+        if p is None:
+            return False
+        for s in p.segments:
+            ids = s.op_ids or ()
+            if op.id in ids and s.fused:
+                return op.id not in (ids[0], ids[-1])
+        return False
+
+    def _v50_exec_one(self, o, be, prof):
+        """v5 的逐 op 执行体（原 `_run_serial` 的循环体，原样搬进来复用）。"""
+        t0 = time.time()
+        if o.kind == "conv":
+            task = be.submit(o)
+            y, _rs, _te = be.finish(task)
+            o.out.val = y
+            prof["conv"] = prof.get("conv", 0.0) + (time.time() - t0)
+        else:
+            o.out.val = self._exec_ps(o)
+            prof[o.kind] = prof.get(o.kind, 0.0) + (time.time() - t0)
+
+    def _v50_exec_segment(self, seg, ops, be):
+        """一个**融合段** = 一次提交链首 + 等整链 done（P3/P4）。
+
+        返回提交的描述符条数。做不到就抛 `MissingPiece`（调用方**整段回落逐 op**，
+        绝不静默错数）：段输入不是 PL 可读的 int8 C8 张量 / 链引擎未就位 /
+        段尾不是 conv（没有 fs_out 标度可反量化）。
+        """
+        e = getattr(be, "e", None) or self.engine
+        if e is None or not getattr(e, "v50_chain_ready", None) or \
+                not e.v50_chain_ready():
+            raise MissingPiece("链引擎未就位（%s）"
+                               % (getattr(e, "v50_chain_why", lambda: "no engine")(),))
+        view = getattr(self, "_v50_chain_view", None)
+        if view is None or not hasattr(be, "_acquire_slot"):
+            raise MissingPiece("没有链 arena / _PlBackend 槽管理")
+        src = ops[0].deps[0].val
+        if not (isinstance(src, BE.C8Tensor) and src.is_int8
+                and int(getattr(src, "pa", 0) or 0) != 0):
+            raise MissingPiece("段输入是 %s（不是 int8 C8）⇒ 先物化"
+                               % (type(src).__name__,))
+        last = ops[-1]
+        if last.kind != "conv":
+            raise MissingPiece("段尾是 %s（没有 fs_out 标度可反量化）" % (last.kind,))
+        slot = be._acquire_slot()
+        outb = be.out_slots[slot]
+        out_pa = int(getattr(outb, "physical_address", 0) or 0)
+        if out_pa == 0:
+            be._release_slot(slot)
+            raise MissingPiece("段输出槽没有物理地址")
+        try:
+            row_bytes = int(seg.w_out) * 8            # C8：一行 8 通道组 × W
+            descs = []
+            for b in range(int(seg.bands)):
+                y0 = min(b, int(seg.bands) - 1) * int(seg.band_rows)
+                flags = (0x1 if b == int(seg.bands) - 1 else 0) | 0x2
+                if seg.has_shuffle:
+                    flags |= 0x4
+                descs.append(BE.v50_desc(
+                    in_pa=int(src.pa), out_pa=out_pa + y0 * row_bytes,
+                    cfg_c=int(seg.c_in),
+                    cfg_h=int(seg.band_rows + (seg.halo_rows or 0)),
+                    cfg_w=int(seg.w_in), cfg_group=0, band_y0=int(y0),
+                    op_mask=int(seg.op_mask), flags=flags, nband=1))
+            head, _words = self._segplan.write_segment_chain(descs)
+            e.v50_submit_chain(head, len(descs))
+            e.v50_wait_chain()
+            # 段输出：走 v5 的 epilogue（read_out 的 C8 还原 + 反量化，同标度）
+            last.out.val = e.read_out(outb, last.layer)
+        finally:
+            be._release_slot(slot)
+        return len(descs)
+
+    def _v50_chain_probe(self):
+        """问引擎：链模式可用吗？（`BIN_V50_FUSE=0` 时直接 False，不碰寄存器）"""
+        if not self._v50:
+            return False
+        if self.engine is None:
+            self._v50_why = "engine=None（纯 PS 参考后端，没有 PL 可提交链）"
+            return False
+        try:
+            ok = bool(self.engine.v50_chain_ready())
+            if not ok:
+                self._v50_why = self.engine.v50_chain_why()
+            return ok
+        except Exception as _ex:                          # noqa: BLE001
+            self._v50_why = "链探针异常：%r" % (_ex,)
+            return False
+
+    def _v50_materialize(self, arena):
+        """把段计划的描述符链**写进 arena 的真实物理地址**（P2 的 PS 侧一半）。
+
+        顺带留一块同尺寸的"段链暂存"（同样的 4 KB 对齐规则），供 `_run_v50`
+        在段级提交时按真实 in/out pa 重写——因为段的输入/输出地址只有运行时
+        才知道（建计划时用的是虚拟地址）。
+        """
+        try:
+            info = self._segplan.materialize(arena)
+            self._v50_chain_view = getattr(self._segplan, "view", None)
+            self._v50_chain_pa = int(getattr(self._segplan, "head_pa", 0) or 0)
+            if BE._v50_env_on("BIN_V50_DUMP") or self.verbose:
+                print("  [V50] 描述符链已落到 arena：链首 %#x，%d 条，%.2f MB"
+                      % (info["head_pa"], info["n_desc"],
+                         self._segplan.desc_bytes / 1e6), flush=True)
+        except Exception as _ex:                          # noqa: BLE001
+            self._v50_chain_view = None
+            self._v50_chain_pa = 0
+            self._v50_why = "链落不到 arena（%r）⇒ 回落 v5 逐 op" % (_ex,)
+            print("  ⚠ [V50] %s" % (self._v50_why,), flush=True)
+
+    def _run_v50(self, g, outs, be, t_all):
+        """**段级调度**：融合段一次提交整链，非融合段逐 op；段边界处物化。"""
+        plan = self._segplan
+        prof = {}
+        t_chain = 0.0
+        n_chain_desc = 0
+        n_seg_chain = 0
+        n_seg_ps = 0
+        for seg in plan.segments:
+            ops = [g.ops[i] for i in seg.op_ids]
+            done = False
+            if seg.fused and self._v50_chain_ok:
+                t0 = time.time()
+                try:
+                    n_chain_desc += self._v50_exec_segment(seg, ops, be)
+                    done = True
+                    n_seg_chain += 1
+                except Exception as _ex:                  # noqa: BLE001
+                    self._v50_why = ("段 S%d 链执行失败（%s）⇒ 该段回落逐 op"
+                                     % (seg.seg_id, _ex))
+                    self._v50_chain_ok = False            # 只回落一次，不逐段重试
+                    print("  ⚠ [V50] %s" % (self._v50_why,), flush=True)
+                t_chain += time.time() - t0
+            if not done:
+                n_seg_ps += 1
+                for o in ops:
+                    if o.out.val is None:
+                        self._v50_exec_one(o, be, prof)
+            # ---- 段边界：fan-out 张量在此物化（P4 的"只处理段边界"）----
+            for tid in seg.boundary_out:
+                t = g.tensors[tid]
+                if isinstance(t.val, _CatLazy):
+                    t.val = self._materialize(t.val)
+        dur = time.time() - t_all
+        _kd = BE.kernel_deps()
+        self.stats = dict(prof=prof, total=dur, pipeline=False, backend="v50",
+                          ps_nonconv=sum(prof.values()), convs=n_seg_chain,
+                          ps_ops=n_seg_ps,
+                          # 与 v5 的桶名对齐（门禁脚本按这些键取数；缺键会 KeyError）
+                          pl=t_chain, ps=sum(prof.values()),
+                          ps_prologue=0.0, ps_epilogue=0.0,
+                          ps_prologue_overlap=0.0, wait=0.0, overlap=0.0,
+                          cfg_hits=getattr(be, "cfg_hits", 0),
+                          cfg_miss=getattr(be, "cfg_miss", 0),
+                          t_chain=t_chain, chain_desc=n_chain_desc,
+                          v50=self._v50_stats(),
+                          mmio_writes=getattr(self.engine, "_writes", 0),
+                          mmio_skipped=getattr(self.engine, "_writes_skipped", 0),
+                          kernel_deps=_kd,
+                          deps_closure_ok=BE.deps_closure_ok(_kd),
+                          perf_gate=[], run_valid=BE.deps_closure_ok(_kd))
+        return {k: self._materialize(t.val) for k, t in outs.items()}, self.stats
+
+    def _v50_stats(self):
+        p = self._segplan
+        out = dict(on=bool(self._v50), chain=bool(self._v50_chain_ok),
+                   why=self._v50_why, fconv=convpf_pl_status(),
+                   convfp_pl=dict(self._cpf_pl_stats))
+        if p is not None:
+            out.update(p.summary())
+            out["segmap_ok"] = getattr(p, "segmap_ok", None)
+        return out
+
+    def _v50_setup(self, g, outs):
+        """建段计划（P1）+ 打印（D4/D2）+ 探针（P3）。任何异常 ⇒ 说一行就回落。"""
+        self._v50 = True
+        self._segplan = None
+        try:
+            self._segplan = make_segment_plan(
+                g, outs, band_rows=BE.v50_band_rows(), budget=BE.V50_BUDGET_BYTES,
+                vlanes=BE.vlanes_now(),
+                segmap_path=os.environ.get("BIN_V50_SEGMAP") or None,
+                verbose=False)
+        except Exception as _ex:                          # noqa: BLE001
+            self._v50_why = "段计划构建失败：%r ⇒ 回落 v5 逐 op" % (_ex,)
+            print("  ⚠ [V50] %s" % (self._v50_why,), flush=True)
+            return False
+        if BE._v50_env_on("BIN_V50_DUMP") or self.verbose:
+            print(self._segplan.report(), flush=True)
+            if getattr(self._segplan, "segmap_ok", None) is not None:
+                print("  分段交叉校验（segments.json）：%s"
+                      # ⚠ REVIEW 修（2026-11-02，1 行 print 格式）：segmap_n 是
+                      #   (map段数, 本实现段数) **二元组**，这里原来只写一个 %d
+                      #   ⇒ segments.json 存在时（= main 上恒定成立）`"%d" % (a,b)`
+                      #   抛 TypeError: not all arguments converted，整个
+                      #   `BIN_V50_FUSE=1` 在 `_v50_setup` 里当场 rc=1 崩掉。
+                      #   IMP-C 的 worktree 里 `worktrees/runs/m56_segments/` 不存在
+                      #   ⇒ segmap_ok=None ⇒ 这一行根本没执行，所以 D2 证据没暴露它。
+                      #   与 make_segment_plan 内第 1571 行的措辞/占位保持一致。
+                      % ("一致（%d/%d 段逐 op 相同）" % self._segplan.segmap_n
+                         if self._segplan.segmap_ok else
+                         "**不一致**（map %d / 本实现 %d）"
+                         % self._segplan.segmap_n), flush=True)
+        if BE._v50_env_on("BIN_V50_DUMP"):
+            print(self._segplan.dump_chain(
+                max_desc=int(os.environ.get("BIN_V50_DUMP_DESC", "0")),
+                max_seg=int(os.environ.get("BIN_V50_DUMP_SEG", "0"))), flush=True)
+        self._v50_chain_ok = self._v50_chain_probe()
+        if self._v50 and not self._v50_chain_ok:
+            print("  ⚠ [V50] 链模式不可用（%s）⇒ 本跑仍走 v5 逐 op（数值逐字节不变）"
+                  % (self._v50_why,), flush=True)
+        elif self._v50_chain_ok:
+            print("  [V50] 链模式就位：整网 %d 段 / %d 条描述符 / 链首 %#x；"
+                  "**每次提交一条链**，逐段 fan-out 处物化"
+                  % (self._segplan.n_seg, self._segplan.n_desc,
+                     self._segplan.head_pa), flush=True)
+        return True
+
+
     def run(self, x0, pipeline=True, nbuf=2, verify=False, arena=None):
         """x0: float (3,H,W)。返回 (dict 各级输出, 统计)。
 
@@ -1831,6 +2674,20 @@ class BinNet:
         _deps_warm = BE.deps_warm()
         g, outs, tin = self.build_graph(t)
         self._graph = g
+
+        # ★ v50（P1/P3/P4，`BIN_V50_FUSE=1`，默认关）：
+        #   建图完之后**立刻**把整网段计划算好（段 + 描述符链 + 缓冲预算）。
+        #   链要等 arena 建出来才能落到真实物理地址，所以"写链"推迟到
+        #   `be` / `arena` 就绪之后（见下面 `self._v50_materialize(arena)`）。
+        #   默认关 ⇒ 这一段不执行，`self._v50=False`，后面 v5 路径逐字节不变。
+        self._v50 = False
+        self._segplan = None
+        self._v50_chain_ok = False
+        self._v50_chain_view = None
+        self._v50_chain_pa = 0
+        self._v50_why = ""
+        if v50_on():
+            self._v50_setup(g, outs)
 
         # ★ CATPACK=1（默认关）：cat 不物化 + catpack 直读 f32。
         #   需要源在 PL 可读的物理内存里（BIN_F32POOL=1 的池）；拿不到 pa 的段
@@ -1942,11 +2799,18 @@ class BinNet:
             from bin_engine import f32pool_plan
             _pool_n, _pool_slot = f32pool_plan(conv_ops)
             need = (max_in * nbuf + (max_out + 4096) * nbuf + (1 << 16))
+            # ★ v50：描述符链也要落在这块 arena 里（每条 4 KB），只在开链时加尺寸。
+            _v50_need = 0
+            if self._v50 and self._segplan is not None:
+                _v50_need = self._segplan.desc_bytes
+                need += _v50_need
             if arena is None:                 # 板端：自己拿一块 CMA
                 from bin_engine import BinArena
                 arena = BinArena(need, name="net")
             self.engine.add_region(arena.buf, "net")
             be = _PlBackend(self, arena, max_in, max_out, nbuf=nbuf, verify=verify)
+            if _v50_need:
+                self._v50_materialize(arena)
             if _pool_n:
                 try:
                     self.engine.enable_f32_pool(arena, nslots=_pool_n,
@@ -1962,6 +2826,11 @@ class BinNet:
 
         if not pipeline:
             return self._run_serial(g, outs, be, t_all)
+
+        # ★ v50（P4）：段级调度（融合段 = 一次提交整链；其余逐 op）。
+        #   链引擎未就位 / 段链拿不到输入 ⇒ `_run_v50` 内部逐段回落，结果与 v5 相同。
+        if self._v50 and self._segplan is not None:
+            return self._run_v50(g, outs, be, t_all)
 
         # ---- 依赖计数 → 就绪队列（conv 与 PS 分两个堆，按 op 序取最靠前的）----
         for o in g.ops:

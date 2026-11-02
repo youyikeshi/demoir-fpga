@@ -1,0 +1,45 @@
+B1  FUSE_MODE=0 / VLANES=8 等价性证据（只增不改）
+   v39 行数 = 2785   v50 行数 = 3168
+   新增行 = 427   被替换的 v39 行 = 44   非 equal 块 = 25
+   其中 INSERT 块 11 个、REPLACE 块 14 个
+
+   REPLACE 块共 14 处，逐处说明（其余 421 行全是纯新增）：
+   v39:299   模块改名 bin_unit_axi_wrap → bin_unit_axi_wrap_v50（§9 命名契约）
+   v39:358   参数表尾加逗号 + 追加 v50 参数（默认值 ⇒ 不传参 = v39）
+   v39:929   启动闸门加 !fuse_cfg_bad（FUSE_MODE=0 时该信号恒 0 ⇒ 条件不变）
+   v39:935   错误码取值加三目：vcode_q!=0 时仍是 vcode_q（原值）
+   v39:1219  c_wr_data/sel 位宽 VLANES*8/VLANES（VLANES=8 ⇒ 64/8，与原逐位同）
+   v39:1229  插 cfg/base mux：fuse_m=0 时右支 = v39 的 r_*
+   v39:1234  核例化加 .VLANES(VLANES) + 实例名 u_core（端口名一个没改）
+   v39:1243  核的 cfg/base 接 mux 后的 c_*（fuse_m=0 时逐位 = r_*）
+   v39:1264  核 .mem_rd_data 接 core_rd_data（fuse_m=0 时 = u_rd_data）
+   v39:1291  E1E2 .mem_rd_data 接 pack_rd_data（fuse_m=0 时 = u_rd_data）
+   v39:1327  u_* 改名 u_*_i（v39 原路），写口改接 cw_beat_*（8 lane 时纯直通）
+   v39:1337  u_err 改名 u_err_i
+   v39:1594  wr_wide_b/wr_byte 的 u_ce → wr_accept_ok（= u_ce || wr_xfer；VLANES≤8 时 wr_xfer 恒 0）
+   v39:1620  u_ce 增加 !wr_split_busy（VLANES≤8 时恒 0）
+
+   结论：FUSE_MODE=0 且 VLANES=8 时，上面每一处 REPLACE 的右支都与被替换的 v39 表达式
+         逐位相同（fuse_m/sel_fuse_q/wr_xfer/wr_split_busy/fuse_cfg_bad 全为常量 0，
+         c_wr_data[63:0]/c_wr_sel[7:0] 与原 64/8 位等宽）⇒ 行为等价。
+
+B1-b 0x200..0x20C 零改动：v39 有 18 条 0x2xx case 项，v50 有 18 条
+     v39 的每一条仍逐字存在： True
+       keep: 10'h200: run_unit <= bmerge({29'd0, run_unit}, wr_data, wr_strb);
+       keep: 10'h204: r_egrp  <= bmerge(r_egrp,  wr_data, wr_strb);
+       keep: 10'h208: r_edesc <= bmerge(r_edesc, wr_data, wr_strb);
+       keep: 10'h210: r_eout  <= bmerge(r_eout,  wr_data, wr_strb);
+       keep: 10'h20C: r_e_hi_bad[0] <= (wr_data != 32'd0);
+       keep: 10'h214: r_e_hi_bad[1] <= (wr_data != 32'd0);
+       keep: 10'h230: clr_e_dbg <= 1'b1;
+       keep: 10'h200: rd_mux = {29'd0, run_unit};
+       keep: 10'h204: rd_mux = r_egrp;
+       keep: 10'h208: rd_mux = r_edesc;
+       keep: 10'h20C: rd_mux = {31'd0, r_e_hi_bad[0]};
+       keep: 10'h210: rd_mux = r_eout;
+       keep: 10'h214: rd_mux = {31'd0, r_e_hi_bad[1]};
+       keep: 10'h230: rd_mux = cnt_e_rd;
+       keep: 10'h234: rd_mux = cnt_e_cyc;
+       keep: 10'h238: rd_mux = cnt_e_rdst;
+       keep: 10'h23C: rd_mux = cnt_e_wrst;
+       keep: 10'h240: rd_mux = cnt_e_wr;

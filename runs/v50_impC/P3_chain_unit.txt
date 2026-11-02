@@ -1,0 +1,12 @@
+chain_ready: True why: 
+head=0x20000000 条数=3 next_pa=['0x20001000', '0x20002000', '0x0'] tail=0x0
+提交后已写 CHAIN_HEAD? None busy: 1 chain: True
+第二次 kick 被拒 ✓: v50 链在飞行中（head=0x20000000，progress=0/3）：禁止第二次 kick
+poll(2/3) -> None
+wait -> {'n': 3, 'progress': 3, 'seconds': 3.600120544433594e-05}
+chain_stats: {'chains': 1, 'descs': 3, 'seconds': 3.600120544433594e-05, 'progress': 3}
+err 抛 BinRunError ✓: v50 链报错：ERR_SHIFT（progress=3/3，head=0x20000000）；RTL 已停止推进，**不再发第二次 kic
+poison: err=3 3 @progress=3/3 head=0x20000000 chain: None
+poison 后拒绝再 kick ✓
+超时抛 TimeoutError ✓: v50 链超时 0.2 s（progress=0/3，head=0x20000000）；**不再发第二次 kick**，
+ALL CHAIN UNIT CHECKS PASS

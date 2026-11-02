@@ -1,0 +1,385 @@
+--- build_final_150v43base2.tcl	2026-11-02 12:25:55.880329000 +0800
++++ build_final_150v50.tcl	2026-11-02 15:08:34.618315200 +0800
+@@ -1,48 +1,31 @@
+ source [file join [file dirname [info script]] _guard_build.tcl]  ;# @GUARD@ 构建前置校验，勿删（见 runs/resguard/RESOURCE.md）
+ # ============================================================================
+-#  build_final_150v43base.tcl —— **v42e 配方逐字复刻 + 重建后的 BD**（T-57, 2026-11-02）
++#  build_final_150v50.tcl —— v50：bin 引擎换 16-lane（T-65 搭架子，2026-11-02）
+ #
+-#  ★★ 这是「**重建 BD 是否中性**」的验证位流，**不含 fconv**，不是候选交付物 ★★
+-#  目的：v43 阶段 3/4（把算子搬进 PL）必须先能重建 BD。本脚本跑的是
+-#        `proj_v43base`（副本）里**重新 elaborate 过**的 design_1：
+-#          · 删掉 pc_conv_uni / pc_conv_bin 两个协议转换器（m_axi 本来就是 AXI3，
+-#            AXI3↔AXI3 直连；2025.2 的 axi_protocol_converter 已无法表达 SI=MI=AXI3）
+-#          · conv_uni_0 / bin_unit_0 按**当前 RTL 外壳**重新登记 module-ref
+-#        并且**不加 fconv_0、不开 HP2、不改任何连接拓扑/地址/位宽意图**。
+-#  与 v42e 的差异**只有**：输出名/日志名 + BD 指向副本 + 第 0 步的"BD 已重建"硬断言
+-#        + 两个协议转换器的 DCP/stub 从清单里去掉 + 引擎包装层用 glob 取（_9→_10）。
+-#  合成/实现/约束/断言/报告顺序**一位不动**：
+-#    · create_clock -period 10.000（v39 的既定取舍；真实 150 MHz 由运行时 fclk0_mhz 设定）
++#  血缘：逐字派生自 build_final_150v43base2.tcl（v39 配方 + 重建 BD，已验可构建）。
++#  ★ 与 v43base2 版的差异只有四类，其余一位不动：
++#    ① 输出名 / 日志名 / manifest 名：v43base2 -> v50
++#    ② BD 根 -> proj_v50（副本），RTL 根 -> runs/timing_v50/rtl_v50（冻结副本）
++#    ③ 0a 段改为调用 verify_rtl_root.sh 做两层文件级断言（把 R1 机制化）
++#    ④ 编译列表追加 $rtl/lane16/*.v（T-64 的 16-lane 新 RTL；文件名未定用 glob）
++#
++#  一位不动的部分（合成/实现/约束/断言/报告顺序）：
++#    · create_clock -period 10.000（R8：功能期一律 10 ns；真实 150 MHz 由运行时 fclk0_mhz 设）
+ #    · catpack false_path（through + from + to 三件套）
+ #    · opt_design RuntimeOptimized / place Explore / route AggressiveExplore /
+ #      phys_opt AggressiveExplore ×2
+ #    · 交付物顺序纪律：write_checkpoint 在所有 report 之前、**每个 report 包 catch**、
+ #      write_bitstream 最后
+-#  ★ RTL 根 = **T-51-v42e**（与 v42e 位流逐字节相同的 RTL）⇒ 本版与 v42e 的唯一
+-#    变量就是 BD 本身，G1/G2 的差异才能归因到"重建 BD"。
+-#  合成/实现/约束/断言/报告顺序全部逐字相同：
+-#    · create_clock -period 10.000（v39 的既定取舍；真实 150 MHz 由运行时 fclk0_mhz 设定）
+-#    · catpack false_path（through + from + to 三件套）保持不变
+-#    · opt_design RuntimeOptimized / place Explore / route AggressiveExplore /
+-#      phys_opt AggressiveExplore ×2 保持不变
+-#    · **不动 BD / .hwh**（历史上改 BD 挂板 3 次）
+-#    · 交付物顺序纪律：write_checkpoint 在所有 report 之前、**每个 report 包 catch**、
+-#      write_bitstream 最后
+-# ============================================================================
+-#  build_final_150v4.tcl —— 当前**最优** P&R 配方（WNS 从 -0.931 收到 -0.241）
++#    · DSP 指纹断言（综合后 >= 70、交付前 >= 60）
+ #
+-#  与 build_final_150p.tcl 的唯一区别：P&R 指令组合
+-#      place_design -directive Explore        ← 关键（ExtraTimingOpt 实测更差）
+-#      route_design -directive AggressiveExplore
+-#      phys_opt_design -directive AggressiveExplore  ×2（place 后一次 + route 后一次）
+-#  实测（新 RTL，完整 P&R，确定性可复现）：
+-#      Explore / AggressiveExplore            → WNS -0.241  TNS -26.3  332 端点  ← 本脚本
+-#      ExtraTimingOpt / Explore               → WNS -0.824  TNS -176   1277 端点
+-#      ExtraTimingOpt / AggressiveExplore     → WNS -0.712  TNS -152   1018 端点
+-#  输出：board/overlay_engine_150mhz/design_1_150v43base2.bit（+ routed dcp 便于核对拓扑）
++#  RTL 根 = runs/timing_v50/rtl_v50：
++#    = runs/v42e_archive/rtl_v39_exact 的 25 个 .v **逐字节冻结副本**
++#      （12 个 v39 位流构建输入 + 13 个不参与构建但仍在根里的模块）
++#    + lane16/ 下 T-64 的 16-lane 新 RTL（构建时 glob，必须用新模块名）
++#    组成 / md5 / 与 v39 的差异见 runs/timing_v50/RTL_ROOT.md。
+ #
+-#  ⚠️ 如果 bin_unit 改成新核（bin_conv_core8.v），必须在下面第 2 步的文件清单里
+-#     追加 bin_conv_core8.v，否则 elaboration 报 module 'bin_conv_core8' not found。
++#  ★ 为什么不直接指向 rtl_hand/modules 或某个 worktree：本项目 RTL 源已错三次
++#    （worktree 名 / commit / HEAD），唯一可接受的判据是「位流 manifest 逐条 md5」。
+ # ============================================================================
+ # ============================================================================
+ #  build_final.tcl —— 最终构建：Xilinx IP 用 OOC DCP，我们的引擎用 RTL
+@@ -58,142 +41,68 @@
+ set_param general.maxThreads 2
+ 
+ set pl   /media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl
+-# ★ v43base2：BD 用 **proj_v43base2**（主工程 proj_engine 保持 baseline 不动）。
+-#   ⚠ T-60 实测：任务书写的 `proj_v43base` 虽然 BD 已 regenerate，但**缺**
+-#     `design_1_axi_ctrl_imp_auto_pc_0` 的 `.dcp` 与 `_stub.v`（`synth_ip_v43base.tcl`
+-#     默认 PROJ_DIR 就是 proj_v43base2，11:06 只给 v43base2 补了 OOC 综合）
+-#     ⇒ 只有 proj_v43base2 是 build-ready 的完整副本。
+-#   两者的 design_1.v **结构完全相同**，唯一差异 = 时间戳 + module-ref 后缀
+-#     （v43base=_11 / v43base2=_10，已知的 Component_Name 计数器不可复现性）
+-#   ⇒ 换副本不构成变量；下面第 2 步按"最大数字后缀"glob，不写死 _10/_11。
+-set bd   $pl/vivado/proj_v43base2/proj_engine.gen/sources_1/bd/design_1
+-# ★★ T-60（v43base2）：RTL 根 = **v39 位流输入逐字节复刻** `runs/v42e_archive/rtl_v39_exact/` ★★
+-#   = b58964e 的 25 个 .v，其中被 **v40 两把时序刀**改过的 2 个换回 `.snapshots/verified_v39/`。
+-#   关键指纹（= v39 位流 manifest 记录的实际输入）：
+-#       bin_unit_axi_wrap.v = 0cf68b2e  (PF_AHEAD=1 / PF_DEPTH=4 / AR_SLOTS=4)
+-#       bin_e1e2.v          = 28375eec
++# ★ v50：BD 用 **proj_v50**（proj_engine / proj_v43base2 一律不碰）。
++#   proj_v50 的 BD 根 = T-63 在 13:17 加 fconv **之前**拍下的 v43base2 快照
++#     （backup_bd/design_1.bd.20261102_131705；hwh=6b552758 = v43base2 位流自己的 hwh）
++#   原因：13:17 之后 proj_v43base2 已被 T-63 的 v44（fconv）改写，直接整树 cp 会带 fconv。
++#   还原步骤与证据见 runs/timing_v50/RTL_ROOT.md。
++#   ⇒ 本版唯一变量 = 「bin_unit 换 16-lane + 重建 BD」，不是 v44 的 fconv / HP2。
++set bd   $pl/vivado/proj_v50/proj_engine.gen/sources_1/bd/design_1
++# ★★ v50：RTL 根 = runs/timing_v50/rtl_v50 ★★
++#   = rtl_v39_exact（v39 位流输入逐字节复刻）的 25 个 .v 冻结副本 + lane16/ 新 RTL。
++#   0a 段先拿 v39 位流 manifest 逐条比 12 个构建输入，再拿 v50 冻结 manifest 比 25 个文件；
++#   任何一条不过就 error —— 绝不带着"看起来是 v39、其实不是"的 RTL 去构建。
+ #   ⚠ 两个错的根（都试过，都不许再用）：
+-#      ① worktrees/T-51-v42e = v39 + PF_AHEAD=2（6ecbc5dc），板上判死 AP_RET=0x2
+-#      ② runs/.../rtl_v39_ref = commit b58964e = v39 + v40 刀7/刀8（f4ba0655/bc28ead3）
+-#        —— 名字像 v39，实际多了两把时序刀；用它构建会让"BD 中性"被污染
+-#           （实测 10 ns WNS +0.090、150 MHz −3.243 vs v39 −5.331、N 9452 vs 20706）
+-#   ⇒ 本轮**唯一变量**必须是「BD 重建 vs 旧 BD」。
+-set rtl  /media/felix/Data/coding/demoir-fpga/runs/v42e_archive/rtl_v39_exact
++#      ① worktrees/T-51-v42e = v39 + PF_AHEAD=2（板上判死 AP_RET=0x2）
++#      ② rtl_hand/modules    = 当前工作副本，随时被别人改（v50 期间 T-64 还在写）
++set rtl  /media/felix/Data/coding/demoir-fpga/runs/timing_v50/rtl_v50
+ set out  [file normalize [file join $pl ../board/overlay_engine_150mhz]]
+ set part xc7z015clg485-2
+-# v43base2：report 直接落到 $out（归档要用），所以一开始就建目录
++# v50：report 直接落到 $out（归档要用），所以一开始就建目录
+ file mkdir $out
+ 
+ 
+ # ============================================================================
+-#  0a) ★★ RTL 根硬断言（T-60；**任何一条不满足立刻退出，绝不许构建**）★★
+-#
+-#  判据 = **v39 位流自己的 manifest 逐条比对**（位流级证据优先于任何 commit）。
+-#    pl/../board/overlay_engine_150mhz/build_v39_manifest.txt 生成于 v39 构建之后
+-#    （构建 2026-10-31 17:39-18:02，manifest 18:06），记录的就是 v39 位流的**实际输入**。
++#  0a) ★★ RTL 根硬断言（T-65 v50；任何一条不过立刻退出，绝不许构建）★★
+ #
+-#  ⚠ T-60 一夜栽两次，都是"我以为的权威源其实不是"：
+-#    ① worktrees/T-51-v42e = v39 + PF_AHEAD=2            （不是 v39）
+-#    ② commit b58964e      = v39 + v40 刀7 + v40 刀8     （不是 v39）
+-#        · bin_e1e2.v          刀7：SWEEP 期 `p<run_len` 组合比较 → 寄存倒计数器 rem/sw_act_q
+-#        · bin_unit_axi_wrap.v 刀8：run_unit_q / sel_e1e2_q / sel_cp_q 加 (* max_fanout=32 *)
+-#        b58964e 的两个 md5 = f4ba0655 / bc28ead3，**不是** v39 的 0cf68b2e / 28375eec。
+-#    ⇒ 纪律：任何"复现某颗位流"的任务，判据必须是**该位流的 manifest 逐条比对**，
+-#      不是 commit、不是目录名、不是别人的口头结论。
+-#
+-#  本根 = runs/v42e_archive/rtl_v39_exact/
+-#       = b58964e 的 25 个 .v，其中被 v40 两把刀改过的 2 个换回 .snapshots/verified_v39/
+-#       ⇒ 12 个"构建输入"与 manifest 逐条一致；其余 13 个 v40 未动，与 b58964e 一致。
+-# ============================================================================
+-puts "== 0a) RTL 根硬断言（判据 = v39 位流 manifest 逐条比对）=="
+-set _R    /media/felix/Data/coding/demoir-fpga
+-set _MAN  $_R/pynq_specialized_code/board/overlay_engine_150mhz/build_v39_manifest.txt
+-set _GITP pynq_specialized_code/pl/rtl_hand/modules
+-set _ERR  {}
+-proc _fail {msg} { global _ERR; lappend _ERR $msg; puts "   ✗ $msg" }
+-
+-if {![file exists $_MAN]} { error "缺 v39 位流 manifest: $_MAN（判据不可得 ⇒ 拒绝构建）" }
+-puts "   manifest = $_MAN"
+-
+-# --- (1) 解析 manifest 里属于 modules/ 的每一条 (basename -> md5) ---
+-set _mfh [open $_MAN r]
+-set _want [dict create]
+-while {[gets $_mfh _line] >= 0} {
+-    if {[regexp {^([0-9a-f]{32})\s+(\S+/modules/(\S+\.v))$} $_line -> _h _full _b]} {
+-        dict set _want $_b $_h
+-    }
+-}
+-close $_mfh
+-set _nwant [dict size $_want]
+-puts "   manifest 内 RTL 条目数 = $_nwant（期望 12）"
+-if {$_nwant != 12} { _fail "manifest 里 RTL 条目 = $_nwant，期望 12" }
+-
+-# --- (2) 核心判据：逐条比对，12/12 必须全中 ---
+-set _mok 0; set _mbad 0
+-foreach _b [lsort [dict keys $_want]] {
+-    set _p [file join $rtl $_b]
+-    if {![file exists $_p]} { _fail "缺 $_b"; incr _mbad; continue }
+-    set _got [lindex [exec md5sum $_p] 0]
+-    set _exp [dict get $_want $_b]
+-    if {$_got ne $_exp} {
+-        _fail "$_b  got=$_got  want=$_exp"; incr _mbad
+-    } else {
+-        puts "   ✓ manifest $_b  $_got"
+-        incr _mok
+-    }
+-}
+-puts "   与 v39 位流 manifest 逐条比对：MATCH=$_mok  DIFF=$_mbad"
+-
+-# --- (3) 两个关键文件显式断言（父代理指定）---
+-foreach {_f _must} [list bin_unit_axi_wrap.v 0cf68b2e31ac106ed03e30bd5591504d \
+-                         bin_e1e2.v          28375eec288f067e9235c0ecd486abb5] {
+-    set _p [file join $rtl $_f]
+-    if {![file exists $_p]} { _fail "缺 $_f"; continue }
+-    set _got [lindex [exec md5sum $_p] 0]
+-    if {$_got ne $_must} { _fail "$_f 必须=$_must 实际=$_got" }
+-}
+-puts "   关键两文件断言完成（0cf68b2e / 28375eec）"
+-
+-# --- (4) 三个参数必须精确 ---
+-set _fh [open [file join $rtl bin_unit_axi_wrap.v] r]; set _txt [read $_fh]; close $_fh
+-foreach {_pn _pv} [list PF_AHEAD 1 PF_DEPTH 4 AR_SLOTS 4] {
+-    if {![regexp "parameter\\s+int\\s+${_pn}\\s*=\\s*(\[0-9\]+)" $_txt -> _v]} {
+-        _fail "在 bin_unit_axi_wrap.v 里找不到参数 $_pn"
+-    } elseif {$_v ne $_pv} { _fail "$_pn=$_v 期望=$_pv" } \
+-    else { puts "   ✓ $_pn=$_v" }
+-}
+-
+-# --- (5) 25 个 .v 全部有账：12 个对 manifest，其余 13 个对 b58964e ---
+-set _all [lsort [glob -nocomplain -tails -directory $rtl *.v]]
+-puts "   目录 .v 数 = [llength $_all]（期望 25）"
+-if {[llength $_all] != 25} { _fail "目录下 .v 数量 = [llength $_all]，期望 25" }
+-set _rst 0
+-foreach _b $_all {
+-    if {[dict exists $_want $_b]} { continue }
+-    set _h_local [lindex [exec md5sum [file join $rtl $_b]] 0]
+-    set _h_git [lindex [exec sh -c "git -C '$_R' show 'b58964e:$_GITP/$_b' | md5sum"] 0]
+-    if {$_h_local ne $_h_git} { _fail "$_b 既非 manifest 输入、也与 b58964e 不同" } \
+-    else { incr _rst }
+-}
+-set _rest_n [expr {25 - $_nwant}]
+-puts "   其余 $_rest_n 个未参与构建的 .v 与 b58964e 一致：$_rst / $_rest_n"
+-if {$_rst != $_rest_n} { _fail "未参与构建的 .v 只有 $_rst/$_rest_n 与 b58964e 一致" }
+-puts "   合计账目：$_nwant（manifest 命中）+ $_rst（b58964e 一致）= [expr {$_nwant + $_rst}] / 25"
+-
+-# --- 汇总 ---
+-if {[llength $_ERR] > 0} {
+-    puts "== 0a) ★ 断言失败（[llength $_ERR] 条），**拒绝构建** =="
+-    foreach _e $_ERR { puts "     - $_e" }
+-    error "RTL 根硬断言失败（见上），不构建 —— 绝不许改 RTL 让它过"
+-}
+-puts "== 0a) ✓ 全部通过：RTL 根逐字节 = v39 位流输入（manifest 12/12），25/25 有账，PF_AHEAD=1/PF_DEPTH=4/AR_SLOTS=4 =="
+-# 只验断言不构建（T-60 自检用）：T60_ASSERT_ONLY=1 时打印完就退出
+-if {[info exists ::env(T60_ASSERT_ONLY)] && $::env(T60_ASSERT_ONLY) eq "1"} {
+-    puts "== 0a) T60_ASSERT_ONLY=1 ⇒ 断言通过，按要求不进入构建 =="
++#  判据是**文件级证据**，不是目录名、不是 commit（R1：本项目 RTL 源已错三次）：
++#    ① v39 位流 manifest（12 条构建输入）逐条比对
++#       ⇒ 证明 v50 的 8-lane 基线 = v39 位流的实际输入，逐字节相同。
++#    ② v50 冻结 manifest 逐条比对（当前 25 条基线；T-64 落盘后刷新为 25 + lane16/*.v）
++#       ⇒ 证明 runs/timing_v50/rtl_v50 自冻结后一个字节都没被改，新 RTL 也已入账。
++#    ③ T-64 的新 RTL 在 $rtl/lane16/；其"必须用新模块名"的约束在第 2 步的编译块里硬断言。
++#       ⚠ lane16 文件落盘后必须刷新 manifest（命令见 RTL_ROOT.md），否则 ② 会把它判成 EXTRA。
++# ============================================================================
++puts "== 0a) RTL 根硬断言（verify_rtl_root.sh；位流 manifest + 冻结副本 manifest）=="
++set _VR [file join [file dirname [info script]] verify_rtl_root.sh]
++if {![file exists $_VR]} { error "缺 verify_rtl_root.sh：$_VR（判据工具不可得 ⇒ 拒绝构建）" }
++set _MAN39 /media/felix/Data/coding/demoir-fpga/pynq_specialized_code/board/overlay_engine_150mhz/build_v39_manifest.txt
++set _MAN50 /media/felix/Data/coding/demoir-fpga/runs/timing_v50/rtl_v50_manifest.txt
++foreach _m [list $_MAN39 $_MAN50] {
++    if {![file exists $_m]} { error "缺 manifest: $_m（判据不可得 ⇒ 拒绝构建）" }
++}
++
++# --- ① v39 位流输入 12/12（目录里另有 13 个 .v 不是构建输入 ⇒ 全放行）---
++if {[catch {exec bash $_VR $_MAN39 $rtl --allow-extra * 2>@1} _o]} {
++    puts $_o
++    error "v39 位流 manifest 比对失败：v50 基线与 v39 位流输入不一致。绝不许改 RTL 让它过。"
++}
++puts $_o
++
++# --- ② v50 冻结副本（含 lane16/ 里已入账的新 RTL；多一个未入账文件也算失败）---
++if {[catch {exec bash $_VR $_MAN50 $rtl 2>@1} _o]} {
++    puts $_o
++    error "v50 冻结 RTL 根 manifest 比对失败：runs/timing_v50/rtl_v50 被改动过（不是冻结副本）"
++}
++puts $_o
++puts "== 0a) ✓ 两层判定通过：12/12 = v39 位流输入，冻结副本逐条一致 =="
++
++# 只验断言不构建（自检用）：V50_ASSERT_ONLY=1 时打印完就退出
++if {[info exists ::env(V50_ASSERT_ONLY)] && $::env(V50_ASSERT_ONLY) eq "1"} {
++    puts "== 0a) V50_ASSERT_ONLY=1 ⇒ 断言通过，按要求不进入构建 =="
+     exit 0
+ }
+ 
+-
+ # ============================================================================
+ #  0) BD 前置硬断言（v43base 比 v42e 多这一整段；5 秒内失败，不白烧 12 分钟）
+ #     baseline 的 design_1.hwh = c1686bd8e080c1c7f46181d980543202（旧元数据，含 pc_conv）
+@@ -203,7 +112,7 @@
+ set _bdv [file join $bd synth design_1.v]
+ set _bdh [file join $bd hw_handoff design_1.hwh]
+ foreach _f [list $_bdv $_bdh] {
+-    if {![file exists $_f]} { error "缺 BD 产物：$_f —— 先跑 pl/scripts/bd_regen_v43base2.tcl" }
++    if {![file exists $_f]} { error "缺 BD 产物：$_f —— 先跑 pl/scripts/bd_v50.tcl" }
+ }
+ set _md5h [lindex [exec md5sum $_bdh] 0]
+ if {$_md5h eq "c1686bd8e080c1c7f46181d980543202"} {
+@@ -256,11 +165,47 @@
+ }
+ 
+ puts "== 2) 读我们的 RTL（含两个引擎 IP 的包装层）=="
+-foreach f {conv_uni_axi_wrap_bd.v conv_uni_axi_wrap.v conv_int8_uni.v
+-           bin_unit_axi_wrap_bd.v bin_unit_axi_wrap.v
+-           bin_conv_core.v bin_conv_core8.v bin_e1e2.v bin_catpack.v bin_rprelu.v bin_sam.v bin_interp.v} {
++set _base12 {conv_uni_axi_wrap_bd.v conv_uni_axi_wrap.v conv_int8_uni.v
++             bin_unit_axi_wrap_bd.v bin_unit_axi_wrap.v
++             bin_conv_core.v bin_conv_core8.v bin_e1e2.v bin_catpack.v bin_rprelu.v bin_sam.v bin_interp.v}
++foreach f $_base12 {
+     read_verilog -sv [file join $rtl $f]
+ }
++# ★ v50：T-64 的 16-lane RTL。文件名未定 ⇒ glob `lane16/*.v`。
++#   ⚠ 硬约束：lane16 里的文件必须用**全新模块名**（bin_unit_axi_wrap_lane16 及其子模块），
++#     不得重定义上面 12 个基线文件里的模块 —— 重名会让 Vivado 静默择一，正是 R1 要防的。
++#   ⚠ lane16 落盘后要刷新 runs/timing_v50/rtl_v50_manifest.txt（含 lane16/ 相对路径），
++#     否则 0a 的第 ② 条会把这些新文件判成 EXTRA。
++set _lane16 [lsort [glob -nocomplain [file join $rtl lane16 *.v]]]
++if {[llength $_lane16] == 0} {
++    error "lane16/ 下没有任何 .v：T-64 的 16-lane RTL 未到位 ⇒ 拒绝构建（绝不拿 8-lane 冒充 16-lane）"
++}
++set _base_mods [dict create]
++foreach _f $_base12 {
++    set _fh [open [file join $rtl $_f] r]; set _t [read $_fh]; close $_fh
++    foreach {_all _m} [regexp -all -inline {\mmodule[ \t]+(\w+)} $_t] {
++        dict set _base_mods $_m $_f
++    }
++}
++set _lane_mods [dict create]
++foreach _f $_lane16 {
++    set _fh [open $_f r]; set _t [read $_fh]; close $_fh
++    foreach {_all _m} [regexp -all -inline {\mmodule[ \t]+(\w+)} $_t] {
++        if {[dict exists $_base_mods $_m]} {
++            error "lane16/[file tail $_f] 重定义了基线模块 '$_m'（已在 [dict get $_base_mods $_m] 里）—— 新 RTL 必须换新模块名"
++        }
++        if {[dict exists $_lane_mods $_m]} {
++            error "lane16/[file tail $_f] 重复定义 '$_m'（已在 [dict get $_lane_mods $_m] 里）"
++        }
++        dict set _lane_mods $_m [file tail $_f]
++    }
++    read_verilog -sv $_f
++    puts "   lane16  [file tail $_f]"
++}
++if {![dict exists $_lane_mods bin_unit_axi_wrap_lane16]} {
++    error "lane16/ 里没有模块 bin_unit_axi_wrap_lane16 —— bd_v50.tcl 的 module-ref 会找不到它"
++}
++puts "   lane16 新 RTL [llength $_lane16] 个 / [dict size $_lane_mods] 个模块（含 bin_unit_axi_wrap_lane16），与基线无重名"
+ # 这两个 IP 的 BD 包装层（只例化我们的外壳，无加密内容）
+ # ★ v43base：重建 BD 后 module-ref 的 IP 索引会变（_9 -> _10），**不能写死**（T-57）
+ foreach stem {design_1_conv_uni_0 design_1_bin_unit_0} {
+@@ -393,7 +338,7 @@
+ catch { phys_opt_design -directive AggressiveExplore }
+ # ---- v38：把最终 WNS / 违例端点数直接打到日志里（不用事后去 DCP 上再查）----
+ set _wp [get_timing_paths -max_paths 1 -nworst 1 -setup]
+-puts "== v43base2 最终 WNS = [get_property SLACK $_wp] ns  |  delay = [get_property DATAPATH_DELAY $_wp] ns  |  levels = [get_property LOGIC_LEVELS $_wp]"
++puts "== v50 最终 WNS = [get_property SLACK $_wp] ns  |  delay = [get_property DATAPATH_DELAY $_wp] ns  |  levels = [get_property LOGIC_LEVELS $_wp]"
+ puts "   worst from : [get_property STARTPOINT_PIN $_wp]"
+ puts "   worst to   : [get_property ENDPOINT_PIN $_wp]"
+ set _vn [llength [get_timing_paths -max_paths 2000 -nworst 1 -setup -slack_lesser_than 0]]
+@@ -407,7 +352,7 @@
+ # 存一份路由后的 checkpoint，便于事后核对 BD 拓扑（ps7/pc_conv/axi_ctrl）是否都在
+ # ★ 血泪教训（纪律）：write_checkpoint 必须在**所有 report 之前**落盘 ——
+ #   历史上就是报告段报错把已完成的实现整个丢掉，白烧 22 分钟。
+-catch { write_checkpoint -force [file join $out design_1_150v43base2_routed.dcp] }
++catch { write_checkpoint -force [file join $out design_1_150v50_routed.dcp] }
+ # ★ 每个 report 都包 catch：取不到就写 N/A，绝不让报告段杀死已完成的实现
+ proc _safe_report {outfile label body} {
+     if {[catch {uplevel 1 $body} _e]} {
+@@ -420,12 +365,12 @@
+     puts "   $label -> $outfile"
+     return 1
+ }
+-_safe_report [file join $out util_v43base2.rpt]   report_utilization \
+-    {report_utilization -file [file join $out util_v43base2.rpt]}
+-_safe_report [file join $out timing_v43base2.rpt] report_timing_summary \
+-    {report_timing_summary -file [file join $out timing_v43base2.rpt] -max_paths 5}
++_safe_report [file join $out util_v50.rpt]   report_utilization \
++    {report_utilization -file [file join $out util_v50.rpt]}
++_safe_report [file join $out timing_v50.rpt] report_timing_summary \
++    {report_timing_summary -file [file join $out timing_v50.rpt] -max_paths 5}
+ # write_bitstream 最后
+-set bitfile [file join $out design_1_150v43base2.bit]
++set bitfile [file join $out design_1_150v50.bit]
+ write_bitstream -force $bitfile
+ set ndsp2 [llength [get_cells -hier -quiet -filter {REF_NAME == DSP48E1}]]
+ puts "   最终 DSP=$ndsp2 （必须 78；明显更小 = 引擎被 opt_design 剪掉 / DSP 退化成 LUT 乘法器）"
+@@ -444,13 +389,15 @@
+            bin_rprelu.v bin_sam.v bin_interp.v} {
+     lappend _ml [file join $rtl $f]
+ }
++# v50：lane16 的 16-lane 新 RTL 也是位流的构建输入，必须进 manifest
++foreach _f $_lane16 { lappend _ml $_f }
+ lappend _ml [file join $bd synth design_1.v] [file join $bd hdl design_1_wrapper.v]
+ foreach f [concat {*}[glob -nocomplain [file join $bd *.xdc]]] { lappend _ml $f }
+ lappend _ml [info script]
+-set _mf [open [file join $out build_v43base2_manifest.txt] w]
+-puts $_mf "# build_v43base2_manifest.txt —— bit ↔ 源码 md5 对齐清单（纪律第 42 条）"
++set _mf [open [file join $out build_v50_manifest.txt] w]
++puts $_mf "# build_v50_manifest.txt —— bit ↔ 源码 md5 对齐清单（纪律第 42 条）"
+ puts $_mf "# 生成于 [clock format [clock seconds] -format {%Y-%m-%d %H:%M:%S}]"
+-puts $_mf "# 校验：cd pl && md5sum -c ../board/overlay_engine_150mhz/build_v43base2_manifest.txt"
++puts $_mf "# 校验：cd pl && md5sum -c ../board/overlay_engine_150mhz/build_v50_manifest.txt"
+ puts $_mf "# （绝对路径；换机后 open 会 FAILED，但哈希列仍可逐行比对）"
+ foreach f $_ml {
+     if {[file exists $f]} {
+@@ -460,5 +407,5 @@
+     }
+ }
+ close $_mf
+-puts "   清单: [file join $out build_v43base2_manifest.txt]（[llength $_ml] 个文件）"
++puts "   清单: [file join $out build_v50_manifest.txt]（[llength $_ml] 个文件）"
+ puts "== 完成 =="

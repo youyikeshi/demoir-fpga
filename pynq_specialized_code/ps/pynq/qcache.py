@@ -214,14 +214,25 @@ class QuantLeafCache:
         self.high_water = 0
 
     # ---------------------------------------------------------------- 键 / 状态
-    def key(self, data, fs_in):
+    def key(self, data, fs_in, plan_sig=None):
+        """缓存键。`plan_sig` 是 v50 的**段计划签名**（`None` = 不加，默认）。
+
+        ★ P6：帧间缓存键要与段计划一致 —— 同一个张量在不同段计划下（不同
+        band_rows / 段划分 / 是否 16 lane）会被**不同的消费路径**读，缓存一刀切
+        会让"换了段计划但地址没变"的旧量化结果被复用。加上 plan_sig 后，
+        段计划一变键就变（旧条目自然不被命中）。
+        默认（v5 路径）传 None ⇒ 键元组与改动前**逐字节相同**，命中/失效行为不变。
+        """
         try:
             sh = tuple(int(v) for v in data.shape)
             nb = int(data.nbytes)
         except Exception:                               # noqa: BLE001
             sh, nb = (), 0
-        return (id(data), _data_ptr(data), nb, sh, str(data.dtype),
-                int(fs_in), _gen_of(data))
+        k = (id(data), _data_ptr(data), nb, sh, str(data.dtype),
+             int(fs_in), _gen_of(data))
+        if plan_sig is not None:
+            k = k + (plan_sig,)
+        return k
 
     def _drop(self, k):
         e = self._m.pop(k, None)
@@ -303,14 +314,14 @@ class QuantLeafCache:
                 pass
 
     # ---------------------------------------------------------------- 主入口
-    def get_c8(self, data, fs_in):
+    def get_c8(self, data, fs_in, plan_sig=None):
         """返回 `(buf, pa, key, hit)`；buf 是 uint8 C8 裸字节（有 pa 时可直接给 E1E2）。
 
         未命中时现场量化的结果会**拷进一个带物理地址的缓冲**并常驻（受上限约束）。
         `verify=True` 时命中会复算 SHA1；内容变了 ⇒ `QuantCacheStale`（或按
         `on_stale="recompute"` 重算并覆盖）。
         """
-        k = self.key(data, fs_in)
+        k = self.key(data, fs_in, plan_sig=plan_sig)
         e = self._m.get(k)
         if e is not None:
             if self.verify:

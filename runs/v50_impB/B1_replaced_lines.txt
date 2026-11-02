@@ -1,0 +1,166 @@
+--- #1 v39:299-299 -> v50:299-299 ---
+  - module bin_unit_axi_wrap #(
+  + module bin_unit_axi_wrap_v50 #(
+--- #2 v39:358-358 -> v50:358-383 ---
+  -     parameter int  WR_BURST_MAX = 8       // 单笔写 burst 拍数上限（1..256，AXI3 上限 16）
+  +     parameter int  WR_BURST_MAX = 8,      // 单笔写 burst 拍数上限（1..256，AXI3 上限 16）
+  +     // ========================================================================
+  +     // ★ v50（IMP-B）：数据流参数。全部**带默认值** ⇒ 只实例化不传参时行为
+  +     //   = v39（VLANES=8、FUSE_EN=1 但 FUSE_MODE 复位 0 ⇒ 融合通路全静默）。
+  +     // ========================================================================
+  +     // 真正的 lane 数（8 = v39 等价；16 = v50 目标）。
+  +     // ⚠ 核里的 LANES 是 **popcount 位宽（恒 64）**，不是 lane 数；lane 数是
+  +     //   VLANES（见 IMP-A 的 bin_conv_core.v 头注）。本文件把 .LANES(LANES) 原样
+  +     //   保留、另加 .VLANES(VLANES) —— 端口名一个没改（契约 C-B1）。
+  +     parameter int  VLANES        = 8,
+  +     // 融合通路总开关（0 = 连 band/segq 都不生成，资源与 v39 齐平）
+  +     parameter int  FUSE_EN       = 1,
+  +     // band 缓冲（契约 C-B4 / D4）：每带 BAND_ROWS 行 + 单侧 BAND_HALO 行 halo
+  +     parameter int  BAND_ROWS     = 8,
+  +     parameter int  BAND_HALO     = 1,
+  +     parameter int  BAND_C_MAX    = 48,
+  +     parameter int  BAND_W_MAX    = 256,
+  +     parameter int  BAND_BUDGET_KB= 270,
+  +     // ★ v50 新寄存器的基址。**默认 0x2E0 而不是契约写的 0x200**：v39 的
+  +     //   0x200/0x204/0x208/0x20C/0x210 已被 R_RUN_UNIT / E_GRP / E_DESC /
+  +     //   E_HI_BAD / E_OUT 占用（bin_unit_axi_wrap.v:897-901），契约 §3-A 的
+  +     //   "0x000..0x1FF 原样"把上界写小了。这里把新寄存器挪到 0x2E0，默认
+  +     //   **不动 v39 的任何地址**（FUSE_MODE=0 才能逐字节等价）。冲突与裁决
+  +     //   写进 REPORT 的 B5；要改回 0x200 只需把这个参数置 0x200，但那时
+  +     //   0x200..0x20C 的旧语义被顶掉（PS 侧必须同步改，属 IMP-C/USER 裁决）。
+  +     parameter int  V50_REG_BASE  = 16'h02E0
+--- #3 v39:929-929 -> v50:1020-1020 ---
+  -                 if (vcode_q == 8'd0) begin
+  +                 if ((vcode_q == 8'd0) && !fuse_cfg_bad) begin
+--- #4 v39:935-935 -> v50:1027-1027 ---
+  -                     err_code    <= vcode_q;
+  +                     err_code    <= (vcode_q != 8'd0) ? vcode_q : ERR_UNIT;
+--- #5 v39:1219-1220 -> v50:1313-1316 ---
+  -         logic [63:0] c_wr_data;
+  -         logic [7:0]  c_wr_sel;
+  +         // ★ v50：VLANES=8 ⇒ 64 bit / 8 位（= v39 原样）；VLANES=16 ⇒ 128 / 16 位
+  +         //   （= IMP-A 的 bin_conv_core 端口，名字逐字相同，只是参数化宽度）
+  +         logic [VLANES*8-1:0] c_wr_data;
+  +         logic [VLANES-1:0]   c_wr_sel;
+--- #6 v39:1229-1229 -> v50:1325-1357 ---
+  -         wire         c_start = start_req && !sel_e1e2_q && !sel_cp_q;
+  +         // ★ v50：融合模式下单元由 segq 的 band_start 启动（一条描述符 = 一个带）
+  +         // ------------------------------------------------------------------
+  +         // ★ v50 §10.2：本次运行的单元 cfg/base 来源。
+  +         //   fuse_m = 0 ⇒ 全部等于 v39 的 r_*（B1 的等价性就靠这一层 mux）
+  +         //   fuse_m = 1 ⇒ 来自描述符 + band 形状；band 空间从 0 起算（base=0），
+  +         //                H 取带内行数（含 halo），这样核的地址公式直接落到 band 上
+  +         // ------------------------------------------------------------------
+  +         wire         fuse_m = sel_fuse_q && !sel_e1e2_q && !sel_cp_q;
+  +         wire [15:0]  c_cfg_cin   = fuse_m ? seg_cin  : r_c[15:0];
+  +         wire [15:0]  c_cfg_cout  = fuse_m ? seg_cout : r_cout[15:0];
+  +         wire [15:0]  c_cfg_k     = fuse_m ? {8'd0, seg_k}   : r_k[15:0];
+  +         wire [15:0]  c_cfg_s     = fuse_m ? {8'd0, seg_s}   : r_s[15:0];
+  +         wire [15:0]  c_cfg_d     = fuse_m ? {8'd0, seg_dd}  : r_d[15:0];
+  +         wire [15:0]  c_cfg_pad   = fuse_m ? {8'd0, seg_pad} : r_pad[15:0];
+  +         wire [15:0]  c_cfg_h     = fuse_m ? seg_h  : r_h[15:0];
+  +         wire [15:0]  c_cfg_w     = fuse_m ? seg_w  : r_w[15:0];
+  +         wire [5:0]   c_cfg_ash   = fuse_m ? seg_ash   : r_alpha_shift[5:0];
+  +         wire [5:0]   c_cfg_ssh   = fuse_m ? seg_ssh   : r_slope_shift[5:0];
+  +         wire [5:0]   c_cfg_shift = fuse_m ? seg_shift : r_shift[5:0];
+  +         wire [31:0]  c_base_act  = fuse_m ? 32'd0 : r_in;
+  +         wire [31:0]  c_base_out  = fuse_m ? 32'd0 : r_out;
+  +         wire [31:0]  c_base_wgt  = fuse_m ? seg_wgt_pa : r_wgt;
+  +         wire [31:0]  c_base_alpha= fuse_m ? r_alpha   : r_alpha;
+  +         wire [31:0]  c_base_bias = fuse_m ? r_bias    : r_bias;
+  +         wire [31:0]  c_base_zeta = fuse_m ? r_zeta    : r_zeta;
+  +         wire [31:0]  c_base_gamma= fuse_m ? r_gamma   : r_gamma;
+  +         wire [31:0]  c_base_slope= fuse_m ? r_slope_b : r_slope_b;
+  +         // 读数据：融合模式下核从 band 取数（pack 从 band 的 C 口取）
+  +         wire [63:0]  core_rd_data = fuse_m ? band_a_rd_data : u_rd_data;
+  +         wire [63:0]  pack_rd_data = fuse_m ? band_c_rd_data : u_rd_data;
+  + 
+  +         wire         c_start = fuse_m ? seg_band_start
+  +                                      : (start_req && !sel_e1e2_q && !sel_cp_q);
+--- #7 v39:1234-1236 -> v50:1364-1367 ---
+  -             .LANES    (LANES),
+  -             .COUT_MAX (COUT_MAX)
+  -         ) u_unit (
+  +             .LANES    (LANES),          // popcount 位宽（v39 原样，恒 64）
+  +             .COUT_MAX (COUT_MAX),       // v39 原样（核里未使用）
+  +             .VLANES   (VLANES)          // ★ v50：真正的 lane 数（8 / 16）
+  +         ) u_core (
+--- #8 v39:1243-1261 -> v50:1374-1393 ---
+  -             .cfg_cin         (r_c[15:0]),
+  -             .cfg_cout        (r_cout[15:0]),
+  -             .cfg_k           (r_k[15:0]),
+  -             .cfg_s           (r_s[15:0]),
+  -             .cfg_d           (r_d[15:0]),
+  -             .cfg_pad         (r_pad[15:0]),
+  -             .cfg_h           (r_h[15:0]),
+  -             .cfg_w           (r_w[15:0]),
+  -             .cfg_alpha_shift (r_alpha_shift[5:0]),
+  -             .cfg_slope_shift (r_slope_shift[5:0]),
+  -             .cfg_shift       (r_shift[5:0]),
+  -             .base_act        (r_in),
+  -             .base_wgt        (r_wgt),
+  -             .base_alpha      (r_alpha),
+  -             .base_bias       (r_bias),
+  -             .base_zeta       (r_zeta),
+  -             .base_gamma      (r_gamma),
+  -             .base_slope      (r_slope_b),
+  -             .base_out        (r_out),
+  +             // ★ v50：FUSE_MODE=0 时下面每一根 c_* 都**逐位等于** v39 的 r_*
+  +             .cfg_cin         (c_cfg_cin),
+  +             .cfg_cout        (c_cfg_cout),
+  +             .cfg_k           (c_cfg_k),
+  +             .cfg_s           (c_cfg_s),
+  +             .cfg_d           (c_cfg_d),
+  +             .cfg_pad         (c_cfg_pad),
+  +             .cfg_h           (c_cfg_h),
+  +             .cfg_w           (c_cfg_w),
+  +             .cfg_alpha_shift (c_cfg_ash),
+  +             .cfg_slope_shift (c_cfg_ssh),
+  +             .cfg_shift       (c_cfg_shift),
+  +             .base_act        (c_base_act),
+  +             .base_wgt        (c_base_wgt),
+  +             .base_alpha      (c_base_alpha),
+  +             .base_bias       (c_base_bias),
+  +             .base_zeta       (c_base_zeta),
+  +             .base_gamma      (c_base_gamma),
+  +             .base_slope      (c_base_slope),
+  +             .base_out        (c_base_out),
+--- #9 v39:1264-1264 -> v50:1396-1396 ---
+  -             .mem_rd_data     (u_rd_data),
+  +             .mem_rd_data     (core_rd_data),
+--- #10 v39:1291-1291 -> v50:1423-1423 ---
+  -             .mem_rd_data     (u_rd_data),
+  +             .mem_rd_data     (pack_rd_data),   // ★ v50：融合模式下 pack 从 band 读
+--- #11 v39:1327-1335 -> v50:1459-1468 ---
+  -         assign u_done    = sel_cp_q ? k_done    : (sel_e1e2_q ? e_done    : c_done);
+  -         assign u_busy    = sel_cp_q ? k_busy    : (sel_e1e2_q ? e_busy    : c_busy);
+  -         assign u_rd_en   = sel_cp_q ? k_rd_en   : (sel_e1e2_q ? e_rd_en   : c_rd_en);
+  -         assign u_rd_addr = sel_cp_q ? k_rd_addr : (sel_e1e2_q ? e_rd_addr : c_rd_addr);
+  -         assign u_wr_en   = sel_cp_q ? k_wr_en   : (sel_e1e2_q ? e_wr_en   : c_wr_en);
+  -         assign u_wr_addr = sel_cp_q ? k_wr_addr : (sel_e1e2_q ? e_wr_addr : c_wr_addr);
+  -         assign u_wr_data = sel_cp_q ? k_wr_data : (sel_e1e2_q ? e_wr_data : c_wr_data);
+  -         assign u_wr_sel  = sel_cp_q ? k_wr_sel  : (sel_e1e2_q ? e_wr_sel  : c_wr_sel);
+  -         assign u_wr_64   = 1'b1;
+  +         // ★ v50：这九根改成 *_i（= v39 原路），最终的 u_* 由 §10.5 的融合 mux 给
+  +         assign u_done_i    = sel_cp_q ? k_done    : (sel_e1e2_q ? e_done    : c_done);
+  +         assign u_busy_i    = sel_cp_q ? k_busy    : (sel_e1e2_q ? e_busy    : c_busy);
+  +         assign u_rd_en_i   = sel_cp_q ? k_rd_en   : (sel_e1e2_q ? e_rd_en   : c_rd_en);
+  +         assign u_rd_addr_i = sel_cp_q ? k_rd_addr : (sel_e1e2_q ? e_rd_addr : c_rd_addr);
+  +         assign u_wr_en_i   = sel_cp_q ? k_wr_en   : (sel_e1e2_q ? e_wr_en   : cw_beat_en);
+  +         assign u_wr_addr_i = sel_cp_q ? k_wr_addr : (sel_e1e2_q ? e_wr_addr : cw_beat_addr);
+  +         assign u_wr_data_i = sel_cp_q ? k_wr_data : (sel_e1e2_q ? e_wr_data : cw_beat_data);
+  +         assign u_wr_sel_i  = sel_cp_q ? k_wr_sel  : (sel_e1e2_q ? e_wr_sel  : cw_beat_sel);
+  +         assign u_wr_64_i   = 1'b1;
+--- #12 v39:1337-1337 -> v50:1470-1470 ---
+  -         assign u_err     = sel_cp_q ? k_err     : (sel_e1e2_q ? e_err     : 8'd0);
+  +         assign u_err_i   = sel_cp_q ? k_err     : (sel_e1e2_q ? e_err     : 8'd0);
+--- #13 v39:1594-1595 -> v50:1960-1961 ---
+  -     assign wr_wide_b   = wide_pend && u_ce;
+  -     assign wr_byte   = wr_take && u_ce && !u_wr_wide_w;  // 真正被吞下、进 p_* 的字节
+  +     assign wr_wide_b   = wide_pend && wr_accept_ok;   // ★ v50：见 wr_byte 的注释
+  +     assign wr_byte   = wr_take && wr_accept_ok && !u_wr_wide_w;  // 真正被吞下、进 p_* 的字节
+--- #14 v39:1620-1620 -> v50:1989-1990 ---
+  -                     && !((wst != W_IDLE) && wr_take));
+  +                     && !((wst != W_IDLE) && wr_take)
+  +                     && !wr_split_busy);
+total replaced blocks: 14

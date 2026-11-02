@@ -1,0 +1,377 @@
+Expected a switch but found +
+
+****** Vivado Simulator v2025.2.1
+  **** Copyright 1986-2022 Xilinx, Inc. All Rights Reserved.
+  **** Copyright 2022-2025 Advanced Micro Devices, Inc. All Rights Reserved.
+
+Usage: /media/felix/325/xilinx/2025.2/2025.2.1/Vivado/bin/unwrapped/lnx64.o/xsim [options]
+(Switches with double dash '--' can also be used with a single dash '-')
+    --R                  : Run simulation till end i.e. do 'run all;quit'
+    --autoloadwcfg       : Load already saved waveform configuration file
+    --clear_child_on_exit : Clear child processes upon exiting simulation (only applicable to Linux).
+    --cov_db_dir         : Directory where the Functional Coverage database will be saved. The functional coverage data will be present under <cov_db_dir_argvalue>/xsim.covdb/<cov_db_name_argvalue> directory. Default is ./ or inherits value set in xelab.
+    --cov_db_name        : Database name under which Functional Coverage database will be saved. The functional coverage data will be present under <cov_db_dir_argvalue>/xsim.covdb/<cov_db_name_argvalue> directory. Default is snapshot name or inherits value set in xelab.
+    --disable_circular_dependency_check : Disable runtime error for cyclic/circular dependency in constraint randomization.
+    --disable_multi_driver_resolution_scheduling : Revert to original multi driver resolution flow during scheduling the processes
+    --downgrade_error2info : Downgrade severity level of HDL messages from Error to Info.
+    --downgrade_error2warning : Downgrade severity level of HDL messages from Error to Warning.
+    --downgrade_fatal2info : Downgrade severity level of HDL messages from Fatal to Info.
+    --downgrade_fatal2warning : Downgrade severity level of HDL messages from Fatal to Warning.
+    --downgrade_severity : Downgrade severity level of HDL messages. Choices are:error2warning|error2info|fatal2warning|fatal2info
+    --f                  : Take command line options from a file
+    --file               : Take command line options from a file
+    --g                  : Run with interactive GUI
+    --gui                : Run with interactive GUI
+    --h                  : Print help message and exit
+    --help               : Print help message and exit
+    --ieeewarnings       : Enable warnings from VHDL IEEE functions
+    --ignore_assertions  : Ignore System Verilog Concurrent Assertions.
+    --ignore_coverage    : Ignore System Verilog Functional Coverage.
+    --ignore_feature     : Ignore effect of specific HDL feature or construct. Choices are: assertion
+    --log                : Specify the log file name
+    --maxdeltaid         : Specify the maximum delta number. Will report error if it exceeds maximum simulation loops at the same time
+    --maxlogsize         : Set the maximum size a log file can reach in MB. The default setting is unlimited
+    --nolog              : Suppress log file generation
+    --nosignalhandlers   : Run with no signal handlers to avoid conflict with security software.
+    --onerror            : Specify behavior upon simulation run-time error: quit|stop
+    --onfinish           : Specify behavior at end of simulation: quit|stop
+    --protoinst          : Specify a .protoinst file for protocol analysis
+    --runall             : Run simulation till end i.e. do 'run all;quit'
+    --stats              : Display memory and cpu stats upon exiting
+    --sv_seed            : seed for sv constraint random
+    --t                  : Specify the TCL file for batch mode execution
+    --tclbatch           : Specify the TCL file for batch mode execution
+    --tempDir            : Specify the temporary directory name
+    --testplusarg        : Specify plus args to be used by $test$plusargs and $value$plusargs system functions
+    --tl                 : Enable printing of file name and line number of statements being executed.
+    --tp                 : Enable printing of hierarchical names of process being executed.
+    --version            : Print the simulator version and quit.
+    --view               : Open a wave configuration file. This switch should be used together with -gui switch
+    --wdb                : Specify the waveform database output file.
+    --xsimdir            : Location of xsim.dir directory. Default location is "." i.e. current run directory.
+ERROR: Please check the snapshot name which is created during 'xelab',the current snapshot name "xsim.dir/simX/xsimk" does not exist 
+
+****** xsim v2025.2.1 (64-bit)
+  **** SW Build 6403652 on Thu Mar 19 13:47:00 MDT 2026
+  **** IP Build 6403511 on Thu Mar 19 12:41:45 MDT 2026
+  **** SharedData Build 6403650 on Thu Mar 19 14:02:13 MDT 2026
+  **** Start of session at: Mon Nov  2 15:35:10 2026
+    ** Copyright 1986-2022 Xilinx, Inc. All Rights Reserved.
+    ** Copyright 2022-2026 Advanced Micro Devices, Inc. All Rights Reserved.
+
+source xsim.dir/simX/xsim_script.tcl
+# xsim {simX} -testplusarg EXT -autoloadwcfg -runall
+Time resolution is 1 ps
+run -all
+=== v50_simA: IMP-A bin_conv_core.v 回归/等价性 (xsim) ===
+TXSIG cid=0 lbl=0 p=0 dut=0 n=24 h=815712ad9749887d
+TXSIG cid=0 lbl=0 p=0 dut=1 n=24 h=815712ad9749887d
+TXSIG cid=0 lbl=1 p=0 dut=1 n=6 h=6608ced3be3e929f
+TXSIG cid=0 lbl=1 p=1 dut=1 n=6 h=485dfed3be3e929f
+TXSIG cid=0 lbl=1 p=2 dut=1 n=6 h=c48775e025ebfa9f
+TXSIG cid=0 lbl=1 p=3 dut=1 n=6 h=b8f870c59eae415f
+  [S2 cid=0] t=6 ADDR exp=60 act=30 (group=1 pix=0)
+  [S2 cid=0] t=7 ADDR exp=70 act=40 (group=1 pix=1)
+  [S2 cid=0] t=8 ADDR exp=80 act=50 (group=1 pix=2)
+  [S2 cid=0] t=9 ADDR exp=90 act=60 (group=1 pix=3)
+  [S2 cid=0] ADDR DIFF = 6 / 12  (组平面步长错，见报告 F1)
+TXSIG cid=0 lbl=2 p=0 dut=3 n=12 h=692beb354546c581
+CASE  0  cin= 63 cout= 32 k=1 s=2 d=2 pad=0 h=4 w=6 sh=6 pat=0 | S1=  ok(24 tx, bub=0) S2=  ok(12 tx, 4 pass, bub=0)
+        STAT8  prm=68(rd64) wld=64(rd32) cmp=24(rd24) drn=52 oob=0 | STAT16 prm=66(rd64) wld=64(rd32) cmp=12(rd12) drn=26 oob=0
+  [S1 cid=1] MASK(v39) tx80 g=2 got=ff exp=01
+  [S1 cid=1] MASK(new8) tx80 g=2 got=ff exp=01
+  [S1 cid=1] MASK(v39) tx81 g=2 got=ff exp=01
+  [S1 cid=1] MASK(new8) tx81 g=2 got=ff exp=01
+  [S1 cid=1] MASK(v39) tx82 g=2 got=ff exp=01
+  [S1 cid=1] MASK(new8) tx82 g=2 got=ff exp=01
+  [S1 cid=1] MASK(v39) tx83 g=2 got=ff exp=01
+  [S1 cid=1] MASK(new8) tx83 g=2 got=ff exp=01
+TXSIG cid=1 lbl=0 p=0 dut=0 n=120 h=bba60e23cd22098d
+TXSIG cid=1 lbl=0 p=0 dut=1 n=120 h=bba60e23cd22098d
+TXSIG cid=1 lbl=1 p=0 dut=1 n=40 h=7ef0ef65f06f7c1d
+TXSIG cid=1 lbl=1 p=1 dut=1 n=40 h=54bbf60c2e417c1d
+TXSIG cid=1 lbl=1 p=2 dut=1 n=40 h=4ea1626e40a0579d
+  [S2 cid=1] OVERRUN t=40 g=1 pix=0 lane=1 (oc=17 >= cout=17) 写了非法字节 byte=7f
+  [S2 cid=1] OVERRUN t=40 g=1 pix=0 lane=2 (oc=18 >= cout=17) 写了非法字节 byte=7f
+  [S2 cid=1] OVERRUN t=40 g=1 pix=0 lane=3 (oc=19 >= cout=17) 写了非法字节 byte=80
+  [S2 cid=1] OVERRUN t=40 g=1 pix=0 lane=4 (oc=20 >= cout=17) 写了非法字节 byte=80
+  [S2 cid=1] OVERRUN t=40 g=1 pix=0 lane=5 (oc=21 >= cout=17) 写了非法字节 byte=7f
+  [S2 cid=1] OVERRUN t=40 g=1 pix=0 lane=6 (oc=22 >= cout=17) 写了非法字节 byte=80
+  [S2 cid=1] t=40 ADDR exp=280 act=140 (group=1 pix=0)
+  [S2 cid=1] t=41 ADDR exp=290 act=150 (group=1 pix=1)
+  [S2 cid=1] t=42 ADDR exp=2a0 act=160 (group=1 pix=2)
+  [S2 cid=1] t=43 ADDR exp=2b0 act=170 (group=1 pix=3)
+  [S2 cid=1] ADDR DIFF = 40 / 80  (组平面步长错，见报告 F1)
+TXSIG cid=1 lbl=2 p=0 dut=3 n=80 h=cd9bf07ccab8bed5
+CASE  1  cin= 64 cout= 17 k=3 s=1 d=2 pad=1 h=5 w=8 sh=0 pat=0 | S1=  ok(120 tx, bub=510) S2=  ok(80 tx, 3 pass, bub=340)
+        STAT8  prm=51(rd48) wld=432(rd216) cmp=1080(rd570) drn=39 oob=510 | STAT16 prm=66(rd64) wld=576(rd288) cmp=720(rd380) drn=26 oob=340
+TXSIG cid=2 lbl=0 p=0 dut=0 n=168 h=af1292b1556ebd5d
+TXSIG cid=2 lbl=0 p=0 dut=1 n=168 h=af1292b1556ebd5d
+TXSIG cid=2 lbl=1 p=0 dut=1 n=56 h=edec1c0f71f4d9cd
+TXSIG cid=2 lbl=1 p=1 dut=1 n=56 h=edec1c0f71f4d9cd
+TXSIG cid=2 lbl=1 p=2 dut=1 n=56 h=c6b6a7a571f4d9cd
+  [S2 cid=2] t=56 ADDR exp=380 act=1c0 (group=1 pix=0)
+  [S2 cid=2] t=57 ADDR exp=390 act=1d0 (group=1 pix=1)
+  [S2 cid=2] t=58 ADDR exp=3a0 act=1e0 (group=1 pix=2)
+  [S2 cid=2] t=59 ADDR exp=3b0 act=1f0 (group=1 pix=3)
+  [S2 cid=2] ADDR DIFF = 56 / 112  (组平面步长错，见报告 F1)
+TXSIG cid=2 lbl=2 p=0 dut=3 n=112 h=b6c53119690a13f5
+CASE  2  cin=186 cout= 24 k=1 s=1 d=1 pad=0 h=8 w=7 sh=5 pat=0 | S1=  ok(168 tx, bub=0) S2=  ok(112 tx, 3 pass, bub=0)
+        STAT8  prm=51(rd48) wld=144(rd72) cmp=504(rd504) drn=39 oob=0 | STAT16 prm=66(rd64) wld=192(rd96) cmp=336(rd336) drn=26 oob=0
+TXSIG cid=3 lbl=0 p=0 dut=0 n=18 h=f193cfcf3e67277a
+TXSIG cid=3 lbl=0 p=0 dut=1 n=18 h=f193cfcf3e67277a
+TXSIG cid=3 lbl=1 p=0 dut=1 n=9 h=cb999f9a4467333f
+TXSIG cid=3 lbl=1 p=1 dut=1 n=9 h=44aa61ca407ccb66
+TXSIG cid=3 lbl=2 p=0 dut=3 n=9 h=5e92bc516817bb34
+CASE  3  cin=121 cout= 13 k=3 s=2 d=2 pad=1 h=5 w=5 sh=0 pat=0 | S1=  ok(18 tx, bub=224) S2=  ok(9 tx, 2 pass, bub=112)
+        STAT8  prm=34(rd32) wld=576(rd288) cmp=324(rd100) drn=26 oob=224 | STAT16 prm=33(rd32) wld=576(rd288) cmp=162(rd50) drn=13 oob=112
+TXSIG cid=4 lbl=0 p=0 dut=0 n=12 h=ae7ecaca1ea48b21
+TXSIG cid=4 lbl=0 p=0 dut=1 n=12 h=ae7ecaca1ea48b21
+TXSIG cid=4 lbl=1 p=0 dut=1 n=12 h=ae7ecaca1ea48b21
+TXSIG cid=4 lbl=2 p=0 dut=3 n=12 h=1f346f58bbe34381
+CASE  4  cin= 61 cout=  3 k=1 s=2 d=1 pad=1 h=8 w=5 sh=7 pat=0 | S1=  ok(12 tx, bub=6) S2=  ok(12 tx, 1 pass, bub=6)
+        STAT8  prm=17(rd16) wld=16(rd8) cmp=12(rd6) drn=13 oob=6 | STAT16 prm=33(rd32) wld=32(rd16) cmp=12(rd6) drn=13 oob=6
+TXSIG cid=5 lbl=0 p=0 dut=0 n=128 h=ebea0ae8906daaa5
+TXSIG cid=5 lbl=0 p=0 dut=1 n=128 h=ebea0ae8906daaa5
+TXSIG cid=5 lbl=1 p=0 dut=1 n=32 h=1ea0f38d72937e45
+TXSIG cid=5 lbl=1 p=1 dut=1 n=32 h=8e552cdace8b7345
+TXSIG cid=5 lbl=1 p=2 dut=1 n=32 h=cc4d0f683dd17845
+TXSIG cid=5 lbl=1 p=3 dut=1 n=32 h=633928329a462b45
+  [S2 cid=5] t=32 ADDR exp=200 act=100 (group=1 pix=0)
+  [S2 cid=5] t=33 ADDR exp=210 act=110 (group=1 pix=1)
+  [S2 cid=5] t=34 ADDR exp=220 act=120 (group=1 pix=2)
+  [S2 cid=5] t=35 ADDR exp=230 act=130 (group=1 pix=3)
+  [S2 cid=5] ADDR DIFF = 32 / 64  (组平面步长错，见报告 F1)
+TXSIG cid=5 lbl=2 p=0 dut=3 n=64 h=e13309addb1ff765
+CASE  5  cin= 57 cout= 32 k=3 s=1 d=1 pad=0 h=4 w=8 sh=5 pat=0 | S1=  ok(128 tx, bub=396) S2=  ok(64 tx, 4 pass, bub=198)
+        STAT8  prm=68(rd64) wld=576(rd288) cmp=1152(rd756) drn=52 oob=396 | STAT16 prm=66(rd64) wld=576(rd288) cmp=576(rd378) drn=26 oob=198
+TXSIG cid=6 lbl=0 p=0 dut=0 n=192 h=0227e03cf577e565
+TXSIG cid=6 lbl=0 p=0 dut=1 n=192 h=0227e03cf577e565
+TXSIG cid=6 lbl=1 p=0 dut=1 n=48 h=d964516cbef1b035
+TXSIG cid=6 lbl=1 p=1 dut=1 n=48 h=d964516cbef1b035
+TXSIG cid=6 lbl=1 p=2 dut=1 n=48 h=74bbbffa02c67235
+TXSIG cid=6 lbl=1 p=3 dut=1 n=48 h=eebbbffa02c67235
+  [S2 cid=6] t=48 ADDR exp=300 act=180 (group=1 pix=0)
+  [S2 cid=6] t=49 ADDR exp=310 act=190 (group=1 pix=1)
+  [S2 cid=6] t=50 ADDR exp=320 act=1a0 (group=1 pix=2)
+  [S2 cid=6] t=51 ADDR exp=330 act=1b0 (group=1 pix=3)
+  [S2 cid=6] ADDR DIFF = 48 / 96  (组平面步长错，见报告 F1)
+TXSIG cid=6 lbl=2 p=0 dut=3 n=96 h=1bffb12e20f97205
+CASE  6  cin=184 cout= 32 k=1 s=1 d=2 pad=0 h=8 w=6 sh=0 pat=0 | S1=  ok(192 tx, bub=0) S2=  ok(96 tx, 4 pass, bub=0)
+        STAT8  prm=68(rd64) wld=192(rd96) cmp=576(rd576) drn=52 oob=0 | STAT16 prm=66(rd64) wld=192(rd96) cmp=288(rd288) drn=26 oob=0
+TXSIG cid=7 lbl=0 p=0 dut=0 n=12 h=a7a8047f7a823331
+TXSIG cid=7 lbl=0 p=0 dut=1 n=12 h=a7a8047f7a823331
+TXSIG cid=7 lbl=1 p=0 dut=1 n=6 h=6ff4bbc3d185eb5f
+TXSIG cid=7 lbl=1 p=1 dut=1 n=6 h=c48775e025ebfa9f
+TXSIG cid=7 lbl=2 p=0 dut=3 n=6 h=a65b42d4995ace2b
+CASE  7  cin=192 cout= 16 k=3 s=2 d=1 pad=0 h=6 w=4 sh=4 pat=0 | S1=  ok(12 tx, bub=84) S2=  ok(6 tx, 2 pass, bub=42)
+        STAT8  prm=34(rd32) wld=864(rd432) cmp=324(rd240) drn=26 oob=84 | STAT16 prm=33(rd32) wld=864(rd432) cmp=162(rd120) drn=13 oob=42
+TXSIG cid=8 lbl=0 p=0 dut=0 n=9 h=71c6cc022c3a263f
+TXSIG cid=8 lbl=0 p=0 dut=1 n=9 h=71c6cc022c3a263f
+TXSIG cid=8 lbl=1 p=0 dut=1 n=9 h=71c6cc022c3a263f
+TXSIG cid=8 lbl=2 p=0 dut=3 n=9 h=218e8dbce7d1987f
+CASE  8  cin= 64 cout=  8 k=1 s=2 d=2 pad=1 h=5 w=5 sh=4 pat=0 | S1=  ok(9 tx, bub=5) S2=  ok(9 tx, 1 pass, bub=5)
+        STAT8  prm=17(rd16) wld=16(rd8) cmp=9(rd4) drn=13 oob=5 | STAT16 prm=33(rd32) wld=32(rd16) cmp=9(rd4) drn=13 oob=5
+TXSIG cid=9 lbl=0 p=0 dut=0 n=90 h=2278b68f752b9d93
+TXSIG cid=9 lbl=0 p=0 dut=1 n=90 h=2278b68f752b9d93
+TXSIG cid=9 lbl=1 p=0 dut=1 n=30 h=f1e60cd73029f2d7
+TXSIG cid=9 lbl=1 p=1 dut=1 n=30 h=03b91adc21419ed7
+TXSIG cid=9 lbl=1 p=2 dut=1 n=30 h=41c7f06d9f28daa7
+  [S2 cid=9] t=30 ADDR exp=1e0 act=f0 (group=1 pix=0)
+  [S2 cid=9] t=31 ADDR exp=1f0 act=100 (group=1 pix=1)
+  [S2 cid=9] t=32 ADDR exp=200 act=110 (group=1 pix=2)
+  [S2 cid=9] t=33 ADDR exp=210 act=120 (group=1 pix=3)
+  [S2 cid=9] ADDR DIFF = 30 / 60  (组平面步长错，见报告 F1)
+TXSIG cid=9 lbl=2 p=0 dut=3 n=60 h=c187a9a69c3e5675
+CASE  9  cin=191 cout= 17 k=3 s=1 d=2 pad=0 h=5 w=6 sh=0 pat=0 | S1=  ok(90 tx, bub=1458) S2=  ok(60 tx, 3 pass, bub=972)
+        STAT8  prm=51(rd48) wld=1296(rd648) cmp=2430(rd972) drn=39 oob=1458 | STAT16 prm=66(rd64) wld=1728(rd864) cmp=1620(rd648) drn=26 oob=972
+TXSIG cid=10 lbl=0 p=0 dut=0 n=72 h=abc40a6e2528a8fd
+TXSIG cid=10 lbl=0 p=0 dut=1 n=72 h=abc40a6e2528a8fd
+TXSIG cid=10 lbl=1 p=0 dut=1 n=24 h=8cc1100b4fb63aad
+TXSIG cid=10 lbl=1 p=1 dut=1 n=24 h=eb4f100b4fb63aad
+TXSIG cid=10 lbl=1 p=2 dut=1 n=24 h=43eb901750e63aad
+  [S2 cid=10] t=24 ADDR exp=180 act=c0 (group=1 pix=0)
+  [S2 cid=10] t=25 ADDR exp=190 act=d0 (group=1 pix=1)
+  [S2 cid=10] t=26 ADDR exp=1a0 act=e0 (group=1 pix=2)
+  [S2 cid=10] t=27 ADDR exp=1b0 act=f0 (group=1 pix=3)
+  [S2 cid=10] ADDR DIFF = 24 / 48  (组平面步长错，见报告 F1)
+TXSIG cid=10 lbl=2 p=0 dut=3 n=48 h=a69c0a397eb7b7b5
+CASE 10  cin=126 cout= 24 k=1 s=1 d=1 pad=1 h=4 w=6 sh=7 pat=0 | S1=  ok(72 tx, bub=54) S2=  ok(48 tx, 3 pass, bub=36)
+        STAT8  prm=51(rd48) wld=96(rd48) cmp=144(rd90) drn=39 oob=54 | STAT16 prm=66(rd64) wld=128(rd64) cmp=96(rd60) drn=26 oob=36
+TXSIG cid=11 lbl=0 p=0 dut=0 n=16 h=b97c588daa11f455
+TXSIG cid=11 lbl=0 p=0 dut=1 n=16 h=b97c588daa11f455
+TXSIG cid=11 lbl=1 p=0 dut=1 n=8 h=4d2a6bc83f19f0fd
+TXSIG cid=11 lbl=1 p=1 dut=1 n=8 h=36192b61baba4cbd
+TXSIG cid=11 lbl=2 p=0 dut=3 n=8 h=4188bfd2ea6cc8cd
+CASE 11  cin=120 cout= 13 k=3 s=2 d=2 pad=0 h=4 w=8 sh=4 pat=0 | S1=  ok(16 tx, bub=180) S2=  ok(8 tx, 2 pass, bub=90)
+        STAT8  prm=34(rd32) wld=576(rd288) cmp=288(rd108) drn=26 oob=180 | STAT16 prm=33(rd32) wld=576(rd288) cmp=144(rd54) drn=13 oob=90
+TXSIG cid=12 lbl=0 p=0 dut=0 n=12 h=774e172052dd1f31
+TXSIG cid=12 lbl=0 p=0 dut=1 n=12 h=774e172052dd1f31
+TXSIG cid=12 lbl=1 p=0 dut=1 n=6 h=f9308ddc6985eb5f
+TXSIG cid=12 lbl=1 p=1 dut=1 n=6 h=200996cff980929f
+TXSIG cid=12 lbl=2 p=0 dut=3 n=6 h=728c77b38620942b
+CASE 12  cin=128 cout= 16 k=1 s=2 d=1 pad=0 h=5 w=4 sh=6 pat=0 | S1=  ok(12 tx, bub=0) S2=  ok(6 tx, 2 pass, bub=0)
+        STAT8  prm=34(rd32) wld=64(rd32) cmp=24(rd24) drn=26 oob=0 | STAT16 prm=33(rd32) wld=64(rd32) cmp=12(rd12) drn=13 oob=0
+TXSIG cid=13 lbl=0 p=0 dut=0 n=32 h=11544bbbd5b8bec5
+TXSIG cid=13 lbl=0 p=0 dut=1 n=32 h=11544bbbd5b8bec5
+TXSIG cid=13 lbl=1 p=0 dut=1 n=16 h=928bb79d036ca895
+TXSIG cid=13 lbl=1 p=1 dut=1 n=16 h=b93404f7bddcb915
+TXSIG cid=13 lbl=2 p=0 dut=3 n=16 h=3d82b54b8cbf0575
+CASE 13  cin= 64 cout= 16 k=3 s=1 d=1 pad=1 h=4 w=4 sh=6 pat=0 | S1=  ok(32 tx, bub=88) S2=  ok(16 tx, 2 pass, bub=44)
+        STAT8  prm=34(rd32) wld=288(rd144) cmp=288(rd200) drn=26 oob=88 | STAT16 prm=33(rd32) wld=288(rd144) cmp=144(rd100) drn=13 oob=44
+TXSIG cid=14 lbl=0 p=0 dut=0 n=30 h=f7dbd1e9ec5dd137
+TXSIG cid=14 lbl=0 p=0 dut=1 n=30 h=f7dbd1e9ec5dd137
+TXSIG cid=14 lbl=1 p=0 dut=1 n=30 h=f7dbd1e9ec5dd137
+TXSIG cid=14 lbl=2 p=0 dut=3 n=30 h=3a928988ee4ed5df
+CASE 14  cin=186 cout=  3 k=1 s=1 d=2 pad=1 h=5 w=6 sh=7 pat=0 | S1=  ok(30 tx, bub=30) S2=  ok(30 tx, 1 pass, bub=30)
+        STAT8  prm=17(rd16) wld=48(rd24) cmp=90(rd60) drn=13 oob=30 | STAT16 prm=33(rd32) wld=96(rd48) cmp=90(rd60) drn=13 oob=30
+TXSIG cid=15 lbl=0 p=0 dut=0 n=18 h=7b93ccc81803277a
+TXSIG cid=15 lbl=0 p=0 dut=1 n=18 h=7b93ccc81803277a
+TXSIG cid=15 lbl=1 p=0 dut=1 n=9 h=511c98b35690333f
+TXSIG cid=15 lbl=1 p=1 dut=1 n=9 h=d2b6b68f04a3cb66
+TXSIG cid=15 lbl=2 p=0 dut=3 n=9 h=3800ea4d4eb1bb34
+CASE 15  cin=124 cout= 13 k=3 s=2 d=1 pad=1 h=5 w=6 sh=0 pat=0 | S1=  ok(18 tx, bub=100) S2=  ok(9 tx, 2 pass, bub=50)
+        STAT8  prm=34(rd32) wld=576(rd288) cmp=324(rd224) drn=26 oob=100 | STAT16 prm=33(rd32) wld=576(rd288) cmp=162(rd112) drn=13 oob=50
+TXSIG cid=16 lbl=0 p=0 dut=0 n=24 h=32c00acbd38f8f2d
+TXSIG cid=16 lbl=0 p=0 dut=1 n=24 h=32c00acbd38f8f2d
+TXSIG cid=16 lbl=1 p=0 dut=1 n=6 h=1e8d75e025ebfa9f
+TXSIG cid=16 lbl=1 p=1 dut=1 n=6 h=3808b1ac5623fa9f
+TXSIG cid=16 lbl=1 p=2 dut=1 n=6 h=b8f870c59eae415f
+TXSIG cid=16 lbl=1 p=3 dut=1 n=6 h=b8f870c59eae415f
+  [S2 cid=16] t=6 ADDR exp=60 act=30 (group=1 pix=0)
+  [S2 cid=16] t=7 ADDR exp=70 act=40 (group=1 pix=1)
+  [S2 cid=16] t=8 ADDR exp=80 act=50 (group=1 pix=2)
+  [S2 cid=16] t=9 ADDR exp=90 act=60 (group=1 pix=3)
+  [S2 cid=16] ADDR DIFF = 6 / 12  (组平面步长错，见报告 F1)
+TXSIG cid=16 lbl=2 p=0 dut=3 n=12 h=cb1ddd3160e35441
+CASE 16  cin=190 cout= 32 k=1 s=2 d=2 pad=0 h=5 w=4 sh=6 pat=0 | S1=  ok(24 tx, bub=0) S2=  ok(12 tx, 4 pass, bub=0)
+        STAT8  prm=68(rd64) wld=192(rd96) cmp=72(rd72) drn=52 oob=0 | STAT16 prm=66(rd64) wld=192(rd96) cmp=36(rd36) drn=26 oob=0
+TXSIG cid=17 lbl=0 p=0 dut=0 n=60 h=677b218194694e11
+TXSIG cid=17 lbl=0 p=0 dut=1 n=60 h=677b218194694e11
+TXSIG cid=17 lbl=1 p=0 dut=1 n=20 h=c428165d214725f9
+TXSIG cid=17 lbl=1 p=1 dut=1 n=20 h=1af4f57211defdf9
+TXSIG cid=17 lbl=1 p=2 dut=1 n=20 h=714be1e5e1b44d19
+  [S2 cid=17] t=20 ADDR exp=140 act=a0 (group=1 pix=0)
+  [S2 cid=17] t=21 ADDR exp=150 act=b0 (group=1 pix=1)
+  [S2 cid=17] t=22 ADDR exp=160 act=c0 (group=1 pix=2)
+  [S2 cid=17] t=23 ADDR exp=170 act=d0 (group=1 pix=3)
+  [S2 cid=17] ADDR DIFF = 20 / 40  (组平面步长错，见报告 F1)
+TXSIG cid=17 lbl=2 p=0 dut=3 n=40 h=bf6f1f654afd19dd
+CASE 17  cin= 64 cout= 17 k=3 s=1 d=2 pad=1 h=4 w=5 sh=7 pat=0 | S1=  ok(60 tx, bub=330) S2=  ok(40 tx, 3 pass, bub=220)
+        STAT8  prm=51(rd48) wld=432(rd216) cmp=540(rd210) drn=39 oob=330 | STAT16 prm=66(rd64) wld=576(rd288) cmp=360(rd140) drn=26 oob=220
+TXSIG cid=18 lbl=0 p=0 dut=0 n=48 h=7f340b1bb1c6d335
+TXSIG cid=18 lbl=0 p=0 dut=1 n=48 h=7f340b1bb1c6d335
+TXSIG cid=18 lbl=1 p=0 dut=1 n=16 h=4a191f007586f095
+TXSIG cid=18 lbl=1 p=1 dut=1 n=16 h=a5966118bff83f15
+TXSIG cid=18 lbl=1 p=2 dut=1 n=16 h=e127c70d90aab615
+  [S2 cid=18] t=16 ADDR exp=100 act=80 (group=1 pix=0)
+  [S2 cid=18] t=17 ADDR exp=110 act=90 (group=1 pix=1)
+  [S2 cid=18] t=18 ADDR exp=120 act=a0 (group=1 pix=2)
+  [S2 cid=18] t=19 ADDR exp=130 act=b0 (group=1 pix=3)
+  [S2 cid=18] ADDR DIFF = 16 / 32  (组平面步长错，见报告 F1)
+TXSIG cid=18 lbl=2 p=0 dut=3 n=32 h=9b5e178d1efe0f25
+CASE 18  cin=186 cout= 17 k=1 s=1 d=1 pad=0 h=4 w=4 sh=5 pat=0 | S1=  ok(48 tx, bub=0) S2=  ok(32 tx, 3 pass, bub=0)
+        STAT8  prm=51(rd48) wld=144(rd72) cmp=144(rd144) drn=39 oob=0 | STAT16 prm=66(rd64) wld=192(rd96) cmp=96(rd96) drn=26 oob=0
+TXSIG cid=19 lbl=0 p=0 dut=0 n=18 h=bd36a8495fd1454a
+TXSIG cid=19 lbl=0 p=0 dut=1 n=18 h=bd36a8495fd1454a
+TXSIG cid=19 lbl=1 p=0 dut=1 n=9 h=28d083d747780506
+TXSIG cid=19 lbl=1 p=1 dut=1 n=9 h=acad509a4467333f
+TXSIG cid=19 lbl=2 p=0 dut=3 n=9 h=0edef35968bf5bc6
+CASE 19  cin=186 cout= 16 k=3 s=2 d=2 pad=1 h=5 w=5 sh=7 pat=0 | S1=  ok(18 tx, bub=336) S2=  ok(9 tx, 2 pass, bub=168)
+        STAT8  prm=34(rd32) wld=864(rd432) cmp=486(rd150) drn=26 oob=336 | STAT16 prm=33(rd32) wld=864(rd432) cmp=243(rd75) drn=13 oob=168
+TXSIG cid=20 lbl=0 p=0 dut=0 n=72 h=8790df4c466198bd
+TXSIG cid=20 lbl=0 p=0 dut=1 n=72 h=8790df4c466198bd
+TXSIG cid=20 lbl=1 p=0 dut=1 n=36 h=9caf100224eecca9
+TXSIG cid=20 lbl=1 p=1 dut=1 n=36 h=9caf100224eecca9
+TXSIG cid=20 lbl=2 p=0 dut=3 n=36 h=b4c0e769ce9547c9
+CASE 20  cin= 64 cout= 16 k=3 s=1 d=1 pad=1 h=6 w=6 sh=3 pat=1 | S1=  ok(72 tx, bub=136) S2=  ok(36 tx, 2 pass, bub=68)
+        STAT8  prm=34(rd32) wld=288(rd144) cmp=648(rd512) drn=26 oob=136 | STAT16 prm=33(rd32) wld=288(rd144) cmp=324(rd256) drn=13 oob=68
+TXSIG cid=21 lbl=0 p=0 dut=0 n=72 h=19990617790585fd
+TXSIG cid=21 lbl=0 p=0 dut=1 n=72 h=19990617790585fd
+TXSIG cid=21 lbl=1 p=0 dut=1 n=36 h=43d796f0796e7029
+TXSIG cid=21 lbl=1 p=1 dut=1 n=36 h=43d796f0796e7029
+TXSIG cid=21 lbl=2 p=0 dut=3 n=36 h=263c1307763e1c09
+CASE 21  cin= 64 cout= 16 k=3 s=1 d=1 pad=1 h=6 w=6 sh=3 pat=2 | S1=  ok(72 tx, bub=136) S2=  ok(36 tx, 2 pass, bub=68)
+        STAT8  prm=34(rd32) wld=288(rd144) cmp=648(rd512) drn=26 oob=136 | STAT16 prm=33(rd32) wld=288(rd144) cmp=324(rd256) drn=13 oob=68
+TXSIG cid=22 lbl=0 p=0 dut=0 n=72 h=8790df4c466198bd
+TXSIG cid=22 lbl=0 p=0 dut=1 n=72 h=8790df4c466198bd
+TXSIG cid=22 lbl=1 p=0 dut=1 n=36 h=9caf100224eecca9
+TXSIG cid=22 lbl=1 p=1 dut=1 n=36 h=9caf100224eecca9
+TXSIG cid=22 lbl=2 p=0 dut=3 n=36 h=b4c0e769ce9547c9
+CASE 22  cin= 64 cout= 16 k=3 s=1 d=1 pad=1 h=6 w=6 sh=3 pat=3 | S1=  ok(72 tx, bub=136) S2=  ok(36 tx, 2 pass, bub=68)
+        STAT8  prm=34(rd32) wld=288(rd144) cmp=648(rd512) drn=26 oob=136 | STAT16 prm=33(rd32) wld=288(rd144) cmp=324(rd256) drn=13 oob=68
+TXSIG cid=23 lbl=0 p=0 dut=0 n=70 h=087aba17b9c190e6
+TXSIG cid=23 lbl=0 p=0 dut=1 n=70 h=087aba17b9c190e6
+TXSIG cid=23 lbl=1 p=0 dut=1 n=35 h=c02049554b726179
+TXSIG cid=23 lbl=1 p=1 dut=1 n=35 h=a867277550324c9c
+TXSIG cid=23 lbl=2 p=0 dut=3 n=35 h=77aed930fe367aee
+CASE 23  cin=100 cout= 13 k=3 s=1 d=1 pad=1 h=7 w=5 sh=4 pat=0 | S1=  ok(70 tx, bub=272) S2=  ok(35 tx, 2 pass, bub=136)
+        STAT8  prm=34(rd32) wld=576(rd288) cmp=1260(rd988) drn=26 oob=272 | STAT16 prm=33(rd32) wld=576(rd288) cmp=630(rd494) drn=13 oob=136
+TXSIG cid=24 lbl=0 p=0 dut=0 n=120 h=37ccef8e2b60878d
+TXSIG cid=24 lbl=0 p=0 dut=1 n=120 h=37ccef8e2b60878d
+TXSIG cid=24 lbl=1 p=0 dut=1 n=40 h=ccc8692c3ad6d7dd
+TXSIG cid=24 lbl=1 p=1 dut=1 n=40 h=43c3c679d442d7dd
+TXSIG cid=24 lbl=1 p=2 dut=1 n=40 h=e37964f26dba579d
+  [S2 cid=24] t=40 ADDR exp=280 act=140 (group=1 pix=0)
+  [S2 cid=24] t=41 ADDR exp=290 act=150 (group=1 pix=1)
+  [S2 cid=24] t=42 ADDR exp=2a0 act=160 (group=1 pix=2)
+  [S2 cid=24] t=43 ADDR exp=2b0 act=170 (group=1 pix=3)
+  [S2 cid=24] ADDR DIFF = 40 / 80  (组平面步长错，见报告 F1)
+TXSIG cid=24 lbl=2 p=0 dut=3 n=80 h=593a186291030455
+CASE 24  cin=100 cout= 17 k=3 s=1 d=1 pad=1 h=5 w=8 sh=4 pat=0 | S1=  ok(120 tx, bub=444) S2=  ok(80 tx, 3 pass, bub=296)
+        STAT8  prm=51(rd48) wld=864(rd432) cmp=2160(rd1716) drn=39 oob=444 | STAT16 prm=66(rd64) wld=1152(rd576) cmp=1440(rd1144) drn=26 oob=296
+TXSIG cid=25 lbl=0 p=0 dut=0 n=120 h=de35041f42401d8d
+TXSIG cid=25 lbl=0 p=0 dut=1 n=120 h=de35041f42401d8d
+TXSIG cid=25 lbl=1 p=0 dut=1 n=40 h=5d43baba6ed6d7dd
+TXSIG cid=25 lbl=1 p=1 dut=1 n=40 h=c56a2e0989b98fdd
+TXSIG cid=25 lbl=1 p=2 dut=1 n=40 h=c5b0973a44452bdd
+  [S2 cid=25] t=40 ADDR exp=280 act=140 (group=1 pix=0)
+  [S2 cid=25] t=41 ADDR exp=290 act=150 (group=1 pix=1)
+  [S2 cid=25] t=42 ADDR exp=2a0 act=160 (group=1 pix=2)
+  [S2 cid=25] t=43 ADDR exp=2b0 act=170 (group=1 pix=3)
+  [S2 cid=25] ADDR DIFF = 40 / 80  (组平面步长错，见报告 F1)
+TXSIG cid=25 lbl=2 p=0 dut=3 n=80 h=7dfe5d27a6d7d825
+CASE 25  cin=100 cout= 20 k=3 s=1 d=1 pad=1 h=5 w=8 sh=4 pat=0 | S1=  ok(120 tx, bub=444) S2=  ok(80 tx, 3 pass, bub=296)
+        STAT8  prm=51(rd48) wld=864(rd432) cmp=2160(rd1716) drn=39 oob=444 | STAT16 prm=66(rd64) wld=1152(rd576) cmp=1440(rd1144) drn=26 oob=296
+TXSIG cid=26 lbl=0 p=0 dut=0 n=120 h=fc82727904e1e48d
+TXSIG cid=26 lbl=0 p=0 dut=1 n=120 h=fc82727904e1e48d
+TXSIG cid=26 lbl=1 p=0 dut=1 n=40 h=cd4d0715d442d7dd
+TXSIG cid=26 lbl=1 p=1 dut=1 n=40 h=41a3343431dda21d
+TXSIG cid=26 lbl=1 p=2 dut=1 n=40 h=41a3343431dda21d
+  [S2 cid=26] t=40 ADDR exp=280 act=140 (group=1 pix=0)
+  [S2 cid=26] t=41 ADDR exp=290 act=150 (group=1 pix=1)
+  [S2 cid=26] t=42 ADDR exp=2a0 act=160 (group=1 pix=2)
+  [S2 cid=26] t=43 ADDR exp=2b0 act=170 (group=1 pix=3)
+  [S2 cid=26] ADDR DIFF = 40 / 80  (组平面步长错，见报告 F1)
+TXSIG cid=26 lbl=2 p=0 dut=3 n=80 h=30b369daf18cded5
+CASE 26  cin=100 cout= 24 k=3 s=1 d=1 pad=1 h=5 w=8 sh=4 pat=0 | S1=  ok(120 tx, bub=444) S2=  ok(80 tx, 3 pass, bub=296)
+        STAT8  prm=51(rd48) wld=864(rd432) cmp=2160(rd1716) drn=39 oob=444 | STAT16 prm=66(rd64) wld=1152(rd576) cmp=1440(rd1144) drn=26 oob=296
+TXSIG cid=27 lbl=0 p=0 dut=0 n=200 h=5ed6656b91c0e0fd
+TXSIG cid=27 lbl=0 p=0 dut=1 n=200 h=5ed6656b91c0e0fd
+TXSIG cid=27 lbl=1 p=0 dut=1 n=40 h=950783c06ed6d7dd
+TXSIG cid=27 lbl=1 p=1 dut=1 n=40 h=b5a80a0c2e417c1d
+TXSIG cid=27 lbl=1 p=2 dut=1 n=40 h=4db2c0443ad6d7dd
+TXSIG cid=27 lbl=1 p=3 dut=1 n=40 h=e4b3700825b98fdd
+TXSIG cid=27 lbl=1 p=4 dut=1 n=40 h=1d98f233f634dc1d
+  [S2 cid=27] t=40 ADDR exp=280 act=140 (group=1 pix=0)
+  [S2 cid=27] t=41 ADDR exp=290 act=150 (group=1 pix=1)
+  [S2 cid=27] t=42 ADDR exp=2a0 act=160 (group=1 pix=2)
+  [S2 cid=27] t=43 ADDR exp=2b0 act=170 (group=1 pix=3)
+  [S2 cid=27] ADDR DIFF = 80 / 120  (组平面步长错，见报告 F1)
+TXSIG cid=27 lbl=2 p=0 dut=3 n=120 h=17a03703acee475d
+CASE 27  cin=100 cout= 33 k=3 s=1 d=1 pad=1 h=5 w=8 sh=4 pat=0 | S1=  ok(200 tx, bub=740) S2=  ok(120 tx, 5 pass, bub=444)
+        STAT8  prm=85(rd80) wld=1440(rd720) cmp=3600(rd2860) drn=65 oob=740 | STAT16 prm=99(rd96) wld=1728(rd864) cmp=2160(rd1716) drn=39 oob=444
+
+=== SUMMARY ===
+cases                  : 28
+S1 org vs new8         : 28/28 cases 0-diff (addr+data+sel), 1949 write-tx
+S2 n16 vs ceil(c/8)x8  : 28/28 cases lane-0-diff, 13737 lane compared
+F1 plane-stride (addr) : 478 addr-diff
+F2 last-group mask     : v39=287  new8=287  n16=346 (mask errors)
+F2 overrun bytes (n16) : 4230
+E3 padding mask        : act-pad-bad=0  wgt-pad-bad=0  rd-addr-X=0
+VERDICT                : S1/S2 EQUIV PASS
+$finish called at time : 1055040 ns : File "/media/felix/Data/coding/demoir-fpga/runs/v50_simA_fix/tb_bin_conv_core_v50_ext.v" Line 633
+exit
+INFO: xsimkernel Simulation Memory Usage: 297348 KB (Peak: 341808 KB), Simulation CPU Usage: 2600 ms
+INFO: [Common 17-206] Exiting xsim at Mon Nov  2 15:35:14 2026...

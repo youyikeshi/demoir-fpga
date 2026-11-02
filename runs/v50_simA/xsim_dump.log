@@ -1,0 +1,49 @@
+#-----------------------------------------------------------
+# xsim v2025.2.1 (64-bit)
+# SW Build 6403652 on Thu Mar 19 13:47:00 MDT 2026
+# IP Build 6403511 on Thu Mar 19 12:41:45 MDT 2026
+# SharedData Build 6403650 on Thu Mar 19 14:02:13 MDT 2026
+# Start of session at: Mon Nov  2 15:29:51 2026
+# Process ID         : 434784
+# Current directory  : /media/felix/Data/coding/demoir-fpga/runs/v50_simA
+# Command line       : xsim -log xsim_dump.log -mode tcl -source {xsim.dir/simA/xsim_script.tcl}
+# Log file           : /media/felix/Data/coding/demoir-fpga/runs/v50_simA/xsim_dump.log
+# Journal file       : /media/felix/Data/coding/demoir-fpga/runs/v50_simA/xsim.jou
+# Running On         : 2
+# Platform           : Ubuntu
+# Operating System   : Ubuntu 22.04.5 LTS
+# Processor Detail   : Intel(R) Core(TM) Ultra 7 155H
+# CPU Frequency      : 1057.530 MHz
+# CPU Physical cores : 16
+# CPU Logical cores  : 22
+# Host memory        : 33236 MB
+# Swap memory        : 0 MB
+# Total Virtual      : 33236 MB
+# Available Virtual  : 16381 MB
+#-----------------------------------------------------------
+source xsim.dir/simA/xsim_script.tcl
+# xsim {simA} -testplusarg NCASE=1 -testplusarg DUMP -autoloadwcfg -runall
+Time resolution is 1 ps
+run -all
+=== v50_simA: IMP-A bin_conv_core.v 回归/等价性 (xsim) ===
+  [S2 cid=0] t=6 ADDR exp=60 act=30 (group=1 pix=0)
+  [S2 cid=0] t=7 ADDR exp=70 act=40 (group=1 pix=1)
+  [S2 cid=0] t=8 ADDR exp=80 act=50 (group=1 pix=2)
+  [S2 cid=0] t=9 ADDR exp=90 act=60 (group=1 pix=3)
+  [S2 cid=0] ADDR DIFF = 6 / 12  (组平面步长错，见报告 F1)
+CASE  0  cin= 63 cout= 32 k=1 s=2 d=2 pad=0 h=4 w=6 sh=6 pat=0 | S1=  ok(24 tx, bub=0) S2=  ok(12 tx, 4 pass, bub=0)
+        STAT8  prm=68(rd64) wld=64(rd32) cmp=24(rd24) drn=52 oob=0 | STAT16 prm=66(rd64) wld=64(rd32) cmp=12(rd12) drn=26 oob=0
+
+=== SUMMARY ===
+cases                  : 1
+S1 org vs new8         : 1/1 cases 0-diff (addr+data+sel), 24 write-tx
+S2 n16 vs ceil(c/8)x8  : 1/1 cases lane-0-diff, 192 lane compared
+F1 plane-stride (addr) : 6 addr-diff
+F2 last-group mask     : v39=0  new8=0  n16=0 (mask errors)
+F2 overrun bytes (n16) : 0
+E3 padding mask        : act-pad-bad=0  wgt-pad-bad=0  rd-addr-X=0
+VERDICT                : S1/S2 EQUIV PASS
+$finish called at time : 6240 ns : File "/media/felix/Data/coding/demoir-fpga/runs/v50_simA/tb_bin_conv_core_v50.v" Line 607
+exit
+INFO: xsimkernel Simulation Memory Usage: 297148 KB (Peak: 341444 KB), Simulation CPU Usage: 890 ms
+INFO: [Common 17-206] Exiting xsim at Mon Nov  2 15:29:53 2026...

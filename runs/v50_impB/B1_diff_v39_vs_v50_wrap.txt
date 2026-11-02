@@ -1,0 +1,607 @@
+--- runs/v42e_archive/rtl_v39_exact/bin_unit_axi_wrap.v	2026-11-02 12:25:02.037410100 +0800
++++ pynq_specialized_code/pl/rtl_hand/_worktrees/v50_impB/bin_unit_axi_wrap_v50.v	2026-11-02 15:31:15.884166900 +0800
+@@ -296,7 +296,7 @@
+ // ============================================================================
+ `timescale 1ns / 1ps
+ 
+-module bin_unit_axi_wrap #(
++module bin_unit_axi_wrap_v50 #(
+     // ---- 内嵌哪个单元（综合期常量）----
+     parameter int  UNIT         = 0,      // 0=conv_core 1=rprelu 2=sam 3=interp
+     // ---- 单元参数 ----
+@@ -355,7 +355,31 @@
+     //   （见 §7.9 "描述符可达性"一段），写侧不再有不可达/死锁状态。
+     //   想换更大的 burst：必须同时把 WR_BUF_BEATS 提到 >= 2*WR_BURST_MAX
+     //   （例：BURST_MAX=16 需要 BUF_BEATS=32 → 峰值 30 >= 16），别只改一个。
+-    parameter int  WR_BURST_MAX = 8       // 单笔写 burst 拍数上限（1..256，AXI3 上限 16）
++    parameter int  WR_BURST_MAX = 8,      // 单笔写 burst 拍数上限（1..256，AXI3 上限 16）
++    // ========================================================================
++    // ★ v50（IMP-B）：数据流参数。全部**带默认值** ⇒ 只实例化不传参时行为
++    //   = v39（VLANES=8、FUSE_EN=1 但 FUSE_MODE 复位 0 ⇒ 融合通路全静默）。
++    // ========================================================================
++    // 真正的 lane 数（8 = v39 等价；16 = v50 目标）。
++    // ⚠ 核里的 LANES 是 **popcount 位宽（恒 64）**，不是 lane 数；lane 数是
++    //   VLANES（见 IMP-A 的 bin_conv_core.v 头注）。本文件把 .LANES(LANES) 原样
++    //   保留、另加 .VLANES(VLANES) —— 端口名一个没改（契约 C-B1）。
++    parameter int  VLANES        = 8,
++    // 融合通路总开关（0 = 连 band/segq 都不生成，资源与 v39 齐平）
++    parameter int  FUSE_EN       = 1,
++    // band 缓冲（契约 C-B4 / D4）：每带 BAND_ROWS 行 + 单侧 BAND_HALO 行 halo
++    parameter int  BAND_ROWS     = 8,
++    parameter int  BAND_HALO     = 1,
++    parameter int  BAND_C_MAX    = 48,
++    parameter int  BAND_W_MAX    = 256,
++    parameter int  BAND_BUDGET_KB= 270,
++    // ★ v50 新寄存器基址 = **0x300**（契约修订 R1，2026-11-02 15:30）。
++    //   背景：0x200/0x204/0x208/0x20C/0x210 已被 v39 的 R_RUN_UNIT / E_GRP /
++    //   E_DESC / E_HI_BAD / E_OUT 占用（本文件 :897-901），所以 v50 的寄存器
++    //   一个字节都不许落在 0x000..0x20C。R1 定：0x300 CHAIN_HEAD / 0x304
++    //   PROGRESS / 0x308 BAND_ROWS / 0x30C FUSE_MODE / 0x310 CHAIN_STATUS；
++    //   本文件把 arena 上下界放在 0x318/0x31C（0x314 留空，0x250..0x25C 不碰）。
++    parameter int  V50_REG_BASE  = 16'h0300
+ )(
+     // ---- AXI4-Lite slave ----
+     input  logic        s_axi_aclk,
+@@ -452,6 +476,14 @@
+     localparam [31:0]       HW_LIM     = HW_MAX;
+     localparam [31:0]       COUT_LIM   = COUT_MAX;
+     localparam [31:0]       K_LIM      = KMAX;
++    // ★ v50 寄存器偏移（写成 localparam 才能在 case 项里当常量用）
++    localparam [9:0]  RW_CHAIN = V50_REG_BASE[9:0];        // 0x300 CHAIN_HEAD
++    localparam [9:0]  RW_PROG  = RW_CHAIN + 10'd4;         // 0x304 PROGRESS  (RO)
++    localparam [9:0]  RW_BROWS = RW_CHAIN + 10'd8;         // 0x308 BAND_ROWS
++    localparam [9:0]  RW_FUSE  = RW_CHAIN + 10'd12;        // 0x30C FUSE_MODE
++    localparam [9:0]  RW_STAT  = RW_CHAIN + 10'd16;        // 0x310 CHAIN_STATUS (RO)
++    localparam [9:0]  RW_ALO   = RW_CHAIN + 10'd24;        // 0x318 ARENA_LO
++    localparam [9:0]  RW_AHI   = RW_CHAIN + 10'd28;        // 0x31C ARENA_HI
+ 
+     // 错误码（AP_RETURN[15:8]）
+     localparam [7:0] ERR_NULL   = 8'd1,   // 某必需基址为 0
+@@ -507,6 +539,50 @@
+     logic [31:0] cnt_e_rd, cnt_e_cyc, cnt_e_rdst, cnt_e_wrst, cnt_e_wr;
+     logic        clr_e_dbg;
+ 
++    // ========================================================================
++    // ★ v50（IMP-B）新信号 —— **全部新增**，v39 的每一根线都没改
++    // ========================================================================
++    logic [31:0] r_chain_head;      // 0x2E0 CHAIN_HEAD（描述符链首）
++    logic [15:0] r_band_rows;       // 0x2E8 BAND_ROWS（本带行数，PS 可改）
++    logic [31:0] r_fuse_mode;       // 0x2EC FUSE_MODE（bit0=1 走融合通路）
++    logic [31:0] r_arena_lo;        // 0x2F0 arena 下界（segq 越界判据）
++    logic [31:0] r_arena_hi;        // 0x2F4 arena 上界
++    // 融合模式：配置值 → 启动闸门判据 → 启动时锁存（运行中改 0x2EC 无效）
++    //   sel_fuse_c   = 本次 start 会不会走融合通路
++    //   fuse_cfg_bad = 用户要了融合但这个组合不支持（UNIT!=0 / FUSE_EN=0 / catpack）
++    wire         sel_fuse_c   = (UNIT == 0) && (FUSE_EN != 0) && r_fuse_mode[0];
++    wire         fuse_cfg_bad = r_fuse_mode[0] &&
++                                ((UNIT != 0) || (FUSE_EN == 0) || (run_unit == 3'd5));
++    logic        sel_fuse_q;        // 启动时锁存（运行中改 FUSE_MODE 无效）
++    logic        wr_split_busy_i;
++    // VLANES>8 的 2 拍串行化在忙（=0 时与 v39 逐位同）。非 UNIT=0 分支没有它 ⇒ 恒 0
++    wire         wr_split_busy = (UNIT == 0) ? wr_split_busy_i : 1'b0;
++    // 单元输出（_i 后缀 = v39 原样的那一路；最终的 u_* 由融合 mux 给出）
++    logic        u_done_i, u_busy_i, u_rd_en_i, u_wr_en_i, u_wr_64_i;
++    logic [31:0] u_rd_addr_i, u_wr_addr_i;
++    logic [63:0] u_wr_data_i;
++    logic [7:0]  u_wr_sel_i, u_err_i;
++    // band 缓冲 / 描述符链 的对外线
++    logic [63:0] band_a_rd_data, band_c_rd_data, band_d_rd_data, band_e_rd_data;
++    logic        band_wr_idle, band_cap_err, band_canary_err, band_arb_conf;
++    logic [3:0]  seg_state;
++    logic        seg_hdr_req, seg_hdr_data, seg_ld_req, seg_ld_data;
++    logic        seg_hdr_req_d, seg_ld_req_d, seg_dr_req_d;
++    logic [31:0] band_words;
++    logic [31:0] seg_hdr_addr, seg_ld_addr;
++    logic        seg_ld_we, seg_dr_req, seg_dr_data, seg_st_we;
++    logic [31:0] seg_ld_wa, seg_dr_addr, seg_st_wa;
++    logic [63:0] seg_ld_wd, seg_st_wd;
++    logic [7:0]  seg_st_ws;
++    logic        seg_band_start, seg_band_done, seg_band_abort;
++    logic [15:0] seg_opmask;
++    logic [31:0] seg_progress;
++    logic        seg_done, seg_err, seg_busy;
++    logic [7:0]  seg_err_code;
++    logic [31:0] seg_in_pa, seg_out_pa, seg_next_pa, seg_flags;
++    logic [15:0] seg_cin, seg_cout, seg_h, seg_w, seg_nband, seg_op_mask, seg_band_y0;
++    logic [7:0]  seg_k, seg_s, seg_dd, seg_pad;
++
+     // ---- 运行控制 ----
+     logic        start_pend;    // PS 已写 start，等读线静默后再真启动
+     logic        start_req;     // 单拍脉冲 → 单元 ctrl_start
+@@ -802,6 +878,11 @@
+             run_unit <= 3'd0; run_unit_q <= 3'd0;
+             r_egrp <= 32'd0; r_edesc <= 32'd0; r_eout <= 32'd0;
+             r_e_hi_bad <= 2'd0;
++            // ★ v50 新寄存器复位（FUSE_MODE 复位 0 ⇒ 融合通路关闭 = v39 行为）
++            r_chain_head <= 32'd0; r_band_rows <= 16'(BAND_ROWS);
++            r_fuse_mode  <= 32'd0;
++            r_arena_lo   <= 32'h0000_0000; r_arena_hi <= 32'hFFFF_FFFF;
++            sel_fuse_q   <= 1'b0;
+ 
+             start_req <= 1'b0; run_active <= 1'b0; unit_done_q <= 1'b0;
+             done_sticky <= 1'b0; err_code <= 8'd0; vcode_q <= 8'd0;
+@@ -904,6 +985,15 @@
+                         10'h214: r_e_hi_bad[1] <= (wr_data != 32'd0);
+                         // E1E2 DBG 清零（写 0x230 把 5 个计数器一起清）
+                         10'h230: clr_e_dbg <= 1'b1;
++                        // ---------------- ★ v50 融合通路寄存器页 ----------------
++                        // ⚠ 基址见参数 V50_REG_BASE 的注释（默认 0x2E0，避开
++                        //   v39 已占用的 0x200..0x210 与契约的 0x250..0x25C 禁区）
++                        RW_CHAIN:  r_chain_head <= bmerge(r_chain_head, wr_data, wr_strb);
++                        RW_BROWS:  r_band_rows  <= bmerge({16'd0, r_band_rows}, wr_data, wr_strb);
++                        RW_FUSE:   r_fuse_mode  <= bmerge(r_fuse_mode,  wr_data, wr_strb);
++                        RW_ALO:    r_arena_lo   <= bmerge(r_arena_lo,   wr_data, wr_strb);
++                        RW_AHI:    r_arena_hi   <= bmerge(r_arena_hi,   wr_data, wr_strb);
++                        // RW_PROG 是只读（读 segq 的 progress 计数器）
+                         default: ;
+                         endcase
+                     end
+@@ -926,13 +1016,14 @@
+             //   rd_quiet 也仍成立（没有 AR/R 在飞）⇒ 不会读到"半清"的阵列。
+             if (start_pend && !run_active && rd_quiet && !flush_busy) begin
+                 start_pend <= 1'b0;
+-                if (vcode_q == 8'd0) begin
++                if ((vcode_q == 8'd0) && !fuse_cfg_bad) begin
+                     flush_busy <= 1'b1;         // 先清 tag 阵列（LC_N 拍）
+                     flush_ptr  <= {LC_IW{1'b0}};
+                 end else begin
+                     // 校验失败：不启动，但置 done + 错误码，让 PS 的轮询能退出
++                    // ★ v50：融合模式的配置错也走这条（fuse_cfg_bad）
+                     done_sticky <= 1'b1;
+-                    err_code    <= vcode_q;
++                    err_code    <= (vcode_q != 8'd0) ? vcode_q : ERR_UNIT;
+                     err_from_cfg <= 1'b1;
+                 end
+             end
+@@ -947,6 +1038,8 @@
+                     // ★ 锁存本次运行的单元：运行中改 R_RUN_UNIT 不影响 mux。
+                     //   start_req 与 run_unit_q 同拍更新 ⇒ start 脉冲那一拍 mux 已选对。
+                     run_unit_q  <= (UNIT == 4) ? 3'd4 : run_unit;
++                    // ★ v50：锁存本次运行走不走融合通路（运行中改 0x2EC 无效）
++                    sel_fuse_q  <= sel_fuse_c;
+                     clr_e_dbg   <= 1'b1;        // 每次启动清 DBG 吞吐计数器
+                     unit_done_q <= 1'b0;
+                     done_sticky <= 1'b0;
+@@ -1216,8 +1309,10 @@
+         //   · 复位 run_unit=0 ⇒ sel=0 ⇒ 旧驱动看到的行为与今天**逐位相同**。
+         logic        c_done, c_busy, c_rd_en, c_wr_en;
+         logic [31:0] c_rd_addr, c_wr_addr;
+-        logic [63:0] c_wr_data;
+-        logic [7:0]  c_wr_sel;
++        // ★ v50：VLANES=8 ⇒ 64 bit / 8 位（= v39 原样）；VLANES=16 ⇒ 128 / 16 位
++        //   （= IMP-A 的 bin_conv_core 端口，名字逐字相同，只是参数化宽度）
++        logic [VLANES*8-1:0] c_wr_data;
++        logic [VLANES-1:0]   c_wr_sel;
+         logic        e_done, e_busy, e_rd_en, e_wr_en;
+         logic [31:0] e_rd_addr, e_wr_addr;
+         logic [63:0] e_wr_data;
+@@ -1226,42 +1321,81 @@
+         logic [31:0] k_rd_addr, k_wr_addr;
+         logic [63:0] k_wr_data;
+         logic [7:0]  k_wr_sel, k_err;
+-        wire         c_start = start_req && !sel_e1e2_q && !sel_cp_q;
++        // ★ v50：融合模式下单元由 segq 的 band_start 启动（一条描述符 = 一个带）
++        // ------------------------------------------------------------------
++        // ★ v50 §10.2：本次运行的单元 cfg/base 来源。
++        //   fuse_m = 0 ⇒ 全部等于 v39 的 r_*（B1 的等价性就靠这一层 mux）
++        //   fuse_m = 1 ⇒ 来自描述符 + band 形状；band 空间从 0 起算（base=0），
++        //                H 取带内行数（含 halo），这样核的地址公式直接落到 band 上
++        // ------------------------------------------------------------------
++        wire         fuse_m = sel_fuse_q && !sel_e1e2_q && !sel_cp_q;
++        wire [15:0]  c_cfg_cin   = fuse_m ? seg_cin  : r_c[15:0];
++        wire [15:0]  c_cfg_cout  = fuse_m ? seg_cout : r_cout[15:0];
++        wire [15:0]  c_cfg_k     = fuse_m ? {8'd0, seg_k}   : r_k[15:0];
++        wire [15:0]  c_cfg_s     = fuse_m ? {8'd0, seg_s}   : r_s[15:0];
++        wire [15:0]  c_cfg_d     = fuse_m ? {8'd0, seg_dd}  : r_d[15:0];
++        wire [15:0]  c_cfg_pad   = fuse_m ? {8'd0, seg_pad} : r_pad[15:0];
++        wire [15:0]  c_cfg_h     = fuse_m ? seg_h  : r_h[15:0];
++        wire [15:0]  c_cfg_w     = fuse_m ? seg_w  : r_w[15:0];
++        // ★ R1：描述符字 6/7 已定死成 band_y0/flags ⇒ shift 组与权重/PRM 基址
++        //   不在描述符里，融合模式下**仍用寄存器**（PS 在段边界写一次）。
++        //   （这也是 P4"段内 op 不再逐个驱动、只处理段边界"的自然结果。）
++        wire [5:0]   c_cfg_ash   = r_alpha_shift[5:0];
++        wire [5:0]   c_cfg_ssh   = r_slope_shift[5:0];
++        wire [5:0]   c_cfg_shift = r_shift[5:0];
++        wire [31:0]  c_base_act  = fuse_m ? 32'd0 : r_in;
++        wire [31:0]  c_base_out  = fuse_m ? 32'd0 : r_out;
++        wire [31:0]  c_base_wgt  = r_wgt;      // R1：权重基址走寄存器（段边界写一次）
++        wire [31:0]  c_base_alpha= fuse_m ? r_alpha   : r_alpha;
++        wire [31:0]  c_base_bias = fuse_m ? r_bias    : r_bias;
++        wire [31:0]  c_base_zeta = fuse_m ? r_zeta    : r_zeta;
++        wire [31:0]  c_base_gamma= fuse_m ? r_gamma   : r_gamma;
++        wire [31:0]  c_base_slope= fuse_m ? r_slope_b : r_slope_b;
++        // 读数据：融合模式下核从 band 取数（pack 从 band 的 C 口取）
++        wire [63:0]  core_rd_data = fuse_m ? band_a_rd_data : u_rd_data;
++        wire [63:0]  pack_rd_data = fuse_m ? band_c_rd_data : u_rd_data;
++
++        wire         c_start = fuse_m ? seg_band_start
++                                     : (start_req && !sel_e1e2_q && !sel_cp_q);
+         wire         e_start = start_req &&  sel_e1e2_q;
+         wire         k_start = start_req &&  sel_cp_q;
+ 
++        // ★ v50（契约 C-B1）：端口名与 v39 **逐字相同**，只加参数；
++        //   .LANES 仍是 popcount 位宽（恒 64），真正的 lane 数走 .VLANES。
+         bin_conv_core #(
+-            .LANES    (LANES),
+-            .COUT_MAX (COUT_MAX)
+-        ) u_unit (
++            .LANES    (LANES),          // popcount 位宽（v39 原样，恒 64）
++            .COUT_MAX (COUT_MAX),       // v39 原样（核里未使用）
++            .VLANES   (VLANES)          // ★ v50：真正的 lane 数（8 / 16）
++        ) u_core (
+             .ap_clk          (s_axi_aclk),
+             .ap_ce           (u_ce),
+             .ap_rst_n        (s_axi_aresetn),
+             .ctrl_start      (c_start),
+             .ctrl_done       (c_done),
+             .ctrl_busy       (c_busy),
+-            .cfg_cin         (r_c[15:0]),
+-            .cfg_cout        (r_cout[15:0]),
+-            .cfg_k           (r_k[15:0]),
+-            .cfg_s           (r_s[15:0]),
+-            .cfg_d           (r_d[15:0]),
+-            .cfg_pad         (r_pad[15:0]),
+-            .cfg_h           (r_h[15:0]),
+-            .cfg_w           (r_w[15:0]),
+-            .cfg_alpha_shift (r_alpha_shift[5:0]),
+-            .cfg_slope_shift (r_slope_shift[5:0]),
+-            .cfg_shift       (r_shift[5:0]),
+-            .base_act        (r_in),
+-            .base_wgt        (r_wgt),
+-            .base_alpha      (r_alpha),
+-            .base_bias       (r_bias),
+-            .base_zeta       (r_zeta),
+-            .base_gamma      (r_gamma),
+-            .base_slope      (r_slope_b),
+-            .base_out        (r_out),
++            // ★ v50：FUSE_MODE=0 时下面每一根 c_* 都**逐位等于** v39 的 r_*
++            .cfg_cin         (c_cfg_cin),
++            .cfg_cout        (c_cfg_cout),
++            .cfg_k           (c_cfg_k),
++            .cfg_s           (c_cfg_s),
++            .cfg_d           (c_cfg_d),
++            .cfg_pad         (c_cfg_pad),
++            .cfg_h           (c_cfg_h),
++            .cfg_w           (c_cfg_w),
++            .cfg_alpha_shift (c_cfg_ash),
++            .cfg_slope_shift (c_cfg_ssh),
++            .cfg_shift       (c_cfg_shift),
++            .base_act        (c_base_act),
++            .base_wgt        (c_base_wgt),
++            .base_alpha      (c_base_alpha),
++            .base_bias       (c_base_bias),
++            .base_zeta       (c_base_zeta),
++            .base_gamma      (c_base_gamma),
++            .base_slope      (c_base_slope),
++            .base_out        (c_base_out),
+             .mem_rd_en       (c_rd_en),
+             .mem_rd_addr     (c_rd_addr),
+-            .mem_rd_data     (u_rd_data),
++            .mem_rd_data     (core_rd_data),
+             .mem_wr_en       (c_wr_en),
+             .mem_wr_addr     (c_wr_addr),
+             .mem_wr_data     (c_wr_data),
+@@ -1288,7 +1422,7 @@
+             .base_out        (r_eout),
+             .mem_rd_en       (e_rd_en),
+             .mem_rd_addr     (e_rd_addr),
+-            .mem_rd_data     (u_rd_data),
++            .mem_rd_data     (pack_rd_data),   // ★ v50：融合模式下 pack 从 band 读
+             .mem_wr_en       (e_wr_en),
+             .mem_wr_addr     (e_wr_addr),
+             .mem_wr_data     (e_wr_data),
+@@ -1324,17 +1458,18 @@
+         );
+ 
+         // ---- 运行期 mux：用**锁存后**的 sel_*_q，运行中改 R_RUN_UNIT 无效 ----
+-        assign u_done    = sel_cp_q ? k_done    : (sel_e1e2_q ? e_done    : c_done);
+-        assign u_busy    = sel_cp_q ? k_busy    : (sel_e1e2_q ? e_busy    : c_busy);
+-        assign u_rd_en   = sel_cp_q ? k_rd_en   : (sel_e1e2_q ? e_rd_en   : c_rd_en);
+-        assign u_rd_addr = sel_cp_q ? k_rd_addr : (sel_e1e2_q ? e_rd_addr : c_rd_addr);
+-        assign u_wr_en   = sel_cp_q ? k_wr_en   : (sel_e1e2_q ? e_wr_en   : c_wr_en);
+-        assign u_wr_addr = sel_cp_q ? k_wr_addr : (sel_e1e2_q ? e_wr_addr : c_wr_addr);
+-        assign u_wr_data = sel_cp_q ? k_wr_data : (sel_e1e2_q ? e_wr_data : c_wr_data);
+-        assign u_wr_sel  = sel_cp_q ? k_wr_sel  : (sel_e1e2_q ? e_wr_sel  : c_wr_sel);
+-        assign u_wr_64   = 1'b1;
++        // ★ v50：这九根改成 *_i（= v39 原路），最终的 u_* 由 §10.5 的融合 mux 给
++        assign u_done_i    = sel_cp_q ? k_done    : (sel_e1e2_q ? e_done    : c_done);
++        assign u_busy_i    = sel_cp_q ? k_busy    : (sel_e1e2_q ? e_busy    : c_busy);
++        assign u_rd_en_i   = sel_cp_q ? k_rd_en   : (sel_e1e2_q ? e_rd_en   : c_rd_en);
++        assign u_rd_addr_i = sel_cp_q ? k_rd_addr : (sel_e1e2_q ? e_rd_addr : c_rd_addr);
++        assign u_wr_en_i   = sel_cp_q ? k_wr_en   : (sel_e1e2_q ? e_wr_en   : cw_beat_en);
++        assign u_wr_addr_i = sel_cp_q ? k_wr_addr : (sel_e1e2_q ? e_wr_addr : cw_beat_addr);
++        assign u_wr_data_i = sel_cp_q ? k_wr_data : (sel_e1e2_q ? e_wr_data : cw_beat_data);
++        assign u_wr_sel_i  = sel_cp_q ? k_wr_sel  : (sel_e1e2_q ? e_wr_sel  : cw_beat_sel);
++        assign u_wr_64_i   = 1'b1;
+         // 单元 err_code 进 AP_RETURN[15:8]；conv 运行期没有 err_code（恒 0）
+-        assign u_err     = sel_cp_q ? k_err     : (sel_e1e2_q ? e_err     : 8'd0);
++        assign u_err_i   = sel_cp_q ? k_err     : (sel_e1e2_q ? e_err     : 8'd0);
+ 
+         // ---- E1E2 DBG：读吞吐 / 冻结占比（上板直接读 0x230..0x240）----
+         always_ff @(posedge s_axi_aclk or negedge s_axi_aresetn) begin
+@@ -1354,6 +1489,232 @@
+                 end
+             end
+         end
++        // ====================================================================
++        // ★ v50（IMP-B）§10：融合控制 + band 缓冲 + 描述符链
++        // --------------------------------------------------------------------
++        //  FUSE_MODE=0（复位值）时 sel_fuse_q=0 ⇒ 本节**所有** mux 都退化成
++        //  "右边那路原样"（u_rd_en = u_rd_en_i …），band/segq 只被清零、不参与
++        //  任何通路 ⇒ 与 v39 逐位相同（契约 ⑧ / B1）。本节只增加、不修改。
++        // ====================================================================
++
++        // ---- §10.1 VLANES>8 的写侧 2 拍串行化（(b) 方案；8 lane 时纯直通）----
++        logic        cw_beat_en;
++        logic [31:0] cw_beat_addr;
++        logic [63:0] cw_beat_data;
++        logic [7:0]  cw_beat_sel;
++
++        if (VLANES <= 8) begin : g_wr_direct
++            // 8 lane：核一拍一个 64-bit 整字 ⇒ **同拍同值直通**（0 拍开销）
++            assign cw_beat_en   = c_wr_en;
++            assign cw_beat_addr = c_wr_addr;
++            assign cw_beat_data = c_wr_data[63:0];
++            assign cw_beat_sel  = c_wr_sel[7:0];
++            assign wr_split_busy_i = 1'b0;
++        end else begin : g_wr_split2
++            // 16 lane：核一拍吐 128 位。lane0-7 → 组 o0/8，lane8-15 → 组 o0/8+1，
++            // 两个平面相差 Hout*Wout*8 字节（DESIGN_16LANE §7.3 不变量①：
++            // **绝不能**当成 C16 交错 +8 字节）。
++            // ⇒ 拆 2 拍：beat0 = 低 64 位 / addr；beat1 = 高 64 位 / addr+plane_delta
++            logic        p1_v;
++            logic [31:0] p1_addr;
++            logic [63:0] p1_data;
++            logic [7:0]  p1_sel;
++            wire  [31:0] plane_delta = ({16'd0, c_cfg_h} * {16'd0, c_cfg_w}) << 3;
++
++            always_ff @(posedge s_axi_aclk or negedge s_axi_aresetn) begin
++                if (!s_axi_aresetn) begin
++                    p1_v <= 1'b0; p1_addr <= 32'd0; p1_data <= 64'd0; p1_sel <= 8'd0;
++                    cw_beat_en <= 1'b0; cw_beat_addr <= 32'd0;
++                    cw_beat_data <= 64'd0; cw_beat_sel <= 8'd0;
++                end else begin
++                    cw_beat_en <= 1'b0;
++                    if (p1_v) begin
++                        // 第二拍优先（保序）
++                        p1_v         <= 1'b0;
++                        cw_beat_en   <= 1'b1;
++                        cw_beat_addr <= p1_addr + plane_delta;
++                        cw_beat_data <= p1_data;
++                        cw_beat_sel  <= p1_sel;
++                    end else if (c_wr_en) begin
++                        cw_beat_en   <= 1'b1;
++                        cw_beat_addr <= c_wr_addr;
++                        cw_beat_data <= c_wr_data[63:0];
++                        cw_beat_sel  <= c_wr_sel[7:0];
++                        if (c_wr_sel[VLANES-1:8] != 8'd0) begin
++                            p1_v    <= 1'b1;
++                            p1_addr <= c_wr_addr;
++                            p1_data <= c_wr_data[VLANES*8-1:64];
++                            p1_sel  <= c_wr_sel[VLANES-1:8];
++                        end
++                    end
++                end
++            end
++            // 停核条件：还有一拍没发出去（缓冲 1 深）。停核不会停死：写引擎用
++            // wr_accept_ok（含 wr_xfer）仍能在 u_ce=0 时吞这一拍（§5 的 assign）。
++            assign wr_split_busy_i = p1_v;
++        end
++
++        // ---- §10.5 融合 mux 的中间线（**先声明、后使用**）----
++        wire         seg_axi_rd_en   = fuse_m && (seg_hdr_req || seg_ld_req);
++        wire [31:0]  seg_axi_rd_addr = seg_hdr_req ? seg_hdr_addr : seg_ld_addr;
++        wire         fuse_wr_en   = seg_st_we | (sel_e1e2_q && e_wr_en);
++        wire [31:0]  fuse_wr_addr = seg_st_we ? seg_st_wa : e_wr_addr;
++        wire [63:0]  fuse_wr_data = seg_st_we ? seg_st_wd : e_wr_data;
++        wire [7:0]   fuse_wr_sel  = seg_st_we ? seg_st_ws : e_wr_sel;
++
++        // ---- §10.5 融合 mux：FUSE_MODE=0 时逐根等于 v39 ----
++        assign u_done    = sel_fuse_q ? seg_done        : u_done_i;
++        assign u_busy    = sel_fuse_q ? seg_busy        : u_busy_i;
++        assign u_rd_en   = sel_fuse_q ? seg_axi_rd_en   : u_rd_en_i;
++        assign u_rd_addr = sel_fuse_q ? seg_axi_rd_addr : u_rd_addr_i;
++        assign u_wr_en   = sel_fuse_q ? fuse_wr_en      : u_wr_en_i;
++        assign u_wr_addr = sel_fuse_q ? fuse_wr_addr    : u_wr_addr_i;
++        assign u_wr_data = sel_fuse_q ? fuse_wr_data    : u_wr_data_i;
++        assign u_wr_sel  = sel_fuse_q ? fuse_wr_sel     : u_wr_sel_i;
++        assign u_wr_64   = sel_fuse_q ? 1'b1            : u_wr_64_i;
++        assign u_err     = sel_fuse_q ? seg_err_code    : u_err_i;
++
++        // 请求 → 数据的一拍延迟（与单元 mem_* 的 BRAM 语义同一时间轴）
++        always_ff @(posedge s_axi_aclk or negedge s_axi_aresetn) begin
++            if (!s_axi_aresetn) begin
++                seg_hdr_req_d <= 1'b0; seg_ld_req_d <= 1'b0; seg_dr_req_d <= 1'b0;
++            end else if (u_ce) begin
++                seg_hdr_req_d <= seg_hdr_req;
++                seg_ld_req_d  <= seg_ld_req;
++                seg_dr_req_d  <= seg_dr_req;
++            end
++        end
++        assign seg_hdr_data = seg_hdr_req_d;
++        assign seg_ld_data  = seg_ld_req_d;
++        assign seg_dr_data  = seg_dr_req_d;
++
++        // ---- 相位 → 带选择（契约 ⑩ 由"相位顺序 + wr_all_idle"保证）----
++        //   segq 状态编码：3=LOAD 4=RUN 5=DRAIN
++        //   LOAD  ：写 bank0（输入落带 0）
++        //   RUN   ：读 bank0（上一层）、写 bank1（本层）
++        //   DRAIN ：读 bank1（把算好的带排空回 DDR）
++        wire bank_rd_sel  = (seg_state == 4'd5);          // DRAIN 读 bank1
++        wire bank_wr_sel  = (seg_state == 4'd4);          // RUN 写 bank1
++
++        // 一个带 = ceil(cin/8) × 带内行数 × 宽 个 64-bit 字
++        assign band_words = (fuse_m && (seg_cin != 16'd0) && (c_cfg_h != 16'd0) && (c_cfg_w != 16'd0))
++                          ? ((({16'd0, seg_cin} + 32'd7) >> 3) * {16'd0, c_cfg_h} * {16'd0, c_cfg_w})
++                          : 32'd0;
++        // 带写完（含串行化那一拍落地）才允许 DRAIN（契约 ⑩ / ⑤）
++        assign seg_band_done = c_done && band_wr_idle && !wr_split_busy_i;
++        wire   band_bad      = band_cap_err | band_canary_err | band_arb_conf;
++
++        // ---- §10.4 band 缓冲 ----
++        bin_band_buf #(
++            .BAND_ROWS  (BAND_ROWS),
++            .HALO_ROWS  (BAND_HALO),
++            .C_MAX      (BAND_C_MAX),
++            .W_MAX      (BAND_W_MAX),
++            .BUDGET_KB  (BAND_BUDGET_KB)
++        ) u_band (
++            .clk            (s_axi_aclk),
++            .rst_n          (s_axi_aresetn),
++            .cfg_c          (c_cfg_cin),
++            .cfg_w          (c_cfg_w),
++            .buf_reset      (seg_band_abort | start_fire),   // 契约 ⑪：出错 / 新一跑都复位
++            .bank_rd_sel    (bank_rd_sel),
++            .bank_wr_sel    (bank_wr_sel),
++            .wr_all_idle    (band_wr_idle),
++            .cap_err        (band_cap_err),
++            .canary_err     (band_canary_err),
++            .arb_conflict   (band_arb_conf),
++            // A 口：单元读（conv 读上一层）
++            .a_rd_en        (fuse_m && c_rd_en),
++            .a_rd_addr      (c_rd_addr),
++            .a_rd_data      (band_a_rd_data),
++            // B 口：单元写（conv 写本层）—— 走 2 拍串行化后的拍流
++            .b_wr_en        (fuse_m && cw_beat_en),
++            .b_wr_addr      (cw_beat_addr),
++            .b_wr_data      (cw_beat_data),
++            .b_wr_sel       (cw_beat_sel),
++            // C 口：pack 读（E1E2 读本层）
++            .c_rd_en        (fuse_m && sel_e1e2_q && e_rd_en),
++            .c_rd_addr      (e_rd_addr),
++            .c_rd_data      (band_c_rd_data),
++            // D 口：小算子原地读写（本版未接，见 REPORT 的 B5）
++            .d_rd_en        (1'b0),
++            .d_rd_addr      (32'd0),
++            .d_rd_data      (band_d_rd_data),
++            .d_wr_en        (1'b0),
++            .d_wr_addr      (32'd0),
++            .d_wr_data      (64'd0),
++            .d_wr_sel       (8'd0),
++            // E 口：DMA（装 / 排空）
++            .e_rd_en        (fuse_m && seg_dr_req),
++            .e_rd_addr      (seg_dr_addr),
++            .e_rd_data      (band_e_rd_data),
++            .e_wr_en        (fuse_m && seg_ld_we),
++            .e_wr_addr      (seg_ld_wa),
++            .e_wr_data      (seg_ld_wd),
++            .e_wr_sel       (8'hFF)
++        );
++
++        // ---- §10.3 描述符链 ----
++        bin_segq #(
++            .CHK_ALIGN4K (1'b1),
++            .OP_MASK_SUP (16'h0001)          // 本版只实现 op_mask bit0 = conv
++        ) u_segq (
++            .clk            (s_axi_aclk),
++            .rst_n          (s_axi_aresetn),
++            .en             (u_ce),
++            .kick           (start_fire && fuse_m),
++            .chain_head     (r_chain_head),
++            .arena_lo       (r_arena_lo),
++            .arena_hi       (r_arena_hi),
++            .band_words     (band_words),
++            .canary_bad     (band_bad),
++            .hdr_req        (seg_hdr_req),
++            .hdr_addr       (seg_hdr_addr),
++            .hdr_data       (seg_hdr_data),
++            .hdr_q          (u_rd_data),
++            .ld_req         (seg_ld_req),
++            .ld_addr        (seg_ld_addr),
++            .ld_data        (seg_ld_data),
++            .ld_q           (u_rd_data),
++            .ld_we          (seg_ld_we),
++            .ld_wa          (seg_ld_wa),
++            .ld_wd          (seg_ld_wd),
++            .dr_req         (seg_dr_req),
++            .dr_addr        (seg_dr_addr),
++            .dr_data        (seg_dr_data),
++            .dr_q           (band_e_rd_data),
++            .st_we          (seg_st_we),
++            .st_wa          (seg_st_wa),
++            .st_wd          (seg_st_wd),
++            .st_ws          (seg_st_ws),
++            .band_start     (seg_band_start),
++            .band_done      (seg_band_done),
++            .band_abort     (seg_band_abort),
++            .band_opmask    (seg_opmask),
++            .progress       (seg_progress),
++            .done           (seg_done),
++            .wr_all_idle    (wr_all_idle),
++            .err            (seg_err),
++            .err_code       (seg_err_code),
++            .busy           (seg_busy),
++            .state_o        (seg_state),
++            .d_in_pa        (seg_in_pa),
++            .d_out_pa       (seg_out_pa),
++            .d_band_y0      (seg_band_y0),
++            .d_flags        (seg_flags),
++            .d_cin          (seg_cin),
++            .d_cout         (seg_cout),
++            .d_h            (seg_h),
++            .d_w            (seg_w),
++            .d_k            (seg_k),
++            .d_s            (seg_s),
++            .d_d            (seg_dd),
++            .d_pad          (seg_pad),
++            .d_next_pa      (seg_next_pa),
++            .d_nband        (seg_nband),
++            .d_op_mask      (seg_op_mask)
++        );
++
+     end else if (UNIT == 5) begin : g_catpack
+         // 独立的纯 catpack 实例（BD 里想要单独地址段/单独 cell 时用这个分支）
+         logic [7:0] k_err;
+@@ -1590,9 +1951,17 @@
+     //       （证明 p_valid 与 wr_byte 同拍为 1 时 wide_pend 必为 0：wr_byte=1 ⇒ !wide。）
+     //     · p_merge 仍然要求 wst==W_IDLE ⇒ §9(2b) 的不变式 p_valid ⇒ wst==W_IDLE 不变。
+     //     · push_beat 仍然每拍最多调用一次（!pw_valid 保留）⇒ FIFO 记账不变。
++    // ★ v50：wr_xfer = "16-lane 串行化器正在推一拍" ⇒ 写引擎**允许在 u_ce=0 时**
++    //   吞下它（否则"停核"会把串行化器一起停住 ⇒ 死锁）。VLANES=8 时 wr_xfer
++    //   恒 0，wr_accept_ok 就退化成 u_ce ⇒ 与 v39 逐位相同。
++    //   ⚠ 加 !wr_fifo_press：写 FIFO 到压力线时不许绕过 u_ce 硬塞（否则 bf_cnt
++    //     会越过 BF_PRESS 冲到满 ⇒ 静默溢出）。压力由 AX 侧在原始时钟上排空后
++    //     自动解除，串行化器只是"多举一拍"，不会死锁。
++    wire wr_xfer      = (VLANES > 8) && u_wr_en && !wr_fifo_press;
++    wire wr_accept_ok = u_ce || wr_xfer;
+     assign wide_pend   = wr_take && u_wr_wide_w;
+-    assign wr_wide_b   = wide_pend && u_ce;
+-    assign wr_byte   = wr_take && u_ce && !u_wr_wide_w;  // 真正被吞下、进 p_* 的字节
++    assign wr_wide_b   = wide_pend && wr_accept_ok;   // ★ v50：见 wr_byte 的注释
++    assign wr_byte   = wr_take && wr_accept_ok && !u_wr_wide_w;  // 真正被吞下、进 p_* 的字节
+     // ⚠ 以下全部改由**入口寄存器** p_addr 派生（§7.0）：合并逻辑不再从
+     //   u_wr_addr/u_wr_data（= 单元输出，其上游挂着"读地址 → 命中"那条共享锥）
+     //   出发。这是把 bf_data_reg / be_data_reg 的写使能从 17~19 级切到 2~3 级
+@@ -1614,10 +1983,14 @@
+     //   入口寄存器把"吞字节"与"push beat"拆成两拍后，预测的基准差一拍 ⇒ 可能
+     //   预测错（论证见文件头 §5 / §7.0，上界核算见 §7.9）。
+     //   顺带把 u_ce 上"29 位比较 + 8 位与树"整段拿掉。
++    // ★ v50：wr_split_busy = VLANES>8 的 2 拍串行化还有一拍没发出去 ⇒ 停核。
++    //   VLANES=8 时恒 0 ⇒ 与 v39 逐位相同。停核**不会把自己停死**：串行化缓冲
++    //   挂在原始时钟上，且 wr_accept_ok 里有 wr_xfer 让它不吃 u_ce（见 §3/§10.1）。
+     assign u_ce = (!s_axi_aresetn) || (!run_active)
+                 || ((!rd_want || rd_hit)
+                     && !(wr_take && wr_fifo_press)
+-                    && !((wst != W_IDLE) && wr_take));
++                    && !((wst != W_IDLE) && wr_take)
++                    && !wr_split_busy);
+ 
+     // ---- ★ P3：时钟门已删除（always_latch + AND / u_ce_lat / u_clk 全删）----
+     //   u_ce 直接进 4 个单元例化的 .ap_ce（同步 CE），不再产生第二套时钟网络。
+@@ -2566,6 +2939,16 @@
+                 10'h214: rd_mux = {31'd0, r_e_hi_bad[1]};
+                 // E1E2 吞吐 DBG（写 0x230 清零）
+                 10'h230: rd_mux = cnt_e_rd;
++                // ---------------- ★ v50 ----------------
++                RW_CHAIN: rd_mux = r_chain_head;
++                RW_PROG:  rd_mux = seg_progress;      // 0x204 PROGRESS（只读）
++                RW_BROWS: rd_mux = {16'd0, r_band_rows};
++                RW_FUSE:  rd_mux = {31'd0, r_fuse_mode[0]};
++                // 0x310 CHAIN_STATUS：[0] done [1] err [2] busy [15:8] err_code（只读）
++                RW_STAT:  rd_mux = {16'd0, seg_err_code, 5'd0,
++                                    seg_busy, seg_err, seg_done};
++                RW_ALO:   rd_mux = r_arena_lo;
++                RW_AHI:   rd_mux = r_arena_hi;
+                 10'h234: rd_mux = cnt_e_cyc;
+                 10'h238: rd_mux = cnt_e_rdst;
+                 10'h23C: rd_mux = cnt_e_wrst;

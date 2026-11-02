@@ -275,6 +275,16 @@ class BinLayer:
                              % (self.name, self.alpha_shift, self.slope_shift))
         if not (0 <= self.shift <= 63):
             raise ValueError("%s: shift=%d 非法" % (self.name, self.shift))
+        # ★ v50（16-lane / PRM 帧 32 字）：分组参数是从 DDR 的**逐 oc 连续数组**读的，
+        #   每组读 VLANES 个 oc。cout 不是 VLANES 的倍数 ⇒ 最后一组会读进**相邻数组**
+        #   ⇒ 静默错数据（16-lane 上板硬前提）。默认 VLANES=8 且本网 cout∈{32,48,64,
+        #   96,192} 全是 8/16 的倍数 ⇒ 下面这句在默认配置下一个字节都不动。
+        _v = vlanes_now()
+        if _v > C8 and self.cout % _v:
+            raise ValueError(
+                "%s: cout=%d 不是 VLANES=%d 的倍数 ⇒ 最后一组 PRM 会读进相邻参数数组"
+                "（契约 §5-② 的反面：RTL 的 cout%%8 校验不许收紧，但 PS 必须保证"
+                "cout%%VLANES==0 才能安全上 16 lane）" % (self.name, self.cout, _v))
 
     # ---- 尺寸 ----
     @property
@@ -830,6 +840,15 @@ class BinConvEngine:
         #   (kind, off, val, force, sent) —— sent=False 表示被影子缓存跳过。
         #   三个 arm 的记录必须逐条相同（见 ps/tools/verify_t23_mmio.py）。
         self._trace_log = None
+        # ★ v50 描述符链状态（默认全空 ⇒ v5 路径一个字节都不受影响）：
+        #   _v50_chain  = 正在飞的链（None = 空闲）；非 None 时 kick() 直接拒绝
+        #   _v50_poison = 上一次链报错/超时的原因（非 None ⇒ 禁止再提交）
+        #   _v50_ok     = BAND_ROWS 探针结论（None = 未探过）
+        self._v50_chain = None
+        self._v50_poison = None
+        self._v50_ok = None
+        self._v50_why = "尚未探测"
+        self._v50_stats = dict(chains=0, descs=0, seconds=0.0, progress=0)
         self.mmio_fast_init()             # 三个开关都没开时立即返回（几乎零成本）
 
     # ------------------------------------------------------------ T-23 MMIO
@@ -1718,7 +1737,16 @@ class BinConvEngine:
 
         ★ T-23（`BIN_MMIO_POLL=est`）：顺便算出"预计完成时刻"，让 `poll()`
         在到点之前**干脆不做那次 MMIO 读**（一次读 25~100 µs，比 sleep(0) 贵两个量级）。
+
+        ★ v50（P3）：链在飞时**禁止**第二次 kick（契约 D3：「出错即停，不再取下一个
+        描述符」；同一时刻只允许一条链在跑）。默认 `_v50_chain is None` ⇒ 无影响。
         """
+        if self._v50_chain is not None:
+            raise RuntimeError("v50 链在飞行中（head=%#x，progress=%d/%d）："
+                               "禁止第二次 kick"
+                               % (self._v50_chain["head"],
+                                  self._v50_chain["progress"],
+                                  self._v50_chain["n"]))
         if timeout is None:
             _c, est = estimate_cycles(self.cfg)
             timeout = max(5.0, min(600.0, est * 4 + 5.0))
@@ -1779,6 +1807,195 @@ class BinConvEngine:
             BinGuard.check_canary(out_buf, L.out_bytes, "bin_unit OUT")
         return RunStats(status=st, seconds=(t_done or time.time()) - t0, err_code=err,
                         layer=L, hout=L.Hout, wout=L.Wout, dbg={})
+
+    # ================================================================ v50 链
+    # P2/P3：**一次提交链首 + 等整链 done**，轮询 PROGRESS；err 置位即抛异常并停。
+    # 全部由 `BIN_V50_FUSE=1` 把关；默认关时这些方法一个都不会被调用。
+    def v50_chain_ready(self):
+        """PL 侧 `bin_segq` 是否真的就位（**默认 False，绝不假装**）。
+
+        三个条件同时成立才返回 True：
+          ① `BIN_V50_FUSE=1`；② `BIN_V50_CHAIN_RTL=1`（承认 RTL 已到位）；
+          ③ BAND_ROWS 能读回（0x208 写 8 读回 8）——寄存器不通说明这条链
+             根本接不到 RTL，此时**必须**回落到 v5 逐 op。
+        结果缓存（探针只做一次）；`BIN_V50_REPROBE=1` 可强制重探。
+        """
+        if not v50_fuse_on():
+            self._v50_why = "BIN_V50_FUSE 未开"
+            return False
+        if not v50_chain_rtl_on():
+            self._v50_why = ("BIN_V50_CHAIN_RTL 未开（`bin_segq` RTL 未就位）")
+            return False
+        if (getattr(self, "_v50_ok", None) is not None
+                and not _v50_env_on("BIN_V50_REPROBE")):
+            return bool(self._v50_ok)
+        self._v50_ok = False
+        self._v50_why = ""
+        try:
+            wr = int(v50_band_rows())
+            self._wr(CFG + V50_CHAIN_REG["BAND_ROWS"], wr, force=True)
+            got = int(self._rd(CFG + V50_CHAIN_REG["BAND_ROWS"]))
+            if got != wr:
+                self._v50_why = ("BAND_ROWS 写 %d 读回 %d ⇒ 0x208 不通"
+                                 "（RTL 侧 bin_segq 未综合进这条位流）" % (wr, got))
+                return False
+            self._wr(CFG + V50_CHAIN_REG["FUSE_MODE"], 0, force=True)
+            self._v50_ok = True
+            self._v50_why = ""
+            return True
+        except Exception as _ex:                          # noqa: BLE001
+            self._v50_why = "链寄存器探针失败：%r" % (_ex,)
+            return False
+
+    def v50_chain_why(self):
+        return getattr(self, "_v50_why", "")
+
+    def v50_submit_chain(self, head_pa, n_desc, band_rows=None, timeout=None,
+                         wdt=None):
+        """**一次**提交整条链：BAND_ROWS / FUSE_MODE / CHAIN_HEAD → start。
+
+        红线（契约 D3 + 板端事故教训）：
+          · 链在飞时**禁止**第二次 kick（`self._v50_chain is not None` ⇒ 抛）；
+          · 上一次链报错后**禁止**再提交（`self._v50_poison` ⇒ 抛），
+            必须人工介入 / `v50_reset_chain()`。
+        """
+        if self._v50_chain is not None:
+            raise RuntimeError("v50 链还在飞（head=%#x，progress=%d/%d）："
+                               "禁止第二次 kick（契约 D3）"
+                               % (self._v50_chain["head"],
+                                  self._v50_chain["progress"],
+                                  self._v50_chain["n"]))
+        if self._v50_poison:
+            raise RuntimeError("v50 链上一次已报错（%s）：**不再发第二次 kick**，"
+                               "修好/重载后再来（或显式 v50_reset_chain()）"
+                               % (self._v50_poison,))
+        n = int(n_desc)
+        if n <= 0:
+            raise ValueError("空链（n_desc=%d）拒绝提交" % n)
+        head_pa = int(head_pa)
+        if head_pa & (V50_DESC_STRIDE - 1):
+            raise ValueError("链首 %#x 不是 4 KB 对齐（契约 B）" % head_pa)
+        if not head_pa:
+            raise ValueError("链首物理地址为 0，拒绝启动（会让引擎读内核内存）")
+        br = int(v50_band_rows() if band_rows is None else band_rows)
+        if timeout is None:
+            timeout = max(10.0, min(600.0, 2.0 * n))
+        self._wr_seq(((CFG + V50_CHAIN_REG["BAND_ROWS"], br),
+                      (CFG + V50_CHAIN_REG["FUSE_MODE"], 1),
+                      (CFG + V50_CHAIN_REG["CHAIN_HEAD"], head_pa)), collect=None)
+        t0 = time.time()
+        self.start()                      # AP_CTRL.bit0 = 1（自清位）
+        self._v50_chain = dict(head=head_pa, n=n, band_rows=br, t0=t0,
+                               timeout=float(timeout), progress=0, err=0,
+                               done=False, polls=0)
+        if not isinstance(getattr(self, "_v50_stats", None), dict):
+            self._v50_stats = dict(chains=0, descs=0, seconds=0.0, progress=0)
+        self._v50_stats["chains"] += 1
+        return self._v50_chain
+
+    def v50_poll_chain(self):
+        """非阻塞：读 PROGRESS + AP_RET。完成 ⇒ 返回链 dict；否则 None。
+
+        **err 置位 ⇒ 立刻抛 `BinRunError` 并把链状态清掉**（RTL 已停止推进，
+        PS 不许再 kick；契约 D3 / 不变量 ⑪）。
+        """
+        c = self._v50_chain
+        if c is None:
+            return None
+        c["polls"] += 1
+        st = self._rd(CFG + BIN_REG["AP_RET"])
+        try:
+            prog = int(self._rd(CFG + V50_CHAIN_REG["PROGRESS"]))
+        except Exception:                                 # noqa: BLE001
+            prog = -1
+        if prog >= 0:
+            c["progress"] = prog
+        err = (st >> 8) & 0xFF
+        if err:
+            c["err"] = err
+            c["done"] = True
+            self._v50_chain = None
+            self._v50_poison = ("err=%d %s @progress=%d/%d head=%#x"
+                                % (err, decode_err(err)[0], c["progress"],
+                                   c["n"], c["head"]))
+            raise BinRunError(err, msg="v50 链报错：%s（progress=%d/%d，head=%#x）；"
+                               "RTL 已停止推进，**不再发第二次 kick**"
+                               % (decode_err(err)[1], c["progress"], c["n"],
+                                  c["head"]))
+        if (st & 1) and not ((st >> 1) & 1):
+            # done 且不 busy。PROGRESS 读不到（-1）时只认 done 位，不硬判
+            if prog < 0 or prog >= c["n"] or not self._v50_strict_progress():
+                c["done"] = True
+                c["status"] = st
+                return c
+        return None
+
+    @staticmethod
+    def _v50_strict_progress():
+        """PROGRESS 必须 == n_desc 才算 done（默认开；`BIN_V50_LOOSE=1` 放宽）。"""
+        return not _v50_env_on("BIN_V50_LOOSE")
+
+    def v50_wait_chain(self, timeout=None, wdt=None):
+        """**提交后唯一的等待点**：轮询 PROGRESS 直到整链 done。
+
+        返回 `dict(head=, n=, seconds=, status=, progress=)`；
+        超时 / err ⇒ 抛（并把链状态清掉，绝不重试）。
+        """
+        c = self._v50_chain
+        if c is None:
+            raise RuntimeError("没有在飞的链（先 v50_submit_chain）")
+        tmo = float(c["timeout"] if timeout is None else timeout)
+        t0 = c["t0"]
+        spin = 0
+        while True:
+            r = self.v50_poll_chain()
+            if r is not None:
+                break
+            if wdt is not None:
+                try:
+                    wdt.kick()
+                except Exception:                         # noqa: BLE001
+                    pass
+            now = time.time()
+            if now - t0 > tmo:
+                cc = self._v50_chain
+                self._v50_chain = None
+                self._v50_poison = "timeout %.1fs @progress=%s/%d" % (
+                    tmo, (cc or {}).get("progress"), (cc or {}).get("n", 0))
+                raise TimeoutError(
+                    "v50 链超时 %.1f s（progress=%s/%s，head=%#x）；"
+                    "**不再发第二次 kick**，人工介入"
+                    % (tmo, (cc or {}).get("progress"), (cc or {}).get("n"),
+                       (cc or {}).get("head", 0)))
+            spin += 1
+            # 自适应：前 8 次紧轮询，之后 sleep(0)，再之后 20 µs 粒度的短睡
+            if spin > 640:
+                time.sleep(2e-5)
+            elif spin > 8:
+                time.sleep(0)
+        dt = time.time() - t0
+        out = dict(head=c["head"], n=c["n"], seconds=dt,
+                   status=c.get("status", 0), progress=c["progress"],
+                   band_rows=c["band_rows"], polls=c["polls"])
+        st_ = getattr(self, "_v50_stats", None)
+        if isinstance(st_, dict):
+            st_["descs"] = st_.get("descs", 0) + int(c["n"])
+            st_["seconds"] = st_.get("seconds", 0.0) + dt
+            st_["progress"] = c["progress"]
+        self._v50_chain = None
+        return out
+
+    def v50_reset_chain(self):
+        """清掉链状态与 poison（只在确认 RTL 已复位/重载后调用）。"""
+        self._v50_chain = None
+        self._v50_poison = None
+        return True
+
+    def v50_chain_stats(self):
+        s = getattr(self, "_v50_stats", None)
+        if not isinstance(s, dict):
+            return dict(chains=0, descs=0, seconds=0.0, progress=0)
+        return dict(s)
 
     # ---------------------------------------------------------------- 便捷入口
     def pack_input(self, x_f, L):
@@ -1924,7 +2141,16 @@ class BinConvEngine:
         会先做一次硬件能力探测（写 R_RUN_UNIT=4 → 读回 → 写 0）：旧比特流的
         0x200 页是保留页（写忽略、读 0）⇒ 直接拒绝，避免"E1E2 没跑、PS 读到
         旧输出"这种静默错数据。
+
+        ★ v50 互斥：`BIN_V50_FUSE=1` 时 0x200 已经是 **CHAIN_HEAD**（契约 A）⇒
+          E1E2 的探测（写 4 到 0x200）会把链首写成 4。这里直接拒绝挂载并给出
+          一行原因（调用方回落 PS 打包），避免"链首被 E1E2 探测踩坏"的静默故障。
         """
+        if v50_fuse_on():
+            print("  ⚠ [V50] BIN_V50_FUSE=1：0x200 是 CHAIN_HEAD（契约 A），"
+                  "E1E2 逐命令模式与之互斥 ⇒ 不挂 E1E2（回落 PS 打包）",
+                  flush=True)
+            return None
         if self._e1e2 is None:
             eng = E1E2Engine(self, desc_dir=desc_dir,
                              verbose=self.verbose if verbose is None else verbose)
@@ -2009,6 +2235,252 @@ _PROF = os.environ.get("BIN_PROFILE", "") not in ("", "0", "false", "False")
 # E1E2 直读路径的 DBG 计数器：每条命令 5 次 MMIO 读（板端 ≈0.16 ms）纯属统计用
 # ⇒ 默认不读；排查带宽时 E1E2_DBG=1 打开。
 _E1E2_DBG = os.environ.get("E1E2_DBG", "") not in ("", "0", "false", "False")
+
+# ============================================================================
+# ★ v50：段计划 → 描述符链（契约 A/B/D，见 `docs/V50_ARCHITECTURE.md` §3）
+# ----------------------------------------------------------------------------
+# **全部 opt-in**（`BIN_V50_FUSE=1`）；默认关 ⇒ 本节每个函数都不会被调用，
+# v5 的寄存器序列 / sha1 / stdout 一个字节都不变（C-C3 的第一条）。
+#
+# 契约 A（寄存器，偏移相对配置页 +0x10000）：
+#     0x200 CHAIN_HEAD   链首描述符物理地址（写 1 次）
+#     0x204 PROGRESS     已完成描述符数（RO，轮询它而不是逐 op 等 done）
+#     0x208 BAND_ROWS    每带行数（参数，默认 8）
+#     0x20C FUSE_MODE    0 = v39 行为 / 1 = 段融合链
+#   ⚠⚠ **冲突（已上报 REVIEW）**：v39 的 E1E2 寄存器块也从 0x200 起
+#      （`E1E2_REG`: RUN_UNIT=0x200 / E_GROUP=0x204 / E_DESC=0x208 / E_DESC_HI=0x20C）。
+#      契约 A 把 0x200..0x20C 重新分配后 E1E2 必须整体搬家；在那之前
+#      **链模式与 E1E2 逐命令模式不允许同时开**（本文件的 `_v50_no_e1e2()` 会拦）。
+#
+# 契约 B（描述符 = 10 字 = 40 B，**每条 4 KB 对齐**，`next_pa` 链式）：
+#     w0 desc      本带输入基址（低 32 位；RTL 只支持高字 = 0）
+#     w1 out       本带输出基址（低 32 位）
+#     w2 cfg_c     本段输入通道数 cin（C8 对齐后）
+#     w3 cfg_h     本带要读的输入行数 = band_rows + halo_rows
+#     w4 cfg_w     宽度 W
+#     w5 cfg_group 权重组 / E1E2 组号（段内唯一；本实现恒 0）
+#     w6 band_y0   本带在**输出**张量里的起始行
+#     w7 flags     bit0=本段最后一带 bit1=段输出要物化 bit2=含 shuffle bit3=f32 输出
+#     w8 next_pa   下一个描述符物理地址（0 = 链尾）
+#     w9 nband(低 16) | op_mask(高 16)  ← 契约 B 原样：**nband 恒 1**
+#   ⚠ w6/w7 是契约 B 里留白的两个字（"cfg_group/…"），本文件给出定义；
+#     REVIEW 若要改，必须同步改契约 B 与 `bin_net.make_segment_plan`。
+V50_DESC_WORDS = 10
+V50_DESC_STRIDE = 4096                 # 契约 B：4 KB 对齐 ⇒ 步进 4 KB
+V50_BUDGET_BYTES = 270 * 1024          # 契约 D4：BRAM 剩 ≈270 KB
+V50_CHAIN_REG = dict(CHAIN_HEAD=0x200, PROGRESS=0x204,
+                     BAND_ROWS=0x208, FUSE_MODE=0x20C)
+# 段内小算子掩码的位序（契约 B 的 op_mask 高 16 位）
+V50_OP_BITS = dict(conv=0, cat=1, add=2, interp=3, eca=4, sam=5,
+                   shuffle=6, unshuffle=7, convfp=8)
+V50_OP_MASK_ALL = (1 << len(V50_OP_BITS)) - 1
+
+_ON_VALS = {"1": True, "on": True, "true": True, "yes": True}
+
+
+def _v50_env_on(name):
+    return _ON_VALS.get(os.environ.get(name, "").strip().lower(), False)
+
+
+def v50_fuse_on():
+    """`BIN_V50_FUSE=1` ⇒ 走段计划 + 描述符链。**默认关**（C-C3）。"""
+    return _v50_env_on("BIN_V50_FUSE")
+
+
+def v50_chain_rtl_on():
+    """`BIN_V50_CHAIN_RTL=1` ⇒ 承认"PL 侧 `bin_segq` 已就位"。
+
+    默认关：RTL 的 `bin_segq`（IMP-B 的 R4）现在**还不存在** ⇒ PS 侧绝不假装
+    链能跑；没有这个开关就一律回落 v5 逐 op 路径（并打印一行原因）。
+    """
+    return _v50_env_on("BIN_V50_CHAIN_RTL")
+
+
+def v50_pl_quant_on():
+    """`BIN_V50_PLQ8=1` ⇒ 量化搬 PL（CPU 量化路径跳过）。默认关。"""
+    return _v50_env_on("BIN_V50_PLQ8")
+
+
+def v50_band_rows():
+    try:
+        return max(1, min(256, int(os.environ.get("BIN_V50_BAND_ROWS", "8"))))
+    except Exception:                                    # noqa: BLE001
+        return 8
+
+
+# ----------------------------------------------------------------------------
+# ★ v50：PRM 参数帧宽 / 段偏移 —— **必须随 VLANES 变**（16-lane 上板硬前提）
+# ----------------------------------------------------------------------------
+# 口径（IMP-A 的 RTL 侧已参数化，这里是 PS 侧唯一的"帧宽定义点"）：
+#   `pw[0:PRM_W-1]` 是 RTL 内部的 per-oc-group 参数行，由 `prm_addr(i, o0)` 从
+#   DDR 的 **5 个逐 oc 连续数组**按 8 B 步长拉；每 word = 64 bit：
+#       alpha_q int16 ⇒ 4 个/word；bias/zeta/gamma int32 ⇒ 2 个/word；
+#       slope_q int16 ⇒ 4 个/word
+#   ⇒ 每 lane 的字数固定，VLANES=8 得 16 字，VLANES=16 得 32 字。
+#     VLANES=8 时 PRM_W=16 / 段基址 0,2,6,10,14 —— 与 RTL 原硬编码**逐值相同**，
+#     也与 v39 的 DDR 布局逐字节相同（所以这是纯定义，不改任何数据）。
+#   ⚠ 16 lane 时如果还按 16 字给（PRM_W 没抬到 32），lane 8..15 的参数会读到
+#     **相邻的另一个参数数组**（alpha 的尾巴读成 bias）⇒ **静默错数据**。
+_PRM_SEG_ORDER = ("alpha", "bias", "zeta", "gamma", "slope")
+
+
+def vlanes_now():
+    """当前 lane 数：`BIN_VLANES`（默认 8）。`LANES=64` 是 popcount 位宽，别混。"""
+    try:
+        v = int(os.environ.get("BIN_VLANES", "8"))
+    except Exception:                                    # noqa: BLE001
+        return C8
+    if v not in (1, 2, 4, 8, 16):
+        raise ValueError("BIN_VLANES=%r 非法（只允许 1/2/4/8/16；"
+                         "注意 LANES=64 是 popcount 位宽，不是 lane 数）" % (v,))
+    return v
+
+
+def prm_layout(vlanes=None):
+    """PRM 帧宽与段偏移（**按 VLANES 推**，VLANES=8 时退化为 16 / 0,2,6,10,14）。
+
+    返回 `dict(VLANES=, PRM_W=, PB_S=, PB_B=, PB_Z=, PB_G=, PB_SL=, seg={名字:(起,止)})`。
+    公式（每 lane 的字数）：alpha = V/4，bias/zeta/gamma = V/2，slope = V/4
+    ⇒ PRM_W = V/4*2 + V/2*3 = 2V（V=8 ⇒ 16；V=16 ⇒ 32）。
+    """
+    V = int(vlanes_now() if vlanes is None else vlanes)
+    if V % 4:
+        raise ValueError("VLANES=%d 必须是 4 的倍数（每 word 装 4 个 int16 / "
+                         "2 个 int32）" % V)
+    wa, wb, wz, wg, ws = V // 4, V // 2, V // 2, V // 2, V // 4
+    pb_s = 0
+    pb_b = pb_s + wa
+    pb_z = pb_b + wb
+    pb_g = pb_z + wz
+    pb_sl = pb_g + wg
+    prm_w = pb_sl + ws
+    return dict(VLANES=V, PRM_W=prm_w, PB_S=pb_s, PB_B=pb_b, PB_Z=pb_z,
+                PB_G=pb_g, PB_SL=pb_sl,
+                seg=dict(alpha=(pb_s, pb_b), bias=(pb_b, pb_z),
+                         zeta=(pb_z, pb_g), gamma=(pb_g, pb_sl),
+                         slope=(pb_sl, prm_w)),
+                words=dict(alpha=wa, bias=wb, zeta=wz, gamma=wg, slope=ws))
+
+
+def prm_words_per_group(vlanes=None):
+    """每个 oc 组的 PRM 帧字数（= 2*VLANES）。段计划里每段按此累加 PRM 字节。"""
+    return int(prm_layout(vlanes)["PRM_W"])
+
+
+def v50_prm_bytes(cout, vlanes=None):
+    """一段/一层需要的 PRM 字节 = ceil(cout/VLANES) 组 × PRM_W 字 × 4 B。"""
+    lay = prm_layout(vlanes)
+    ng = (int(cout) + lay["VLANES"] - 1) // lay["VLANES"]
+    return int(ng) * int(lay["PRM_W"]) * 4
+
+
+def check_prm_capacity(L, vlanes=None):
+    """16-lane 上板前的硬校验：cout 必须是 VLANES 的倍数。
+
+    为什么必须查：5 个参数数组在 blob 里是**逐 oc 连续**的。cout 不是 VLANES 的
+    倍数时，最后一组会读到相邻数组的字节 ⇒ PRM 数值静默错（不会报错）。
+    VLANES=8 时本网 cout∈{32,48,64,96,192} 全过 ⇒ 默认路径行为不变。
+    """
+    V = int(vlanes_now() if vlanes is None else vlanes)
+    cout = int(getattr(L, "cout", 0) or 0)
+    if V > C8 and cout % V:
+        raise ValueError("%s: cout=%d 不是 VLANES=%d 的倍数 ⇒ 最后一组 PRM 会读进"
+                         "相邻参数数组（静默错数据）" % (getattr(L, "name", "?"),
+                                                       cout, V))
+    return True
+
+
+def v50_desc(out_pa, cfg_c, cfg_h, cfg_w, cfg_group=0, band_y0=0,
+             op_mask=0, flags=0, nband=1, in_pa=0):
+    """造一条 10 字描述符（契约 B）。`in_pa` 落在 w0（v39 的 `desc` 字）。"""
+    return [int(in_pa) & 0xFFFFFFFF, int(out_pa) & 0xFFFFFFFF,
+            int(cfg_c) & 0xFFFFFFFF, int(cfg_h) & 0xFFFFFFFF,
+            int(cfg_w) & 0xFFFFFFFF, int(cfg_group) & 0xFFFFFFFF,
+            int(band_y0) & 0xFFFFFFFF, int(flags) & 0xFFFFFFFF,
+            0, ((int(nband) & 0xFFFF) | ((int(op_mask) & 0xFFFF) << 16))]
+
+
+def v50_chain_words(descs, base_pa):
+    """N 条描述符串成链：`next_pa = base_pa + (i+1)*4 KB`，链尾 = 0。
+
+    `base_pa` 必须是 4 KB 对齐的**首条描述符**物理地址（契约 B）。
+    """
+    n = len(descs)
+    base_pa = int(base_pa)
+    if n and base_pa & (V50_DESC_STRIDE - 1):
+        raise ValueError("链首 %#x 不是 4 KB 对齐（契约 B）" % base_pa)
+    words = []
+    for i, d in enumerate(descs):
+        w = list(d)[:V50_DESC_WORDS]
+        if len(w) < V50_DESC_WORDS:
+            w += [0] * (V50_DESC_WORDS - len(w))
+        w[8] = 0 if i == n - 1 else base_pa + (i + 1) * V50_DESC_STRIDE
+        words.append([int(x) & 0xFFFFFFFF for x in w])
+    return words
+
+
+def v50_flat_words(words):
+    """把链里每条描述符的 10 个字按顺序摊平（离线打印 / 逐字节比对用）。"""
+    out = []
+    for w in words:
+        out.extend(int(x) & 0xFFFFFFFF for x in w)
+    return out
+
+
+def v50_chain_bytes(n):
+    """一条 N 条描述符的链需要的 arena 字节（含一次 4 KB 对齐余量）。"""
+    return int(n) * V50_DESC_STRIDE + V50_DESC_STRIDE
+
+
+def v50_chain_store(view, view_pa, descs, base_pa=None):
+    """把一条链写进**已注册 arena 的视图**（链首 4 KB 对齐）。
+
+    返回 `(链首 pa, 逐条 10 字)`。`base_pa` 不给 ⇒ 取 `view_pa` 之上第一个
+    4 KB 边界。字节不够就抛（不静默截断）。
+    """
+    n = len(descs)
+    if n == 0:
+        return 0, []
+    view_pa = int(view_pa)
+    if base_pa is None:
+        base_pa = (view_pa + V50_DESC_STRIDE - 1) // V50_DESC_STRIDE \
+            * V50_DESC_STRIDE
+    base_pa = int(base_pa)
+    if base_pa & (V50_DESC_STRIDE - 1):
+        raise ValueError("链首 %#x 不是 4 KB 对齐" % base_pa)
+    off = base_pa - view_pa
+    if off < 0:
+        raise ValueError("链首 %#x 在视图 %#x 之前" % (base_pa, view_pa))
+    need = off + n * V50_DESC_STRIDE
+    if len(view) < need:
+        raise ValueError("链缓冲不够：需要 %d B（%d 条 × 4 KB + 对齐 %d），"
+                         "只有 %d B" % (need, n, off, len(view)))
+    words = v50_chain_words(descs, base_pa)
+    mv = np.frombuffer(_u8(view), np.uint8)
+    for i, w in enumerate(words):
+        o = off + i * V50_DESC_STRIDE
+        mv[o:o + V50_DESC_WORDS * 4] = np.asarray(w, np.uint32).view(np.uint8)
+    _flush(view)
+    return base_pa, words
+
+
+def v50_format_chain(words, head_pa=0):
+    """离线打印（D2 证据形态）：每条 10 个字 + 链拓扑 + 链尾判据。"""
+    lines = []
+    for i, w in enumerate(words):
+        lines.append("    [#%03d] " % i + " ".join("%08x" % x for x in w))
+    if words:
+        lines.append("    链拓扑：head=%#010x  %s  （共 %d 条，末条 = 链尾）"
+                     % (int(head_pa) & 0xFFFFFFFF,
+                        " -> ".join("#%d" % i for i in range(len(words))),
+                        len(words)))
+        lines.append("    链尾检查：words[-1][8] = %#x（契约 B：0 = 链尾）"
+                     % words[-1][8])
+        lines.append("    对齐检查：%s" % (
+            "每条 next_pa 都 4 KB 对齐"
+            if all((w[8] == 0) or (w[8] % V50_DESC_STRIDE == 0) for w in words)
+            else "⚠ 有 next_pa 不是 4 KB 对齐"))
+    return "\n".join(lines)
 
 # ============================================================================
 # ★ T-23：MMIO 访问层 fast-path（**全部默认关**，opt-in；关掉时逐字节走原路径）
@@ -2288,6 +2760,13 @@ class E1E2Engine:
         unit = int(unit)
         if unit not in (0, 4):
             raise ValueError("R_RUN_UNIT 只能是 0(conv) 或 4(E1E2)，给的是 %d" % unit)
+        if v50_fuse_on() and int(E1E2_REG["RUN_UNIT"]) == int(V50_CHAIN_REG["CHAIN_HEAD"]):
+            # ★ v50 契约 A 把 0x200 从 R_RUN_UNIT 改成 CHAIN_HEAD ⇒ 链模式下
+            #   再写 0x200=0/4 就会把链首地址写成 4（下一拍的非法描述符）。
+            #   这条护栏只在 BIN_V50_FUSE=1 时生效；默认关 ⇒ 与原来逐字节相同。
+            raise RuntimeError(
+                "v50 链模式（BIN_V50_FUSE=1）下 0x200 是 CHAIN_HEAD，"
+                "不能再写 R_RUN_UNIT ⇒ E1E2 逐命令模式与链模式互斥")
         self.core._wr(CFG + E1E2_REG["RUN_UNIT"], unit, force=force)
         return unit
 
@@ -2433,8 +2912,12 @@ class E1E2Engine:
                 time.sleep(min(2e-4, 2e-6 * (n - 63)))
 
     def run_one(self, desc_pa, out_pa, cfg_c, cfg_h, cfg_w, cfg_group,
-                timeout=None, wdt=None, count=True, skip_idle=False):
+                timeout=None, wdt=None, count=True, skip_idle=False, chain=None):
         """一条 E1E2 命令：写 5 个寄存器 → 等 idle → start → 等 done → 读错误码/DBG。
+
+        ★ v50（P2）：`chain` 给了 list 时**一条 MMIO 都不写**，只把这条命令追加成
+        一条 10 字描述符（40 B，契约 B）进链；真正的下发由 `submit_chain()` 一次完成。
+        默认 `chain=None` ⇒ 下面的代码路径与改动前**逐字节相同**（C-C3）。
 
         ★ T-23：写序列改成一次 `_wr_seq`（合并连续偏移），并可选把
         "这批写 + start + 等 done" 压进**一次 C 调用**（`BIN_MMIO_C=1`）。
@@ -2459,6 +2942,17 @@ class E1E2Engine:
                 cyc += 9 * run + 50
                 left -= run
         est_s = cyc / (float(getattr(self, "fclk_mhz", 150.0)) * 1e6)
+
+        if chain is not None:
+            # ★ v50 链模式：**只登记描述符，不发 MMIO、不等 done**（P2/P3）。
+            #   select(4) 也不做：链模式下 0x200 是 CHAIN_HEAD（契约 A）。
+            chain.append(v50_desc(
+                in_pa=int(desc_pa), out_pa=int(out_pa),
+                cfg_c=int(cfg_c), cfg_h=int(cfg_h), cfg_w=int(cfg_w),
+                cfg_group=int(cfg_group), band_y0=0,
+                op_mask=(1 << V50_OP_BITS["conv"]), flags=0, nband=1))
+            return dict(status=0, seconds=0.0, err=0, dbg={}, queued=True,
+                        n_chain=len(chain))
 
         self.select(4)
         lib = self.core._fast.get("lib") if isinstance(self.core._fast, dict) else None
@@ -2512,6 +3006,76 @@ class E1E2Engine:
                              cfg_c=cfg_c, cfg_h=cfg_h, cfg_w=cfg_w,
                              cfg_group=cfg_group)
         return self.last_run
+
+    # ------------------------------------------------------------ v50 描述符链
+    def chain_on(self):
+        """链模式是否真的可用（`BIN_V50_FUSE=1` 且 RTL 探针通过）。"""
+        try:
+            return bool(v50_fuse_on() and self.core.v50_chain_ready())
+        except Exception:                                 # noqa: BLE001
+            return False
+
+    def chain_descs(self, cin, H, W, out_pa, desc_base_pa):
+        """把 ceil(cin/64) 个"逐组命令"摊成 N 条 10 字描述符（契约 B）。
+
+        `desc_base_pa` = 该层的 lane 描述符表基址（8 条 × 64 B = 512 B 一组）；
+        第 g 条描述符的 w0 指向 `desc_base_pa + g*64`，w1 = 输出第 g 组。
+        之前 `_run_desc` 是**逐组 kick 一次**（每条 run_one 一次 start），
+        这里变成**一条链、一次 kick**（P2/P3）。
+        """
+        cin, H, W = int(cin), int(H), int(W)
+        cb = (cin + 63) // 64
+        hw = H * W
+        descs = []
+        for g in range(cb):
+            d = v50_desc(in_pa=int(desc_base_pa) + g * E1E2_DESC_STRIDE,
+                         out_pa=int(out_pa) + g * hw * 8,
+                         cfg_c=cin, cfg_h=H, cfg_w=W, cfg_group=min(g, 7),
+                         band_y0=0, op_mask=(1 << V50_OP_BITS["conv"]),
+                         flags=0, nband=1)
+            if g == cb - 1:                       # 链尾那一带的 flags bit0
+                d[7] = (d[7] | 0x1)
+            descs.append(d)
+        return descs
+
+    def submit_chain(self, descs, out_len=0, bufs=None, restore=True,
+                     timeout=None, tag="e1e2"):
+        """**一次**把整条链写进 arena 并提交链首，等整链 done（P2/P3）。
+
+        返回 `dict(head=, n=, seconds=, progress=, words=)`；不可用 ⇒ None（调用方回落）。
+        """
+        n = len(descs)
+        if n == 0:
+            return None
+        core = self.core
+        if not self.chain_on():
+            return None
+        need_desc = v50_chain_bytes(n)
+        if bufs is None:
+            views = self._pack_views(need_desc=need_desc, need_out=int(out_len))
+        elif isinstance(bufs, dict):
+            views = (bufs["in"], bufs["out"], bufs["thr"], bufs["desc"])
+        else:
+            views = bufs
+        vdesc = views[3]
+        desc_pa = int(getattr(vdesc, "physical_address", 0) or 0)
+        if desc_pa == 0:
+            return None
+        head, words = v50_chain_store(vdesc, desc_pa, descs)
+        try:
+            core.v50_submit_chain(head, n, timeout=timeout)
+            st = core.v50_wait_chain(timeout=timeout)
+        finally:
+            if restore:
+                # 链模式**不能** select(0)：0x200 是 CHAIN_HEAD（contract A）。
+                # 复位语义由 RTL 的 FUSE_MODE 位负责（IMP-B R4），PS 只写一次 0。
+                try:
+                    core._wr(CFG + V50_CHAIN_REG["FUSE_MODE"], 0, force=True)
+                except Exception:                         # noqa: BLE001
+                    pass
+        st.update(words=words, tag=tag)
+        self.last_chain = st
+        return st
 
     def _read_e_dbg(self):
         return dict(
@@ -2756,14 +3320,21 @@ class E1E2Engine:
         返回一个 job（供 `run_prepared` 用），或 None（调用方回落）。
         这样"启 E1E2"可以推迟到 `_PlBackend.kick`——那时候上一层的 conv 已经
         收完（done 位没被 E1E2 顶掉），prologue 也只剩真正的 PS 工作。
+
+        ★ v50（P2/P6）：链模式就绪时 job 里多带三个键 ——
+          `n_desc`（整层摊成多少条描述符）、`chain`（是否一次提交整链）、
+          `pl_quant`（量化搬到 PL ⇒ 本函数**不再**做 CPU 量化）。
+          默认（`BIN_V50_FUSE=0` 或 RTL 未就位）三个键都不出现，逐字节不变。
         """
         cin, H, W = int(L.cin), int(L.H), int(L.W)
         hw = H * W
         cb = (cin + 63) // 64
+        # ★ v50 P6：量化搬 PL（`BIN_V50_PLQ8=1` 且链模式就绪）⇒ 本函数不做 CPU 量化
+        _pl_q8 = bool(v50_pl_quant_on() and self.chain_on())
         # ★ T-16 A（`BIN_PRECOMP=1`，默认关）：段表/阈值/描述符/视图只算一次。
         #   键 = (层名, cin/H/W, fs_in, vin_pa, thr_pa, vdesc_pa, 逐段 (kind,C,H,W,fs,pa))
         #   ⇒ 任何运行时地址变化都会 miss ⇒ 重算（不会读到陈旧表）。
-        if precomp_on() and bufs is None:
+        if precomp_on() and bufs is None and not _pl_q8:
             _r = self._prepare_segments_cached(segs, L, t_q, plan)
             if _r is not None:
                 return _r
@@ -2808,6 +3379,10 @@ class E1E2Engine:
             data = s_.get("data")
             if data is None:
                 return None
+            if _pl_q8:
+                # ★ v50 P6：量化搬到 PL（链模式的 band 通路读 f32 段自己量化）
+                #   ⇒ **CPU 一个字节都不写**。默认关 ⇒ 下面逐句与原来相同。
+                continue
             x = np.asarray(data, np.float32)
             if x.shape != (C, H, W):
                 raise ValueError("f32 段形状 %s != (%d,%d,%d)"
@@ -2867,7 +3442,11 @@ class E1E2Engine:
             self._prof_add(_pf)
         return dict(cin=cin, H=H, W=W, views=views, descs=descs, thr=thr,
                     need_in=need_in, n_f32=sum(1 for _s, _o, _c in lay
-                                               if _s.get("kind") != "i8"))
+                                               if _s.get("kind") != "i8"),
+                    # ★ v50：链模式的元数据（默认路径下这三个键**不出现**）
+                    **({"n_desc": int(cb), "chain": bool(self.chain_on()),
+                        "pl_quant": bool(_pl_q8)} if (_pl_q8 or v50_fuse_on())
+                       else {}))
 
     # ---------------------------------------------------------------- T-16 A
     @staticmethod
@@ -3111,15 +3690,28 @@ class E1E2Engine:
                                  % (len(ov), need_out))
         for v in (vthr, vdesc):
             _flush(v)
-        try:
-            for g in range(cb):
-                self.run_one(int(vdesc.physical_address) + g * 64,
-                             out_pa + g * hw * 8, int(cin), int(H), int(W),
-                             min(g, 7), timeout=timeout, count=_E1E2_DBG,
-                             skip_idle=(g > 0))
-        finally:
-            if restore:
-                self.select(0, force=True)
+        _chain_used = None
+        if self.chain_on():
+            # ★ v50（P2/P3）：整层 cb 组 →**一条 10 字描述符链、一次 kick**，
+            #   不再"每组一次 start + 一次等 done"。拿不到链 ⇒ 回落逐命令（不变）。
+            try:
+                _chain_used = self.submit_chain(
+                    self.chain_descs(int(cin), int(H), int(W), out_pa,
+                                     int(vdesc.physical_address)),
+                    out_len=need_out, bufs=(vin, vout, vthr, vdesc),
+                    restore=restore, timeout=timeout, tag="e1e2_pack")
+            except Exception:                      # noqa: BLE001
+                _chain_used = None
+        if _chain_used is None:
+            try:
+                for g in range(cb):
+                    self.run_one(int(vdesc.physical_address) + g * 64,
+                                 out_pa + g * hw * 8, int(cin), int(H), int(W),
+                                 min(g, 7), timeout=timeout, count=_E1E2_DBG,
+                                 skip_idle=(g > 0))
+            finally:
+                if restore:
+                    self.select(0, force=True)
         _invalidate(ov)
         data = np.frombuffer(_u8(ov), np.uint8)[:need_out]
         data.flags.writeable = False
@@ -3127,6 +3719,7 @@ class E1E2Engine:
                                     cmds=cb, bytes=int(need_out),
                                     cin_pad=cb * 64, in_bytes=int(need_in),
                                     direct=bool(out_buf is not None),
+                                    chain=(_chain_used or {}).get("n", 0),
                                     extra=extra or {})
         return data
 

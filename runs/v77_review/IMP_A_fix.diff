@@ -1,0 +1,49 @@
+--- pynq_specialized_code/pl/rtl_hand/_worktrees/v50_impA/bin_conv_core.v	2026-11-02 15:16:04.176985300 +0800
++++ pynq_specialized_code/pl/rtl_hand/_worktrees/v50_impA_fix/bin_conv_core.v	2026-11-02 15:33:07.735541200 +0800
+@@ -183,7 +183,8 @@
+     logic [31:0] act_b, wgt_b, alpha_b, bias_b, zeta_b, gamma_b, slope_b, out_b;
+     logic [31:0] K_q, ntot_q, kk_q;
+     logic [31:0] hw8_q, w8_q, s8_q, sw8_q, d8_q, dw8_q, pad8_q, padw8_q;
+-    logic [31:0] hwout8_q, k8_q;
++    logic [31:0] plane_stride_q, k8_q;       // 每组输出平面的字节步长 = Hout*Wout*VLANES
++                                             // （F1：原 hwout8_q 写死 <<3，VLANES=16 时错一半）
+     logic [31:0] gstride_q;                  // VLANES*K*8（每组权重步长）
+     logic [63:0] mask_last_q;
+     logic signed [31:0] padS_q, sS_q, dS_q;  // pad/s/d 的符号扩展（坐标用）
+@@ -631,7 +632,7 @@
+             K_q       <= 32'd0; ntot_q <= 32'd0; kk_q <= 32'd0;
+             hw8_q     <= 32'd0; w8_q <= 32'd0; s8_q <= 32'd0; sw8_q <= 32'd0;
+             d8_q      <= 32'd0; dw8_q <= 32'd0; pad8_q <= 32'd0; padw8_q <= 32'd0;
+-            hwout8_q  <= 32'd0; k8_q <= 32'd0; gstride_q <= 32'd0;
++            plane_stride_q <= 32'd0; k8_q <= 32'd0; gstride_q <= 32'd0;
+             mask_last_q <= {64{1'b1}};
+             padS_q    <= 32'sd0; sS_q <= 32'sd0; dS_q <= 32'sd0;
+             // ★ 2026-10-31 修多驱动：这 12 个寄存器由 §13 的 always_ff 独占
+@@ -692,7 +693,7 @@
+                     ntot_q    <= K_lc << 6;
+                     k8_q      <= K_lc << 3;
+                     gstride_q <= (K_lc << 3) * VLANES;
+-                    hwout8_q  <= ({16'd0, hout_q} * {16'd0, wout_q}) << 3;
++                    plane_stride_q <= ({16'd0, hout_q} * {16'd0, wout_q}) * VLANES;
+                 end
+                 if (prm_i == 5'd1) km1_q <= K_q[LW:0] - 1'b1;
+ 
+@@ -753,10 +754,15 @@
+                         state <= ST_DONE;
+                     end else begin
+                         o_q      <= o_q + VLANES;
+-                        ogbase_q <= ogbase_q + hwout8_q;
++                        ogbase_q <= ogbase_q + plane_stride_q;
+                         wgt_oq   <= wgt_oq + gstride_q;
+-                        nvalid_q <= ({16'd0, cout_q} - o_q > VLANES)
+-                                    ? VLANES : ({16'd0, cout_q} - o_q);
++                        // F2：o_q 在上面是非阻塞赋值，这里读到的是**旧值**。下一组的
++                        //     剩余 oc 数必须是 cout-(o_q+VLANES)，否则 cout%VLANES≠0 时
++                        //     末组 nvalid 恒 VLANES ⇒ mem_wr_sel 全 1 ⇒ 多写非法字节。
++                        nvalid_q <= ({16'd0, cout_q} - (o_q + VLANES) > VLANES)
++                                    ? VLANES
++                                    : (({16'd0, cout_q} > (o_q + VLANES))
++                                       ? ({16'd0, cout_q} - (o_q + VLANES)) : 32'd0);
+                         prm_i    <= 5'd0;
+                         wl_l     <= 16'd0;
+                         wl_lane  <= 4'd0;

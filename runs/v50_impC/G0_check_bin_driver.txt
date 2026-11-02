@@ -1,0 +1,57 @@
+检查目标：/media/felix/Data/coding/demoir-fpga/worktrees/v50_impC/deploy/bin_weights_new
+
+== 1) 容器自洽（偏移 / 尺寸 / 约束 / sha256） ==
+   ✓ 头：magic=BINWGT01 version=1 layers=227
+   ✓ sha256 9277bbf4ce10193086bc9d9e54bffa8ca2d76eb2e70203bfba211b49be953ac0
+   ✓ 逐层区域：7 区紧凑、8 字节对齐、非 0、按层不重叠（结束于 0x112b20 / 1125152 B）
+   ✓ counts：layers=227 wgt_words=108096 bin_weights=5839104
+   ✓ fp_layers：16 个文件齐全（137.7 KB）
+   ✓ 容器审计 5 项检查全过
+
+== 2) 参考实现 vs xsim 黄金向量（逐字节） ==
+  bin_1x32_32_8x8      cin= 32 cout= 32 k=1 cb=1  2048/2048 字节一致 ✓
+  bin_1x64_16x16       cin= 64 cout= 64 k=1 cb=1  4096/4096 字节一致 ✓
+  bin_3x32_48_8x8      cin= 32 cout= 48 k=3 cb=1  3072/3072 字节一致 ✓
+  bin_3x32_48_d2       cin= 32 cout= 32 k=3 cb=1  2048/2048 字节一致 ✓
+  bin_3x96_64_8x8      cin= 96 cout= 64 k=3 cb=2  4096/4096 字节一致 ✓
+   ✓ 5 个模块级黄金向量逐字节一致
+
+== 3) 交叉实现：与 verify_bin_weights.int_forward 对拍（真实层 + 真实容器） ==
+   ✓ encoder.encoder_1.rdb.conv_post.conv           cin=240 cout= 48 k=1 s=1 d=1 cb=4  7x9 逐字节一致
+   ✓ encoder.encoder_1.down.conv                    cin= 48 cout= 96 k=3 s=2 d=1 cb=1  7x9 逐字节一致
+   ✓ cks.0.b0.ghost_layers.2.cheap_operation.conv   cin= 32 cout= 32 k=3 s=1 d=3 cb=1  7x9 逐字节一致
+   ✓ encoder.encoder_2.down.conv                    cin= 96 cout=192 k=3 s=2 d=1 cb=2  7x9 逐字节一致
+   ✓ encoder.encoder_3.sam_blocks.0.b0.conv.conv    cin=512 cout=192 k=1 s=1 d=1 cb=8  7x9 逐字节一致
+   ✓ 交叉实现对拍 5 层
+
+== 4) 层间算子的 PS 回退 vs xsim golden ==
+   ✓ rprelu_int8  rprelu_48_4x16   C=48 4x16
+   ✓ rprelu_int8  rprelu_64_8x8    C=64 8x8
+   ✓ rprelu_int8  rprelu_96_8x8    C=96 8x8
+   ✓ sam_int8     sam_32_8x8       C=32 8x8
+   ✓ sam_int8     sam_64_8x8       C=64 8x8
+   ✓ bilinear_int8 interp_16_8x8_to_16x16
+
+== 5) RPReLU 融合核对（决定整网要不要单独调 bin_rprelu） ==
+   ✓ 227/227 层的 `.act` 与 conv 同名配对 ⇒ RPReLU 已融进 conv 的收尾流水
+
+== 6) 整网调度：227 条形状断言 ==
+   ✓ --hw 16：482 个 op、227 个二值卷积全部对上容器 cin/cout
+   ✓ --hw 32：482 个 op、227 个二值卷积全部对上容器 cin/cout
+   ✓ --hw 64：482 个 op、227 个二值卷积全部对上容器 cin/cout
+
+== 7) 驱动逻辑（寄存器级 RTL 模型） ==
+      ✓ 错误码 5 → ERR_ALIGN（带中文说明）
+      ✓ 错误码 6 → ERR_UNIT（带中文说明）
+   自检全部通过 ✓
+   ✓ bin_engine --selftest 通过
+
+== 8) 分级测试流程（--fake：6 阶段全流程，不碰硬件） ==
+   ==========================================================================
+     全部通过 ✓（跑到阶段 5）
+   ==========================================================================
+   ✓ bin_test_staged --fake 通过
+
+======================================================================
+全部通过 ✓（本机能证明的部分都在上面）
+======================================================================

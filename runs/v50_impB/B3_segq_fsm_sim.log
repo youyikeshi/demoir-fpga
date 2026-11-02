@@ -1,0 +1,23 @@
+  [ ok ] progress == 2 (two descriptors)
+  [ ok ] done == 1 (tail + wr_all_idle)
+  [ ok ] err == 0
+  [ ok ] busy == 0
+  [ ok ] err == 1
+  [ ok ] err_code == E_ALIGN(1)
+  [ ok ] no hdr_req after error
+  [ ok ] err == 1
+  [ ok ] err_code == E_RANGE(2)
+  [ ok ] err == 1
+  [ ok ] err_code == E_CANARY(4)
+  [ ok ] band_abort pulse seen in ERR
+  [ ok ] err == 1 before restart
+  [ ok ] err cleared to 0
+  [ ok ] progress == 1 (recount after restart)
+  [ ok ] done == 1
+  [ ok ] done stays 0 while wr_all_idle=0
+  [ ok ] progress already 1 at that point
+  [ ok ] done rises only after wr_all_idle=1
+  [ ok ] empty chain done == 1
+  [ ok ] empty chain err == 0
+===== result: 0 errors =====
+B3 PASS (4 paths + empty chain)

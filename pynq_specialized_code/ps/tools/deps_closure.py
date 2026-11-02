@@ -128,6 +128,20 @@ DECL = {
     #   mmio_batch.c` **单文件编译** ⇒ 编译输入只有这一个 .c，清单里就只列它。
     #   判断标准同 T-41 的 `convpf_neon_shim.h`：**只有参与编译输入的文件才进清单**，
     #   把只用于测试的 .h 列进来只会制造"冻结点少拷一个头"的假 FAIL。
+    # ★ 2026-11-02（v50 合并 / REVIEW）：IMP-C 的 `bin_net.py`（`_fconv_engine()`，
+    #   `try: import fconv`，静默回落）让闭包多出 `fconv` 一个模块，而 `ps/tools`
+    #   不在 IMP-C 的可写范围 ⇒ 合并时必须由合并方补这一行。这是**第三次**同一个
+    #   坑（前两次 `convpf_c` / `mmio_batch`，见上两段注释），现已由
+    #   `ps/tools/merge_gate.sh` 机械兜住：漏写 ⇒ `--gen` / `--check` 当场 rc=1。
+    #   与 `convpf_c` 的分工：`convpf_c` 是 CPU 侧 im2col-free 内核，
+    #   本项是 **PL** 单元 `fconv_0` 的驱动，两者互补、互不替代。
+    #   `fconv.py` 是**纯 Python**（无 `.c`、无 `CDLL`）⇒ `src=None`。
+    "fconv": dict(
+        kind="热/opt-in（`BIN_CONVPF_PL=1` **且** overlay 里有 `fconv_0` 才启用；"
+             "默认关。缺 ⇒ 静默回落 CPU convfp，结果逐字节等价）",
+        role="convfp（f32 直接卷积）PL 单元的 PS 侧驱动：fconv_0 寄存器映射、"
+             "物理地址四重校验、逐字节判据、尾部 0xA5 金丝雀（IMP-C 只调用不改它）",
+        src=None),
     "qcache": dict(
         kind="冷/可选（`Q8CACHE=1`，默认关）",
         role="f32 叶子量化缓存（按 C8 字节常驻，省重复量化）",

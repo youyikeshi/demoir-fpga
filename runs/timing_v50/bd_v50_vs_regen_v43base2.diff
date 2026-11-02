@@ -1,0 +1,144 @@
+--- bd_regen_v43base2.tcl	2026-11-02 11:03:30.211595100 +0800
++++ bd_v50.tcl	2026-11-02 15:09:38.009254500 +0800
+@@ -1,12 +1,17 @@
+ # ============================================================================
+-#  bd_regen_v43base2.tcl —— 在**副本** proj_v43base 上重建 design_1（T-57, 2026-11-02）
++#  bd_v50.tcl —— 在**副本** proj_v50 上重建 design_1（T-65, 2026-11-02）
+ #
+-#  与 10:56 那次失败尝试（bd_regen_v43base.tcl，跑在**主工程**上）的区别：
+-#    1. 只在副本上跑（主工程一律只读）—— 主工程已被那次尝试的 upgrade_ip 打坏
+-#    2. 打印并断言「module-ref 打包时 RTL 外壳的 FREQ_HZ / PROTOCOL」，把
+-#       "这次用的是哪版声明" 钉死进日志（10:56 那次就是因为外壳写 40 MHz 而挂）
+-#    3. 不跑 make_wrapper（generate_target all 自己会写 hdl/design_1_wrapper.v）
++#  血缘：逐字派生自 bd_regen_v43base2.tcl（T-57 已验 rc=0）。
++#  ★ 与 v43base2 版的差异只有两处，其余一位不动：
++#    ① bin_unit_0 的 module-ref：bin_unit_axi_wrap_bd -> bin_unit_axi_wrap_lane16
++#       （conv_uni_0 仍是 conv_uni_axi_wrap_bd）
++#    ② 新增一条端口宽度断言：新 bin_unit 的 s_axi/m_axi DATA_WIDTH 与 BD 引脚数
++#       必须 >= 换之前的 8-lane 版本（防止把 16-lane 接成 8-lane 却不知道）
++#  地址图 0x40040000 / 0x40060000（各 128K）、FCLK 150 MHz、ps7 参数、HP0/HP1
++#  连接、无 fconv、无 HP2 —— 全部保持 v43base2 的取值，一位不动。
+ #
++#  前置（T-65 已做）：proj_v50 已就位；lane16/ 下 T-64 的 RTL 必须存在，且外壳
++#  bin_unit_axi_wrap_lane16.v 必须声明 FREQ_HZ 150000000（不是 40 MHz）。
+ #  判据：validate_bd_design PASS + generate_target all PASS。
+ #  不通过就停，不自己"修"。
+ # ============================================================================
+@@ -17,15 +22,28 @@
+ proc bad  {m} { puts "    ERR  $m" }
+ proc md5  {f} { return [lindex [exec md5sum $f] 0] }
+ 
+-set proj /media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/vivado/proj_v43base
++set proj /media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/vivado/proj_v50
+ set xpr  [file join $proj proj_engine.xpr]
+ set gen  [file join $proj proj_engine.gen/sources_1/bd/design_1]
+ set mods /media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/rtl_hand/modules
++set lane16 /media/felix/Data/coding/demoir-fpga/runs/timing_v50/rtl_v50/lane16
+ if {![file exists $xpr]} { error "缺工程：$xpr（副本没建好）" }
++if {![file isdirectory $lane16]} { error "缺 lane16 目录：$lane16（T-64 的 16-lane RTL 未到位）" }
+ 
++# 16-lane 外壳文件名按契约应为 bin_unit_axi_wrap_lane16.v；若 T-64 换了文件名，
++# 就按"哪个 .v 定义了模块 bin_unit_axi_wrap_lane16"兜底找，名字不符也给出明确错误。
++set _shell [file join $lane16 bin_unit_axi_wrap_lane16.v]
++if {![file exists $_shell]} {
++    set _shell ""
++    foreach _f [lsort [glob -nocomplain [file join $lane16 *.v]]] {
++        set _fh [open $_f r]; set _t [read $_fh]; close $_fh
++        if {[regexp {\mmodule[ \t]+bin_unit_axi_wrap_lane16[ \t(\r\n]} $_t]} { set _shell $_f; break }
++    }
++    if {$_shell eq ""} { error "lane16/ 里找不到定义模块 bin_unit_axi_wrap_lane16 的 .v（T-64 未交付 / 模块名不符），停止" }
++}
+ step "记录重登记将要用到的 RTL 外壳声明（钉死证据）"
+-foreach f {conv_uni_axi_wrap_bd.v bin_unit_axi_wrap_bd.v} {
+-    set p [file join $mods $f]
++foreach p [list [file join $mods conv_uni_axi_wrap_bd.v] $_shell] {
++    set f [file tail $p]
+     set fh [open $p r]; set t [read $fh]; close $fh
+     set n400 [regexp -all {FREQ_HZ 40000000} $t]
+     set n150 [regexp -all {FREQ_HZ 150000000} $t]
+@@ -43,6 +61,20 @@
+ open_project $xpr
+ ok "part=[get_property PART [current_project]]"
+ 
++step "把 T-64 的 16-lane RTL 登记进工程（module-ref 才能解析 bin_unit_axi_wrap_lane16）"
++set _l16 [lsort [glob -nocomplain [file join $lane16 *.v]]]
++if {[llength $_l16] == 0} { error "lane16/ 下没有 .v：T-64 的 16-lane RTL 未到位，停止" }
++set _added 0
++foreach f $_l16 {
++    set fn [file normalize $f]
++    if {[llength [get_files -quiet $fn]] == 0} {
++        add_files -norecurse -fileset sources_1 $fn
++        incr _added
++    }
++}
++if {$_added > 0} { update_compile_order -fileset sources_1 }
++ok "lane16 文件 [llength $_l16] 个（本次新登记 $_added 个）：[join [lmap f $_l16 {file tail $f}] {, }]"
++
+ step "硬断言：不许带 fconv、不许开 HP2"
+ set bdfile [file join $proj proj_engine.srcs/sources_1/bd/design_1/design_1.bd]
+ set fh [open $bdfile r]; set _t [read $fh]; close $fh
+@@ -56,7 +88,7 @@
+     if {[catch { upgrade_ip $_locked } e]} { error "upgrade_ip 失败：$e" }
+     ok "upgrade_ip 完成，locked 现在 = [llength [get_ips -quiet -filter {IS_LOCKED == 1}]]"
+ }
+-foreach m {conv_uni_axi_wrap_bd bin_unit_axi_wrap_bd} {
++foreach m {conv_uni_axi_wrap_bd bin_unit_axi_wrap_lane16} {
+     set d [file normalize "$gen/../mref/$m"]
+     if {[file isdirectory $d]} { file delete -force $d; ok "删 mref/$m" } else { note "mref/$m 不存在" }
+ }
+@@ -73,6 +105,11 @@
+     error "HP2 已不是 0 —— 本步不许开 HP2，停止"
+ }
+ puts "    改前 cells = [llength [get_bd_cells -quiet]] 条：[get_bd_cells -quiet]"
++# ★ v50 新增：换之前先把 8-lane bin_unit_0 的端口宽度/引脚数记下来（换完断言"不窄于"它）
++set _old_sw [get_property CONFIG.DATA_WIDTH [get_bd_intf_pins bin_unit_0/s_axi]]
++set _old_mw [get_property CONFIG.DATA_WIDTH [get_bd_intf_pins bin_unit_0/m_axi]]
++set _old_np [llength [get_bd_pins -quiet bin_unit_0]]
++puts "    改前 bin_unit_0（8-lane）：s_axi DATA_WIDTH=$_old_sw  m_axi DATA_WIDTH=$_old_mw  引脚数=$_old_np"
+ foreach seg [get_bd_addr_segs -quiet -of_objects [get_bd_addr_spaces -quiet /ps7/Data]] {
+     puts "    改前 seg $seg OFFSET=[get_property OFFSET $seg] RANGE=[get_property RANGE $seg]"
+ }
+@@ -85,8 +122,8 @@
+ step "按当前 RTL 外壳重建两个 module-ref 单元"
+ create_bd_cell -type module -reference conv_uni_axi_wrap_bd conv_uni_0
+ ok "conv_uni_0 已建"
+-create_bd_cell -type module -reference bin_unit_axi_wrap_bd bin_unit_0
+-ok "bin_unit_0 已建"
++create_bd_cell -type module -reference bin_unit_axi_wrap_lane16 bin_unit_0
++ok "bin_unit_0 已建（module-ref = bin_unit_axi_wrap_lane16）"
+ foreach c {conv_uni_0 bin_unit_0} {
+     foreach ip {s_axi m_axi} {
+         set p [get_bd_intf_pins -quiet ${c}/${ip}]
+@@ -100,6 +137,25 @@
+     }
+ }
+ 
++step "★ v50 新增断言：新 bin_unit 的端口必须宽于/等于旧 8-lane 模块"
++set _new_sw [get_property CONFIG.DATA_WIDTH [get_bd_intf_pins bin_unit_0/s_axi]]
++set _new_mw [get_property CONFIG.DATA_WIDTH [get_bd_intf_pins bin_unit_0/m_axi]]
++set _new_np [llength [get_bd_pins -quiet bin_unit_0]]
++puts [format "      旧 8-lane : s_axi DATA_WIDTH=%-4s m_axi DATA_WIDTH=%-4s 引脚=%s" $_old_sw $_old_mw $_old_np]
++puts [format "      新 16-lane: s_axi DATA_WIDTH=%-4s m_axi DATA_WIDTH=%-4s 引脚=%s" $_new_sw $_new_mw $_new_np]
++foreach {_nm _nv _ov} [list s_axi $_new_sw $_old_sw m_axi $_new_mw $_old_mw] {
++    if {![string is integer -strict $_nv] || ![string is integer -strict $_ov]} {
++        error "$_nm 的 DATA_WIDTH 不是整数（新=$_nv 旧=$_ov）—— 无法证明没把 16-lane 接成 8-lane，停止"
++    }
++    if {$_nv < $_ov} {
++        error "$_nm DATA_WIDTH 变窄：新=$_nv < 旧=$_ov —— 16-lane 模块的端口不能比 8-lane 窄，停止"
++    }
++}
++if {$_new_np < $_old_np} {
++    error "bin_unit_0 引脚数变少：新=$_new_np < 旧=$_old_np —— 换模块换丢了端口，停止"
++}
++ok "端口不窄于旧模块（s_axi $_new_sw>=$_old_sw，m_axi $_new_mw>=$_old_mw，引脚 $_new_np>=$_old_np）"
++
+ step "恢复全部连线（与 baseline 同名同向；pc_conv 已删，AXI3↔AXI3 直连）"
+ connect_bd_intf_net [get_bd_intf_pins axi_ctrl/M02_AXI] [get_bd_intf_pins conv_uni_0/s_axi]
+ connect_bd_intf_net [get_bd_intf_pins axi_ctrl/M03_AXI] [get_bd_intf_pins bin_unit_0/s_axi]
+@@ -190,5 +246,5 @@
+     puts "      [file tail $d]"
+ }
+ puts ""
+-puts "REGEN_V43BASE_OK"
++puts "REGEN_V50_OK"
+ exit

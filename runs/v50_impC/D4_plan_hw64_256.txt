@@ -1,0 +1,30 @@
+=== hw=64 ===
+== v50 段计划（P1）: 223 段 / 432 条描述符 / 带宽 8 行 / 预算 270 KB / VLANES=8 / PRM 帧 16 字 ==
+  段表（halo=Σ(k-1) 行；buff=2×band_rows×W×C int8；halo_b=Σ(k-1)·W·cin int8）：
+  S0   n=2  unshuffle/convfp                   3x64x64->48x32x32      halo=0  band=4   buff=   24.0KB halo_b=   0.0KB prm=384 B×4  融合
+  S1   n=2  conv/cat                           48x32x32->112x32x32    halo=2  band=5   buff=   59.0KB halo_b=   3.0KB prm=896 B×5  融合
+  S2   n=2  conv/cat                           112x32x32->176x32x32   halo=2  band=5   buff=   95.0KB halo_b=   7.0KB prm=1408B×5  融合
+  S3   n=4  conv/cat/conv/add                  176x32x32->48x32x32    halo=2  band=5   buff=   35.0KB halo_b=  11.0KB prm=384 B×5  融合
+  S4   n=1  interp                             48x32x32->48x16x16     halo=0  band=2   buff=   12.0KB halo_b=   0.0KB prm=384 B×2  融合
+  S5   n=1  interp                             48x32x32->48x8x8       halo=0  band=1   buff=    6.0KB halo_b=   0.0KB prm=384 B×1  融合
+  ...（共 223 段，只打前 6 段）
+  预算校验：223/223 段在 270 KB 内；**0 段超预算 => 标不融合**
+  描述符链：432 条 × 40 B @ 4 KB 步进 = 1.77 MB；链首 0x50800000
+  超预算段：0 段 -> []
+  max_seg_buf = 227.0 KB
+
+=== hw=256 ===
+== v50 段计划（P1）: 223 段 / 1269 条描述符 / 带宽 8 行 / 预算 270 KB / VLANES=8 / PRM 帧 16 字 ==
+  段表（halo=Σ(k-1) 行；buff=2×band_rows×W×C int8；halo_b=Σ(k-1)·W·cin int8）：
+  S0   n=2  unshuffle/convfp                   3x256x256->48x128x128  halo=0  band=16  buff=   96.0KB halo_b=   0.0KB prm=384 B×16 融合
+  S1   n=2  conv/cat                           48x128x128->112x128x128 halo=2  band=17  buff=  236.0KB halo_b=  12.0KB prm=896 B×17 融合
+  S2   n=2  conv/cat                           112x128x128->176x128x128 halo=2  band=17  buff=  380.0KB halo_b=  28.0KB prm=1408B×17 **不融合**（缓冲 380.0KB > 预算 270KB ⇒ 退回逐 op）
+  S3   n=4  conv/cat/conv/add                  176x128x128->48x128x128 halo=2  band=17  buff=  140.0KB halo_b=  44.0KB prm=384 B×17 融合
+  S4   n=1  interp                             48x128x128->48x64x64   halo=0  band=8   buff=   48.0KB halo_b=   0.0KB prm=384 B×8  融合
+  S5   n=1  interp                             48x128x128->48x32x32   halo=0  band=4   buff=   24.0KB halo_b=   0.0KB prm=384 B×4  融合
+  ...（共 223 段，只打前 6 段）
+  预算校验：205/223 段在 270 KB 内；**18 段超预算 => 标不融合**：S2,S9,S11,S13,S23,S48,S50,S150,S159,S161,S187,S188…
+  描述符链：1269 条 × 40 B @ 4 KB 步进 = 5.20 MB；链首 0x50800000
+  超预算段：18 段 -> [2, 9, 11, 13, 23, 48, 50, 150, 159, 161]
+  max_seg_buf = 908.0 KB
+

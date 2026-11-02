@@ -1,0 +1,26 @@
+### 0) 工具
+Vivado Simulator v2025.2.1
+
+### 1) xvlog --sv：IMP-B 8 个新文件 + 依赖（期望 0 error）
+xvlog rc=0  (0 = 无 error/warning)
+
+### 2) xelab bin_unit_axi_wrap_bd_v50  VLANES=8
+Built simulation snapshot zl8
+### 2) xelab bin_unit_axi_wrap_bd_v50  VLANES=16
+Built simulation snapshot zl16
+
+### 3) B2：bin_band_buf 容量断言（elaboration 期）
+  3a) 默认 BAND_ROWS=8 HALO=1 C_MAX=48 W_MAX=256 => CAP=240KB <= 270KB
+Built simulation snapshot bb1
+  3b) BAND_ROWS=16 HALO=2 => CAP=392KB > 270KB
+ERROR: [VRFC 10-2063] Module <bin_band_buf_CAPACITY_OVER_BUDGET_reduce_BAND_ROWS_or_C_MAX_or_W_MAX> not found while processing module instance <g_cap_over_budget.u_cap_over> [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/rtl_hand/_worktrees/v50_impB/bin_band_buf.v:333]
+ERROR: [XSIM 43-3322] Static elaboration of top level Verilog design unit(s) in library work failed.
+  3c) C_MAX=64 HALO=2 => CAP=393KB > 270KB
+ERROR: [VRFC 10-2063] Module <bin_band_buf_CAPACITY_OVER_BUDGET_reduce_BAND_ROWS_or_C_MAX_or_W_MAX> not found while processing module instance <g_cap_over_budget.u_cap_over> [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/rtl_hand/_worktrees/v50_impB/bin_band_buf.v:333]
+ERROR: [XSIM 43-3322] Static elaboration of top level Verilog design unit(s) in library work failed.
+
+### 4) 小算子 v50 壳
+  bin_sam_v50        Built simulation snapshot qbin_sam_v50
+  bin_rprelu_v50     Built simulation snapshot qbin_rprelu_v50
+  bin_interp_v50     Built simulation snapshot qbin_interp_v50
+  bin_catpack_v50    Built simulation snapshot qbin_catpack_v50

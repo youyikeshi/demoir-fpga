@@ -1,0 +1,12 @@
+convpf_pl_status: {'on': True, 'why': '', 'ok': True}
+fp layers: ['decoder.decoder_1.conv', 'decoder.decoder_1.sam_blocks.0.fusion.conv1.weight', 'decoder.decoder_1.sam_blocks.0.fusion.conv2.weight', 'decoder.decoder_2.conv', 'decoder.decoder_2.sam_blocks.0.fusion.conv1.weight', 'decoder.decoder_2.sam_blocks.0.fusion.conv2.weight', 'decoder.decoder_3.conv', 'decoder.decoder_3.sam_blocks.0.fusion.conv1.weight', 'decoder.decoder_3.sam_blocks.0.fusion.conv2.weight', 'encoder.conv_first.0', 'encoder.encoder_1.sam_blocks.0.fusion.conv1.weight', 'encoder.encoder_1.sam_blocks.0.fusion.conv2.weight', 'encoder.encoder_2.sam_blocks.0.fusion.conv1.weight', 'encoder.encoder_2.sam_blocks.0.fusion.conv2.weight', 'encoder.encoder_3.sam_blocks.0.fusion.conv1.weight', 'encoder.encoder_3.sam_blocks.0.fusion.conv2.weight']
+  [CONVPF_PL] PL 执行失败（RuntimeError('假 fconv：寄存器读不回')） ⇒ 回落 CPU 卷积（数值不变）
+  [launch 抛异常] 形状=(48, 32, 32) 与 CPU 逐位相同=True
+  [CONVPF_PL] PL 输出形状 (1, 1, 1) != (48,32,32) ⇒ 回落 CPU ⇒ 回落 CPU 卷积（数值不变）
+  [形状错] 形状=(48, 32, 32) 与 CPU 逐位相同=True
+  [CONVPF_PL] PL 执行失败（AttributeError("'Bad3' object has no attribute 'launch'")） ⇒ 回落 CPU 卷积（数值不变）
+  [没有 launch] 形状=(48, 32, 32) 与 CPU 逐位相同=True
+走 launch 的层: decoder.decoder_1.conv cin=64 cout=12 k=3 pad=1 bias? True
+  [CONVPF_PL] PL 执行失败（RuntimeError('假 fconv：寄存器读不回')） ⇒ 回落 CPU 卷积（数值不变）
+  回落结果与 CPU 逐位相同: True
+FALLBACK CHECKS PASS
