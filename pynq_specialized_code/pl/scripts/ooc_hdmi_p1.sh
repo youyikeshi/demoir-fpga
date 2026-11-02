@@ -59,6 +59,13 @@ if [[ "$NRERR" -gt 0 ]]; then
   exit 1
 fi
 
+# ★ 可审计：本轮实际消费的三份报告，各打 mtime/md5/字节数
+for f in "$OUT/util.rpt" "$OUT/timing.rpt" "$L"; do
+  if [ -f "$f" ]; then
+    echo "  consume $(basename "$f")  mtime=$(stat -c '%y' "$f" | cut -d'.' -f1)  md5=$(md5sum "$f" | cut -d' ' -f1)  bytes=$(stat -c '%s' "$f")"
+  fi
+done
+
 echo "  --- 资源 ---"
 grep -E "Slice LUTs|Slice Registers|Block RAM Tile|DSPs|Register as Latch" "$OUT/util.rpt" | head -12
 echo "  --- latch 指纹 ---"

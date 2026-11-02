@@ -3,14 +3,15 @@
   **** SW Build 6403652 on Thu Mar 19 13:47:00 MDT 2026
   **** IP Build 6403511 on Thu Mar 19 12:41:45 MDT 2026
   **** SharedData Build 6403650 on Thu Mar 19 14:02:13 MDT 2026
-  **** Start of session at: Tue Nov  3 00:44:15 2026
+  **** Start of session at: Tue Nov  3 02:55:22 2026
     ** Copyright 1986-2022 Xilinx, Inc. All Rights Reserved.
     ** Copyright 2022-2026 Advanced Micro Devices, Inc. All Rights Reserved.
 
-source /tmp/probe_hb/synthcheck/synthcheck_hdmi.tcl
+source /tmp/probe_hdmi_p1/synthcheck_hdmi.tcl
 # read_verilog "/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/rtl_hand/modules/hdmi_timing_gen.v"
 # read_verilog "/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/rtl_hand/modules/hdmi_color_bar.v"
 # read_verilog "/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/rtl_hand/modules/sil9134_init.v"
+# read_verilog "/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/rtl_hand/modules/hdmi_fb_scan.v"
 # read_verilog "/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/rtl_hand/modules/hdmi_out_top.v"
 # synth_design -rtl -top hdmi_out_top -mode out_of_context -part xc7z015clg485-2
 Command: synth_design -rtl -top hdmi_out_top -mode out_of_context -part xc7z015clg485-2
@@ -18,11 +19,11 @@ Starting synth_design
 INFO: [Device 21-403] Loading part xc7z015clg485-2
 INFO: [Synth 8-7079] Multithreading enabled for synth_design using a maximum of 7 processes.
 INFO: [Synth 8-7078] Launching helper process for spawning children vivado processes
-INFO: [Synth 8-7075] Helper process launched with PID 44424
+INFO: [Synth 8-7075] Helper process launched with PID 246209
 ---------------------------------------------------------------------------------
-Starting RTL Elaboration : Time (s): cpu = 00:00:03 ; elapsed = 00:00:03 . Memory (MB): peak = 2255.645 ; gain = 482.594 ; free physical = 2156 ; free virtual = 21514
+Starting RTL Elaboration : Time (s): cpu = 00:00:03 ; elapsed = 00:00:03 . Memory (MB): peak = 2256.176 ; gain = 483.156 ; free physical = 4730 ; free virtual = 19775
 ---------------------------------------------------------------------------------
-INFO: [Synth 8-6157] synthesizing module 'hdmi_out_top' [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/rtl_hand/modules/hdmi_out_top.v:54]
+INFO: [Synth 8-6157] synthesizing module 'hdmi_out_top' [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/rtl_hand/modules/hdmi_out_top.v:74]
 INFO: [Synth 8-6157] synthesizing module 'BUFG' [/data/xilinx/2025.2/2025.2.1/Vivado/scripts/rt/data/unisim_comp.v:2678]
 INFO: [Synth 8-6155] done synthesizing module 'BUFG' (0#1) [/data/xilinx/2025.2/2025.2.1/Vivado/scripts/rt/data/unisim_comp.v:2678]
 INFO: [Synth 8-6157] synthesizing module 'BUFGMUX' [/data/xilinx/2025.2/2025.2.1/Vivado/scripts/rt/data/unisim_comp.v:2779]
@@ -73,58 +74,52 @@ INFO: [Synth 8-6157] synthesizing module 'hdmi_color_bar__parameterized0' [/medi
 	Parameter V_ACTIVE bound to: 1080 - type: integer 
 	Parameter LINE_W bound to: 4 - type: integer 
 INFO: [Synth 8-6155] done synthesizing module 'hdmi_color_bar__parameterized0' (0#1) [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/rtl_hand/modules/hdmi_color_bar.v:16]
-INFO: [Synth 8-6155] done synthesizing module 'hdmi_out_top' (0#1) [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/rtl_hand/modules/hdmi_out_top.v:54]
+INFO: [Synth 8-6157] synthesizing module 'hdmi_fb_scan' [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/rtl_hand/modules/hdmi_fb_scan.v:136]
+	Parameter LINE_AW bound to: 11 - type: integer 
+	Parameter PIX_W bound to: 12 - type: integer 
+INFO: [Synth 8-6155] done synthesizing module 'hdmi_fb_scan' (0#1) [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/rtl_hand/modules/hdmi_fb_scan.v:136]
+INFO: [Synth 8-6155] done synthesizing module 'hdmi_out_top' (0#1) [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/rtl_hand/modules/hdmi_out_top.v:74]
+WARNING: [Synth 8-6014] Unused sequential element fid_seen_reg was removed.  [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/rtl_hand/modules/hdmi_fb_scan.v:285]
+WARNING: [Synth 8-6014] Unused sequential element a_fpar_reg was removed.  [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/rtl_hand/modules/hdmi_fb_scan.v:465]
 WARNING: [Synth 8-3917] design hdmi_out_top has port s_axi_bresp[1] driven by constant 0
 WARNING: [Synth 8-3917] design hdmi_out_top has port s_axi_bresp[0] driven by constant 0
 WARNING: [Synth 8-3917] design hdmi_out_top has port s_axi_rresp[1] driven by constant 0
 WARNING: [Synth 8-3917] design hdmi_out_top has port s_axi_rresp[0] driven by constant 0
-WARNING: [Synth 8-3917] design hdmi_out_top has port m_axi_araddr[31] driven by constant 0
-WARNING: [Synth 8-3917] design hdmi_out_top has port m_axi_araddr[30] driven by constant 0
-WARNING: [Synth 8-3917] design hdmi_out_top has port m_axi_araddr[29] driven by constant 0
-WARNING: [Synth 8-3917] design hdmi_out_top has port m_axi_araddr[28] driven by constant 0
-WARNING: [Synth 8-3917] design hdmi_out_top has port m_axi_araddr[27] driven by constant 0
-WARNING: [Synth 8-3917] design hdmi_out_top has port m_axi_araddr[26] driven by constant 0
-WARNING: [Synth 8-3917] design hdmi_out_top has port m_axi_araddr[25] driven by constant 0
-WARNING: [Synth 8-3917] design hdmi_out_top has port m_axi_araddr[24] driven by constant 0
-WARNING: [Synth 8-3917] design hdmi_out_top has port m_axi_araddr[23] driven by constant 0
-WARNING: [Synth 8-3917] design hdmi_out_top has port m_axi_araddr[22] driven by constant 0
-WARNING: [Synth 8-3917] design hdmi_out_top has port m_axi_araddr[21] driven by constant 0
-WARNING: [Synth 8-3917] design hdmi_out_top has port m_axi_araddr[20] driven by constant 0
-WARNING: [Synth 8-3917] design hdmi_out_top has port m_axi_araddr[19] driven by constant 0
-WARNING: [Synth 8-3917] design hdmi_out_top has port m_axi_araddr[18] driven by constant 0
-WARNING: [Synth 8-3917] design hdmi_out_top has port m_axi_araddr[17] driven by constant 0
-WARNING: [Synth 8-3917] design hdmi_out_top has port m_axi_araddr[16] driven by constant 0
-WARNING: [Synth 8-3917] design hdmi_out_top has port m_axi_araddr[15] driven by constant 0
-WARNING: [Synth 8-3917] design hdmi_out_top has port m_axi_araddr[14] driven by constant 0
-WARNING: [Synth 8-3917] design hdmi_out_top has port m_axi_araddr[13] driven by constant 0
-WARNING: [Synth 8-3917] design hdmi_out_top has port m_axi_araddr[12] driven by constant 0
-WARNING: [Synth 8-3917] design hdmi_out_top has port m_axi_araddr[11] driven by constant 0
-WARNING: [Synth 8-3917] design hdmi_out_top has port m_axi_araddr[10] driven by constant 0
-WARNING: [Synth 8-3917] design hdmi_out_top has port m_axi_araddr[9] driven by constant 0
-WARNING: [Synth 8-3917] design hdmi_out_top has port m_axi_araddr[8] driven by constant 0
-WARNING: [Synth 8-3917] design hdmi_out_top has port m_axi_araddr[7] driven by constant 0
-WARNING: [Synth 8-3917] design hdmi_out_top has port m_axi_araddr[6] driven by constant 0
-WARNING: [Synth 8-3917] design hdmi_out_top has port m_axi_araddr[5] driven by constant 0
-WARNING: [Synth 8-3917] design hdmi_out_top has port m_axi_araddr[4] driven by constant 0
-WARNING: [Synth 8-3917] design hdmi_out_top has port m_axi_araddr[3] driven by constant 0
-WARNING: [Synth 8-3917] design hdmi_out_top has port m_axi_araddr[2] driven by constant 0
-WARNING: [Synth 8-3917] design hdmi_out_top has port m_axi_araddr[1] driven by constant 0
-WARNING: [Synth 8-3917] design hdmi_out_top has port m_axi_araddr[0] driven by constant 0
-WARNING: [Synth 8-3917] design hdmi_out_top has port m_axi_arlen[7] driven by constant 0
-WARNING: [Synth 8-3917] design hdmi_out_top has port m_axi_arlen[6] driven by constant 0
-WARNING: [Synth 8-3917] design hdmi_out_top has port m_axi_arlen[5] driven by constant 0
-WARNING: [Synth 8-3917] design hdmi_out_top has port m_axi_arlen[4] driven by constant 0
-WARNING: [Synth 8-3917] design hdmi_out_top has port m_axi_arlen[3] driven by constant 0
-WARNING: [Synth 8-3917] design hdmi_out_top has port m_axi_arlen[2] driven by constant 0
-WARNING: [Synth 8-3917] design hdmi_out_top has port m_axi_arlen[1] driven by constant 0
-WARNING: [Synth 8-3917] design hdmi_out_top has port m_axi_arlen[0] driven by constant 0
-WARNING: [Synth 8-3917] design hdmi_out_top has port m_axi_arsize[2] driven by constant 0
-WARNING: [Synth 8-3917] design hdmi_out_top has port m_axi_arsize[1] driven by constant 1
-WARNING: [Synth 8-3917] design hdmi_out_top has port m_axi_arsize[0] driven by constant 1
-WARNING: [Synth 8-3917] design hdmi_out_top has port m_axi_arburst[1] driven by constant 0
-WARNING: [Synth 8-3917] design hdmi_out_top has port m_axi_arburst[0] driven by constant 1
-WARNING: [Synth 8-3917] design hdmi_out_top has port m_axi_arvalid driven by constant 0
-WARNING: [Synth 8-3917] design hdmi_out_top has port m_axi_rready driven by constant 1
+WARNING: [Synth 8-7129] Port cfg_fb_addr_hi[31] in module hdmi_fb_scan is either unconnected or has no load
+WARNING: [Synth 8-7129] Port cfg_fb_addr_hi[30] in module hdmi_fb_scan is either unconnected or has no load
+WARNING: [Synth 8-7129] Port cfg_fb_addr_hi[29] in module hdmi_fb_scan is either unconnected or has no load
+WARNING: [Synth 8-7129] Port cfg_fb_addr_hi[28] in module hdmi_fb_scan is either unconnected or has no load
+WARNING: [Synth 8-7129] Port cfg_fb_addr_hi[27] in module hdmi_fb_scan is either unconnected or has no load
+WARNING: [Synth 8-7129] Port cfg_fb_addr_hi[26] in module hdmi_fb_scan is either unconnected or has no load
+WARNING: [Synth 8-7129] Port cfg_fb_addr_hi[25] in module hdmi_fb_scan is either unconnected or has no load
+WARNING: [Synth 8-7129] Port cfg_fb_addr_hi[24] in module hdmi_fb_scan is either unconnected or has no load
+WARNING: [Synth 8-7129] Port cfg_fb_addr_hi[23] in module hdmi_fb_scan is either unconnected or has no load
+WARNING: [Synth 8-7129] Port cfg_fb_addr_hi[22] in module hdmi_fb_scan is either unconnected or has no load
+WARNING: [Synth 8-7129] Port cfg_fb_addr_hi[21] in module hdmi_fb_scan is either unconnected or has no load
+WARNING: [Synth 8-7129] Port cfg_fb_addr_hi[20] in module hdmi_fb_scan is either unconnected or has no load
+WARNING: [Synth 8-7129] Port cfg_fb_addr_hi[19] in module hdmi_fb_scan is either unconnected or has no load
+WARNING: [Synth 8-7129] Port cfg_fb_addr_hi[18] in module hdmi_fb_scan is either unconnected or has no load
+WARNING: [Synth 8-7129] Port cfg_fb_addr_hi[17] in module hdmi_fb_scan is either unconnected or has no load
+WARNING: [Synth 8-7129] Port cfg_fb_addr_hi[16] in module hdmi_fb_scan is either unconnected or has no load
+WARNING: [Synth 8-7129] Port cfg_fb_addr_hi[15] in module hdmi_fb_scan is either unconnected or has no load
+WARNING: [Synth 8-7129] Port cfg_fb_addr_hi[14] in module hdmi_fb_scan is either unconnected or has no load
+WARNING: [Synth 8-7129] Port cfg_fb_addr_hi[13] in module hdmi_fb_scan is either unconnected or has no load
+WARNING: [Synth 8-7129] Port cfg_fb_addr_hi[12] in module hdmi_fb_scan is either unconnected or has no load
+WARNING: [Synth 8-7129] Port cfg_fb_addr_hi[11] in module hdmi_fb_scan is either unconnected or has no load
+WARNING: [Synth 8-7129] Port cfg_fb_addr_hi[10] in module hdmi_fb_scan is either unconnected or has no load
+WARNING: [Synth 8-7129] Port cfg_fb_addr_hi[9] in module hdmi_fb_scan is either unconnected or has no load
+WARNING: [Synth 8-7129] Port cfg_fb_addr_hi[8] in module hdmi_fb_scan is either unconnected or has no load
+WARNING: [Synth 8-7129] Port cfg_fb_addr_hi[7] in module hdmi_fb_scan is either unconnected or has no load
+WARNING: [Synth 8-7129] Port cfg_fb_addr_hi[6] in module hdmi_fb_scan is either unconnected or has no load
+WARNING: [Synth 8-7129] Port cfg_fb_addr_hi[5] in module hdmi_fb_scan is either unconnected or has no load
+WARNING: [Synth 8-7129] Port cfg_fb_addr_hi[4] in module hdmi_fb_scan is either unconnected or has no load
+WARNING: [Synth 8-7129] Port cfg_fb_addr_hi[3] in module hdmi_fb_scan is either unconnected or has no load
+WARNING: [Synth 8-7129] Port cfg_fb_addr_hi[2] in module hdmi_fb_scan is either unconnected or has no load
+WARNING: [Synth 8-7129] Port cfg_fb_addr_hi[1] in module hdmi_fb_scan is either unconnected or has no load
+WARNING: [Synth 8-7129] Port cfg_fb_addr_hi[0] in module hdmi_fb_scan is either unconnected or has no load
+WARNING: [Synth 8-7129] Port m_axi_rresp[1] in module hdmi_fb_scan is either unconnected or has no load
+WARNING: [Synth 8-7129] Port m_axi_rresp[0] in module hdmi_fb_scan is either unconnected or has no load
+WARNING: [Synth 8-7129] Port m_axi_rlast in module hdmi_fb_scan is either unconnected or has no load
 WARNING: [Synth 8-7129] Port s_axi_araddr[31] in module hdmi_out_top is either unconnected or has no load
 WARNING: [Synth 8-7129] Port s_axi_araddr[30] in module hdmi_out_top is either unconnected or has no load
 WARNING: [Synth 8-7129] Port s_axi_araddr[29] in module hdmi_out_top is either unconnected or has no load
@@ -151,89 +146,20 @@ WARNING: [Synth 8-7129] Port s_axi_araddr[9] in module hdmi_out_top is either un
 WARNING: [Synth 8-7129] Port s_axi_araddr[8] in module hdmi_out_top is either unconnected or has no load
 WARNING: [Synth 8-7129] Port s_axi_araddr[1] in module hdmi_out_top is either unconnected or has no load
 WARNING: [Synth 8-7129] Port s_axi_araddr[0] in module hdmi_out_top is either unconnected or has no load
-WARNING: [Synth 8-7129] Port m_axi_arready in module hdmi_out_top is either unconnected or has no load
-WARNING: [Synth 8-7129] Port m_axi_rdata[63] in module hdmi_out_top is either unconnected or has no load
-WARNING: [Synth 8-7129] Port m_axi_rdata[62] in module hdmi_out_top is either unconnected or has no load
-WARNING: [Synth 8-7129] Port m_axi_rdata[61] in module hdmi_out_top is either unconnected or has no load
-WARNING: [Synth 8-7129] Port m_axi_rdata[60] in module hdmi_out_top is either unconnected or has no load
-WARNING: [Synth 8-7129] Port m_axi_rdata[59] in module hdmi_out_top is either unconnected or has no load
-WARNING: [Synth 8-7129] Port m_axi_rdata[58] in module hdmi_out_top is either unconnected or has no load
-WARNING: [Synth 8-7129] Port m_axi_rdata[57] in module hdmi_out_top is either unconnected or has no load
-WARNING: [Synth 8-7129] Port m_axi_rdata[56] in module hdmi_out_top is either unconnected or has no load
-WARNING: [Synth 8-7129] Port m_axi_rdata[55] in module hdmi_out_top is either unconnected or has no load
-WARNING: [Synth 8-7129] Port m_axi_rdata[54] in module hdmi_out_top is either unconnected or has no load
-WARNING: [Synth 8-7129] Port m_axi_rdata[53] in module hdmi_out_top is either unconnected or has no load
-WARNING: [Synth 8-7129] Port m_axi_rdata[52] in module hdmi_out_top is either unconnected or has no load
-WARNING: [Synth 8-7129] Port m_axi_rdata[51] in module hdmi_out_top is either unconnected or has no load
-WARNING: [Synth 8-7129] Port m_axi_rdata[50] in module hdmi_out_top is either unconnected or has no load
-WARNING: [Synth 8-7129] Port m_axi_rdata[49] in module hdmi_out_top is either unconnected or has no load
-WARNING: [Synth 8-7129] Port m_axi_rdata[48] in module hdmi_out_top is either unconnected or has no load
-WARNING: [Synth 8-7129] Port m_axi_rdata[47] in module hdmi_out_top is either unconnected or has no load
-WARNING: [Synth 8-7129] Port m_axi_rdata[46] in module hdmi_out_top is either unconnected or has no load
-WARNING: [Synth 8-7129] Port m_axi_rdata[45] in module hdmi_out_top is either unconnected or has no load
-WARNING: [Synth 8-7129] Port m_axi_rdata[44] in module hdmi_out_top is either unconnected or has no load
-WARNING: [Synth 8-7129] Port m_axi_rdata[43] in module hdmi_out_top is either unconnected or has no load
-WARNING: [Synth 8-7129] Port m_axi_rdata[42] in module hdmi_out_top is either unconnected or has no load
-WARNING: [Synth 8-7129] Port m_axi_rdata[41] in module hdmi_out_top is either unconnected or has no load
-WARNING: [Synth 8-7129] Port m_axi_rdata[40] in module hdmi_out_top is either unconnected or has no load
-WARNING: [Synth 8-7129] Port m_axi_rdata[39] in module hdmi_out_top is either unconnected or has no load
-WARNING: [Synth 8-7129] Port m_axi_rdata[38] in module hdmi_out_top is either unconnected or has no load
-WARNING: [Synth 8-7129] Port m_axi_rdata[37] in module hdmi_out_top is either unconnected or has no load
-WARNING: [Synth 8-7129] Port m_axi_rdata[36] in module hdmi_out_top is either unconnected or has no load
-WARNING: [Synth 8-7129] Port m_axi_rdata[35] in module hdmi_out_top is either unconnected or has no load
-WARNING: [Synth 8-7129] Port m_axi_rdata[34] in module hdmi_out_top is either unconnected or has no load
-WARNING: [Synth 8-7129] Port m_axi_rdata[33] in module hdmi_out_top is either unconnected or has no load
-WARNING: [Synth 8-7129] Port m_axi_rdata[32] in module hdmi_out_top is either unconnected or has no load
-WARNING: [Synth 8-7129] Port m_axi_rdata[31] in module hdmi_out_top is either unconnected or has no load
-WARNING: [Synth 8-7129] Port m_axi_rdata[30] in module hdmi_out_top is either unconnected or has no load
-WARNING: [Synth 8-7129] Port m_axi_rdata[29] in module hdmi_out_top is either unconnected or has no load
-WARNING: [Synth 8-7129] Port m_axi_rdata[28] in module hdmi_out_top is either unconnected or has no load
-WARNING: [Synth 8-7129] Port m_axi_rdata[27] in module hdmi_out_top is either unconnected or has no load
-WARNING: [Synth 8-7129] Port m_axi_rdata[26] in module hdmi_out_top is either unconnected or has no load
-WARNING: [Synth 8-7129] Port m_axi_rdata[25] in module hdmi_out_top is either unconnected or has no load
-WARNING: [Synth 8-7129] Port m_axi_rdata[24] in module hdmi_out_top is either unconnected or has no load
-WARNING: [Synth 8-7129] Port m_axi_rdata[23] in module hdmi_out_top is either unconnected or has no load
-WARNING: [Synth 8-7129] Port m_axi_rdata[22] in module hdmi_out_top is either unconnected or has no load
-WARNING: [Synth 8-7129] Port m_axi_rdata[21] in module hdmi_out_top is either unconnected or has no load
-WARNING: [Synth 8-7129] Port m_axi_rdata[20] in module hdmi_out_top is either unconnected or has no load
-WARNING: [Synth 8-7129] Port m_axi_rdata[19] in module hdmi_out_top is either unconnected or has no load
-WARNING: [Synth 8-7129] Port m_axi_rdata[18] in module hdmi_out_top is either unconnected or has no load
-WARNING: [Synth 8-7129] Port m_axi_rdata[17] in module hdmi_out_top is either unconnected or has no load
-WARNING: [Synth 8-7129] Port m_axi_rdata[16] in module hdmi_out_top is either unconnected or has no load
-WARNING: [Synth 8-7129] Port m_axi_rdata[15] in module hdmi_out_top is either unconnected or has no load
-WARNING: [Synth 8-7129] Port m_axi_rdata[14] in module hdmi_out_top is either unconnected or has no load
-WARNING: [Synth 8-7129] Port m_axi_rdata[13] in module hdmi_out_top is either unconnected or has no load
-WARNING: [Synth 8-7129] Port m_axi_rdata[12] in module hdmi_out_top is either unconnected or has no load
-WARNING: [Synth 8-7129] Port m_axi_rdata[11] in module hdmi_out_top is either unconnected or has no load
-WARNING: [Synth 8-7129] Port m_axi_rdata[10] in module hdmi_out_top is either unconnected or has no load
-WARNING: [Synth 8-7129] Port m_axi_rdata[9] in module hdmi_out_top is either unconnected or has no load
-WARNING: [Synth 8-7129] Port m_axi_rdata[8] in module hdmi_out_top is either unconnected or has no load
-WARNING: [Synth 8-7129] Port m_axi_rdata[7] in module hdmi_out_top is either unconnected or has no load
-WARNING: [Synth 8-7129] Port m_axi_rdata[6] in module hdmi_out_top is either unconnected or has no load
-WARNING: [Synth 8-7129] Port m_axi_rdata[5] in module hdmi_out_top is either unconnected or has no load
-WARNING: [Synth 8-7129] Port m_axi_rdata[4] in module hdmi_out_top is either unconnected or has no load
-WARNING: [Synth 8-7129] Port m_axi_rdata[3] in module hdmi_out_top is either unconnected or has no load
-WARNING: [Synth 8-7129] Port m_axi_rdata[2] in module hdmi_out_top is either unconnected or has no load
-WARNING: [Synth 8-7129] Port m_axi_rdata[1] in module hdmi_out_top is either unconnected or has no load
-WARNING: [Synth 8-7129] Port m_axi_rdata[0] in module hdmi_out_top is either unconnected or has no load
-WARNING: [Synth 8-7129] Port m_axi_rresp[1] in module hdmi_out_top is either unconnected or has no load
-WARNING: [Synth 8-7129] Port m_axi_rresp[0] in module hdmi_out_top is either unconnected or has no load
-WARNING: [Synth 8-7129] Port m_axi_rlast in module hdmi_out_top is either unconnected or has no load
-WARNING: [Synth 8-7129] Port m_axi_rvalid in module hdmi_out_top is either unconnected or has no load
 ---------------------------------------------------------------------------------
-Finished RTL Elaboration : Time (s): cpu = 00:00:04 ; elapsed = 00:00:04 . Memory (MB): peak = 2348.613 ; gain = 575.562 ; free physical = 2091 ; free virtual = 21457
+Finished RTL Elaboration : Time (s): cpu = 00:00:04 ; elapsed = 00:00:04 . Memory (MB): peak = 2355.145 ; gain = 582.125 ; free physical = 4658 ; free virtual = 19709
 ---------------------------------------------------------------------------------
 ---------------------------------------------------------------------------------
 Start Handling Custom Attributes
 ---------------------------------------------------------------------------------
 ---------------------------------------------------------------------------------
-Finished Handling Custom Attributes : Time (s): cpu = 00:00:04 ; elapsed = 00:00:04 . Memory (MB): peak = 2363.457 ; gain = 590.406 ; free physical = 2083 ; free virtual = 21449
+Finished Handling Custom Attributes : Time (s): cpu = 00:00:04 ; elapsed = 00:00:04 . Memory (MB): peak = 2367.020 ; gain = 594.000 ; free physical = 4659 ; free virtual = 19710
 ---------------------------------------------------------------------------------
 ---------------------------------------------------------------------------------
-Finished RTL Optimization Phase 1 : Time (s): cpu = 00:00:04 ; elapsed = 00:00:04 . Memory (MB): peak = 2363.457 ; gain = 590.406 ; free physical = 2083 ; free virtual = 21449
+Finished RTL Optimization Phase 1 : Time (s): cpu = 00:00:04 ; elapsed = 00:00:04 . Memory (MB): peak = 2367.020 ; gain = 594.000 ; free physical = 4659 ; free virtual = 19710
 ---------------------------------------------------------------------------------
-Netlist sorting complete. Time (s): cpu = 00:00:00.01 ; elapsed = 00:00:00.01 . Memory (MB): peak = 2366.426 ; gain = 0.000 ; free physical = 2081 ; free virtual = 21448
-INFO: [Netlist 29-17] Analyzing 3 Unisim elements for replacement
+Netlist sorting complete. Time (s): cpu = 00:00:00.01 ; elapsed = 00:00:00.01 . Memory (MB): peak = 2372.957 ; gain = 0.000 ; free physical = 4816 ; free virtual = 19867
+INFO: [Netlist 29-17] Analyzing 4 Unisim elements for replacement
 INFO: [Netlist 29-28] Unisim Transformation completed in 0 CPU seconds
 INFO: [Project 1-570] Preparing netlist for logic optimization
 
@@ -242,16 +168,16 @@ Initializing timing engine
 Completed Processing XDC Constraints
 
 INFO: [Opt 31-138] Pushed 0 inverter(s) to 0 load pin(s).
-Netlist sorting complete. Time (s): cpu = 00:00:00 ; elapsed = 00:00:00 . Memory (MB): peak = 2477.227 ; gain = 0.000 ; free physical = 2242 ; free virtual = 21592
+Netlist sorting complete. Time (s): cpu = 00:00:00 ; elapsed = 00:00:00 . Memory (MB): peak = 2493.758 ; gain = 0.000 ; free physical = 4819 ; free virtual = 19872
 INFO: [Project 1-111] Unisim Transformation Summary:
-  A total of 3 instances were transformed.
-  BUFGMUX => BUFGCTRL (inverted pins: CE0): 1 instance 
+  A total of 4 instances were transformed.
+  BUFGMUX => BUFGCTRL (inverted pins: CE0): 2 instances
   IOBUF => IOBUF (IBUF, OBUFT): 2 instances
 
-RTL Elaboration Complete:  : Time (s): cpu = 00:00:07 ; elapsed = 00:00:05 . Memory (MB): peak = 2477.262 ; gain = 704.211 ; free physical = 2240 ; free virtual = 21591
-28 Infos, 146 Warnings, 0 Critical Warnings and 0 Errors encountered.
+RTL Elaboration Complete:  : Time (s): cpu = 00:00:07 ; elapsed = 00:00:05 . Memory (MB): peak = 2493.793 ; gain = 720.773 ; free physical = 4819 ; free virtual = 19872
+30 Infos, 67 Warnings, 0 Critical Warnings and 0 Errors encountered.
 synth_design completed successfully
-synth_design: Time (s): cpu = 00:00:10 ; elapsed = 00:00:08 . Memory (MB): peak = 2477.262 ; gain = 868.883 ; free physical = 2240 ; free virtual = 21591
-INFO: [Common 17-2834] synth_design peak Physical Memory [PSS] (MB): overall = 1825.711; main = 1825.711; forked = 0.000
-INFO: [Common 17-2834] synth_design peak Virtual Memory [VSS] (MB): overall = 2477.230; main = 2477.230; forked = 0.000
-INFO: [Common 17-206] Exiting Vivado at Tue Nov  3 00:44:26 2026...
+synth_design: Time (s): cpu = 00:00:09 ; elapsed = 00:00:08 . Memory (MB): peak = 2493.793 ; gain = 848.664 ; free physical = 4819 ; free virtual = 19872
+INFO: [Common 17-2834] synth_design peak Physical Memory [PSS] (MB): overall = 1834.571; main = 1834.571; forked = 0.000
+INFO: [Common 17-2834] synth_design peak Virtual Memory [VSS] (MB): overall = 2493.762; main = 2493.762; forked = 0.000
+INFO: [Common 17-206] Exiting Vivado at Tue Nov  3 02:55:33 2026...

@@ -6434,3 +6434,28 @@ $$\Rightarrow\ \Rightarrow\ \textbf{可证伪预测}：$$
 $$\quad\ k{=}1 @ 64^2\ \text{应全对（不用行抽头）};\quad k{=}3 @ 64^2\ \text{应错};\quad k{=}3 @ 32^2\ \text{应全对}$$
 $$\quad\ \text{错行特征应为}\textbf{"某些行取到了相邻行的数据"}$$
 $$\Rightarrow\ \text{若命中} \Rightarrow \text{根因确定，}\text{修法是 } \mathtt{idx}\ \text{按"行内线号 + 行号"显式拼接，\text{而不是截取 } \mathtt{tag}\ \text{低位}$$
+
+### 70.85 T-119 时序结论：**logic 6.26 ns 是死的，P&R 救不回来**（2026-11-03 03:06）
+
+**8 组 directive 全扫（同 RTL/BD/约束/综合）**
+| 组合 | WNS / 违例 |
+|---|---|
+| Explore + AggressiveExplore（基线） | −0.270 / 33 |
+| 同配方 + tns_cleanup×2 | −0.270 / 33（checksum 逐字节相同 ⇒ 无效）|
+| ExtraTimingOpt + AggressiveExplore | −0.115 / 16 |
+| + 前后 phys_opt + 2×tns_cleanup | −0.115 / 16（饱和）|
+| **ExtraTimingOpt + route Explore** | **−0.103 / 15** ★交付 |
+| AltSpreadLogic_high | −0.222 / 35 |
+| + pre-phys_opt | −0.263 / 33 |
+| + route NoTimingRelaxation | −0.126 / 17 |
+
+$$\Rightarrow\ \textbf{机制结论}：\mathtt{place}\ \text{同指令}\textbf{确定性}（\mathtt{Checksum:\ PlaceDB}\ \text{逐字节相同）} \Rightarrow \text{同配方重跑无意义}，\text{只有换 directive 才有新解}$$
+$$\Rightarrow\ \textbf{logic 恒为 } 6.25\sim6.26\ \text{ns}（\mathtt{DSP48E1}\ \mathtt{A}\to\mathtt{P}\ 3.370 + 8\times\mathtt{CARRY4}\ 1.670）$$
+$$\quad\ \Rightarrow\ \text{P\&R 只能动 }\mathbf{38\%}\ \text{的 route} \Rightarrow \textbf{救不回这 } 0.103 \Rightarrow \textbf{必须 RTL 打拍}$$
+$$\Rightarrow\ \text{交付 } \mathtt{8826c0d6}：\text{LUT 20828 / FF 21574 / BRAM 43 / DSP 126};\ \mathtt{.hwh}\ \text{仍 } \mathtt{52357646}$$
+
+**★ 一个很有价值的细节**
+$$\Rightarrow\ \text{最差路径终点是 } \mathbf{\mathtt{pix\_q\_reg[22]}} \Rightarrow \text{32 位计数器/比较器把高位的进位链也拖进了关键路径}$$
+$$\Rightarrow\ \text{而 } \mathtt{pix\_q}\ \text{最大只需 }14\ \text{位（}\mathtt{npix}\le16384） \Rightarrow \text{高 18 位纯属浪费}$$
+$$\Rightarrow\ \Rightarrow\ \text{修法有两条且都很小}：\text{① } \mathtt{pix\_q}\ \text{收窄到 }15\ \text{位}（\text{进位链 }8\to4\ \text{级）};\ \text{② 把 } \mathtt{npix}\ \text{乘法结果打一拍}$$
+$$\Rightarrow\ \text{两条合起来应能拿回 } 1.5\sim2\ \text{ns} \Rightarrow \text{v53 的 } +0.041\ \text{能变成真正的余量}$$

@@ -37,6 +37,12 @@ C=$(grep -cE 'Synth 8-4767'               "$L" 2>/dev/null); C=${C:-0}
 D=$(grep -cE 'Synth 8-327'                "$L" 2>/dev/null); D=${D:-0}
 E=$(grep -cE '^ERROR:'                    "$L" 2>/dev/null); E=${E:-0}
 
+# ★ 可审计：把"本轮实际消费的那份日志"的 mtime/md5/字节数打出来。
+#   前三处修正只能防"读到旧的"，这条防"人以为读的是新的"。
+if [ -f "$L" ]; then
+  echo "  consume $(basename "$L")  mtime=$(stat -c '%y' "$L" | cut -d'.' -f1)  md5=$(md5sum "$L" | cut -d' ' -f1)  bytes=$(stat -c '%s' "$L")"
+fi
+
 echo "  多驱动   (8-6859/6858): $A"
 echo "  组合环   (8-295/LUTLP-1): $B"
 echo "  RAM→寄存器 (8-4767): $C 处"

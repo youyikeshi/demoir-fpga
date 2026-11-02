@@ -1,0 +1,9 @@
+# tag	place	route	extra	WNS(ns)	TNS(ns)	viol_endpoints	worst_path	log	elapsed
+a1	Explore	AggressiveExplore	+tns_cleanup x2 (+phys_opt 语法错，无效)	-0.270	-4.541	33	r_s_reg[12]_replica/C -> g_wr_split2.pix_q_reg[12]/D	build_t119_a1.log	16.0min
+a2	ExtraTimingOpt	AggressiveExplore	+tns_cleanup	-0.115	-0.930	16	r_s_reg[12]/C -> g_wr_split2.pix_q_reg[2]/D (10.051ns/16级)	build_t119_a2.log	~16min
+a8	ExtraTimingOpt	AggressiveExplore	+phys_opt x2 前后、tns_cleanup x2	-0.115	-0.930	16	r_s_reg[12]/C -> g_wr_split2.pix_q_reg[2]/D (10.051ns/16级)	build_t119_a8.log	~16min
+# —— sweep1（一次综合 + 4 组 directive，post_opt_t119.dcp 同一份网表）——
+b1	ExtraTimingOpt	Explore	同一 post_opt 网表	-0.103	-0.766	15	r_s_reg[12]/C -> g_wr_split2.pix_q_reg[22]/D (10.074ns/16级)	build_t119_sweep.log	★最终交付
+b2	AltSpreadLogic_high	AggressiveExplore	同一 post_opt 网表	-0.222	-4.286	35	同上家族 (10.157ns/14级)	build_t119_sweep.log	—
+b3	ExtraTimingOpt	AggressiveExplore	pre-phys_opt = -placement_opt -critical_cell_opt	-0.263	-4.410	33	(10.199ns/16级)	build_t119_sweep.log	—
+b4	ExtraTimingOpt	NoTimingRelaxation	同一 post_opt 网表	-0.126	-1.200	17	(10.062ns/13级)	build_t119_sweep.log	—

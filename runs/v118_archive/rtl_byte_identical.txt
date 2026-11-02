@@ -1,0 +1,13 @@
+== T-118/T-119：worktree RTL 与主线冻结 RTL 的唯一差异（diff 原文）==
+A(主线冻结) = runs/timing_v50/rtl_v50/lane16/bin_unit_axi_wrap_v50.v  md5 17164dfc3029ace1cbcb9eaa08af6213
+B(T-118 副本) = worktrees/T-118-pfoff/rtl_v50/lane16/bin_unit_axi_wrap_v50.v  md5 9ad53f96a8dcd94b610dfc1987ea8d35
+
+344c344
+<     parameter int  PF_EN        = 1,      // 预取总开关（0 = 退回纯需求缺失）
+---
+>     parameter int  PF_EN        = 0,      // 预取总开关（0 = 退回纯需求缺失）★T-118 副本：1→0，隔离预取这一变量
+
+== 逐字节比对（diff -rq 之外的完备判定）==
+文件 runs/timing_v50/rtl_v50/lane16/bin_unit_axi_wrap_v50.v 和 worktrees/T-118-pfoff/rtl_v50/lane16/bin_unit_axi_wrap_v50.v 不同
+（上面只列 1 个文件不同 ⇒ 其余 34/34 逐字节相同）
+文件数: A=35  B=35

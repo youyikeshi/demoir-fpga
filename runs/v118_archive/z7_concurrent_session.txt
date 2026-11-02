@@ -1,0 +1,18 @@
+== Z7：本代理这轮**没有**动 ps/pynq；下面这 4 个文件是**并行的 HDMI P1 会话**改的（不是 T-119）==
+
+开工快照（01:19）：pynq_specialized_code/ps/pynq  files=126  newest=1793634091.6073435000
+收工快照（03:0x）：files=128  newest=1793641330.1311938000
+
+差异文件（-newermt 2026-11-03 01:20）：
+2026-11-03 01:37:21.2109320000 pynq_specialized_code/ps/pynq/hdmi_out.py
+2026-11-03 01:37:21.2288025000 pynq_specialized_code/ps/pynq/__pycache__/hdmi_out.cpython-310.pyc
+2026-11-03 01:42:10.0744204000 pynq_specialized_code/ps/pynq/display_demo.py
+2026-11-03 01:42:10.1311938000 pynq_specialized_code/ps/pynq/__pycache__/display_demo.cpython-310.pyc
+
+证据：这些文件与本代理的产物无交集 —— 本代理这轮**只写**了：
+  worktrees/T-118-pfoff/（build_final_v118*.tcl、rtl_v50 副本、out_*/）
+  runs/v118_strategy/（日志、RESULTS.tsv、strategies.md）
+  /tmp/probe_T119_pfoff/（临时脚本）
+  runs/v118_archive/（归档）
+
+另：hdmi_out.py / display_demo.py 的改动方向与 T-119 无关（HDMI 输出 demo），且 runs/board_hdmi_p1/ 目录同期创建。
