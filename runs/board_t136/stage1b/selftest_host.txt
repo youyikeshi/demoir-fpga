@@ -1,0 +1,124 @@
+  ✓ 探针里 24 个函数 + 7 个全局都在位  []
+
+① `_pick`：4 个选择器的分发语义
+  ✓ none：永远不睡
+  ✓ all：一律睡
+  ✓ inbuf：只在 push_input 里睡
+  ✓ insize：只对目标字节数睡
+  ✓ insize：target=0 时不睡（没测到尺寸就不许乱睡）
+  ✓ 未知 sel：不睡（不许误睡）
+  ✓ site：尺寸对 + 调用点对才睡
+  ✓ site：site_tag 为空 ⇒ 不睡（不许退化成 insize）
+  ✓ siteany：只判调用点、不看尺寸
+  ✓ sites：调用点对 + 尺寸在集合里
+
+② `_flush_hook`：计数 / 直方图 / 每 op 输入识别 / 睡眠次数
+  ✓ 5 次 flush 全被计数  5
+  ✓ 尺寸直方图正确  [[9437184, 1], [294912, 1], [1179648, 1], [1152, 1], [576, 1]]
+  ✓ 每 op 输入只认出 1 次（只有 push_input 里那次）  1
+  ✓ 每 op 输入尺寸 = 294912  [[294912, 1]]
+  ✓ ms=0 ⇒ sel=all 也一次都不睡  0
+  ✓ by_site 记账（无包装 ⇒ tag 为空、按尺寸各 1 次）  {('', 9437184): 1, ('', 294912): 1, ('', 1179648): 1, ('', 1152): 1, ('', 576): 1}
+  ✓ 两条 buffer 的 flush() 都被真调了
+  ✓ inbuf：3 次 flush 只睡 1 次  (3, 1)
+  ✓ inbuf：睡眠耗时 > 0  0.0001
+  ✓ inbuf：sleep_hist 记到 0.05 ms  {'0.05': 1}
+  ✓ insize：同尺寸的 2 次都睡、别的尺寸不睡  2
+  ✓ none：即使 ms=3 也不睡
+  ✓ all + 0.02 ms：睡 1 次且 inbuf 仍识别为 1
+
+③ `next_dose`：网格上浮
+  ✓ 128² 网格 = [0.5, 1.0, 1.5, 2.0, 2.5, 3.0]
+  ✓ 128²：t=1.5 → 上浮 1 档 = 2.0
+  ✓ 128²：t=2.0 → 上浮 2 档 = 3.0
+  ✓ 128²：t=3.0 已在顶 ⇒ 夹在 3.0
+  ✓ 128²：不存在的 1.7 → 取第一个 ≥ 1.7 的 2.0
+  ✓ 256²：t=9 → 上浮 1 档 = 12
+  ✓ 空网格 ⇒ None
+  ✓ d=None ⇒ None
+
+④ `scale_by_size`：t ∝ size
+  ✓ 294912 B @2 ms → 1179648 B = 8 ms（恰好 ×4）
+  ✓ 294912 B @2 ms → 73728 B = 0.5 ms（恰好 ÷4）
+  ✓ base_nb=0 ⇒ 不缩放（返回原剂量）
+
+⑤ `verdict_by_dose` + `first_hit_dose`：每一跑都中才算中
+  ✓ 0.5 → 0/2 不中
+  ✓ 1.0 → 1/2 不中（all_hit=False）
+  ✓ 1.5 → 2/2 中
+  ✓ 2.0 → 跑数不足 2 ⇒ 不算
+  ✓ first_hit_dose(need=2) = 1.5
+  ✓ need=2 时 2.0 的 1 跑不被采纳
+  ✓ error 的档一律不算中
+  ✓ 全不中 ⇒ None
+  ✓ dose_ratio(1.5, 6.0) = 4.0
+  ✓ dose_ratio(None, 6) ⇒ None
+
+⑥ `two_runs_same`：连跑两次且两次相同
+  ✓ 两次相同且都命中 ⇒ True
+  ✓ 两次相同但都没命中 ⇒ False
+  ✓ 两次不同 ⇒ False
+  ✓ 只有 1 跑 ⇒ False
+  ✓ 含 error 的跑被剔除 ⇒ 只剩 1 跑 ⇒ False
+
+⑦ `inbuf_usable` + `pick_sel`：圈不到就自动退 insize
+  ✓ 圈到 227 次 ⇒ inbuf
+  ✓ inbuf 圈不到但 by_site 有 227 次同尺寸 ⇒ site(prep_seg)
+  ✓ by_site 里没有同尺寸的组 ⇒ 退 insize
+  ✓ 没有 fence 账本 ⇒ 退 insize
+  ✓ by_site 次数太少（< n_conv/2）不采纳
+  ✓ inbuf_usable 读出尺寸
+
+⑧ `resolve_doses`：解析 / 去重 / 升序 / 丢非正数
+  ✓ '1,0.5, 2 ,1' → [0.5,1.0,2.0]
+  ✓ 分号也认
+  ✓ 0 / 负数被丢
+  ✓ 空串 ⇒ []
+
+⑨ `pack_sizes`：从 by_site 取 pack_int8 的 4 个视图尺寸
+  ✓ 降序取出 4 个尺寸、且不含 push_input 的 294912  [9437184, 1179648, 1152, 576]
+  ✓ 没有账本 ⇒ []
+  ✓ 只有 1 个尺寸也返回
+
+⑩ `decode_apret`：AP_RETURN[15:8] 解码（v54 的 npix_ovf ⇒ ERR_SIZE=2）
+  ✓ 0x00000001（done）⇒ err=0 且 ok
+  ✓ 0x00000101 ⇒ err=1
+  ✓ 0x00000201 ⇒ err=2 且 npix_ovf/err_size 都为 True
+  ✓ 0x00000203（done+busy+ERR_SIZE）⇒ (err,done,busy)=(2,1,1)
+  ✓ 高位脏 0x80000301 ⇒ 取 [15:8] 仍是 3
+  ✓ None（读失败）⇒ ok=False 且 err=None（不许当 0 通过）
+  ✓ raw 被格式化成 %#010x
+
+⑪ `plan_of` / `plan_line`：写死的计划表 + 覆盖 + ms=0 退 none
+  ✓ 64² = 无护栏 / 0 ms / 3 跑
+  ✓ 128² = site/6.0 ms/9437184 B/2 跑/pack_int8
+  ✓ 256² = site/32.0 ms/9437184 B/1 跑
+  ✓ ms=0 覆盖 ⇒ 自动退 none 且 tnb/site 清零
+  ✓ reps 覆盖生效
+  ✓ 不改表本体（plan_of 返回副本）
+  ✓ 未知尺寸 ⇒ KeyError
+  ✓ plan_line 写清口径（含尺寸/ms/跑数）
+  ✓ plan_line 无护栏时明说 sel=none
+
+⑫ `same_all` / `ap_all_zero` / `min_of_walls` / `cycles_of` / `elapsed_over`
+  ✓ 3 跑全同且全中 ⇒ True
+  ✓ 3 跑有 1 跑不同 ⇒ False
+  ✓ 3 跑全同但未命中 ⇒ False
+  ✓ 2 跑相同 ⇒ True
+  ✓ 只 1 跑 ⇒ False（跑数不足）
+  ✓ error 的跑被剔除后仍够 2 跑 ⇒ True
+  ✓ AP_RETURN 全 0（2 跑 × 跑前跑后 × 2 IP = 8 条）⇒ True 且记录 8 条
+  ✓ 有 ERR_SIZE=2 ⇒ False 且只列出那 1 条
+  ✓ 一条记录都没有 ⇒ False（不许空口通过）
+  ✓ err=None（读失败）也算坏
+  ✓ min_of_walls 取最小
+  ✓ min_of_walls 空 ⇒ None
+  ✓ min_of_walls 跳过 error 跑
+  ✓ cycles_of(1.486 s @50 MHz) = 74.3 M 拍
+  ✓ cycles_of(None, 50) ⇒ None
+  ✓ elapsed_over：超预算 True / 未超 False（显式上限 1200）
+  ✓ elapsed_over 读全局 TMAX（探针默认 1500）
+  ✓ elapsed_over 可传显式上限
+
+======================================================================
+✓ 全部自测通过

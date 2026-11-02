@@ -6860,3 +6860,29 @@ $$\Rightarrow\ \text{相对"全睡 3 ms"省 }2.0\sim2.6\ \text{s}（-25\%）,\te
 $$\Rightarrow\ \textbf{里程碑}：\text{16-lane 的 } \mathtt{v53}\ \text{在 } 64^2/128^2/256^2\ \textbf{三个尺寸上全部逐位正确}$$
 $$\quad\ \Rightarrow\ \text{64}^2\ \textbf{不需要护栏} \Rightarrow \text{这正是 16-lane 优势能兑现的那一档}$$
 $$\Rightarrow\ \textbf{待解决}：256^2\ \text{的 }32\ \text{ms}\times227 = 7.27\ \text{s}\ \text{护栏代价太大} \Rightarrow \text{要真修必须消除"kick 早于排空"这件事本身}$$
+
+### 70.101 ★★★★★ **v54 冻结为新基线**（T-136，2026-11-03 07:0x）
+
+**v54 判据全过**
+$$\Rightarrow\ \mathbf{64^2\ \text{无护栏}\times3}：\text{三跑三 sha1 全} = \mathtt{bfa246d3}/\mathtt{226bd39e}/\mathtt{762d84b9}\ \text{且互相同}$$
+$$\quad\ \text{硬证据：}\mathtt{flush}\ 1135\ \text{次、}\textbf{睡 0 次};\ \mathtt{BIN\_LAZY\_DEQ=0};\ \text{无 } \mathtt{BIN\_V50\_*}$$
+$$\Rightarrow\ \mathbf{128^2}（T{=}6\ \text{ms}）\times2\ \text{全中};\ \mathbf{256^2}（T{=}32\ \text{ms}）\ \text{旁证 1 次全中}$$
+$$\Rightarrow\ \mathtt{AP\_RETURN[15:8]=ERR\_SIZE}\ \textbf{零误报}：\text{跑内钩 } 55{,}522\ \text{次 } \mathtt{AP\_RETURN}\ \text{读、非零 } \mathbf{0}\ \text{次}$$
+$$\Rightarrow\ \text{耗时与 v53 等价}：64^2\ \textbf{3.913 s}（\min）\ \text{vs }3.955（-1.1\%,\ \text{噪声内}）；\text{PL 忙时间 } -0.4\%$$
+
+**v54 = 当前基线**
+| 项 | v54 |
+|---|---|
+| 位流 | `15a37de56067601b78f1cb5a272787dd` |
+| 时序 | **WNS +0.103 / TNS 0 / 0 违例** |
+| 资源 | LUT 23130 / FF 21828 / BRAM 43 / DSP 126 |
+| 功能 | 64²/128²/256² **三尺寸逐位正确** |
+| 64² 耗时 | **3.913 s** @50 MHz（无护栏）|
+
+$$\Rightarrow\ \text{一处事实纠正：}256^2\ \text{的 } \mathtt{npix} = \mathbf{65536}（16384\ \text{是 }128^2\ \text{的值）}，\text{占 } \mathtt{NPIX\_MAX}=102400\ \text{的 }64\%$$
+
+$$\Rightarrow\ \textbf{今天到此的账面}：$$
+$$\quad\ \textbf{① 16-lane 功能完全正确}（\text{三尺寸逐字节等于 8-lane 基线）}$$
+$$\quad\ \textbf{② 时序达标}（\text{WNS}+0.103、\text{零拍数代价}）$$
+$$\quad\ \textbf{③ 根因查清}（\text{PS 侧"kick 早于排空"，}\textbf{与 RTL 无关}）$$
+$$\quad\ \textbf{④ 64}^2\ \text{无需护栏} \Rightarrow \text{可直接做频率与性能}$$
