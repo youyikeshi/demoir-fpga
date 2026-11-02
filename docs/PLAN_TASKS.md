@@ -210,7 +210,7 @@ T-44 负例实测：把 `mmio_batch` 两行从清单里删掉，`md5sum -c` **�
 | **T-67c** | HDMI P3：两个独立 BD（p1/p2）→ 位流 → 上板点亮 → 合并进推理位流 | `22df8a00`（P1 位流） | ① 彩条点亮 ② 真画面正确 ③ 合并后 54/54 sha1 不变 + 违例性质仍准静态 | `runs/hdmi/` | **待分派** | T-67a/b |
 
 | **T-67a2** | HDMI 修复：新增 `0x30 PIX_HB` 心跳（像素域翻转位 + `mmcm_locked`，2FF 跨域） | `7f046b46` | ① C-A 运行时两次读不同 ② **C-B 停掉像素时钟后 AXI 仍可读写** ③ C-C locked 跟随 ④ C-D 只读 ⑤ 三 TB + synthcheck + OOC 全过 | `modules/hdmi_out_top.v` + `tb_hdmi_top_cfg.v` + `reports/hdmi_p1/` | **进行中** | 事故 `runs/incident/20261103_0018*` |
-| **T-67c2** | HDMI 修复：BD 复位重构（`dcm_locked` 接常量、像素域单独复位）+ 结构断言 + 重建位流 | `0d69ee41` | ① `dcm_locked` 不再指向 MMCM.locked（Tcl 断言 ERROR 退出）② 两路像素时钟 WNS ≥ 0、latch 0 ③ 新 bit md5 + BD_NOTES §8 六步协议 | `pl/vivado/hdmi_p1/` + `runs/hdmi_p1/` | **进行中** | T-67a2 的新 md5 |
+| **T-67c2** | HDMI 修复：BD 复位重构（`dcm_locked` 接常量、像素域单独复位）+ 结构断言 + 重建位流 | `0d69ee41` | ① `dcm_locked` 不再指向 MMCM.locked（Tcl 断言 ERROR 退出）② 两路像素时钟 WNS ≥ 0、latch 0 ③ 新 bit md5 + BD_NOTES §8 六步协议 | `pl/vivado/hdmi_p1/` + `runs/hdmi_p1/` | **✅ 完成**（位流 `d478c605…`，六门禁全绿） | T-67a2 的新 md5 |
 
 **两条线的硬边界**
 - T-66 只改 PetaLinux 工程的 `project-spec/`，**不许碰** `ps/pynq/`（那是 T-15/T-16 的地盘）。
@@ -218,3 +218,17 @@ T-44 负例实测：把 `mmio_batch` 两行从清单里删掉，`md5sum -c` **�
 - 二者都**不阻塞**板端主线的上板排队（摄像头要重建镜像；HDMI 跟 overlay 走）。
 
 | **T-68** | 显示构图（纯 PS）：左原图/右处理图 512×256 → 撑满宽度+上下填黑 → PNG/缓冲 | 待分派 | ① 4 种显示模式自检 PASS ② 像素判据（左来源/右来源/黑边高度=公式值/首末行全黑） ③ 同输入两次逐字节相同 ④ 板端 PNG md5 与主机一致 | `ps/pynq/display_layout.py` + `tools/display_selftest.py`；`runs/display_layout/`；规范 `docs/camera/03_显示构图规范_纯PS.md` | **待分派** | 不依赖 PL/位流；板测等机器空闲 |
+
+**▶ T-67c2 交付摘要（2026-11-03 01:00）**
+- 位流 `runs/hdmi_p1/hdmi_p1.bit` md5 **`d478c6058721492694d6d4a5f51a5196`**（3,510,797 B）；hwh `3a5053bc…`，基址 `0x400A0000/64KB`
+- WNS **+1.795 / +8.550 / +4.446** ns（clk_pix_a / clk_pix_b / clk_fpga_0），TNS 0，0 failing（841 端点）
+- 整 BD LUT **771** / FF 1085 / BRAM 0 / DSP 0 / **Latch 0**；`u_hdmi_out_top` 383 LUT（≤600）
+- DRC 0 Errors；`write_bitstream completed successfully`
+- **两条复位缺陷都已从结构上消除**：
+  ① `dcm_locked ← MMCM.locked` → xlconstant 1'b1（AXI 复位只跟 PS）
+  ② `S00/M00_ARESETN` 被 BD 绑 0（`auto_pc.aresetn` 恒复位，**即使 MMCM 锁住也会挂**）
+     → 按引脚扫描全部 `*ARESETN*` 接上；物证：`auto_pc` 从被折叠的 ~50 LUT 变成 360 LUT 活逻辑
+- 新增机器化门禁 **5b**（`BD 41-759` 涉自己 cell ⇒ ERROR）× **5c**（BD 生成 HDL 里 `*RESETN(1'b0)` ⇒ ERROR），
+  两者都拿 00:48 那份有缺陷的 log/HDL 做过**回归自测**（按预期 ERROR 退出）
+- 作废位流：`b658e0da…`（dcm_locked 事故版）、`c588b068…`（per-port 复位绑 0）
+- **板端验证未执行**（板子被别的任务占用）⇒ 排队，按"PIX_HB 先行"六步协议，**由上板子代理执行**

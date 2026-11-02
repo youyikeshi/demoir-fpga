@@ -10,9 +10,9 @@
 
 | 文件 | md5 | 说明 |
 |---|---|---|
-| `hdmi_p1.bit` | `b658e0daf0d2c43cdf82043343698de3` | **3,510,797 B**（3.35 MiB），write_bitstream Complete |
-| `hdmi_p1.hwh` | `04113efa81b80a720018cbb075f2b171` | 139,591 B；硬件描述（PYNQ `Overlay` 用） |
-| `util.rpt` | — | 实现后资源表 |
+| `hdmi_p1.bit` | **`d478c6058721492694d6d4a5f51a5196`** | **3,510,797 B**（3.35 MiB），write_bitstream Complete；2026-11-03 00:57 事故修复版 |
+| `hdmi_p1.hwh` | **`3a5053bca9e4d9fbb465c0d4d8014be9`** | 140,727 B；硬件描述（PYNQ `Overlay` 用）；基址仍 `0x400A0000 / 64 KB`（`C_BASEADDR=0x400A0000` / `C_HIGHADDR=0x400AFFFF`） |
+| `util.rpt` | — | 实现后资源表（另有 `util_hier.rpt` 层次资源、`gate_summary.txt` 门禁台账、`drc.rpt`） |
 | `timing.rpt` | — | 实现后时序（"All user specified timing constraints are met"） |
 | `clocks.rpt` | — | 三路时钟实测周期 |
 | `build.log` | — | 完整构建日志（297 KB） |
@@ -97,31 +97,33 @@ FCLK0 100 MHz (clk_fpga_0, 10.000 ns)
 
 ---
 
-## 4. 资源与时序（实现后，实测）
+## 4. 资源与时序（实现后，实测 · 2026-11-03 00:57 事故修复版）
 
 | 项 | 实测 | 门禁 |
 |---|---:|---|
-| Slice LUTs | **315** | ≤ 2500 ✔ |
-| Slice Registers | 362 | — |
+| Slice LUTs（整 BD） | **771** | ≤ 2500 ✔ |
+| Slice Registers | 1085 | — |
 | Block RAM Tile | 0 | — |
 | DSPs | 0 | — |
 | **Register as Latch** | **0**（util.rpt + LDCE/LDPE 网表指纹双查） | = 0 ✔ |
-| Bonded IOB | 31 | 引脚全为厂商 XDC 已登记 |
-| BUFGCTRL | 5 用 / 32 | — |
+| `u_hdmi_out_top` 层次 | **383 LUT / 622 FF**（网表 LUT 计数 479） | ≤ 600 ✔ |
+| `axi_ctrl`（axi_interconnect + auto_pc） | 360 LUT / 426 FF | — |
+| DRC | **0 Errors**（唯一警告 BUFC-1 ×1，输入 buffer 连接） | 0 ✔ |
+
+> **为什么 LUT 从 317 涨到 771**：上一版 `S00_ARESETN`/`M00_ARESETN` 被绑 0 ⇒ `auto_pc`（AXI 协议转换器）
+> 恒在复位 ⇒ 它的 FSM 被综合**整片常量折叠**（~50 LUT / 59 FF）。接上 per-port 复位后它是**活逻辑**
+> （360 LUT / 426 FF）。**这组数字本身就是"上一版 AXI 侧是死逻辑"的旁证**（见 §13.4）。
 
 时序（`timing.rpt`，Routed，**All user specified timing constraints are met**）：
 
-| 时钟 | WNS | TNS | 失败端点 | 端点总数 | WPWS |
+| 时钟 | 周期 | WNS | TNS | 失败端点 | 端点总数 |
 |---|---:|---:|---:|---:|---:|
-| `clk_pix_a` (148.4375 MHz) | **+1.906 ns** | 0.000 | 0 | 372 | 2.868 |
-| `clk_pix_b` (74.21875 MHz) | **+8.636 ns** | 0.000 | 0 | 372 | 6.237 |
-| `clk_fpga_0` (100 MHz) | **+5.530 ns** | 0.000 | 0 | 468 | 3.000 |
+| `clk_pix_a` (148.4375 MHz) | 6.737 ns | **+1.795 ns** | 0.000 | 0 | 372 |
+| `clk_pix_b` (74.21875 MHz) | 13.474 ns | **+8.550 ns** | 0.000 | 0 | 372 |
+| `clk_fpga_0` (100 MHz) | 10.000 ns | **+4.446 ns** | 0.000 | 0 | 468 |
 
-- 输出端**没有** `set_output_delay`：SIL9134 的输入 setup/hold 厂商资料未给，自编数字会污染 WNS
-  （与 `hdmi_out_ooc.xdc` 同口径）。这里的 WNS 只代表片内逻辑 + 到 OBUF 的余量。
-- 构建耗时：`synth 31 s + impl/route/bit 54 s`（jobs=2，与主线 v53 并行、`MemAvailable ≥ 4 GB` 才放行）。
-
----
+- 设计级：WNS **+1.795 ns**，TNS **0.000**，失败端点 **0** / 841。
+- 构建耗时：synth 88 s + impl 52 s（jobs=2，`general.maxThreads=2`、`enable_parallel_synth=0`）。
 
 ## 5. 端口（BD 顶层，名字与厂商 XDC 一一对应）
 
@@ -329,6 +331,29 @@ HDMI_P1_STANDALONE=1 STAGE=full REBUILD_BD=0 \
 | 像素域与 AXI 共用一把复位 | 只有一把 `aresetn`，且它被 MMCM 门控 | 复位链拆开：AXI 域只用 PS 的 `peripheral_aresetn`；像素域用 top 内部 `pix_rst`（= `aresetn` 在 `pix_clk` 域的 3FF 同步 + `pwr_good` + `soft_reset` + 切模式）。MMCM 未锁 ⇒ 像素时钟死 ⇒ 像素域停在复位态 |
 | 不知道自己挂在哪 | 无心跳 | `0x30 PIX_HB`（像素域翻转位 + locked，2FF 跨域），上板第一步只许读它 |
 
+### 13.1b 事故那根线的**网表级铁证**（`hdmi_p1.bd` JSON 原文）
+
+事故版 BD 里三个复位/锁定网络（从 `.bd` JSON 的 `design.nets` 直接读出来的，不是猜的）：
+
+```json
+"hdmi_p1_top_0_mmcm_locked"                 = {"ports": ["hdmi_p1_top_0/mmcm_locked", "rst_ps7_100M/dcm_locked"]}
+"rst_ps7_100M_interconnect_aresetn"         = {"ports": ["rst_ps7_100M/interconnect_aresetn", "axi_ctrl/ARESETN"]}
+"rst_ps7_100M_peripheral_aresetn"           = {"ports": ["rst_ps7_100M/peripheral_aresetn", "hdmi_p1_top_0/aresetn"]}
+```
+
+⇒ 第一行就是挂死板子的那根线：**MMCM.locked 与 AXI 复位被并在同一个 net 上**。
+修复后同一处变成：
+
+```json
+"const_dcm_locked_dout"                     = {"ports": ["const_dcm_locked/dout", "rst_ps7_100M/dcm_locked"]}
+```
+
+**断言用的 pin 路径**（与上面 JSON 逐字对应，改断言时不要凭印象写）：
+`rst_ps7_100M/dcm_locked`、`hdmi_p1_top_0/mmcm_locked`、`rst_ps7_100M/peripheral_aresetn`、
+`hdmi_p1_top_0/aresetn`、`rst_ps7_100M/interconnect_aresetn`、`axi_ctrl/ARESETN`、`const_dcm_locked/dout`。
+⚠ Tcl 坑：`get_property NAME <bd_pin>` 只返回**局部名**（`dcm_locked` / `dout`），
+不是 `cell/pin`；断言里必须自己拼全路径（`build_hdmi_p1.tcl` 的 `proc bd_pin_full`）。
+
 ### 13.2 结构性断言（写进 `build_hdmi_p1.tcl`，不是纸面纪律）
 
 三处硬断言，任一条不符 **`error` 退出，不出位流**：
@@ -362,3 +387,50 @@ HDMI_P1_STANDALONE=1 STAGE=full REBUILD_BD=0 \
    新增 §3.5/§6/§8 三处断言、DRC 报告与 `drc.rpt`、`util_hier.rpt`、`gate_summary.txt`、
    timing.rpt 的 TNS/failing 断言、`write_bitstream completed successfully` 断言。
 3. `runs/hdmi_p1/BD_NOTES.md`：本节 + §8 上板六步。
+
+### 13.4 ★★ 第二根线：`S00_ARESETN` / `M00_ARESETN` 被绑 0（00:57 版才修掉）
+
+**发现者：RTL 代理**（核对 `build.log` 时发现；它在边界外，只能把证据交上来）。**这不是笔误，是同一故障形态的第二根线。**
+
+证据链（三层，缺一层都不够硬）：
+
+1. `build.log`（00:48:24 那轮）：
+   ```
+   CRITICAL WARNING: [BD 41-759] The input pins ... are tied-off to all 0's:
+   /axi_ctrl/S00_ARESETN
+   /axi_ctrl/M00_ARESETN
+   ```
+2. BD 生成的 HDL（`hdmi_p1.gen/sources_1/bd/hdmi_p1/synth/hdmi_p1.v`，事故那一版）：
+   ```verilog
+   .ARESETN(rst_ps7_100M_interconnect_aresetn),
+   .M00_ARESETN(1'b0),        // ← 未接的 per-port 低有效复位
+   .S00_ARESETN(1'b0),        // ← 同上
+   ...
+   ) auto_pc ( .aresetn(S_ARESETN), ...   // S_ARESETN 就来自 S00_ARESETN ⇒ auto_pc 恒复位
+   ```
+   ⇒ **AXI 协议转换器永久在复位 ⇒ 从机口不接受事务 ⇒ PS 读 `0x400A0000` 永不完结**，
+   与 11-03 挂死是同一形态；也就是说**即使 MMCM 锁住，那一版位流也照样会挂**。
+3. 旁证（资源）：修好后 `auto_pc` 从"被常量折叠的死逻辑（~50 LUT / 59 FF）"变成
+   **360 LUT / 426 FF** 的活逻辑 ⇒ 整 BD LUT 317 → 771。这组数字就是"上一版 AXI 侧是死的"的物证。
+
+**修法（`build_hdmi_p1.tcl` §3）**：不写死端口名，扫 `axi_ctrl` 上**全部** `*ARESETN*` 引脚逐个接到
+`rst_ps7_100M/interconnect_aresetn`（`NUM_SI/NUM_MI` 一变就会多出新脚，点名必漏）。
+
+**为此新增两道门禁（都是"按引脚级别兜住"，不是点名）**：
+
+| 门禁 | 判据 | 实测（00:57 那轮） |
+|---|---|---|
+| **5b** `bd_check_tieoff_warnings` | 扫 `build.log` 的 `BD 41-759` 块；凡把我们自己 cell 的输入脚绑 0 ⇒ ERROR（白名单只有"P1 不用的 `m_axi_*` 读通道输入脚"，逐条写原因；ps7 的未用外设输入脚放行） | **`OK 门禁5b：BD 41-759 未接脚警告 0 条`** |
+| **5c** `bd_hdl_assert_no_tied_reset` | 直接读 BD 生成的 HDL，凡 `.<sig>RESETN(1'b0)` ⇒ ERROR（`1'b1` 只记 note：低有效=常释放，无害）。这是"输入被绑 0"**唯一不受综合优化影响**的口径 | **`OK (bd) 门禁5c：BD 生成 HDL 里没有任何 *RESETN 被绑 1'b0`** |
+| **§3.5-D** 升级 | 由"点名 `axi_ctrl/ARESETN`"改为"扫全部 `*ARESETN*`：驱动器必须唯一 = `rst_ps7_100M` 对应脚，且每个 sink 都必须在这条网络上（缺一个 ⇒ ERROR）" | 见下方日志片段 |
+
+两条门禁都做过**回归自测**：拿 00:48 那份有缺陷的 `build.log` / HDL 喂进去，两条都按预期 ERROR 退出。
+
+**作废记录**
+
+| 位流 md5 | 时间 | 状态 |
+|---|---|---|
+| `b658e0da…` | 11-03 00:06 | ❌ 事故版（`dcm_locked ← MMCM.locked`） |
+| `c588b068…` | 11-03 00:48 | ❌ **作废**：`S00/M00_ARESETN` 被绑 0（AXI 侧死逻辑），禁用 |
+| **`d478c605…`** | **11-03 00:57** | ✅ **当前交付**（两条复位缺陷均修） |
+

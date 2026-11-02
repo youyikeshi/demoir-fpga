@@ -220,6 +220,15 @@ if {[file exists $XPR] && !$REBUILD} {
 # ----------------------------------------------------------------------------
 proc bd_pins_of_net {netpat} { return [get_bd_pins -quiet -of_objects $netpat] }
 
+# ★ BD 里 get_property NAME <bd_pin> 只给**局部名**（如 "dcm_locked" / "dout"），
+#   不是 "cell/pin"。这里自己拼全路径，否则 D 段的字符串比较永远不相等（第一版就栽在这）。
+proc bd_pin_full {p} {
+    set n [get_property NAME $p]
+    set c [get_bd_cells -quiet -of_objects $p]
+    if {[llength $c] == 1} { return "[get_property NAME [lindex $c 0]]/$n" }
+    return $n
+}
+
 proc bd_pin_net {pinpat} {
     set p [get_bd_pins -quiet $pinpat]
     if {[llength $p] != 1} { error "BD 结构断言：pin '$pinpat' 匹配 [llength $p] != 1" }
@@ -234,7 +243,7 @@ proc bd_assert_axi_reset_clean {tag} {
     # ---------------- A/B: dcm_locked ← 常量 1'b1 ----------------
     lassign [bd_pin_net rst_ps7_100M/dcm_locked] _dlp dlnet
     if {[llength $dlnet] != 1} {
-        error "★ 门禁5 失败[$tag]：rst_ps7_100M/dcm_locked **没有驱动网络**。必须显式接 xlconstant 1'b1（悬空会让 proc_sys_reset 行为取决于工具默认值）"
+        error "★ 门禁5 失败($tag)：rst_ps7_100M/dcm_locked **没有驱动网络**。必须显式接 xlconstant 1'b1（悬空会让 proc_sys_reset 行为取决于工具默认值）"
     }
     set dlnet [lindex $dlnet 0]
     set dlcells [get_bd_cells -quiet -of_objects $dlnet]
@@ -243,17 +252,17 @@ proc bd_assert_axi_reset_clean {tag} {
         set nm [get_property NAME $c]
         set vl [get_property VLNV $c]
         if {[regexp -nocase {mmcm|mmcme|clk_wiz|hdmi_p1_top_0} "$nm $vl"]} {
-            error "★ 门禁5 失败[$tag]：dcm_locked 连到了 $nm（$vl）—— 这正是 2026-11-03 挂死板子的那根线：MMCM 不锁 ⇒ AXI 被按在复位。必须改成常量 1'b1。"
+            error "★ 门禁5 失败($tag)：dcm_locked 连到了 $nm（$vl）—— 这正是 2026-11-03 挂死板子的那根线：MMCM 不锁 ⇒ AXI 被按在复位。必须改成常量 1'b1。"
         }
     }
     set dl_srcs [get_bd_cells -quiet -of_objects $dlnet -filter {VLNV =~ "*xlconstant*"}]
     if {[llength $dl_srcs] != 1} {
-        error "★ 门禁5 失败[$tag]：dcm_locked 的常量源匹配 [llength $dl_srcs] != 1（应恰好一个 xlconstant）"
+        error "★ 门禁5 失败($tag)：dcm_locked 的常量源匹配 [llength $dl_srcs] != 1（应恰好一个 xlconstant）"
     }
     set cs [lindex $dl_srcs 0]
     set cval [get_property CONFIG.CONST_VAL $cs]
     if {![regexp {^1} $cval]} {
-        error "★ 门禁5 失败[$tag]：常量 $cval != 1 ⇒ dcm_locked 被按成 0 ⇒ AXI 永远在复位"
+        error "★ 门禁5 失败($tag)：常量 $cval != 1 ⇒ dcm_locked 被按成 0 ⇒ AXI 永远在复位"
     }
     puts "        ✓ dcm_locked ← [get_property NAME $cs]（CONST_VAL=$cval）"
 
@@ -261,7 +270,7 @@ proc bd_assert_axi_reset_clean {tag} {
     foreach p [bd_pins_of_net $dlnet] {
         set pn [get_property NAME $p]
         if {[regexp -nocase {mmcm_locked} $pn]} {
-            error "★ 门禁5 失败[$tag]：dcm_locked 网络上出现 $pn —— MMCM 锁定位又接回复位链了"
+            error "★ 门禁5 失败($tag)：dcm_locked 网络上出现 $pn —— MMCM 锁定位又接回复位链了"
         }
     }
 
@@ -277,31 +286,50 @@ proc bd_assert_axi_reset_clean {tag} {
             set mlnet [lindex $mlnet 0]
             puts "        mmcm_locked 网络 = [get_property NAME $mlnet]"
             foreach p [bd_pins_of_net $mlnet] {
-                set pn [get_property NAME $p]
+                set pn [bd_pin_full $p]
                 if {[regexp -nocase {dcm_locked|aresetn|interconnect_aresetn|peripheral_aresetn|ext_reset|resetn|_rst} $pn]} {
-                    error "★ 门禁5 失败[$tag]：MMCM.locked 连到了复位类引脚 $pn（契约 §8.1 禁止）"
+                    error "★ 门禁5 失败($tag)：MMCM.locked 连到了复位类引脚 $pn（契约 §8.1 禁止）"
                 }
             }
-            error "★ 门禁5 失败[$tag]：MMCM.locked 还有连接（$mlnet）。本设计里它必须悬空，否则就有被接回复位链的风险"
+            error "★ 门禁5 失败($tag)：MMCM.locked 还有连接（$mlnet）。本设计里它必须悬空，否则就有被接回复位链的风险"
         }
     }
 
-    # ---------------- D: AXI 侧复位只由 PS 驱动 ----------------
-    foreach {pinpat drvpat} [list \
-            hdmi_p1_top_0/aresetn  rst_ps7_100M/peripheral_aresetn \
-            axi_ctrl/ARESETN       rst_ps7_100M/interconnect_aresetn] {
-        lassign [bd_pin_net $pinpat] _p n
-        if {[llength $n] != 1} { error "★ 门禁5 失败[$tag]：$pinpat 没有驱动网络" }
+    # ---------------- D: AXI 侧复位只由 PS 驱动（★ 扫全部 *ARESETN*，不点名） ----------------
+    #  实测（00:50 那轮）：三条 *ARESETN* 是**同一条网络**（interconnect_aresetn 广播），
+    #  所以判据不是"网络上只有我" ，而是"驱动器唯一 = rst_ps7_100M 对应脚 + 每个 sink 都在这条线上"。
+    #  约束 per-port 复位漏接（BD 绑 0 ⇒ auto_pc 恒复位 ⇒ 总线死）正是靠这条兜住。
+    set _acl_rst [get_bd_pins -quiet -of_objects [get_bd_cells axi_ctrl] -filter {NAME =~ "*ARESETN"}]
+    if {[llength $_acl_rst] < 1} {
+        error "★ 门禁5 失败($tag)：axi_ctrl 上一个 *ARESETN* 引脚都没找到（BD 结构异常）"
+    }
+    set _acl_sinks {}
+    foreach _rp $_acl_rst { lappend _acl_sinks "axi_ctrl/[get_property NAME $_rp]" }
+    puts "        axi_ctrl 复位脚 [llength $_acl_rst] 个：$_acl_sinks"
+
+    foreach {drvpat sinks} [list \
+            rst_ps7_100M/interconnect_aresetn $_acl_sinks \
+            rst_ps7_100M/peripheral_aresetn    [list hdmi_p1_top_0/aresetn]] {
+        lassign [bd_pin_net $drvpat] _drvp n
+        if {[llength $n] != 1} { error "★ 门禁5 失败($tag)：$drvpat 没有输出网络" }
         set n [lindex $n 0]
-        foreach p [bd_pins_of_net $n] {
-            set pn [get_property NAME $p]
-            if {$pn eq $drvpat || $pn eq $pinpat} { continue }
-            error "★ 门禁5 失败[$tag]：$pinpat 所在网络（[get_property NAME $n]）上多了 $pn —— AXI 复位只许由 $drvpat 驱动"
+        set fulls {}
+        foreach p [bd_pins_of_net $n] { lappend fulls [bd_pin_full $p] }
+        puts "        net [get_property NAME $n] pins = $fulls"
+        foreach fn $fulls {
+            if {$fn eq $drvpat} { continue }
+            if {[lsearch -exact $sinks $fn] >= 0} { continue }
+            if {[regexp -nocase {mmcm|clk_wiz|locked} $fn]} {
+                error "★ 门禁5 失败($tag)：复位网络 [get_property NAME $n] 上出现 MMCM 类引脚 $fn"
+            }
+            error "★ 门禁5 失败($tag)：复位网络 [get_property NAME $n] 上多了 $fn（只许 $drvpat → $sinks）"
         }
-        if {[llength [get_bd_pins -quiet -of_objects $n -filter "NAME == \"$drvpat\""]] != 1} {
-            error "★ 门禁5 失败[$tag]：$pinpat 的驱动不是 $drvpat"
+        foreach sk $sinks {
+            if {[lsearch -exact $fulls $sk] < 0} {
+                error "★ 门禁5 失败($tag)：$sk 没接到 $drvpat（悬空会被 BD 绑 0 ⇒ 该端口永久复位；11-03 同型事故）"
+            }
+            puts "        ✓ $sk ← $drvpat"
         }
-        puts "        ✓ $pinpat ← $drvpat（PS 时钟域复位，无 PL 时钟参与）"
     }
 
     puts "    \[§3.5/$tag\] 门禁5 结构断言全过：MMCM 锁不锁，AXI 寄存器都读得到"
@@ -396,7 +424,24 @@ if {$_needbd} {
     # hdmi_p1_top_0/mmcm_locked（= MMCM.locked）**故意悬空**：只作观测/断言锚点。
     # 下面 §3.5 会把它读回来，一旦接上任何复位类端口就 ERROR 退出。
 
+    # ★★ 2026-11-03 第二根线（RTL 代理核对日志发现，00:48 那轮证据）：
+    #   axi_interconnect 除了总 ARESETN，还有**按端口的** S00_ARESETN / M00_ARESETN（低有效）。
+    #   只接总 ARESETN ⇒ BD 把未接的低有效脚绑成 0 ⇒ 生成的 HDL 里 .S00_ARESETN(1'b0)、
+    #   .M00_ARESETN(1'b0) ⇒ 互联内部 auto_pc(协议转换器)的 .aresetn 恒 0 ⇒ **永久在复位**
+    #   ⇒ 从机口不接受事务 ⇒ PS 读 0x400A0000 永不完结 ⇒ 与 11-03 挂死**同一故障形态**。
+    #   证据（build.log 00:48:24 与 hdmi_p1.gen/.../synth/hdmi_p1.v 第 105/124/702 行）。
+    #   ⇒ 这里**扫全部** *ARESETN* 引脚逐个接上（NUM_SI/NUM_MI 一变就会多出新脚，不能写死）。
     connect_bd_net [get_bd_pins rst_ps7_100M/interconnect_aresetn] [get_bd_pins axi_ctrl/ARESETN]
+    set _rst_extra 0
+    foreach _rp [get_bd_pins -quiet -of_objects [get_bd_cells axi_ctrl] -filter {NAME =~ "*ARESETN"}] {
+        if {[get_property NAME $_rp] eq "ARESETN"} { continue }
+        connect_bd_net [get_bd_pins rst_ps7_100M/interconnect_aresetn] $_rp
+        incr _rst_extra
+        ok "axi_ctrl/[get_property NAME $_rp] ← rst_ps7_100M/interconnect_aresetn（per-port 复位）"
+    }
+    if {$_rst_extra < 1} {
+        note "⚠ axi_ctrl 没有 per-port *ARESETN* 引脚（NUM_SI/NUM_MI 组合可能不需要），不报错"
+    }
     connect_bd_net [get_bd_pins rst_ps7_100M/peripheral_aresetn]  [get_bd_pins hdmi_p1_top_0/aresetn]
 
     connect_bd_intf_net [get_bd_intf_pins ps7/M_AXI_GP0]    [get_bd_intf_pins axi_ctrl/S00_AXI]
@@ -437,6 +482,91 @@ foreach s [get_bd_addr_segs -of_objects [get_bd_addr_spaces ps7/Data]] {
     note "addr seg [get_property NAME $s] offset=[get_property offset $s] range=[get_property range $s]"
 }
 
+# ----------------------------------------------------------------------------
+#  ★★ 门禁 5b：`BD 41-759` 警告门禁
+#
+#  这条是 CRITICAL WARNING，**不阻断构建** ⇒ 不主动抓就永远没人看。
+#  11-03 那轮和 00:48 那轮都是这么漏的：`/axi_ctrl/S00_ARESETN`、`/axi_ctrl/M00_ARESETN`
+#  被绑成 0（低有效 ⇒ 互联内部 auto_pc 恒复位 ⇒ 总线死），而构建"成功"了。
+#  ⇒ 以后凡是 BD 把**我们自己例化的 cell** 的输入脚绑 0，一律 ERROR 退出。
+#  白名单只许放"确实无害"的脚，且必须逐条写原因。
+# ----------------------------------------------------------------------------
+set BD_TIEOFF_WHITELIST [list \
+    {/hdmi_p1_top_0/m_axi_arready}  {P1 不用 AXI4 master 读通道，输入脚绑 0 是设计意图} \
+    {/hdmi_p1_top_0/m_axi_rdata}    {同上} \
+    {/hdmi_p1_top_0/m_axi_rresp}    {同上} \
+    {/hdmi_p1_top_0/m_axi_rlast}    {同上} \
+    {/hdmi_p1_top_0/m_axi_rvalid}   {同上} ]
+
+proc bd_tieoff_pins {logfile} {
+    set out {}
+    if {![file exists $logfile]} { return $out }
+    set fh [open $logfile r]; set t [read $fh]; close $fh
+    set lines [split $t "\n"]
+    set i 0
+    while {$i < [llength $lines]} {
+        if {[string match "*BD 41-759*" [lindex $lines $i]]} {
+            set j [expr {$i + 1}]
+            set seen 0
+            while {$j < [llength $lines] && $j < ($i + 200)} {
+                set l2 [string trim [lindex $lines $j]]
+                if {[regexp {^/\S+$} $l2]} { lappend out $l2; incr seen } \
+                elseif {$seen > 0 && $l2 ne ""} { break }
+                incr j
+            }
+            set i $j
+        } else { incr i }
+    }
+    return $out
+}
+
+proc bd_check_tieoff_warnings {logfile} {
+    # 白名单是**全局**变量（proc 里必须用 $:: 前缀，否则 Tcl 报 no such variable）
+    if {[info exists ::BD_TIEOFF_WHITELIST]} { set wl $::BD_TIEOFF_WHITELIST } else { set wl {} }
+    set pins [lsort -unique [bd_tieoff_pins $logfile]]
+    if {[llength $pins] == 0} { ok "门禁5b：BD 41-759 未接脚警告 0 条（没有输入脚被绑 0）"; return }
+    puts "    BD 41-759 列出 [llength $pins] 个被绑 0 的输入脚：$pins"
+    set bad {}
+    foreach p $pins {
+        set cell [lindex [split [string trimleft $p "/"] "/"] 0]
+        if {[lsearch -exact $wl $p] >= 0} { note "白名单放行：$p"; continue }
+        if {$cell eq "ps7"} { note "ps7 白名单（未用外设的输入脚，无害）：$p"; continue }
+        lappend bad $p
+    }
+    if {[llength $bad] > 0} {
+        error "★ 门禁5b 失败：BD 把我们自己 cell 的输入脚绑成 0 —— $bad。\n  低有效复位被绑 0 = 该端口永久复位（11-03 同型事故：auto_pc.aresetn 恒 0 ⇒ 总线死）。\n  要么在 BD 里接上，要么加进 BD_TIEOFF_WHITELIST 并写明原因。"
+    }
+    ok "门禁5b：BD 41-759 只涉及 ps7 / 白名单脚"
+}
+
+# ----------------------------------------------------------------------------
+#  ★ 门禁 5c：BD 生成 HDL 的"复位脚被绑 0"检查（11-03 第二根线的**硬判据**）
+#
+#  00:48 那轮的指纹：`hdmi_p1.gen/.../synth/hdmi_p1.v` 里
+#      .M00_ARESETN(1'b0)     ← 未接的 per-port 低有效复位
+#      .S00_ARESETN(1'b0)     ← 同上；再往下 anno_pc 的 .aresetn 就是它 ⇒ 恒复位
+#  这条检查直接读**BD 生成的 HDL**，与综合优化无关，是最可信的"输入被绑 0"口径。
+# ----------------------------------------------------------------------------
+proc bd_hdl_assert_no_tied_reset {tag} {
+    # 注意：PROJDIR 是全局变量，proc 里必须 $::PROJDIR（否则 no such variable）
+    set f [file join $::PROJDIR hdmi_p1.gen sources_1 bd hdmi_p1 synth hdmi_p1.v]
+    if {![file exists $f]} {
+        set cands [glob -nocomplain [file join $::PROJDIR "hdmi_p1.gen" "sources_1" "bd" "*" "synth" "*.v"]]
+        if {[llength $cands] > 0} { set f [lindex $cands 0] }
+    }
+    if {![file exists $f]} { note "($tag) 找不到 BD 生成的 HDL，跳过门禁5c"; return }
+    set fh [open $f r]; set t [read $fh]; close $fh
+    set bad0 {}; set bad1 {}
+    foreach {- sig val} [regexp -all -inline {\.([A-Za-z0-9_]*[Aa][Rr][Ee][Ss][Ee][Tt][Nn])\((1'b[01])\)} $t] {
+        if {$val eq "1'b0"} { lappend bad0 "$sig=1'b0" } else { lappend bad1 "$sig=1'b1" }
+    }
+    if {[llength $bad1] > 0} { note "($tag) 门禁5c：被绑 1'b1 的复位脚（低有效=常释放，无害）：[lsort -unique $bad1]" }
+    if {[llength $bad0] > 0} {
+        error "★ 门禁5c 失败($tag)：BD 生成的 HDL 把复位脚绑成 0：$bad0\n  低有效复位绑 0 = 该端口/模块永久复位 ⇒ 事务不响应（11-03 第二根线：S00/M00_ARESETN 绑 0 ⇒ auto_pc.aresetn 恒 0 ⇒ 总线死）。\n  修法：在 BD 里把这些脚接到 rst_ps7_100M 的对应输出。"
+    }
+    ok "($tag) 门禁5c：BD 生成 HDL 里没有任何 *RESETN 被绑 1'b0（$f）"
+}
+
 # ============================================================================
 #  4) hwh + wrapper
 # ============================================================================
@@ -463,6 +593,11 @@ set _cg [file join $XDCMINE p1_clock_groups.tcl]
 set_property STEPS.SYNTH_DESIGN.TCL.POST $_cg [get_runs synth_1]
 set_property STEPS.INIT_DESIGN.TCL.POST  $_cg [get_runs impl_1]
 ok "clock groups 脚本挂到 STEPS.SYNTH_DESIGN.TCL.POST / STEPS.INIT_DESIGN.TCL.POST"
+
+# ★ 门禁 5b：BD 41-759（未接输入脚被绑 0）——CRITICAL WARNING 不阻断构建，必须主动抓
+bd_check_tieoff_warnings [file join $OUT build.log]
+# ★ 门禁 5c：直接查 BD 生成的 HDL 有没有 `.<sig>RESETN(1'b0)`（11-03 第二根线的硬判据）
+bd_hdl_assert_no_tied_reset "bd"
 
 # ============================================================================
 #  5) 综合（project run：IP 必须 OOC 综合，in-memory synth_design 找不到 BD 自动
@@ -522,15 +657,15 @@ proc nl_assert_axi_reset_clean {tag} {
         }
     }
     if {[llength $dpl] == 0} { set dpl [get_pins -quiet -hier -filter {NAME =~ "*/dcm_locked"}] }
-    if {[llength $dpl] == 0} { error "★ 门禁5 失败[$tag]：网表里找不到任何 dcm_locked 引脚" }
+    if {[llength $dpl] == 0} { error "★ 门禁5 失败($tag)：网表里找不到任何 dcm_locked 引脚" }
     foreach dp $dpl {
         foreach c [all_fanin -quiet -flat -only_cells -to $dp] {
             set r [get_property REF_NAME $c]
             if {[string match -nocase "MMCM*" $r] || [string match -nocase "PLL*" $r]} {
-                error "★ 门禁5 失败[$tag]：dcm_locked（$dp）扇入里有 $r（[get_property NAME $c]）⇒ AXI 复位又被 PL 时钟门控了"
+                error "★ 门禁5 失败($tag)：dcm_locked（$dp）扇入里有 $r（[get_property NAME $c]）⇒ AXI 复位又被 PL 时钟门控了"
             }
         }
-        note "[$tag] dcm_locked 扇入无 MMCM/PLL（$dp）"
+        note "($tag) dcm_locked 扇入无 MMCM/PLL（$dp）"
     }
 
     # ---- B. dcm_locked 必须是常量 1（VCC 原语 / <const1> / 常量折叠三者之一）----
@@ -539,7 +674,7 @@ proc nl_assert_axi_reset_clean {tag} {
     set proof ""
     if {[llength $cc] == 1} {
         set cr [get_property REF_NAME [lindex $cc 0]]
-        if {$cr eq "GND"} { error "★ 门禁5 失败[$tag]：const_dcm_locked 实现成 GND ⇒ AXI 永久复位" }
+        if {$cr eq "GND"} { error "★ 门禁5 失败($tag)：const_dcm_locked 实现成 GND ⇒ AXI 永久复位" }
         if {$cr eq "VCC"} { set proof "常量源 [get_property NAME [lindex $cc 0]] = VCC" }
     }
     set dn [get_nets -quiet -of_objects $dp0]
@@ -549,34 +684,58 @@ proc nl_assert_axi_reset_clean {tag} {
         } else {
             set dnn [get_property NAME [lindex $dn 0]]
             if {[regexp -nocase {const0|gnd} $dnn]} {
-                error "★ 门禁5 失败[$tag]：dcm_locked 连到常量 0（$dnn）⇒ AXI 永远在复位"
+                error "★ 门禁5 失败($tag)：dcm_locked 连到常量 0（$dnn）⇒ AXI 永远在复位"
             }
             if {[regexp -nocase {const1|vcc} $dnn]} { set proof "dcm_locked 网络 = $dnn（常量 1）" }
         }
     }
     if {$proof eq ""} {
         # 拿不到常量证据也不判死：BD 结构断言（§3.5）已经是权威判据，这里只提示
-        note "[$tag] ⚠ dcm_locked 的常量证据不直接可见，以 §3.5 的 BD 断言为准（扇入已确认无 MMCM/PLL）"
+        note "($tag) ⚠ dcm_locked 的常量证据不直接可见，以 §3.5 的 BD 断言为准（扇入已确认无 MMCM/PLL）"
     } else {
-        ok "[$tag] 门禁5(网表)：dcm_locked ← 常量 1（$proof）"
+        ok "($tag) 门禁5(网表)：dcm_locked ← 常量 1（$proof）"
     }
 
     # ---- C. MMCM.LOCKED 不进复位链 ----
     set mm [get_cells -quiet -hier -filter {REF_NAME =~ MMCME2*}]
-    if {[llength $mm] != 1} { error "★ 门禁5 失败[$tag]：网表里 MMCME2 实例数 [llength $mm] != 1" }
+    if {[llength $mm] != 1} { error "★ 门禁5 失败($tag)：网表里 MMCME2 实例数 [llength $mm] != 1" }
     set lks [get_pins -quiet -of_objects [lindex $mm 0] -filter {NAME =~ "*LOCKED"}]
-    if {[llength $lks] != 1} { error "★ 门禁5 失败[$tag]：MMCM 的 LOCKED 引脚匹配 [llength $lks] != 1" }
+    if {[llength $lks] != 1} { error "★ 门禁5 失败($tag)：MMCM 的 LOCKED 引脚匹配 [llength $lks] != 1" }
     set lp [lindex $lks 0]
     foreach n [get_nets -quiet -of_objects $lp] {
         foreach s [get_pins -quiet -of_objects $n] {
             set sn [get_property NAME $s]
             if {[regexp -nocase {dcm_locked|aresetn|interconnect_aresetn|peripheral_aresetn|ext_reset} $sn]} {
-                error "★ 门禁5 失败[$tag]：MMCM.LOCKED（$lp）经 [get_property NAME $n] 连到复位类引脚 $sn"
+                error "★ 门禁5 失败($tag)：MMCM.LOCKED（$lp）经 [get_property NAME $n] 连到复位类引脚 $sn"
             }
         }
     }
-    ok "[$tag] 门禁5(网表)：MMCM.LOCKED（$lp）不接任何复位类引脚"
+    ok "($tag) 门禁5(网表)：MMCM.LOCKED（$lp）不接任何复位类引脚"
+
+    # ---- D. 复位脚常量化的观测（**只记录、不判死**）----
+    #   为什么不定为 ERROR：axi_interconnect 在 1×1 配置下，**全局 ARESETN 引脚没有功能负载**
+    #   （真正干活的是 per-port S00/M00_ARESETN + 内部 reset bridge），综合会把它绑成 GND。
+    #   实测 00:53 那轮：BD 生成的 HDL 里三条 *ARESETN 全接实信号（见 gen/.../hdmi_p1.v 103/105/124 行），
+    #   而网表里 `hdmi_p1_i/axi_ctrl/ARESETN` 被折叠成常量 —— 属良性、不是缺陷。
+    #   ⇒ 真正的硬判据放在 §4 的 `bd_hdl_assert_no_tied_reset`（查 BD 生成的 HDL 有没有
+    #     `.<sig>ARESETN(1'b0)`），那是"输入是否被绑 0"的唯一可信口径。
+    set gnd_rst {}
+    foreach p [get_pins -quiet -hier -filter {NAME =~ "*ARESETN*" || NAME =~ "*/aresetn"}] {
+        set nm [get_property NAME $p]
+        if {![regexp {axi_ctrl|auto_pc|hdmi_p1_top_0|rst_ps7_100M} $nm]} { continue }
+        foreach c [all_fanin -quiet -flat -only_cells -to $p] {
+            if {[get_property REF_NAME $c] eq "GND"} { lappend gnd_rst $nm }
+        }
+    }
+    if {[llength $gnd_rst] > 0} {
+        note "($tag) 网表里被常量化的复位脚（良性，见注释）：[lsort -unique $gnd_rst]"
+    } else {
+        note "($tag) 网表里没有被常量化的复位脚"
+    }
+    ok "($tag) 门禁5(网表)：MMCM/复位链清点完成"
 }
+
+
 
 set c_pix0 [clk_by_period  6.0  7.5]
 set c_pix1 [clk_by_period 12.0 15.0]
@@ -714,19 +873,47 @@ proc drc_error_count {file} {
         }
         if {$ok} { return $n }
     }
-    # (1) 文本：汇总行 "Errors : N"
     if {![file exists $file]} { return -1 }
     set fh [open $file r]; set t [read $fh]; close $fh
+    # (1) 汇总行 "Errors : N"
     if {[regexp -line {Errors\s*[:|]\s*(\d+)} $t -> n]} { return $n }
-    # (2) 文本：规则表里 Severity=Error 的行，累加 Violations
-    set hits [regexp -all -line -inline {\n\s*\S+\s+Error\s+.*?(\d+)\s*$} $t]
-    if {[llength $hits] > 0} {
+    # (2) ★ 2025.2 实际格式：规则汇总表  | RULE | Severity | Description | Count |
+    set rows [regexp -all -line -inline {\|\s*(\S+)\s*\|\s*(Error|Critical Warning|Warning|Info|Advisory)\s*\|\s*([^|]*)\|\s*(\d+)\s*\|} $t]
+    if {[llength $rows] > 0} {
         set n 0
-        foreach {_full _cnt} $hits { incr n $_cnt }
+        foreach {_m _r sev _d cnt} $rows { if {$sev eq "Error"} { incr n $cnt } }
+        return $n
+    }
+    # (3) 逐条详情标题 "RULE#1 Error"
+    set d [regexp -all -line -inline {(\S+?#\d+)\s+(Error|Critical Warning|Warning|Info|Advisory)} $t]
+    if {[llength $d] > 0} {
+        set n 0
+        foreach {_m _id sev} $d { if {$sev eq "Error"} { incr n } }
         return $n
     }
     if {[regexp -line {Total\s+Errors\s*[:|]?\s*(\d+)} $t -> n]} { return $n }
     return -1
+}
+
+# 从 util.rpt / util_hier.rpt 里按标签取一等公民数字（"| 标签 | 数值 |"）
+proc util_row {file label} {
+    if {![file exists $file]} { return "" }
+    set fh [open $file r]; set t [read $fh]; close $fh
+    foreach line [split $t "\n"] {
+        if {[regexp "^\\|\\s+$label\\s+\\|\\s+(\\d+)" $line -> n]} { return $n }
+    }
+    return ""
+}
+# 层次行：| instance | module | Total LUTs | Logic LUTs | LUTRAMs | SRLs | FFs | ...
+proc hier_row {file instpat} {
+    if {![file exists $file]} { return "" }
+    set fh [open $file r]; set t [read $fh]; close $fh
+    foreach line [split $t "\n"] {
+        if {[regexp "^\\|\\s+$instpat\\s+\\|\\s+\\S+\\s+\\|\\s*(\\d+)\\s*\\|\\s*(\\d+)\\s*\\|\\s*(\\d+)\\s*\\|\\s*(\\d+)\\s*\\|\\s*(\\d+)\\s*\\|" $line -> tl ll lr sr ff]} {
+            return [list $tl $ll $lr $sr $ff]
+        }
+    }
+    return ""
 }
 proc hier_lut {base} {
     set n 0
@@ -782,23 +969,40 @@ if {!$tns_ok} { error "门禁2：TNS != 0 或存在 failing endpoint（见 timin
 ok "门禁2b：三路时钟 TNS = 0、0 failing endpoints"
 
 # ---- 门禁 3：资源（总 LUT ≤ 2500；hdmi_out_top 层次 LUT ≤ 600）
-set impl_lut -1
-foreach f [list [file join $OUT util.rpt] [file join $OUT util_synth.rpt]] {
-    if {$impl_lut < 0 && [file exists $f]} {
-        set fh [open $f r]; set txt [read $fh]; close $fh
-        foreach line [split $txt "\n"] {
-            if {[regexp "\\|\\s+Slice LUTs\\s+\\|\\s+(\\d+)" $line -> n]} { set impl_lut $n; break }
+set urpt [file join $OUT util.rpt]
+set impl_lut [util_row $urpt "Slice LUTs"]
+if {$impl_lut eq ""} {
+    # 退回文本正则（util_synth.rpt 也行）
+    set impl_lut -1
+    foreach f [list $urpt [file join $OUT util_synth.rpt]] {
+        if {$impl_lut < 0 && [file exists $f]} {
+            set fh [open $f r]; set txt [read $fh]; close $fh
+            foreach line [split $txt "\n"] {
+                if {[regexp "\\|\\s+Slice LUTs\\s+\\|\\s+(\\d+)" $line -> n]} { set impl_lut $n; break }
+            }
         }
     }
 }
-if {$impl_lut < 0} { error "读不到 Slice LUTs（util.rpt）" }
+if {$impl_lut eq "" || $impl_lut < 0} { error "读不到 Slice LUTs（util.rpt）" }
 if {$impl_lut > 2500} { error "LUT=$impl_lut > 2500（门禁 3）" }
-set htops [get_cells -hier -quiet -filter {NAME =~ "*u_hdmi_out_top*"}]
-if {[llength $htops] != 1} { error "层次 u_hdmi_out_top 匹配 [llength $htops] != 1（门禁 3）" }
+set u_ff   [util_row $urpt "Slice Registers"]
+set u_bram [util_row $urpt "Block RAM Tile"]
+set u_dsp  [util_row $urpt "DSPs"]
+note "整 BD：Slice LUTs=$impl_lut  Slice Registers=$u_ff  BlockRAM=$u_bram  DSPs=$u_dsp"
+
+# ★ 层次实例名必须**精确到这一级**：`*u_hdmi_out_top*` 会命中它的全部后代（实测 742 个）
+set htops [get_cells -hier -quiet -filter {NAME =~ "*/u_hdmi_out_top"}]
+if {[llength $htops] != 1} { error "层次 u_hdmi_out_top（精确一级）匹配 [llength $htops] != 1（门禁 3）" }
 set hbase [get_property NAME [lindex $htops 0]]
-set hl [hier_lut $hbase]
+set hl_net [hier_lut $hbase]
+set hrow [hier_row [file join $OUT util_hier.rpt] u_hdmi_out_top]
+if {$hrow eq ""} { error "util_hier.rpt 里找不到 u_hdmi_out_top 行（门禁 3）" }
+lassign $hrow h_tl h_ll h_lr h_sr h_ff
+note "util_hier（$hbase）：Total LUTs=$h_tl Logic LUTs=$h_ll LUTRAM=$h_lr SRL=$h_sr FFs=$h_ff；网表 LUT 计数=$hl_net"
+set hl $h_tl
+if {$hl_net > $hl} { set hl $hl_net }        ;# 取大者，偏保守
 if {$hl > 600} { error "hdmi_out_top 层次 LUT=$hl > 600（门禁 3）" }
-ok "门禁3：总 Slice LUT = $impl_lut ≤ 2500；hdmi_out_top = $hl LUT ≤ 600（$hbase）"
+ok "门禁3：整 BD Slice LUT = $impl_lut ≤ 2500；hdmi_out_top 层次 LUT = $h_tl（网表 $hl_net）≤ 600，FF=$h_ff"
 
 # ---- 门禁 4：DRC 0 Errors + write_bitstream completed successfully
 set drc_rpt [file join $OUT drc.rpt]
@@ -822,7 +1026,7 @@ close_design
 # ---- 门禁台账（BD_NOTES.md / 交付报告直接引用这里的数字）
 set fh [open [file join $OUT gate_summary.txt] w]
 puts $fh "# HDMI P1 门禁台账  [clock format [clock seconds] -format {%Y-%m-%d %H:%M:%S}]"
-puts $fh "# 事故修复版（dcm_locked ← 常量 1'b1；像素域复位由 MMCM.locked 门控）"
+puts $fh "# 事故修复版：dcm_locked ← 常量 1'b1（AXI 复位只跟 PS）；MMCM.LOCKED 全设计只用于 0x30[1]，不进任何复位"
 puts $fh "gate1_latch_util        = $lat_rpt"
 puts $fh "gate1_latch_netlist     = $lat_net"
 puts $fh "gate2_period_pix_a_ns   = $p_pix0"
@@ -833,7 +1037,12 @@ puts $fh "gate2_wns_pix_b_ns      = $w1"
 puts $fh "gate2_wns_axi_ns        = $wa"
 puts $fh "gate2_tns_zero_failing  = $tns_ok"
 puts $fh "gate3_total_lut         = $impl_lut"
-puts $fh "gate3_hdmi_out_top_lut  = $hl"
+puts $fh "gate3_total_ff          = $u_ff"
+puts $fh "gate3_total_bram        = $u_bram"
+puts $fh "gate3_total_dsp         = $u_dsp"
+puts $fh "gate3_hdmi_out_top_lut  = $h_tl"
+puts $fh "gate3_hdmi_out_top_ff   = $h_ff"
+puts $fh "gate3_hdmi_out_top_lut_netlist = $hl_net"
 puts $fh "gate4_drc_errors        = $drc_err"
 puts $fh "gate4_write_bitstream   = ok"
 puts $fh "gate5_bd_struct_assert  = PASS"
@@ -896,7 +1105,8 @@ puts "   hwh        : [file join $OUT hdmi_p1.hwh]  md5=[md5f [file join $OUT hd
 puts "   addr       : hdmi_out_top = $ADDR_HDMI / $RANGE_HDMI"
 puts "   clocks     : PIX_a=$p_pix0 ns  PIX_b=$p_pix1 ns  AXI=$p_axi ns  VCO=$vco MHz"
 puts "   WNS impl   : PIX_a=$w0  PIX_b=$w1  AXI=$wa  (TNS 0 / 0 failing = $tns_ok)"
-puts "   LUT        : total=$impl_lut (≤2500)   hdmi_out_top=$hl (≤600)   latch=$lat_rpt/$lat_net"
+puts "   LUT/FF     : total=$impl_lut (≤2500) / $u_ff   hdmi_out_top=$h_tl (≤600) / $h_ff   latch=$lat_rpt/$lat_net"
+puts "   BRAM/DSP   : $u_bram / $u_dsp"
 puts "   DRC        : errors=$drc_err   bitstream=ok"
 puts "   gate5      : BD 结构断言 PASS + 网表复核 PASS（dcm_locked ← 常量 1'b1）"
 puts "   time       : synth ${_t_synth}s + impl ${_t_impl}s + bit ${_t_bit}s"
