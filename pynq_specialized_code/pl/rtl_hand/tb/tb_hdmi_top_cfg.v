@@ -33,11 +33,13 @@ module tb_hdmi_top_cfg;
     reg aclk  = 0;
     reg pix_a = 0;
     reg pix_b = 0;
+    reg pix_c = 0;
 
-    reg pix_stop = 0;                  // 1 = 两路像素时钟停止翻转（C-B 用）
+    reg pix_stop = 0;                  // 1 = 三路像素时钟停止翻转（C-B 用）
     always #5.000  aclk  = ~aclk;      // 100 MHz（AXI 域，永不停）
-    always #3.368  if (!pix_stop) pix_a = ~pix_a;   // ~148.44 MHz
-    always #6.737  if (!pix_stop) pix_b = ~pix_b;   // ~74.22 MHz
+    always #3.368  if (!pix_stop) pix_a = ~pix_a;   // ~148.44 MHz（period 6.736）
+    always #6.737  if (!pix_stop) pix_b = ~pix_b;   //  ~74.22 MHz（period 13.474）
+    always #13.474 if (!pix_stop) pix_c = ~pix_c;   //  ~37.11 MHz（period 26.948，恰为 a 的 4 倍）
 
     reg aresetn = 0;
 
@@ -115,6 +117,9 @@ module tb_hdmi_top_cfg;
     wire        irq_vsync;
     wire        init_done;
     wire        cfg_upd, fid_upd;
+    wire [31:0] m_araddr;  wire [7:0] m_arlen; wire [2:0] m_arsize; wire [1:0] m_arburst;
+    wire        m_arvalid, m_arready, m_rvalid, m_rlast, m_rready;
+    wire [63:0] m_rdata;
 
     hdmi_out_top #(
         .MODE_DEFAULT (0),
@@ -124,6 +129,7 @@ module tb_hdmi_top_cfg;
         .aresetn      (aresetn),
         .pix_clk_a    (pix_a),
         .pix_clk_b    (pix_b),
+        .pix_clk_c    (pix_c),
         .mmcm_locked  (mmcm_locked),
         .pix_clk      (pix_clk),
 
@@ -135,17 +141,17 @@ module tb_hdmi_top_cfg;
         .s_axi_rdata  (rdata),  .s_axi_rresp(rresp),
         .s_axi_rvalid (rvalid), .s_axi_rready(rready),
 
-        .m_axi_araddr (),
-        .m_axi_arlen  (),
-        .m_axi_arsize (),
-        .m_axi_arburst(),
-        .m_axi_arvalid(),
-        .m_axi_arready(1'b0),
-        .m_axi_rdata  (64'd0),
+        .m_axi_araddr (m_araddr),
+        .m_axi_arlen  (m_arlen),
+        .m_axi_arsize (m_arsize),
+        .m_axi_arburst(m_arburst),
+        .m_axi_arvalid(m_arvalid),
+        .m_axi_arready(m_arready),
+        .m_axi_rdata  (m_rdata),
         .m_axi_rresp  (2'd0),
-        .m_axi_rlast  (1'b0),
-        .m_axi_rvalid (1'b0),
-        .m_axi_rready (),
+        .m_axi_rlast  (m_rlast),
+        .m_axi_rvalid (m_rvalid),
+        .m_axi_rready (m_rready),
 
         .hdmi_de      (hdmi_de),
         .hdmi_hs      (hdmi_hs),
@@ -161,6 +167,53 @@ module tb_hdmi_top_cfg;
         .cfg_upd      (cfg_upd),
         .fid_upd      (fid_upd)
     );
+
+    // ------------------------------------------------------------------ m_axi 读从机
+    // 扫描器集成后 m_axi 是**真的主口**：彩条模式下扫描器被 cfg_enable 关掉不会取数，
+    // 但只要 test_pattern=0 跨过一个 vsync，扫描器就会真去取帧 —— TB 必须给真环境，
+    // 否则它会一直等数据 ⇒ 假 underflow ⇒ STATUS[2]/0x2C 被污染。
+    // 本模型：4 深描述符队列 + 固定 2 拍延迟 + 数据按地址生成（0 失配不是本 TB 的判据）。
+    localparam integer MQ = 4;
+    reg [31:0] mq_addr [0:MQ-1];
+    reg [7:0]  mq_len  [0:MQ-1];
+    integer    mq_wr = 0, mq_rd = 0;
+
+    assign m_arready = ((mq_wr - mq_rd) < MQ);
+
+    reg        mr_busy = 1'b0;
+    reg [31:0] mr_addr = 32'd0;
+    integer    mr_left = 0;
+    integer    mr_lat  = 0;
+
+    assign m_rvalid = mr_busy && (mr_lat == 0);
+    assign m_rlast  = (mr_left == 1);
+    // 数据只用于让扫描器跑起来（本 TB 不校验图案；图案逐字节判据在 tb_hdmi_top_scan）
+    assign m_rdata  = {mr_addr[23:8], mr_addr[15:0], mr_addr[31:16], mr_addr[7:0]};
+
+    always @(posedge aclk) begin
+        if (!aresetn) begin
+            mq_wr <= 0; mq_rd <= 0;
+        end else begin
+            if (m_arvalid && m_arready) begin
+                mq_addr[mq_wr % MQ] <= m_araddr;
+                mq_len [mq_wr % MQ] <= m_arlen;
+                mq_wr <= mq_wr + 1;
+            end
+            if (!mr_busy && (mq_wr != mq_rd)) begin
+                mr_busy <= 1'b1;
+                mr_addr <= mq_addr[mq_rd % MQ];
+                mr_left <= mq_len[mq_rd % MQ] + 1;
+                mr_lat  <= 2;
+                mq_rd   <= mq_rd + 1;
+            end else if (mr_busy && (mr_lat != 0)) begin
+                mr_lat <= mr_lat - 1;
+            end else if (mr_busy && m_rready) begin
+                mr_addr <= mr_addr + 8;
+                mr_left <= mr_left - 1;
+                if (mr_left == 1) mr_busy <= 1'b0;
+            end
+        end
+    end
 
     // ------------------------------------------------------------------ 参考彩条（720p）
     wire [23:0] ref720;
@@ -260,6 +313,16 @@ module tb_hdmi_top_cfg;
     integer de_settle    = 0;
     integer settle_max   = 0;
     integer lk_n         = 0;
+
+    // E-1 / E-2 / E-3
+    integer vs_lines = 0, de_lines = 0;
+    real    hb_half_m1 = 0.0, hb_half_m3 = 0.0;
+    real    hb_ratio   = 0.0;
+    integer initdrop_cnt = 0;
+    reg     initdrop_arm = 1'b0;
+    always @(posedge aclk) begin
+        if (initdrop_arm && (init_done !== 1'b1)) initdrop_cnt = initdrop_cnt + 1;
+    end
 
     always @(posedge aclk) begin
         if (!settle_armed &&
@@ -404,6 +467,46 @@ module tb_hdmi_top_cfg;
                 w = w + 1;
                 @(posedge pix_clk);
             end
+        end
+    endtask
+
+    // ---------------- E-1：一帧的几何（vs 行数 / de 行数）----------------
+    // 做法：全局自由计数 hs 沿与 de 上升沿，在**两个 vs 上升沿**处取差值 ⇒ 恰好一帧。
+    // （第一版写成"从 vs 上升沿开始 while(hdmi_vs!==1) 数"，一进来 vs 还是高 ——
+    //   vs 脉冲本身有 5 行宽 ⇒ 立刻退出、恒报 0 行。这个坑记在报告里。）
+    integer hs_cnt_g = 0, de_line_cnt_g = 0;
+    reg     hs_g = 1'b0, de_g = 1'b0;
+    always @(posedge pix_clk) begin
+        if ((hdmi_hs === 1'b1) && !hs_g) hs_cnt_g = hs_cnt_g + 1;
+        hs_g = (hdmi_hs === 1'b1);
+        if ((hdmi_de === 1'b1) && !de_g) de_line_cnt_g = de_line_cnt_g + 1;
+        de_g = (hdmi_de === 1'b1);
+    end
+
+    task measure_frame_geom;
+        output integer vs_lines;
+        output integer de_lines;
+        integer h0, d0;
+        begin
+            @(posedge hdmi_vs);            // 帧边界 #1
+            h0 = hs_cnt_g; d0 = de_line_cnt_g;
+            @(posedge hdmi_vs);            // 帧边界 #2 ⇒ 正好一帧
+            vs_lines = hs_cnt_g - h0;
+            de_lines = de_line_cnt_g - d0;
+        end
+    endtask
+
+    // ---------------- E-2：心跳半周期的绝对时间 ----------------
+    // 等 5 个 hb 半周期（5*2^16 个像素时钟），除以 5 ⇒ 一个半周期的毫秒数。
+    // mode 3（37.11 MHz）应恰为 mode 1（148.44 MHz）的 4 倍。
+    task measure_hb_half_ms;
+        output real half_ms;
+        time t1, t2;
+        begin
+            t1 = $time;
+            repeat (5*65536) @(posedge pix_clk);
+            t2 = $time;
+            half_ms = $itor(t2 - t1) / 5.0 / 1000000.0;
         end
     endtask
 
@@ -585,14 +688,62 @@ module tb_hdmi_top_cfg;
         if (zero_de_errs != 0) begin fails=fails+1; $display("  FAIL de when enable=0"); end
         if (zero_d_errs  != 0) begin fails=fails+1; $display("  FAIL d when enable=0"); end
 
-        // ---------------------------------------------------------- ⑤ 双时钟切换
+        // ---------------------------------------------------------- ⑤ 三时钟切换
+        // E-3：整段切换期间 init_done 不许掉（它由 AXI 域 I2C 状态机给，与像素时钟无关）
+        initdrop_cnt = 0;
+        initdrop_arm = 1'b1;
         // C-E 的 de_settle 也在这 4 次切换里各测一次（mode 1/3 走 pix_clk_a，mode 2/0 走 pix_clk_b）
         switch_and_measure(2'd1, 1920, 2200, 148.4375);
         hb_check_alive("pix_a");          // C-A @148.44 MHz（mode 1 刚切好，enable=1）
-        switch_and_measure(2'd3, 1920, 2200, 148.4375);   // mode 3 = 1080p60 等价（双时钟位流）
+        measure_hb_half_ms(hb_half_m1);   // E-2 的基准（mode 1）
+        // mode 3 = 720p30（pix_clk_c 37.109 MHz）：H/V 与 720p60 完全相同
+        switch_and_measure(2'd3, 1280, 1650, 37.109375);
+
+        // ---------------- E-1：mode 3 的帧几何 ----------------
+        measure_frame_geom(vs_lines, de_lines);
+        $display("  E-1 mode 3 frame: vs=%0d 行 (exp 750) | de=%0d 行 (exp 720)", vs_lines, de_lines);
+        if (vs_lines != 750) begin
+            fails=fails+1; $display("  FAIL E-1 mode 3 vs 行数 = %0d", vs_lines);
+        end
+        if (de_lines != 720) begin
+            fails=fails+1; $display("  FAIL E-1 mode 3 de 行数 = %0d", de_lines);
+        end
+
+        // ---------------- E-2：mode 3 心跳半周期 = mode 1 的 4 倍 ----------------
+        measure_hb_half_ms(hb_half_m3);
+        hb_ratio = hb_half_m1 / ((hb_half_m3 == 0.0) ? 1.0 : hb_half_m3);
+        $display("  E-2 hb 半周期: mode1=%0.4f ms | mode3=%0.4f ms | mode1 mode3 之比=%0.4f (exp 0.2500)",
+                 hb_half_m1, hb_half_m3, hb_ratio);
+        if ((hb_half_m3 < (4.0 * hb_half_m1 * 0.99)) || (hb_half_m3 > (4.0 * hb_half_m1 * 1.01))) begin
+            fails=fails+1; $display("  FAIL E-2 mode3/mode1 心跳半周期之比不是 4（%0.4f）",
+                                    hb_half_m3 / ((hb_half_m1 == 0.0) ? 1.0 : hb_half_m1));
+        end
+        // 绝对校验：mode3 半周期 = 2^16 / 37.11 MHz = 1.766 ms
+        if ((hb_half_m3 < 1.74) || (hb_half_m3 > 1.79)) begin
+            fails=fails+1; $display("  FAIL E-2 mode3 hb 半周期 %0.4f ms（应 ≈1.766）", hb_half_m3);
+        end
+
+        // ---------------- D-1（mode 3）：彩条逐字节不变 ----------------
+        cmp_pixels = 0; cmp_errs = 0; de_errs = 0; border_errs = 0;
+        frame_start;
+        cmp_en = 1;
+        frame_end;
+        cmp_en = 0;
+        $display("  D-1 mode 3 bar compare: pixels=%0d mismatches=%0d de_errs=%0d border_errs=%0d",
+                 cmp_pixels, cmp_errs, de_errs, border_errs);
+        if (cmp_pixels != 921600) begin fails=fails+1; $display("  FAIL D-1 mode3 pixel count"); end
+        if (cmp_errs   != 0)      begin fails=fails+1; $display("  FAIL D-1 mode3 bar mismatches"); end
+        if (de_errs    != 0)      begin fails=fails+1; $display("  FAIL D-1 mode3 de_errs"); end
+        if (border_errs!= 0)      begin fails=fails+1; $display("  FAIL D-1 mode3 border"); end
+
         switch_and_measure(2'd2, 1920, 2200, 74.21875);
         switch_and_measure(2'd0, 1280, 1650, 74.21875);
         hb_check_alive("pix_b");          // C-A @74.22 MHz（mode 0）
+        initdrop_arm = 1'b0;
+        $display("  E-3 四模式连续切换: init_done 掉 0 的 aclk 拍数 = %0d（要求 0）", initdrop_cnt);
+        if (initdrop_cnt != 0) begin
+            fails=fails+1; $display("  FAIL E-3 切换期间 init_done 掉了 %0d 拍", initdrop_cnt);
+        end
 
         // ---------------------------------------------------------- motion=0 对比
         axi_write(32'h00, 32'h0000_0005);   // enable=1 test=1 motion=0
@@ -791,12 +942,13 @@ module tb_hdmi_top_cfg;
     end
 
     // ------------------------------------------------------------------ 超时
-    // 加了 0x30 PIX_HB 判据（C-A 两组 + C-B 停/启两个窗口）后总时长约 +15 ms，
-    // 因此把硬超时从 300 ms 放宽到 500 ms（只是兜底看门狗，不影响任何判据）。
+    // 时长预算：720p30 一帧 26.7 ms、1080p30 一帧 33.3 ms，光 4 次模式切换（各等 2 帧）
+    // 就 ~185 ms；再加 E-1/E-2/D-1(mode3) 约 60 ms、C-A/C-B/C-C/C-D/C-F 约 30 ms。
+    // 因此硬超时放到 900 ms（只是兜底看门狗，不影响任何判据）。
     integer to_cnt = 0;
     always @(posedge aclk) begin
         to_cnt <= to_cnt + 1;
-        if (to_cnt == 50000000) begin   // 500 ms
+        if (to_cnt == 90000000) begin   // 900 ms
             $display("RESULT: TIMEOUT");
             $finish;
         end

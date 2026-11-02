@@ -3,15 +3,18 @@
 //
 // 需求来源：docs/camera/05_HDMI输出_PS_PL接口契约.md §2/§3/§7.1/§7.3
 //
-// 关键设计决定（2026-11-02 与主代理确认）：
-//   1) 双像素时钟：MMCM 在 P3 的 BD 里产生，本模块只接收两路：
-//        pix_clk_a = 148.4375 MHz（100 × 11.875 / 8，1080p60，-421 ppm）
-//        pix_clk_b =  74.21875 MHz（100 × 11.875 / 16，720p60 / 1080p30，-421 ppm）
-//      内部 BUFG + BUFGMUX，由 VIDEO_MODE[0] 选：
-//        [0]=0 -> pix_clk_b -> mode 0 (720p60, 720p 参数) / mode 2 (1080p30, 1080p 参数)
-//        [0]=1 -> pix_clk_a -> mode 1 (1080p60, 1080p 参数)
-//      mode 3 (640x480) 需要 25.175 MHz，本双时钟位流不支持；运行到 3 等价于
-//      1080p60（单独构建 640x480 时改 MODE_DEFAULT=3 并换像素时钟）。
+// 关键设计决定（2026-11-02 与主代理确认；2026-11-03 追加第三路时钟 + P2 扫描器）：
+//   1) 三像素时钟：MMCM 在 P3 的 BD 里产生（单 VCO 1187.5 MHz），本模块只接收三路：
+//        pix_clk_a = 148.4375 MHz（÷8， mode 1 = 1080p60，-421 ppm）—— 已点亮
+//        pix_clk_b =  74.21875 MHz（÷16，mode 0 = 720p60 / mode 2 = 1080p30）—— 720p60 已点亮
+//        pix_clk_c =  37.109375 MHz（÷32，mode 3 = 720p30）—— **新默认**
+//      内部 3 个 BUFG + **两级 BUFGMUX 串联**，选择码 VIDEO_MODE[1:0]：
+//        00 -> b   01 -> a   10 -> b   11 -> c
+//        sel_148（第一级）= mode[0]；sel_37（第二级）= mode[0] & mode[1]
+//      mode 3 与 mode 0 的 **H/V 参数完全相同**（1650×750 / 1280×720），只差像素时钟
+//      ⇒ 复用同一套 720p 时序发生器与彩条参数，不新增实例。
+//      （原"mode 3 = 640×480"的语义**已作废**：那需要 25.175 MHz，三时钟位流不支持；
+//        要 VGA 只能单独构建并换时钟。）
 //   2) 切换协议（写进 CTRL 文档）：先 CTRL.enable=0 -> 写 VIDEO_MODE ->
 //      等 >= 2 帧 -> CTRL.enable=1。模块内部另加 64 个像素时钟的自动复位，
 //      保证切换瞬间 DE 不出非法脉冲（BUFGMUX 本身 glitchless）。
@@ -25,9 +28,13 @@
 //        pix -> s_axi : vsync 翻转电平 + 2FF + 边沿检测（不直接同步单拍脉冲）。
 //        pix -> s_axi : pix_hb（慢变电平）+ mmcm_locked（单 bit）各一条 2FF；
 //                       二者都不进 pix_rst / soft_rst，也不清 hb_cnt。
-//   5) 0x2C UNDERFLOW_CNT（RO，P1 恒 0；P3 由扫描器驱动）。
+//   5) 0x2C UNDERFLOW_CNT = 扫描器 hdmi_fb_scan 的行级欠载计数器（P2 起真值）；
+//      STATUS[2] = 扫描器 st_underflow 粘滞位。STATUS[2] 用"读 STATUS 清"（st_clr）
+//      与 soft_reset 两条路径清；0x2C 只由 soft_reset 清（与 §7.3 的语义一致）。
 //   6) cfg_upd / fid_upd：AXI 写配置寄存器 / 写 FRAME_ID 的 1 拍脉冲，
-//      与扫描器同在 s_axi_aclk 域，P3 直接接 hdmi_fb_scan 同名输入。
+//      与扫描器同在 s_axi_aclk 域，**直接接** hdmi_fb_scan 同名输入。
+//      注意 cfg_upd 的触发地址含 0x00（CTRL）—— 否则写 CTRL.enable 时扫描器收不到
+//      cfg_enable 的更新（P2 集成时补上）。
 //   7) 0x30 PIX_HB（2026-11-03 事故驱动，契约 §8.2）：这是**唯一**能在"像素时钟
 //      死掉"时仍然可读的"体检"寄存器 —— 它是 AXI 时钟域的，数据源只是两个单 bit
 //      2FF 同步链，因此 pix_clk 停摆时它读回稳定值（不跳、不挂总线）。
@@ -36,15 +43,28 @@
 //      mmcm_locked 只做状态上报（2FF），**不**参与任何复位/门控：
 //      像素域的复位仍只看 aresetn / pwr_good / soft_reset / 模式切换（契约 §8.1：
 //      AXI 侧逻辑绝不许被 PL 侧 MMCM 锁定门控）。
+//   8) P2：在**本模块内部**例化扫描器 hdmi_fb_scan（BD 里仍只有 hdmi_p1_top_0 一个
+//      cell，避免地址图出现两套）。数据通路二选一，由 CTRL[2] test_pattern 决定：
+//        test_pattern=1 -> 彩条（**与 P1 逐字节一致，不动**）
+//        test_pattern=0 -> 扫描器像素流
+//      · hs/vs 永远来自同一套 hdmi_timing_gen，**只有数据与 de 参与选择**；
+//      · 选择在 **vsync 边界**采纳（scan_sel），帧中途写 CTRL 不生效（防撕裂）；
+//      · 扫描器的 pix_rgb 比时序晚 1 拍（行缓冲 BRAM 读），所以扫描模式下
+//        hdmi_de 用扫描器的 pix_de（= v_de 延迟 1 拍，宽度不变），
+//        这样 de 与 rgb 严格同拍；彩条模式下 de 仍是 v_de（0 延迟）⇒ D-1 回归不变；
+//      · 扫描器的 cfg_enable = ctrl_enable && !ctrl_test（都在 AXI 域）：彩条模式
+//        下扫描器不去 DDR 白读带宽；
+//      · m_axi_* 顶层端口直接接扫描器读主口（BD 侧接 S_AXI_HP0），本模块不再
+//        把它们绑常数。
 //
 // 寄存器图（32-bit，4 字节对齐）：
 //   0x00 CTRL  RW [0]enable [1]soft_reset(写1自清) [2]test_pattern
 //                 [3]frame_swap_req [4]motion_en
-//   0x04 STATUS RO [0]init_done [1]vsync(读清) [2]scan_underflow(P1=0)
+//   0x04 STATUS RO [0]init_done [1]vsync(读清) [2]scan_underflow(扫描器粘滞，读清)
 //   0x08 VIDEO_MODE RW [1:0]，复位=MODE_DEFAULT（默认 1=1080p60）
 //   0x0C FB_ADDR_LO 0x10 FB_ADDR_HI 0x14 FB_STRIDE 0x18 FB_W 0x1C FB_H
-//   0x20 FRAME_ID RW   0x24 FRAME_ID_LATCHED RO(P1=0)   0x28 PIXEL_FMT RW
-//   0x2C UNDERFLOW_CNT RO (P1=0)
+//   0x20 FRAME_ID RW   0x24 FRAME_ID_LATCHED RO(扫描器)   0x28 PIXEL_FMT RW
+//   0x2C UNDERFLOW_CNT RO（扫描器行级欠载行数，soft_reset 清）
 //   0x30 PIX_HB RO [0]pix_hb（像素域自由计数 bit16，2FF 到 aclk）
 //                  [1]mmcm_locked（外部输入，2FF 到 aclk）
 //                  [31:2] 保留，读 0
@@ -52,14 +72,15 @@
 `timescale 1ns / 1ps
 
 module hdmi_out_top #(
-    parameter integer MODE_DEFAULT = 1,          // 0=720p60 1=1080p60 2=1080p30 3=640x480*
+    parameter integer MODE_DEFAULT = 3,          // 3=720p30(默认) 0=720p60 1=1080p60 2=1080p30
     parameter integer AXI_HZ       = 100_000_000
 ) (
     // ---- 时钟/复位 ----
     input  wire        s_axi_aclk,
     input  wire        aresetn,
-    input  wire        pix_clk_a,        // 148.4375 MHz（BD MMCM CLKOUT0）
-    input  wire        pix_clk_b,        //  74.21875 MHz（BD MMCM CLKOUT1）
+    input  wire        pix_clk_a,        // 148.4375 MHz（BD MMCM CLKOUT0，mode 1）
+    input  wire        pix_clk_b,        //  74.21875 MHz（BD MMCM CLKOUT1，mode 0/2）
+    input  wire        pix_clk_c,        //  37.109375 MHz（BD MMCM CLKOUT2，mode 3=720p30）
     input  wire        mmcm_locked,      // BD MMCM.locked（只做 0x30[1] 状态上报）
 
     // ---- AXI4-Lite 配置页 ----
@@ -96,19 +117,39 @@ module hdmi_out_top #(
     output wire        fid_upd           // P3 接 hdmi_fb_scan.fid_upd
 );
 
-    // ---------------------------------------------------------------- 双时钟选择
-    wire clk_a_buf, clk_b_buf;
+    // ---------------------------------------------------------------- 三时钟选择
+    // MMCM（P3 BD）单 VCO = 1187.5 MHz，三个输出：
+    //   CLKOUT0 ÷8  = 148.4375 MHz -> pix_clk_a（mode 1 = 1080p60，已点亮）
+    //   CLKOUT1 ÷16 =  74.21875 MHz -> pix_clk_b（mode 0 = 720p60，已点亮）
+    //   CLKOUT2 ÷32 =  37.109375 MHz -> pix_clk_c（mode 3 = 720p30，**新默认**）
+    // 选择码 VIDEO_MODE[1:0]：
+    //   00 -> b   01 -> a   10 -> b   11 -> c
+    //   ⇒ sel_a（第一级）= mode[0]；sel_c（第二级）= mode[0] & mode[1]
+    // · 两级 BUFGMUX 串联（不是三选一 LUT 树）：每一级都是 glitchless 的专用原语；
+    //   未选中的那一路时钟必须"存在且稳定"，这是 BD 里 MMCM 三路输出的前提。
+    // · 切换协议不变：先 CTRL.enable=0 → 写 VIDEO_MODE → 等 ≥2 帧 → enable=1；
+    //   模块内另有 64 个像素时钟的自动复位（mode_rst_cnt），保证切换瞬间 DE 无非法脉冲。
+    wire clk_a_buf, clk_b_buf, clk_c_buf;
     BUFG u_bufg_a (.I(pix_clk_a), .O(clk_a_buf));
     BUFG u_bufg_b (.I(pix_clk_b), .O(clk_b_buf));
+    BUFG u_bufg_c (.I(pix_clk_c), .O(clk_c_buf));
 
     wire pix_clk_i;
-    wire sel_148;
+    wire sel_148;                    // 第一级：0=b(74.22) 1=a(148.44)
+    wire sel_37;                     // 第二级：0=第一级输出 1=c(37.11)
+    wire pix_clk_ab;
 
-    // I0=74.21875, I1=148.4375；S 由 pix 域同步后的 VIDEO_MODE[0] 驱动
     BUFGMUX u_bufgmux (
         .I0 (clk_b_buf),
         .I1 (clk_a_buf),
         .S  (sel_148),
+        .O  (pix_clk_ab)
+    );
+
+    BUFGMUX u_bufgmux_c (
+        .I0 (pix_clk_ab),
+        .I1 (clk_c_buf),
+        .S  (sel_37),
         .O  (pix_clk_i)
     );
 
@@ -196,20 +237,35 @@ module hdmi_out_top #(
     assign s_axi_rdata   = rdata_r;
     assign s_axi_rvalid  = rvalid;
 
-    assign m_axi_araddr  = 32'h0000_0000;
-    assign m_axi_arlen   = 8'd0;
-    assign m_axi_arsize  = 3'b011;
-    assign m_axi_arburst = 2'b01;
-    assign m_axi_arvalid = 1'b0;
-    assign m_axi_rready  = 1'b1;
+    // ---- AXI4 读主：由扫描器 u_scan 驱动（P2 集成；P1 时这些线是常数）----
+    wire [31:0] scan_araddr;
+    wire [7:0]  scan_arlen;
+    wire [2:0]  scan_arsize;
+    wire [1:0]  scan_arburst;
+    wire        scan_arvalid;
+    wire        scan_rready;
+    wire        st_clr;              // STATUS[2] 读清脉冲（在文件后半段生成，此处先声明）
+
+    assign m_axi_araddr  = scan_araddr;
+    assign m_axi_arlen   = scan_arlen;
+    assign m_axi_arsize  = scan_arsize;
+    assign m_axi_arburst = scan_arburst;
+    assign m_axi_arvalid = scan_arvalid;
+    assign m_axi_rready  = scan_rready;
 
     // ---------------------------------------------------------------- 读数据 mux
+    // 扫描器回读线（下面 u_scan 例化处驱动）
+    wire [31:0] scan_fid_latched;
+    wire        scan_st_underflow;
+    wire        scan_st_vsync_seen;
+    wire [31:0] scan_underflow_cnt;
+
     function [31:0] rd_mux;
         input [31:0] a;
         begin
             case (a[7:2])
                 6'h00:   rd_mux = {27'd0, ctrl_motion, ctrl_fswap, ctrl_test, 1'b0, ctrl_enable};
-                6'h01:   rd_mux = {29'd0, 1'b0, status_vsync, init_done};
+                6'h01:   rd_mux = {29'd0, scan_st_underflow, status_vsync, init_done};
                 6'h02:   rd_mux = {30'd0, video_mode};
                 6'h03:   rd_mux = fb_addr_lo;
                 6'h04:   rd_mux = fb_addr_hi;
@@ -217,20 +273,21 @@ module hdmi_out_top #(
                 6'h06:   rd_mux = fb_w;
                 6'h07:   rd_mux = fb_h;
                 6'h08:   rd_mux = frame_id;
-                6'h09:   rd_mux = 32'd0;              // FRAME_ID_LATCHED（P2）
+                6'h09:   rd_mux = scan_fid_latched;    // 0x24 FRAME_ID_LATCHED（扫描器）
                 6'h0A:   rd_mux = pixel_fmt;
-                6'h0B:   rd_mux = 32'd0;              // UNDERFLOW_CNT（P3 扫描器驱动）
+                6'h0B:   rd_mux = scan_underflow_cnt;  // 0x2C UNDERFLOW_CNT（扫描器）
                 6'h0C:   rd_mux = {30'd0, lk_sync, hb_sync};   // 0x30 PIX_HB（RO）
                 default: rd_mux = 32'd0;              // 越界回 0，不挂总线
             endcase
         end
     endfunction
 
-    // ---------------------------------------------------------------- P2 预留脉冲
-    wire cfg_hit = (awaddr_r[7:2] == 6'h02) || (awaddr_r[7:2] == 6'h03) ||
-                   (awaddr_r[7:2] == 6'h04) || (awaddr_r[7:2] == 6'h05) ||
-                   (awaddr_r[7:2] == 6'h06) || (awaddr_r[7:2] == 6'h07) ||
-                   (awaddr_r[7:2] == 6'h0A);
+    // ---------------------------------------------------------------- 配置写脉冲
+    // 0x00 必须在名单里：CTRL.enable 变了要通知扫描器刷新 cfg_enable。
+    wire cfg_hit = (awaddr_r[7:2] == 6'h00) || (awaddr_r[7:2] == 6'h02) ||
+                   (awaddr_r[7:2] == 6'h03) || (awaddr_r[7:2] == 6'h04) ||
+                   (awaddr_r[7:2] == 6'h05) || (awaddr_r[7:2] == 6'h06) ||
+                   (awaddr_r[7:2] == 6'h07) || (awaddr_r[7:2] == 6'h0A);
 
     reg cfg_upd_r, fid_upd_r;
 
@@ -395,8 +452,12 @@ module hdmi_out_top #(
         end
     end
 
-    assign sel_148 = mode_pix[0];
-    wire   is_720  = (mode_pix == 2'd0);
+    // 选择码：00->b 01->a 10->b 11->c
+    assign sel_148 = mode_pix[0];                       // 第一级 b/a
+    assign sel_37  = mode_pix[0] & mode_pix[1];          // 第二级：只有 11 才选 c
+    // mode 0 = 720p60（b）与 mode 3 = 720p30（c）**H/V 参数完全相同**，只差像素时钟
+    // ⇒ 复用同一套 720p 时序发生器/彩条参数，不新增实例（省 LUT，也避免两份参数漂移）。
+    wire   is_720  = (mode_pix == 2'd0) || (mode_pix == 2'd3);
 
     // ---------------------------------------------------------------- 配置位 2FF
     reg [2:0] cfg_meta, cfg_sync;
@@ -520,13 +581,106 @@ module hdmi_out_top #(
 
     wire [23:0] bar_rgb = is_720 ? bar720 : bar1080;
 
+    // ================================================================ P2 扫描器
+    // 帧边界采纳 test_pattern（与扫描器采纳 FRAME_ID 用的是同一个 vsync 上升沿）：
+    //   vs_rise = v_vs 的上升沿 = 场同步脉冲开始那一拍（在有效区之前 25/45 行）。
+    //   ⇒ 帧中途写 CTRL[2] 不会当场改画面，只在下一个 vsync 边界生效（D-3）。
+    wire vs_rise = (v_vs && !vs_d_pix);
+    reg  scan_sel;                        // 1 = 彩条，0 = 扫描器
+
+    always @(posedge pix_clk_i) begin
+        if (pix_rst)               scan_sel <= 1'b1;    // 复位后与 CTRL 默认 test=1 一致
+        else if (vs_rise)          scan_sel <= cfg_test;
+    end
+
+    wire        scan_pix_de, scan_pix_valid;
+    wire [11:0] scan_pix_x, scan_pix_y;
+    wire [23:0] scan_pix_rgb;
+
+    hdmi_fb_scan #(
+        .LINE_AW (11),                   // 2048 像素行缓冲（支持到 1920 宽）
+        .PIX_W   (12)
+    ) u_scan (
+        .s_axi_aclk      (s_axi_aclk),
+        .aresetn         (aresetn),
+
+        .cfg_fb_addr_lo  (fb_addr_lo),
+        .cfg_fb_addr_hi  (fb_addr_hi),
+        .cfg_fb_stride   (fb_stride),
+        .cfg_fb_w        (fb_w[15:0]),
+        .cfg_fb_h        (fb_h[15:0]),
+        .cfg_frame_id    (frame_id),
+        .fid_upd         (fid_upd_r),
+        .cfg_upd         (cfg_upd_r),
+        // 彩条模式不再去 DDR 白读带宽（AXI 域信号，不跨域）
+        .cfg_enable      (ctrl_enable && !ctrl_test),
+        .cfg_soft_reset  (soft_rst_axi),
+
+        .frame_id_latched(scan_fid_latched),
+        .st_underflow    (scan_st_underflow),
+        .st_vsync_seen   (scan_st_vsync_seen),
+        .underflow_cnt   (scan_underflow_cnt),
+        .st_clr          (st_clr),
+
+        .m_axi_araddr    (scan_araddr),
+        .m_axi_arlen     (scan_arlen),
+        .m_axi_arsize    (scan_arsize),
+        .m_axi_arburst   (scan_arburst),
+        .m_axi_arvalid   (scan_arvalid),
+        .m_axi_arready   (m_axi_arready),
+        .m_axi_rdata     (m_axi_rdata),
+        .m_axi_rresp     (m_axi_rresp),
+        .m_axi_rlast     (m_axi_rlast),
+        .m_axi_rvalid    (m_axi_rvalid),
+        .m_axi_rready    (scan_rready),
+
+        .pix_clk         (pix_clk_i),
+        .pix_aresetn     (~pix_rst),
+        .in_vde          (v_de),
+        .in_vx           (v_x[11:0]),
+        .in_vy           (v_y[11:0]),
+        .in_vsync        (vs_rise),
+
+        .pix_de          (scan_pix_de),
+        .pix_x           (scan_pix_x),
+        .pix_y           (scan_pix_y),
+        .pix_rgb         (scan_pix_rgb),
+        .pix_valid       (scan_pix_valid)
+    );
+
     // ---------------------------------------------------------------- 输出
+    // 关键：两种源的 hs/vs 永远来自同一套 hdmi_timing_gen，**只切数据与 de**。
+    // · 扫描器的 pix_rgb 比 v_de 晚 1 拍（行缓冲 BRAM 读）⇒ 扫描模式必须用
+    //   scan_pix_de（= v_de 延迟 1 拍、宽度不变），de 与 rgb 才同拍；
+    // · 彩条模式仍用 v_de（0 延迟、原表达式）⇒ P1 像素流逐字节不变（D-1）。
+    wire        de_out  = scan_sel ? v_de : scan_pix_de;
+    wire [23:0] rgb_out = scan_sel ? bar_rgb
+                                   : (scan_pix_valid ? scan_pix_rgb : 24'h00_00_00);
+
     assign hdmi_hs = v_hs;
     assign hdmi_vs = v_vs;
-    assign hdmi_de = v_de && cfg_enable;
-    assign hdmi_d  = (v_de && cfg_enable && cfg_test) ? bar_rgb : 24'h00_00_00;
+    assign hdmi_de = de_out && cfg_enable;
+    assign hdmi_d  = (de_out && cfg_enable) ? rgb_out : 24'h00_00_00;
 
     assign irq_vsync = v_vs;
+
+    // ---------------------------------------------------------------- STATUS[2] 读清
+    // 扫描器的 uf_sticky 在**像素域**，"读 STATUS 清"必须跨到 pix 域。
+    // 单拍 aclk 脉冲只有 10 ns < pix_clk 周期（26.9 ns in mode 3）⇒ pix 侧可能整拍漏采，
+    // 所以把它**拉宽成 16 个 aclk 的电平**（≥160 ns ≫ 26.9 ns）。
+    // 扫描器用的是同步后的**电平**（st_s[1]），不是边沿检测 ⇒ 电平式即可靠。
+    // 另外：这里刻意**不加新的是顶层端口** —— STATUS 的"读清"语义本来就属于本模块
+    // （STATUS[1] 一直就是这么做的），加端口只会让 BD 包装多一层而没有任何好处。
+    reg [4:0] st_clr_cnt;
+    wire      st_clr_hit = ar_hs && (s_axi_araddr[7:2] == 6'h01);   // 读 0x04 STATUS
+
+    always @(posedge s_axi_aclk) begin
+        if (!aresetn)               st_clr_cnt <= 5'd0;
+        else if (st_clr_hit)        st_clr_cnt <= 5'd16;
+        else if (st_clr_cnt != 5'd0) st_clr_cnt <= st_clr_cnt - 5'd1;
+    end
+
+    assign st_clr = (st_clr_cnt != 5'd0);
 
     // ---------------------------------------------------------------- vsync 回读
     reg vs_tog;
