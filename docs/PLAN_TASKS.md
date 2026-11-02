@@ -204,3 +204,5 @@ T-44 负例实测：把 `mmio_batch` 两行从清单里删掉，`md5sum -c` **�
 - T-66 只改 PetaLinux 工程的 `project-spec/`，**不许碰** `ps/pynq/`（那是 T-15/T-16 的地盘）。
 - T-67 只新增 RTL 与一个独立 ps 模块，**不许改**位流里既有单元；新位流必须重新过 §3.3 的上板门槛。
 - 二者都**不阻塞**板端主线的上板排队（摄像头要重建镜像；HDMI 跟 overlay 走）。
+
+| **T-68** | 显示构图（纯 PS）：左原图/右处理图 512×256 → 撑满宽度+上下填黑 → PNG/缓冲 | 待分派 | ① 4 种显示模式自检 PASS ② 像素判据（左来源/右来源/黑边高度=公式值/首末行全黑） ③ 同输入两次逐字节相同 ④ 板端 PNG md5 与主机一致 | `ps/pynq/display_layout.py` + `tools/display_selftest.py`；`runs/display_layout/`；规范 `docs/camera/03_显示构图规范_纯PS.md` | **待分派** | 不依赖 PL/位流；板测等机器空闲 |
