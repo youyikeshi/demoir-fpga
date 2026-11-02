@@ -6615,3 +6615,23 @@ $$\Rightarrow\ \text{网表证据：}\mathtt{pix\_q}\ \text{FD 位数 } 32\to\ma
 $$\Rightarrow\ \text{LUT } \mathbf{23130(+1634)}：\text{全在}\textbf{综合}阶段，\text{落点 } \mathtt{g\_conv.u\_catpack}\ (+1666)，\text{活数据通路只 }+48$$
 $$\quad\ \Rightarrow\ \mathtt{u\_catpack}\ \text{是已功能性否决 + } \mathtt{false\_path}\ \text{的模块，不影响 WNS} \Rightarrow \textbf{我裁决接受}$$
 $$\Rightarrow\ \text{bit } \mathtt{15a37de5}，\mathtt{.hwh}\ \text{与 v53 同一份}$$
+
+### 70.92 ★★★★★ T-127：单段交接被证伪，但挖出**唯一没测过的真实口径**（2026-11-03 04:1x）
+
+**链式两 op 在 128² 全对（两种交接都测）**
+$$\Rightarrow\ \text{CHAIN\_D}：\mathtt{E1E2}\ \textbf{直接读 } A\ \text{的 OUT 槽（物理地址）打包、直写 } B\ \text{的 IN（PS 完全不碰激活）}$$
+$$\Rightarrow\ \text{CHAIN\_P}：\text{整网实际跑点（}\mathtt{read\_out}\to\text{PS 量化}\to\mathtt{E1E2}\to\mathtt{push\_input}）$$
+$$\Rightarrow\ \Rightarrow\ A\ \text{与参照逐字节同};\ B\ \textbf{0/131072};\ B\ \text{的 IN 里 act 字节 } \mathbf{0/32768};\ \text{越界 0\ \text{B}};\ \textbf{2 跑同一 sha1}$$
+$$\Rightarrow\ \text{对照 1（PS 直喂 } B）\text{全对};\ \text{CTL2（}\mathtt{E1E2}\ \text{从 PS 写进 DDR 的 } \mathtt{refA\_c8}\ \text{打包）也全对}$$
+$$\quad\ \Rightarrow\ \textbf{差别不在"源缓冲是 PL 写还是 PS 写"，也不在 E1E2 的 C8 读布局/阈值/地址算术}$$
+$$\Rightarrow\ \text{对照 2（64² 链式）全对}; \text{主机侧用}\textbf{实际交接字节}重算 conv_rtl，8/8 组合 0 错}$$
+$$\Rightarrow\ \Rightarrow\ \textbf{"单段、d=0 的层间 C8 交接"被证伪}$$
+
+**★ 但它从真实图里找到了唯一没测过的维度**
+$$\Rightarrow\ \text{真实 112 通道消费者} = \text{整网 } \mathtt{op15}\ (\mathtt{b0.ghost\_layers.1.primary\_conv},\ \mathtt{fs\_in}=\mathbf{4})$$
+$$\Rightarrow\ \text{其输入是 } \mathtt{cat\_prev} = [\ x_1(32,\mathtt{fs\_out}\mathbf{5})\ \|\ x_2(32,\mathtt{fs\_out}\mathbf{4})\ \|\ tt(48,\mathtt{f32})\ ]$$
+$$\Rightarrow\ \Rightarrow\ \textbf{一次 E1E2 打包里}：\mathbf{2\ \text{个 i8 段（来自两个不同 conv 的 OUT 槽）} + 1\ \text{个 f32 段}}$$
+$$\Rightarrow\ \Rightarrow\ \text{段 0 的 } d = 4-5 = \mathbf{-1} \Rightarrow \textbf{右移 + rint}，\text{走 } \mathtt{closed\_form\_thr\_vec}\ \text{的 }\mathbf{neg}\ \text{分支}$$
+$$\Rightarrow\ \Rightarrow\ \textbf{而本轮只打了"单段 + } d{=}0\text{"} \Rightarrow \textbf{neg 分支从未上过板}$$
+$$\Rightarrow\ \textbf{这条完美解释"为什么从 } \mathtt{op13/op15}\ \text{起错"}：\text{那正是整网里}\textbf{第一个多段混尺度输入}$$
+$$\quad\ \Rightarrow\ \text{op1 convfp、rdb 链的输入都是单段} \Rightarrow \text{所以前 12 个 op 全对}$$

@@ -1,0 +1,972 @@
+{
+ "env_at_start": {
+  "BIN_PACK": "e1e2",
+  "BIN_LAZY_DEQ": "0",
+  "BIN_LAZY_SLOTS": "24",
+  "BIN_CAT_FUSION": "1",
+  "BIN_BILINEAR_C": "1",
+  "BIN_PRECOMP": "1",
+  "Q8CACHE": "1",
+  "BIN_F32DIRECT": "1",
+  "BIN_CAT_ECA_FUSE": "1",
+  "BIN_EPI_NOINV": "1",
+  "BIN_PROFILE": "1",
+  "BIN_V50_FUSE": "",
+  "BIN_VLANES": ""
+ },
+ "steps": {
+  "load": {
+   "bit": "/home/xilinx/demoir/design_1_150v53.bit",
+   "seconds": 2.5016,
+   "ips": [
+    "bin_unit_0",
+    "conv_uni_0",
+    "ps7"
+   ],
+   "has_fconv": false,
+   "addr": {
+    "conv_uni_0": {
+     "base": "0x40040000",
+     "length": 131072,
+     "ok": true
+    },
+    "bin_unit_0": {
+     "base": "0x40060000",
+     "length": 131072,
+     "ok": true
+    }
+   },
+   "magic": {
+    "CFG+0x314": {
+     "abs_addr": "0x40070314",
+     "hex": "0x50300001"
+    },
+    "0x310 CHAIN_STATUS": {
+     "abs_addr": "0x40060310",
+     "hex": "0x00000000"
+    },
+    "0x308 BAND_ROWS": {
+     "abs_addr": "0x40060308",
+     "hex": "0x00000000"
+    }
+   },
+   "magic_ok": true,
+   "magic_required": true,
+   "fclk0_at_load": 125.0,
+   "downloads": 1,
+   "fp_ok": true
+  },
+  "deps": {
+   "line": "[DEPS] q8=fast c8deq=fast bpack=fast e1e2=fast catpack=fast safe=fast  ⇒ deps_closure_ok=True",
+   "closure_ok": true
+  },
+  "e1e2": {
+   "ok": true
+  },
+  "layers": {
+   "A": {
+    "name": "encoder.encoder_1.sam_blocks.0.b4.ghost_layers.1.primary_conv.conv",
+    "idx": 28,
+    "cin": 112,
+    "cout": 32,
+    "k": 1,
+    "s": 1,
+    "pad": 0,
+    "shift": 4,
+    "fs_in": 4,
+    "fs_out": 5
+   },
+   "A1": {
+    "name": "encoder.encoder_1.sam_blocks.0.b0.ghost_layers.1.primary_conv.conv",
+    "idx": 6,
+    "fs_in": 4,
+    "fs_out": 4
+   },
+   "B": {
+    "name": "encoder.encoder_1.sam_blocks.0.b0.ghost_layers.0.cheap_operation.conv",
+    "idx": 5,
+    "cin": 32,
+    "cout": 32,
+    "k": 3,
+    "s": 1,
+    "pad": 1,
+    "shift": 5,
+    "fs_in": 5,
+    "fs_out": 4
+   }
+  },
+  "chain": {
+   "geoms": [
+    {
+     "H": 64,
+     "W": 64,
+     "npix": 4096,
+     "cases": [
+      {
+       "key": "CTL1_PSffed",
+       "kind": "B 的输入由 PS 直喂（不经 A）；判据：应全对",
+       "outB": {
+        "n": 131072,
+        "nbad": 0,
+        "first": null,
+        "last": null,
+        "sha1_got": "58bb5250ef6a26d653f72a1a028c7fcef6445c3a",
+        "sha1_ref": "58bb5250ef6a26d653f72a1a028c7fcef6445c3a",
+        "tail_all_wrong": false
+       },
+       "oobB": 0,
+       "sha1_B": "58bb5250ef6a26d653f72a1a028c7fcef6445c3a",
+       "act": {
+        "n": 32768,
+        "nbad": 0,
+        "first": null,
+        "last": null,
+        "sha1_got": "94accab21496abcf97249a0d2568ccc69ca602a1",
+        "sha1_ref": "94accab21496abcf97249a0d2568ccc69ca602a1",
+        "tail_all_wrong": false
+       }
+      },
+      {
+       "key": "CTL2_PSsrc",
+       "kind": "E1E2 从 PS 写的 refA_c8 打包；判据：应全对",
+       "outB": {
+        "n": 131072,
+        "nbad": 0,
+        "first": null,
+        "last": null,
+        "sha1_got": "58bb5250ef6a26d653f72a1a028c7fcef6445c3a",
+        "sha1_ref": "58bb5250ef6a26d653f72a1a028c7fcef6445c3a",
+        "tail_all_wrong": false
+       },
+       "oobB": 0,
+       "sha1_B": "58bb5250ef6a26d653f72a1a028c7fcef6445c3a",
+       "act": {
+        "n": 32768,
+        "nbad": 0,
+        "first": null,
+        "last": null,
+        "sha1_got": "94accab21496abcf97249a0d2568ccc69ca602a1",
+        "sha1_ref": "94accab21496abcf97249a0d2568ccc69ca602a1",
+        "tail_all_wrong": false
+       }
+      },
+      {
+       "key": "CHAIN_D_it1",
+       "kind": "E1E2 直读 A 的 OUT 槽（PS 不碰激活）",
+       "outB": {
+        "n": 131072,
+        "nbad": 0,
+        "first": null,
+        "last": null,
+        "sha1_got": "58bb5250ef6a26d653f72a1a028c7fcef6445c3a",
+        "sha1_ref": "58bb5250ef6a26d653f72a1a028c7fcef6445c3a",
+        "tail_all_wrong": false
+       },
+       "oobB": 0,
+       "sha1_B": "58bb5250ef6a26d653f72a1a028c7fcef6445c3a",
+       "act": {
+        "n": 32768,
+        "nbad": 0,
+        "first": null,
+        "last": null,
+        "sha1_got": "94accab21496abcf97249a0d2568ccc69ca602a1",
+        "sha1_ref": "94accab21496abcf97249a0d2568ccc69ca602a1",
+        "tail_all_wrong": false
+       },
+       "oob_act_B_in": 0,
+       "A_slot_intact": true
+      },
+      {
+       "key": "CHAIN_P_it1",
+       "kind": "read_out→PS 量化→E1E2→push_input（= 整网跑点）",
+       "outB": {
+        "n": 131072,
+        "nbad": 0,
+        "first": null,
+        "last": null,
+        "sha1_got": "58bb5250ef6a26d653f72a1a028c7fcef6445c3a",
+        "sha1_ref": "58bb5250ef6a26d653f72a1a028c7fcef6445c3a",
+        "tail_all_wrong": false
+       },
+       "oobB": 0,
+       "sha1_B": "58bb5250ef6a26d653f72a1a028c7fcef6445c3a",
+       "act": {
+        "n": 32768,
+        "nbad": 0,
+        "first": null,
+        "last": null,
+        "sha1_got": "94accab21496abcf97249a0d2568ccc69ca602a1",
+        "sha1_ref": "94accab21496abcf97249a0d2568ccc69ca602a1",
+        "tail_all_wrong": false
+       }
+      },
+      {
+       "key": "CHAIN_D_it2",
+       "kind": "E1E2 直读 A 的 OUT 槽（PS 不碰激活）",
+       "outB": {
+        "n": 131072,
+        "nbad": 0,
+        "first": null,
+        "last": null,
+        "sha1_got": "58bb5250ef6a26d653f72a1a028c7fcef6445c3a",
+        "sha1_ref": "58bb5250ef6a26d653f72a1a028c7fcef6445c3a",
+        "tail_all_wrong": false
+       },
+       "oobB": 0,
+       "sha1_B": "58bb5250ef6a26d653f72a1a028c7fcef6445c3a",
+       "act": {
+        "n": 32768,
+        "nbad": 0,
+        "first": null,
+        "last": null,
+        "sha1_got": "94accab21496abcf97249a0d2568ccc69ca602a1",
+        "sha1_ref": "94accab21496abcf97249a0d2568ccc69ca602a1",
+        "tail_all_wrong": false
+       },
+       "oob_act_B_in": 0,
+       "A_slot_intact": true
+      },
+      {
+       "key": "CHAIN_P_it2",
+       "kind": "read_out→PS 量化→E1E2→push_input（= 整网跑点）",
+       "outB": {
+        "n": 131072,
+        "nbad": 0,
+        "first": null,
+        "last": null,
+        "sha1_got": "58bb5250ef6a26d653f72a1a028c7fcef6445c3a",
+        "sha1_ref": "58bb5250ef6a26d653f72a1a028c7fcef6445c3a",
+        "tail_all_wrong": false
+       },
+       "oobB": 0,
+       "sha1_B": "58bb5250ef6a26d653f72a1a028c7fcef6445c3a",
+       "act": {
+        "n": 32768,
+        "nbad": 0,
+        "first": null,
+        "last": null,
+        "sha1_got": "94accab21496abcf97249a0d2568ccc69ca602a1",
+        "sha1_ref": "94accab21496abcf97249a0d2568ccc69ca602a1",
+        "tail_all_wrong": false
+       }
+      }
+     ],
+     "all_ok": true,
+     "ref": {
+      "seed": 20261167,
+      "xA_sha1": "9c541fa5a7669adffe9a1f98d787be2df3328bdb",
+      "refA_c8": "a7d84f6d1f7a08367ebe448119ee93bf5e1b9256",
+      "actB_ref": "94accab21496abcf97249a0d2568ccc69ca602a1",
+      "refB_c8": "58bb5250ef6a26d653f72a1a028c7fcef6445c3a",
+      "d": 0,
+      "fs_in_B": 5,
+      "fs_out_A": 5,
+      "xq_int_eq_float": true,
+      "seconds": 1.906
+     },
+     "A_single": {
+      "out": {
+       "n": 131072,
+       "nbad": 0,
+       "first": null,
+       "last": null,
+       "sha1_got": "a7d84f6d1f7a08367ebe448119ee93bf5e1b9256",
+       "sha1_ref": "a7d84f6d1f7a08367ebe448119ee93bf5e1b9256",
+       "tail_all_wrong": false
+      },
+      "oob": 0,
+      "wall": 0.0082,
+      "cyc": 273550,
+      "st310": "0x00000403",
+      "sha1": "a7d84f6d1f7a08367ebe448119ee93bf5e1b9256"
+     },
+     "CTL1": {
+      "key": "CTL1_PSffed",
+      "kind": "B 的输入由 PS 直喂（不经 A）；判据：应全对",
+      "outB": {
+       "n": 131072,
+       "nbad": 0,
+       "first": null,
+       "last": null,
+       "sha1_got": "58bb5250ef6a26d653f72a1a028c7fcef6445c3a",
+       "sha1_ref": "58bb5250ef6a26d653f72a1a028c7fcef6445c3a",
+       "tail_all_wrong": false
+      },
+      "oobB": 0,
+      "sha1_B": "58bb5250ef6a26d653f72a1a028c7fcef6445c3a",
+      "act": {
+       "n": 32768,
+       "nbad": 0,
+       "first": null,
+       "last": null,
+       "sha1_got": "94accab21496abcf97249a0d2568ccc69ca602a1",
+       "sha1_ref": "94accab21496abcf97249a0d2568ccc69ca602a1",
+       "tail_all_wrong": false
+      }
+     },
+     "CTL2": {
+      "key": "CTL2_PSsrc",
+      "kind": "E1E2 从 PS 写的 refA_c8 打包；判据：应全对",
+      "outB": {
+       "n": 131072,
+       "nbad": 0,
+       "first": null,
+       "last": null,
+       "sha1_got": "58bb5250ef6a26d653f72a1a028c7fcef6445c3a",
+       "sha1_ref": "58bb5250ef6a26d653f72a1a028c7fcef6445c3a",
+       "tail_all_wrong": false
+      },
+      "oobB": 0,
+      "sha1_B": "58bb5250ef6a26d653f72a1a028c7fcef6445c3a",
+      "act": {
+       "n": 32768,
+       "nbad": 0,
+       "first": null,
+       "last": null,
+       "sha1_got": "94accab21496abcf97249a0d2568ccc69ca602a1",
+       "sha1_ref": "94accab21496abcf97249a0d2568ccc69ca602a1",
+       "tail_all_wrong": false
+      }
+     },
+     "chain": {
+      "runs": [
+       {
+        "it": 1,
+        "A": {
+         "out": {
+          "n": 131072,
+          "nbad": 0,
+          "first": null,
+          "last": null,
+          "sha1_got": "a7d84f6d1f7a08367ebe448119ee93bf5e1b9256",
+          "sha1_ref": "a7d84f6d1f7a08367ebe448119ee93bf5e1b9256",
+          "tail_all_wrong": false
+         },
+         "oob": 0,
+         "sha1": "a7d84f6d1f7a08367ebe448119ee93bf5e1b9256",
+         "cyc": 273776,
+         "st310": "0x00000403",
+         "pa": "0x30318080"
+        },
+        "D": {
+         "key": "CHAIN_D_it1",
+         "kind": "E1E2 直读 A 的 OUT 槽（PS 不碰激活）",
+         "outB": {
+          "n": 131072,
+          "nbad": 0,
+          "first": null,
+          "last": null,
+          "sha1_got": "58bb5250ef6a26d653f72a1a028c7fcef6445c3a",
+          "sha1_ref": "58bb5250ef6a26d653f72a1a028c7fcef6445c3a",
+          "tail_all_wrong": false
+         },
+         "oobB": 0,
+         "sha1_B": "58bb5250ef6a26d653f72a1a028c7fcef6445c3a",
+         "act": {
+          "n": 32768,
+          "nbad": 0,
+          "first": null,
+          "last": null,
+          "sha1_got": "94accab21496abcf97249a0d2568ccc69ca602a1",
+          "sha1_ref": "94accab21496abcf97249a0d2568ccc69ca602a1",
+          "tail_all_wrong": false
+         },
+         "oob_act_B_in": 0,
+         "A_slot_intact": true
+        },
+        "A_f32_xq_sha1": "d8d845a221fdda6bb7fdb32ede3e052d97be35b1",
+        "P": {
+         "key": "CHAIN_P_it1",
+         "kind": "read_out→PS 量化→E1E2→push_input（= 整网跑点）",
+         "outB": {
+          "n": 131072,
+          "nbad": 0,
+          "first": null,
+          "last": null,
+          "sha1_got": "58bb5250ef6a26d653f72a1a028c7fcef6445c3a",
+          "sha1_ref": "58bb5250ef6a26d653f72a1a028c7fcef6445c3a",
+          "tail_all_wrong": false
+         },
+         "oobB": 0,
+         "sha1_B": "58bb5250ef6a26d653f72a1a028c7fcef6445c3a",
+         "act": {
+          "n": 32768,
+          "nbad": 0,
+          "first": null,
+          "last": null,
+          "sha1_got": "94accab21496abcf97249a0d2568ccc69ca602a1",
+          "sha1_ref": "94accab21496abcf97249a0d2568ccc69ca602a1",
+          "tail_all_wrong": false
+         }
+        },
+        "A_slot_intact": true
+       },
+       {
+        "it": 2,
+        "A": {
+         "out": {
+          "n": 131072,
+          "nbad": 0,
+          "first": null,
+          "last": null,
+          "sha1_got": "a7d84f6d1f7a08367ebe448119ee93bf5e1b9256",
+          "sha1_ref": "a7d84f6d1f7a08367ebe448119ee93bf5e1b9256",
+          "tail_all_wrong": false
+         },
+         "oob": 0,
+         "sha1": "a7d84f6d1f7a08367ebe448119ee93bf5e1b9256",
+         "cyc": 272417,
+         "st310": "0x00000403",
+         "pa": "0x30318080"
+        },
+        "D": {
+         "key": "CHAIN_D_it2",
+         "kind": "E1E2 直读 A 的 OUT 槽（PS 不碰激活）",
+         "outB": {
+          "n": 131072,
+          "nbad": 0,
+          "first": null,
+          "last": null,
+          "sha1_got": "58bb5250ef6a26d653f72a1a028c7fcef6445c3a",
+          "sha1_ref": "58bb5250ef6a26d653f72a1a028c7fcef6445c3a",
+          "tail_all_wrong": false
+         },
+         "oobB": 0,
+         "sha1_B": "58bb5250ef6a26d653f72a1a028c7fcef6445c3a",
+         "act": {
+          "n": 32768,
+          "nbad": 0,
+          "first": null,
+          "last": null,
+          "sha1_got": "94accab21496abcf97249a0d2568ccc69ca602a1",
+          "sha1_ref": "94accab21496abcf97249a0d2568ccc69ca602a1",
+          "tail_all_wrong": false
+         },
+         "oob_act_B_in": 0,
+         "A_slot_intact": true
+        },
+        "A_f32_xq_sha1": "d8d845a221fdda6bb7fdb32ede3e052d97be35b1",
+        "P": {
+         "key": "CHAIN_P_it2",
+         "kind": "read_out→PS 量化→E1E2→push_input（= 整网跑点）",
+         "outB": {
+          "n": 131072,
+          "nbad": 0,
+          "first": null,
+          "last": null,
+          "sha1_got": "58bb5250ef6a26d653f72a1a028c7fcef6445c3a",
+          "sha1_ref": "58bb5250ef6a26d653f72a1a028c7fcef6445c3a",
+          "tail_all_wrong": false
+         },
+         "oobB": 0,
+         "sha1_B": "58bb5250ef6a26d653f72a1a028c7fcef6445c3a",
+         "act": {
+          "n": 32768,
+          "nbad": 0,
+          "first": null,
+          "last": null,
+          "sha1_got": "94accab21496abcf97249a0d2568ccc69ca602a1",
+          "sha1_ref": "94accab21496abcf97249a0d2568ccc69ca602a1",
+          "tail_all_wrong": false
+         }
+        },
+        "A_slot_intact": true
+       }
+      ],
+      "determinism": {
+       "D": {
+        "n": 2,
+        "distinct": 1,
+        "shas": [
+         "58bb5250ef6a",
+         "58bb5250ef6a"
+        ],
+        "deterministic": true
+       },
+       "P": {
+        "n": 2,
+        "distinct": 1,
+        "shas": [
+         "58bb5250ef6a",
+         "58bb5250ef6a"
+        ],
+        "deterministic": true
+       }
+      }
+     },
+     "summary": {
+      "A_single_ok": true,
+      "CTL1_ok": true,
+      "CTL2_ok": true,
+      "CHAIN_D_ok": [
+       true,
+       true
+      ],
+      "CHAIN_P_ok": [
+       true,
+       true
+      ],
+      "det_D": true,
+      "det_P": true
+     }
+    },
+    {
+     "H": 32,
+     "W": 32,
+     "npix": 1024,
+     "cases": [
+      {
+       "key": "CTL1_PSffed",
+       "kind": "B 的输入由 PS 直喂（不经 A）；判据：应全对",
+       "outB": {
+        "n": 32768,
+        "nbad": 0,
+        "first": null,
+        "last": null,
+        "sha1_got": "4ccdcbc77d292f57bc58aa82986d8785e30a290b",
+        "sha1_ref": "4ccdcbc77d292f57bc58aa82986d8785e30a290b",
+        "tail_all_wrong": false
+       },
+       "oobB": 0,
+       "sha1_B": "4ccdcbc77d292f57bc58aa82986d8785e30a290b",
+       "act": {
+        "n": 8192,
+        "nbad": 0,
+        "first": null,
+        "last": null,
+        "sha1_got": "7bb286cbe7c090ab11699a38e582cdc7cfc51314",
+        "sha1_ref": "7bb286cbe7c090ab11699a38e582cdc7cfc51314",
+        "tail_all_wrong": false
+       }
+      },
+      {
+       "key": "CTL2_PSsrc",
+       "kind": "E1E2 从 PS 写的 refA_c8 打包；判据：应全对",
+       "outB": {
+        "n": 32768,
+        "nbad": 0,
+        "first": null,
+        "last": null,
+        "sha1_got": "4ccdcbc77d292f57bc58aa82986d8785e30a290b",
+        "sha1_ref": "4ccdcbc77d292f57bc58aa82986d8785e30a290b",
+        "tail_all_wrong": false
+       },
+       "oobB": 0,
+       "sha1_B": "4ccdcbc77d292f57bc58aa82986d8785e30a290b",
+       "act": {
+        "n": 8192,
+        "nbad": 0,
+        "first": null,
+        "last": null,
+        "sha1_got": "7bb286cbe7c090ab11699a38e582cdc7cfc51314",
+        "sha1_ref": "7bb286cbe7c090ab11699a38e582cdc7cfc51314",
+        "tail_all_wrong": false
+       }
+      },
+      {
+       "key": "CHAIN_D_it1",
+       "kind": "E1E2 直读 A 的 OUT 槽（PS 不碰激活）",
+       "outB": {
+        "n": 32768,
+        "nbad": 0,
+        "first": null,
+        "last": null,
+        "sha1_got": "4ccdcbc77d292f57bc58aa82986d8785e30a290b",
+        "sha1_ref": "4ccdcbc77d292f57bc58aa82986d8785e30a290b",
+        "tail_all_wrong": false
+       },
+       "oobB": 0,
+       "sha1_B": "4ccdcbc77d292f57bc58aa82986d8785e30a290b",
+       "act": {
+        "n": 8192,
+        "nbad": 0,
+        "first": null,
+        "last": null,
+        "sha1_got": "7bb286cbe7c090ab11699a38e582cdc7cfc51314",
+        "sha1_ref": "7bb286cbe7c090ab11699a38e582cdc7cfc51314",
+        "tail_all_wrong": false
+       },
+       "oob_act_B_in": 0,
+       "A_slot_intact": true
+      },
+      {
+       "key": "CHAIN_P_it1",
+       "kind": "read_out→PS 量化→E1E2→push_input（= 整网跑点）",
+       "outB": {
+        "n": 32768,
+        "nbad": 0,
+        "first": null,
+        "last": null,
+        "sha1_got": "4ccdcbc77d292f57bc58aa82986d8785e30a290b",
+        "sha1_ref": "4ccdcbc77d292f57bc58aa82986d8785e30a290b",
+        "tail_all_wrong": false
+       },
+       "oobB": 0,
+       "sha1_B": "4ccdcbc77d292f57bc58aa82986d8785e30a290b",
+       "act": {
+        "n": 8192,
+        "nbad": 0,
+        "first": null,
+        "last": null,
+        "sha1_got": "7bb286cbe7c090ab11699a38e582cdc7cfc51314",
+        "sha1_ref": "7bb286cbe7c090ab11699a38e582cdc7cfc51314",
+        "tail_all_wrong": false
+       }
+      },
+      {
+       "key": "CHAIN_D_it2",
+       "kind": "E1E2 直读 A 的 OUT 槽（PS 不碰激活）",
+       "outB": {
+        "n": 32768,
+        "nbad": 0,
+        "first": null,
+        "last": null,
+        "sha1_got": "4ccdcbc77d292f57bc58aa82986d8785e30a290b",
+        "sha1_ref": "4ccdcbc77d292f57bc58aa82986d8785e30a290b",
+        "tail_all_wrong": false
+       },
+       "oobB": 0,
+       "sha1_B": "4ccdcbc77d292f57bc58aa82986d8785e30a290b",
+       "act": {
+        "n": 8192,
+        "nbad": 0,
+        "first": null,
+        "last": null,
+        "sha1_got": "7bb286cbe7c090ab11699a38e582cdc7cfc51314",
+        "sha1_ref": "7bb286cbe7c090ab11699a38e582cdc7cfc51314",
+        "tail_all_wrong": false
+       },
+       "oob_act_B_in": 0,
+       "A_slot_intact": true
+      },
+      {
+       "key": "CHAIN_P_it2",
+       "kind": "read_out→PS 量化→E1E2→push_input（= 整网跑点）",
+       "outB": {
+        "n": 32768,
+        "nbad": 0,
+        "first": null,
+        "last": null,
+        "sha1_got": "4ccdcbc77d292f57bc58aa82986d8785e30a290b",
+        "sha1_ref": "4ccdcbc77d292f57bc58aa82986d8785e30a290b",
+        "tail_all_wrong": false
+       },
+       "oobB": 0,
+       "sha1_B": "4ccdcbc77d292f57bc58aa82986d8785e30a290b",
+       "act": {
+        "n": 8192,
+        "nbad": 0,
+        "first": null,
+        "last": null,
+        "sha1_got": "7bb286cbe7c090ab11699a38e582cdc7cfc51314",
+        "sha1_ref": "7bb286cbe7c090ab11699a38e582cdc7cfc51314",
+        "tail_all_wrong": false
+       }
+      }
+     ],
+     "all_ok": true,
+     "ref": {
+      "seed": 20261135,
+      "xA_sha1": "c03940d94fd3fad6467d065987d691a0ab1d12bb",
+      "refA_c8": "1fa388d0f783c4e240719b07c46f707eb3238cf2",
+      "actB_ref": "7bb286cbe7c090ab11699a38e582cdc7cfc51314",
+      "refB_c8": "4ccdcbc77d292f57bc58aa82986d8785e30a290b",
+      "d": 0,
+      "fs_in_B": 5,
+      "fs_out_A": 5,
+      "xq_int_eq_float": true,
+      "seconds": 0.391
+     },
+     "A_single": {
+      "out": {
+       "n": 32768,
+       "nbad": 0,
+       "first": null,
+       "last": null,
+       "sha1_got": "1fa388d0f783c4e240719b07c46f707eb3238cf2",
+       "sha1_ref": "1fa388d0f783c4e240719b07c46f707eb3238cf2",
+       "tail_all_wrong": false
+      },
+      "oob": 0,
+      "wall": 0.00357,
+      "cyc": 68736,
+      "st310": "0x00000403",
+      "sha1": "1fa388d0f783c4e240719b07c46f707eb3238cf2"
+     },
+     "CTL1": {
+      "key": "CTL1_PSffed",
+      "kind": "B 的输入由 PS 直喂（不经 A）；判据：应全对",
+      "outB": {
+       "n": 32768,
+       "nbad": 0,
+       "first": null,
+       "last": null,
+       "sha1_got": "4ccdcbc77d292f57bc58aa82986d8785e30a290b",
+       "sha1_ref": "4ccdcbc77d292f57bc58aa82986d8785e30a290b",
+       "tail_all_wrong": false
+      },
+      "oobB": 0,
+      "sha1_B": "4ccdcbc77d292f57bc58aa82986d8785e30a290b",
+      "act": {
+       "n": 8192,
+       "nbad": 0,
+       "first": null,
+       "last": null,
+       "sha1_got": "7bb286cbe7c090ab11699a38e582cdc7cfc51314",
+       "sha1_ref": "7bb286cbe7c090ab11699a38e582cdc7cfc51314",
+       "tail_all_wrong": false
+      }
+     },
+     "CTL2": {
+      "key": "CTL2_PSsrc",
+      "kind": "E1E2 从 PS 写的 refA_c8 打包；判据：应全对",
+      "outB": {
+       "n": 32768,
+       "nbad": 0,
+       "first": null,
+       "last": null,
+       "sha1_got": "4ccdcbc77d292f57bc58aa82986d8785e30a290b",
+       "sha1_ref": "4ccdcbc77d292f57bc58aa82986d8785e30a290b",
+       "tail_all_wrong": false
+      },
+      "oobB": 0,
+      "sha1_B": "4ccdcbc77d292f57bc58aa82986d8785e30a290b",
+      "act": {
+       "n": 8192,
+       "nbad": 0,
+       "first": null,
+       "last": null,
+       "sha1_got": "7bb286cbe7c090ab11699a38e582cdc7cfc51314",
+       "sha1_ref": "7bb286cbe7c090ab11699a38e582cdc7cfc51314",
+       "tail_all_wrong": false
+      }
+     },
+     "chain": {
+      "runs": [
+       {
+        "it": 1,
+        "A": {
+         "out": {
+          "n": 32768,
+          "nbad": 0,
+          "first": null,
+          "last": null,
+          "sha1_got": "1fa388d0f783c4e240719b07c46f707eb3238cf2",
+          "sha1_ref": "1fa388d0f783c4e240719b07c46f707eb3238cf2",
+          "tail_all_wrong": false
+         },
+         "oob": 0,
+         "sha1": "1fa388d0f783c4e240719b07c46f707eb3238cf2",
+         "cyc": 70274,
+         "st310": "0x00000403",
+         "pa": "0x303ae100"
+        },
+        "D": {
+         "key": "CHAIN_D_it1",
+         "kind": "E1E2 直读 A 的 OUT 槽（PS 不碰激活）",
+         "outB": {
+          "n": 32768,
+          "nbad": 0,
+          "first": null,
+          "last": null,
+          "sha1_got": "4ccdcbc77d292f57bc58aa82986d8785e30a290b",
+          "sha1_ref": "4ccdcbc77d292f57bc58aa82986d8785e30a290b",
+          "tail_all_wrong": false
+         },
+         "oobB": 0,
+         "sha1_B": "4ccdcbc77d292f57bc58aa82986d8785e30a290b",
+         "act": {
+          "n": 8192,
+          "nbad": 0,
+          "first": null,
+          "last": null,
+          "sha1_got": "7bb286cbe7c090ab11699a38e582cdc7cfc51314",
+          "sha1_ref": "7bb286cbe7c090ab11699a38e582cdc7cfc51314",
+          "tail_all_wrong": false
+         },
+         "oob_act_B_in": 0,
+         "A_slot_intact": true
+        },
+        "A_f32_xq_sha1": "ed19145622e902aa87e58dfbb0f9efc4d9a613fe",
+        "P": {
+         "key": "CHAIN_P_it1",
+         "kind": "read_out→PS 量化→E1E2→push_input（= 整网跑点）",
+         "outB": {
+          "n": 32768,
+          "nbad": 0,
+          "first": null,
+          "last": null,
+          "sha1_got": "4ccdcbc77d292f57bc58aa82986d8785e30a290b",
+          "sha1_ref": "4ccdcbc77d292f57bc58aa82986d8785e30a290b",
+          "tail_all_wrong": false
+         },
+         "oobB": 0,
+         "sha1_B": "4ccdcbc77d292f57bc58aa82986d8785e30a290b",
+         "act": {
+          "n": 8192,
+          "nbad": 0,
+          "first": null,
+          "last": null,
+          "sha1_got": "7bb286cbe7c090ab11699a38e582cdc7cfc51314",
+          "sha1_ref": "7bb286cbe7c090ab11699a38e582cdc7cfc51314",
+          "tail_all_wrong": false
+         }
+        },
+        "A_slot_intact": true
+       },
+       {
+        "it": 2,
+        "A": {
+         "out": {
+          "n": 32768,
+          "nbad": 0,
+          "first": null,
+          "last": null,
+          "sha1_got": "1fa388d0f783c4e240719b07c46f707eb3238cf2",
+          "sha1_ref": "1fa388d0f783c4e240719b07c46f707eb3238cf2",
+          "tail_all_wrong": false
+         },
+         "oob": 0,
+         "sha1": "1fa388d0f783c4e240719b07c46f707eb3238cf2",
+         "cyc": 69857,
+         "st310": "0x00000403",
+         "pa": "0x303ae100"
+        },
+        "D": {
+         "key": "CHAIN_D_it2",
+         "kind": "E1E2 直读 A 的 OUT 槽（PS 不碰激活）",
+         "outB": {
+          "n": 32768,
+          "nbad": 0,
+          "first": null,
+          "last": null,
+          "sha1_got": "4ccdcbc77d292f57bc58aa82986d8785e30a290b",
+          "sha1_ref": "4ccdcbc77d292f57bc58aa82986d8785e30a290b",
+          "tail_all_wrong": false
+         },
+         "oobB": 0,
+         "sha1_B": "4ccdcbc77d292f57bc58aa82986d8785e30a290b",
+         "act": {
+          "n": 8192,
+          "nbad": 0,
+          "first": null,
+          "last": null,
+          "sha1_got": "7bb286cbe7c090ab11699a38e582cdc7cfc51314",
+          "sha1_ref": "7bb286cbe7c090ab11699a38e582cdc7cfc51314",
+          "tail_all_wrong": false
+         },
+         "oob_act_B_in": 0,
+         "A_slot_intact": true
+        },
+        "A_f32_xq_sha1": "ed19145622e902aa87e58dfbb0f9efc4d9a613fe",
+        "P": {
+         "key": "CHAIN_P_it2",
+         "kind": "read_out→PS 量化→E1E2→push_input（= 整网跑点）",
+         "outB": {
+          "n": 32768,
+          "nbad": 0,
+          "first": null,
+          "last": null,
+          "sha1_got": "4ccdcbc77d292f57bc58aa82986d8785e30a290b",
+          "sha1_ref": "4ccdcbc77d292f57bc58aa82986d8785e30a290b",
+          "tail_all_wrong": false
+         },
+         "oobB": 0,
+         "sha1_B": "4ccdcbc77d292f57bc58aa82986d8785e30a290b",
+         "act": {
+          "n": 8192,
+          "nbad": 0,
+          "first": null,
+          "last": null,
+          "sha1_got": "7bb286cbe7c090ab11699a38e582cdc7cfc51314",
+          "sha1_ref": "7bb286cbe7c090ab11699a38e582cdc7cfc51314",
+          "tail_all_wrong": false
+         }
+        },
+        "A_slot_intact": true
+       }
+      ],
+      "determinism": {
+       "D": {
+        "n": 2,
+        "distinct": 1,
+        "shas": [
+         "4ccdcbc77d29",
+         "4ccdcbc77d29"
+        ],
+        "deterministic": true
+       },
+       "P": {
+        "n": 2,
+        "distinct": 1,
+        "shas": [
+         "4ccdcbc77d29",
+         "4ccdcbc77d29"
+        ],
+        "deterministic": true
+       }
+      }
+     },
+     "summary": {
+      "A_single_ok": true,
+      "CTL1_ok": true,
+      "CTL2_ok": true,
+      "CHAIN_D_ok": [
+       true,
+       true
+      ],
+      "CHAIN_P_ok": [
+       true,
+       true
+      ],
+      "det_D": true,
+      "det_P": true
+     }
+    }
+   ],
+   "ok": true
+  }
+ },
+ "args": {
+  "bit": "/home/xilinx/demoir/design_1_150v53.bit",
+  "pack": "/home/xilinx/demoir/deploy/bin_weights_new",
+  "timeout": 6.0,
+  "seed": 20261103,
+  "outdir": "/home/xilinx/demoir/t127_out",
+  "freq": 50.0,
+  "magic_required": 1,
+  "geoms": "64,32",
+  "no_e1e2": 0,
+  "tag": "t127"
+ },
+ "runpoint": {
+  "BIN_PACK": "e1e2",
+  "BIN_LAZY_DEQ": "0",
+  "BIN_LAZY_SLOTS": "24",
+  "BIN_CAT_FUSION": "1",
+  "BIN_BILINEAR_C": "1",
+  "BIN_PRECOMP": "1",
+  "Q8CACHE": "1",
+  "BIN_F32DIRECT": "1",
+  "BIN_CAT_ECA_FUSE": "1",
+  "BIN_EPI_NOINV": "1",
+  "BIN_PROFILE": "1",
+  "BIN_V50_FUSE": "",
+  "BIN_VLANES": ""
+ },
+ "fclk": {
+  "layer": {
+   "target": 50.0,
+   "readback": 50.0,
+   "base": "0x40060000",
+   "magic": "0x50300001",
+   "magic_ok": true,
+   "st310": "0x00000000",
+   "fclk": 50.0
+  }
+ },
+ "verdict": {
+  "all_ok": true,
+  "stopped": "chain_only_T127"
+ }
+}

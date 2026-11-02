@@ -1,0 +1,132 @@
+[t127] 日志 = /home/xilinx/demoir/t127_out/t127_064502.log
+[t127] bit = /home/xilinx/demoir/design_1_150v53.bit
+[t127] 运行点 = {"BIN_PACK": "e1e2", "BIN_LAZY_DEQ": "0", "BIN_LAZY_SLOTS": "24", "BIN_CAT_FUSION": "1", "BIN_BILINEAR_C": "1", "BIN_PRECOMP": "1", "Q8CACHE": "1", "BIN_F32DIRECT": "1", "BIN_CAT_ECA_FUSE": "1", "BIN_EPI_NOINV": "1", "BIN_PROFILE": "1", "BIN_V50_FUSE": "", "BIN_VLANES": ""}
+
+==============================================================================
+  第 1 步：load overlay + 指纹（本进程唯一一次 download=True）
+==============================================================================
+  Overlay(design_1_150v53.bit) 用时 2.502 s
+  IP 清单：['bin_unit_0', 'conv_uni_0', 'ps7']
+  conv_uni_0  base=0x40040000 length=0x20000 （期望 0x40040000）✓
+  bin_unit_0  base=0x40060000 length=0x20000 （期望 0x40060000）✓
+  0x40070314 = 0x50300001   (CFG+0x314)
+  0x40060310 = 0x00000000   (0x310 CHAIN_STATUS)
+  0x40060308 = 0x00000000   (0x308 BAND_ROWS)
+  **magic(0x314) = 0x50300001 期望 0x50300001 ⇒ 寄存器块在位 ✓**
+  load 后 fclk0 读回 = 125 MHz
+  权重容器：227 层，blob=1.13 MB
+  权重已上板：pa=0x30100000（1.13 MB）
+
+==============================================================================
+  第 1 步（续）：fclk + 指纹 + 挂 E1E2
+==============================================================================
+  目标 50 MHz → **fclk0 读回 50 MHz**；magic=0x50300001 0x310=0x00000000（第 119 条）
+  [DEPS] q8=fast c8deq=fast bpack=fast e1e2=fast catpack=fast safe=fast  ⇒ deps_closure_ok=True
+  E1E2 已挂上（R_RUN_UNIT=4，probe 通过；clk=50 MHz）
+  arena 4 MB @0x30300000
+  A （d=0 链）=encoder.encoder_1.sam_blocks.0.b4.ghost_layers.1.primary_conv.conv
+  A'（d=1 链）=encoder.encoder_1.sam_blocks.0.b0.ghost_layers.1.primary_conv.conv
+  B            =encoder.encoder_1.sam_blocks.0.b0.ghost_layers.0.cheap_operation.conv
+
+==============================================================================
+  第 2 步：链式 A→B（[64, 32]），fclk=50.0 MHz
+==============================================================================
+
+------------------------------------------------------------------------------
+几何：特征图 64×64（npix=4096）
+------------------------------------------------------------------------------
+  参照：A 112×64→32×64  B 32×64→32×64  交接 d=fs_in_B(5)-fs_out_A(5)=0 （int/float 两路一致=True）  用时 1.91 s
+    refA_c8 sha1=a7d84f6d1f7a0836  actB_ref sha1=94accab21496abcf  refB_c8 sha1=58bb5250ef6a26d6
+    needA=131072 B  needB=131072 B  B 的 act=32768 B
+  缓冲：act@0x30300000(65600) inB@0x30310040(32832) outA@0x30318080(196608) outB@0x30348080(196608) srcA@0x30378080
+
+  ① A 单层（PS 喂输入）
+     A：不符      0/131072  越界    0 B  sha1=a7d84f6d1f7a  连续尾巴=False
+
+  ③ CTL1：B 的输入由 PS/numpy 直喂（不经 A）
+   ---- CTL1_PSffed                B 的输入由 PS 直喂（不经 A）；判据：应全对
+        B 输出：不符      0/131072  越界    0 B  首错字节 None  连续尾巴=False
+        交接(B 的 IN)：不符      0/32768  首错字节 None  连续尾巴=False
+
+  ④ CTL2：E1E2 从 **PS 写入 DDR 的** refA_c8 打包 → B（隔离「源缓冲是谁写的」）
+   ---- CTL2_PSsrc                 E1E2 从 PS 写的 refA_c8 打包；判据：应全对
+        B 输出：不符      0/131072  越界    0 B  首错字节 None  连续尾巴=False
+        交接(B 的 IN)：不符      0/32768  首错字节 None  连续尾巴=False
+
+  ② CHAIN 第 1 次：A → 交接 → B
+     A：不符      0/131072 越界    0 B sha1=a7d84f6d1f7a
+   ---- CHAIN_D_it1                E1E2 直读 A 的 OUT 槽（PS 不碰激活）
+        B 输出：不符      0/131072  越界    0 B  首错字节 None  连续尾巴=False
+        交接(B 的 IN)：不符      0/32768  首错字节 None  连续尾巴=False
+   ---- CHAIN_P_it1                read_out→PS 量化→E1E2→push_input（= 整网跑点）
+        B 输出：不符      0/131072  越界    0 B  首错字节 None  连续尾巴=False
+        交接(B 的 IN)：不符      0/32768  首错字节 None  连续尾巴=False
+     A 的 OUT 槽被 E1E2 读过之后仍逐字节不变：True
+
+  ② CHAIN 第 2 次：A → 交接 → B
+     A：不符      0/131072 越界    0 B sha1=a7d84f6d1f7a
+   ---- CHAIN_D_it2                E1E2 直读 A 的 OUT 槽（PS 不碰激活）
+        B 输出：不符      0/131072  越界    0 B  首错字节 None  连续尾巴=False
+        交接(B 的 IN)：不符      0/32768  首错字节 None  连续尾巴=False
+   ---- CHAIN_P_it2                read_out→PS 量化→E1E2→push_input（= 整网跑点）
+        B 输出：不符      0/131072  越界    0 B  首错字节 None  连续尾巴=False
+        交接(B 的 IN)：不符      0/32768  首错字节 None  连续尾巴=False
+     A 的 OUT 槽被 E1E2 读过之后仍逐字节不变：True
+
+   确定性 D：2 次 → 1 个不同 sha1 ['58bb5250ef6a', '58bb5250ef6a'] ⇒ ✓ 确定
+   确定性 P：2 次 → 1 个不同 sha1 ['58bb5250ef6a', '58bb5250ef6a'] ⇒ ✓ 确定
+
+  [64×64] 小结：A 单层 ✓ | CTL1 True | CTL2 True | CHAIN_D [True, True] | CHAIN_P [True, True]
+  [64×64] 链式全对 = ✓（判据：A 单层对 + CTL1 对 + 每轮链式 out/act 0 错）
+[json] 已落盘 /home/xilinx/demoir/t127_out/t127_064502.json
+
+------------------------------------------------------------------------------
+几何：特征图 32×32（npix=1024）
+------------------------------------------------------------------------------
+  参照：A 112×32→32×32  B 32×32→32×32  交接 d=fs_in_B(5)-fs_out_A(5)=0 （int/float 两路一致=True）  用时 0.39 s
+    refA_c8 sha1=1fa388d0f783c4e2  actB_ref sha1=7bb286cbe7c090ab  refB_c8 sha1=4ccdcbc77d292f57
+    needA=32768 B  needB=32768 B  B 的 act=8192 B
+  缓冲：act@0x303a8080(16448) inB@0x303ac0c0(8256) outA@0x303ae100(98304) outB@0x303c6100(98304) srcA@0x303de100
+
+  ① A 单层（PS 喂输入）
+     A：不符      0/32768  越界    0 B  sha1=1fa388d0f783  连续尾巴=False
+
+  ③ CTL1：B 的输入由 PS/numpy 直喂（不经 A）
+   ---- CTL1_PSffed                B 的输入由 PS 直喂（不经 A）；判据：应全对
+        B 输出：不符      0/32768  越界    0 B  首错字节 None  连续尾巴=False
+        交接(B 的 IN)：不符      0/8192  首错字节 None  连续尾巴=False
+
+  ④ CTL2：E1E2 从 **PS 写入 DDR 的** refA_c8 打包 → B（隔离「源缓冲是谁写的」）
+   ---- CTL2_PSsrc                 E1E2 从 PS 写的 refA_c8 打包；判据：应全对
+        B 输出：不符      0/32768  越界    0 B  首错字节 None  连续尾巴=False
+        交接(B 的 IN)：不符      0/8192  首错字节 None  连续尾巴=False
+
+  ② CHAIN 第 1 次：A → 交接 → B
+     A：不符      0/32768 越界    0 B sha1=1fa388d0f783
+   ---- CHAIN_D_it1                E1E2 直读 A 的 OUT 槽（PS 不碰激活）
+        B 输出：不符      0/32768  越界    0 B  首错字节 None  连续尾巴=False
+        交接(B 的 IN)：不符      0/8192  首错字节 None  连续尾巴=False
+   ---- CHAIN_P_it1                read_out→PS 量化→E1E2→push_input（= 整网跑点）
+        B 输出：不符      0/32768  越界    0 B  首错字节 None  连续尾巴=False
+        交接(B 的 IN)：不符      0/8192  首错字节 None  连续尾巴=False
+     A 的 OUT 槽被 E1E2 读过之后仍逐字节不变：True
+
+  ② CHAIN 第 2 次：A → 交接 → B
+     A：不符      0/32768 越界    0 B sha1=1fa388d0f783
+   ---- CHAIN_D_it2                E1E2 直读 A 的 OUT 槽（PS 不碰激活）
+        B 输出：不符      0/32768  越界    0 B  首错字节 None  连续尾巴=False
+        交接(B 的 IN)：不符      0/8192  首错字节 None  连续尾巴=False
+   ---- CHAIN_P_it2                read_out→PS 量化→E1E2→push_input（= 整网跑点）
+        B 输出：不符      0/32768  越界    0 B  首错字节 None  连续尾巴=False
+        交接(B 的 IN)：不符      0/8192  首错字节 None  连续尾巴=False
+     A 的 OUT 槽被 E1E2 读过之后仍逐字节不变：True
+
+   确定性 D：2 次 → 1 个不同 sha1 ['4ccdcbc77d29', '4ccdcbc77d29'] ⇒ ✓ 确定
+   确定性 P：2 次 → 1 个不同 sha1 ['4ccdcbc77d29', '4ccdcbc77d29'] ⇒ ✓ 确定
+
+  [32×32] 小结：A 单层 ✓ | CTL1 True | CTL2 True | CHAIN_D [True, True] | CHAIN_P [True, True]
+  [32×32] 链式全对 = ✓（判据：A 单层对 + CTL1 对 + 每轮链式 out/act 0 错）
+[json] 已落盘 /home/xilinx/demoir/t127_out/t127_064502.json
+
+  [T-127] 链式口径总判据：✓ 全部达标
+[json] 已落盘 /home/xilinx/demoir/t127_out/t127_064502.json

@@ -1,0 +1,142 @@
+{
+ "env_at_start": {
+  "BIN_PACK": "e1e2",
+  "BIN_LAZY_DEQ": "0",
+  "BIN_LAZY_SLOTS": "24",
+  "BIN_CAT_FUSION": "1",
+  "BIN_BILINEAR_C": "1",
+  "BIN_PRECOMP": "1",
+  "Q8CACHE": "1",
+  "BIN_F32DIRECT": "1",
+  "BIN_CAT_ECA_FUSE": "1",
+  "BIN_EPI_NOINV": "1",
+  "BIN_PROFILE": "1",
+  "BIN_V50_FUSE": "",
+  "BIN_VLANES": ""
+ },
+ "steps": {
+  "load": {
+   "bit": "/home/xilinx/demoir/design_1_150v53.bit",
+   "seconds": 2.7401,
+   "ips": [
+    "bin_unit_0",
+    "conv_uni_0",
+    "ps7"
+   ],
+   "has_fconv": false,
+   "addr": {
+    "conv_uni_0": {
+     "base": "0x40040000",
+     "length": 131072,
+     "ok": true
+    },
+    "bin_unit_0": {
+     "base": "0x40060000",
+     "length": 131072,
+     "ok": true
+    }
+   },
+   "magic": {
+    "CFG+0x314": {
+     "abs_addr": "0x40070314",
+     "hex": "0x50300001"
+    },
+    "0x310 CHAIN_STATUS": {
+     "abs_addr": "0x40060310",
+     "hex": "0x00000000"
+    },
+    "0x308 BAND_ROWS": {
+     "abs_addr": "0x40060308",
+     "hex": "0x00000000"
+    }
+   },
+   "magic_ok": true,
+   "magic_required": true,
+   "fclk0_at_load": 125.0,
+   "downloads": 1,
+   "fp_ok": true
+  },
+  "deps": {
+   "line": "[DEPS] q8=fast c8deq=fast bpack=fast e1e2=fast catpack=fast safe=fast  ⇒ deps_closure_ok=True",
+   "closure_ok": true
+  },
+  "e1e2": {
+   "ok": true
+  },
+  "layers": {
+   "A": {
+    "name": "encoder.encoder_1.sam_blocks.0.b4.ghost_layers.1.primary_conv.conv",
+    "idx": 28,
+    "cin": 112,
+    "cout": 32,
+    "k": 1,
+    "s": 1,
+    "pad": 0,
+    "shift": 4,
+    "fs_in": 4,
+    "fs_out": 5
+   },
+   "A1": {
+    "name": "encoder.encoder_1.sam_blocks.0.b0.ghost_layers.1.primary_conv.conv",
+    "idx": 6,
+    "fs_in": 4,
+    "fs_out": 4
+   },
+   "B": {
+    "name": "encoder.encoder_1.sam_blocks.0.b0.ghost_layers.0.cheap_operation.conv",
+    "idx": 5,
+    "cin": 32,
+    "cout": 32,
+    "k": 3,
+    "s": 1,
+    "pad": 1,
+    "shift": 5,
+    "fs_in": 5,
+    "fs_out": 4
+   }
+  },
+  "chain": {
+   "geoms": [],
+   "ok": null
+  }
+ },
+ "args": {
+  "bit": "/home/xilinx/demoir/design_1_150v53.bit",
+  "pack": "/home/xilinx/demoir/deploy/bin_weights_new",
+  "timeout": 6.0,
+  "seed": 20261103,
+  "outdir": "/home/xilinx/demoir/t127_out",
+  "freq": 50.0,
+  "magic_required": 1,
+  "geoms": "64,32",
+  "no_e1e2": 0,
+  "tag": "t127"
+ },
+ "runpoint": {
+  "BIN_PACK": "e1e2",
+  "BIN_LAZY_DEQ": "0",
+  "BIN_LAZY_SLOTS": "24",
+  "BIN_CAT_FUSION": "1",
+  "BIN_BILINEAR_C": "1",
+  "BIN_PRECOMP": "1",
+  "Q8CACHE": "1",
+  "BIN_F32DIRECT": "1",
+  "BIN_CAT_ECA_FUSE": "1",
+  "BIN_EPI_NOINV": "1",
+  "BIN_PROFILE": "1",
+  "BIN_V50_FUSE": "",
+  "BIN_VLANES": ""
+ },
+ "fclk": {
+  "layer": {
+   "target": 50.0,
+   "readback": 50.0,
+   "base": "0x40060000",
+   "magic": "0x50300001",
+   "magic_ok": true,
+   "st310": "0x00000000",
+   "fclk": 50.0
+  }
+ },
+ "fatal": "Traceback (most recent call last):\n  File \"/tmp/probe_T127/probe_t127.py\", line 796, in <module>\n    sys.exit(main())\n  File \"/tmp/probe_T127/probe_t127.py\", line 517, in main\n    block[\"geoms\"].append(run_geometry(e, ee, pool, bl, A0, A1, B, H, W,\n  File \"/tmp/probe_T127/probe_t127.py\", line 618, in run_geometry\n    cmA = cmp_bytes(ra[\"got\"], refA_c8)\n  File \"/tmp/probe_T127/probe_t127.py\", line 270, in cmp_bytes\n    ref = np.asarray(ref, np.int8).reshape(-1)\nValueError: invalid literal for int() with base 10: b'\\x1a\\x03\\xff\\xff\\xff \\x1c\\xf9(&#\\r\\x1c\\xfa\"\\x11\\x115\\xff\\xff\\xff\\xfc\\x1c\\xfc\\x00\\xff\\xff\\xff\\xff \\x05\\xf7\\x00\\x1c#\\xff\\x05\\xf2\\x0b\\x11\\x00\\xff\\x07\\xff\\x01-\\x1c\\x17\\x00\\x08\\xff\\xff\\x05\\xea\\xff\\xfb\\x1\n"
+}
