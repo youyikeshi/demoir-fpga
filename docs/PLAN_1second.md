@@ -5198,3 +5198,28 @@ $$\Rightarrow\ \textbf{变化的本质是一件事}：\text{旧元数据把 AXI3
 $$\Rightarrow\ \text{旧 BD 里有 } \texttt{pc\_conv}\ \text{协议转换器，它会}\textbf{补 ID};\ \text{现在 AXI3 直连} \Rightarrow \texttt{ps7/S\_AXI\_HP0\_AWID}\ \textbf{被常量 0 绑定}$$
 $$\Rightarrow\ \Rightarrow\ \text{写事务共用 ID 0} \Rightarrow \textbf{多 outstanding 的语义与 `pc_conv` 时代不同}$$
 $$\Rightarrow\ \textbf{上板必须专门验写通路}：\texttt{E1E2}\ \text{打包（大量写 OUT）+ 256² 整网 sha1 + 金丝雀（T-59 执行中）}$$
+
+### 70.40 ⚠ v43base 无效：**我用错了 RTL 根**（worktree 名 ≠ 内容）（2026-11-02 12:03）
+
+$$\Rightarrow\ \text{v43base（bit } \texttt{b436ab2b}\text{）板端 } 64^2\ \text{第 1 跑}\textbf{挂死}（\texttt{AP\_RET}=0x2，busy=1 持续 15 min，驻留第 18 个 conv）$$
+$$\Rightarrow\ \text{失败指纹与 T-54 的 } \texttt{v42e@150MHz} \textbf{逐项相同}（\text{同 stage、同 arena、同异常码}）$$
+$$\Rightarrow\ \text{T-59 查了构建日志（} \texttt{build\_t56b.log:314}\text{）：}\texttt{\$rtl}\ \text{指向 } \texttt{worktrees/T-51-v42e/.../modules}$$
+$$\Rightarrow\ \text{而该目录的 } \texttt{bin\_unit\_axi\_wrap.v} = \texttt{6ecbc5dc}\ (\textbf{\texttt{PF\_AHEAD=2}}) \Rightarrow \textbf{正是板上判死的配方}$$
+
+**我的规格错误（记下来，这是本轮第三次因"名字"出错）**
+$$\Rightarrow\ \text{我在任务书里写"用当前 RTL"、"}\texttt{\$rtl}\ \text{指向 } \texttt{T-51-v42e}" \Rightarrow \text{而 } \texttt{T-51-v42e}\ \text{是 } \textbf{v42e 的 worktree} = \text{v39} + \texttt{PF\_AHEAD=2}，\textbf{不是 v39}$$
+$$\Rightarrow\ \textbf{正确的 v39 真源}：\texttt{runs/v42e\_archive/rtl\_v39\_ref/} \Rightarrow \texttt{bin\_unit\_axi\_wrap.v} = \mathbf{\texttt{f4ba0655}}（= \texttt{b58964e} 的版本，\texttt{PF\_AHEAD=1}）$$
+$$\quad\ \text{与 } \texttt{T-51-v42e}\ \text{的 } \texttt{6ecbc5dc}\ \textbf{不是同一个 RTL}$$
+
+$$\Rightarrow\ \textbf{第 105 条纪律：RTL 源头必须用 md5 标识，不许用目录名/代理名} $$
+$$\quad\ \text{本项目里 } \texttt{worktrees/T-51-v42e}、\texttt{T-45-v43}、\texttt{T-55-v43}\ \text{这些"按代理命名"的副本}\textbf{内容各不相同}$$
+$$\quad\ \Rightarrow\ \text{它们合起来覆盖了 }\textbf{v39 / v39+PF\_AHEAD / v39+计数器 / v39+e1e2}\ \text{等多种 RTL} \Rightarrow \text{靠名字无法判断}$$
+$$\quad\ \Rightarrow\ \textbf{判据}：\text{任何构建脚本开头必须硬断言"RTL 根三个关键文件的 md5 + 关键参数值"，不符即退出}$$
+$$\quad\ \quad\ \text{本轮三个关键 md5：}\texttt{bin\_unit\_axi\_wrap.v}=\texttt{f4ba0655}\ (\text{v39})、\texttt{bin\_e1e2.v}=\texttt{bc28ead3}、\texttt{+PF\_AHEAD=1}$$
+
+$$\Rightarrow\ \text{BD 中性} \textbf{仍未证明}（\text{不是"证明不安全"}）：\text{新 BD 与旧 BD 在首个功能门禁上}\textbf{行为无法区分}\text{——连挂死方式都一样}$$
+$$\Rightarrow\ \text{已在 T-60 重出 } \texttt{v43base2}（\text{只换 RTL 根，BD 脚本一字不动}）$$
+
+**顺带确认两条风险不成立（T-59 的对照）**
+$$\Rightarrow\ \text{AWID 常 0、}\texttt{MAX\_BURST} 256\to16\ \textbf{都不是本次原因}：\text{v39 那套"旧元数据 + 两个 pc\_conv"挂死方式完全相同}$$
+$$\Rightarrow\ \text{交付的新事实：新 } \texttt{.hwh}\ \text{里 } \texttt{/ps7}\ \text{新增 } \texttt{C\_BASEADDR 0x0–0x3FFFFFFF}（\text{整片 DDR 窗口}）$$
