@@ -10,8 +10,8 @@
 
 | 文件 | md5 | 说明 |
 |---|---|---|
-| `hdmi_p1.bit` | **`d478c6058721492694d6d4a5f51a5196`** | **3,510,797 B**（3.35 MiB），write_bitstream Complete；2026-11-03 00:57 事故修复版 |
-| `hdmi_p1.hwh` | **`3a5053bca9e4d9fbb465c0d4d8014be9`** | 140,727 B；硬件描述（PYNQ `Overlay` 用）；基址仍 `0x400A0000 / 64 KB`（`C_BASEADDR=0x400A0000` / `C_HIGHADDR=0x400AFFFF`） |
+| `hdmi_p1.bit` | **`c916461877fe2e0dbcd14002ab2289b1`** | **3,510,797 B**（3.35 MiB），write_bitstream Complete；**2026-11-03 03:10 三时钟 + P2 扫描器 + HP0 版** |
+| `hdmi_p1.hwh` | **`24d07045d7db7566228dad291cef57cd`** | 140,7xx B；硬件描述（PYNQ `Overlay` 用）；基址仍 `0x400A0000 / 64 KB`（`C_BASEADDR=0x400A0000` / `C_HIGHADDR=0x400AFFFF`） |
 | `util.rpt` | — | 实现后资源表（另有 `util_hier.rpt` 层次资源、`gate_summary.txt` 门禁台账、`drc.rpt`） |
 | `timing.rpt` | — | 实现后时序（"All user specified timing constraints are met"） |
 | `clocks.rpt` | — | 三路时钟实测周期 |
@@ -28,7 +28,7 @@ cd ../runs/hdmi_p1 && md5sum -c MD5SUMS
 
 ---
 
-## 2. BD 结构（最小系统：6 个 cell）
+## 2. BD 结构（7 个 cell）
 
 ```
 ps7 (FCLK0 = 100 MHz, HP0 保留但本轮不接)
@@ -47,7 +47,9 @@ proc_sys_reset rst_ps7_100M
 hdmi_p1_top_0  （RTL module reference，= rtl/hdmi_p1_top.v 胶水外壳）
  ├ ① AXI-Lite / clock / reset 的 X_INTERFACE_INFO（FREQ_HZ 100000000，与 FCLK0 一致）
  ├ ② MMCM：100 MHz → CLKOUT0 148.4375 MHz / CLKOUT1 74.21875 MHz（**输出不加 BUFG**）
+ ├ ② MMCM 三输出：CLKOUT0 ÷8 / CLKOUT1 ÷16 / CLKOUT2 ÷32（**不加输出 BUFG**，top 内已有 3 个 BUFG）
  ├ ②' mmcm_locked 原样接冻结 top 的 input mmcm_locked（只做 0x30[1] 上报，不进复位）
+ ├ ④ m_axi（AXI4 **只读**主口）→ axi_hp0（1×1，auto_pc 做 AXI4→AXI3）→ ps7/S_AXI_HP0
  ├ ③ 例化冻结 top hdmi_out_top（双时钟 + 内部 BUFG×2 + BUFGMUX + 内部 IOBUF + 0x30 PIX_HB）
  └ mmcm_locked 输出在 BD 里**故意悬空**（只做观测/断言锚点，绝不许接复位）
 ```
@@ -97,33 +99,37 @@ FCLK0 100 MHz (clk_fpga_0, 10.000 ns)
 
 ---
 
-## 4. 资源与时序（实现后，实测 · 2026-11-03 00:57 事故修复版）
+## 4. 资源与时序（实现后，实测 · 2026-11-03 03:10 · 三时钟 + P2 扫描器 + HP0）
 
 | 项 | 实测 | 门禁 |
 |---|---:|---|
-| Slice LUTs（整 BD） | **771** | ≤ 2500 ✔ |
-| Slice Registers | 1085 | — |
-| Block RAM Tile | 0 | — |
+| Slice LUTs（整 BD） | **1549** | ≤ 2500 ✔ |
+| Slice Registers | **2161** | — |
+| Block RAM Tile | **1.5**（1×RAMB36 + 1×RAMB18，扫描器行缓冲 2048×24b） | ≤ 4 ✔ |
 | DSPs | 0 | — |
-| **Register as Latch** | **0**（util.rpt + LDCE/LDPE 网表指纹双查） | = 0 ✔ |
-| `u_hdmi_out_top` 层次 | **383 LUT / 622 FF**（网表 LUT 计数 479） | ≤ 600 ✔ |
-| `axi_ctrl`（axi_interconnect + auto_pc） | 360 LUT / 426 FF | — |
-| DRC | **0 Errors**（唯一警告 BUFC-1 ×1，输入 buffer 连接） | 0 ✔ |
-
-> **为什么 LUT 从 317 涨到 771**：上一版 `S00_ARESETN`/`M00_ARESETN` 被绑 0 ⇒ `auto_pc`（AXI 协议转换器）
-> 恒在复位 ⇒ 它的 FSM 被综合**整片常量折叠**（~50 LUT / 59 FF）。接上 per-port 复位后它是**活逻辑**
-> （360 LUT / 426 FF）。**这组数字本身就是"上一版 AXI 侧是死逻辑"的旁证**（见 §13.4）。
+| **Register as Latch** | **0**（util.rpt + LDCE/LDPE 网表双查） | = 0 ✔ |
+| **BUFGCTRL** | **7**（1 clkfb + 3 像素 BUFG + 2 级 BUFGMUX + 1 proc_sys_reset 复位桥） | 5..12 ✔ |
+| `u_hdmi_out_top` 层次 | **1037 LUT / 1564 FF**（util_hier Total LUTs；原始原语计数 1240，仅参考） | ≤ 1200 ✔ |
+| ├ `u_scan`（P2 扫描器） | 648 LUT / 934 FF / 1.5 BRAM | — |
+| ├ `u_sil9134_init` | 91 LUT / 77 FF | — |
+| ├ `u_timing_1080` / `u_timing_720` | 106 / 71 LUT | — |
+| └ `(u_hdmi_out_top)` 自身 | 125 LUT / 419 FF | — |
+| `axi_ctrl`（AXI3→AXI4-Lite） | 360 LUT / 426 FF | — |
+| `axi_hp0`（AXI4→AXI3，HP0 通路） | 111 LUT / 134 FF | — |
+| DRC | **0 Errors** | 0 ✔ |
 
 时序（`timing.rpt`，Routed，**All user specified timing constraints are met**）：
 
 | 时钟 | 周期 | WNS | TNS | 失败端点 | 端点总数 |
 |---|---:|---:|---:|---:|---:|
-| `clk_pix_a` (148.4375 MHz) | 6.737 ns | **+1.795 ns** | 0.000 | 0 | 372 |
-| `clk_pix_b` (74.21875 MHz) | 13.474 ns | **+8.550 ns** | 0.000 | 0 | 372 |
-| `clk_fpga_0` (100 MHz) | 10.000 ns | **+4.446 ns** | 0.000 | 0 | 468 |
+| `clk_pix_a`（÷8, 148.4375 MHz） | 6.7368 ns | **+1.500 ns** | 0.000 | 0 | 614 |
+| `clk_pix_b`（÷16, 74.21875 MHz） | 13.4737 ns | **+8.087 ns** | 0.000 | 0 | 614 |
+| `clk_pix_c`（÷32, 37.109375 MHz） | 26.9474 ns | **+21.952 ns** | 0.000 | 0 | 613 |
+| `clk_fpga_0`（100 MHz） | 10.000 ns | **+3.402 ns** | 0.000 | 0 | 4159 |
 
-- 设计级：WNS **+1.795 ns**，TNS **0.000**，失败端点 **0** / 841。
-- 构建耗时：synth 88 s + impl 52 s（jobs=2，`general.maxThreads=2`、`enable_parallel_synth=0`）。
+- 构建耗时：synth 116 s + impl 58 s（jobs=2、`maxThreads=2`、`enable_parallel_synth=0`）。
+- ★ **位流 md5 每次构建都不同**（差 4 字节）：`.bit` 头部含构建时间戳（`2026/11/03 03:10`），
+  **设计本身是确定的**（三次构建只差这个时间字段）。比对 md5 时必须知道这一点。
 
 ## 5. 端口（BD 顶层，名字与厂商 XDC 一一对应）
 
@@ -164,21 +170,20 @@ FCLK0 100 MHz (clk_fpga_0, 10.000 ns)
 
 ---
 
-## 7. 视频模式（VIDEO_MODE）
+## 7. 视频模式（VIDEO_MODE，2026-11-03 三时钟版）
 
 | 值 | 像素时钟 | 时序参数 | 刷新率 | 备注 |
 |---|---|---|---|---|
-| `0` | 74.21875 MHz | 720p（1650×750, 1280×720） | 59.97 Hz | **黑屏时的第一招**（兼容性最好） |
-| `1` | 148.4375 MHz | 1080p（2200×1125, 1920×1080） | 59.94 Hz | **默认**（复位值） |
-| `2` | 74.21875 MHz | 1080p 同上 | 29.97 Hz | 1080p30 |
-| `3` | — | — | — | ⚠ **本位流不支持 640×480**：`mode=3` 等价于 1080p60（见下） |
+| **`3`** | **37.109375 MHz（÷32）** | 720p（1650×750, 1280×720） | **29.97 Hz** | **复位默认（720p30）**；行内瞬时带宽仅 111 MB/s，100 MHz AXI 余量 63% |
+| `0` | 74.21875 MHz（÷16） | 720p（同上） | 59.97 Hz | 兼容性最好 |
+| `1` | 148.4375 MHz（÷8） | 1080p（2200×1125, 1920×1080） | 59.94 Hz | 最紧（WNS +1.500 ns） |
+| `2` | 74.21875 MHz（÷16） | 1080p 同上 | 29.97 Hz | 1080p30 |
 
-- 切模式协议：**先写 `CTRL.enable=0` → 写 `VIDEO_MODE` → 等 ≥ 2 帧 → 写 `CTRL.enable=1`**。
-  模块内部另有 64 个像素时钟的自动复位，保证 BUFGMUX 切换瞬间 DE 不出非法脉冲。
-- `mode=3` 为什么等价于 1080p60：640×480 需要 25.175 MHz，本位流只有 148.4375 / 74.21875 两路；
-  且 H/V 参数表只有 720p 与 1080p 两套。要 640×480 必须**单独构建**（`MODE_DEFAULT=3` + 另一路 MMCM 分频）。
-
----
+- **mode 3 与 mode 0 共用同一套 720p H/V 参数**（只差像素时钟）⇒ 不新增时序发生器实例。
+- 原"mode 3 = 640×480"的语义**已作废**（那要 25.175 MHz，本三时钟位流不支持）。
+- 切换协议不变：**先写 `CTRL.enable=0` → 写 `VIDEO_MODE` → 等 ≥ 2 帧 → `CTRL.enable=1`**。
+  时钟选择是 **两级 BUFGMUX 串联**（不是 LUT 树）：`sel_148 = mode[0]`、`sel_37 = mode[0]&mode[1]`。
+- 数据源二选一由 `CTRL[2] test_pattern` 决定，且在 **vsync 边界**采纳：`1`→彩条、`0`→P2 扫描器像素流。
 
 ## 8. 上板步骤（给主代理照抄）
 
@@ -433,4 +438,97 @@ HDMI_P1_STANDALONE=1 STAGE=full REBUILD_BD=0 \
 | `b658e0da…` | 11-03 00:06 | ❌ 事故版（`dcm_locked ← MMCM.locked`） |
 | `c588b068…` | 11-03 00:48 | ❌ **作废**：`S00/M00_ARESETN` 被绑 0（AXI 侧死逻辑），禁用 |
 | **`d478c605…`** | **11-03 00:57** | ✅ **当前交付**（两条复位缺陷均修） |
+
+---
+
+## 14. ★ 交接须知（给下一个上板的人 —— 2026-11-03 板子已移交别的 agent）
+
+> **这份文档比位流更重要。** 换人接手最容易翻车的不是设计，而是下面这些**平台口径**。
+
+### 14.1 位流 / 硬件描述（以本目录 `MD5SUMS` 为准）
+
+| 项 | 值 |
+|---|---|
+| 位流 | `runs/hdmi_p1/hdmi_p1.bit`，md5 见 §1（写本节时是 `c9164618…`；**以 `MD5SUMS` 复核为准**） |
+| 硬件描述 | `runs/hdmi_p1/hdmi_p1.hwh`（基址 `0x400A0000`，64 KB；`0x400B0000` 空着） |
+| 默认 `VIDEO_MODE` | **3 = 720p30**（37.109375 MHz，−421 ppm）；`0`=720p60 `1`=1080p60 `2`=1080p30 |
+| `CTRL` 复位值 | **`0x15`**（`[0]`enable=1、`[2]`test_pattern=1、`[4]`motion_en=1）⇒ **一 load 就出彩条**，PS 不用写任何寄存器 |
+| 上板第一步 | **只读 `0x30 PIX_HB`**（协议见 §8） |
+
+### 14.2 MMCM 输入 = PS7 **FCLK0**，真值必须是 **100 MHz**
+
+- MMCM 参数按 100 MHz 输入算（`M=11.875, D=1, VCO=1187.5 MHz`）⇒ 三路像素时钟 148.4375 / 74.21875 / 37.109375 MHz。
+- **位流不设置 SLCR 的 FCLK 分频** —— 那是 BOOT.BIN/FSBL 或运行时 `Clocks.fclk0_mhz` 决定的。
+- 上电后 FCLK0 大概率**不是** 100 MHz ⇒ MMCM 不锁 ⇒ **只是不亮**（这是 11-03 事故修复后的正确行为），`0x30[1]=0`，但 `0x00/0x04/0x08` **仍可读**。
+
+### 14.3 ⚠ 本镜像 `Clocks.fclk0_mhz` 报的是真实值的 **1.5 倍**
+
+- 实测：**写 `150` 才是真 100 MHz**。读回 150 ⇒ 真值 100。
+- 别按"读回 100 才对"去调 —— 那会把 FCLK0 设成 66.7 MHz，MMCM 依旧不锁，你会误判成"位流坏了"。
+- 设完等 **≥ 100 ms**（PLL 重锁 + `locked` 建立），再读心跳。
+
+### 14.4 上板顺序（不可跳步）
+
+```
+① 体检：df -h / 、df -i / 、sudo -S -p '' true 、from pynq import Overlay
+② 一次 load：Overlay("hdmi_p1.bit")（同目录要有 hdmi_p1.hwh）
+③ 只读 0x30 PIX_HB：poll ≥ 100 ms 且至少 5 个翻转沿
+     [0] 在翻转 且 [1]=1  ⇒ 像素时钟活着，进 ④
+     否则 ⇒ 先设 Clocks.fclk0_mhz = 150（见 14.3），等 ≥100 ms，重试 ③
+     仍不行 ⇒ **立刻停**，不要读任何其它寄存器
+④ 才允许读 0x00（期望 0x15）/ 0x04（期望 0x03）
+```
+
+### 14.5 判据速查
+
+| 现象 | 含义 |
+|---|---|
+| `0x30[1]=0`，`0x30[0]` 不动，`0x00/0x04/0x08` **可读** | MMCM 未锁（FCLK0 不是 100 MHz）⇒ 按 14.3 调 |
+| `0x30[0]` 在翻、`[1]=1`、不亮 | 像素域在跑，问题在 SIL9134 I2C / 时序参数 ⇒ 查 `0x04` 的 `init_done` |
+| 读 `0x00` 直接挂住 | **不该再出现**（两条复位缺陷都已修）。真出现 ⇒ 立刻断电，报主代理 |
+
+---
+
+## 15. 三时钟的 BUFG→BUFG 级联：`Place 30-120` 与 `CLOCK_DEDICATED_ROUTE`（2026-11-03）
+
+### 15.1 症状
+
+三时钟版第一次实现直接死在 place：
+
+```
+ERROR: [Place 30-120] Sub-optimal placement for a BUFG-BUFG cascade pair
+  hdmi_p1_i/.../u_bufgmux    (BUFGCTRL.O)  placed on BUFGCTRL_X0Y1
+  hdmi_p1_i/.../u_bufgmux_c  (BUFGCTRL.I0) placed on BUFGCTRL_X0Y4
+  Clock Rule: rule_cascaded_bufg  Status: FAILED
+  Rule Description: Cascaded bufg (bufg->bufg) must be adjacent and cyclic
+ERROR: [Place 30-99] Placer failed with error: 'IO Clock Placer failed'
+```
+
+### 15.2 根因（为什么不是"随便调一下就能好"）
+
+- RTL 是 **两级 BUFGMUX 串联**（`u_bufgmux` → `pix_clk_ab` → `u_bufgmux_c`），目的是三选一仍然 glitchless。
+- 7 系列规则要求级联的两个 BUFGMUX **落在循环相邻的 BUFGCTRL 站点**。
+- 本设计一共 **6 个时钟 buffer**：3 个输入 BUFG（a/b/c）+ 2 个 mux + 1 个 MMCM 反馈 BUFG。
+  要让 mux 与它的三个输入 BUFG 全部相邻、同时 mux→mux_c 也相邻，在单列站点上**排不出来**
+  （mux 的相邻位被另一个输入 BUFG 占死）。⇒ 这是结构性的，不是 placer 偷懒。
+
+### 15.3 处置（**在约束侧，没碰 RTL**）
+
+`constraints/p1_clock_groups.tcl`（作为 Tcl hook 在 `INIT_DESIGN.TCL.POST` 执行）里：
+
+```tcl
+set _p1_ab [get_nets -quiet -hier -filter {NAME =~ "*u_hdmi_out_top/pix_clk_ab"}]
+set_property CLOCK_DEDICATED_ROUTE ANY_CMT_COLUMN $_p1_ab      ;# 工具自己在报错里给的官方逃生口
+```
+
+构建日志会打印：`[p1_clk] OK  BUFG->BUFG 级联网 .../pix_clk_ab 走 ANY_CMT_COLUMN`。
+
+### 15.4 代价与红线
+
+- 代价：第二级 mux 的输出走通用布线 ⇒ 多一点插入延迟/抖动。**像素域内部是一致的**；
+  跨到 AXI 域本来就声明了 `-asynchronous`。
+- 实测影响：`clk_pix_a` 的 WNS 从 **+1.795 ns（两时钟版）→ +1.500 ns**（−0.295 ns），仍 ≥ 0。
+- **红线**：如果哪天 `clk_pix_a` 的 WNS 被这一条吃到负数，**正解是改 RTL**
+  （例如换成带显式 LOC 的单级三选一，或把时钟选择挪到 MMCM 之外的其他 glitchless 方案），
+  **不是**继续放宽周期或删门禁。到那时先报主代理。
 

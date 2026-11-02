@@ -22,7 +22,8 @@
 //  时钟树（与 BD_NOTES.md §3 一致）：
 //      FCLK0 100 MHz ─ MMCM(M=11.875, D=1, VCO=1187.5 MHz, CLKIN1_PERIOD=10 ns)
 //                       ├ CLKOUT0 ÷8  = 148.4375 MHz → pix_clk_a → top 内 BUFG ┐
-//                       └ CLKOUT1 ÷16 =  74.21875 MHz → pix_clk_b → top 内 BUFG ┴ BUFGMUX
+//                       ├ CLKOUT1 ÷16 =  74.21875 MHz → pix_clk_b → top 内 BUFG ┤
+//                       └ CLKOUT2 ÷32 =  37.109375 MHz → pix_clk_c → top 内 BUFG ┴ 两级 BUFGMUX
 //                                                                  ↓ VIDEO_MODE[0]
 //                                                        pix_clk（H1 转发给 SIL9134）
 //      1080p60 (mode 1)：148.4375 MHz(59.94 Hz)    720p60 (mode 0)：74.21875 MHz(59.97 Hz)
@@ -47,7 +48,7 @@
 `timescale 1ns / 1ps
 
 module hdmi_p1_top #(
-    parameter integer MODE_DEFAULT = 1,          // 1 = 1080p60（契约默认）
+    parameter integer MODE_DEFAULT = 3,          // 3 = 720p30（★ 新默认，37.109375 MHz）
     parameter integer AXI_HZ       = 100_000_000 // 必须等于 FCLK0（build 脚本硬断言）
 ) (
     // ---- AXI 时钟/复位（BD 接口属性；FREQ_HZ 必须与 PS7 FCLK0 一致）----
@@ -112,7 +113,22 @@ module hdmi_p1_top #(
     inout  wire        hdmi_scl,        // J8，开漏 + 外部上拉
     inout  wire        hdmi_sda,        // K8，开漏 + 外部上拉
 
-    // ---- 状态 / P2 预留（P1 全部悬空；BD 里不引出）----
+    // ---- AXI4 主口（P2 扫描器读 DDR；只读 ⇒ READ_WRITE_MODE READ_ONLY；BD 侧 → S_AXI_HP0）
+    //   ★ 端口属性写在参数里：BD 要看到 X_INTERFACE_INFO 才能聚成 AXI 接口、才能连 HP0。
+    (* X_INTERFACE_PARAMETER = "XIL_INTERFACENAME m_axi, PROTOCOL AXI4, READ_WRITE_MODE READ_ONLY, ADDR_WIDTH 32, DATA_WIDTH 64, HAS_BURST 1, HAS_CACHE 0, HAS_LOCK 0, HAS_PROT 0, HAS_QOS 0, HAS_REGION 0, HAS_WSTRB 0, HAS_AXLEN 1, NUM_READ_OUTSTANDING 1, NUM_WRITE_OUTSTANDING 0, SUPPORTS_NARROW_BURST 0, MAX_BURST_LENGTH 256" *)
+    (* X_INTERFACE_INFO = "xilinx.com:interface:aximm:1.0 m_axi ARADDR" *)   output wire [31:0] m_axi_araddr,
+    (* X_INTERFACE_INFO = "xilinx.com:interface:aximm:1.0 m_axi ARLEN"  *)   output wire [7:0]  m_axi_arlen,
+    (* X_INTERFACE_INFO = "xilinx.com:interface:aximm:1.0 m_axi ARSIZE" *)   output wire [2:0]  m_axi_arsize,
+    (* X_INTERFACE_INFO = "xilinx.com:interface:aximm:1.0 m_axi ARBURST" *)  output wire [1:0]  m_axi_arburst,
+    (* X_INTERFACE_INFO = "xilinx.com:interface:aximm:1.0 m_axi ARVALID" *)  output wire        m_axi_arvalid,
+    (* X_INTERFACE_INFO = "xilinx.com:interface:aximm:1.0 m_axi ARREADY" *)  input  wire        m_axi_arready,
+    (* X_INTERFACE_INFO = "xilinx.com:interface:aximm:1.0 m_axi RDATA" *)    input  wire [63:0] m_axi_rdata,
+    (* X_INTERFACE_INFO = "xilinx.com:interface:aximm:1.0 m_axi RRESP" *)    input  wire [1:0]  m_axi_rresp,
+    (* X_INTERFACE_INFO = "xilinx.com:interface:aximm:1.0 m_axi RLAST" *)    input  wire        m_axi_rlast,
+    (* X_INTERFACE_INFO = "xilinx.com:interface:aximm:1.0 m_axi RVALID" *)   input  wire        m_axi_rvalid,
+    (* X_INTERFACE_INFO = "xilinx.com:interface:aximm:1.0 m_axi RREADY" *)   output wire        m_axi_rready,
+
+    // ---- 状态 / P3 预留（BD 里不引出）----
     output wire        irq_vsync,
     output wire        init_done,
     output wire        cfg_upd,
@@ -125,7 +141,7 @@ module hdmi_p1_top #(
     //   CLKOUT1 = 1187.5 / 16 =  74.21875 MHz（周期 13.4737 ns）
     // ★ 输出**不加 BUFG**：冻结 top 内部 u_bufg_a/u_bufg_b 已经是每路一个 BUFG，
     //   再加就成 BUFG→BUFG（DRC 直接报错）。
-    wire clk_pix_a, clk_pix_b;
+    wire clk_pix_a, clk_pix_b, clk_pix_c;
     wire clkfb_out, clkfb_in;
     wire mmcm_locked_int;                    // MMCM LOCKED 原始锁定位（内部）
     wire mmcm_rst = ~aresetn;
@@ -151,6 +167,10 @@ module hdmi_p1_top #(
         .CLKOUT1_PHASE        (0.000),
         .CLKOUT1_DUTY_CYCLE   (0.500),
         .CLKOUT1_USE_FINE_PS  ("FALSE"),
+        .CLKOUT2_DIVIDE       (32),
+        .CLKOUT2_PHASE        (0.000),
+        .CLKOUT2_DUTY_CYCLE   (0.500),
+        .CLKOUT2_USE_FINE_PS  ("FALSE"),
         .CLKIN1_PERIOD        (10.000),
         .CLKIN2_PERIOD        (10.000),
         .REF_JITTER1          (0.010),
@@ -160,7 +180,7 @@ module hdmi_p1_top #(
         .CLKOUT0B  (),
         .CLKOUT1   (clk_pix_b),
         .CLKOUT1B  (),
-        .CLKOUT2   (),
+        .CLKOUT2   (clk_pix_c),
         .CLKOUT2B  (),
         .CLKOUT3   (),
         .CLKOUT3B  (),
@@ -225,6 +245,7 @@ module hdmi_p1_top #(
         .aresetn        (aresetn),           // ★ 只接 PS 域复位：AXI 域绝不被 MMCM 门控（①）
         .pix_clk_a      (clk_pix_a),         // 148.4375 MHz（top 内 BUFG + BUFGMUX）
         .pix_clk_b      (clk_pix_b),         //  74.21875 MHz
+        .pix_clk_c      (clk_pix_c),         //  37.109375 MHz（720p30，默认模式）
 
         // ③ MMCM.locked **只接这一处**：冻结 top 内只做 0x30[1] 状态上报（2FF 到 aclk）。
         //    不进复位、不做使能 —— 详见上面 ② 的说明。
@@ -248,18 +269,18 @@ module hdmi_p1_top #(
         .s_axi_rvalid   (s_axi_rvalid),
         .s_axi_rready   (s_axi_rready),
 
-        // ③ P1 的 AXI4 master 读通路恒空转（P3-b 才用）⇒ 合法 tie-off
-        .m_axi_araddr   (),
-        .m_axi_arlen    (),
-        .m_axi_arsize   (),
-        .m_axi_arburst  (),
-        .m_axi_arvalid  (),
-        .m_axi_arready  (1'b0),
-        .m_axi_rdata    (64'd0),
-        .m_axi_rresp    (2'd0),
-        .m_axi_rlast    (1'b0),
-        .m_axi_rvalid   (1'b0),
-        .m_axi_rready   (),
+        // ④ P2 扫描器的 AXI4 读主口：真实引出到 BD → axi_hp0 → ps7/S_AXI_HP0
+        .m_axi_araddr   (m_axi_araddr),
+        .m_axi_arlen    (m_axi_arlen),
+        .m_axi_arsize   (m_axi_arsize),
+        .m_axi_arburst  (m_axi_arburst),
+        .m_axi_arvalid  (m_axi_arvalid),
+        .m_axi_arready  (m_axi_arready),
+        .m_axi_rdata    (m_axi_rdata),
+        .m_axi_rresp    (m_axi_rresp),
+        .m_axi_rlast    (m_axi_rlast),
+        .m_axi_rvalid   (m_axi_rvalid),
+        .m_axi_rready   (m_axi_rready),
 
         .pix_clk        (pix_clk),           // 内部 BUFGMUX 输出 → H1
         .hdmi_de        (hdmi_de),

@@ -533,3 +533,40 @@ MMCM 单 VCO = 1187.5 MHz（输入 100 MHz，`M=11.875`，`DIVCLK=1`）：
 1. **未上板**：P2 真画面、720p30 的显示器表现、SIL9134 是否认 720p30 —— 待板子空出
 2. 从彩条切到扫描器的**那一帧**可能计 1 行 `UNDERFLOW_CNT`（无预取余量），稳态 0 增长
 3. OOC 未加 `set_output_delay`（SIL9134 输入时序厂商未给）⇒ WNS 只代表片内 + OBUF
+
+### 8.18 ★ P2 位流交付与四条口径（2026-11-03 03:1x）
+
+| 项 | 值 |
+|---|---|
+| 位流 | `runs/hdmi_p1/hdmi_p1.bit`（3,510,797 B）|
+| **设计指纹** | **`SW_CRC=bd345bcd`**（`.bit` 头里的 payload CRC，见下条）|
+| hwh | md5 `24d07045d7db7566228dad291cef57cd`，基址 `0x400A0000 / 64 KB` |
+| WNS | `pix_clk_a` **+1.500** / `pix_clk_b` **+8.087** / `pix_clk_c` **+21.952** / `clk_fpga_0` **+3.402** ns；TNS 0，failing 0 |
+| 资源 | 整 BD **1549 LUT / 2161 FF / 1.5 BRAM / 0 DSP / Latch 0**；`u_hdmi_out_top` **1037 LUT / 1564 FF** |
+| `BUFGCTRL` | **7**（1 clkfb + 3 像素 BUFG + 2 级 BUFGMUX + 1 复位桥）|
+| 子块 | `u_scan` 648 / `sil9134_init` 91 / `timing_1080` 106 / `timing_720` 71 / 自身 125；`axi_ctrl` 360 / `axi_hp0` 111 |
+
+#### ① ★ `.bit` 的 md5 **不能跨构建**当设计身份
+- 实测 `.bit` 头里有构建时间戳：`2026/11/03` + `03:10:03` ⇒ 同一设计每次构建 md5 都差 4 字节
+- 三次构建 `68ec8e59…` / `6473abeb…` / `c9164618…`，**设计完全相同**
+- ⇒ **跨构建比对用 `SW_CRC`**（`.bit` 头里，本次 `bd345bcd`），它只随设计变
+- ⇒ **文件身份**（"这份文件没被换过"）仍可用 md5；**设计身份**（"是不是同一版设计"）必须用 `SW_CRC`
+- ⇒ 归档时两者都记：`md5=… SW_CRC=… mtime=…`
+
+#### ② 三时钟的 BUFG 级联：place 阶段真的会失败
+- 现象：`ERROR: [Place 30-120] Sub-optimal placement for a BUFG-BUFG cascade pair`（`u_bufgmux` X0Y1 → `u_bufgmux_c` X0Y4）
+- 根因（结构性）：两级 `BUFGMUX` 级联要求两个 mux **循环相邻**；本设计有 6 个时钟 buffer
+  （3 输入 `BUFG` + 2 个 `BUFGMUX` + 1 个 MMCM 反馈 `BUFG`），单列站点排不下
+- 处置：对 `pix_clk_ab` 设 **`CLOCK_DEDICATED_ROUTE ANY_CMT_COLUMN`**（报错里工具自己给的出口），**未改 RTL**
+- 代价实测：`clk_pix_a` WNS **+1.795 → +1.500 ns**（−0.295 ns，仍为正）
+- ⇒ **红线**：哪天它被这条吃到负数，**正解是改 RTL**（带 `LOC` 的单级三选一），**不是放宽周期约束**
+
+#### ③ `BUFGCTRL` 数量是"级联没被改写"的判据
+- 预期 7 = 1 clkfb `BUFG` + 3 像素 `BUFG` + 2 级 `BUFGMUX` + 1 复位桥
+- 实测 `util.rpt`：`| BUFGCTRL | 7 | ... | 32 | 21.88 |` ⇒ **没被综合器改写成 LUT 树**
+- ⇒ 若该数明显偏离，说明逻辑被改写，必须停下查（不是"资源省了"）
+
+#### ④ LUT 口径（与 §8.17 一致，这里钉死）
+- 门禁**只按 `util_hier.rpt` 的 Total LUTs**（`u_hdmi_out_top` = 1037）
+- 网表 LUT 原语计数（1240）**只作提示打印，不作门禁**
+- 整 BD 1549 / BRAM 1.5 / `BUFGCTRL` 7 三条硬门禁未动

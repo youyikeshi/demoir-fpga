@@ -3,7 +3,7 @@
   **** SW Build 6403652 on Thu Mar 19 13:47:00 MDT 2026
   **** IP Build 6403511 on Thu Mar 19 12:41:45 MDT 2026
   **** SharedData Build 6403650 on Thu Mar 19 14:02:13 MDT 2026
-  **** Start of session at: Tue Nov  3 00:54:52 2026
+  **** Start of session at: Tue Nov  3 03:06:42 2026
     ** Copyright 1986-2022 Xilinx, Inc. All Rights Reserved.
     ** Copyright 2022-2026 Advanced Micro Devices, Inc. All Rights Reserved.
 
@@ -71,9 +71,9 @@ source pl/vivado/hdmi_p1/build_hdmi_p1.tcl
 ##     }
 ## }
 ## puts "\[guard\] ✅ 构建闸门通过  owner_pid=$_own(pid)  age=${_age}s  lock=$_own(lock)"
-[guard] ✅ 构建闸门通过  owner_pid=63261  age=3s  lock=held
+[guard] ✅ 构建闸门通过  owner_pid=255145  age=2s  lock=held
 ## puts "\[guard\]    token=$_own(token)"
-[guard]    token=1793638491-63261-315526944
+[guard]    token=1793646401-255145-885514350
 ## puts "\[guard\]    cmd=$_own(cmd)"
 [guard]    cmd=pl/scripts/vrun.sh pl/vivado/hdmi_p1/build_hdmi_p1.tcl ../runs/hdmi_p1/build.log 5400
 # set_param general.maxThreads 2                  
@@ -104,8 +104,9 @@ source pl/vivado/hdmi_p1/build_hdmi_p1.tcl
 # set PART       xc7z015clg485-2
 # set ADDR_HDMI  0x400A0000
 # set RANGE_HDMI 64K
-# set EXP_TOP_MD5  b997aa8b7655ccbfd798cfb5ef5c001f          
+# set EXP_TOP_MD5  27cda94d12c6250678caef9f6716c17b          
 # set OLD_TOP_MD5  718971613e4b517231667212f7683bb4          
+# set EXP_SCAN_MD5 bfed206f0fb167b8409d3b21bbcbaca6          
 # if {$EXP_TOP_MD5 eq $OLD_TOP_MD5} {
 #     error "hdmi_out_top.v 仍是事故版（$OLD_TOP_MD5）：BD/Tcl 的结构改动已完成，等 RTL 代理 T-67a2（mmcm_locked + 0x30 PIX_HB）交付后把新 md5 填进 EXP_TOP_MD5 再构建"
 # }
@@ -136,7 +137,7 @@ source pl/vivado/hdmi_p1/build_hdmi_p1.tcl
 # puts "==========================================================================="
 ===========================================================================
 # puts " HDMI P1 独立 BD   STAGE=$STAGE  REBUILD=$REBUILD  [tstamp]"
- HDMI P1 独立 BD   STAGE=full  REBUILD=1  00:54:54
+ HDMI P1 独立 BD   STAGE=full  REBUILD=1  03:06:43
 # puts " Vivado [version -short]  part=$PART"
  Vivado 2025.2.1  part=xc7z015clg485-2
 # puts " 工程=$XPR"
@@ -152,7 +153,8 @@ source pl/vivado/hdmi_p1/build_hdmi_p1.tcl
 #     hdmi_out_top.v    $EXP_TOP_MD5 \
 #     hdmi_timing_gen.v d42fc295946ad07230de8a3b5bb49045 \
 #     hdmi_color_bar.v  ffaf1bcd6e9237d756efb1f140a2fcec \
-#     sil9134_init.v    fb55cf255e004c68024fefea31a4509a]
+#     sil9134_init.v    fb55cf255e004c68024fefea31a4509a \
+#     hdmi_fb_scan.v    $EXP_SCAN_MD5]
 # set EXP_XDC c1183e22470b121efd48f747ca24fdac
 # foreach f [lsort [array names EXP_FROZEN]] {
 #     set p [file join $FROZEN $f]
@@ -161,7 +163,8 @@ source pl/vivado/hdmi_p1/build_hdmi_p1.tcl
 #     ok "$f  [md5f $p]"
 # }
     OK   hdmi_color_bar.v  ffaf1bcd6e9237d756efb1f140a2fcec
-    OK   hdmi_out_top.v  b997aa8b7655ccbfd798cfb5ef5c001f
+    OK   hdmi_fb_scan.v  bfed206f0fb167b8409d3b21bbcbaca6
+    OK   hdmi_out_top.v  27cda94d12c6250678caef9f6716c17b
     OK   hdmi_timing_gen.v  d42fc295946ad07230de8a3b5bb49045
     OK   sil9134_init.v  fb55cf255e004c68024fefea31a4509a
 # set px [file join $XDCFROZ hdmi_out_pins.xdc]
@@ -171,8 +174,12 @@ source pl/vivado/hdmi_p1/build_hdmi_p1.tcl
 # set _fh [open [file join $FROZEN hdmi_out_top.v] r]
 # set _t [read $_fh]
 # close $_fh
-# foreach _sig {pix_clk_a pix_clk_b} {
-#     if {![regexp "input\\s+wire\\s+$_sig" $_t]} { error "冻结 top 缺 $_sig —— 不是双时钟版" }
+# foreach _sig {pix_clk_a pix_clk_b pix_clk_c} {
+#     if {![regexp "input\\s+wire\\s+$_sig" $_t]} { error "冻结 top 缺 $_sig —— 不是三时钟版" }
+# }
+# if {![regexp {output\s+wire} $_t]} { error "冻结 top 的 m_axi 端口不是 output wire" }
+# foreach _sig {m_axi_araddr m_axi_arlen m_axi_arsize m_axi_arburst m_axi_arvalid m_axi_rready} {
+#     if {[string first $_sig $_t] < 0} { error "冻结 top 缺 AXI4 主口输出 $_sig" }
 # }
 # foreach _sig {hdmi_scl hdmi_sda} {
 #     if {![regexp "inout\\s+wire\\s+$_sig" $_t]} { error "冻结 top 的 $_sig 不是 inout" }
@@ -181,8 +188,8 @@ source pl/vivado/hdmi_p1/build_hdmi_p1.tcl
 #     if {![regexp "output\\s+wire\\s+$_sig" $_t]} { error "冻结 top 缺 $_sig" }
 # }
 # if {![regexp "UNDERFLOW_CNT" $_t]} { error "冻结 top 缺 0x2C UNDERFLOW_CNT" }
-# ok "冻结 top 端口/寄存器核对通过（双时钟 + inout + cfg_upd/fid_upd + 0x2C）"
-    OK   冻结 top 端口/寄存器核对通过（双时钟 + inout + cfg_upd/fid_upd + 0x2C）
+# ok "冻结 top 端口/寄存器核对通过（三时钟 + AXI4 主口 + inout + cfg_upd/fid_upd + 0x2C）"
+    OK   冻结 top 端口/寄存器核对通过（三时钟 + AXI4 主口 + inout + cfg_upd/fid_upd + 0x2C）
 # if {![regexp {input\s+wire\s+mmcm_locked} $_t]} {
 #     error "冻结 top 缺 input wire mmcm_locked —— RTL 代理的 T-67a2 事故修复版还没交付（当前 md5=[md5f [file join $FROZEN hdmi_out_top.v]]）。BD/Tcl 结构改动已完成，等新 md5 再构建。"
 # }
@@ -190,7 +197,16 @@ source pl/vivado/hdmi_p1/build_hdmi_p1.tcl
 #     error "冻结 top 缺 0x30 PIX_HB 心跳寄存器（T-67a2 未交付）"
 # }
 # ok "事故修复版端口核对通过：input mmcm_locked + 0x30 PIX_HB（md5=$EXP_TOP_MD5）"
-    OK   事故修复版端口核对通过：input mmcm_locked + 0x30 PIX_HB（md5=b997aa8b7655ccbfd798cfb5ef5c001f）
+    OK   事故修复版端口核对通过：input mmcm_locked + 0x30 PIX_HB（md5=27cda94d12c6250678caef9f6716c17b）
+# set _fh [open [file join $FROZEN hdmi_fb_scan.v] r]
+# set _st [read $_fh]
+# close $_fh
+# foreach _sig {m_axi_arvalid m_axi_arready m_axi_rdata m_axi_rlast m_axi_rvalid} {
+#     if {![regexp $_sig $_st]} { error "hdmi_fb_scan.v 缺 $_sig" }
+# }
+# if {![regexp {ram_style} $_st]} { error "hdmi_fb_scan.v 的行缓冲没有 ram_style（BRAM 推断会变 SRL）" }
+# ok "扫描器核对通过：AXI4 读主口 + ram_style=block（md5=$EXP_SCAN_MD5）"
+    OK   扫描器核对通过：AXI4 读主口 + ram_style=block（md5=bfed206f0fb167b8409d3b21bbcbaca6）
 # foreach f [lsort [array names EXP_FROZEN]] {
 #     set lp [file join $LIVE_MOD $f]
 #     if {[file exists $lp] && [md5f $lp] ne $EXP_FROZEN($f)} {
@@ -214,13 +230,14 @@ source pl/vivado/hdmi_p1/build_hdmi_p1.tcl
 #         [file join $FROZEN hdmi_out_top.v] \
 #         [file join $FROZEN hdmi_timing_gen.v] \
 #         [file join $FROZEN hdmi_color_bar.v] \
-#         [file join $FROZEN sil9134_init.v]]
+#         [file join $FROZEN sil9134_init.v] \
+#         [file join $FROZEN hdmi_fb_scan.v]]
 #     add_files -fileset constrs_1 -norecurse [list \
 #         [file join $XDCFROZ hdmi_out_pins.xdc] \
 #         [file join $XDCMINE hdmi_p1_clocks.xdc]]
-#     ok "新建工程 part=[get_property PART [current_project]]，+5 RTL +2 XDC"
+#     ok "新建工程 part=[get_property PART [current_project]]，+6 RTL +2 XDC"
 # }
-    OK   新建工程 part=xc7z015clg485-2，+5 RTL +2 XDC
+    OK   新建工程 part=xc7z015clg485-2，+6 RTL +2 XDC
 # proc bd_pins_of_net {netpat} { return [get_bd_pins -quiet -of_objects $netpat] }
 # proc bd_pin_full {p} {
 #     set n [get_property NAME $p]
@@ -297,13 +314,17 @@ source pl/vivado/hdmi_p1/build_hdmi_p1.tcl
 #     #  实测（00:50 那轮）：三条 *ARESETN* 是**同一条网络**（interconnect_aresetn 广播），
 #     #  所以判据不是"网络上只有我" ，而是"驱动器唯一 = rst_ps7_100M 对应脚 + 每个 sink 都在这条线上"。
 #     #  约束 per-port 复位漏接（BD 绑 0 ⇒ auto_pc 恒复位 ⇒ 总线死）正是靠这条兜住。
-#     set _acl_rst [get_bd_pins -quiet -of_objects [get_bd_cells axi_ctrl] -filter {NAME =~ "*ARESETN"}]
-#     if {[llength $_acl_rst] < 1} {
-#         error "★ 门禁5 失败($tag)：axi_ctrl 上一个 *ARESETN* 引脚都没找到（BD 结构异常）"
-#     }
 #     set _acl_sinks {}
-#     foreach _rp $_acl_rst { lappend _acl_sinks "axi_ctrl/[get_property NAME $_rp]" }
-#     puts "        axi_ctrl 复位脚 [llength $_acl_rst] 个：$_acl_sinks"
+#     foreach _ic [list axi_ctrl axi_hp0] {
+#         if {[llength [get_bd_cells -quiet $_ic]] == 0} { continue }
+#         set _rst [get_bd_pins -quiet -of_objects [get_bd_cells $_ic] -filter {NAME =~ "*ARESETN"}]
+#         if {[llength $_rst] < 1} {
+#             error "★ 门禁5 失败($tag)：$_ic 上一个 *ARESETN* 引脚都没找到（BD 结构异常）"
+#         }
+#         foreach _rp $_rst { lappend _acl_sinks "$_ic/[get_property NAME $_rp]" }
+#         puts "        $_ic 复位脚 [llength $_rst] 个：[get_property NAME $_rst]"
+#     }
+#     puts "        全部互联复位脚 [llength $_acl_sinks] 个：$_acl_sinks"
 # 
 #     foreach {drvpat sinks} [list \
 #             rst_ps7_100M/interconnect_aresetn $_acl_sinks \
@@ -446,6 +467,31 @@ source pl/vivado/hdmi_p1/build_hdmi_p1.tcl
 #     connect_bd_intf_net [get_bd_intf_pins ps7/M_AXI_GP0]    [get_bd_intf_pins axi_ctrl/S00_AXI]
 #     connect_bd_intf_net [get_bd_intf_pins axi_ctrl/M00_AXI] [get_bd_intf_pins hdmi_p1_top_0/s_axi]
 # 
+#     # ============================================================ ★ P2 扫描器 → HP0
+#     # 扫描器的 AXI4 读主口（只读）→ axi_hp0（1 主 1 从，auto_pc 做 AXI4→AXI3 + 突发拆分）
+#     #   → ps7/S_AXI_HP0（AXI3, 64 bit，走 DDR 直连）。第 6 条：地址 0x400B0000 仍空着
+#     #   （扫描器没有独立的 AXI-Lite 页，寄存器都在 hdmi_p1_top_0/s_axi 里）。
+#     # ★ 只读主口的 AW/W/B 在 BD 里没有源 ⇒ 会被绑 0。这是**设计意图**，已在门禁 5b
+#     #   白名单里按模式登记（并每轮打印出来供人复核）。
+#     create_bd_cell -type ip -vlnv xilinx.com:ip:axi_interconnect axi_hp0
+#     # ★ NUM_MI 必须显式写 1：IP 默认是 **2**（探针实测：只写 NUM_SI=1 会留下 M01_ACLK 等悬空脚
+#     #   ⇒ validate_bd_design 报 BD 41-758 "clock pins not connected"）。
+#     set_property -dict [list CONFIG.NUM_SI {1} CONFIG.NUM_MI {1}] [get_bd_cells axi_hp0]
+#     connect_bd_net [get_bd_pins ps7/FCLK_CLK0] \
+#         [get_bd_pins axi_hp0/ACLK] [get_bd_pins axi_hp0/S00_ACLK] [get_bd_pins axi_hp0/M00_ACLK]
+#     connect_bd_intf_net [get_bd_intf_pins hdmi_p1_top_0/m_axi] [get_bd_intf_pins axi_hp0/S00_AXI]
+#     connect_bd_intf_net [get_bd_intf_pins axi_hp0/M00_AXI]      [get_bd_intf_pins ps7/S_AXI_HP0]
+#     connect_bd_net [get_bd_pins rst_ps7_100M/interconnect_aresetn] [get_bd_pins axi_hp0/ARESETN]
+#     set _hp0_rst 0
+#     foreach _rp [get_bd_pins -quiet -of_objects [get_bd_cells axi_hp0] -filter {NAME =~ "*ARESETN"}] {
+#         if {[get_property NAME $_rp] eq "ARESETN"} { continue }
+#         connect_bd_net [get_bd_pins rst_ps7_100M/interconnect_aresetn] $_rp
+#         incr _hp0_rst
+#         ok "axi_hp0/[get_property NAME $_rp] ← rst_ps7_100M/interconnect_aresetn（per-port 复位）"
+#     }
+#     if {$_hp0_rst < 1} { note "⚠ axi_hp0 没有 per-port *ARESETN* 引脚" }
+#     ok "HP0 通路：hdmi_p1_top_0/m_axi → axi_hp0 → ps7/S_AXI_HP0（ACLK=FCLK0）"
+# 
 #     foreach p {pix_clk hdmi_de hdmi_hs hdmi_vs hdmi_rst_n} {
 #         create_bd_port -dir O $p
 #         connect_bd_net [get_bd_ports $p] [get_bd_pins hdmi_p1_top_0/$p]
@@ -486,6 +532,8 @@ INFO: [IP_Flow 19-5107] Inferred bus interface 'aresetn' of definition 'xilinx.c
 INFO: [IP_Flow 19-5107] Inferred bus interface 'aresetn' of definition 'xilinx.com:signal:reset:1.0' (from 'X_INTERFACE_INFO' attribute).
 INFO: [IP_Flow 19-5107] Inferred bus interface 's_axi' of definition 'xilinx.com:interface:aximm:1.0' (from X_INTERFACE_INFO parameter from HDL file).
 INFO: [IP_Flow 19-5107] Inferred bus interface 's_axi' of definition 'xilinx.com:interface:aximm:1.0' (from 'X_INTERFACE_INFO' attribute).
+INFO: [IP_Flow 19-5107] Inferred bus interface 'm_axi' of definition 'xilinx.com:interface:aximm:1.0' (from X_INTERFACE_INFO parameter from HDL file).
+INFO: [IP_Flow 19-5107] Inferred bus interface 'm_axi' of definition 'xilinx.com:interface:aximm:1.0' (from 'X_INTERFACE_INFO' attribute).
 INFO: [IP_Flow 19-5107] Inferred bus interface 'hdmi_rst_n' of definition 'xilinx.com:signal:reset:1.0' (from Xilinx Repository).
 INFO: [IP_Flow 19-5107] Inferred bus interface 'pix_clk' of definition 'xilinx.com:signal:clock:1.0' (from Xilinx Repository).
 INFO: [IP_Flow 19-4728] Bus Interface 'hdmi_rst_n': Added interface parameter 'POLARITY' with value 'ACTIVE_LOW'.
@@ -505,19 +553,41 @@ INFO: [IP_Flow 19-4728] Bus Interface 's_axi': Added interface parameter 'HAS_PR
 INFO: [IP_Flow 19-4728] Bus Interface 's_axi': Added interface parameter 'HAS_WSTRB' with value '1'.
 INFO: [IP_Flow 19-4728] Bus Interface 's_axi': Added interface parameter 'NUM_READ_OUTSTANDING' with value '1'.
 INFO: [IP_Flow 19-4728] Bus Interface 's_axi': Added interface parameter 'NUM_WRITE_OUTSTANDING' with value '1'.
+INFO: [IP_Flow 19-4728] Bus Interface 'm_axi': Added interface parameter 'PROTOCOL' with value 'AXI4'.
+INFO: [IP_Flow 19-4728] Bus Interface 'm_axi': Added interface parameter 'READ_WRITE_MODE' with value 'READ_ONLY'.
+INFO: [IP_Flow 19-4728] Bus Interface 'm_axi': Added interface parameter 'ADDR_WIDTH' with value '32'.
+INFO: [IP_Flow 19-4728] Bus Interface 'm_axi': Added interface parameter 'DATA_WIDTH' with value '64'.
+INFO: [IP_Flow 19-4728] Bus Interface 'm_axi': Added interface parameter 'HAS_BURST' with value '1'.
+INFO: [IP_Flow 19-4728] Bus Interface 'm_axi': Added interface parameter 'HAS_CACHE' with value '0'.
+INFO: [IP_Flow 19-4728] Bus Interface 'm_axi': Added interface parameter 'HAS_LOCK' with value '0'.
+INFO: [IP_Flow 19-4728] Bus Interface 'm_axi': Added interface parameter 'HAS_PROT' with value '0'.
+INFO: [IP_Flow 19-4728] Bus Interface 'm_axi': Added interface parameter 'HAS_QOS' with value '0'.
+INFO: [IP_Flow 19-4728] Bus Interface 'm_axi': Added interface parameter 'HAS_REGION' with value '0'.
+INFO: [IP_Flow 19-4728] Bus Interface 'm_axi': Added interface parameter 'HAS_WSTRB' with value '0'.
+INFO: [IP_Flow 19-4728] Bus Interface 'm_axi': Added interface parameter 'HAS_AXLEN' with value '1'.
+INFO: [IP_Flow 19-4728] Bus Interface 'm_axi': Added interface parameter 'NUM_READ_OUTSTANDING' with value '1'.
+INFO: [IP_Flow 19-4728] Bus Interface 'm_axi': Added interface parameter 'NUM_WRITE_OUTSTANDING' with value '0'.
+INFO: [IP_Flow 19-4728] Bus Interface 'm_axi': Added interface parameter 'SUPPORTS_NARROW_BURST' with value '0'.
+INFO: [IP_Flow 19-4728] Bus Interface 'm_axi': Added interface parameter 'MAX_BURST_LENGTH' with value '256'.
 INFO: [IP_Flow 19-7067] Note that bus interface 's_axi_aclk' has a fixed FREQ_HZ of '100000000'. This value will be respected whenever this IP is instantiated in IP Integrator.
 INFO: [IP_Flow 19-7067] Note that bus interface 's_axi' has a fixed FREQ_HZ of '100000000'. This value will be respected whenever this IP is instantiated in IP Integrator.
+WARNING: [IP_Flow 19-3158] Bus Interface 'm_axi': FREQ_HZ bus parameter missing from AXI interface when interface is not associated to a clock.
 CRITICAL WARNING: [IP_Flow 19-4751] Bus Interface 'pix_clk': FREQ_HZ bus parameter is missing for output clock interface.
     OK   module reference hdmi_p1_top_0（AXI 接口属性 + MMCM + 冻结 top）
 INFO: [BD 5-1043] It is recommended to use inline hdl version xilinx.com:inline_hdl:ilconstant:1.0 for the IP type xilinx.com:ip:xlconstant:1.1 for improved performance and reduced disk space. IPs with VLNV xilinx.com:ip:xlconstant:1.1 will not be supported from release 2025.2. More information on inline hdl IP is available in UG994 
     OK   dcm_locked ← const_dcm_locked/dout（常量 1'b1，与 MMCM 彻底解耦）
     OK   axi_ctrl/M00_ARESETN ← rst_ps7_100M/interconnect_aresetn（per-port 复位）
     OK   axi_ctrl/S00_ARESETN ← rst_ps7_100M/interconnect_aresetn（per-port 复位）
+    OK   axi_hp0/M00_ARESETN ← rst_ps7_100M/interconnect_aresetn（per-port 复位）
+    OK   axi_hp0/S00_ARESETN ← rst_ps7_100M/interconnect_aresetn（per-port 复位）
+    OK   HP0 通路：hdmi_p1_top_0/m_axi → axi_hp0 → ps7/S_AXI_HP0（ACLK=FCLK0）
 WARNING: [BD 5-699] No address segments matched 'get_bd_addr_segs hdmi_p1_top_0/s_axi/Reg'
 WARNING: [BD 41-1627] Requested range of <4G> for slave segments </hdmi_p1_top_0/s_axi/reg0> exceeds the range of the largest address space in assignment request </ps7/Data>. Shrinking the initial requested range to <1G>
 Slave segment '/hdmi_p1_top_0/s_axi/reg0' is being assigned into address space '/ps7/Data' at <0x4000_0000 [ 1G ]>.
     OK   地址：hdmi_out_top = 0x400A0000 / 0x00010000
+CRITICAL WARNING: [BD 41-1356] Slave segment </ps7/S_AXI_HP0/HP0_DDR_LOWOCM> is not assigned into address space </hdmi_p1_top_0/m_axi>. Please use Address Editor to either assign or exclude it.
 CRITICAL WARNING: [PS7-6]  LVCMOS33 (3.3V) is not supported for RGMII interface in Ethernet0. Recommendation is to use 1.8/2.5V IO.
+CRITICAL WARNING: [BD 41-967] AXI interface pin /hdmi_p1_top_0/m_axi is not associated to any clock pin. It may not work correctly.
 Wrote  : </media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/vivado/hdmi_p1/proj/hdmi_p1.srcs/sources_1/bd/hdmi_p1/hdmi_p1.bd> 
     OK   validate + save BD 通过
 # bd_assert_axi_reset_clean [expr {$_needbd ? "新建BD" : "复用BD"}]
@@ -525,11 +595,16 @@ Wrote  : </media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/vivado/h
         dcm_locked 网络 = const_dcm_locked_dout；挂载 cell = rst_ps7_100M const_dcm_locked
         ✓ dcm_locked ← const_dcm_locked（CONST_VAL=1）
         ✓ hdmi_p1_top_0/mmcm_locked 悬空（只做观测，不进任何复位）
-        axi_ctrl 复位脚 3 个：axi_ctrl/ARESETN axi_ctrl/M00_ARESETN axi_ctrl/S00_ARESETN
-        net rst_ps7_100M_interconnect_aresetn pins = rst_ps7_100M/interconnect_aresetn axi_ctrl/ARESETN axi_ctrl/M00_ARESETN axi_ctrl/S00_ARESETN
+        axi_ctrl 复位脚 3 个：ARESETN M00_ARESETN S00_ARESETN
+        axi_hp0 复位脚 3 个：ARESETN M00_ARESETN S00_ARESETN
+        全部互联复位脚 6 个：axi_ctrl/ARESETN axi_ctrl/M00_ARESETN axi_ctrl/S00_ARESETN axi_hp0/ARESETN axi_hp0/M00_ARESETN axi_hp0/S00_ARESETN
+        net rst_ps7_100M_interconnect_aresetn pins = rst_ps7_100M/interconnect_aresetn axi_ctrl/ARESETN axi_ctrl/M00_ARESETN axi_ctrl/S00_ARESETN axi_hp0/ARESETN axi_hp0/M00_ARESETN axi_hp0/S00_ARESETN
         ✓ axi_ctrl/ARESETN ← rst_ps7_100M/interconnect_aresetn
         ✓ axi_ctrl/M00_ARESETN ← rst_ps7_100M/interconnect_aresetn
         ✓ axi_ctrl/S00_ARESETN ← rst_ps7_100M/interconnect_aresetn
+        ✓ axi_hp0/ARESETN ← rst_ps7_100M/interconnect_aresetn
+        ✓ axi_hp0/M00_ARESETN ← rst_ps7_100M/interconnect_aresetn
+        ✓ axi_hp0/S00_ARESETN ← rst_ps7_100M/interconnect_aresetn
         net rst_ps7_100M_peripheral_aresetn pins = rst_ps7_100M/peripheral_aresetn hdmi_p1_top_0/aresetn
         ✓ hdmi_p1_top_0/aresetn ← rst_ps7_100M/peripheral_aresetn
     [§3.5/新建BD] 门禁5 结构断言全过：MMCM 锁不锁，AXI 寄存器都读得到
@@ -537,12 +612,10 @@ Wrote  : </media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/vivado/h
 #     note "addr seg [get_property NAME $s] offset=[get_property offset $s] range=[get_property range $s]"
 # }
     ..   addr seg SEG_hdmi_p1_top_0_reg0 offset=0x400A0000 range=0x00010000
-# set BD_TIEOFF_WHITELIST [list \
-#     {/hdmi_p1_top_0/m_axi_arready}  {P1 不用 AXI4 master 读通道，输入脚绑 0 是设计意图} \
-#     {/hdmi_p1_top_0/m_axi_rdata}    {同上} \
-#     {/hdmi_p1_top_0/m_axi_rresp}    {同上} \
-#     {/hdmi_p1_top_0/m_axi_rlast}    {同上} \
-#     {/hdmi_p1_top_0/m_axi_rvalid}   {同上} ]
+# set BD_TIEOFF_WHITELIST {}
+# lappend BD_TIEOFF_WHITELIST [list {*/S00_AW*} {扫描器是 AXI4 只读主口=P2 设计：无写地址通道，BD 绑 0 是意图}]
+# lappend BD_TIEOFF_WHITELIST [list {*/S00_W*}  {同上：无写数据通道}]
+# lappend BD_TIEOFF_WHITELIST [list {*/S00_B*}  {同上：无写响应通道，bready 恒 0}]
 # proc bd_tieoff_pins {logfile} {
 #     set out {}
 #     if {![file exists $logfile]} { return $out }
@@ -567,13 +640,21 @@ Wrote  : </media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/vivado/h
 # proc bd_check_tieoff_warnings {logfile} {
 #     # 白名单是**全局**变量（proc 里必须用 $:: 前缀，否则 Tcl 报 no such variable）
 #     if {[info exists ::BD_TIEOFF_WHITELIST]} { set wl $::BD_TIEOFF_WHITELIST } else { set wl {} }
+#     puts "    门禁5b 白名单（[llength $wl] 条，每轮都打印供复核）："
+#     foreach pair $wl { lassign $pair pat why; puts "      - [string trim $pat]   ← [string trim $why]" }
+#     puts "      - */ps7/*   ← ps7 未用外设的输入脚（无害，proc 内放行）"
 #     set pins [lsort -unique [bd_tieoff_pins $logfile]]
 #     if {[llength $pins] == 0} { ok "门禁5b：BD 41-759 未接脚警告 0 条（没有输入脚被绑 0）"; return }
 #     puts "    BD 41-759 列出 [llength $pins] 个被绑 0 的输入脚：$pins"
 #     set bad {}
 #     foreach p $pins {
 #         set cell [lindex [split [string trimleft $p "/"] "/"] 0]
-#         if {[lsearch -exact $wl $p] >= 0} { note "白名单放行：$p"; continue }
+#         set hit 0
+#         foreach pair $wl {
+#             lassign $pair pat why
+#             if {[string match $pat $p]} { note "白名单放行：$p  ← 理由：$why"; set hit 1; break }
+#         }
+#         if {$hit} { continue }
 #         if {$cell eq "ps7"} { note "ps7 白名单（未用外设的输入脚，无害）：$p"; continue }
 #         lappend bad $p
 #     }
@@ -619,17 +700,20 @@ WARNING: [IP_Flow 19-4994] Overwriting existing constraint file '/media/felix/Da
 INFO: [BD 41-1029] Generation completed for the IP Integrator block axi_ctrl/s00_couplers/auto_pc .
 INFO: [BD 41-1029] Generation completed for the IP Integrator block hdmi_p1_top_0 .
 INFO: [BD 41-1029] Generation completed for the IP Integrator block const_dcm_locked .
+WARNING: [IP_Flow 19-4994] Overwriting existing constraint file '/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/vivado/hdmi_p1/proj/hdmi_p1.gen/sources_1/bd/hdmi_p1/ip/hdmi_p1_axi_hp0_imp_auto_pc_0/hdmi_p1_axi_hp0_imp_auto_pc_0_ooc.xdc'
+INFO: [BD 41-1029] Generation completed for the IP Integrator block axi_hp0/s00_couplers/auto_pc .
 Exporting to file /media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/vivado/hdmi_p1/proj/hdmi_p1.gen/sources_1/bd/hdmi_p1/hw_handoff/hdmi_p1.hwh
 Generated Hardware Definition File /media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/vivado/hdmi_p1/proj/hdmi_p1.gen/sources_1/bd/hdmi_p1/synth/hdmi_p1.hwdef
+WARNING: [BD 41-2265] Clock pin for protocol instance pin m_axi could not be determined. Make sure that ASSOCIATED_BUSIF and ASSOCIATED_RESET properties are set or propagated on clock pins of block /hdmi_p1_top_0
 INFO: [BD 41-3262] Generated VHDL Instantiation Template file /media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/vivado/hdmi_p1/proj/hdmi_p1.gen/sources_1/bd/hdmi_p1/hdmi_p1.vho
 INFO: [BD 41-3262] Generated Verilog Instantiation Template file /media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/vivado/hdmi_p1/proj/hdmi_p1.gen/sources_1/bd/hdmi_p1/hdmi_p1.veo
 INFO: [BD 41-3262] Generated System Verilog Instantiation Template file /media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/vivado/hdmi_p1/proj/hdmi_p1.gen/sources_1/bd/hdmi_p1/hdmi_p1_sv.sveo
-generate_target: Time (s): cpu = 00:00:09 ; elapsed = 00:00:10 . Memory (MB): peak = 1775.289 ; gain = 30.871 ; free physical = 350 ; free virtual = 22217
+generate_target: Time (s): cpu = 00:00:10 ; elapsed = 00:00:10 . Memory (MB): peak = 1784.484 ; gain = 32.906 ; free physical = 2802 ; free virtual = 20297
 # set hwh [file join $PROJDIR hdmi_p1.gen sources_1 bd hdmi_p1 hw_handoff hdmi_p1.hwh]
 # if {![file exists $hwh]} { error "缺 hwh：$hwh" }
 # file copy -force $hwh [file join $OUT hdmi_p1.hwh]
 # ok "hwh → [file join $OUT hdmi_p1.hwh]  md5=[md5f [file join $OUT hdmi_p1.hwh]]"
-    OK   hwh → /media/felix/Data/coding/demoir-fpga/runs/hdmi_p1/hdmi_p1.hwh  md5=3a5053bca9e4d9fbb465c0d4d8014be9
+    OK   hwh → /media/felix/Data/coding/demoir-fpga/runs/hdmi_p1/hdmi_p1.hwh  md5=24d07045d7db7566228dad291cef57cd
 # if {[llength [get_files -quiet *hdmi_p1_wrapper.v]] == 0} {
 #     set w [make_wrapper -files $bdfile -top]
 #     add_files -norecurse $w
@@ -646,6 +730,11 @@ WARNING: [Runs 36-537] File /media/felix/Data/coding/demoir-fpga/pynq_specialize
 # ok "clock groups 脚本挂到 STEPS.SYNTH_DESIGN.TCL.POST / STEPS.INIT_DESIGN.TCL.POST"
     OK   clock groups 脚本挂到 STEPS.SYNTH_DESIGN.TCL.POST / STEPS.INIT_DESIGN.TCL.POST
 # bd_check_tieoff_warnings [file join $OUT build.log]
+    门禁5b 白名单（3 条，每轮都打印供复核）：
+      - */S00_AW*   ← 扫描器是 AXI4 只读主口=P2 设计：无写地址通道，BD 绑 0 是意图
+      - */S00_W*   ← 同上：无写数据通道
+      - */S00_B*   ← 同上：无写响应通道，bready 恒 0
+      - */ps7/*   ← ps7 未用外设的输入脚（无害，proc 内放行）
     OK   门禁5b：BD 41-759 未接脚警告 0 条（没有输入脚被绑 0）
 # bd_hdl_assert_no_tied_reset "bd"
     OK   (bd) 门禁5c：BD 生成 HDL 里没有任何 *RESETN 被绑 1'b0（/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/vivado/hdmi_p1/proj/hdmi_p1.gen/sources_1/bd/hdmi_p1/synth/hdmi_p1.v）
@@ -653,7 +742,7 @@ WARNING: [Runs 36-537] File /media/felix/Data/coding/demoir-fpga/pynq_specialize
 
 [05] 5) launch_runs synth_1（jobs=2）
 # wait_mem 4.0 "before synth"
-    [mem] before synth : MemAvailable = 20.59 GB (need >= 4.0)
+    [mem] before synth : MemAvailable = 19.74 GB (need >= 4.0)
 # set _t0 [clock seconds]
 # set sr [get_runs synth_1]
 # set_property STEPS.SYNTH_DESIGN.ARGS.DIRECTIVE Default $sr
@@ -666,15 +755,16 @@ WARNING: [Runs 36-537] File /media/felix/Data/coding/demoir-fpga/pynq_specialize
 #     wait_on_run synth_1
 # }
 WARNING: [Vivado 12-7122] Auto Incremental Compile:: No reference checkpoint was found in run synth_1. Auto-incremental flow will not be run, the standard flow will be run instead.
-[Tue Nov  3 00:55:13 2026] Launched hdmi_p1_hdmi_p1_top_0_0_synth_1, hdmi_p1_rst_ps7_100M_0_synth_1, hdmi_p1_ps7_0_synth_1, hdmi_p1_axi_ctrl_imp_auto_pc_0_synth_1...
+[Tue Nov  3 03:07:04 2026] Launched hdmi_p1_hdmi_p1_top_0_0_synth_1, hdmi_p1_rst_ps7_100M_0_synth_1, hdmi_p1_ps7_0_synth_1, hdmi_p1_axi_ctrl_imp_auto_pc_0_synth_1, hdmi_p1_axi_hp0_imp_auto_pc_0_synth_1...
 Run output will be captured here:
 hdmi_p1_hdmi_p1_top_0_0_synth_1: /media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/vivado/hdmi_p1/proj/hdmi_p1.runs/hdmi_p1_hdmi_p1_top_0_0_synth_1/runme.log
 hdmi_p1_rst_ps7_100M_0_synth_1: /media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/vivado/hdmi_p1/proj/hdmi_p1.runs/hdmi_p1_rst_ps7_100M_0_synth_1/runme.log
 hdmi_p1_ps7_0_synth_1: /media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/vivado/hdmi_p1/proj/hdmi_p1.runs/hdmi_p1_ps7_0_synth_1/runme.log
 hdmi_p1_axi_ctrl_imp_auto_pc_0_synth_1: /media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/vivado/hdmi_p1/proj/hdmi_p1.runs/hdmi_p1_axi_ctrl_imp_auto_pc_0_synth_1/runme.log
-[Tue Nov  3 00:55:13 2026] Launched synth_1...
+hdmi_p1_axi_hp0_imp_auto_pc_0_synth_1: /media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/vivado/hdmi_p1/proj/hdmi_p1.runs/hdmi_p1_axi_hp0_imp_auto_pc_0_synth_1/runme.log
+[Tue Nov  3 03:07:04 2026] Launched synth_1...
 Run output will be captured here: /media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/vivado/hdmi_p1/proj/hdmi_p1.runs/synth_1/runme.log
-[Tue Nov  3 00:55:13 2026] Waiting for synth_1 to finish...
+[Tue Nov  3 03:07:04 2026] Waiting for synth_1 to finish...
 
 *** Running vivado
     with args -log hdmi_p1_wrapper.vds -m64 -product Vivado -mode batch -messageDb vivado.pb -notrace -source hdmi_p1_wrapper.tcl
@@ -684,7 +774,7 @@ Run output will be captured here: /media/felix/Data/coding/demoir-fpga/pynq_spec
   **** SW Build 6403652 on Thu Mar 19 13:47:00 MDT 2026
   **** IP Build 6403511 on Thu Mar 19 12:41:45 MDT 2026
   **** SharedData Build 6403650 on Thu Mar 19 14:02:13 MDT 2026
-  **** Start of session at: Tue Nov  3 00:56:13 2026
+  **** Start of session at: Tue Nov  3 03:08:31 2026
     ** Copyright 1986-2022 Xilinx, Inc. All Rights Reserved.
     ** Copyright 2022-2026 Advanced Micro Devices, Inc. All Rights Reserved.
 
@@ -704,99 +794,104 @@ INFO: [Common 17-349] Got license for feature 'Synthesis' and/or device 'xc7z015
 INFO: [Device 21-403] Loading part xc7z015clg485-2
 INFO: [Synth 8-7079] Multithreading enabled for synth_design using a maximum of 2 processes.
 INFO: [Synth 8-7078] Launching helper process for spawning children vivado processes
-INFO: [Synth 8-7075] Helper process launched with PID 66660
+INFO: [Synth 8-7075] Helper process launched with PID 383751
 ---------------------------------------------------------------------------------
-Starting RTL Elaboration : Time (s): cpu = 00:00:03 ; elapsed = 00:00:03 . Memory (MB): peak = 2268.590 ; gain = 482.594 ; free physical = 2420 ; free virtual = 20818
+Starting RTL Elaboration : Time (s): cpu = 00:00:03 ; elapsed = 00:00:03 . Memory (MB): peak = 2268.895 ; gain = 480.930 ; free physical = 1765 ; free virtual = 18845
 ---------------------------------------------------------------------------------
 INFO: [Synth 8-6157] synthesizing module 'hdmi_p1_wrapper' [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/vivado/hdmi_p1/proj/hdmi_p1.gen/sources_1/bd/hdmi_p1/hdl/hdmi_p1_wrapper.v:13]
 INFO: [Synth 8-6157] synthesizing module 'hdmi_p1' [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/vivado/hdmi_p1/proj/hdmi_p1.gen/sources_1/bd/hdmi_p1/synth/hdmi_p1.v:13]
-INFO: [Synth 8-6157] synthesizing module 'hdmi_p1_axi_ctrl_0' [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/vivado/hdmi_p1/proj/hdmi_p1.gen/sources_1/bd/hdmi_p1/synth/hdmi_p1.v:276]
-INFO: [Synth 8-6157] synthesizing module 's00_couplers_imp_121UCKC' [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/vivado/hdmi_p1/proj/hdmi_p1.gen/sources_1/bd/hdmi_p1/synth/hdmi_p1.v:522]
-INFO: [Synth 8-6157] synthesizing module 'hdmi_p1_axi_ctrl_imp_auto_pc_0' [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/vivado/hdmi_p1/proj/hdmi_p1.runs/synth_1/.Xil/Vivado-66373-2/realtime/hdmi_p1_axi_ctrl_imp_auto_pc_0_stub.v:6]
-INFO: [Synth 8-6155] done synthesizing module 'hdmi_p1_axi_ctrl_imp_auto_pc_0' (0#1) [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/vivado/hdmi_p1/proj/hdmi_p1.runs/synth_1/.Xil/Vivado-66373-2/realtime/hdmi_p1_axi_ctrl_imp_auto_pc_0_stub.v:6]
-WARNING: [Synth 8-7071] port 'm_axi_awprot' of module 'hdmi_p1_axi_ctrl_imp_auto_pc_0' is unconnected for instance 'auto_pc' [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/vivado/hdmi_p1/proj/hdmi_p1.gen/sources_1/bd/hdmi_p1/synth/hdmi_p1.v:700]
-WARNING: [Synth 8-7071] port 'm_axi_arprot' of module 'hdmi_p1_axi_ctrl_imp_auto_pc_0' is unconnected for instance 'auto_pc' [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/vivado/hdmi_p1/proj/hdmi_p1.gen/sources_1/bd/hdmi_p1/synth/hdmi_p1.v:700]
-WARNING: [Synth 8-7023] instance 'auto_pc' of module 'hdmi_p1_axi_ctrl_imp_auto_pc_0' has 59 connections declared, but only 57 given [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/vivado/hdmi_p1/proj/hdmi_p1.gen/sources_1/bd/hdmi_p1/synth/hdmi_p1.v:700]
-INFO: [Synth 8-6155] done synthesizing module 's00_couplers_imp_121UCKC' (0#1) [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/vivado/hdmi_p1/proj/hdmi_p1.gen/sources_1/bd/hdmi_p1/synth/hdmi_p1.v:522]
-INFO: [Synth 8-6155] done synthesizing module 'hdmi_p1_axi_ctrl_0' (0#1) [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/vivado/hdmi_p1/proj/hdmi_p1.gen/sources_1/bd/hdmi_p1/synth/hdmi_p1.v:276]
+INFO: [Synth 8-6157] synthesizing module 'hdmi_p1_axi_ctrl_0' [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/vivado/hdmi_p1/proj/hdmi_p1.gen/sources_1/bd/hdmi_p1/synth/hdmi_p1.v:351]
+INFO: [Synth 8-6157] synthesizing module 's00_couplers_imp_121UCKC' [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/vivado/hdmi_p1/proj/hdmi_p1.gen/sources_1/bd/hdmi_p1/synth/hdmi_p1.v:727]
+INFO: [Synth 8-6157] synthesizing module 'hdmi_p1_axi_ctrl_imp_auto_pc_0' [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/vivado/hdmi_p1/proj/hdmi_p1.runs/synth_1/.Xil/Vivado-383485-2/realtime/hdmi_p1_axi_ctrl_imp_auto_pc_0_stub.v:6]
+INFO: [Synth 8-6155] done synthesizing module 'hdmi_p1_axi_ctrl_imp_auto_pc_0' (0#1) [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/vivado/hdmi_p1/proj/hdmi_p1.runs/synth_1/.Xil/Vivado-383485-2/realtime/hdmi_p1_axi_ctrl_imp_auto_pc_0_stub.v:6]
+WARNING: [Synth 8-7071] port 'm_axi_awprot' of module 'hdmi_p1_axi_ctrl_imp_auto_pc_0' is unconnected for instance 'auto_pc' [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/vivado/hdmi_p1/proj/hdmi_p1.gen/sources_1/bd/hdmi_p1/synth/hdmi_p1.v:905]
+WARNING: [Synth 8-7071] port 'm_axi_arprot' of module 'hdmi_p1_axi_ctrl_imp_auto_pc_0' is unconnected for instance 'auto_pc' [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/vivado/hdmi_p1/proj/hdmi_p1.gen/sources_1/bd/hdmi_p1/synth/hdmi_p1.v:905]
+WARNING: [Synth 8-7023] instance 'auto_pc' of module 'hdmi_p1_axi_ctrl_imp_auto_pc_0' has 59 connections declared, but only 57 given [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/vivado/hdmi_p1/proj/hdmi_p1.gen/sources_1/bd/hdmi_p1/synth/hdmi_p1.v:905]
+INFO: [Synth 8-6155] done synthesizing module 's00_couplers_imp_121UCKC' (0#1) [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/vivado/hdmi_p1/proj/hdmi_p1.gen/sources_1/bd/hdmi_p1/synth/hdmi_p1.v:727]
+INFO: [Synth 8-6155] done synthesizing module 'hdmi_p1_axi_ctrl_0' (0#1) [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/vivado/hdmi_p1/proj/hdmi_p1.gen/sources_1/bd/hdmi_p1/synth/hdmi_p1.v:351]
+INFO: [Synth 8-6157] synthesizing module 'hdmi_p1_axi_hp0_0' [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/vivado/hdmi_p1/proj/hdmi_p1.gen/sources_1/bd/hdmi_p1/synth/hdmi_p1.v:597]
+INFO: [Synth 8-6157] synthesizing module 's00_couplers_imp_L9464R' [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/vivado/hdmi_p1/proj/hdmi_p1.gen/sources_1/bd/hdmi_p1/synth/hdmi_p1.v:965]
+INFO: [Synth 8-6157] synthesizing module 'hdmi_p1_axi_hp0_imp_auto_pc_0' [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/vivado/hdmi_p1/proj/hdmi_p1.runs/synth_1/.Xil/Vivado-383485-2/realtime/hdmi_p1_axi_hp0_imp_auto_pc_0_stub.v:6]
+INFO: [Synth 8-6155] done synthesizing module 'hdmi_p1_axi_hp0_imp_auto_pc_0' (0#1) [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/vivado/hdmi_p1/proj/hdmi_p1.runs/synth_1/.Xil/Vivado-383485-2/realtime/hdmi_p1_axi_hp0_imp_auto_pc_0_stub.v:6]
+INFO: [Synth 8-6155] done synthesizing module 's00_couplers_imp_L9464R' (0#1) [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/vivado/hdmi_p1/proj/hdmi_p1.gen/sources_1/bd/hdmi_p1/synth/hdmi_p1.v:965]
+INFO: [Synth 8-6155] done synthesizing module 'hdmi_p1_axi_hp0_0' (0#1) [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/vivado/hdmi_p1/proj/hdmi_p1.gen/sources_1/bd/hdmi_p1/synth/hdmi_p1.v:597]
 INFO: [Synth 8-6157] synthesizing module 'hdmi_p1_const_dcm_locked_0' [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/vivado/hdmi_p1/proj/hdmi_p1.gen/sources_1/bd/hdmi_p1/ip/hdmi_p1_const_dcm_locked_0/synth/hdmi_p1_const_dcm_locked_0.v:53]
 INFO: [Synth 8-6157] synthesizing module 'xlconstant_v1_1_10_xlconstant' [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/vivado/hdmi_p1/proj/hdmi_p1.gen/sources_1/bd/hdmi_p1/ipshared/a165/hdl/xlconstant_v1_1_vl_rfs.v:68]
 INFO: [Synth 8-6155] done synthesizing module 'xlconstant_v1_1_10_xlconstant' (0#1) [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/vivado/hdmi_p1/proj/hdmi_p1.gen/sources_1/bd/hdmi_p1/ipshared/a165/hdl/xlconstant_v1_1_vl_rfs.v:68]
 INFO: [Synth 8-6155] done synthesizing module 'hdmi_p1_const_dcm_locked_0' (0#1) [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/vivado/hdmi_p1/proj/hdmi_p1.gen/sources_1/bd/hdmi_p1/ip/hdmi_p1_const_dcm_locked_0/synth/hdmi_p1_const_dcm_locked_0.v:53]
-INFO: [Synth 8-6157] synthesizing module 'hdmi_p1_hdmi_p1_top_0_0' [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/vivado/hdmi_p1/proj/hdmi_p1.runs/synth_1/.Xil/Vivado-66373-2/realtime/hdmi_p1_hdmi_p1_top_0_0_stub.v:6]
-INFO: [Synth 8-6155] done synthesizing module 'hdmi_p1_hdmi_p1_top_0_0' (0#1) [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/vivado/hdmi_p1/proj/hdmi_p1.runs/synth_1/.Xil/Vivado-66373-2/realtime/hdmi_p1_hdmi_p1_top_0_0_stub.v:6]
-WARNING: [Synth 8-7071] port 'mmcm_locked' of module 'hdmi_p1_hdmi_p1_top_0_0' is unconnected for instance 'hdmi_p1_top_0' [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/vivado/hdmi_p1/proj/hdmi_p1.gen/sources_1/bd/hdmi_p1/synth/hdmi_p1.v:165]
-WARNING: [Synth 8-7071] port 'irq_vsync' of module 'hdmi_p1_hdmi_p1_top_0_0' is unconnected for instance 'hdmi_p1_top_0' [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/vivado/hdmi_p1/proj/hdmi_p1.gen/sources_1/bd/hdmi_p1/synth/hdmi_p1.v:165]
-WARNING: [Synth 8-7071] port 'init_done' of module 'hdmi_p1_hdmi_p1_top_0_0' is unconnected for instance 'hdmi_p1_top_0' [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/vivado/hdmi_p1/proj/hdmi_p1.gen/sources_1/bd/hdmi_p1/synth/hdmi_p1.v:165]
-WARNING: [Synth 8-7071] port 'cfg_upd' of module 'hdmi_p1_hdmi_p1_top_0_0' is unconnected for instance 'hdmi_p1_top_0' [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/vivado/hdmi_p1/proj/hdmi_p1.gen/sources_1/bd/hdmi_p1/synth/hdmi_p1.v:165]
-WARNING: [Synth 8-7071] port 'fid_upd' of module 'hdmi_p1_hdmi_p1_top_0_0' is unconnected for instance 'hdmi_p1_top_0' [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/vivado/hdmi_p1/proj/hdmi_p1.gen/sources_1/bd/hdmi_p1/synth/hdmi_p1.v:165]
-WARNING: [Synth 8-7023] instance 'hdmi_p1_top_0' of module 'hdmi_p1_hdmi_p1_top_0_0' has 32 connections declared, but only 27 given [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/vivado/hdmi_p1/proj/hdmi_p1.gen/sources_1/bd/hdmi_p1/synth/hdmi_p1.v:165]
-INFO: [Synth 8-6157] synthesizing module 'hdmi_p1_ps7_0' [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/vivado/hdmi_p1/proj/hdmi_p1.runs/synth_1/.Xil/Vivado-66373-2/realtime/hdmi_p1_ps7_0_stub.v:6]
-INFO: [Synth 8-6155] done synthesizing module 'hdmi_p1_ps7_0' (0#1) [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/vivado/hdmi_p1/proj/hdmi_p1.runs/synth_1/.Xil/Vivado-66373-2/realtime/hdmi_p1_ps7_0_stub.v:6]
-WARNING: [Synth 8-7071] port 'USB0_PORT_INDCTL' of module 'hdmi_p1_ps7_0' is unconnected for instance 'ps7' [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/vivado/hdmi_p1/proj/hdmi_p1.gen/sources_1/bd/hdmi_p1/synth/hdmi_p1.v:193]
-WARNING: [Synth 8-7071] port 'USB0_VBUS_PWRSELECT' of module 'hdmi_p1_ps7_0' is unconnected for instance 'ps7' [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/vivado/hdmi_p1/proj/hdmi_p1.gen/sources_1/bd/hdmi_p1/synth/hdmi_p1.v:193]
-WARNING: [Synth 8-7071] port 'S_AXI_HP0_ARREADY' of module 'hdmi_p1_ps7_0' is unconnected for instance 'ps7' [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/vivado/hdmi_p1/proj/hdmi_p1.gen/sources_1/bd/hdmi_p1/synth/hdmi_p1.v:193]
-WARNING: [Synth 8-7071] port 'S_AXI_HP0_AWREADY' of module 'hdmi_p1_ps7_0' is unconnected for instance 'ps7' [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/vivado/hdmi_p1/proj/hdmi_p1.gen/sources_1/bd/hdmi_p1/synth/hdmi_p1.v:193]
-WARNING: [Synth 8-7071] port 'S_AXI_HP0_BVALID' of module 'hdmi_p1_ps7_0' is unconnected for instance 'ps7' [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/vivado/hdmi_p1/proj/hdmi_p1.gen/sources_1/bd/hdmi_p1/synth/hdmi_p1.v:193]
-WARNING: [Synth 8-7071] port 'S_AXI_HP0_RLAST' of module 'hdmi_p1_ps7_0' is unconnected for instance 'ps7' [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/vivado/hdmi_p1/proj/hdmi_p1.gen/sources_1/bd/hdmi_p1/synth/hdmi_p1.v:193]
-WARNING: [Synth 8-7071] port 'S_AXI_HP0_RVALID' of module 'hdmi_p1_ps7_0' is unconnected for instance 'ps7' [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/vivado/hdmi_p1/proj/hdmi_p1.gen/sources_1/bd/hdmi_p1/synth/hdmi_p1.v:193]
-WARNING: [Synth 8-7071] port 'S_AXI_HP0_WREADY' of module 'hdmi_p1_ps7_0' is unconnected for instance 'ps7' [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/vivado/hdmi_p1/proj/hdmi_p1.gen/sources_1/bd/hdmi_p1/synth/hdmi_p1.v:193]
-WARNING: [Synth 8-7071] port 'S_AXI_HP0_BRESP' of module 'hdmi_p1_ps7_0' is unconnected for instance 'ps7' [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/vivado/hdmi_p1/proj/hdmi_p1.gen/sources_1/bd/hdmi_p1/synth/hdmi_p1.v:193]
-WARNING: [Synth 8-7071] port 'S_AXI_HP0_RRESP' of module 'hdmi_p1_ps7_0' is unconnected for instance 'ps7' [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/vivado/hdmi_p1/proj/hdmi_p1.gen/sources_1/bd/hdmi_p1/synth/hdmi_p1.v:193]
-WARNING: [Synth 8-7071] port 'S_AXI_HP0_BID' of module 'hdmi_p1_ps7_0' is unconnected for instance 'ps7' [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/vivado/hdmi_p1/proj/hdmi_p1.gen/sources_1/bd/hdmi_p1/synth/hdmi_p1.v:193]
-WARNING: [Synth 8-7071] port 'S_AXI_HP0_RID' of module 'hdmi_p1_ps7_0' is unconnected for instance 'ps7' [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/vivado/hdmi_p1/proj/hdmi_p1.gen/sources_1/bd/hdmi_p1/synth/hdmi_p1.v:193]
-WARNING: [Synth 8-7071] port 'S_AXI_HP0_RDATA' of module 'hdmi_p1_ps7_0' is unconnected for instance 'ps7' [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/vivado/hdmi_p1/proj/hdmi_p1.gen/sources_1/bd/hdmi_p1/synth/hdmi_p1.v:193]
-WARNING: [Synth 8-7071] port 'S_AXI_HP0_RCOUNT' of module 'hdmi_p1_ps7_0' is unconnected for instance 'ps7' [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/vivado/hdmi_p1/proj/hdmi_p1.gen/sources_1/bd/hdmi_p1/synth/hdmi_p1.v:193]
-WARNING: [Synth 8-7071] port 'S_AXI_HP0_WCOUNT' of module 'hdmi_p1_ps7_0' is unconnected for instance 'ps7' [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/vivado/hdmi_p1/proj/hdmi_p1.gen/sources_1/bd/hdmi_p1/synth/hdmi_p1.v:193]
-WARNING: [Synth 8-7071] port 'S_AXI_HP0_RACOUNT' of module 'hdmi_p1_ps7_0' is unconnected for instance 'ps7' [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/vivado/hdmi_p1/proj/hdmi_p1.gen/sources_1/bd/hdmi_p1/synth/hdmi_p1.v:193]
-WARNING: [Synth 8-7071] port 'S_AXI_HP0_WACOUNT' of module 'hdmi_p1_ps7_0' is unconnected for instance 'ps7' [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/vivado/hdmi_p1/proj/hdmi_p1.gen/sources_1/bd/hdmi_p1/synth/hdmi_p1.v:193]
-WARNING: [Synth 8-7071] port 'MIO' of module 'hdmi_p1_ps7_0' is unconnected for instance 'ps7' [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/vivado/hdmi_p1/proj/hdmi_p1.gen/sources_1/bd/hdmi_p1/synth/hdmi_p1.v:193]
-WARNING: [Synth 8-7071] port 'DDR_CAS_n' of module 'hdmi_p1_ps7_0' is unconnected for instance 'ps7' [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/vivado/hdmi_p1/proj/hdmi_p1.gen/sources_1/bd/hdmi_p1/synth/hdmi_p1.v:193]
-WARNING: [Synth 8-7071] port 'DDR_CKE' of module 'hdmi_p1_ps7_0' is unconnected for instance 'ps7' [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/vivado/hdmi_p1/proj/hdmi_p1.gen/sources_1/bd/hdmi_p1/synth/hdmi_p1.v:193]
-WARNING: [Synth 8-7071] port 'DDR_Clk_n' of module 'hdmi_p1_ps7_0' is unconnected for instance 'ps7' [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/vivado/hdmi_p1/proj/hdmi_p1.gen/sources_1/bd/hdmi_p1/synth/hdmi_p1.v:193]
-WARNING: [Synth 8-7071] port 'DDR_Clk' of module 'hdmi_p1_ps7_0' is unconnected for instance 'ps7' [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/vivado/hdmi_p1/proj/hdmi_p1.gen/sources_1/bd/hdmi_p1/synth/hdmi_p1.v:193]
-WARNING: [Synth 8-7071] port 'DDR_CS_n' of module 'hdmi_p1_ps7_0' is unconnected for instance 'ps7' [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/vivado/hdmi_p1/proj/hdmi_p1.gen/sources_1/bd/hdmi_p1/synth/hdmi_p1.v:193]
-WARNING: [Synth 8-7071] port 'DDR_DRSTB' of module 'hdmi_p1_ps7_0' is unconnected for instance 'ps7' [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/vivado/hdmi_p1/proj/hdmi_p1.gen/sources_1/bd/hdmi_p1/synth/hdmi_p1.v:193]
-WARNING: [Synth 8-7071] port 'DDR_ODT' of module 'hdmi_p1_ps7_0' is unconnected for instance 'ps7' [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/vivado/hdmi_p1/proj/hdmi_p1.gen/sources_1/bd/hdmi_p1/synth/hdmi_p1.v:193]
-WARNING: [Synth 8-7071] port 'DDR_RAS_n' of module 'hdmi_p1_ps7_0' is unconnected for instance 'ps7' [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/vivado/hdmi_p1/proj/hdmi_p1.gen/sources_1/bd/hdmi_p1/synth/hdmi_p1.v:193]
-WARNING: [Synth 8-7071] port 'DDR_WEB' of module 'hdmi_p1_ps7_0' is unconnected for instance 'ps7' [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/vivado/hdmi_p1/proj/hdmi_p1.gen/sources_1/bd/hdmi_p1/synth/hdmi_p1.v:193]
-WARNING: [Synth 8-7071] port 'DDR_BankAddr' of module 'hdmi_p1_ps7_0' is unconnected for instance 'ps7' [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/vivado/hdmi_p1/proj/hdmi_p1.gen/sources_1/bd/hdmi_p1/synth/hdmi_p1.v:193]
-WARNING: [Synth 8-7071] port 'DDR_Addr' of module 'hdmi_p1_ps7_0' is unconnected for instance 'ps7' [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/vivado/hdmi_p1/proj/hdmi_p1.gen/sources_1/bd/hdmi_p1/synth/hdmi_p1.v:193]
-WARNING: [Synth 8-7071] port 'DDR_VRN' of module 'hdmi_p1_ps7_0' is unconnected for instance 'ps7' [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/vivado/hdmi_p1/proj/hdmi_p1.gen/sources_1/bd/hdmi_p1/synth/hdmi_p1.v:193]
-WARNING: [Synth 8-7071] port 'DDR_VRP' of module 'hdmi_p1_ps7_0' is unconnected for instance 'ps7' [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/vivado/hdmi_p1/proj/hdmi_p1.gen/sources_1/bd/hdmi_p1/synth/hdmi_p1.v:193]
-WARNING: [Synth 8-7071] port 'DDR_DM' of module 'hdmi_p1_ps7_0' is unconnected for instance 'ps7' [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/vivado/hdmi_p1/proj/hdmi_p1.gen/sources_1/bd/hdmi_p1/synth/hdmi_p1.v:193]
-WARNING: [Synth 8-7071] port 'DDR_DQ' of module 'hdmi_p1_ps7_0' is unconnected for instance 'ps7' [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/vivado/hdmi_p1/proj/hdmi_p1.gen/sources_1/bd/hdmi_p1/synth/hdmi_p1.v:193]
-WARNING: [Synth 8-7071] port 'DDR_DQS_n' of module 'hdmi_p1_ps7_0' is unconnected for instance 'ps7' [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/vivado/hdmi_p1/proj/hdmi_p1.gen/sources_1/bd/hdmi_p1/synth/hdmi_p1.v:193]
-WARNING: [Synth 8-7071] port 'DDR_DQS' of module 'hdmi_p1_ps7_0' is unconnected for instance 'ps7' [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/vivado/hdmi_p1/proj/hdmi_p1.gen/sources_1/bd/hdmi_p1/synth/hdmi_p1.v:193]
-WARNING: [Synth 8-7071] port 'PS_SRSTB' of module 'hdmi_p1_ps7_0' is unconnected for instance 'ps7' [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/vivado/hdmi_p1/proj/hdmi_p1.gen/sources_1/bd/hdmi_p1/synth/hdmi_p1.v:193]
-WARNING: [Synth 8-7071] port 'PS_CLK' of module 'hdmi_p1_ps7_0' is unconnected for instance 'ps7' [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/vivado/hdmi_p1/proj/hdmi_p1.gen/sources_1/bd/hdmi_p1/synth/hdmi_p1.v:193]
-WARNING: [Synth 8-7071] port 'PS_PORB' of module 'hdmi_p1_ps7_0' is unconnected for instance 'ps7' [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/vivado/hdmi_p1/proj/hdmi_p1.gen/sources_1/bd/hdmi_p1/synth/hdmi_p1.v:193]
-WARNING: [Synth 8-7023] instance 'ps7' of module 'hdmi_p1_ps7_0' has 110 connections declared, but only 72 given [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/vivado/hdmi_p1/proj/hdmi_p1.gen/sources_1/bd/hdmi_p1/synth/hdmi_p1.v:193]
-INFO: [Synth 8-6157] synthesizing module 'hdmi_p1_rst_ps7_100M_0' [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/vivado/hdmi_p1/proj/hdmi_p1.runs/synth_1/.Xil/Vivado-66373-2/realtime/hdmi_p1_rst_ps7_100M_0_stub.v:6]
-INFO: [Synth 8-6155] done synthesizing module 'hdmi_p1_rst_ps7_100M_0' (0#1) [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/vivado/hdmi_p1/proj/hdmi_p1.runs/synth_1/.Xil/Vivado-66373-2/realtime/hdmi_p1_rst_ps7_100M_0_stub.v:6]
-WARNING: [Synth 8-7071] port 'mb_reset' of module 'hdmi_p1_rst_ps7_100M_0' is unconnected for instance 'rst_ps7_100M' [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/vivado/hdmi_p1/proj/hdmi_p1.gen/sources_1/bd/hdmi_p1/synth/hdmi_p1.v:266]
-WARNING: [Synth 8-7071] port 'bus_struct_reset' of module 'hdmi_p1_rst_ps7_100M_0' is unconnected for instance 'rst_ps7_100M' [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/vivado/hdmi_p1/proj/hdmi_p1.gen/sources_1/bd/hdmi_p1/synth/hdmi_p1.v:266]
-WARNING: [Synth 8-7071] port 'peripheral_reset' of module 'hdmi_p1_rst_ps7_100M_0' is unconnected for instance 'rst_ps7_100M' [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/vivado/hdmi_p1/proj/hdmi_p1.gen/sources_1/bd/hdmi_p1/synth/hdmi_p1.v:266]
-WARNING: [Synth 8-7023] instance 'rst_ps7_100M' of module 'hdmi_p1_rst_ps7_100M_0' has 10 connections declared, but only 7 given [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/vivado/hdmi_p1/proj/hdmi_p1.gen/sources_1/bd/hdmi_p1/synth/hdmi_p1.v:266]
+INFO: [Synth 8-6157] synthesizing module 'hdmi_p1_hdmi_p1_top_0_0' [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/vivado/hdmi_p1/proj/hdmi_p1.runs/synth_1/.Xil/Vivado-383485-2/realtime/hdmi_p1_hdmi_p1_top_0_0_stub.v:6]
+INFO: [Synth 8-6155] done synthesizing module 'hdmi_p1_hdmi_p1_top_0_0' (0#1) [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/vivado/hdmi_p1/proj/hdmi_p1.runs/synth_1/.Xil/Vivado-383485-2/realtime/hdmi_p1_hdmi_p1_top_0_0_stub.v:6]
+WARNING: [Synth 8-7071] port 'mmcm_locked' of module 'hdmi_p1_hdmi_p1_top_0_0' is unconnected for instance 'hdmi_p1_top_0' [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/vivado/hdmi_p1/proj/hdmi_p1.gen/sources_1/bd/hdmi_p1/synth/hdmi_p1.v:224]
+WARNING: [Synth 8-7071] port 'irq_vsync' of module 'hdmi_p1_hdmi_p1_top_0_0' is unconnected for instance 'hdmi_p1_top_0' [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/vivado/hdmi_p1/proj/hdmi_p1.gen/sources_1/bd/hdmi_p1/synth/hdmi_p1.v:224]
+WARNING: [Synth 8-7071] port 'init_done' of module 'hdmi_p1_hdmi_p1_top_0_0' is unconnected for instance 'hdmi_p1_top_0' [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/vivado/hdmi_p1/proj/hdmi_p1.gen/sources_1/bd/hdmi_p1/synth/hdmi_p1.v:224]
+WARNING: [Synth 8-7071] port 'cfg_upd' of module 'hdmi_p1_hdmi_p1_top_0_0' is unconnected for instance 'hdmi_p1_top_0' [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/vivado/hdmi_p1/proj/hdmi_p1.gen/sources_1/bd/hdmi_p1/synth/hdmi_p1.v:224]
+WARNING: [Synth 8-7071] port 'fid_upd' of module 'hdmi_p1_hdmi_p1_top_0_0' is unconnected for instance 'hdmi_p1_top_0' [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/vivado/hdmi_p1/proj/hdmi_p1.gen/sources_1/bd/hdmi_p1/synth/hdmi_p1.v:224]
+WARNING: [Synth 8-7023] instance 'hdmi_p1_top_0' of module 'hdmi_p1_hdmi_p1_top_0_0' has 43 connections declared, but only 38 given [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/vivado/hdmi_p1/proj/hdmi_p1.gen/sources_1/bd/hdmi_p1/synth/hdmi_p1.v:224]
+INFO: [Synth 8-6157] synthesizing module 'hdmi_p1_ps7_0' [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/vivado/hdmi_p1/proj/hdmi_p1.runs/synth_1/.Xil/Vivado-383485-2/realtime/hdmi_p1_ps7_0_stub.v:6]
+INFO: [Synth 8-6155] done synthesizing module 'hdmi_p1_ps7_0' (0#1) [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/vivado/hdmi_p1/proj/hdmi_p1.runs/synth_1/.Xil/Vivado-383485-2/realtime/hdmi_p1_ps7_0_stub.v:6]
+WARNING: [Synth 8-7071] port 'USB0_PORT_INDCTL' of module 'hdmi_p1_ps7_0' is unconnected for instance 'ps7' [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/vivado/hdmi_p1/proj/hdmi_p1.gen/sources_1/bd/hdmi_p1/synth/hdmi_p1.v:263]
+WARNING: [Synth 8-7071] port 'USB0_VBUS_PWRSELECT' of module 'hdmi_p1_ps7_0' is unconnected for instance 'ps7' [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/vivado/hdmi_p1/proj/hdmi_p1.gen/sources_1/bd/hdmi_p1/synth/hdmi_p1.v:263]
+WARNING: [Synth 8-7071] port 'S_AXI_HP0_AWREADY' of module 'hdmi_p1_ps7_0' is unconnected for instance 'ps7' [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/vivado/hdmi_p1/proj/hdmi_p1.gen/sources_1/bd/hdmi_p1/synth/hdmi_p1.v:263]
+WARNING: [Synth 8-7071] port 'S_AXI_HP0_BVALID' of module 'hdmi_p1_ps7_0' is unconnected for instance 'ps7' [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/vivado/hdmi_p1/proj/hdmi_p1.gen/sources_1/bd/hdmi_p1/synth/hdmi_p1.v:263]
+WARNING: [Synth 8-7071] port 'S_AXI_HP0_WREADY' of module 'hdmi_p1_ps7_0' is unconnected for instance 'ps7' [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/vivado/hdmi_p1/proj/hdmi_p1.gen/sources_1/bd/hdmi_p1/synth/hdmi_p1.v:263]
+WARNING: [Synth 8-7071] port 'S_AXI_HP0_BRESP' of module 'hdmi_p1_ps7_0' is unconnected for instance 'ps7' [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/vivado/hdmi_p1/proj/hdmi_p1.gen/sources_1/bd/hdmi_p1/synth/hdmi_p1.v:263]
+WARNING: [Synth 8-7071] port 'S_AXI_HP0_BID' of module 'hdmi_p1_ps7_0' is unconnected for instance 'ps7' [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/vivado/hdmi_p1/proj/hdmi_p1.gen/sources_1/bd/hdmi_p1/synth/hdmi_p1.v:263]
+WARNING: [Synth 8-7071] port 'S_AXI_HP0_RID' of module 'hdmi_p1_ps7_0' is unconnected for instance 'ps7' [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/vivado/hdmi_p1/proj/hdmi_p1.gen/sources_1/bd/hdmi_p1/synth/hdmi_p1.v:263]
+WARNING: [Synth 8-7071] port 'S_AXI_HP0_RCOUNT' of module 'hdmi_p1_ps7_0' is unconnected for instance 'ps7' [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/vivado/hdmi_p1/proj/hdmi_p1.gen/sources_1/bd/hdmi_p1/synth/hdmi_p1.v:263]
+WARNING: [Synth 8-7071] port 'S_AXI_HP0_WCOUNT' of module 'hdmi_p1_ps7_0' is unconnected for instance 'ps7' [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/vivado/hdmi_p1/proj/hdmi_p1.gen/sources_1/bd/hdmi_p1/synth/hdmi_p1.v:263]
+WARNING: [Synth 8-7071] port 'S_AXI_HP0_RACOUNT' of module 'hdmi_p1_ps7_0' is unconnected for instance 'ps7' [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/vivado/hdmi_p1/proj/hdmi_p1.gen/sources_1/bd/hdmi_p1/synth/hdmi_p1.v:263]
+WARNING: [Synth 8-7071] port 'S_AXI_HP0_WACOUNT' of module 'hdmi_p1_ps7_0' is unconnected for instance 'ps7' [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/vivado/hdmi_p1/proj/hdmi_p1.gen/sources_1/bd/hdmi_p1/synth/hdmi_p1.v:263]
+WARNING: [Synth 8-7071] port 'MIO' of module 'hdmi_p1_ps7_0' is unconnected for instance 'ps7' [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/vivado/hdmi_p1/proj/hdmi_p1.gen/sources_1/bd/hdmi_p1/synth/hdmi_p1.v:263]
+WARNING: [Synth 8-7071] port 'DDR_CAS_n' of module 'hdmi_p1_ps7_0' is unconnected for instance 'ps7' [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/vivado/hdmi_p1/proj/hdmi_p1.gen/sources_1/bd/hdmi_p1/synth/hdmi_p1.v:263]
+WARNING: [Synth 8-7071] port 'DDR_CKE' of module 'hdmi_p1_ps7_0' is unconnected for instance 'ps7' [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/vivado/hdmi_p1/proj/hdmi_p1.gen/sources_1/bd/hdmi_p1/synth/hdmi_p1.v:263]
+WARNING: [Synth 8-7071] port 'DDR_Clk_n' of module 'hdmi_p1_ps7_0' is unconnected for instance 'ps7' [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/vivado/hdmi_p1/proj/hdmi_p1.gen/sources_1/bd/hdmi_p1/synth/hdmi_p1.v:263]
+WARNING: [Synth 8-7071] port 'DDR_Clk' of module 'hdmi_p1_ps7_0' is unconnected for instance 'ps7' [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/vivado/hdmi_p1/proj/hdmi_p1.gen/sources_1/bd/hdmi_p1/synth/hdmi_p1.v:263]
+WARNING: [Synth 8-7071] port 'DDR_CS_n' of module 'hdmi_p1_ps7_0' is unconnected for instance 'ps7' [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/vivado/hdmi_p1/proj/hdmi_p1.gen/sources_1/bd/hdmi_p1/synth/hdmi_p1.v:263]
+WARNING: [Synth 8-7071] port 'DDR_DRSTB' of module 'hdmi_p1_ps7_0' is unconnected for instance 'ps7' [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/vivado/hdmi_p1/proj/hdmi_p1.gen/sources_1/bd/hdmi_p1/synth/hdmi_p1.v:263]
+WARNING: [Synth 8-7071] port 'DDR_ODT' of module 'hdmi_p1_ps7_0' is unconnected for instance 'ps7' [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/vivado/hdmi_p1/proj/hdmi_p1.gen/sources_1/bd/hdmi_p1/synth/hdmi_p1.v:263]
+WARNING: [Synth 8-7071] port 'DDR_RAS_n' of module 'hdmi_p1_ps7_0' is unconnected for instance 'ps7' [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/vivado/hdmi_p1/proj/hdmi_p1.gen/sources_1/bd/hdmi_p1/synth/hdmi_p1.v:263]
+WARNING: [Synth 8-7071] port 'DDR_WEB' of module 'hdmi_p1_ps7_0' is unconnected for instance 'ps7' [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/vivado/hdmi_p1/proj/hdmi_p1.gen/sources_1/bd/hdmi_p1/synth/hdmi_p1.v:263]
+WARNING: [Synth 8-7071] port 'DDR_BankAddr' of module 'hdmi_p1_ps7_0' is unconnected for instance 'ps7' [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/vivado/hdmi_p1/proj/hdmi_p1.gen/sources_1/bd/hdmi_p1/synth/hdmi_p1.v:263]
+WARNING: [Synth 8-7071] port 'DDR_Addr' of module 'hdmi_p1_ps7_0' is unconnected for instance 'ps7' [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/vivado/hdmi_p1/proj/hdmi_p1.gen/sources_1/bd/hdmi_p1/synth/hdmi_p1.v:263]
+WARNING: [Synth 8-7071] port 'DDR_VRN' of module 'hdmi_p1_ps7_0' is unconnected for instance 'ps7' [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/vivado/hdmi_p1/proj/hdmi_p1.gen/sources_1/bd/hdmi_p1/synth/hdmi_p1.v:263]
+WARNING: [Synth 8-7071] port 'DDR_VRP' of module 'hdmi_p1_ps7_0' is unconnected for instance 'ps7' [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/vivado/hdmi_p1/proj/hdmi_p1.gen/sources_1/bd/hdmi_p1/synth/hdmi_p1.v:263]
+WARNING: [Synth 8-7071] port 'DDR_DM' of module 'hdmi_p1_ps7_0' is unconnected for instance 'ps7' [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/vivado/hdmi_p1/proj/hdmi_p1.gen/sources_1/bd/hdmi_p1/synth/hdmi_p1.v:263]
+WARNING: [Synth 8-7071] port 'DDR_DQ' of module 'hdmi_p1_ps7_0' is unconnected for instance 'ps7' [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/vivado/hdmi_p1/proj/hdmi_p1.gen/sources_1/bd/hdmi_p1/synth/hdmi_p1.v:263]
+WARNING: [Synth 8-7071] port 'DDR_DQS_n' of module 'hdmi_p1_ps7_0' is unconnected for instance 'ps7' [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/vivado/hdmi_p1/proj/hdmi_p1.gen/sources_1/bd/hdmi_p1/synth/hdmi_p1.v:263]
+WARNING: [Synth 8-7071] port 'DDR_DQS' of module 'hdmi_p1_ps7_0' is unconnected for instance 'ps7' [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/vivado/hdmi_p1/proj/hdmi_p1.gen/sources_1/bd/hdmi_p1/synth/hdmi_p1.v:263]
+WARNING: [Synth 8-7071] port 'PS_SRSTB' of module 'hdmi_p1_ps7_0' is unconnected for instance 'ps7' [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/vivado/hdmi_p1/proj/hdmi_p1.gen/sources_1/bd/hdmi_p1/synth/hdmi_p1.v:263]
+WARNING: [Synth 8-7071] port 'PS_CLK' of module 'hdmi_p1_ps7_0' is unconnected for instance 'ps7' [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/vivado/hdmi_p1/proj/hdmi_p1.gen/sources_1/bd/hdmi_p1/synth/hdmi_p1.v:263]
+WARNING: [Synth 8-7071] port 'PS_PORB' of module 'hdmi_p1_ps7_0' is unconnected for instance 'ps7' [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/vivado/hdmi_p1/proj/hdmi_p1.gen/sources_1/bd/hdmi_p1/synth/hdmi_p1.v:263]
+WARNING: [Synth 8-7023] instance 'ps7' of module 'hdmi_p1_ps7_0' has 110 connections declared, but only 77 given [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/vivado/hdmi_p1/proj/hdmi_p1.gen/sources_1/bd/hdmi_p1/synth/hdmi_p1.v:263]
+INFO: [Synth 8-6157] synthesizing module 'hdmi_p1_rst_ps7_100M_0' [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/vivado/hdmi_p1/proj/hdmi_p1.runs/synth_1/.Xil/Vivado-383485-2/realtime/hdmi_p1_rst_ps7_100M_0_stub.v:6]
+INFO: [Synth 8-6155] done synthesizing module 'hdmi_p1_rst_ps7_100M_0' (0#1) [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/vivado/hdmi_p1/proj/hdmi_p1.runs/synth_1/.Xil/Vivado-383485-2/realtime/hdmi_p1_rst_ps7_100M_0_stub.v:6]
+WARNING: [Synth 8-7071] port 'mb_reset' of module 'hdmi_p1_rst_ps7_100M_0' is unconnected for instance 'rst_ps7_100M' [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/vivado/hdmi_p1/proj/hdmi_p1.gen/sources_1/bd/hdmi_p1/synth/hdmi_p1.v:341]
+WARNING: [Synth 8-7071] port 'bus_struct_reset' of module 'hdmi_p1_rst_ps7_100M_0' is unconnected for instance 'rst_ps7_100M' [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/vivado/hdmi_p1/proj/hdmi_p1.gen/sources_1/bd/hdmi_p1/synth/hdmi_p1.v:341]
+WARNING: [Synth 8-7071] port 'peripheral_reset' of module 'hdmi_p1_rst_ps7_100M_0' is unconnected for instance 'rst_ps7_100M' [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/vivado/hdmi_p1/proj/hdmi_p1.gen/sources_1/bd/hdmi_p1/synth/hdmi_p1.v:341]
+WARNING: [Synth 8-7023] instance 'rst_ps7_100M' of module 'hdmi_p1_rst_ps7_100M_0' has 10 connections declared, but only 7 given [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/vivado/hdmi_p1/proj/hdmi_p1.gen/sources_1/bd/hdmi_p1/synth/hdmi_p1.v:341]
 INFO: [Synth 8-6155] done synthesizing module 'hdmi_p1' (0#1) [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/vivado/hdmi_p1/proj/hdmi_p1.gen/sources_1/bd/hdmi_p1/synth/hdmi_p1.v:13]
 INFO: [Synth 8-6155] done synthesizing module 'hdmi_p1_wrapper' (0#1) [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/vivado/hdmi_p1/proj/hdmi_p1.gen/sources_1/bd/hdmi_p1/hdl/hdmi_p1_wrapper.v:13]
+WARNING: [Synth 8-7129] Port M_ACLK in module s00_couplers_imp_L9464R is either unconnected or has no load
+WARNING: [Synth 8-7129] Port M_ARESETN in module s00_couplers_imp_L9464R is either unconnected or has no load
+WARNING: [Synth 8-7129] Port ACLK in module hdmi_p1_axi_hp0_0 is either unconnected or has no load
+WARNING: [Synth 8-7129] Port ARESETN in module hdmi_p1_axi_hp0_0 is either unconnected or has no load
 WARNING: [Synth 8-7129] Port M_ACLK in module s00_couplers_imp_121UCKC is either unconnected or has no load
 WARNING: [Synth 8-7129] Port M_ARESETN in module s00_couplers_imp_121UCKC is either unconnected or has no load
 WARNING: [Synth 8-7129] Port ACLK in module hdmi_p1_axi_ctrl_0 is either unconnected or has no load
 WARNING: [Synth 8-7129] Port ARESETN in module hdmi_p1_axi_ctrl_0 is either unconnected or has no load
 ---------------------------------------------------------------------------------
-Finished RTL Elaboration : Time (s): cpu = 00:00:04 ; elapsed = 00:00:04 . Memory (MB): peak = 2359.559 ; gain = 573.562 ; free physical = 2321 ; free virtual = 20719
+Finished RTL Elaboration : Time (s): cpu = 00:00:04 ; elapsed = 00:00:04 . Memory (MB): peak = 2360.863 ; gain = 572.898 ; free physical = 1713 ; free virtual = 18796
 ---------------------------------------------------------------------------------
 ---------------------------------------------------------------------------------
 Start Handling Custom Attributes
 ---------------------------------------------------------------------------------
 ---------------------------------------------------------------------------------
-Finished Handling Custom Attributes : Time (s): cpu = 00:00:04 ; elapsed = 00:00:04 . Memory (MB): peak = 2365.496 ; gain = 579.500 ; free physical = 2321 ; free virtual = 20720
+Finished Handling Custom Attributes : Time (s): cpu = 00:00:04 ; elapsed = 00:00:04 . Memory (MB): peak = 2360.863 ; gain = 572.898 ; free physical = 1722 ; free virtual = 18805
 ---------------------------------------------------------------------------------
 ---------------------------------------------------------------------------------
-Finished RTL Optimization Phase 1 : Time (s): cpu = 00:00:04 ; elapsed = 00:00:04 . Memory (MB): peak = 2365.496 ; gain = 579.500 ; free physical = 2321 ; free virtual = 20720
+Finished RTL Optimization Phase 1 : Time (s): cpu = 00:00:04 ; elapsed = 00:00:04 . Memory (MB): peak = 2360.863 ; gain = 572.898 ; free physical = 1722 ; free virtual = 18805
 ---------------------------------------------------------------------------------
-Netlist sorting complete. Time (s): cpu = 00:00:00 ; elapsed = 00:00:00 . Memory (MB): peak = 2365.496 ; gain = 0.000 ; free physical = 2321 ; free virtual = 20720
+Netlist sorting complete. Time (s): cpu = 00:00:00 ; elapsed = 00:00:00 . Memory (MB): peak = 2360.863 ; gain = 0.000 ; free physical = 1721 ; free virtual = 18804
 INFO: [Project 1-570] Preparing netlist for logic optimization
 
 Processing XDC Constraints
@@ -809,6 +904,8 @@ Parsing XDC File [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/
 Finished Parsing XDC File [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/vivado/hdmi_p1/proj/hdmi_p1.gen/sources_1/bd/hdmi_p1/ip/hdmi_p1_axi_ctrl_imp_auto_pc_0/hdmi_p1_axi_ctrl_imp_auto_pc_0/hdmi_p1_axi_ctrl_imp_auto_pc_0_in_context.xdc] for cell 'hdmi_p1_i/axi_ctrl/s00_couplers/auto_pc'
 Parsing XDC File [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/vivado/hdmi_p1/proj/hdmi_p1.gen/sources_1/bd/hdmi_p1/ip/hdmi_p1_hdmi_p1_top_0_0/hdmi_p1_hdmi_p1_top_0_0/hdmi_p1_hdmi_p1_top_0_0_in_context.xdc] for cell 'hdmi_p1_i/hdmi_p1_top_0'
 Finished Parsing XDC File [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/vivado/hdmi_p1/proj/hdmi_p1.gen/sources_1/bd/hdmi_p1/ip/hdmi_p1_hdmi_p1_top_0_0/hdmi_p1_hdmi_p1_top_0_0/hdmi_p1_hdmi_p1_top_0_0_in_context.xdc] for cell 'hdmi_p1_i/hdmi_p1_top_0'
+Parsing XDC File [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/vivado/hdmi_p1/proj/hdmi_p1.gen/sources_1/bd/hdmi_p1/ip/hdmi_p1_axi_hp0_imp_auto_pc_0/hdmi_p1_axi_hp0_imp_auto_pc_0/hdmi_p1_axi_hp0_imp_auto_pc_0_in_context.xdc] for cell 'hdmi_p1_i/axi_hp0/s00_couplers/auto_pc'
+Finished Parsing XDC File [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/vivado/hdmi_p1/proj/hdmi_p1.gen/sources_1/bd/hdmi_p1/ip/hdmi_p1_axi_hp0_imp_auto_pc_0/hdmi_p1_axi_hp0_imp_auto_pc_0/hdmi_p1_axi_hp0_imp_auto_pc_0_in_context.xdc] for cell 'hdmi_p1_i/axi_hp0/s00_couplers/auto_pc'
 Parsing XDC File [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/vivado/hdmi_p1/constraints_frozen/hdmi_out_pins.xdc]
 Finished Parsing XDC File [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/vivado/hdmi_p1/constraints_frozen/hdmi_out_pins.xdc]
 INFO: [Project 1-236] Implementation specific constraints were found while reading constraint file [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/vivado/hdmi_p1/constraints_frozen/hdmi_out_pins.xdc]. These constraints will be ignored for synthesis but will be used in implementation. Impacted constraints are listed in the file [.Xil/hdmi_p1_wrapper_propImpl.xdc].
@@ -819,29 +916,29 @@ Parsing XDC File [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/
 Finished Parsing XDC File [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/vivado/hdmi_p1/proj/hdmi_p1.runs/synth_1/dont_touch.xdc]
 Completed Processing XDC Constraints
 
-Netlist sorting complete. Time (s): cpu = 00:00:00 ; elapsed = 00:00:00 . Memory (MB): peak = 2413.148 ; gain = 0.000 ; free physical = 2295 ; free virtual = 20694
+Netlist sorting complete. Time (s): cpu = 00:00:00 ; elapsed = 00:00:00 . Memory (MB): peak = 2408.516 ; gain = 0.000 ; free physical = 1740 ; free virtual = 18826
 INFO: [Project 1-111] Unisim Transformation Summary:
 No Unisim elements were transformed.
 
-Constraint Validation Runtime : Time (s): cpu = 00:00:00 ; elapsed = 00:00:00.01 . Memory (MB): peak = 2413.184 ; gain = 0.000 ; free physical = 2295 ; free virtual = 20694
+Constraint Validation Runtime : Time (s): cpu = 00:00:00 ; elapsed = 00:00:00.01 . Memory (MB): peak = 2408.551 ; gain = 0.000 ; free physical = 1741 ; free virtual = 18826
 ---------------------------------------------------------------------------------
-Finished Constraint Validation : Time (s): cpu = 00:00:08 ; elapsed = 00:00:09 . Memory (MB): peak = 2413.184 ; gain = 627.188 ; free physical = 2348 ; free virtual = 20749
+Finished Constraint Validation : Time (s): cpu = 00:00:08 ; elapsed = 00:00:09 . Memory (MB): peak = 2408.551 ; gain = 620.586 ; free physical = 1733 ; free virtual = 18852
 ---------------------------------------------------------------------------------
 ---------------------------------------------------------------------------------
 Start Loading Part and Timing Information
 ---------------------------------------------------------------------------------
 Loading part: xc7z015clg485-2
 ---------------------------------------------------------------------------------
-Finished Loading Part and Timing Information : Time (s): cpu = 00:00:08 ; elapsed = 00:00:09 . Memory (MB): peak = 2421.152 ; gain = 635.156 ; free physical = 2347 ; free virtual = 20748
+Finished Loading Part and Timing Information : Time (s): cpu = 00:00:08 ; elapsed = 00:00:09 . Memory (MB): peak = 2416.520 ; gain = 628.555 ; free physical = 1733 ; free virtual = 18852
 ---------------------------------------------------------------------------------
 ---------------------------------------------------------------------------------
 Start Applying 'set_property' XDC Constraints
 ---------------------------------------------------------------------------------
 ---------------------------------------------------------------------------------
-Finished applying 'set_property' XDC Constraints : Time (s): cpu = 00:00:08 ; elapsed = 00:00:09 . Memory (MB): peak = 2421.152 ; gain = 635.156 ; free physical = 2348 ; free virtual = 20749
+Finished applying 'set_property' XDC Constraints : Time (s): cpu = 00:00:08 ; elapsed = 00:00:09 . Memory (MB): peak = 2416.520 ; gain = 628.555 ; free physical = 1733 ; free virtual = 18852
 ---------------------------------------------------------------------------------
 ---------------------------------------------------------------------------------
-Finished RTL Optimization Phase 2 : Time (s): cpu = 00:00:08 ; elapsed = 00:00:09 . Memory (MB): peak = 2421.152 ; gain = 635.156 ; free physical = 2339 ; free virtual = 20741
+Finished RTL Optimization Phase 2 : Time (s): cpu = 00:00:08 ; elapsed = 00:00:09 . Memory (MB): peak = 2416.520 ; gain = 628.555 ; free physical = 1726 ; free virtual = 18849
 ---------------------------------------------------------------------------------
 ---------------------------------------------------------------------------------
 Start RTL Component Statistics 
@@ -862,30 +959,34 @@ Finished Part Resource Summary
 ---------------------------------------------------------------------------------
 Start Cross Boundary and Area Optimization
 ---------------------------------------------------------------------------------
+WARNING: [Synth 8-7129] Port ACLK in module hdmi_p1_axi_hp0_0 is either unconnected or has no load
+WARNING: [Synth 8-7129] Port ARESETN in module hdmi_p1_axi_hp0_0 is either unconnected or has no load
+WARNING: [Synth 8-7129] Port M00_ACLK in module hdmi_p1_axi_hp0_0 is either unconnected or has no load
+WARNING: [Synth 8-7129] Port M00_ARESETN in module hdmi_p1_axi_hp0_0 is either unconnected or has no load
 WARNING: [Synth 8-7129] Port ACLK in module hdmi_p1_axi_ctrl_0 is either unconnected or has no load
 WARNING: [Synth 8-7129] Port ARESETN in module hdmi_p1_axi_ctrl_0 is either unconnected or has no load
 WARNING: [Synth 8-7129] Port M00_ACLK in module hdmi_p1_axi_ctrl_0 is either unconnected or has no load
 WARNING: [Synth 8-7129] Port M00_ARESETN in module hdmi_p1_axi_ctrl_0 is either unconnected or has no load
 ---------------------------------------------------------------------------------
-Finished Cross Boundary and Area Optimization : Time (s): cpu = 00:00:09 ; elapsed = 00:00:10 . Memory (MB): peak = 2421.152 ; gain = 635.156 ; free physical = 2333 ; free virtual = 20746
+Finished Cross Boundary and Area Optimization : Time (s): cpu = 00:00:09 ; elapsed = 00:00:10 . Memory (MB): peak = 2416.520 ; gain = 628.555 ; free physical = 1722 ; free virtual = 18855
 ---------------------------------------------------------------------------------
 ---------------------------------------------------------------------------------
 Start Applying XDC Timing Constraints
 ---------------------------------------------------------------------------------
 ---------------------------------------------------------------------------------
-Finished Applying XDC Timing Constraints : Time (s): cpu = 00:00:12 ; elapsed = 00:00:13 . Memory (MB): peak = 2530.152 ; gain = 744.156 ; free physical = 2245 ; free virtual = 20658
+Finished Applying XDC Timing Constraints : Time (s): cpu = 00:00:12 ; elapsed = 00:00:13 . Memory (MB): peak = 2529.520 ; gain = 741.555 ; free physical = 1638 ; free virtual = 18777
 ---------------------------------------------------------------------------------
 ---------------------------------------------------------------------------------
 Start Timing Optimization
 ---------------------------------------------------------------------------------
 ---------------------------------------------------------------------------------
-Finished Timing Optimization : Time (s): cpu = 00:00:12 ; elapsed = 00:00:13 . Memory (MB): peak = 2530.152 ; gain = 744.156 ; free physical = 2245 ; free virtual = 20658
+Finished Timing Optimization : Time (s): cpu = 00:00:12 ; elapsed = 00:00:13 . Memory (MB): peak = 2530.520 ; gain = 742.555 ; free physical = 1638 ; free virtual = 18777
 ---------------------------------------------------------------------------------
 ---------------------------------------------------------------------------------
 Start Technology Mapping
 ---------------------------------------------------------------------------------
 ---------------------------------------------------------------------------------
-Finished Technology Mapping : Time (s): cpu = 00:00:12 ; elapsed = 00:00:13 . Memory (MB): peak = 2540.168 ; gain = 754.172 ; free physical = 2241 ; free virtual = 20654
+Finished Technology Mapping : Time (s): cpu = 00:00:12 ; elapsed = 00:00:13 . Memory (MB): peak = 2540.535 ; gain = 752.570 ; free physical = 1623 ; free virtual = 18761
 ---------------------------------------------------------------------------------
 ---------------------------------------------------------------------------------
 Start IO Insertion
@@ -903,37 +1004,37 @@ Start Final Netlist Cleanup
 Finished Final Netlist Cleanup
 ---------------------------------------------------------------------------------
 ---------------------------------------------------------------------------------
-Finished IO Insertion : Time (s): cpu = 00:00:14 ; elapsed = 00:00:15 . Memory (MB): peak = 2726.980 ; gain = 940.984 ; free physical = 2055 ; free virtual = 20467
+Finished IO Insertion : Time (s): cpu = 00:00:14 ; elapsed = 00:00:15 . Memory (MB): peak = 2726.348 ; gain = 938.383 ; free physical = 1465 ; free virtual = 18602
 ---------------------------------------------------------------------------------
 ---------------------------------------------------------------------------------
 Start Renaming Generated Instances
 ---------------------------------------------------------------------------------
 ---------------------------------------------------------------------------------
-Finished Renaming Generated Instances : Time (s): cpu = 00:00:14 ; elapsed = 00:00:15 . Memory (MB): peak = 2726.980 ; gain = 940.984 ; free physical = 2055 ; free virtual = 20467
+Finished Renaming Generated Instances : Time (s): cpu = 00:00:14 ; elapsed = 00:00:15 . Memory (MB): peak = 2726.348 ; gain = 938.383 ; free physical = 1465 ; free virtual = 18602
 ---------------------------------------------------------------------------------
 ---------------------------------------------------------------------------------
 Start Rebuilding User Hierarchy
 ---------------------------------------------------------------------------------
 ---------------------------------------------------------------------------------
-Finished Rebuilding User Hierarchy : Time (s): cpu = 00:00:14 ; elapsed = 00:00:15 . Memory (MB): peak = 2726.980 ; gain = 940.984 ; free physical = 2056 ; free virtual = 20467
+Finished Rebuilding User Hierarchy : Time (s): cpu = 00:00:14 ; elapsed = 00:00:15 . Memory (MB): peak = 2726.348 ; gain = 938.383 ; free physical = 1465 ; free virtual = 18602
 ---------------------------------------------------------------------------------
 ---------------------------------------------------------------------------------
 Start Renaming Generated Ports
 ---------------------------------------------------------------------------------
 ---------------------------------------------------------------------------------
-Finished Renaming Generated Ports : Time (s): cpu = 00:00:14 ; elapsed = 00:00:15 . Memory (MB): peak = 2726.980 ; gain = 940.984 ; free physical = 2056 ; free virtual = 20467
+Finished Renaming Generated Ports : Time (s): cpu = 00:00:14 ; elapsed = 00:00:15 . Memory (MB): peak = 2726.348 ; gain = 938.383 ; free physical = 1466 ; free virtual = 18602
 ---------------------------------------------------------------------------------
 ---------------------------------------------------------------------------------
 Start Handling Custom Attributes
 ---------------------------------------------------------------------------------
 ---------------------------------------------------------------------------------
-Finished Handling Custom Attributes : Time (s): cpu = 00:00:14 ; elapsed = 00:00:15 . Memory (MB): peak = 2726.980 ; gain = 940.984 ; free physical = 2056 ; free virtual = 20467
+Finished Handling Custom Attributes : Time (s): cpu = 00:00:14 ; elapsed = 00:00:15 . Memory (MB): peak = 2726.348 ; gain = 938.383 ; free physical = 1466 ; free virtual = 18602
 ---------------------------------------------------------------------------------
 ---------------------------------------------------------------------------------
 Start Renaming Generated Nets
 ---------------------------------------------------------------------------------
 ---------------------------------------------------------------------------------
-Finished Renaming Generated Nets : Time (s): cpu = 00:00:14 ; elapsed = 00:00:15 . Memory (MB): peak = 2726.980 ; gain = 940.984 ; free physical = 2055 ; free virtual = 20467
+Finished Renaming Generated Nets : Time (s): cpu = 00:00:14 ; elapsed = 00:00:15 . Memory (MB): peak = 2726.348 ; gain = 938.383 ; free physical = 1466 ; free virtual = 18602
 ---------------------------------------------------------------------------------
 ---------------------------------------------------------------------------------
 Start Writing Synthesis Report
@@ -944,9 +1045,10 @@ Report BlackBoxes:
 |      |BlackBox name                  |Instances |
 +------+-------------------------------+----------+
 |1     |hdmi_p1_axi_ctrl_imp_auto_pc_0 |         1|
-|2     |hdmi_p1_hdmi_p1_top_0_0        |         1|
-|3     |hdmi_p1_ps7_0                  |         1|
-|4     |hdmi_p1_rst_ps7_100M_0         |         1|
+|2     |hdmi_p1_axi_hp0_imp_auto_pc_0  |         1|
+|3     |hdmi_p1_hdmi_p1_top_0_0        |         1|
+|4     |hdmi_p1_ps7_0                  |         1|
+|5     |hdmi_p1_rst_ps7_100M_0         |         1|
 +------+-------------------------------+----------+
 
 Report Cell Usage: 
@@ -954,46 +1056,48 @@ Report Cell Usage:
 |      |Cell                         |Count |
 +------+-----------------------------+------+
 |1     |hdmi_p1_axi_ctrl_imp_auto_pc |     1|
-|2     |hdmi_p1_hdmi_p1_top_0        |     1|
-|3     |hdmi_p1_ps7                  |     1|
-|4     |hdmi_p1_rst_ps7_100M         |     1|
-|5     |OBUF                         |    29|
+|2     |hdmi_p1_axi_hp0_imp_auto_pc  |     1|
+|3     |hdmi_p1_hdmi_p1_top_0        |     1|
+|4     |hdmi_p1_ps7                  |     1|
+|5     |hdmi_p1_rst_ps7_100M         |     1|
+|6     |OBUF                         |    29|
 +------+-----------------------------+------+
 ---------------------------------------------------------------------------------
-Finished Writing Synthesis Report : Time (s): cpu = 00:00:14 ; elapsed = 00:00:15 . Memory (MB): peak = 2726.980 ; gain = 940.984 ; free physical = 2055 ; free virtual = 20467
+Finished Writing Synthesis Report : Time (s): cpu = 00:00:14 ; elapsed = 00:00:15 . Memory (MB): peak = 2726.348 ; gain = 938.383 ; free physical = 1465 ; free virtual = 18602
 ---------------------------------------------------------------------------------
-Synthesis finished with 0 errors, 0 critical warnings and 4 warnings.
-Synthesis Optimization Runtime : Time (s): cpu = 00:00:13 ; elapsed = 00:00:13 . Memory (MB): peak = 2726.980 ; gain = 893.297 ; free physical = 2055 ; free virtual = 20467
-Synthesis Optimization Complete : Time (s): cpu = 00:00:14 ; elapsed = 00:00:15 . Memory (MB): peak = 2726.988 ; gain = 940.984 ; free physical = 2055 ; free virtual = 20467
+Synthesis finished with 0 errors, 0 critical warnings and 8 warnings.
+Synthesis Optimization Runtime : Time (s): cpu = 00:00:13 ; elapsed = 00:00:14 . Memory (MB): peak = 2726.348 ; gain = 890.695 ; free physical = 1467 ; free virtual = 18604
+Synthesis Optimization Complete : Time (s): cpu = 00:00:14 ; elapsed = 00:00:15 . Memory (MB): peak = 2726.355 ; gain = 938.383 ; free physical = 1467 ; free virtual = 18603
 INFO: [Project 1-571] Translating synthesized netlist
-Netlist sorting complete. Time (s): cpu = 00:00:00 ; elapsed = 00:00:00 . Memory (MB): peak = 2726.988 ; gain = 0.000 ; free physical = 2196 ; free virtual = 20608
+Netlist sorting complete. Time (s): cpu = 00:00:00.01 ; elapsed = 00:00:00.01 . Memory (MB): peak = 2726.355 ; gain = 0.000 ; free physical = 1465 ; free virtual = 18602
 INFO: [Project 1-570] Preparing netlist for logic optimization
 INFO: [Opt 31-138] Pushed 0 inverter(s) to 0 load pin(s).
-Netlist sorting complete. Time (s): cpu = 00:00:00 ; elapsed = 00:00:00 . Memory (MB): peak = 2726.988 ; gain = 0.000 ; free physical = 2199 ; free virtual = 20613
+Netlist sorting complete. Time (s): cpu = 00:00:00 ; elapsed = 00:00:00 . Memory (MB): peak = 2726.355 ; gain = 0.000 ; free physical = 1647 ; free virtual = 18784
 INFO: [Project 1-111] Unisim Transformation Summary:
 No Unisim elements were transformed.
 
-Synth Design complete | Checksum: d914c05f
+Synth Design complete | Checksum: 56c65a45
 INFO: [Common 17-83] Releasing license: Synthesis
-37 Infos, 60 Warnings, 0 Critical Warnings and 0 Errors encountered.
+43 Infos, 63 Warnings, 0 Critical Warnings and 0 Errors encountered.
 synth_design completed successfully
-synth_design: Time (s): cpu = 00:00:21 ; elapsed = 00:00:19 . Memory (MB): peak = 2727.016 ; gain = 1130.902 ; free physical = 2217 ; free virtual = 20631
-INFO: [Common 17-2834] synth_design peak Physical Memory [PSS] (MB): overall = 1857.220; main = 1857.220; forked = 293.892
-INFO: [Common 17-2834] synth_design peak Virtual Memory [VSS] (MB): overall = 3445.906; main = 2726.984; forked = 1024.750
-Write ShapeDB Complete: Time (s): cpu = 00:00:00 ; elapsed = 00:00:00.01 . Memory (MB): peak = 2750.992 ; gain = 0.000 ; free physical = 2220 ; free virtual = 20634
+synth_design: Time (s): cpu = 00:00:21 ; elapsed = 00:00:19 . Memory (MB): peak = 2726.383 ; gain = 1130.270 ; free physical = 1645 ; free virtual = 18781
+INFO: [Common 17-2834] synth_design peak Physical Memory [PSS] (MB): overall = 1853.192; main = 1853.192; forked = 294.012
+INFO: [Common 17-2834] synth_design peak Virtual Memory [VSS] (MB): overall = 3441.277; main = 2726.352; forked = 1024.754
+Write ShapeDB Complete: Time (s): cpu = 00:00:00 ; elapsed = 00:00:00 . Memory (MB): peak = 2750.359 ; gain = 0.000 ; free physical = 1658 ; free virtual = 18795
 INFO: [Common 17-1381] The checkpoint '/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/vivado/hdmi_p1/proj/hdmi_p1.runs/synth_1/hdmi_p1_wrapper.dcp' has been generated.
 INFO: [Vivado 12-24828] Executing command : report_utilization -file hdmi_p1_wrapper_utilization_synth.rpt -pb hdmi_p1_wrapper_utilization_synth.pb
 source /media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/vivado/hdmi_p1/constraints/p1_clock_groups.tcl
-[p1_clk] 时钟未就绪（pix_a=0 pix_b=0 axi=0）—— 本阶段跳过
-INFO: [Common 17-206] Exiting Vivado at Tue Nov  3 00:56:41 2026...
-[Tue Nov  3 00:56:41 2026] synth_1 finished
-wait_on_runs: Time (s): cpu = 00:02:38 ; elapsed = 00:01:28 . Memory (MB): peak = 1919.359 ; gain = 0.000 ; free physical = 3679 ; free virtual = 22116
+[p1_clk] 时钟未就绪（pix_a=0 pix_b=0 pix_c=0 axi=0）—— 本阶段跳过
+[p1_clk] 警告：pix_clk_ab 匹配 0 个（应为 1）—— 级联约束没设上
+INFO: [Common 17-206] Exiting Vivado at Tue Nov  3 03:08:59 2026...
+[Tue Nov  3 03:08:59 2026] synth_1 finished
+wait_on_runs: Time (s): cpu = 00:03:18 ; elapsed = 00:01:55 . Memory (MB): peak = 1952.566 ; gain = 0.000 ; free physical = 3228 ; free virtual = 20361
 # if {[get_property PROGRESS $sr] ne "100%" || [string match -nocase "*ERROR*" [get_property STATUS $sr]]} {
 #     error "synth_1 失败：status=[get_property STATUS $sr]"
 # }
 # set _t_synth [expr {[clock seconds] - $_t0}]
 # ok "synth_1 = [get_property STATUS $sr]，用时 ${_t_synth} s"
-    OK   synth_1 = synth_design Complete!，用时 88 s
+    OK   synth_1 = synth_design Complete!，用时 116 s
 # open_run synth_1 -name synth_gate
 Design is defaulting to impl run constrset: constrs_1
 Design is defaulting to synth run part: xc7z015clg485-2
@@ -1003,8 +1107,9 @@ INFO: [Project 1-454] Reading design checkpoint '/media/felix/Data/coding/demoir
 INFO: [Project 1-454] Reading design checkpoint '/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/vivado/hdmi_p1/proj/hdmi_p1.gen/sources_1/bd/hdmi_p1/ip/hdmi_p1_ps7_0/hdmi_p1_ps7_0.dcp' for cell 'hdmi_p1_i/ps7'
 INFO: [Project 1-454] Reading design checkpoint '/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/vivado/hdmi_p1/proj/hdmi_p1.gen/sources_1/bd/hdmi_p1/ip/hdmi_p1_rst_ps7_100M_0/hdmi_p1_rst_ps7_100M_0.dcp' for cell 'hdmi_p1_i/rst_ps7_100M'
 INFO: [Project 1-454] Reading design checkpoint '/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/vivado/hdmi_p1/proj/hdmi_p1.gen/sources_1/bd/hdmi_p1/ip/hdmi_p1_axi_ctrl_imp_auto_pc_0/hdmi_p1_axi_ctrl_imp_auto_pc_0.dcp' for cell 'hdmi_p1_i/axi_ctrl/s00_couplers/auto_pc'
-Netlist sorting complete. Time (s): cpu = 00:00:00.02 ; elapsed = 00:00:00.02 . Memory (MB): peak = 2003.953 ; gain = 0.000 ; free physical = 3450 ; free virtual = 21863
-INFO: [Netlist 29-17] Analyzing 86 Unisim elements for replacement
+INFO: [Project 1-454] Reading design checkpoint '/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/vivado/hdmi_p1/proj/hdmi_p1.gen/sources_1/bd/hdmi_p1/ip/hdmi_p1_axi_hp0_imp_auto_pc_0/hdmi_p1_axi_hp0_imp_auto_pc_0.dcp' for cell 'hdmi_p1_i/axi_hp0/s00_couplers/auto_pc'
+Netlist sorting complete. Time (s): cpu = 00:00:00.03 ; elapsed = 00:00:00.03 . Memory (MB): peak = 2024.094 ; gain = 0.000 ; free physical = 3040 ; free virtual = 20178
+INFO: [Netlist 29-17] Analyzing 212 Unisim elements for replacement
 INFO: [Netlist 29-28] Unisim Transformation completed in 0 CPU seconds
 INFO: [Project 1-479] Netlist was created with Vivado 2025.2.1
 INFO: [Project 1-570] Preparing netlist for logic optimization
@@ -1217,14 +1322,15 @@ Parsing XDC File [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/
 Finished Parsing XDC File [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/vivado/hdmi_p1/constraints_frozen/hdmi_out_pins.xdc]
 Parsing XDC File [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/vivado/hdmi_p1/constraints/hdmi_p1_clocks.xdc]
 Finished Parsing XDC File [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/vivado/hdmi_p1/constraints/hdmi_p1_clocks.xdc]
-INFO: [Project 1-1714] 2 XPM XDC files have been applied to the design.
+INFO: [Project 1-1714] 3 XPM XDC files have been applied to the design.
 INFO: [Opt 31-138] Pushed 0 inverter(s) to 0 load pin(s).
-Netlist sorting complete. Time (s): cpu = 00:00:00 ; elapsed = 00:00:00 . Memory (MB): peak = 2672.207 ; gain = 0.000 ; free physical = 3055 ; free virtual = 21468
+Netlist sorting complete. Time (s): cpu = 00:00:00 ; elapsed = 00:00:00 . Memory (MB): peak = 2690.348 ; gain = 0.000 ; free physical = 2457 ; free virtual = 19597
 INFO: [Project 1-111] Unisim Transformation Summary:
-  A total of 2 instances were transformed.
+  A total of 3 instances were transformed.
   IOBUF => IOBUF (IBUF, OBUFT): 2 instances
+  RAM32X1D => RAM32X1D (RAMD32(x2)): 1 instance 
 
-open_run: Time (s): cpu = 00:00:06 ; elapsed = 00:00:06 . Memory (MB): peak = 2672.242 ; gain = 752.883 ; free physical = 3055 ; free virtual = 21467
+open_run: Time (s): cpu = 00:00:06 ; elapsed = 00:00:06 . Memory (MB): peak = 2690.383 ; gain = 737.816 ; free physical = 2457 ; free virtual = 19597
 # step "6) 门禁：时钟周期 / MMCM / latch"
 
 [06] 6) 门禁：时钟周期 / MMCM / latch
@@ -1327,28 +1433,38 @@ open_run: Time (s): cpu = 00:00:06 ; elapsed = 00:00:06 . Memory (MB): peak = 26
 # }
 # set c_pix0 [clk_by_period  6.0  7.5]
 # set c_pix1 [clk_by_period 12.0 15.0]
+# set c_pix2 [clk_by_period 25.0 29.0]      
 # set c_axi  [get_clocks -quiet -filter {NAME =~ "clk_fpga_*"}]
 # foreach c [get_clocks] { note "clock [get_property NAME $c]  PERIOD=[get_property PERIOD $c]" }
     ..   clock clk_fpga_0  PERIOD=10.000
     ..   clock clkfb_out  PERIOD=10.000
     ..   clock clk_pix_a  PERIOD=6.737
     ..   clock clk_pix_b  PERIOD=13.474
-# if {[llength $c_pix0] != 1} { error "148.4375 MHz 时钟匹配数 [llength $c_pix0] != 1" }
-# if {[llength $c_pix1] != 1} { error "74.21875 MHz 时钟匹配数 [llength $c_pix1] != 1" }
+    ..   clock clk_pix_c  PERIOD=26.947
+# if {[llength $c_pix0] != 1} { error "148.4375 MHz（÷8）时钟匹配数 [llength $c_pix0] != 1" }
+# if {[llength $c_pix1] != 1} { error "74.21875 MHz（÷16）时钟匹配数 [llength $c_pix1] != 1" }
+# if {[llength $c_pix2] != 1} { error "37.109375 MHz（÷32）时钟匹配数 [llength $c_pix2] != 1" }
 # if {[llength $c_axi]  != 1} { error "clk_fpga_* 匹配数 [llength $c_axi] != 1" }
 # set c_pix0 [lindex $c_pix0 0]
 # set c_pix1 [lindex $c_pix1 0]
+# set c_pix2 [lindex $c_pix2 0]
 # set c_axi [lindex $c_axi 0]
 # set p_pix0 [get_property PERIOD $c_pix0]
 # set p_pix1 [get_property PERIOD $c_pix1]
+# set p_pix2 [get_property PERIOD $c_pix2]
 # set p_axi  [get_property PERIOD $c_axi]
-# foreach {nm got exp} [list PIX_a $p_pix0 6.7368 PIX_b $p_pix1 13.4737 AXI $p_axi 10.0000] {
-#     if {abs($got - $exp) > 0.02} { error "$nm 周期 $got ns 与期望 $exp ns 不符（门禁 3）" }
-#     ok "$nm period = $got ns（期望 $exp）"
+# foreach {nm got exp nom} [list \
+#         PIX_a $p_pix0 6.7368  6.7340 \
+#         PIX_b $p_pix1 13.4737 13.4680 \
+#         PIX_c $p_pix2 26.9474 26.9360 \
+#         AXI   $p_axi  10.0000 10.0000] {
+#     if {abs($got - $exp) > 0.02} { error "$nm 周期 $got ns 与期望 $exp ns 不符（门禁 2/3）" }
+#     ok "$nm period = $got ns（实际期望 $exp；标称 $nom，−421 ppm）"
 # }
-    OK   PIX_a period = 6.737 ns（期望 6.7368）
-    OK   PIX_b period = 13.474 ns（期望 13.4737）
-    OK   AXI period = 10.000 ns（期望 10.0000）
+    OK   PIX_a period = 6.737 ns（实际期望 6.7368；标称 6.7340，−421 ppm）
+    OK   PIX_b period = 13.474 ns（实际期望 13.4737；标称 13.4680，−421 ppm）
+    OK   PIX_c period = 26.947 ns（实际期望 26.9474；标称 26.9360，−421 ppm）
+    OK   AXI period = 10.000 ns（实际期望 10.0000；标称 10.0000，−421 ppm）
 # set mmcms [get_cells -hier -quiet -filter {REF_NAME =~ MMCME2*}]
 # if {[llength $mmcms] != 1} { error "MMCM 实例数 [llength $mmcms] != 1" }
 # set mmcm [lindex $mmcms 0]
@@ -1361,8 +1477,10 @@ open_run: Time (s): cpu = 00:00:06 ; elapsed = 00:00:06 . Memory (MB): peak = 26
 # if {abs($vco - 1187.5) > 1.0} { error "VCO=$vco MHz != 1187.5" }
 # if {abs($d0 - 8.0) > 0.01}  { error "CLKOUT0_DIVIDE_F=$d0 != 8.0" }
 # if {abs($d1 - 16.0) > 0.01} { error "CLKOUT1_DIVIDE=$d1 != 16" }
-# ok "MMCM：VCO=$vco MHz（M=$mult D=$ddiv）CLKOUT0 ÷$d0 / CLKOUT1 ÷$d1"
-    OK   MMCM：VCO=1187.5 MHz（M=11.875 D=1）CLKOUT0 ÷8.000 / CLKOUT1 ÷16
+# set d2 [get_property CLKOUT2_DIVIDE $mmcm]
+# if {abs($d2 - 32.0) > 0.01} { error "CLKOUT2_DIVIDE=$d2 != 32（720p30 的 37.109375 MHz）" }
+# ok "MMCM：VCO=$vco MHz（M=$mult D=$ddiv）÷$d0=148.4375 / ÷$d1=74.21875 / ÷$d2=37.109375 MHz"
+    OK   MMCM：VCO=1187.5 MHz（M=11.875 D=1）÷8.000=148.4375 / ÷16=74.21875 / ÷32=37.109375 MHz
 # catch {set_clock_groups -physically_exclusive -group $c_pix0 -group $c_pix1}
 # catch {set_clock_groups -asynchronous -group [list $c_pix0 $c_pix1] -group $c_axi}
 # set latches [get_cells -hier -quiet -filter {REF_NAME =~ LDCE* || REF_NAME =~ LDPE*}]
@@ -1380,15 +1498,16 @@ open_run: Time (s): cpu = 00:00:06 ; elapsed = 00:00:06 . Memory (MB): peak = 26
 # catch {report_utilization -file [file join $OUT util_synth.rpt]}
 # set w0s [wns_of $c_pix0]
 # set w1s [wns_of $c_pix1]
+# set w2s [wns_of $c_pix2]
 # set was [wns_of $c_axi]
-# note "WNS(synth) PIX_a='$w0s' PIX_b='$w1s' AXI='$was'"
-    ..   WNS(synth) PIX_a='1.697' PIX_b='8.427' AXI='5.542'
+# note "WNS(synth) PIX_a='$w0s' PIX_b='$w1s' PIX_c='$w2s' AXI='$was'"
+    ..   WNS(synth) PIX_a='1.666' PIX_b='8.396' PIX_c='21.853' AXI='3.913'
 # close_design
 # step "7) launch_runs impl_1 -to_step write_bitstream（jobs=2）"
 
 [07] 7) launch_runs impl_1 -to_step write_bitstream（jobs=2）
 # wait_mem 4.0 "before impl"
-    [mem] before impl : MemAvailable = 19.83 GB (need >= 4.0)
+    [mem] before impl : MemAvailable = 19.07 GB (need >= 4.0)
 # set _t1 [clock seconds]
 # set ir [get_runs impl_1]
 # set_property STEPS.OPT_DESIGN.ARGS.DIRECTIVE   Default $ir
@@ -1398,9 +1517,9 @@ open_run: Time (s): cpu = 00:00:06 ; elapsed = 00:00:06 . Memory (MB): peak = 26
 #     launch_runs impl_1 -to_step write_bitstream -jobs 2
 #     wait_on_run impl_1
 # }
-[Tue Nov  3 00:56:50 2026] Launched impl_1...
+[Tue Nov  3 03:09:09 2026] Launched impl_1...
 Run output will be captured here: /media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/vivado/hdmi_p1/proj/hdmi_p1.runs/impl_1/runme.log
-[Tue Nov  3 00:56:50 2026] Waiting for impl_1 to finish...
+[Tue Nov  3 03:09:09 2026] Waiting for impl_1 to finish...
 
 *** Running vivado
     with args -log hdmi_p1_wrapper.vdi -applog -m64 -product Vivado -messageDb vivado.pb -mode batch -source hdmi_p1_wrapper.tcl -notrace
@@ -1410,7 +1529,7 @@ Run output will be captured here: /media/felix/Data/coding/demoir-fpga/pynq_spec
   **** SW Build 6403652 on Thu Mar 19 13:47:00 MDT 2026
   **** IP Build 6403511 on Thu Mar 19 12:41:45 MDT 2026
   **** SharedData Build 6403650 on Thu Mar 19 14:02:13 MDT 2026
-  **** Start of session at: Tue Nov  3 00:56:52 2026
+  **** Start of session at: Tue Nov  3 03:09:11 2026
     ** Copyright 1986-2022 Xilinx, Inc. All Rights Reserved.
     ** Copyright 2022-2026 Advanced Micro Devices, Inc. All Rights Reserved.
 
@@ -1427,8 +1546,9 @@ INFO: [Project 1-454] Reading design checkpoint '/media/felix/Data/coding/demoir
 INFO: [Project 1-454] Reading design checkpoint '/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/vivado/hdmi_p1/proj/hdmi_p1.gen/sources_1/bd/hdmi_p1/ip/hdmi_p1_ps7_0/hdmi_p1_ps7_0.dcp' for cell 'hdmi_p1_i/ps7'
 INFO: [Project 1-454] Reading design checkpoint '/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/vivado/hdmi_p1/proj/hdmi_p1.gen/sources_1/bd/hdmi_p1/ip/hdmi_p1_rst_ps7_100M_0/hdmi_p1_rst_ps7_100M_0.dcp' for cell 'hdmi_p1_i/rst_ps7_100M'
 INFO: [Project 1-454] Reading design checkpoint '/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/vivado/hdmi_p1/proj/hdmi_p1.gen/sources_1/bd/hdmi_p1/ip/hdmi_p1_axi_ctrl_imp_auto_pc_0/hdmi_p1_axi_ctrl_imp_auto_pc_0.dcp' for cell 'hdmi_p1_i/axi_ctrl/s00_couplers/auto_pc'
-Netlist sorting complete. Time (s): cpu = 00:00:00.02 ; elapsed = 00:00:00.02 . Memory (MB): peak = 1798.785 ; gain = 0.000 ; free physical = 2199 ; free virtual = 20695
-INFO: [Netlist 29-17] Analyzing 86 Unisim elements for replacement
+INFO: [Project 1-454] Reading design checkpoint '/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/vivado/hdmi_p1/proj/hdmi_p1.gen/sources_1/bd/hdmi_p1/ip/hdmi_p1_axi_hp0_imp_auto_pc_0/hdmi_p1_axi_hp0_imp_auto_pc_0.dcp' for cell 'hdmi_p1_i/axi_hp0/s00_couplers/auto_pc'
+Netlist sorting complete. Time (s): cpu = 00:00:00.03 ; elapsed = 00:00:00.03 . Memory (MB): peak = 1809.719 ; gain = 0.000 ; free physical = 1475 ; free virtual = 18639
+INFO: [Netlist 29-17] Analyzing 212 Unisim elements for replacement
 INFO: [Netlist 29-28] Unisim Transformation completed in 0 CPU seconds
 INFO: [Project 1-479] Netlist was created with Vivado 2025.2.1
 INFO: [Project 1-570] Preparing netlist for logic optimization
@@ -1641,18 +1761,20 @@ Parsing XDC File [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/
 Finished Parsing XDC File [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/vivado/hdmi_p1/constraints_frozen/hdmi_out_pins.xdc]
 Parsing XDC File [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/vivado/hdmi_p1/constraints/hdmi_p1_clocks.xdc]
 Finished Parsing XDC File [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/vivado/hdmi_p1/constraints/hdmi_p1_clocks.xdc]
-INFO: [Project 1-1714] 2 XPM XDC files have been applied to the design.
+INFO: [Project 1-1714] 3 XPM XDC files have been applied to the design.
 INFO: [Opt 31-138] Pushed 0 inverter(s) to 0 load pin(s).
-Netlist sorting complete. Time (s): cpu = 00:00:00 ; elapsed = 00:00:00 . Memory (MB): peak = 2475.078 ; gain = 0.000 ; free physical = 1708 ; free virtual = 20288
+Netlist sorting complete. Time (s): cpu = 00:00:00 ; elapsed = 00:00:00 . Memory (MB): peak = 2495.980 ; gain = 0.000 ; free physical = 1115 ; free virtual = 18232
 INFO: [Project 1-111] Unisim Transformation Summary:
-  A total of 2 instances were transformed.
+  A total of 3 instances were transformed.
   IOBUF => IOBUF (IBUF, OBUFT): 2 instances
+  RAM32X1D => RAM32X1D (RAMD32(x2)): 1 instance 
 
-17 Infos, 0 Warnings, 100 Critical Warnings and 0 Errors encountered.
+18 Infos, 0 Warnings, 100 Critical Warnings and 0 Errors encountered.
 link_design completed successfully
-link_design: Time (s): cpu = 00:00:06 ; elapsed = 00:00:07 . Memory (MB): peak = 2475.113 ; gain = 878.000 ; free physical = 1708 ; free virtual = 20287
+link_design: Time (s): cpu = 00:00:06 ; elapsed = 00:00:07 . Memory (MB): peak = 2496.016 ; gain = 899.906 ; free physical = 1115 ; free virtual = 18232
 source /media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/vivado/hdmi_p1/constraints/p1_clock_groups.tcl
-[p1_clk] OK  clock groups 已施加：{clk_pix_a, clk_pix_b} physically_exclusive；该对 <-> clk_fpga_0 asynchronous
+[p1_clk] OK  三路像素时钟两两 physically_exclusive；{a,b,c} <-> clk_fpga_0 asynchronous
+[p1_clk] OK  BUFG->BUFG 级联网 hdmi_p1_i/hdmi_p1_top_0/inst/u_hdmi_out_top/pix_clk_ab 走 ANY_CMT_COLUMN（Place 30-120 的官方逃生口）
 Command: opt_design
 Attempting to get a license for feature 'Implementation' and/or device 'xc7z015'
 INFO: [Common 17-349] Got license for feature 'Implementation' and/or device 'xc7z015'
@@ -1663,120 +1785,125 @@ INFO: [DRC 23-27] Running DRC with 2 threads
 INFO: [Project 1-461] DRC finished with 0 Errors
 INFO: [Project 1-462] Please refer to the DRC report (report_drc) for more information.
 
-Time (s): cpu = 00:00:00.5 ; elapsed = 00:00:00.34 . Memory (MB): peak = 2483.078 ; gain = 7.965 ; free physical = 1680 ; free virtual = 20260
+Time (s): cpu = 00:00:00.66 ; elapsed = 00:00:00.43 . Memory (MB): peak = 2496.016 ; gain = 0.000 ; free physical = 1082 ; free virtual = 18199
 
 Starting Cache Timing Information Task
-Ending Cache Timing Information Task | Checksum: 267b6f56f
+Ending Cache Timing Information Task | Checksum: 29f7be10b
 
-Time (s): cpu = 00:00:00 ; elapsed = 00:00:00.01 . Memory (MB): peak = 2483.078 ; gain = 0.000 ; free physical = 1680 ; free virtual = 20260
+Time (s): cpu = 00:00:00.01 ; elapsed = 00:00:00.01 . Memory (MB): peak = 2496.016 ; gain = 0.000 ; free physical = 1081 ; free virtual = 18199
 
 Starting Logic Optimization Task
 
 Phase 1 Initialization
 
 Phase 1.1 Core Generation And Design Setup
-Phase 1.1 Core Generation And Design Setup | Checksum: 267b6f56f
+Phase 1.1 Core Generation And Design Setup | Checksum: 29f7be10b
 
-Time (s): cpu = 00:00:00.01 ; elapsed = 00:00:00 . Memory (MB): peak = 2828.891 ; gain = 0.000 ; free physical = 1206 ; free virtual = 19788
+Time (s): cpu = 00:00:00.01 ; elapsed = 00:00:00 . Memory (MB): peak = 2835.793 ; gain = 0.000 ; free physical = 728 ; free virtual = 17845
 
 Phase 1.2 Setup Constraints And Sort Netlist
-Phase 1.2 Setup Constraints And Sort Netlist | Checksum: 267b6f56f
+Phase 1.2 Setup Constraints And Sort Netlist | Checksum: 29f7be10b
 
-Time (s): cpu = 00:00:00.01 ; elapsed = 00:00:00 . Memory (MB): peak = 2828.891 ; gain = 0.000 ; free physical = 1206 ; free virtual = 19788
-Phase 1 Initialization | Checksum: 267b6f56f
+Time (s): cpu = 00:00:00.01 ; elapsed = 00:00:00.01 . Memory (MB): peak = 2835.793 ; gain = 0.000 ; free physical = 728 ; free virtual = 17845
+Phase 1 Initialization | Checksum: 29f7be10b
 
-Time (s): cpu = 00:00:00.01 ; elapsed = 00:00:00 . Memory (MB): peak = 2828.891 ; gain = 0.000 ; free physical = 1206 ; free virtual = 19788
+Time (s): cpu = 00:00:00.01 ; elapsed = 00:00:00.01 . Memory (MB): peak = 2835.793 ; gain = 0.000 ; free physical = 728 ; free virtual = 17845
 
 Phase 2 Timer Update And Timing Data Collection
 
 Phase 2.1 Detect if minReqCache needed
-Phase 2.1 Detect if minReqCache needed | Checksum: 267b6f56f
+Phase 2.1 Detect if minReqCache needed | Checksum: 29f7be10b
 
-Time (s): cpu = 00:00:00.01 ; elapsed = 00:00:00.01 . Memory (MB): peak = 2828.891 ; gain = 0.000 ; free physical = 1206 ; free virtual = 19788
+Time (s): cpu = 00:00:00.02 ; elapsed = 00:00:00.01 . Memory (MB): peak = 2835.793 ; gain = 0.000 ; free physical = 730 ; free virtual = 17847
 
 Phase 2.2 Timer Update
-Phase 2.2 Timer Update | Checksum: 267b6f56f
+Phase 2.2 Timer Update | Checksum: 29f7be10b
 
-Time (s): cpu = 00:00:00.05 ; elapsed = 00:00:00.03 . Memory (MB): peak = 2828.891 ; gain = 0.000 ; free physical = 1206 ; free virtual = 19787
+Time (s): cpu = 00:00:00.11 ; elapsed = 00:00:00.07 . Memory (MB): peak = 2835.793 ; gain = 0.000 ; free physical = 694 ; free virtual = 17842
 
 Phase 2.3 Timing Data Collection
-Phase 2.3 Timing Data Collection | Checksum: 267b6f56f
+Phase 2.3 Timing Data Collection | Checksum: 29f7be10b
 
-Time (s): cpu = 00:00:00.06 ; elapsed = 00:00:00.04 . Memory (MB): peak = 2828.891 ; gain = 0.000 ; free physical = 1206 ; free virtual = 19787
-Phase 2 Timer Update And Timing Data Collection | Checksum: 267b6f56f
+Time (s): cpu = 00:00:00.11 ; elapsed = 00:00:00.07 . Memory (MB): peak = 2835.793 ; gain = 0.000 ; free physical = 692 ; free virtual = 17840
+Phase 2 Timer Update And Timing Data Collection | Checksum: 29f7be10b
 
-Time (s): cpu = 00:00:00.06 ; elapsed = 00:00:00.04 . Memory (MB): peak = 2828.891 ; gain = 0.000 ; free physical = 1206 ; free virtual = 19787
+Time (s): cpu = 00:00:00.11 ; elapsed = 00:00:00.07 . Memory (MB): peak = 2835.793 ; gain = 0.000 ; free physical = 692 ; free virtual = 17840
 
 Phase 3 Retarget
 INFO: [Opt 31-1851] Number of loadless carry chains removed were: 0
 INFO: [Opt 31-1834] Total Chains To Be Transformed Were: 0 AND Number of Transformed insts Created are: 0
+INFO: [Opt 31-1566] Pulled 3 inverters resulting in an inversion of 123 pins
 INFO: [Opt 31-138] Pushed 2 inverter(s) to 16 load pin(s).
 INFO: [Opt 31-49] Retargeted 0 cell(s).
-Phase 3 Retarget | Checksum: 192a64325
+Phase 3 Retarget | Checksum: f76ee7b0
 
-Time (s): cpu = 00:00:00.09 ; elapsed = 00:00:00.07 . Memory (MB): peak = 2828.891 ; gain = 0.000 ; free physical = 1207 ; free virtual = 19788
-Retarget | Checksum: 192a64325
-INFO: [Opt 31-389] Phase Retarget created 4 cells and removed 30 cells
+Time (s): cpu = 00:00:00.19 ; elapsed = 00:00:00.13 . Memory (MB): peak = 2835.793 ; gain = 0.000 ; free physical = 693 ; free virtual = 17842
+Retarget | Checksum: f76ee7b0
+INFO: [Opt 31-389] Phase Retarget created 9 cells and removed 49 cells
+INFO: [Opt 31-1021] In phase Retarget, 9 netlist objects are constrained preventing optimization. Please run opt_design with -debug_log to get more detail. 
 
 Phase 4 Constant propagation
 INFO: [Opt 31-138] Pushed 0 inverter(s) to 0 load pin(s).
-Phase 4 Constant propagation | Checksum: 1e58aa1d3
+Phase 4 Constant propagation | Checksum: 1d2ff9c34
 
-Time (s): cpu = 00:00:00.11 ; elapsed = 00:00:00.08 . Memory (MB): peak = 2828.891 ; gain = 0.000 ; free physical = 1215 ; free virtual = 19796
-Constant propagation | Checksum: 1e58aa1d3
-INFO: [Opt 31-389] Phase Constant propagation created 0 cells and removed 8 cells
+Time (s): cpu = 00:00:00.21 ; elapsed = 00:00:00.16 . Memory (MB): peak = 2835.793 ; gain = 0.000 ; free physical = 693 ; free virtual = 17841
+Constant propagation | Checksum: 1d2ff9c34
+INFO: [Opt 31-389] Phase Constant propagation created 9 cells and removed 72 cells
+INFO: [Opt 31-1021] In phase Constant propagation, 9 netlist objects are constrained preventing optimization. Please run opt_design with -debug_log to get more detail. 
 
 Phase 5 Sweep
 INFO: [Constraints 18-11670] Building netlist checker database with flags, 0x8
-Done building netlist checker database: Time (s): cpu = 00:00:00 ; elapsed = 00:00:00.01 . Memory (MB): peak = 2828.891 ; gain = 0.000 ; free physical = 1215 ; free virtual = 19796
+Done building netlist checker database: Time (s): cpu = 00:00:00 ; elapsed = 00:00:00 . Memory (MB): peak = 2835.793 ; gain = 0.000 ; free physical = 694 ; free virtual = 17843
 INFO: [Constraints 18-11670] Building netlist checker database with flags, 0x8
-Done building netlist checker database: Time (s): cpu = 00:00:00 ; elapsed = 00:00:00.01 . Memory (MB): peak = 2828.891 ; gain = 0.000 ; free physical = 1215 ; free virtual = 19796
-Phase 5 Sweep | Checksum: 1bbad4b87
+Done building netlist checker database: Time (s): cpu = 00:00:00 ; elapsed = 00:00:00 . Memory (MB): peak = 2835.793 ; gain = 0.000 ; free physical = 693 ; free virtual = 17842
+Phase 5 Sweep | Checksum: 12407d51f
 
-Time (s): cpu = 00:00:00.18 ; elapsed = 00:00:00.16 . Memory (MB): peak = 2828.891 ; gain = 0.000 ; free physical = 1212 ; free virtual = 19794
-Sweep | Checksum: 1bbad4b87
-INFO: [Opt 31-389] Phase Sweep created 0 cells and removed 226 cells
+Time (s): cpu = 00:00:00.31 ; elapsed = 00:00:00.25 . Memory (MB): peak = 2835.793 ; gain = 0.000 ; free physical = 693 ; free virtual = 17841
+Sweep | Checksum: 12407d51f
+INFO: [Opt 31-389] Phase Sweep created 0 cells and removed 229 cells
+INFO: [Opt 31-1021] In phase Sweep, 32 netlist objects are constrained preventing optimization. Please run opt_design with -debug_log to get more detail. 
 
 Phase 6 BUFG optimization
-Phase 6 BUFG optimization | Checksum: 1bbad4b87
+Phase 6 BUFG optimization | Checksum: 12407d51f
 
-Time (s): cpu = 00:00:00.21 ; elapsed = 00:00:00.17 . Memory (MB): peak = 2860.906 ; gain = 32.016 ; free physical = 1212 ; free virtual = 19793
-BUFG optimization | Checksum: 1bbad4b87
+Time (s): cpu = 00:00:00.35 ; elapsed = 00:00:00.28 . Memory (MB): peak = 2867.809 ; gain = 32.016 ; free physical = 693 ; free virtual = 17842
+BUFG optimization | Checksum: 12407d51f
 INFO: [Opt 31-662] Phase BUFG optimization created 0 cells of which 0 are BUFGs and removed 0 cells.
 
 Phase 7 Shift Register Optimization
 INFO: [Opt 31-1064] SRL Remap converted 0 SRLs to 0 registers and converted 0 registers of register chains to 0 SRLs
-Phase 7 Shift Register Optimization | Checksum: 1bbad4b87
+Phase 7 Shift Register Optimization | Checksum: 12407d51f
 
-Time (s): cpu = 00:00:00.21 ; elapsed = 00:00:00.17 . Memory (MB): peak = 2860.906 ; gain = 32.016 ; free physical = 1212 ; free virtual = 19793
-Shift Register Optimization | Checksum: 1bbad4b87
+Time (s): cpu = 00:00:00.35 ; elapsed = 00:00:00.28 . Memory (MB): peak = 2867.809 ; gain = 32.016 ; free physical = 693 ; free virtual = 17841
+Shift Register Optimization | Checksum: 12407d51f
 INFO: [Opt 31-389] Phase Shift Register Optimization created 0 cells and removed 0 cells
 
 Phase 8 Post Processing Netlist
-Phase 8 Post Processing Netlist | Checksum: 1e34b58fb
+Phase 8 Post Processing Netlist | Checksum: 1c0ea4bd3
 
-Time (s): cpu = 00:00:00.22 ; elapsed = 00:00:00.18 . Memory (MB): peak = 2860.906 ; gain = 32.016 ; free physical = 1212 ; free virtual = 19793
-Post Processing Netlist | Checksum: 1e34b58fb
+Time (s): cpu = 00:00:00.36 ; elapsed = 00:00:00.29 . Memory (MB): peak = 2867.809 ; gain = 32.016 ; free physical = 693 ; free virtual = 17842
+Post Processing Netlist | Checksum: 1c0ea4bd3
 INFO: [Opt 31-389] Phase Post Processing Netlist created 0 cells and removed 0 cells
+INFO: [Opt 31-1021] In phase Post Processing Netlist, 11 netlist objects are constrained preventing optimization. Please run opt_design with -debug_log to get more detail. 
 
 Phase 9 Finalization
 
 Phase 9.1 Finalizing Design Cores and Updating Shapes
-Phase 9.1 Finalizing Design Cores and Updating Shapes | Checksum: 12a2aded2
+Phase 9.1 Finalizing Design Cores and Updating Shapes | Checksum: 1342ff597
 
-Time (s): cpu = 00:00:00.27 ; elapsed = 00:00:00.22 . Memory (MB): peak = 2860.906 ; gain = 32.016 ; free physical = 1203 ; free virtual = 19784
+Time (s): cpu = 00:00:00.44 ; elapsed = 00:00:00.35 . Memory (MB): peak = 2867.809 ; gain = 32.016 ; free physical = 693 ; free virtual = 17842
 
 Phase 9.2 Verifying Netlist Connectivity
 
 Starting Connectivity Check Task
 
-Time (s): cpu = 00:00:00.01 ; elapsed = 00:00:00 . Memory (MB): peak = 2860.906 ; gain = 0.000 ; free physical = 1203 ; free virtual = 19784
-Phase 9.2 Verifying Netlist Connectivity | Checksum: 12a2aded2
+Time (s): cpu = 00:00:00.01 ; elapsed = 00:00:00.01 . Memory (MB): peak = 2867.809 ; gain = 0.000 ; free physical = 693 ; free virtual = 17842
+Phase 9.2 Verifying Netlist Connectivity | Checksum: 1342ff597
 
-Time (s): cpu = 00:00:00.28 ; elapsed = 00:00:00.23 . Memory (MB): peak = 2860.906 ; gain = 32.016 ; free physical = 1203 ; free virtual = 19784
-Phase 9 Finalization | Checksum: 12a2aded2
+Time (s): cpu = 00:00:00.45 ; elapsed = 00:00:00.36 . Memory (MB): peak = 2867.809 ; gain = 32.016 ; free physical = 693 ; free virtual = 17842
+Phase 9 Finalization | Checksum: 1342ff597
 
-Time (s): cpu = 00:00:00.28 ; elapsed = 00:00:00.23 . Memory (MB): peak = 2860.906 ; gain = 32.016 ; free physical = 1203 ; free virtual = 19784
+Time (s): cpu = 00:00:00.45 ; elapsed = 00:00:00.36 . Memory (MB): peak = 2867.809 ; gain = 32.016 ; free physical = 693 ; free virtual = 17842
 Opt_design Change Summary
 =========================
 
@@ -1784,32 +1911,47 @@ Opt_design Change Summary
 -------------------------------------------------------------------------------------------------------------------------
 |  Phase                        |  #Cells created  |  #Cells Removed  |  #Constrained objects preventing optimizations  |
 -------------------------------------------------------------------------------------------------------------------------
-|  Retarget                     |               4  |              30  |                                              0  |
-|  Constant propagation         |               0  |               8  |                                              0  |
-|  Sweep                        |               0  |             226  |                                              0  |
+|  Retarget                     |               9  |              49  |                                              9  |
+|  Constant propagation         |               9  |              72  |                                              9  |
+|  Sweep                        |               0  |             229  |                                             32  |
 |  BUFG optimization            |               0  |               0  |                                              0  |
 |  Shift Register Optimization  |               0  |               0  |                                              0  |
-|  Post Processing Netlist      |               0  |               0  |                                              0  |
+|  Post Processing Netlist      |               0  |               0  |                                             11  |
 -------------------------------------------------------------------------------------------------------------------------
 
 
-Ending Logic Optimization Task | Checksum: 12a2aded2
+Ending Logic Optimization Task | Checksum: 1342ff597
 
-Time (s): cpu = 00:00:00.28 ; elapsed = 00:00:00.23 . Memory (MB): peak = 2860.906 ; gain = 32.016 ; free physical = 1203 ; free virtual = 19784
+Time (s): cpu = 00:00:00.45 ; elapsed = 00:00:00.36 . Memory (MB): peak = 2867.809 ; gain = 32.016 ; free physical = 693 ; free virtual = 17842
 
 Starting Power Optimization Task
 INFO: [Pwropt 34-132] Skipping clock gating for clocks with a period < 2.00 ns.
-Ending Power Optimization Task | Checksum: 12a2aded2
+INFO: [Pwropt 34-9] Applying IDT optimizations ...
+INFO: [Pwropt 34-10] Applying ODC optimizations ...
+INFO: [Timing 38-35] Done setting XDC timing constraints.
+Running Vector-less Activity Propagation...
 
-Time (s): cpu = 00:00:00 ; elapsed = 00:00:00.01 . Memory (MB): peak = 2860.906 ; gain = 0.000 ; free physical = 1196 ; free virtual = 19777
+Finished Running Vector-less Activity Propagation
+
+
+Starting PowerOpt Patch Enables Task
+INFO: [Pwropt 34-162] WRITE_MODE attribute of 0 BRAM(s) out of a total of 2 has been updated to save power. Run report_power_opt to get a complete listing of the BRAMs updated.
+INFO: [Pwropt 34-201] Structural ODC has moved 0 WE to EN ports
+Number of BRAM Ports augmented: 2 newly gated: 0 Total Ports: 4
+Ending PowerOpt Patch Enables Task | Checksum: 224b7f943
+
+Time (s): cpu = 00:00:00.01 ; elapsed = 00:00:00.02 . Memory (MB): peak = 2960.895 ; gain = 0.000 ; free physical = 672 ; free virtual = 17822
+Ending Power Optimization Task | Checksum: 224b7f943
+
+Time (s): cpu = 00:00:00.82 ; elapsed = 00:00:00.52 . Memory (MB): peak = 2960.895 ; gain = 93.086 ; free physical = 683 ; free virtual = 17833
 
 Starting Final Cleanup Task
-Ending Final Cleanup Task | Checksum: 12a2aded2
+Ending Final Cleanup Task | Checksum: 224b7f943
 
-Time (s): cpu = 00:00:00.01 ; elapsed = 00:00:00 . Memory (MB): peak = 2860.906 ; gain = 0.000 ; free physical = 1196 ; free virtual = 19777
-Netlist sorting complete. Time (s): cpu = 00:00:00 ; elapsed = 00:00:00 . Memory (MB): peak = 2860.906 ; gain = 0.000 ; free physical = 1196 ; free virtual = 19777
+Time (s): cpu = 00:00:00 ; elapsed = 00:00:00 . Memory (MB): peak = 2960.895 ; gain = 0.000 ; free physical = 683 ; free virtual = 17833
+Netlist sorting complete. Time (s): cpu = 00:00:00.01 ; elapsed = 00:00:00 . Memory (MB): peak = 2960.895 ; gain = 0.000 ; free physical = 683 ; free virtual = 17833
 INFO: [Common 17-83] Releasing license: Implementation
-37 Infos, 0 Warnings, 100 Critical Warnings and 0 Errors encountered.
+48 Infos, 0 Warnings, 100 Critical Warnings and 0 Errors encountered.
 opt_design completed successfully
 INFO: [Vivado 12-24828] Executing command : report_drc -file hdmi_p1_wrapper_drc_opted.rpt -pb hdmi_p1_wrapper_drc_opted.pb -rpx hdmi_p1_wrapper_drc_opted.rpx
 Command: report_drc -file hdmi_p1_wrapper_drc_opted.rpt -pb hdmi_p1_wrapper_drc_opted.pb -rpx hdmi_p1_wrapper_drc_opted.rpx
@@ -1818,17 +1960,17 @@ INFO: [DRC 23-27] Running DRC with 2 threads
 INFO: [Vivado_Tcl 2-168] The results of DRC are in file /media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/vivado/hdmi_p1/proj/hdmi_p1.runs/impl_1/hdmi_p1_wrapper_drc_opted.rpt.
 report_drc completed successfully
 INFO: [Timing 38-480] Writing timing data to binary archive.
-Wrote PlaceDB: Time (s): cpu = 00:00:00 ; elapsed = 00:00:00 . Memory (MB): peak = 2860.906 ; gain = 0.000 ; free physical = 1200 ; free virtual = 19779
-Write ShapeDB Complete: Time (s): cpu = 00:00:00.01 ; elapsed = 00:00:00.01 . Memory (MB): peak = 2860.906 ; gain = 0.000 ; free physical = 1200 ; free virtual = 19779
-Wrote PulsedLatchDB: Time (s): cpu = 00:00:00 ; elapsed = 00:00:00 . Memory (MB): peak = 2860.906 ; gain = 0.000 ; free physical = 1200 ; free virtual = 19779
+Wrote PlaceDB: Time (s): cpu = 00:00:00 ; elapsed = 00:00:00 . Memory (MB): peak = 2960.895 ; gain = 0.000 ; free physical = 656 ; free virtual = 17807
+Wrote PulsedLatchDB: Time (s): cpu = 00:00:00 ; elapsed = 00:00:00 . Memory (MB): peak = 2960.895 ; gain = 0.000 ; free physical = 656 ; free virtual = 17807
 Writing XDEF routing.
+Write ShapeDB Complete: Time (s): cpu = 00:00:00.03 ; elapsed = 00:00:00.01 . Memory (MB): peak = 2960.895 ; gain = 0.000 ; free physical = 656 ; free virtual = 17807
 Writing XDEF routing logical nets.
 Writing XDEF routing special nets.
-Wrote RouteStorage: Time (s): cpu = 00:00:00.07 ; elapsed = 00:00:00.02 . Memory (MB): peak = 2860.906 ; gain = 0.000 ; free physical = 1196 ; free virtual = 19777
-Wrote PlaceStorage: Time (s): cpu = 00:00:00 ; elapsed = 00:00:00 . Memory (MB): peak = 2860.906 ; gain = 0.000 ; free physical = 1196 ; free virtual = 19778
-Wrote Netlist Cache: Time (s): cpu = 00:00:00 ; elapsed = 00:00:00 . Memory (MB): peak = 2860.906 ; gain = 0.000 ; free physical = 1197 ; free virtual = 19779
-Wrote Device Cache: Time (s): cpu = 00:00:00.03 ; elapsed = 00:00:00.01 . Memory (MB): peak = 2860.906 ; gain = 0.000 ; free physical = 1195 ; free virtual = 19779
-Write Physdb Complete: Time (s): cpu = 00:00:00.13 ; elapsed = 00:00:00.04 . Memory (MB): peak = 2860.906 ; gain = 0.000 ; free physical = 1195 ; free virtual = 19779
+Wrote RouteStorage: Time (s): cpu = 00:00:00.08 ; elapsed = 00:00:00.02 . Memory (MB): peak = 2960.895 ; gain = 0.000 ; free physical = 653 ; free virtual = 17804
+Wrote PlaceStorage: Time (s): cpu = 00:00:00 ; elapsed = 00:00:00.01 . Memory (MB): peak = 2960.895 ; gain = 0.000 ; free physical = 653 ; free virtual = 17804
+Wrote Netlist Cache: Time (s): cpu = 00:00:00 ; elapsed = 00:00:00 . Memory (MB): peak = 2960.895 ; gain = 0.000 ; free physical = 653 ; free virtual = 17804
+Wrote Device Cache: Time (s): cpu = 00:00:00.02 ; elapsed = 00:00:00 . Memory (MB): peak = 2960.895 ; gain = 0.000 ; free physical = 652 ; free virtual = 17805
+Write Physdb Complete: Time (s): cpu = 00:00:00.12 ; elapsed = 00:00:00.04 . Memory (MB): peak = 2960.895 ; gain = 0.000 ; free physical = 652 ; free virtual = 17805
 INFO: [Common 17-1381] The checkpoint '/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/vivado/hdmi_p1/proj/hdmi_p1.runs/impl_1/hdmi_p1_wrapper_opt.dcp' has been generated.
 Command: place_design
 Attempting to get a license for feature 'Implementation' and/or device 'xc7z015'
@@ -1840,7 +1982,7 @@ INFO: [Vivado_Tcl 4-199] Please refer to the DRC report (report_drc) for more in
 INFO: [Timing 38-35] Done setting XDC timing constraints.
 Running DRC as a precondition to command place_design
 INFO: [DRC 23-27] Running DRC with 2 threads
-INFO: [Vivado_Tcl 4-198] DRC finished with 0 Errors
+INFO: [Vivado_Tcl 4-198] DRC finished with 0 Errors, 42 Warnings
 INFO: [Vivado_Tcl 4-199] Please refer to the DRC report (report_drc) for more information.
 INFO: [Place 30-611] Multithreading enabled for place_design using a maximum of 2 CPUs
 
@@ -1849,63 +1991,63 @@ Starting Placer Task
 Phase 1 Placer Initialization
 
 Phase 1.1 Placer Initialization Netlist Sorting
-Netlist sorting complete. Time (s): cpu = 00:00:00 ; elapsed = 00:00:00 . Memory (MB): peak = 2964.957 ; gain = 0.000 ; free physical = 1214 ; free virtual = 19800
-Phase 1.1 Placer Initialization Netlist Sorting | Checksum: 106e920de
+Netlist sorting complete. Time (s): cpu = 00:00:00 ; elapsed = 00:00:00 . Memory (MB): peak = 3072.949 ; gain = 0.000 ; free physical = 628 ; free virtual = 17784
+Phase 1.1 Placer Initialization Netlist Sorting | Checksum: 16dcaee0a
 
-Time (s): cpu = 00:00:00.01 ; elapsed = 00:00:00 . Memory (MB): peak = 2964.957 ; gain = 0.000 ; free physical = 1214 ; free virtual = 19800
-Netlist sorting complete. Time (s): cpu = 00:00:00 ; elapsed = 00:00:00 . Memory (MB): peak = 2964.957 ; gain = 0.000 ; free physical = 1214 ; free virtual = 19800
+Time (s): cpu = 00:00:00 ; elapsed = 00:00:00.01 . Memory (MB): peak = 3072.949 ; gain = 0.000 ; free physical = 628 ; free virtual = 17784
+Netlist sorting complete. Time (s): cpu = 00:00:00 ; elapsed = 00:00:00 . Memory (MB): peak = 3072.949 ; gain = 0.000 ; free physical = 628 ; free virtual = 17784
 
 Phase 1.2 IO Placement/ Clock Placement/ Build Placer Device
-Phase 1.2 IO Placement/ Clock Placement/ Build Placer Device | Checksum: 2009a3c78
+Phase 1.2 IO Placement/ Clock Placement/ Build Placer Device | Checksum: 1a1a8dbc5
 
-Time (s): cpu = 00:00:00.28 ; elapsed = 00:00:00.2 . Memory (MB): peak = 2964.957 ; gain = 0.000 ; free physical = 1222 ; free virtual = 19808
+Time (s): cpu = 00:00:00.32 ; elapsed = 00:00:00.24 . Memory (MB): peak = 3072.949 ; gain = 0.000 ; free physical = 631 ; free virtual = 17788
 
 Phase 1.3 Build Placer Netlist Model
-Phase 1.3 Build Placer Netlist Model | Checksum: 3122d40a7
+Phase 1.3 Build Placer Netlist Model | Checksum: 203f733ef
 
-Time (s): cpu = 00:00:00.69 ; elapsed = 00:00:00.47 . Memory (MB): peak = 2964.957 ; gain = 0.000 ; free physical = 1238 ; free virtual = 19823
+Time (s): cpu = 00:00:00.97 ; elapsed = 00:00:00.67 . Memory (MB): peak = 3072.949 ; gain = 0.000 ; free physical = 626 ; free virtual = 17782
 
 Phase 1.4 Constrain Clocks/Macros
-Phase 1.4 Constrain Clocks/Macros | Checksum: 3122d40a7
+Phase 1.4 Constrain Clocks/Macros | Checksum: 203f733ef
 
-Time (s): cpu = 00:00:00.7 ; elapsed = 00:00:00.47 . Memory (MB): peak = 2964.957 ; gain = 0.000 ; free physical = 1237 ; free virtual = 19823
-Phase 1 Placer Initialization | Checksum: 3122d40a7
+Time (s): cpu = 00:00:00.97 ; elapsed = 00:00:00.68 . Memory (MB): peak = 3072.949 ; gain = 0.000 ; free physical = 626 ; free virtual = 17782
+Phase 1 Placer Initialization | Checksum: 203f733ef
 
-Time (s): cpu = 00:00:00.7 ; elapsed = 00:00:00.48 . Memory (MB): peak = 2964.957 ; gain = 0.000 ; free physical = 1237 ; free virtual = 19822
+Time (s): cpu = 00:00:00.98 ; elapsed = 00:00:00.69 . Memory (MB): peak = 3072.949 ; gain = 0.000 ; free physical = 626 ; free virtual = 17782
 
 Phase 2 Global Placement
 
 Phase 2.1 Floorplanning
-Phase 2.1 Floorplanning | Checksum: 2916fc7ea
+Phase 2.1 Floorplanning | Checksum: 23b112438
 
-Time (s): cpu = 00:00:00.84 ; elapsed = 00:00:00.55 . Memory (MB): peak = 2964.957 ; gain = 0.000 ; free physical = 1237 ; free virtual = 19822
+Time (s): cpu = 00:00:01 ; elapsed = 00:00:00.84 . Memory (MB): peak = 3072.949 ; gain = 0.000 ; free physical = 624 ; free virtual = 17781
 
 Phase 2.2 Update Timing before SLR Path Opt
-Phase 2.2 Update Timing before SLR Path Opt | Checksum: 2d9f1cfd1
+Phase 2.2 Update Timing before SLR Path Opt | Checksum: 21050c03e
 
-Time (s): cpu = 00:00:00.96 ; elapsed = 00:00:00.62 . Memory (MB): peak = 2964.957 ; gain = 0.000 ; free physical = 1237 ; free virtual = 19823
+Time (s): cpu = 00:00:02 ; elapsed = 00:00:01 . Memory (MB): peak = 3072.949 ; gain = 0.000 ; free physical = 626 ; free virtual = 17782
 
 Phase 2.3 Post-Processing in Floorplanning
-Phase 2.3 Post-Processing in Floorplanning | Checksum: 2d9f1cfd1
+Phase 2.3 Post-Processing in Floorplanning | Checksum: 21050c03e
 
-Time (s): cpu = 00:00:00.96 ; elapsed = 00:00:00.63 . Memory (MB): peak = 2964.957 ; gain = 0.000 ; free physical = 1237 ; free virtual = 19823
+Time (s): cpu = 00:00:02 ; elapsed = 00:00:01 . Memory (MB): peak = 3072.949 ; gain = 0.000 ; free physical = 626 ; free virtual = 17782
 
 Phase 2.4 Global Place Phase1
-Phase 2.4 Global Place Phase1 | Checksum: 3049a1725
+Phase 2.4 Global Place Phase1 | Checksum: 1c2c24ee5
 
-Time (s): cpu = 00:00:02 ; elapsed = 00:00:01 . Memory (MB): peak = 2964.957 ; gain = 0.000 ; free physical = 1218 ; free virtual = 19807
+Time (s): cpu = 00:00:04 ; elapsed = 00:00:02 . Memory (MB): peak = 3072.949 ; gain = 0.000 ; free physical = 608 ; free virtual = 17767
 
 Phase 2.5 Global Place Phase2
 
 Phase 2.5.1 UpdateTiming Before Physical Synthesis
-Phase 2.5.1 UpdateTiming Before Physical Synthesis | Checksum: 3049a1725
+Phase 2.5.1 UpdateTiming Before Physical Synthesis | Checksum: 1c2c24ee5
 
-Time (s): cpu = 00:00:02 ; elapsed = 00:00:01 . Memory (MB): peak = 2964.957 ; gain = 0.000 ; free physical = 1222 ; free virtual = 19811
+Time (s): cpu = 00:00:04 ; elapsed = 00:00:02 . Memory (MB): peak = 3072.949 ; gain = 0.000 ; free physical = 616 ; free virtual = 17774
 
 Phase 2.5.2 Physical Synthesis In Placer
-INFO: [Physopt 32-1035] Found 0 LUTNM shape to break, 40 LUT instances to create LUTNM shape
+INFO: [Physopt 32-1035] Found 0 LUTNM shape to break, 157 LUT instances to create LUTNM shape
 INFO: [Physopt 32-1044] Break lutnm for timing: one critical 0, two critical 0, total 0, new lutff created 0
-INFO: [Physopt 32-1138] End 1 Pass. Optimized 18 nets or LUTs. Breaked 0 LUT, combined 18 existing LUTs and moved 0 existing LUT
+INFO: [Physopt 32-1138] End 1 Pass. Optimized 47 nets or LUTs. Breaked 0 LUT, combined 47 existing LUTs and moved 0 existing LUT
 INFO: [Physopt 32-65] No nets found for high-fanout optimization.
 INFO: [Physopt 32-232] Optimized 0 net. Created 0 new instance.
 INFO: [Physopt 32-775] End 1 Pass. Optimized 0 net or cell. Created 0 new cell, deleted 0 existing cell and moved 0 existing cell
@@ -1916,7 +2058,7 @@ INFO: [Physopt 32-670] No setup violation found.  BRAM Register Optimization was
 INFO: [Physopt 32-670] No setup violation found.  URAM Register Optimization was not performed.
 INFO: [Physopt 32-949] No candidate nets found for dynamic/static region interface net replication
 INFO: [Physopt 32-775] End 1 Pass. Optimized 0 net or cell. Created 0 new cell, deleted 0 existing cell and moved 0 existing cell
-Netlist sorting complete. Time (s): cpu = 00:00:00 ; elapsed = 00:00:00 . Memory (MB): peak = 2964.957 ; gain = 0.000 ; free physical = 1226 ; free virtual = 19816
+Netlist sorting complete. Time (s): cpu = 00:00:00 ; elapsed = 00:00:00 . Memory (MB): peak = 3072.949 ; gain = 0.000 ; free physical = 614 ; free virtual = 17773
 
 Summary of Physical Synthesis Optimizations
 ============================================
@@ -1925,7 +2067,7 @@ Summary of Physical Synthesis Optimizations
 -----------------------------------------------------------------------------------------------------------------------------------------------------------
 |  Optimization                                     |  Added Cells  |  Removed Cells  |  Optimized Cells/Nets  |  Dont Touch  |  Iterations  |  Elapsed   |
 -----------------------------------------------------------------------------------------------------------------------------------------------------------
-|  LUT Combining                                    |            0  |             18  |                    18  |           0  |           1  |  00:00:00  |
+|  LUT Combining                                    |            0  |             47  |                    47  |           0  |           1  |  00:00:00  |
 |  Retime                                           |            0  |              0  |                     0  |           0  |           1  |  00:00:00  |
 |  Very High Fanout                                 |            0  |              0  |                     0  |           0  |           1  |  00:00:00  |
 |  DSP Register                                     |            0  |              0  |                     0  |           0  |           0  |  00:00:00  |
@@ -1934,59 +2076,59 @@ Summary of Physical Synthesis Optimizations
 |  BRAM Register                                    |            0  |              0  |                     0  |           0  |           0  |  00:00:00  |
 |  URAM Register                                    |            0  |              0  |                     0  |           0  |           0  |  00:00:00  |
 |  Dynamic/Static Region Interface Net Replication  |            0  |              0  |                     0  |           0  |           1  |  00:00:00  |
-|  Total                                            |            0  |             18  |                    18  |           0  |           4  |  00:00:00  |
+|  Total                                            |            0  |             47  |                    47  |           0  |           4  |  00:00:00  |
 -----------------------------------------------------------------------------------------------------------------------------------------------------------
 
 
-Phase 2.5.2 Physical Synthesis In Placer | Checksum: 1fa930b24
+Phase 2.5.2 Physical Synthesis In Placer | Checksum: 1613ec071
 
-Time (s): cpu = 00:00:03 ; elapsed = 00:00:02 . Memory (MB): peak = 2964.957 ; gain = 0.000 ; free physical = 1222 ; free virtual = 19814
-Phase 2.5 Global Place Phase2 | Checksum: 1ed52ab3d
+Time (s): cpu = 00:00:05 ; elapsed = 00:00:03 . Memory (MB): peak = 3072.949 ; gain = 0.000 ; free physical = 644 ; free virtual = 17803
+Phase 2.5 Global Place Phase2 | Checksum: 1e2b23b58
 
-Time (s): cpu = 00:00:03 ; elapsed = 00:00:02 . Memory (MB): peak = 2964.957 ; gain = 0.000 ; free physical = 1216 ; free virtual = 19807
-Phase 2 Global Placement | Checksum: 1ed52ab3d
+Time (s): cpu = 00:00:05 ; elapsed = 00:00:03 . Memory (MB): peak = 3072.949 ; gain = 0.000 ; free physical = 636 ; free virtual = 17796
+Phase 2 Global Placement | Checksum: 1e2b23b58
 
-Time (s): cpu = 00:00:03 ; elapsed = 00:00:02 . Memory (MB): peak = 2964.957 ; gain = 0.000 ; free physical = 1215 ; free virtual = 19807
+Time (s): cpu = 00:00:05 ; elapsed = 00:00:03 . Memory (MB): peak = 3072.949 ; gain = 0.000 ; free physical = 637 ; free virtual = 17796
 
 Phase 3 Detail Placement
 
 Phase 3.1 Commit Multi Column Macros
-Phase 3.1 Commit Multi Column Macros | Checksum: 23335c95d
+Phase 3.1 Commit Multi Column Macros | Checksum: 1a00e6fd2
 
-Time (s): cpu = 00:00:03 ; elapsed = 00:00:02 . Memory (MB): peak = 2964.957 ; gain = 0.000 ; free physical = 1216 ; free virtual = 19808
+Time (s): cpu = 00:00:05 ; elapsed = 00:00:03 . Memory (MB): peak = 3072.949 ; gain = 0.000 ; free physical = 643 ; free virtual = 17803
 
 Phase 3.2 Commit Most Macros & LUTRAMs
-Phase 3.2 Commit Most Macros & LUTRAMs | Checksum: 1ee388589
+Phase 3.2 Commit Most Macros & LUTRAMs | Checksum: 13b428ea2
 
-Time (s): cpu = 00:00:03 ; elapsed = 00:00:02 . Memory (MB): peak = 2964.957 ; gain = 0.000 ; free physical = 1192 ; free virtual = 19784
+Time (s): cpu = 00:00:05 ; elapsed = 00:00:03 . Memory (MB): peak = 3072.949 ; gain = 0.000 ; free physical = 647 ; free virtual = 17804
 
 Phase 3.3 Area Swap Optimization
-Phase 3.3 Area Swap Optimization | Checksum: 1d8eee4f2
+Phase 3.3 Area Swap Optimization | Checksum: 148b1fa42
 
-Time (s): cpu = 00:00:03 ; elapsed = 00:00:02 . Memory (MB): peak = 2964.957 ; gain = 0.000 ; free physical = 1195 ; free virtual = 19787
+Time (s): cpu = 00:00:06 ; elapsed = 00:00:03 . Memory (MB): peak = 3072.949 ; gain = 0.000 ; free physical = 647 ; free virtual = 17804
 
 Phase 3.4 Pipeline Register Optimization
-Phase 3.4 Pipeline Register Optimization | Checksum: 15ef77f0c
+Phase 3.4 Pipeline Register Optimization | Checksum: 1db22ab47
 
-Time (s): cpu = 00:00:03 ; elapsed = 00:00:02 . Memory (MB): peak = 2964.957 ; gain = 0.000 ; free physical = 1195 ; free virtual = 19787
+Time (s): cpu = 00:00:06 ; elapsed = 00:00:03 . Memory (MB): peak = 3072.949 ; gain = 0.000 ; free physical = 646 ; free virtual = 17803
 
 Phase 3.5 Small Shape Detail Placement
-Phase 3.5 Small Shape Detail Placement | Checksum: 196c51a2a
+Phase 3.5 Small Shape Detail Placement | Checksum: 1fe9366a2
 
-Time (s): cpu = 00:00:03 ; elapsed = 00:00:02 . Memory (MB): peak = 2964.957 ; gain = 0.000 ; free physical = 1208 ; free virtual = 19800
+Time (s): cpu = 00:00:06 ; elapsed = 00:00:04 . Memory (MB): peak = 3072.949 ; gain = 0.000 ; free physical = 983 ; free virtual = 18140
 
 Phase 3.6 Re-assign LUT pins
-Phase 3.6 Re-assign LUT pins | Checksum: 1abf05812
+Phase 3.6 Re-assign LUT pins | Checksum: 1bfdf9b0b
 
-Time (s): cpu = 00:00:04 ; elapsed = 00:00:02 . Memory (MB): peak = 2964.957 ; gain = 0.000 ; free physical = 1246 ; free virtual = 19807
+Time (s): cpu = 00:00:06 ; elapsed = 00:00:04 . Memory (MB): peak = 3072.949 ; gain = 0.000 ; free physical = 984 ; free virtual = 18141
 
 Phase 3.7 Pipeline Register Optimization
-Phase 3.7 Pipeline Register Optimization | Checksum: 1b35bb3f7
+Phase 3.7 Pipeline Register Optimization | Checksum: 1b9ea047c
 
-Time (s): cpu = 00:00:04 ; elapsed = 00:00:02 . Memory (MB): peak = 2964.957 ; gain = 0.000 ; free physical = 1246 ; free virtual = 19806
-Phase 3 Detail Placement | Checksum: 1b35bb3f7
+Time (s): cpu = 00:00:06 ; elapsed = 00:00:04 . Memory (MB): peak = 3072.949 ; gain = 0.000 ; free physical = 984 ; free virtual = 18141
+Phase 3 Detail Placement | Checksum: 1b9ea047c
 
-Time (s): cpu = 00:00:04 ; elapsed = 00:00:02 . Memory (MB): peak = 2964.957 ; gain = 0.000 ; free physical = 1246 ; free virtual = 19806
+Time (s): cpu = 00:00:06 ; elapsed = 00:00:04 . Memory (MB): peak = 3072.949 ; gain = 0.000 ; free physical = 984 ; free virtual = 18141
 
 Phase 4 Post Placement Optimization and Clean-Up
 
@@ -1994,7 +2136,7 @@ Phase 4.1 Post Commit Optimization
 INFO: [Timing 38-35] Done setting XDC timing constraints.
 
 Phase 4.1.1 Post Placement Optimization
-Post Placement Optimization Initialization | Checksum: 19b92fb5a
+Post Placement Optimization Initialization | Checksum: 11bb3950f
 
 Phase 4.1.1.1 BUFG Insertion
 
@@ -2002,33 +2144,34 @@ Starting Physical Synthesis Task
 
 Phase 1 Physical Synthesis Initialization
 INFO: [Physopt 32-721] Multithreading enabled for phys_opt_design using a maximum of 2 CPUs
-INFO: [Physopt 32-619] Estimated Timing Summary | WNS=1.892 | TNS=0.000 |
-Phase 1 Physical Synthesis Initialization | Checksum: d94ea4f0
+INFO: [Physopt 32-619] Estimated Timing Summary | WNS=1.752 | TNS=0.000 |
+Phase 1 Physical Synthesis Initialization | Checksum: 13e0c6907
 
-Time (s): cpu = 00:00:00.04 ; elapsed = 00:00:00.02 . Memory (MB): peak = 2964.957 ; gain = 0.000 ; free physical = 1245 ; free virtual = 19805
-INFO: [Place 46-56] BUFG insertion identified 0 candidate nets. Inserted BUFG: 0, Replicated BUFG Driver: 0, Skipped due to Placement/Routing Conflicts: 0, Skipped due to Timing Degradation: 0, Skipped due to netlist editing failed: 0.
-Ending Physical Synthesis Task | Checksum: 15286128c
+Time (s): cpu = 00:00:00.09 ; elapsed = 00:00:00.05 . Memory (MB): peak = 3072.949 ; gain = 0.000 ; free physical = 988 ; free virtual = 18145
+INFO: [Place 46-33] Processed net hdmi_p1_i/hdmi_p1_top_0/inst/u_hdmi_out_top/u_scan/aresetn_0, BUFG insertion was skipped due to placement/routing conflicts.
+INFO: [Place 46-56] BUFG insertion identified 1 candidate nets. Inserted BUFG: 0, Replicated BUFG Driver: 0, Skipped due to Placement/Routing Conflicts: 1, Skipped due to Timing Degradation: 0, Skipped due to netlist editing failed: 0.
+Ending Physical Synthesis Task | Checksum: 19a418ad1
 
-Time (s): cpu = 00:00:00.05 ; elapsed = 00:00:00.03 . Memory (MB): peak = 2964.957 ; gain = 0.000 ; free physical = 1245 ; free virtual = 19805
-Phase 4.1.1.1 BUFG Insertion | Checksum: 19b92fb5a
+Time (s): cpu = 00:00:00.14 ; elapsed = 00:00:00.09 . Memory (MB): peak = 3072.949 ; gain = 0.000 ; free physical = 988 ; free virtual = 18145
+Phase 4.1.1.1 BUFG Insertion | Checksum: 11bb3950f
 
-Time (s): cpu = 00:00:04 ; elapsed = 00:00:03 . Memory (MB): peak = 2964.957 ; gain = 0.000 ; free physical = 1245 ; free virtual = 19805
+Time (s): cpu = 00:00:07 ; elapsed = 00:00:05 . Memory (MB): peak = 3072.949 ; gain = 0.000 ; free physical = 988 ; free virtual = 18145
 
 Phase 4.1.1.2 Post Placement Timing Optimization
-INFO: [Place 30-746] Post Placement Timing Summary WNS=1.892. For the most accurate timing information please run report_timing.
-Phase 4.1.1.2 Post Placement Timing Optimization | Checksum: 1d7511b24
+INFO: [Place 30-746] Post Placement Timing Summary WNS=1.752. For the most accurate timing information please run report_timing.
+Phase 4.1.1.2 Post Placement Timing Optimization | Checksum: 10c906540
 
-Time (s): cpu = 00:00:04 ; elapsed = 00:00:03 . Memory (MB): peak = 2964.957 ; gain = 0.000 ; free physical = 1246 ; free virtual = 19807
+Time (s): cpu = 00:00:07 ; elapsed = 00:00:05 . Memory (MB): peak = 3072.949 ; gain = 0.000 ; free physical = 988 ; free virtual = 18145
 
-Time (s): cpu = 00:00:04 ; elapsed = 00:00:03 . Memory (MB): peak = 2964.957 ; gain = 0.000 ; free physical = 1246 ; free virtual = 19807
-Phase 4.1 Post Commit Optimization | Checksum: 1d7511b24
+Time (s): cpu = 00:00:07 ; elapsed = 00:00:05 . Memory (MB): peak = 3072.949 ; gain = 0.000 ; free physical = 988 ; free virtual = 18145
+Phase 4.1 Post Commit Optimization | Checksum: 10c906540
 
-Time (s): cpu = 00:00:04 ; elapsed = 00:00:03 . Memory (MB): peak = 2964.957 ; gain = 0.000 ; free physical = 1246 ; free virtual = 19807
+Time (s): cpu = 00:00:07 ; elapsed = 00:00:05 . Memory (MB): peak = 3072.949 ; gain = 0.000 ; free physical = 988 ; free virtual = 18145
 
 Phase 4.2 Post Placement Cleanup
-Phase 4.2 Post Placement Cleanup | Checksum: 1d7511b24
+Phase 4.2 Post Placement Cleanup | Checksum: 10c906540
 
-Time (s): cpu = 00:00:04 ; elapsed = 00:00:03 . Memory (MB): peak = 2964.957 ; gain = 0.000 ; free physical = 1246 ; free virtual = 19807
+Time (s): cpu = 00:00:07 ; elapsed = 00:00:05 . Memory (MB): peak = 3072.949 ; gain = 0.000 ; free physical = 987 ; free virtual = 18144
 
 Phase 4.3 Placer Reporting
 
@@ -2047,44 +2190,45 @@ INFO: [Place 30-612] Post-Placement Estimated Congestion
 |       West|                1x1|                1x1|
 |___________|___________________|___________________|
 
-Phase 4.3.1 Print Estimated Congestion | Checksum: 1d7511b24
+Phase 4.3.1 Print Estimated Congestion | Checksum: 10c906540
 
-Time (s): cpu = 00:00:04 ; elapsed = 00:00:03 . Memory (MB): peak = 2964.957 ; gain = 0.000 ; free physical = 1244 ; free virtual = 19805
-Phase 4.3 Placer Reporting | Checksum: 1d7511b24
+Time (s): cpu = 00:00:07 ; elapsed = 00:00:05 . Memory (MB): peak = 3072.949 ; gain = 0.000 ; free physical = 987 ; free virtual = 18144
+Phase 4.3 Placer Reporting | Checksum: 10c906540
 
-Time (s): cpu = 00:00:04 ; elapsed = 00:00:03 . Memory (MB): peak = 2964.957 ; gain = 0.000 ; free physical = 1244 ; free virtual = 19805
+Time (s): cpu = 00:00:07 ; elapsed = 00:00:05 . Memory (MB): peak = 3072.949 ; gain = 0.000 ; free physical = 987 ; free virtual = 18143
 
 Phase 4.4 Final Placement Cleanup
-Netlist sorting complete. Time (s): cpu = 00:00:00 ; elapsed = 00:00:00 . Memory (MB): peak = 2964.957 ; gain = 0.000 ; free physical = 1245 ; free virtual = 19805
+Netlist sorting complete. Time (s): cpu = 00:00:00 ; elapsed = 00:00:00.01 . Memory (MB): peak = 3072.949 ; gain = 0.000 ; free physical = 986 ; free virtual = 18143
 
-Time (s): cpu = 00:00:04 ; elapsed = 00:00:03 . Memory (MB): peak = 2964.957 ; gain = 0.000 ; free physical = 1245 ; free virtual = 19805
-Phase 4 Post Placement Optimization and Clean-Up | Checksum: 23b3ca055
+Time (s): cpu = 00:00:07 ; elapsed = 00:00:05 . Memory (MB): peak = 3072.949 ; gain = 0.000 ; free physical = 986 ; free virtual = 18143
+Phase 4 Post Placement Optimization and Clean-Up | Checksum: 1d1a78a8b
 
-Time (s): cpu = 00:00:04 ; elapsed = 00:00:03 . Memory (MB): peak = 2964.957 ; gain = 0.000 ; free physical = 1245 ; free virtual = 19805
-Ending Placer Task | Checksum: 1932fd9c9
+Time (s): cpu = 00:00:07 ; elapsed = 00:00:05 . Memory (MB): peak = 3072.949 ; gain = 0.000 ; free physical = 986 ; free virtual = 18143
+Ending Placer Task | Checksum: 182279ae8
 
-Time (s): cpu = 00:00:04 ; elapsed = 00:00:03 . Memory (MB): peak = 2964.957 ; gain = 0.000 ; free physical = 1245 ; free virtual = 19805
-72 Infos, 0 Warnings, 100 Critical Warnings and 0 Errors encountered.
+Time (s): cpu = 00:00:07 ; elapsed = 00:00:05 . Memory (MB): peak = 3072.949 ; gain = 0.000 ; free physical = 986 ; free virtual = 18142
+84 Infos, 0 Warnings, 100 Critical Warnings and 0 Errors encountered.
 place_design completed successfully
+place_design: Time (s): cpu = 00:00:09 ; elapsed = 00:00:06 . Memory (MB): peak = 3072.949 ; gain = 112.055 ; free physical = 985 ; free virtual = 18142
 INFO: [Vivado 12-24838] Running report commands "report_control_sets, report_io, report_utilization" in parallel.
 Running report generation with 2 threads.
 INFO: [Vivado 12-24828] Executing command : report_utilization -file hdmi_p1_wrapper_utilization_placed.rpt -pb hdmi_p1_wrapper_utilization_placed.pb
 INFO: [Vivado 12-24828] Executing command : report_io -file hdmi_p1_wrapper_io_placed.rpt
-report_io: Time (s): cpu = 00:00:00.15 ; elapsed = 00:00:00.15 . Memory (MB): peak = 2964.957 ; gain = 0.000 ; free physical = 1224 ; free virtual = 19784
+report_io: Time (s): cpu = 00:00:00.17 ; elapsed = 00:00:00.15 . Memory (MB): peak = 3072.949 ; gain = 0.000 ; free physical = 938 ; free virtual = 18095
 INFO: [Vivado 12-24828] Executing command : report_control_sets -verbose -file hdmi_p1_wrapper_control_sets_placed.rpt
-report_control_sets: Time (s): cpu = 00:00:00.07 ; elapsed = 00:00:00.08 . Memory (MB): peak = 2964.957 ; gain = 0.000 ; free physical = 1205 ; free virtual = 19766
-Wrote PlaceDB: Time (s): cpu = 00:00:00 ; elapsed = 00:00:00 . Memory (MB): peak = 2964.957 ; gain = 0.000 ; free physical = 1222 ; free virtual = 19784
+report_control_sets: Time (s): cpu = 00:00:00.07 ; elapsed = 00:00:00.06 . Memory (MB): peak = 3072.949 ; gain = 0.000 ; free physical = 930 ; free virtual = 18087
+Wrote PlaceDB: Time (s): cpu = 00:00:00 ; elapsed = 00:00:00 . Memory (MB): peak = 3072.949 ; gain = 0.000 ; free physical = 926 ; free virtual = 18084
 INFO: [Timing 38-480] Writing timing data to binary archive.
-Wrote PulsedLatchDB: Time (s): cpu = 00:00:00 ; elapsed = 00:00:00 . Memory (MB): peak = 2964.957 ; gain = 0.000 ; free physical = 1222 ; free virtual = 19784
+Wrote PulsedLatchDB: Time (s): cpu = 00:00:00 ; elapsed = 00:00:00 . Memory (MB): peak = 3072.949 ; gain = 0.000 ; free physical = 926 ; free virtual = 18084
 Writing XDEF routing.
-Write ShapeDB Complete: Time (s): cpu = 00:00:00.03 ; elapsed = 00:00:00.03 . Memory (MB): peak = 2964.957 ; gain = 0.000 ; free physical = 1221 ; free virtual = 19783
+Write ShapeDB Complete: Time (s): cpu = 00:00:00.05 ; elapsed = 00:00:00.02 . Memory (MB): peak = 3072.949 ; gain = 0.000 ; free physical = 926 ; free virtual = 18084
 Writing XDEF routing logical nets.
 Writing XDEF routing special nets.
-Wrote RouteStorage: Time (s): cpu = 00:00:00.05 ; elapsed = 00:00:00.01 . Memory (MB): peak = 2964.957 ; gain = 0.000 ; free physical = 1218 ; free virtual = 19782
-Wrote PlaceStorage: Time (s): cpu = 00:00:00.12 ; elapsed = 00:00:00.04 . Memory (MB): peak = 2964.957 ; gain = 0.000 ; free physical = 1214 ; free virtual = 19785
-Wrote Netlist Cache: Time (s): cpu = 00:00:00.01 ; elapsed = 00:00:00 . Memory (MB): peak = 2964.957 ; gain = 0.000 ; free physical = 1214 ; free virtual = 19782
-Wrote Device Cache: Time (s): cpu = 00:00:00.01 ; elapsed = 00:00:00.01 . Memory (MB): peak = 2964.957 ; gain = 0.000 ; free physical = 1213 ; free virtual = 19784
-Write Physdb Complete: Time (s): cpu = 00:00:00.21 ; elapsed = 00:00:00.1 . Memory (MB): peak = 2964.957 ; gain = 0.000 ; free physical = 1213 ; free virtual = 19784
+Wrote RouteStorage: Time (s): cpu = 00:00:00.09 ; elapsed = 00:00:00.02 . Memory (MB): peak = 3072.949 ; gain = 0.000 ; free physical = 924 ; free virtual = 18083
+Wrote PlaceStorage: Time (s): cpu = 00:00:00.31 ; elapsed = 00:00:00.12 . Memory (MB): peak = 3072.949 ; gain = 0.000 ; free physical = 920 ; free virtual = 18085
+Wrote Netlist Cache: Time (s): cpu = 00:00:00 ; elapsed = 00:00:00.01 . Memory (MB): peak = 3072.949 ; gain = 0.000 ; free physical = 920 ; free virtual = 18085
+Wrote Device Cache: Time (s): cpu = 00:00:00.01 ; elapsed = 00:00:00.01 . Memory (MB): peak = 3072.949 ; gain = 0.000 ; free physical = 919 ; free virtual = 18086
+Write Physdb Complete: Time (s): cpu = 00:00:00.41 ; elapsed = 00:00:00.16 . Memory (MB): peak = 3072.949 ; gain = 0.000 ; free physical = 921 ; free virtual = 18088
 INFO: [Common 17-1381] The checkpoint '/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/vivado/hdmi_p1/proj/hdmi_p1.runs/impl_1/hdmi_p1_wrapper_placed.dcp' has been generated.
 Command: phys_opt_design
 Attempting to get a license for feature 'Implementation' and/or device 'xc7z015'
@@ -2092,25 +2236,25 @@ INFO: [Common 17-349] Got license for feature 'Implementation' and/or device 'xc
 
 Starting Initial Update Timing Task
 
-Time (s): cpu = 00:00:00.28 ; elapsed = 00:00:00.18 . Memory (MB): peak = 2964.957 ; gain = 0.000 ; free physical = 1213 ; free virtual = 19780
-INFO: [Vivado_Tcl 4-2279] Estimated Timing Summary | WNS= 1.892 | TNS= 0.000 | 
+Time (s): cpu = 00:00:00.52 ; elapsed = 00:00:00.33 . Memory (MB): peak = 3072.949 ; gain = 0.000 ; free physical = 894 ; free virtual = 18062
+INFO: [Vivado_Tcl 4-2279] Estimated Timing Summary | WNS= 1.752 | TNS= 0.000 | 
 INFO: [Vivado_Tcl 4-383] Design worst setup slack (WNS) is greater than or equal to 0.000 ns. All physical synthesis setup optimizations will be skipped.
 INFO: [Vivado_Tcl 4-232] No setup violation found. The netlist was not modified.
 INFO: [Common 17-83] Releasing license: Implementation
-83 Infos, 0 Warnings, 100 Critical Warnings and 0 Errors encountered.
+95 Infos, 0 Warnings, 100 Critical Warnings and 0 Errors encountered.
 phys_opt_design completed successfully
-Wrote PlaceDB: Time (s): cpu = 00:00:00 ; elapsed = 00:00:00 . Memory (MB): peak = 2964.957 ; gain = 0.000 ; free physical = 1154 ; free virtual = 19768
 INFO: [Timing 38-480] Writing timing data to binary archive.
-Wrote PulsedLatchDB: Time (s): cpu = 00:00:00 ; elapsed = 00:00:00 . Memory (MB): peak = 2964.957 ; gain = 0.000 ; free physical = 1154 ; free virtual = 19768
+Wrote PlaceDB: Time (s): cpu = 00:00:00 ; elapsed = 00:00:00 . Memory (MB): peak = 3072.949 ; gain = 0.000 ; free physical = 895 ; free virtual = 18062
+Wrote PulsedLatchDB: Time (s): cpu = 00:00:00 ; elapsed = 00:00:00 . Memory (MB): peak = 3072.949 ; gain = 0.000 ; free physical = 895 ; free virtual = 18062
 Writing XDEF routing.
-Write ShapeDB Complete: Time (s): cpu = 00:00:00.03 ; elapsed = 00:00:00.01 . Memory (MB): peak = 2964.957 ; gain = 0.000 ; free physical = 1154 ; free virtual = 19768
+Write ShapeDB Complete: Time (s): cpu = 00:00:00.03 ; elapsed = 00:00:00.01 . Memory (MB): peak = 3072.949 ; gain = 0.000 ; free physical = 895 ; free virtual = 18062
 Writing XDEF routing logical nets.
 Writing XDEF routing special nets.
-Wrote RouteStorage: Time (s): cpu = 00:00:00.07 ; elapsed = 00:00:00.02 . Memory (MB): peak = 2964.957 ; gain = 0.000 ; free physical = 1153 ; free virtual = 19769
-Wrote PlaceStorage: Time (s): cpu = 00:00:00.12 ; elapsed = 00:00:00.05 . Memory (MB): peak = 2964.957 ; gain = 0.000 ; free physical = 1146 ; free virtual = 19766
-Wrote Netlist Cache: Time (s): cpu = 00:00:00 ; elapsed = 00:00:00 . Memory (MB): peak = 2964.957 ; gain = 0.000 ; free physical = 1146 ; free virtual = 19766
-Wrote Device Cache: Time (s): cpu = 00:00:00.01 ; elapsed = 00:00:00.01 . Memory (MB): peak = 2964.957 ; gain = 0.000 ; free physical = 1143 ; free virtual = 19765
-Write Physdb Complete: Time (s): cpu = 00:00:00.21 ; elapsed = 00:00:00.09 . Memory (MB): peak = 2964.957 ; gain = 0.000 ; free physical = 1141 ; free virtual = 19764
+Wrote RouteStorage: Time (s): cpu = 00:00:00.08 ; elapsed = 00:00:00.02 . Memory (MB): peak = 3072.949 ; gain = 0.000 ; free physical = 894 ; free virtual = 18063
+Wrote PlaceStorage: Time (s): cpu = 00:00:00.26 ; elapsed = 00:00:00.1 . Memory (MB): peak = 3072.949 ; gain = 0.000 ; free physical = 906 ; free virtual = 18082
+Wrote Netlist Cache: Time (s): cpu = 00:00:00.01 ; elapsed = 00:00:00.01 . Memory (MB): peak = 3072.949 ; gain = 0.000 ; free physical = 906 ; free virtual = 18082
+Wrote Device Cache: Time (s): cpu = 00:00:00 ; elapsed = 00:00:00.01 . Memory (MB): peak = 3072.949 ; gain = 0.000 ; free physical = 904 ; free virtual = 18082
+Write Physdb Complete: Time (s): cpu = 00:00:00.37 ; elapsed = 00:00:00.14 . Memory (MB): peak = 3072.949 ; gain = 0.000 ; free physical = 905 ; free virtual = 18082
 INFO: [Common 17-1381] The checkpoint '/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/vivado/hdmi_p1/proj/hdmi_p1.runs/impl_1/hdmi_p1_wrapper_physopt.dcp' has been generated.
 Command: route_design
 Attempting to get a license for feature 'Implementation' and/or device 'xc7z015'
@@ -2121,36 +2265,36 @@ Starting Routing Task
 INFO: [Route 35-254] Multithreading enabled for route_design using a maximum of 2 CPUs
 
 Phase 1 Build RT Design
-Checksum: PlaceDB: e9937f21 ConstDB: 0 ShapeSum: 34e47670 RouteDB: 74b7e438
-Post Restoration Checksum: NetGraph: 5381d229 | NumContArr: eb8aa2b4 | Constraints: c2a8fa9d | Timing: c2a8fa9d
-Phase 1 Build RT Design | Checksum: 2c45e6a17
+Checksum: PlaceDB: df7d1203 ConstDB: 0 ShapeSum: 2df2a4ad RouteDB: 74b7e438
+Post Restoration Checksum: NetGraph: 34462c63 | NumContArr: f01bc3ae | Constraints: c2a8fa9d | Timing: c2a8fa9d
+Phase 1 Build RT Design | Checksum: 2a9b3e54b
 
-Time (s): cpu = 00:00:14 ; elapsed = 00:00:12 . Memory (MB): peak = 2964.957 ; gain = 0.000 ; free physical = 1148 ; free virtual = 19766
+Time (s): cpu = 00:00:13 ; elapsed = 00:00:11 . Memory (MB): peak = 3072.949 ; gain = 0.000 ; free physical = 656 ; free virtual = 17834
 
 Phase 2 Router Initialization
 
 Phase 2.1 Fix Topology Constraints
-Phase 2.1 Fix Topology Constraints | Checksum: 2c45e6a17
+Phase 2.1 Fix Topology Constraints | Checksum: 2a9b3e54b
 
-Time (s): cpu = 00:00:14 ; elapsed = 00:00:12 . Memory (MB): peak = 2964.957 ; gain = 0.000 ; free physical = 1148 ; free virtual = 19766
+Time (s): cpu = 00:00:13 ; elapsed = 00:00:11 . Memory (MB): peak = 3072.949 ; gain = 0.000 ; free physical = 658 ; free virtual = 17836
 
 Phase 2.2 Pre Route Cleanup
-Phase 2.2 Pre Route Cleanup | Checksum: 2c45e6a17
+Phase 2.2 Pre Route Cleanup | Checksum: 2a9b3e54b
 
-Time (s): cpu = 00:00:14 ; elapsed = 00:00:12 . Memory (MB): peak = 2964.957 ; gain = 0.000 ; free physical = 1148 ; free virtual = 19766
+Time (s): cpu = 00:00:13 ; elapsed = 00:00:11 . Memory (MB): peak = 3072.949 ; gain = 0.000 ; free physical = 658 ; free virtual = 17837
  Number of Nodes with overlaps = 0
 
 Phase 2.3 Update Timing
-Phase 2.3 Update Timing | Checksum: 24ff66f31
+Phase 2.3 Update Timing | Checksum: 1dff37be3
 
-Time (s): cpu = 00:00:15 ; elapsed = 00:00:13 . Memory (MB): peak = 2964.957 ; gain = 0.000 ; free physical = 1146 ; free virtual = 19764
-INFO: [Route 35-416] Intermediate Timing Summary | WNS=1.861  | TNS=0.000  | WHS=-0.174 | THS=-42.220|
+Time (s): cpu = 00:00:14 ; elapsed = 00:00:11 . Memory (MB): peak = 3072.949 ; gain = 0.000 ; free physical = 667 ; free virtual = 17846
+INFO: [Route 35-416] Intermediate Timing Summary | WNS=1.736  | TNS=0.000  | WHS=-0.257 | THS=-68.880|
 
 
 Phase 2.4 Soft Constraint Pins - Fast Budgeting
-Phase 2.4 Soft Constraint Pins - Fast Budgeting | Checksum: 207ae76b3
+Phase 2.4 Soft Constraint Pins - Fast Budgeting | Checksum: 1ad4867ff
 
-Time (s): cpu = 00:00:15 ; elapsed = 00:00:13 . Memory (MB): peak = 2964.957 ; gain = 0.000 ; free physical = 1136 ; free virtual = 19754
+Time (s): cpu = 00:00:14 ; elapsed = 00:00:12 . Memory (MB): peak = 3072.949 ; gain = 0.000 ; free physical = 666 ; free virtual = 17844
 
 Router Utilization Summary
   Global Vertical Routing Utilization    = 0 %
@@ -2158,79 +2302,78 @@ Router Utilization Summary
   Routable Net Status*
   *Does not include unroutable nets such as driverless and loadless.
   Run report_route_status for detailed report.
-  Number of Failed Nets               = 1921
+  Number of Failed Nets               = 3669
     (Failed Nets is the sum of unrouted and partially routed nets)
-  Number of Unrouted Nets             = 1921
+  Number of Unrouted Nets             = 3669
   Number of Partially Routed Nets     = 0
   Number of Node Overlaps             = 0
 
-Phase 2 Router Initialization | Checksum: 1f6d80135
+Phase 2 Router Initialization | Checksum: 22dce4464
 
-Time (s): cpu = 00:00:15 ; elapsed = 00:00:13 . Memory (MB): peak = 2964.957 ; gain = 0.000 ; free physical = 1138 ; free virtual = 19756
+Time (s): cpu = 00:00:14 ; elapsed = 00:00:12 . Memory (MB): peak = 3072.949 ; gain = 0.000 ; free physical = 667 ; free virtual = 17845
 
 Phase 3 Global Routing
-Phase 3 Global Routing | Checksum: 1f6d80135
+Phase 3 Global Routing | Checksum: 22dce4464
 
-Time (s): cpu = 00:00:15 ; elapsed = 00:00:13 . Memory (MB): peak = 2964.957 ; gain = 0.000 ; free physical = 1138 ; free virtual = 19756
+Time (s): cpu = 00:00:14 ; elapsed = 00:00:12 . Memory (MB): peak = 3072.949 ; gain = 0.000 ; free physical = 667 ; free virtual = 17845
 
 Phase 4 Initial Routing
 
 Phase 4.1 Initial Net Routing Pass
-Phase 4.1 Initial Net Routing Pass | Checksum: 1fc6b643e
+Phase 4.1 Initial Net Routing Pass | Checksum: 317666181
 
-Time (s): cpu = 00:00:16 ; elapsed = 00:00:13 . Memory (MB): peak = 2964.957 ; gain = 0.000 ; free physical = 1145 ; free virtual = 19762
-Phase 4 Initial Routing | Checksum: 1fc6b643e
+Time (s): cpu = 00:00:15 ; elapsed = 00:00:12 . Memory (MB): peak = 3072.949 ; gain = 0.000 ; free physical = 667 ; free virtual = 17845
+Phase 4 Initial Routing | Checksum: 317666181
 
-Time (s): cpu = 00:00:16 ; elapsed = 00:00:13 . Memory (MB): peak = 2964.957 ; gain = 0.000 ; free physical = 1145 ; free virtual = 19762
+Time (s): cpu = 00:00:15 ; elapsed = 00:00:12 . Memory (MB): peak = 3072.949 ; gain = 0.000 ; free physical = 667 ; free virtual = 17845
 
 Phase 5 Rip-up And Reroute
 
 Phase 5.1 Global Iteration 0
- Number of Nodes with overlaps = 116
- Number of Nodes with overlaps = 4
- Number of Nodes with overlaps = 2
+ Number of Nodes with overlaps = 269
+ Number of Nodes with overlaps = 5
  Number of Nodes with overlaps = 0
-INFO: [Route 35-416] Intermediate Timing Summary | WNS=1.770  | TNS=0.000  | WHS=N/A    | THS=N/A    |
+INFO: [Route 35-416] Intermediate Timing Summary | WNS=1.607  | TNS=0.000  | WHS=N/A    | THS=N/A    |
 
-Phase 5.1 Global Iteration 0 | Checksum: 229d40029
+Phase 5.1 Global Iteration 0 | Checksum: 2a5f06892
 
-Time (s): cpu = 00:00:16 ; elapsed = 00:00:13 . Memory (MB): peak = 2964.957 ; gain = 0.000 ; free physical = 1144 ; free virtual = 19762
-Phase 5 Rip-up And Reroute | Checksum: 229d40029
+Time (s): cpu = 00:00:16 ; elapsed = 00:00:13 . Memory (MB): peak = 3072.949 ; gain = 0.000 ; free physical = 645 ; free virtual = 17823
+Phase 5 Rip-up And Reroute | Checksum: 2a5f06892
 
-Time (s): cpu = 00:00:16 ; elapsed = 00:00:13 . Memory (MB): peak = 2964.957 ; gain = 0.000 ; free physical = 1146 ; free virtual = 19763
+Time (s): cpu = 00:00:16 ; elapsed = 00:00:13 . Memory (MB): peak = 3072.949 ; gain = 0.000 ; free physical = 645 ; free virtual = 17823
 
 Phase 6 Delay and Skew Optimization
 
 Phase 6.1 Delay CleanUp
-Phase 6.1 Delay CleanUp | Checksum: 229d40029
+Phase 6.1 Delay CleanUp | Checksum: 2a5f06892
 
-Time (s): cpu = 00:00:16 ; elapsed = 00:00:13 . Memory (MB): peak = 2964.957 ; gain = 0.000 ; free physical = 1145 ; free virtual = 19763
+Time (s): cpu = 00:00:16 ; elapsed = 00:00:13 . Memory (MB): peak = 3072.949 ; gain = 0.000 ; free physical = 645 ; free virtual = 17823
 
 Phase 6.2 Clock Skew Optimization
-Phase 6.2 Clock Skew Optimization | Checksum: 229d40029
+Phase 6.2 Clock Skew Optimization | Checksum: 2a5f06892
 
-Time (s): cpu = 00:00:16 ; elapsed = 00:00:13 . Memory (MB): peak = 2964.957 ; gain = 0.000 ; free physical = 1146 ; free virtual = 19764
-Phase 6 Delay and Skew Optimization | Checksum: 229d40029
+Time (s): cpu = 00:00:16 ; elapsed = 00:00:13 . Memory (MB): peak = 3072.949 ; gain = 0.000 ; free physical = 645 ; free virtual = 17823
+Phase 6 Delay and Skew Optimization | Checksum: 2a5f06892
 
-Time (s): cpu = 00:00:16 ; elapsed = 00:00:13 . Memory (MB): peak = 2964.957 ; gain = 0.000 ; free physical = 1146 ; free virtual = 19764
+Time (s): cpu = 00:00:16 ; elapsed = 00:00:13 . Memory (MB): peak = 3072.949 ; gain = 0.000 ; free physical = 645 ; free virtual = 17823
 
 Phase 7 Post Hold Fix
 
 Phase 7.1 Hold Fix Iter
-INFO: [Route 35-416] Intermediate Timing Summary | WNS=1.795  | TNS=0.000  | WHS=0.077  | THS=0.000  |
+INFO: [Route 35-416] Intermediate Timing Summary | WNS=1.737  | TNS=0.000  | WHS=0.046  | THS=0.000  |
 
-Phase 7.1 Hold Fix Iter | Checksum: 204858217
+Phase 7.1 Hold Fix Iter | Checksum: 2ac99bbe5
 
-Time (s): cpu = 00:00:16 ; elapsed = 00:00:13 . Memory (MB): peak = 2964.957 ; gain = 0.000 ; free physical = 1146 ; free virtual = 19763
-Phase 7 Post Hold Fix | Checksum: 204858217
+Time (s): cpu = 00:00:16 ; elapsed = 00:00:13 . Memory (MB): peak = 3072.949 ; gain = 0.000 ; free physical = 650 ; free virtual = 17828
+Phase 7 Post Hold Fix | Checksum: 2ac99bbe5
 
-Time (s): cpu = 00:00:16 ; elapsed = 00:00:13 . Memory (MB): peak = 2964.957 ; gain = 0.000 ; free physical = 1146 ; free virtual = 19763
+Time (s): cpu = 00:00:16 ; elapsed = 00:00:13 . Memory (MB): peak = 3072.949 ; gain = 0.000 ; free physical = 650 ; free virtual = 17828
 
 Phase 8 Route finalize
 
 Router Utilization Summary
-  Global Vertical Routing Utilization    = 0.321664 %
-  Global Horizontal Routing Utilization  = 0.362416 %
+  Global Vertical Routing Utilization    = 0.83034 %
+  Global Horizontal Routing Utilization  = 0.822444 %
   Routable Net Status*
   *Does not include unroutable nets such as driverless and loadless.
   Run report_route_status for detailed report.
@@ -2240,50 +2383,50 @@ Router Utilization Summary
   Number of Partially Routed Nets     = 0
   Number of Node Overlaps             = 0
 
-Phase 8 Route finalize | Checksum: 204858217
+Phase 8 Route finalize | Checksum: 2ac99bbe5
 
-Time (s): cpu = 00:00:16 ; elapsed = 00:00:13 . Memory (MB): peak = 2964.957 ; gain = 0.000 ; free physical = 1146 ; free virtual = 19763
+Time (s): cpu = 00:00:16 ; elapsed = 00:00:13 . Memory (MB): peak = 3072.949 ; gain = 0.000 ; free physical = 653 ; free virtual = 17831
 
 Phase 9 Verifying routed nets
 
  Verification completed successfully
-Phase 9 Verifying routed nets | Checksum: 204858217
+Phase 9 Verifying routed nets | Checksum: 2ac99bbe5
 
-Time (s): cpu = 00:00:16 ; elapsed = 00:00:13 . Memory (MB): peak = 2964.957 ; gain = 0.000 ; free physical = 1146 ; free virtual = 19764
+Time (s): cpu = 00:00:16 ; elapsed = 00:00:13 . Memory (MB): peak = 3072.949 ; gain = 0.000 ; free physical = 651 ; free virtual = 17830
 
 Phase 10 Depositing Routes
-Phase 10 Depositing Routes | Checksum: 17ed799a2
+Phase 10 Depositing Routes | Checksum: 2438cf33b
 
-Time (s): cpu = 00:00:16 ; elapsed = 00:00:14 . Memory (MB): peak = 2964.957 ; gain = 0.000 ; free physical = 1144 ; free virtual = 19762
+Time (s): cpu = 00:00:16 ; elapsed = 00:00:13 . Memory (MB): peak = 3072.949 ; gain = 0.000 ; free physical = 650 ; free virtual = 17828
 
 Phase 11 Post Process Routing
-Phase 11 Post Process Routing | Checksum: 17ed799a2
+Phase 11 Post Process Routing | Checksum: 2438cf33b
 
-Time (s): cpu = 00:00:16 ; elapsed = 00:00:14 . Memory (MB): peak = 2964.957 ; gain = 0.000 ; free physical = 1144 ; free virtual = 19762
+Time (s): cpu = 00:00:16 ; elapsed = 00:00:13 . Memory (MB): peak = 3072.949 ; gain = 0.000 ; free physical = 650 ; free virtual = 17828
 
 Phase 12 Post Router Timing
-INFO: [Route 35-57] Estimated Timing Summary | WNS=1.795  | TNS=0.000  | WHS=0.077  | THS=0.000  |
+INFO: [Route 35-57] Estimated Timing Summary | WNS=1.737  | TNS=0.000  | WHS=0.046  | THS=0.000  |
 
 INFO: [Route 35-327] The final timing numbers are based on the router estimated timing analysis. For a complete and accurate timing signoff, please run report_timing_summary.
-Phase 12 Post Router Timing | Checksum: 17ed799a2
+Phase 12 Post Router Timing | Checksum: 2438cf33b
 
-Time (s): cpu = 00:00:16 ; elapsed = 00:00:14 . Memory (MB): peak = 2964.957 ; gain = 0.000 ; free physical = 1144 ; free virtual = 19762
-Total Elapsed time in route_design: 13.59 secs
+Time (s): cpu = 00:00:16 ; elapsed = 00:00:13 . Memory (MB): peak = 3072.949 ; gain = 0.000 ; free physical = 650 ; free virtual = 17828
+Total Elapsed time in route_design: 13.01 secs
 
 Phase 13 Post-Route Event Processing
-Phase 13 Post-Route Event Processing | Checksum: a22da352
+Phase 13 Post-Route Event Processing | Checksum: dd183ba3
 
-Time (s): cpu = 00:00:16 ; elapsed = 00:00:14 . Memory (MB): peak = 2964.957 ; gain = 0.000 ; free physical = 1144 ; free virtual = 19761
+Time (s): cpu = 00:00:16 ; elapsed = 00:00:13 . Memory (MB): peak = 3072.949 ; gain = 0.000 ; free physical = 650 ; free virtual = 17828
 INFO: [Route 35-16] Router Completed Successfully
-Ending Routing Task | Checksum: a22da352
+Ending Routing Task | Checksum: dd183ba3
 
-Time (s): cpu = 00:00:16 ; elapsed = 00:00:14 . Memory (MB): peak = 2964.957 ; gain = 0.000 ; free physical = 1143 ; free virtual = 19761
+Time (s): cpu = 00:00:16 ; elapsed = 00:00:13 . Memory (MB): peak = 3072.949 ; gain = 0.000 ; free physical = 650 ; free virtual = 17828
 
 Routing Is Done.
 INFO: [Common 17-83] Releasing license: Implementation
-94 Infos, 0 Warnings, 100 Critical Warnings and 0 Errors encountered.
+106 Infos, 0 Warnings, 100 Critical Warnings and 0 Errors encountered.
 route_design completed successfully
-route_design: Time (s): cpu = 00:00:16 ; elapsed = 00:00:14 . Memory (MB): peak = 2964.957 ; gain = 0.000 ; free physical = 1143 ; free virtual = 19761
+route_design: Time (s): cpu = 00:00:16 ; elapsed = 00:00:13 . Memory (MB): peak = 3072.949 ; gain = 0.000 ; free physical = 650 ; free virtual = 17828
 INFO: [Vivado 12-24828] Executing command : report_drc -file hdmi_p1_wrapper_drc_routed.rpt -pb hdmi_p1_wrapper_drc_routed.pb -rpx hdmi_p1_wrapper_drc_routed.rpx
 Command: report_drc -file hdmi_p1_wrapper_drc_routed.rpt -pb hdmi_p1_wrapper_drc_routed.pb -rpx hdmi_p1_wrapper_drc_routed.rpx
 INFO: [IP_Flow 19-1839] IP Catalog is up to date.
@@ -2313,21 +2456,21 @@ Command: report_power -file hdmi_p1_wrapper_power_routed.rpt -pb hdmi_p1_wrapper
 Running Vector-less Activity Propagation...
 
 Finished Running Vector-less Activity Propagation
-114 Infos, 0 Warnings, 100 Critical Warnings and 0 Errors encountered.
+126 Infos, 0 Warnings, 100 Critical Warnings and 0 Errors encountered.
 report_power completed successfully
 INFO: [Vivado 12-24828] Executing command : report_clock_utilization -file hdmi_p1_wrapper_clock_utilization_routed.rpt
-Wrote PlaceDB: Time (s): cpu = 00:00:00 ; elapsed = 00:00:00 . Memory (MB): peak = 2964.957 ; gain = 0.000 ; free physical = 1323 ; free virtual = 19947
+Wrote PlaceDB: Time (s): cpu = 00:00:00 ; elapsed = 00:00:00 . Memory (MB): peak = 3072.949 ; gain = 0.000 ; free physical = 520 ; free virtual = 17714
 INFO: [Timing 38-480] Writing timing data to binary archive.
-Wrote PulsedLatchDB: Time (s): cpu = 00:00:00 ; elapsed = 00:00:00 . Memory (MB): peak = 2964.957 ; gain = 0.000 ; free physical = 1323 ; free virtual = 19947
+Wrote PulsedLatchDB: Time (s): cpu = 00:00:00 ; elapsed = 00:00:00 . Memory (MB): peak = 3072.949 ; gain = 0.000 ; free physical = 519 ; free virtual = 17714
 Writing XDEF routing.
-Write ShapeDB Complete: Time (s): cpu = 00:00:00.03 ; elapsed = 00:00:00.01 . Memory (MB): peak = 2964.957 ; gain = 0.000 ; free physical = 1319 ; free virtual = 19943
+Write ShapeDB Complete: Time (s): cpu = 00:00:00.06 ; elapsed = 00:00:00.02 . Memory (MB): peak = 3072.949 ; gain = 0.000 ; free physical = 516 ; free virtual = 17712
 Writing XDEF routing logical nets.
 Writing XDEF routing special nets.
-Wrote RouteStorage: Time (s): cpu = 00:00:00.12 ; elapsed = 00:00:00.04 . Memory (MB): peak = 2964.957 ; gain = 0.000 ; free physical = 1312 ; free virtual = 19940
-Wrote PlaceStorage: Time (s): cpu = 00:00:00.12 ; elapsed = 00:00:00.05 . Memory (MB): peak = 2964.957 ; gain = 0.000 ; free physical = 1309 ; free virtual = 19943
-Wrote Netlist Cache: Time (s): cpu = 00:00:00 ; elapsed = 00:00:00 . Memory (MB): peak = 2964.957 ; gain = 0.000 ; free physical = 1317 ; free virtual = 19952
-Wrote Device Cache: Time (s): cpu = 00:00:00 ; elapsed = 00:00:00.01 . Memory (MB): peak = 2964.957 ; gain = 0.000 ; free physical = 1317 ; free virtual = 19953
-Write Physdb Complete: Time (s): cpu = 00:00:00.25 ; elapsed = 00:00:00.1 . Memory (MB): peak = 2964.957 ; gain = 0.000 ; free physical = 1317 ; free virtual = 19953
+Wrote RouteStorage: Time (s): cpu = 00:00:00.2 ; elapsed = 00:00:00.05 . Memory (MB): peak = 3072.949 ; gain = 0.000 ; free physical = 509 ; free virtual = 17707
+Wrote PlaceStorage: Time (s): cpu = 00:00:00.26 ; elapsed = 00:00:00.11 . Memory (MB): peak = 3072.949 ; gain = 0.000 ; free physical = 521 ; free virtual = 17723
+Wrote Netlist Cache: Time (s): cpu = 00:00:00.01 ; elapsed = 00:00:00.01 . Memory (MB): peak = 3072.949 ; gain = 0.000 ; free physical = 521 ; free virtual = 17723
+Wrote Device Cache: Time (s): cpu = 00:00:00 ; elapsed = 00:00:00.01 . Memory (MB): peak = 3072.949 ; gain = 0.000 ; free physical = 519 ; free virtual = 17723
+Write Physdb Complete: Time (s): cpu = 00:00:00.47 ; elapsed = 00:00:00.18 . Memory (MB): peak = 3072.949 ; gain = 0.000 ; free physical = 519 ; free virtual = 17723
 INFO: [Common 17-1381] The checkpoint '/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/vivado/hdmi_p1/proj/hdmi_p1.runs/impl_1/hdmi_p1_wrapper_routed.dcp' has been generated.
 Command: write_bitstream -force hdmi_p1_wrapper.bit
 Attempting to get a license for feature 'Implementation' and/or device 'xc7z015'
@@ -2348,57 +2491,59 @@ Creating bitstream...
 Writing bitstream ./hdmi_p1_wrapper.bit...
 INFO: [Vivado 12-1842] Bitgen Completed Successfully.
 INFO: [Common 17-83] Releasing license: Implementation
-125 Infos, 0 Warnings, 100 Critical Warnings and 0 Errors encountered.
+137 Infos, 0 Warnings, 100 Critical Warnings and 0 Errors encountered.
 write_bitstream completed successfully
-write_bitstream: Time (s): cpu = 00:00:06 ; elapsed = 00:00:11 . Memory (MB): peak = 3127.113 ; gain = 162.156 ; free physical = 817 ; free virtual = 19476
-INFO: [Common 17-206] Exiting Vivado at Tue Nov  3 00:57:40 2026...
-[Tue Nov  3 00:57:40 2026] impl_1 finished
-wait_on_runs: Time (s): cpu = 00:00:01 ; elapsed = 00:00:50 . Memory (MB): peak = 2841.191 ; gain = 0.000 ; free physical = 2709 ; free virtual = 21368
+write_bitstream: Time (s): cpu = 00:00:07 ; elapsed = 00:00:12 . Memory (MB): peak = 3162.258 ; gain = 89.309 ; free physical = 629 ; free virtual = 17813
+INFO: [Common 17-206] Exiting Vivado at Tue Nov  3 03:10:04 2026...
+[Tue Nov  3 03:10:04 2026] impl_1 finished
+wait_on_runs: Time (s): cpu = 00:00:01 ; elapsed = 00:00:55 . Memory (MB): peak = 2883.344 ; gain = 0.000 ; free physical = 2606 ; free virtual = 19790
 # if {[get_property PROGRESS $ir] ne "100%" || [string match -nocase "*ERROR*" [get_property STATUS $ir]]} {
 #     error "impl_1 失败：status=[get_property STATUS $ir]"
 # }
 # set _t_impl [expr {[clock seconds] - $_t1}]
 # ok "impl_1 = [get_property STATUS $ir]，用时 ${_t_impl} s"
-    OK   impl_1 = write_bitstream Complete!，用时 52 s
+    OK   impl_1 = write_bitstream Complete!，用时 58 s
 # set _rdcp [glob -nocomplain [file join $PROJDIR hdmi_p1.runs impl_1 *.routed.dcp]]
 # if {[llength $_rdcp] > 0} {
 #     file copy -force [lindex $_rdcp 0] [file join $OUT hdmi_p1_routed.dcp]
 #     ok "routed dcp → [file join $OUT hdmi_p1_routed.dcp]"
 # }
 # open_run impl_1 -name impl_gate
-Netlist sorting complete. Time (s): cpu = 00:00:00.02 ; elapsed = 00:00:00.02 . Memory (MB): peak = 2841.191 ; gain = 0.000 ; free physical = 2773 ; free virtual = 21420
-INFO: [Netlist 29-17] Analyzing 80 Unisim elements for replacement
+Netlist sorting complete. Time (s): cpu = 00:00:00.02 ; elapsed = 00:00:00.02 . Memory (MB): peak = 2883.344 ; gain = 0.000 ; free physical = 2632 ; free virtual = 19816
+INFO: [Netlist 29-17] Analyzing 206 Unisim elements for replacement
 INFO: [Netlist 29-28] Unisim Transformation completed in 0 CPU seconds
 INFO: [Project 1-479] Netlist was created with Vivado 2025.2.1
 INFO: [Project 1-570] Preparing netlist for logic optimization
-Read ShapeDB Complete: Time (s): cpu = 00:00:00 ; elapsed = 00:00:00 . Memory (MB): peak = 2841.191 ; gain = 0.000 ; free physical = 2785 ; free virtual = 21426
+Read ShapeDB Complete: Time (s): cpu = 00:00:00 ; elapsed = 00:00:00.01 . Memory (MB): peak = 2883.344 ; gain = 0.000 ; free physical = 2627 ; free virtual = 19812
 INFO: [Timing 38-478] Restoring timing data from binary archive.
 INFO: [Timing 38-479] Binary timing data restore complete.
 INFO: [Project 1-856] Restoring constraints from binary archive.
 INFO: [Project 1-853] Binary constraint restore complete.
 INFO: [Designutils 20-5722] Start Reading Physical Databases.
 Reading placement.
-Read Netlist Cache: Time (s): cpu = 00:00:00 ; elapsed = 00:00:00.01 . Memory (MB): peak = 2841.191 ; gain = 0.000 ; free physical = 2762 ; free virtual = 21371
+Read Netlist Cache: Time (s): cpu = 00:00:00.01 ; elapsed = 00:00:00.01 . Memory (MB): peak = 2883.344 ; gain = 0.000 ; free physical = 2553 ; free virtual = 19783
 Reading placer database...
-Read Device Cache: Time (s): cpu = 00:00:00.01 ; elapsed = 00:00:00 . Memory (MB): peak = 2841.191 ; gain = 0.000 ; free physical = 2761 ; free virtual = 21371
-Read PlaceDB: Time (s): cpu = 00:00:00 ; elapsed = 00:00:00 . Memory (MB): peak = 2841.191 ; gain = 0.000 ; free physical = 2761 ; free virtual = 21371
-Read placeStorage: Time (s): cpu = 00:00:00.08 ; elapsed = 00:00:00.07 . Memory (MB): peak = 2841.191 ; gain = 0.000 ; free physical = 2772 ; free virtual = 21382
-Read PulsedLatchDB: Time (s): cpu = 00:00:00 ; elapsed = 00:00:00 . Memory (MB): peak = 2841.191 ; gain = 0.000 ; free physical = 2772 ; free virtual = 21382
+Read Device Cache: Time (s): cpu = 00:00:00.01 ; elapsed = 00:00:00.01 . Memory (MB): peak = 2883.344 ; gain = 0.000 ; free physical = 2554 ; free virtual = 19783
+Read PlaceDB: Time (s): cpu = 00:00:00 ; elapsed = 00:00:00 . Memory (MB): peak = 2883.344 ; gain = 0.000 ; free physical = 2552 ; free virtual = 19782
+Read placeStorage: Time (s): cpu = 00:00:00.1 ; elapsed = 00:00:00.1 . Memory (MB): peak = 2883.344 ; gain = 0.000 ; free physical = 2550 ; free virtual = 19779
+Read PulsedLatchDB: Time (s): cpu = 00:00:00 ; elapsed = 00:00:00 . Memory (MB): peak = 2883.344 ; gain = 0.000 ; free physical = 2555 ; free virtual = 19785
 Reading routing.
-Read RouteStorage: Time (s): cpu = 00:00:00.03 ; elapsed = 00:00:00.02 . Memory (MB): peak = 2841.191 ; gain = 0.000 ; free physical = 2775 ; free virtual = 21384
-Read Physdb Files: Time (s): cpu = 00:00:00.12 ; elapsed = 00:00:00.12 . Memory (MB): peak = 2841.191 ; gain = 0.000 ; free physical = 2775 ; free virtual = 21384
-Restored from archive | CPU: 0.120000 secs | Memory: 1.834854 MB |
-Finished XDEF File Restore: Time (s): cpu = 00:00:00.12 ; elapsed = 00:00:00.12 . Memory (MB): peak = 2841.191 ; gain = 0.000 ; free physical = 2775 ; free virtual = 21384
-Netlist sorting complete. Time (s): cpu = 00:00:00 ; elapsed = 00:00:00 . Memory (MB): peak = 2841.191 ; gain = 0.000 ; free physical = 2774 ; free virtual = 21384
+Read RouteStorage: Time (s): cpu = 00:00:00.05 ; elapsed = 00:00:00.04 . Memory (MB): peak = 2883.344 ; gain = 0.000 ; free physical = 2549 ; free virtual = 19779
+Read Physdb Files: Time (s): cpu = 00:00:00.17 ; elapsed = 00:00:00.16 . Memory (MB): peak = 2883.344 ; gain = 0.000 ; free physical = 2551 ; free virtual = 19781
+Restored from archive | CPU: 0.170000 secs | Memory: 3.333405 MB |
+Finished XDEF File Restore: Time (s): cpu = 00:00:00.17 ; elapsed = 00:00:00.16 . Memory (MB): peak = 2883.344 ; gain = 0.000 ; free physical = 2550 ; free virtual = 19779
+Netlist sorting complete. Time (s): cpu = 00:00:00 ; elapsed = 00:00:00 . Memory (MB): peak = 2883.344 ; gain = 0.000 ; free physical = 2553 ; free virtual = 19783
 INFO: [Project 1-111] Unisim Transformation Summary:
-  A total of 2 instances were transformed.
+  A total of 3 instances were transformed.
   IOBUF => IOBUF (IBUF, OBUFT): 2 instances
+  RAM32X1D => RAM32X1D (RAMD32(x2)): 1 instance 
 
 # set c_pix0 [lindex [clk_by_period  6.0  7.5] 0]
 # set c_pix1 [lindex [clk_by_period 12.0 15.0] 0]
+# set c_pix2 [lindex [clk_by_period 25.0 29.0] 0]
 # set c_axi  [lindex [get_clocks -quiet -filter {NAME =~ "clk_fpga_*"}] 0]
-# note "impl 时钟：pix_a='$c_pix0' pix_b='$c_pix1' axi='$c_axi'"
-    ..   impl 时钟：pix_a='clk_pix_a' pix_b='clk_pix_b' axi='clk_fpga_0'
+# note "impl 时钟：pix_a='$c_pix0' pix_b='$c_pix1' pix_c='$c_pix2' axi='$c_axi'"
+    ..   impl 时钟：pix_a='clk_pix_a' pix_b='clk_pix_b' pix_c='clk_pix_c' axi='clk_fpga_0'
 # foreach {nm cmd} {
 #     util   {report_utilization -file [file join $OUT util.rpt]}
 #     utilh  {report_utilization -hierarchical -hierarchical_depth 5 -file [file join $OUT util_hier.rpt]}
@@ -2520,23 +2665,24 @@ report_drc completed successfully
     OK   (impl) 门禁5(网表)：MMCM.LOCKED（hdmi_p1_i/hdmi_p1_top_0/inst/u_mmcm/LOCKED）不接任何复位类引脚
     ..   (impl) 网表里没有被常量化的复位脚
     OK   (impl) 门禁5(网表)：MMCM/复位链清点完成
-# catch {set_clock_groups -physically_exclusive -group $c_pix0 -group $c_pix1}
-# catch {set_clock_groups -asynchronous -group [list $c_pix0 $c_pix1] -group $c_axi}
+# catch {set_clock_groups -physically_exclusive -group $c_pix0 -group $c_pix1 -group $c_pix2}
+# catch {set_clock_groups -asynchronous -group [list $c_pix0 $c_pix1 $c_pix2] -group $c_axi}
 # set w0 [wns_of $c_pix0]
 # set w1 [wns_of $c_pix1]
+# set w2 [wns_of $c_pix2]
 # set wa [wns_of $c_axi]
-# note "WNS(impl) PIX_a='$w0'  PIX_b='$w1'  AXI='$wa'"
-    ..   WNS(impl) PIX_a='1.795'  PIX_b='8.550'  AXI='4.446'
-# foreach {nm v} [list PIX_a $w0 PIX_b $w1] {
+# note "WNS(impl) PIX_a='$w0'  PIX_b='$w1'  PIX_c='$w2'  AXI='$wa'"
+    ..   WNS(impl) PIX_a='1.500'  PIX_b='8.087'  PIX_c='21.952'  AXI='3.402'
+# foreach {nm v p} [list PIX_a $w0 6.7368 PIX_b $w1 13.4737 PIX_c $w2 26.9474] {
 #     if {$v eq ""} { error "$nm 没有时序路径（门禁 2）" }
-#     if {$v < 0} { error "$nm WNS = $v ns < 0（门禁 2）" }
+#     if {$v < 0} { error "$nm WNS = $v ns < 0（周期 $p ns）—— 最宽松的 ÷32 若为负，先查周期/时钟选择是否切对，不许放宽门禁（门禁 2）" }
 # }
-# ok "门禁2a：两路像素时钟 WNS = $w0 / $w1 ns ≥ 0"
-    OK   门禁2a：两路像素时钟 WNS = 1.795 / 8.550 ns ≥ 0
+# ok "门禁2a：三路像素时钟 WNS = $w0 / $w1 / $w2 ns 全部 ≥ 0"
+    OK   门禁2a：三路像素时钟 WNS = 1.500 / 8.087 / 21.952 ns 全部 ≥ 0
 # if {$wa eq ""} { note "AXI 无路径（不正常）" } elseif {$wa < 0} { error "s_axi WNS = $wa < 0" }
 # set trpt [file join $OUT timing.rpt]
 # set tns_ok 1
-# foreach {nm pat} [list PIX_a clk_pix_a PIX_b clk_pix_b AXI clk_fpga_0] {
+# foreach {nm pat} [list PIX_a clk_pix_a PIX_b clk_pix_b PIX_c clk_pix_c AXI clk_fpga_0] {
 #     set row [timing_row $trpt $pat]
 #     if {$row eq ""} { error "门禁2：timing.rpt 的 Clock Summary 里找不到 $pat" }
 #     lassign $row tw ttn tfail ttot
@@ -2544,16 +2690,17 @@ report_drc completed successfully
 #     if {$ttn > 0.0005 || $ttn < -0.0005} { set tns_ok 0 }
 #     if {$tfail != 0} { set tns_ok 0 }
 # }
-    ..   timing.rpt clk_pix_a: WNS=1.795 TNS=0.000 failing=0 total=391
-    ..   timing.rpt clk_pix_b: WNS=8.550 TNS=0.000 failing=0 total=391
-    ..   timing.rpt clk_fpga_0: WNS=4.446 TNS=0.000 failing=0 total=2283
+    ..   timing.rpt clk_pix_a: WNS=1.500 TNS=0.000 failing=0 total=614
+    ..   timing.rpt clk_pix_b: WNS=8.087 TNS=0.000 failing=0 total=614
+    ..   timing.rpt clk_pix_c: WNS=21.952 TNS=0.000 failing=0 total=613
+    ..   timing.rpt clk_fpga_0: WNS=3.402 TNS=0.000 failing=0 total=4159
 # set drows [timing_design_row $trpt]
 # if {$drows ne ""} {
 #     lassign $drows dw dtn dfail dtot
 #     note "timing.rpt 设计级: WNS=$dw TNS=$dtn failing=$dfail total=$dtot"
 #     if {$dtn > 0.0005 || $dtn < -0.0005 || $dfail != 0} { set tns_ok 0 }
 # }
-    ..   timing.rpt 设计级: WNS=1.795 TNS=0.000 failing=0 total=2675
+    ..   timing.rpt 设计级: WNS=1.500 TNS=0.000 failing=0 total=5741
 # if {!$tns_ok} { error "门禁2：TNS != 0 或存在 failing endpoint（见 timing.rpt）" }
 # ok "门禁2b：三路时钟 TNS = 0、0 failing endpoints"
     OK   门禁2b：三路时钟 TNS = 0、0 failing endpoints
@@ -2577,7 +2724,7 @@ report_drc completed successfully
 # set u_bram [util_row $urpt "Block RAM Tile"]
 # set u_dsp  [util_row $urpt "DSPs"]
 # note "整 BD：Slice LUTs=$impl_lut  Slice Registers=$u_ff  BlockRAM=$u_bram  DSPs=$u_dsp"
-    ..   整 BD：Slice LUTs=771  Slice Registers=1085  BlockRAM=0  DSPs=0
+    ..   整 BD：Slice LUTs=1549  Slice Registers=2161  BlockRAM=1  DSPs=0
 # set htops [get_cells -hier -quiet -filter {NAME =~ "*/u_hdmi_out_top"}]
 # if {[llength $htops] != 1} { error "层次 u_hdmi_out_top（精确一级）匹配 [llength $htops] != 1（门禁 3）" }
 # set hbase [get_property NAME [lindex $htops 0]]
@@ -2586,12 +2733,23 @@ report_drc completed successfully
 # if {$hrow eq ""} { error "util_hier.rpt 里找不到 u_hdmi_out_top 行（门禁 3）" }
 # lassign $hrow h_tl h_ll h_lr h_sr h_ff
 # note "util_hier（$hbase）：Total LUTs=$h_tl Logic LUTs=$h_ll LUTRAM=$h_lr SRL=$h_sr FFs=$h_ff；网表 LUT 计数=$hl_net"
-    ..   util_hier（hdmi_p1_i/hdmi_p1_top_0/inst/u_hdmi_out_top）：Total LUTs=383 Logic LUTs=383 LUTRAM=0 SRL=0 FFs=622；网表 LUT 计数=479
+    ..   util_hier（hdmi_p1_i/hdmi_p1_top_0/inst/u_hdmi_out_top）：Total LUTs=1037 Logic LUTs=1037 LUTRAM=0 SRL=0 FFs=1564；网表 LUT 计数=1240
 # set hl $h_tl
-# if {$hl_net > $hl} { set hl $hl_net }        
-# if {$hl > 600} { error "hdmi_out_top 层次 LUT=$hl > 600（门禁 3）" }
-# ok "门禁3：整 BD Slice LUT = $impl_lut ≤ 2500；hdmi_out_top 层次 LUT = $h_tl（网表 $hl_net）≤ 600，FF=$h_ff"
-    OK   门禁3：整 BD Slice LUT = 771 ≤ 2500；hdmi_out_top 层次 LUT = 383（网表 479）≤ 600，FF=622
+# if {$h_tl > 1200} {
+#     error "hdmi_out_top 层次 Total LUTs=$h_tl > 1200（门禁 3）—— 先查原因（扫描器被例化两遍？行缓冲掉进 LUTRAM？），不许改门限了事。原语计数=$hl_net"
+# }
+# set u_bram_n 0
+# if {$u_bram ne ""} { set u_bram_n $u_bram }
+# if {$u_bram_n > 4} { error "Block RAM Tile = $u_bram_n > 4（门禁 3：行缓冲预期 2）" }
+# set u_bufgctrl [util_row $urpt "BUFGCTRL"]
+# if {$u_bufgctrl eq ""} { set u_bufgctrl -1 }
+# note "BUFGCTRL = $u_bufgctrl（预期 7：1 clkfb + 3 像素 BUFG + 2 BUFGMUX + 1 proc_sys_reset 复位桥）"
+    ..   BUFGCTRL = 7（预期 7：1 clkfb + 3 像素 BUFG + 2 BUFGMUX + 1 proc_sys_reset 复位桥）
+# if {$u_bufgctrl >= 0 && ($u_bufgctrl < 5 || $u_bufgctrl > 12)} {
+#     error "门禁3：BUFGCTRL = $u_bufgctrl 不在 5..12 —— 三级时钟选择/buffer 可能被综合器改写（停下查，不许放宽）"
+# }
+# ok "门禁3：整 BD Slice LUT = $impl_lut ≤ 2500；hdmi_out_top 层次 LUT = $h_tl（网表 $hl_net）≤ 1200，FF=$h_ff；BRAM = $u_bram_n ≤ 4"
+    OK   门禁3：整 BD Slice LUT = 1549 ≤ 2500；hdmi_out_top 层次 LUT = 1037（网表 1240）≤ 1200，FF=1564；BRAM = 1 ≤ 4
 # set drc_rpt [file join $OUT drc.rpt]
 # set drc_err [drc_error_count $drc_rpt]
 # if {$drc_err < 0} {
@@ -2616,23 +2774,30 @@ report_drc completed successfully
 # puts $fh "gate1_latch_netlist     = $lat_net"
 # puts $fh "gate2_period_pix_a_ns   = $p_pix0"
 # puts $fh "gate2_period_pix_b_ns   = $p_pix1"
+# puts $fh "gate2_period_pix_c_ns   = $p_pix2"
 # puts $fh "gate2_period_axi_ns     = $p_axi"
 # puts $fh "gate2_wns_pix_a_ns      = $w0"
 # puts $fh "gate2_wns_pix_b_ns      = $w1"
+# puts $fh "gate2_wns_pix_c_ns      = $w2"
 # puts $fh "gate2_wns_axi_ns        = $wa"
 # puts $fh "gate2_tns_zero_failing  = $tns_ok"
 # puts $fh "gate3_total_lut         = $impl_lut"
 # puts $fh "gate3_total_ff          = $u_ff"
 # puts $fh "gate3_total_bram        = $u_bram"
 # puts $fh "gate3_total_dsp         = $u_dsp"
+# puts $fh "gate3_bufgctrl          = $u_bufgctrl"
 # puts $fh "gate3_hdmi_out_top_lut  = $h_tl"
 # puts $fh "gate3_hdmi_out_top_ff   = $h_ff"
-# puts $fh "gate3_hdmi_out_top_lut_netlist = $hl_net"
+# puts $fh "gate3_hdmi_out_top_lut_netlist = $hl_net   (原始原语计数，仅参考)"
+# puts $fh "gate3_hdmi_out_top_lut_metric  = util_hier Total LUTs（门禁口径）"
 # puts $fh "gate4_drc_errors        = $drc_err"
 # puts $fh "gate4_write_bitstream   = ok"
 # puts $fh "gate5_bd_struct_assert  = PASS"
 # puts $fh "gate5_netlist_assert    = PASS"
 # puts $fh "mmcm_vco_mhz            = $vco"
+# puts $fh "mmcm_div_0_1_2          = $d0 / $d1 / $d2"
+# puts $fh "mode_default            = 3 (720p30, 37.109375 MHz)"
+# puts $fh "hp0_path                = hdmi_p1_top_0/m_axi -> axi_hp0 -> ps7/S_AXI_HP0"
 # close $fh
 # ok "门禁台账 → [file join $OUT gate_summary.txt]"
     OK   门禁台账 → /media/felix/Data/coding/demoir-fpga/runs/hdmi_p1/gate_summary.txt
@@ -2644,13 +2809,14 @@ report_drc completed successfully
 # file copy -force $bit [file join $OUT hdmi_p1.bit]
 # set _t_bit 0
 # ok "位流 = [file join $OUT hdmi_p1.bit]  size=[file size [file join $OUT hdmi_p1.bit]]  md5=[md5f [file join $OUT hdmi_p1.bit]]"
-    OK   位流 = /media/felix/Data/coding/demoir-fpga/runs/hdmi_p1/hdmi_p1.bit  size=3510797  md5=d478c6058721492694d6d4a5f51a5196
+    OK   位流 = /media/felix/Data/coding/demoir-fpga/runs/hdmi_p1/hdmi_p1.bit  size=3510797  md5=c916461877fe2e0dbcd14002ab2289b1
 # step "10) 产物 MD5SUMS / build_manifest"
 
 [10] 10) 产物 MD5SUMS / build_manifest
 # set rtl_list [list \
 #     [file join $FROZEN hdmi_out_top.v] [file join $FROZEN hdmi_timing_gen.v] \
 #     [file join $FROZEN hdmi_color_bar.v] [file join $FROZEN sil9134_init.v] \
+#     [file join $FROZEN hdmi_fb_scan.v] \
 #     [file join $RTL hdmi_p1_top.v] \
 #     [file join $XDCFROZ hdmi_out_pins.xdc] [file join $XDCMINE hdmi_p1_clocks.xdc] \
 #     [file join $HERE build_hdmi_p1.tcl]]
@@ -2685,31 +2851,33 @@ report_drc completed successfully
 # puts "==========================================================================="
 ===========================================================================
 # puts " HDMI_P1_SUMMARY  [tstamp]"
- HDMI_P1_SUMMARY  00:57:48
+ HDMI_P1_SUMMARY  03:10:13
 # puts "   bit        : [file join $OUT hdmi_p1.bit]"
    bit        : /media/felix/Data/coding/demoir-fpga/runs/hdmi_p1/hdmi_p1.bit
 # puts "   bit md5    : [md5f [file join $OUT hdmi_p1.bit]]"
-   bit md5    : d478c6058721492694d6d4a5f51a5196
+   bit md5    : c916461877fe2e0dbcd14002ab2289b1
 # puts "   bit size   : [file size [file join $OUT hdmi_p1.bit]] bytes"
    bit size   : 3510797 bytes
 # puts "   hwh        : [file join $OUT hdmi_p1.hwh]  md5=[md5f [file join $OUT hdmi_p1.hwh]]"
-   hwh        : /media/felix/Data/coding/demoir-fpga/runs/hdmi_p1/hdmi_p1.hwh  md5=3a5053bca9e4d9fbb465c0d4d8014be9
+   hwh        : /media/felix/Data/coding/demoir-fpga/runs/hdmi_p1/hdmi_p1.hwh  md5=24d07045d7db7566228dad291cef57cd
 # puts "   addr       : hdmi_out_top = $ADDR_HDMI / $RANGE_HDMI"
    addr       : hdmi_out_top = 0x400A0000 / 64K
-# puts "   clocks     : PIX_a=$p_pix0 ns  PIX_b=$p_pix1 ns  AXI=$p_axi ns  VCO=$vco MHz"
-   clocks     : PIX_a=6.737 ns  PIX_b=13.474 ns  AXI=10.000 ns  VCO=1187.5 MHz
-# puts "   WNS impl   : PIX_a=$w0  PIX_b=$w1  AXI=$wa  (TNS 0 / 0 failing = $tns_ok)"
-   WNS impl   : PIX_a=1.795  PIX_b=8.550  AXI=4.446  (TNS 0 / 0 failing = 1)
-# puts "   LUT/FF     : total=$impl_lut (≤2500) / $u_ff   hdmi_out_top=$h_tl (≤600) / $h_ff   latch=$lat_rpt/$lat_net"
-   LUT/FF     : total=771 (≤2500) / 1085   hdmi_out_top=383 (≤600) / 622   latch=0/0
-# puts "   BRAM/DSP   : $u_bram / $u_dsp"
-   BRAM/DSP   : 0 / 0
+# puts "   clocks     : PIX_a=$p_pix0 ns  PIX_b=$p_pix1 ns  PIX_c=$p_pix2 ns  AXI=$p_axi ns  VCO=$vco MHz"
+   clocks     : PIX_a=6.737 ns  PIX_b=13.474 ns  PIX_c=26.947 ns  AXI=10.000 ns  VCO=1187.5 MHz
+# puts "   divs       : CLKOUT0 ÷$d0 / CLKOUT1 ÷$d1 / CLKOUT2 ÷$d2   (mode 默认 3 = 720p30)"
+   divs       : CLKOUT0 ÷8.000 / CLKOUT1 ÷16 / CLKOUT2 ÷32   (mode 默认 3 = 720p30)
+# puts "   WNS impl   : PIX_a=$w0  PIX_b=$w1  PIX_c=$w2  AXI=$wa  (TNS 0 / 0 failing = $tns_ok)"
+   WNS impl   : PIX_a=1.500  PIX_b=8.087  PIX_c=21.952  AXI=3.402  (TNS 0 / 0 failing = 1)
+# puts "   LUT/FF     : total=$impl_lut (≤2500) / $u_ff   hdmi_out_top=$h_tl (≤1200) / $h_ff   latch=$lat_rpt/$lat_net"
+   LUT/FF     : total=1549 (≤2500) / 2161   hdmi_out_top=1037 (≤1200) / 1564   latch=0/0
+# puts "   BRAM/DSP   : $u_bram / $u_dsp   BUFGCTRL=$u_bufgctrl（预期 7）"
+   BRAM/DSP   : 1 / 0   BUFGCTRL=7（预期 7）
 # puts "   DRC        : errors=$drc_err   bitstream=ok"
    DRC        : errors=0   bitstream=ok
 # puts "   gate5      : BD 结构断言 PASS + 网表复核 PASS（dcm_locked ← 常量 1'b1）"
    gate5      : BD 结构断言 PASS + 网表复核 PASS（dcm_locked ← 常量 1'b1）
 # puts "   time       : synth ${_t_synth}s + impl ${_t_impl}s + bit ${_t_bit}s"
-   time       : synth 88s + impl 52s + bit 0s
+   time       : synth 116s + impl 58s + bit 0s
 # puts "==========================================================================="
 ===========================================================================
-INFO: [Common 17-206] Exiting Vivado at Tue Nov  3 00:57:48 2026...
+INFO: [Common 17-206] Exiting Vivado at Tue Nov  3 03:10:13 2026...
