@@ -310,7 +310,12 @@ def reference_compose(orig: np.ndarray, proc: np.ndarray, W: int, H: int) -> np.
     cx = _paint_counts(dl.CANVAS_W, content_w)
     if cy.sum() != content_h or cx.sum() != content_w:  # pragma: no cover
         raise AssertionError("绘制法计数不自洽")
-    content = np.repeat(np.repeat(canvas, cy, axis=0), cx, axis=1)
+    # ★ 2026-11-02 板端（armv7 + numpy 1.21.5）实测：np.repeat 的 repeats 若是
+    #   numpy int64 标量/数组，32 位 numpy 会报
+    #   "Cannot cast array data from dtype('int64') to dtype('int32')"；
+    #   主机 x86_64（int64 原生）看不出来 ⇒ 必须显式转 Python int。
+    content = np.repeat(np.repeat(canvas, [int(v) for v in cy], axis=0),
+                        [int(v) for v in cx], axis=1)
     out = np.zeros((H, W, 3), np.uint8)
     out[y0 : y0 + content_h, x0 : x0 + content_w, :] = content
     return out
