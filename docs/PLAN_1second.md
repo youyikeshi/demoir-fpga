@@ -5575,3 +5575,23 @@ $$\quad\ \Rightarrow\ \text{这比"读到了 DCP"强得多——本轮 DCP 确�
 **修法（唯一路径）**
 $$\Rightarrow\ \text{重新 OOC 综合 } \mathtt{design\_1\_axi\_ctrl\_imp\_xbar\_0}\ \Rightarrow \text{产出}\textbf{新 } \mathtt{.dcp}\ \text{+}\textbf{编号端口 stub}（\text{必须能搜到 } \mathtt{M04\_AXI\_AWADDR}）$$
 $$\Rightarrow\ \text{再重建} \Rightarrow \text{并断言 routed DCP 里 } \mathtt{M04\_AXI\_AWADDR}\ \text{的}\textbf{向量通道}\text{齐全}$$
+
+### 70.52 T-82 修完命名问题，又抓到一个**参数默认值错位**（2026-11-02 15:55）
+
+**已完成（T-82）**
+$$\Rightarrow\ \mathtt{D4}：\mathtt{module\ bin\_conv\_core}\to\mathbf{\mathtt{bin\_conv\_core\_v50}}（\text{文件名同步}），\text{包装层唯一例化同步改}$$
+$$\quad\ \mathtt{xvlog -sv}\ 0\ \text{warn}\ 0\ \text{err}；\mathtt{xelab}\ \mathtt{VLANES=8/16}\ \text{均 Built}$$
+$$\Rightarrow\ \mathtt{D5}：\mathtt{bd\_v50.tcl}\ 11\ \text{处} + \mathtt{build\_final\_150v50.tcl}\ 3\ \text{处}\to\mathtt{bin\_unit\_axi\_wrap\_bd\_v50}，\text{旧名 grep}=0$$
+$$\Rightarrow\ \mathtt{lane16/}\ \text{现有 } 9\ \text{个 } \mathtt{.v}（1\ \text{核} + 8\ \text{IMP-B}）；\text{manifest } 34\ \text{条}（25\ \text{基线} + 9\ \text{lane16}）$$
+$$\Rightarrow\ \mathtt{verify\_rtl\_root.sh}\ \text{严格口径 } \mathbf{MATCH=34\ DIFF=0\ EXTRA=0}\ \text{PASS}$$
+$$\Rightarrow\ \mathtt{D9}：\text{加只读 } \mathtt{RW\_MAGIC}\ \text{读译码（}\mathtt{0x314}\to\mathtt{32'h5030\_0001}），\text{写译码无该项，}\mathtt{rd\_mux}\ \text{不依赖 } \mathtt{r\_fuse\_mode}$$
+
+**新发现的 🔴（需我拍板，已派 T-83）**
+$$\Rightarrow\ \mathtt{bin\_unit\_axi\_wrap\_bd\_v50.v:29}\ \text{默认 } \mathtt{V50\_REG\_BASE = 16'h02E0}，\text{而契约与单元都是 } \mathbf{\mathtt{0x300}}$$
+$$\Rightarrow\ \mathtt{bd\_v50.tcl}\ \textbf{不覆盖 } \mathtt{CONFIG} \Rightarrow \text{走 BD 时整块寄存器平移到 } \mathtt{0x2E0..0x2F4}$$
+$$\Rightarrow\ \Rightarrow\ \text{PS 读 } \mathtt{0x314}\ \text{得到 } \mathbf{0} \Rightarrow \textbf{"链引擎在位"判定永远失败}$$
+$$\Rightarrow\ \textbf{裁定：改默认值为 } \mathtt{16'h0300}（\text{比在 tcl 里覆盖更不易漏}）$$
+
+$$\Rightarrow\ \textbf{第 110 条：跨层参数必须有一处"唯一真相源"}$$
+$$\quad\ \text{同一个基址在}\textbf{单元 / BD 外壳 / tcl / PS}\text{ 四处表达} \Rightarrow \text{任何一处默认值不同就静默错位}$$
+$$\quad\ \Rightarrow\ \text{判据：}\text{构建后必须}\textbf{实测读一次 magic}，\text{不匹配就 } \mathtt{error}（\text{不能只靠代码审阅}）$$

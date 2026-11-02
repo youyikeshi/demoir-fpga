@@ -180,12 +180,15 @@ $$\Rightarrow\ \text{v50 也必须给两层，且}\textbf{名字不能与旧文�
 |---|---|---|---|
 | 单元 | `bin_unit_axi_wrap_v50.v` | `bin_unit_axi_wrap_v50` | IMP-B |
 | **BD 外壳** | `bin_unit_axi_wrap_bd_v50.v` | **`bin_unit_axi_wrap_bd_v50`** | **IMP-B**（外壳 `FREQ_HZ 150000000`、端口不窄于旧外壳）|
-| conv 核 | `bin_conv_core.v` | `bin_conv_core`（`LANES` 参数）| IMP-A |
+| conv 核 | `bin_conv_core_v50.v` | `bin_conv_core_v50`（`LANES`/`VLANES` 参数）| IMP-A |
+| （基线薄壳，**不动**）| `bin_conv_core.v` | `bin_conv_core`（v39 1-lane）| 冻结 |
 | band 缓冲 | `bin_band_buf.v` | `bin_band_buf` | IMP-B |
 | 描述符链 | `bin_segq.v` | `bin_segq` | IMP-B |
 
 $$\Rightarrow\ \mathtt{bd\_v50.tcl}\ \text{的 module-ref 必须指向 } \mathbf{\mathtt{bin\_unit\_axi\_wrap\_bd\_v50}}$$
 $$\Rightarrow\ \text{所有新模块名}\textbf{不得与 } \mathtt{rtl\_v50/}\ \text{里既有的 25 个模块重名}$$
+$$\Rightarrow\ \textbf{2026-11-02 T-82/D4 落实：lane16/ 的核改名 } \mathtt{bin\_conv\_core\_v50}\text{（文件 } \mathtt{bin\_conv\_core\_v50.v}\text{）}$$
+$$\Rightarrow\ \text{理由：基线 } \mathtt{bin\_conv\_core.v}\ \text{（薄壳）已定义 } \mathtt{module\ bin\_conv\_core}\text{，lane16 再定义同名模块会让 } \mathtt{build\_final\_150v50.tcl}\ \text{的重名断言硬 error；改名后 25 个基线模块名保持冻结}$$
 
 ---
 
@@ -204,9 +207,11 @@ $$\Rightarrow\ \textbf{修订：v50 新寄存器整体搬到 } \mathbf{\mathtt{0
 | `0x308` | `BAND_ROWS` | 行带高度 |
 | `0x30C` | `FUSE_MODE` | 0=旧路径（默认），1=段融合 |
 | `0x310` | `CHAIN_STATUS` | bit0 done / bit1 err / bit2 busy / bit8~15 err_code |
+| `0x314` | `CHAIN_ID` | **只读 magic = `0x5030_0001`**（"V50" + 版本 1）。PS 用它判定"链引擎在位"：该地址写忽略、读回常量，`BIN_V50_CHAIN_RTL=1` 的探针因此不可能被"寄存器回声"骗过（D9）。`FUSE_MODE=0` 时同样可读 |
 
 $$\Rightarrow\ \mathtt{0x000..0x1FF}\ \text{与 } \mathtt{0x200..0x20C}\ \textbf{全部保持原样}$$
 $$\Rightarrow\ \mathtt{0x250..0x25C}\ \text{仍}\textbf{禁止}（\text{v42d 教训}）$$
+$$\Rightarrow\ \mathtt{0x314}\ \text{原为留白，2026-11-02 T-82/D9 定死为只读 } \mathtt{CHAIN\_ID}\text{；}\mathtt{0x310}\ \text{与 } \mathtt{0x314}\ \text{之间不插别的寄存器}$$
 
 ### 10.2 契约 B 的字 6/字 7（原留白，现定死）
 $$\Rightarrow\ \text{字 } 6 = \mathtt{band\_y0}\ (\text{本带起始行号，绝对行号，不是带内偏移}）$$
