@@ -1814,11 +1814,11 @@ class BinConvEngine:
     # ★ 契约 R1（`docs/V50_ARCHITECTURE.md` §10.1）：v50 寄存器在 **0x300 段**，
     #   `0x200..0x20C` 是 E1E2 的 RUN_UNIT/E_GROUP/E_DESC/E_DESC_HI，**一个字节都不动**
     #   ⇒ FUSE=1 时 E1E2 可以照常挂（两者不再互斥，见 `enable_e1e2`）。
-    # ★ 契约 R1/D9：`0x314 CHAIN_ID` 是**只读 magic**（`0x7635_5000`）；读不回等值就
-    #   说明这条位流里没有链引擎 ⇒ 拒绝走链。这是**机制**，不是人工开关：
+    # ★ 契约 R1/D9：`0x314 CHAIN_ID` 是**只读 magic**（`0x5030_0001`，R3 §12.1）；
+    #   读不回等值就说明这条位流里没有链引擎 ⇒ 拒绝走链。这是**机制**，不是人工开关：
     #   `BIN_V50_CHAIN_RTL=1` 已退役（只保留给老脚本做兼容性 no-op）。
     def v50_chain_magic(self):
-        """链引擎 magic 的**期望值**（默认 0x76355000，`BIN_V50_CHAIN_MAGIC` 可改期望值）。"""
+        """链引擎 magic 的**期望值**（默认 0x50300001，`BIN_V50_CHAIN_MAGIC` 可改期望值）。"""
         v = os.environ.get("BIN_V50_CHAIN_MAGIC", "").strip()
         if not v:
             return int(V50_CHAIN_MAGIC)
@@ -1827,21 +1827,37 @@ class BinConvEngine:
         except Exception:                                 # noqa: BLE001
             return int(V50_CHAIN_MAGIC)
 
-    def v50_chain_status(self):
+    def v50_chain_status(self, pre_kick=False):
         """读 `0x310 CHAIN_STATUS` 并解析（契约 R1 §10.1）。
 
         bit0 = done / bit1 = err / bit2 = busy / bit8~15 = err_code。
+
+        ★ 契约 R3 §12.2：**`err` 只在 kick 之后有意义**。
+          机理（T-83 实测）：复位态 `bin_band_buf` 的 `cfg_c=cfg_w=0` 让
+          `shape_bad` 恒真 ⇒ `cap_err` 粘滞 ⇒ `band_bad` ⇒ `segq` 进 `S_ERR`，
+          于是空闲态 `0x310` 读成 `0x0403`（done=1, err=1, code=4=E_CANARY）。
+          RTL 侧已加 `cfg_valid` 门控把它修掉；PS 侧在这里同时立规矩：
+          `pre_kick=True` 时**只信 busy/done，err/code 一律按 0 处理**
+          （读的是同一笔 MMIO，但语义上"还没开跑"不存在运行期错误）。
+          `v50_submit_chain()` 的 kick 前自检就用 `pre_kick=True`。
         """
         raw = int(self._rd(CFG + V50_CHAIN_REG["CHAIN_STATUS"]))
-        return dict(raw=raw, done=raw & 1, err=(raw >> 1) & 1,
-                    busy=(raw >> 2) & 1, code=(raw >> 8) & 0xFF)
+        st = dict(raw=raw, done=raw & 1, err=(raw >> 1) & 1,
+                  busy=(raw >> 2) & 1, code=(raw >> 8) & 0xFF)
+        if pre_kick:
+            # 未 kick：err/code 无意义（RTL 复位态曾误报 E_CANARY，见上）
+            st["err"] = 0
+            st["code"] = 0
+            st["err_raw"] = (raw >> 1) & 1          # 只留痕，不参与判断
+        return st
 
     def v50_chain_ready(self):
         """PL 侧 `bin_segq` 是否真的就位（**默认 False，绝不假装**）。
 
         两个条件同时成立才返回 True：
           ① `BIN_V50_FUSE=1`；
-          ② **`0x314 CHAIN_ID` 读回 magic**（期望 `0x76355000`）—— 这是唯一判据。
+          ② **`0x314 CHAIN_ID` 读回 magic**（期望 `0x50300001`，契约 R3 §12.1）
+              —— 这是唯一判据。
              写 `0x308 BAND_ROWS` 再读回只是**第二道自检**（magic 对但 BAND_ROWS
              读不回 ⇒ 报错并拒绝），因为"写什么读回什么"的寄存器回声（v39 的
              `0x208`）本质上无法区分，只有 RTL 里硬写死的常量能区分。
@@ -1914,6 +1930,23 @@ class BinConvEngine:
         br = int(v50_band_rows() if band_rows is None else band_rows)
         if timeout is None:
             timeout = max(10.0, min(600.0, 2.0 * n))
+        # ★ 契约 R3 §12.2：kick 前**只判 busy/done，不读 err**。
+        #   理由：复位态的 `0x310` 曾把"形状还没装载"误报成 err=1/code=4
+        #   （RTL 侧已用 `cfg_valid` 门控修掉；PS 侧也不许依赖它）。
+        #   这里唯一的用途是"上一次运行真的停了没有"，那靠 busy 就够。
+        #   读不到（任何异常）就跳过——kick 前自检不该成为新的失败点，
+        #   所以异常**只**用来决定"跳过"，绝不复用成"拒绝提交"的理由。
+        try:
+            st0 = self.v50_chain_status(pre_kick=True)
+        except Exception as _ex:                          # noqa: BLE001
+            st0 = None
+            if _v50_env_on("BIN_V50_DEBUG"):
+                print("[v50] kick 前 busy 自检跳过（%r）" % (_ex,))
+        if st0 is not None and st0["busy"]:
+            raise RuntimeError(
+                "kick 前 CHAIN_STATUS 仍 busy（raw=%#010x，progress 未知）："
+                "上一次运行没停 ⇒ **拒绝提交**（契约 D3；err 在 kick 前"
+                "无意义，这里不看 err，R3 §12.2）" % (st0["raw"],))
         self._wr_seq(((CFG + V50_CHAIN_REG["BAND_ROWS"], br),
                       (CFG + V50_CHAIN_REG["FUSE_MODE"], 1),
                       (CFG + V50_CHAIN_REG["CHAIN_HEAD"], head_pa)), collect=None)
@@ -2299,24 +2332,30 @@ _E1E2_DBG = os.environ.get("E1E2_DBG", "") not in ("", "0", "false", "False")
 #     0x308 BAND_ROWS    每带行数（参数，默认 8）
 #     0x30C FUSE_MODE    0 = v39 行为 / 1 = 段融合链
 #     0x310 CHAIN_STATUS bit0 done / bit1 err / bit2 busy / bit8~15 err_code（RO）
-#     0x314 CHAIN_ID     **只读 magic** = 0x7635_5000（链引擎在位的唯一判据）
+#     0x314 CHAIN_ID     **只读 magic** = 0x5030_0001（链引擎在位的唯一判据，
+#                        契约 R3 §12.1；与 RTL 的 V50_CHAIN_ID 逐位一致）
 #   ★ 0x200..0x20C 是 **E1E2 的** RUN_UNIT/E_GROUP/E_DESC/E_DESC_HI，一个字节都不动
 #     ⇒ FUSE=1 与 E1E2 **可以同时挂**（原先的"0x200 互斥"护栏已撤）。
 #   ★ `0x250..0x25C` 仍禁止（v42d 教训）。
 #
 # 契约 B（描述符 = 10 字 = 40 B，**每条 4 KB 对齐**，`next_pa` 链式）：
-#     w0 desc      本带输入基址（低 32 位；RTL 只支持高字 = 0）
+#     w0 desc      段输入的**源基址**。★ 二义（契约 R3 §12.5）：
+#                  FUSE_MODE=1 ⇒ 段输入在 DDR 的源基址（填充器按
+#                  in_pa + grp*(H_in*W*8) + yr*(W*8) + x*8 展开，带偏移只由
+#                  w6/填行号给）；FUSE_MODE=0 ⇒ 旧语义"段输入张量基址"。
 #     w1 out       本带输出基址（低 32 位）== 段输出张量基址，**不含带偏移**
 #                  （带偏移只由 w6 `band_y0` 表达，见契约修订 R1 §10.2 / D3）
 #     w2 cfg_c     本段输入通道数 cin（C8 对齐后）
-#     w3 cfg_h     本带**有效输出行数** nband（契约修订 R2 §11.5：**不含 halo**）
+#     w3 cfg_h     低 16 = 本带**有效输出行数** nband（R2 §11.5：**不含 halo**）
+#                  高 16 = **H_in**（该段输入张量高度，契约 R3 §12.3）
+#                  ⇒ 填充器判 yr >= H_in 时整行写 0。**两个 16 位都要填**
 #     w4 cfg_w     宽度 W
 #     w5 cfg_group 权重组 / E1E2 组号（段内唯一；本实现恒 0）
 #     w6 band_y0   本带在**输出**张量里的起始行（绝对行号，< h_out）
 #     w7 flags     bit0=本段最后一带 bit1=段输出要物化 bit2=含 shuffle bit3=f32 输出
 #     w8 next_pa   下一个描述符物理地址（0 = 链尾）
 #     w9 nband(低 16) | op_mask(高 16) — nband = 本带**有效输出行数**（R2 §11.1，
-#                  末带可 < BAND_ROWS；与 w3 同值）
+#                  末带可 < BAND_ROWS；与 w3 低 16 同值）
 V50_DESC_WORDS = 10
 V50_DESC_STRIDE = 4096                 # 契约 B：4 KB 对齐 ⇒ 步进 4 KB
 V50_BUDGET_BYTES = 270 * 1024          # 契约 D4：BRAM 剩 ≈270 KB
@@ -2324,7 +2363,13 @@ V50_CHAIN_REG = dict(CHAIN_HEAD=0x300, PROGRESS=0x304,
                      BAND_ROWS=0x308, FUSE_MODE=0x30C,
                      CHAIN_STATUS=0x310, CHAIN_ID=0x314)
 # 链引擎 magic（RTL 里硬写死的只读常量）：`0x314` 读回它就说明真在位。
-V50_CHAIN_MAGIC = 0x7635_5000
+# ★ 契约 R3 §12.1（2026-11-02）：**以 RTL 为准 = 0x5030_0001**。
+#   改前 PS 这里是 `0x7635_5000`（T-81 的旧常量），而 RTL 的
+#   `localparam [31:0] V50_CHAIN_ID = 32'h5030_0001`（"V50"+版本 1，T-82/D9）
+#   在 xsim 里逐项验过 ⇒ 两边不一致时**只可能是 PS 错**，故改 PS 的常量。
+#   `BIN_V50_CHAIN_MAGIC` 仍可覆盖期望值（见 `v50_chain_magic()`）；
+#   "读不回等值就不走链、整跑回落 v5"的机制**一个字都不许动**。
+V50_CHAIN_MAGIC = 0x5030_0001
 # 段内小算子掩码的位序（契约 B 的 op_mask 高 16 位）
 V50_OP_BITS = dict(conv=0, cat=1, add=2, interp=3, eca=4, sam=5,
                    shuffle=6, unshuffle=7, convfp=8)
@@ -2447,10 +2492,28 @@ def check_prm_capacity(L, vlanes=None):
 
 
 def v50_desc(out_pa, cfg_c, cfg_h, cfg_w, cfg_group=0, band_y0=0,
-             op_mask=0, flags=0, nband=1, in_pa=0):
-    """造一条 10 字描述符（契约 B）。`in_pa` 落在 w0（v39 的 `desc` 字）。"""
+             op_mask=0, flags=0, nband=1, in_pa=0, h_in=0):
+    """造一条 10 字描述符（契约 B + 契约修订 R3）。
+
+    ★ 字 0（w0）= `in_pa`，**语义随 `0x30C FUSE_MODE` 二义**（契约 R3 §12.5）：
+        · `FUSE_MODE=0`（v5 逐 op）：段输入张量基址（旧语义，逐字节不变）；
+        · `FUSE_MODE=1`（融合链）：**段输入在 DDR 的源基址**——填充器
+          （`bin_band_fill_v50`）用它算
+          `addr = in_pa + grp*(H_in*W*8) + yr*(W*8) + x*8`，
+          带偏移**只**由 `w6 band_y0` 与填行号算，**不许**在这里预先加偏移。
+      两种用法共用同一个字，所以 `in_pa` 必须传"段输入张量/整图块的源基址"。
+
+    ★ 字 3（w3）= `cfg_h`（低 16）‖ `h_in`（高 16）（契约 R3 §12.3）：
+        · 低 16 = 本带**有效输出行数** nband（不含 halo，R2 §11.5）；
+        · 高 16 = 该段**输入张量高度** `H_in` ⇒ 填充器判 `yr ≥ H_in` 时
+          整行写 0（pad 由填充路径做，conv 读侧零边界分支）。
+        ⚠ 只填低 16（旧行为）⇒ `H_in=0` ⇒ **整带全 0**（sha1 会立刻暴露，
+          这正是 R3 要的"错得响"）。所以 `h_in` 缺省 0 只用于离线打印/旧用例，
+          运行时构造器（`v50_seg_descs`）会拒绝 `h_in==0`。
+    """
+    w3 = (int(cfg_h) & 0xFFFF) | ((int(h_in) & 0xFFFF) << 16)
     return [int(in_pa) & 0xFFFFFFFF, int(out_pa) & 0xFFFFFFFF,
-            int(cfg_c) & 0xFFFFFFFF, int(cfg_h) & 0xFFFFFFFF,
+            int(cfg_c) & 0xFFFFFFFF, w3,
             int(cfg_w) & 0xFFFFFFFF, int(cfg_group) & 0xFFFFFFFF,
             int(band_y0) & 0xFFFFFFFF, int(flags) & 0xFFFFFFFF,
             0, ((int(nband) & 0xFFFF) | ((int(op_mask) & 0xFFFF) << 16))]

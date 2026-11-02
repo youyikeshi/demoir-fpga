@@ -3,7 +3,7 @@
 # =============================================================================
 # 生成: python3 pynq_specialized_code/ps/tools/deps_closure.py --gen
 # 源根: pynq_specialized_code/ps/pynq（md5 与路径无关，冻结点目录里同名文件逐个比）
-# 时间: 2026-11-02 15:53:00
+# 时间: 2026-11-02 17:02:29
 # 规模: 14 个模块 / 20 个文件（14 个 .py + 6 个 .c）
 #
 # ── 校验（两条都要 rc=0；缺任何一条都不算「闭包完整」）─────────────────────
@@ -25,16 +25,16 @@
 # 模块          | 热/冷 | 用途 / 缺了的代价 | 需要文件 | .so | 加载点（file:line）
 #  bin_net      | 热（每次整网必经） | 整网调度：227 层 DAG + PS/PL 重叠流水 + CLI | bin_net.py | — | （闭包根）
 #  bin_engine   | 热（每次整网必经） | PL 驱动 + 惰性内核装配（`_q8()/_deq_kernel()/_bpack()` 三个回落点都在这里） | bin_engine.py | — | bin_net:45 , bin_net:579@cost , bin_net:1024@prepare , bin_net:1113@__init__ …(+12)
-#  bin_ref_numpy| 热（每次整网必经） | numpy 参考内核 + Blob 权重容器 + conv_rtl（主机 FakePL 的算术基线） | bin_ref_numpy.py | — | bin_net:57 , bin_engine:60 , bin_engine:4570@_execute , bin_engine:4604@_synth_layer …(+3)
-#  qcache       | 冷/可选（`Q8CACHE=1`，默认关） | f32 叶子量化缓存（按 C8 字节常驻，省重复量化） | qcache.py | — | bin_net:2061@_q8_segment [try] , bin_net:2874@run [try]
-#  fconv        | 热/opt-in（`BIN_CONVPF_PL=1` **且** overlay 里有 `fconv_0` 才启用；默认关。缺 ⇒ 静默回落 CPU convfp，结果逐字节等价） | convfp（f32 直接卷积）PL 单元的 PS 侧驱动：fconv_0 寄存器映射、物理地址四重校验、逐字节判据、尾部 0xA5 金丝雀（IMP-C 只调用不改它） | fconv.py | — | bin_net:2156@_fconv_engine [try]
+#  bin_ref_numpy| 热（每次整网必经） | numpy 参考内核 + Blob 权重容器 + conv_rtl（主机 FakePL 的算术基线） | bin_ref_numpy.py | — | bin_net:57 , bin_engine:60 , bin_engine:4633@_execute , bin_engine:4667@_synth_layer …(+3)
+#  qcache       | 冷/可选（`Q8CACHE=1`，默认关） | f32 叶子量化缓存（按 C8 字节常驻，省重复量化） | qcache.py | — | bin_net:2073@_q8_segment [try] , bin_net:2891@run [try]
+#  fconv        | 热/opt-in（`BIN_CONVPF_PL=1` **且** overlay 里有 `fconv_0` 才启用；默认关。缺 ⇒ 静默回落 CPU convfp，结果逐字节等价） | convfp（f32 直接卷积）PL 单元的 PS 侧驱动：fconv_0 寄存器映射、物理地址四重校验、逐字节判据、尾部 0xA5 金丝雀（IMP-C 只调用不改它） | fconv.py | — | bin_net:2168@_fconv_engine [try]
 #  board_safe   | 冷（可选看门狗；缺 ⇒ 只是没有看门狗，不报错） | PL 看门狗（长卷积超时停喂狗让板子复位） | board_safe.py | — | bin_engine:73 [try]
 #  mmio_batch   | 热/opt-in（`BIN_MMIO_C=1` 才启用；**默认关**。缺 ⇒ 静默回落 Python MMIO 直写路径，结果逐字节等价，只是每次写多一次 struct.pack） | 一批 MMIO 写 + start + 等 done 收进**一次 C 调用**（T-23 第 2 级；首次使用时 `cc -O2` 现场编译成 mmio_batch_<arch>.so） | mmio_batch.py + mmio_batch.c | 现场编 | bin_engine:897@mmio_fast_init [try]
-#  catpack      | 冷（`CATPACK=1` 的 R_RUN_UNIT=5 后端，默认不挂） | cat 不物化直读引擎（CatPackEngine） | catpack.py | — | bin_engine:2229@enable_catpack
-#  e1e2_sim     | 冷（`pack_segments`/`write_int8`/`pack_int8` 的 C8 填充 + 自检参考） | E1E2 描述符/命令的寄存器级模型 + quantize_int8 参考语义 | e1e2_sim.py | — | bin_engine:2904@write_int8 , bin_engine:3328@pack_int8 , bin_engine:4840@_selftest [try] , qcache:168@quantize_leaf_c8
-#  bpack        | 热（prologue 小头；缺 ⇒ +0.45 s） | f32 → uint64 二值化打包（按 64 通道字） | bpack.py + bpack.c | 现场编 | bin_engine:3989@_bpack [try]
-#  c8deq        | 热（epilogue；缺 ⇒ epilogue ×4.63） | C8 int8 → f32 一趟 burst 反量化（非缓存缓冲上 numpy 跨步视图的替代） | c8deq.py + c8deq.c | 现场编 | bin_engine:4014@_deq_kernel [try] , bin_engine:4026@_deq_kernel_tiled [try] , bin_engine:4096@from_c8_deq_into [try] , bin_engine:4099@from_c8_deq_into [try]
-#  q8           | 热（prologue；缺 ⇒ prologue ×3.69） | f32→int8 量化 + 一趟写进 C8 交错缓冲（NEON） | q8.py + q8.c | 现场编 | bin_engine:4293@_q8 [try]
+#  catpack      | 冷（`CATPACK=1` 的 R_RUN_UNIT=5 后端，默认不挂） | cat 不物化直读引擎（CatPackEngine） | catpack.py | — | bin_engine:2262@enable_catpack
+#  e1e2_sim     | 冷（`pack_segments`/`write_int8`/`pack_int8` 的 C8 填充 + 自检参考） | E1E2 描述符/命令的寄存器级模型 + quantize_int8 参考语义 | e1e2_sim.py | — | bin_engine:2967@write_int8 , bin_engine:3391@pack_int8 , bin_engine:4903@_selftest [try] , qcache:168@quantize_leaf_c8
+#  bpack        | 热（prologue 小头；缺 ⇒ +0.45 s） | f32 → uint64 二值化打包（按 64 通道字） | bpack.py + bpack.c | 现场编 | bin_engine:4052@_bpack [try]
+#  c8deq        | 热（epilogue；缺 ⇒ epilogue ×4.63） | C8 int8 → f32 一趟 burst 反量化（非缓存缓冲上 numpy 跨步视图的替代） | c8deq.py + c8deq.c | 现场编 | bin_engine:4077@_deq_kernel [try] , bin_engine:4089@_deq_kernel_tiled [try] , bin_engine:4159@from_c8_deq_into [try] , bin_engine:4162@from_c8_deq_into [try]
+#  q8           | 热（prologue；缺 ⇒ prologue ×3.69） | f32→int8 量化 + 一趟写进 C8 交错缓冲（NEON） | q8.py + q8.c | 现场编 | bin_engine:4356@_q8 [try]
 #  bilinear_c   | 热/opt-in（interp；`BIN_BILINEAR_C=1` 才加载 .so，默认关） | 双线性插值 C 内核（逐字节等价 numpy 版） | bilinear_c.py + bilinear_c.c | 现场编 | bin_ref_numpy:651@_bilinear_c_kernel [try]
 #  convpf_c     | 热/opt-in（`BIN_CONVPF_C=1` 且在 ARM 上才启用；缺 ⇒ 静默回落 numpy im2col，结果等价） | im2col-free 直接卷积 C/NEON 内核（逐字节等价比串行标量参考；T-17） | convpf_c.py + convpf_c.c | 现场编 | bin_ref_numpy:923@_convpf_c_try [try] , bin_ref_numpy:947@convpf_c_status [try]
 #
@@ -62,8 +62,8 @@
 #   ⇒ 这三个不改变今天的数字，但任何「冻结点只挑热路径文件」的做法都会踩到。
 #
 # ── 文件清单（md5sum -c 用；顺序固定：模块名序，.py 在 .c 前）────────────────
-af02f9a7b35496ff657360903a318194  bin_net.py
-c46e8cd317cdc4ef403c5f48ce95843a  bin_engine.py
+5759ed502cfa4349364f0fb04cffc917  bin_net.py
+6a14b8b958c70515f1beb7eb8110eb39  bin_engine.py
 337fbe3a354e3939b60d03c39b909610  bin_ref_numpy.py
 95636f8cad44ca2434e978468a70b38e  qcache.py
 67ea5cbb5c41c2e478d7c033800fde57  fconv.py

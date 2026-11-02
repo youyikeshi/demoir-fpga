@@ -80,7 +80,8 @@ module bin_band_buf #(
     input  logic        bank_rd_sel,    // 读口看到的带
     input  logic        bank_wr_sel,    // 写口落到的带
     output logic        wr_all_idle,    // 无在飞写（契约 ⑤ 的 band 侧）
-    output logic        cap_err,        // 容量/形状越界（粘滞；buf_reset 清）
+    output logic        cap_err,        // 容量/形状越界（粘滞；buf_reset 清；
+                                        // ★ 契约 R3 §12.2：形状未装载时**不置位**）
     output logic        canary_err,     // 金丝雀被踩（粘滞）
     output logic        arb_conflict,   // 同拍两个写口真的撞了（粘滞，正常为 0）
 
@@ -164,6 +165,23 @@ module bin_band_buf #(
     // ========================================================================
     wire shape_bad = (cfg_c == 16'd0) || (cfg_c[2:0] != 3'd0)
                   || (cfg_c > 16'(C_MAX)) || (cfg_w == 16'd0) || (cfg_w > 16'(W_MAX));
+
+    // ★ 契约 R3 §12.2（2026-11-02，T-83 实测 0x0403 的根因）：
+    //   **"形状还没装载"不是"形状配错了"。**
+    //   复位态 `cfg_c=cfg_w=0` 让 `shape_bad` 恒真 ⇒ `cap_err` 粘滞 ⇒
+    //   `band_bad` ⇒ `bin_segq` 进 `S_ERR`（err=1, code=4=E_CANARY）⇒
+    //   空闲态读 `0x310` 得到 `0x0403`。那次报错是**假**的：
+    //   kick 之前根本没有"带"这个东西，形状字段还没被描述符填进来。
+    //   ⇒ 用 `cfg_valid` 门控：形状**未装载**（任一边为 0）时一律不置
+    //     `cap_err`；一旦两个字段都非 0（= 描述符已装载/正在装载），
+    //     所有越界判据**一个不少**地照旧生效。
+    //   为什么是"两个都非 0"而不是"第一次 kick 之后"：
+    //     kick 后的头几十拍里描述符还没读完（`seg_cin/seg_w` 仍是 0），
+    //     用 kick 做门控会把这段瞬态重新判成错 ⇒ 真跑会被假 E_CANARY 打死。
+    //     "形状字段非 0"才是物理上"带已存在"的判据。
+    //   ⚠ 零形状（cin=0 / W=0）的真实错误由 `bin_segq` 在 S_CHK 独立拦住
+    //     （`band_words==0` 或 `w9[15:0]==0` ⇒ E_SIZE），**不是漏检**。
+    wire cfg_valid = (cfg_c != 16'd0) && (cfg_w != 16'd0);
 
     // ========================================================================
     // 4. 读口仲裁（物理 1 个读口）
@@ -315,7 +333,9 @@ module bin_band_buf #(
         end else if (buf_reset) begin
             cap_err_q <= 1'b0; canary_err_q <= 1'b0; arb_conf_q <= 1'b0;
         end else begin
-            if (shape_bad || rd_range_bad || wr_range_bad || rd_align_bad || wr_align_bad)
+            // ★ 契约 R3 §12.2：`cfg_valid=0`（形状未装载）⇒ 不置 cap_err
+            if (cfg_valid && (shape_bad || rd_range_bad || wr_range_bad
+                              || rd_align_bad || wr_align_bad))
                 cap_err_q <= 1'b1;
             if (canary_bad_now) canary_err_q <= 1'b1;
             if (wr_two || role_bad_now) arb_conf_q <= 1'b1;

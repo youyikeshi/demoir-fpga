@@ -1215,9 +1215,20 @@ def v50_seg_descs(seg, in_pa, out_pa, vlanes):
     ★ 字节/像素 = `VLANES`（`vlanes` 参数），不是字面 `8`；`VLANES=16` 时是 16。
       本函数只用它做**几何自检**（带字节不许超出张量），不再拿它算地址。
     ★ `cfg_h`（w3）= `nband`（**不含 halo**，R2 §11.5）；`w9` 低 16 位同值。
+    ★ 契约 R3 §12.3（2026-11-02）：`w3` 的**高 16 = 该段输入张量高度 `H_in`**
+      （= `seg.h_in`，段第一层输入的 H；填充器判 `yr >= H_in ⇒ 整行写 0`）。
+      ⇒ **两个 16 位都要填**。只填低 16 ⇒ `H_in=0` ⇒ 整带全 0（sha1 立刻暴露）。
+    ★ 契约 R3 §12.5：`w0`（`in_pa`）= 段输入在 DDR 的**源基址**（`FUSE_MODE=1`
+      时由填充器按 `in_pa + grp*(H_in*W*8) + yr*(W*8) + x*8` 展开），
+      `FUSE_MODE=0` 时仍是"段输入张量基址"的旧语义。带偏移只由 `band_y0` 表达。
     """
     vlanes = int(vlanes or 8)
     h_out = int(seg.h_out or 0)
+    h_in = int(seg.h_in or 0)
+    if h_in <= 0:
+        # 契约 R3 §12.3：H_in 是 pad 判据的唯一来源，缺了就是"整带全 0"的静默错
+        raise ValueError("S%s：段输入高度 H_in=%r 非法 ⇒ 描述符字 3 高 16 无法填"
+                         "（契约 R3 §12.3）" % (seg.seg_id, seg.h_in))
     # 一个 lane 组 = VLANES 个 8-bit 通道 = VLANES 字节/像素（**参数，不是字面 8**）；
     # 一行 = W × VLANES × (cout/VLANES 个组) 字节 —— 原来只乘了字面 8 且**漏掉组数**，
     # 那正是 D3 的"8 B/px 写死 + 带间地址互相覆盖"。
@@ -1250,7 +1261,8 @@ def v50_seg_descs(seg, in_pa, out_pa, vlanes):
             in_pa=int(in_pa), out_pa=int(out_pa),
             cfg_c=int(seg.c_in or 0), cfg_h=int(nband), cfg_w=int(seg.w_in or 0),
             cfg_group=0, band_y0=int(y0), op_mask=int(seg.op_mask or 0),
-            flags=flags, nband=int(nband)))
+            flags=flags, nband=int(nband),
+            h_in=h_in))                      # 契约 R3 §12.3：w3 高 16 = H_in
     return descs
 
 
@@ -2595,6 +2607,11 @@ class BinNet:
             # ★ D3：**和离线 `build_chain` 同一个构造函数**。`out_pa` 传段输出张量
             #   基址（**不再** `+= y0*row_bytes`：带偏移只由描述符 `band_y0` 表达，
             #   否则就是双重偏移）；字节/像素用 `VLANES` 参数，不是字面 8。
+            # ★ 契约 R3 §12.5：这里传的 `src.pa` 就是**段输入张量在 DDR 的源基址**
+            #   （arena 里该张量的首地址，即整图块 0 的行 0 列 0）。`FUSE_MODE=1`
+            #   时 RTL 的填充器用它 + `H_in/W` + `band_y0` 自己算每一行的 DDR 地址
+            #   ⇒ **不许**在这里预先加带偏移（w0 是"源基址"，不是"本带基址"）。
+            #   `FUSE_MODE=0` 时同一个字仍是旧语义（段输入张量基址）。
             vlanes = int(getattr(self._segplan, "vlanes", 0) or BE.vlanes_now())
             descs = v50_seg_descs(seg, int(src.pa), int(out_pa), vlanes)
             if BE._v50_env_on("BIN_V50_DUMP"):

@@ -1,0 +1,54 @@
+#-----------------------------------------------------------
+# xsim v2025.2.1 (64-bit)
+# SW Build 6403652 on Thu Mar 19 13:47:00 MDT 2026
+# IP Build 6403511 on Thu Mar 19 12:41:45 MDT 2026
+# SharedData Build 6403650 on Thu Mar 19 14:02:13 MDT 2026
+# Start of session at: Mon Nov  2 17:01:08 2026
+# Process ID         : 642953
+# Current directory  : /media/felix/Data/coding/demoir-fpga/runs/v87_r3
+# Command line       : xsim -log xsim.log -mode tcl -source {xsim.dir/r310_v8/xsim_script.tcl}
+# Log file           : /media/felix/Data/coding/demoir-fpga/runs/v87_r3/xsim.log
+# Journal file       : /media/felix/Data/coding/demoir-fpga/runs/v87_r3/xsim.jou
+# Running On         : 2
+# Platform           : Ubuntu
+# Operating System   : Ubuntu 22.04.5 LTS
+# Processor Detail   : Intel(R) Core(TM) Ultra 7 155H
+# CPU Frequency      : 4143.622 MHz
+# CPU Physical cores : 16
+# CPU Logical cores  : 22
+# Host memory        : 33236 MB
+# Swap memory        : 0 MB
+# Total Virtual      : 33236 MB
+# Available Virtual  : 17145 MB
+#-----------------------------------------------------------
+source xsim.dir/r310_v8/xsim_script.tcl
+# xsim {r310_v8} -autoloadwcfg -runall
+Time resolution is 1 ps
+run -all
+bin_band_buf: CAP=245776 B (240 KB) <= BUDGET=270 KB  [NGRP=6 ROWS_ALLOC=10 SLOT_WORDS=15360]
+[BIN-WRAP] 步骤④ 直接映射线缓存：LC_N=512（64 KB, 9 位散列, 槽=16）
+== T-87 R3: 0x310 idle must not report err / 0x314 magic ==
+  ---- reset 0x310 CHAIN_STATUS = 0x00000000 ----
+  PASS                  P1 0x310 == 0x0000 after reset got=0x00000000
+  PASS               P2 0x310 err bit == 0 after reset got=0x00000000
+  PASS              P2 0x310 err_code == 0 after reset got=0x00000000
+  PASS                 P3 0x314 CHAIN_ID == 0x50300001 got=0x50300001
+  PASS                     P3 0x314 unchanged by write got=0x50300001
+  ---- after cfg writes, before kick: 0x310 = 0x00000000 ----
+  PASS                  P4 0x310 == 0x0000 before kick got=0x00000000
+  ---- kick+0 0x310 = 0x00000000 ----
+  ---- kick+1 0x310 = 0x00000000 ----
+  ---- kick+2 0x310 = 0x00000000 ----
+  ---- kick+7 0x310 = 0x00000000 ----
+  ---- kick+31 0x310 = 0x00000000 ----
+  ---- kick+63 0x310 = 0x00000000 ----
+  PASS           P5 err bit 0 for 64 cycles after kick got=0x00000000
+  PASS                    P5 no E_CANARY(4) after kick got=0x00000000
+  PASS         P5 PROGRESS == 0 (chain never advanced) got=0x00000000
+  PASS               P6 0x310 == 0x0000 after re-reset got=0x00000000
+
+== SUMMARY: PASS (10 checks) ==
+$finish called at time : 2730 ns : File "/media/felix/Data/coding/demoir-fpga/runs/v87_r3/tb_v87_r310.v" Line 241
+exit
+INFO: xsimkernel Simulation Memory Usage: 296824 KB (Peak: 341284 KB), Simulation CPU Usage: 860 ms
+INFO: [Common 17-206] Exiting xsim at Mon Nov  2 17:01:10 2026...

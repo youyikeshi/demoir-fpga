@@ -1,0 +1,13 @@
+== verify_lazy_net：FakePL（conv + E1E2）整网 A/B，hw=64 ==
+[DEPS] q8=fast c8deq=fast bpack=fast e1e2=fast catpack=fast safe=fast  ⇒ deps_closure_ok=True
+  [LAZY_DEQ] int8 直读：322 个张量可保持 int8（无需 f32）/ 396 个总张量；227 层 conv 的输入全在图里
+A 基线（纯 PS 参考）      sha1 = ('104710f69c4d', '2ac6efec2325', '8ab595fcf7cd')  总 1.13 s
+  [CAT_FUSION] 开：cat 不物化，E1E2 按段直读
+  [LAZY_DEQ] int8 直读：322 个张量可保持 int8（无需 f32）/ 396 个总张量；227 层 conv 的输入全在图里
+  [LAZY_DEQ] IN/OUT 槽数 = 10（BIN_LAZY_SLOTS）
+B E1E2 + LAZY_DEQ=1       sha1 = ('104710f69c4d', '2ac6efec2325', '8ab595fcf7cd')  总 1.27 s  prologue 0.05  epilogue 0.04
+  惰性统计：{"pinned": 198, "released": 168, "starved": 30, "direct_layers": 200, "mixed_layers": 0, "ps_layers": 0, "deq_skipped": 198, "direct_bytes": 5389440, "f32_bytes": 2640704}
+  [LAZY_DEQ] int8 直读：322 个张量可保持 int8（无需 f32）/ 396 个总张量；227 层 conv 的输入全在图里
+C E1E2 + LAZY_DEQ=0       sha1 = ('104710f69c4d', '2ac6efec2325', '8ab595fcf7cd')  总 1.30 s  prologue 0.15  epilogue 0.01
+   冻结 64² 基线（主机 FakePL）('104710f69c4d', '2ac6efec2325', '8ab595fcf7cd') ⇒ 一致
+== 总结：PASS（3.8 s）==
