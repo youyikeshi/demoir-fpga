@@ -1,0 +1,100 @@
+[t132] 日志 = /home/xilinx/demoir/t132c_out/t132_t132c_080127.log
+[t132] bit = /home/xilinx/demoir/design_1_150v53.bit
+[t132] 目标频率 = 50 MHz | 槽数 = 24
+[t132] plan = base,incheck,fixflush,fixflush
+[t132] 运行点 = {"BIN_PACK": "e1e2", "BIN_LAZY_DEQ": "0", "BIN_LAZY_SLOTS": "24", "BIN_CAT_FUSION": "1", "BIN_BILINEAR_C": "1", "BIN_PRECOMP": "1", "Q8CACHE": "1", "BIN_F32DIRECT": "1", "BIN_CAT_ECA_FUSE": "1", "BIN_EPI_NOINV": "1", "BIN_V50_FUSE": "", "BIN_VLANES": ""}
+[t132] meminfo = {'MemTotal': 1028264, 'MemFree': 762544, 'MemAvailable': 847332, 'SwapTotal': 524284, 'SwapFree': 524284, 'CmaTotal': 262144, 'CmaFree': 64240}
+
+==============================================================================
+  第 1 步：load v53 overlay + 指纹（本进程唯一一次 download=True）
+==============================================================================
+  Overlay(design_1_150v53.bit) 用时 2.657 s
+  IP 清单：['bin_unit_0', 'conv_uni_0', 'ps7']
+  conv_uni_0  base=0x40040000 length=0x20000 （期望 0x40040000）✓
+  bin_unit_0  base=0x40060000 length=0x20000 （期望 0x40060000）✓
+  **magic(0x314) = 0x50300001 期望 0x50300001 ⇒ 寄存器块在位 ✓**
+  **0x310 = 0x00000000 ⇒ 空闲 ✓**（load 后 PL 必须空闲）
+  load 后 fclk0 读回 = 125 MHz
+  ★ fclk0 目标 50 → **读回 50 MHz**；PL 状态 = {"fclk": 50.0, "base": "0x40060000", "magic": "0x50300001", "magic_ok": true, "st310": "0x00000000", "st310_zero": true, "done": false, "err": 0, "busy": false, "ap_ret_bin_unit_0": "0x00000000", "ap_ret_conv_uni_0": "0x00000000"}
+
+==============================================================================
+  第 1b 步：q8/c8deq/bpack 一次性装载（单独计时，不进稳态）
+==============================================================================
+  q8     load=0.258 s loaded=True why=ok
+  c8deq  load=4.345 s loaded=True why=ok
+  bpack  load=1.807 s loaded=True why=ok
+  **一次性装载合计 = 6.410 s**
+  128² 形状：max_in 0.295 MB / max_out 0.393 MB / 227 个 conv / 395 个 op
+  npix：max = 4096；npix ≥ 4096 的 op = 31 个
+  arena 需求：24 槽 × (0.295 + 0.393 MB + 4096) + 64 KB = **16.68 MB**
+  分配前 CmaFree = 0.41 MB
+  arena t132_arena128  16.68 MB / 24 槽 @0x30100000
+
+==============================================================================
+  第 0 步：写回自测（PYNQ `flush()` 到底有没有把脏线写回 DDR）
+==============================================================================
+  ✗ 自测失败：KeyError('first')
+
+==============================================================================
+  run1  hw=128  NOINV=1  mode=plain  （NOINV 生效值='1'）
+==============================================================================
+  epi_noinv() 实测 = True   BV_FREE=0
+  输入 x0 sha1 = 26c9796e18f0e6883680693b805ce8bb7ad51486（冻结口径 26c9796e18f0e6883680693b805ce8bb7ad51486） ✓
+  墙钟 7.659 s | PL 2.370 s | PS 6.098 s | conv 227 | lazy={"pinned": 0, "released": 0, "starved": 0, "direct_layers": 0, "mixed_layers": 0, "ps_layers": 0, "deq_skipped": 0, "dir
+  **三 sha1 = b335b0860e6c / fc55e355ddb6 / fc8af9f140fc**
+  与 v39 冻结值 ✗ 不中
+  跑后 0x310=0x00000000 magic=0x50300001 ✓ 归零（第 120 条）
+
+==============================================================================
+  run2  hw=128  NOINV=1  mode=incheck  （NOINV 生效值='1'）
+==============================================================================
+  epi_noinv() 实测 = True   BV_FREE=0
+  输入 x0 sha1 = 26c9796e18f0e6883680693b805ce8bb7ad51486（冻结口径 26c9796e18f0e6883680693b805ce8bb7ad51486） ✓
+  墙钟 15.059 s | PL 4.711 s | PS 13.533 s | conv 227 | lazy={"pinned": 0, "released": 0, "starved": 0, "direct_layers": 0, "mixed_layers": 0, "ps_layers": 0, "deq_skipped": 0, "dir
+  **三 sha1 = 27e25cf67fda / b82b83f3d7eb / 6db4e9bb19e0**
+  与 v39 冻结值 **✓ 全中**
+  跑后 0x310=0x00000000 magic=0x50300001 ✓ 归零（第 120 条）
+  ── CPU→DDR 写回判据（908 次 `_flush`）──
+     flush 后 /dev/mem 与 CPU 视角不同 ： **0 / 908 次**（共 0 字节）
+
+==============================================================================
+  run3  hw=128  NOINV=1  mode=fixflush  （NOINV 生效值='1'）
+==============================================================================
+  epi_noinv() 实测 = True   BV_FREE=0
+  输入 x0 sha1 = 26c9796e18f0e6883680693b805ce8bb7ad51486（冻结口径 26c9796e18f0e6883680693b805ce8bb7ad51486） ✓
+  墙钟 52.078 s | PL 19.029 s | PS 50.577 s | conv 227 | lazy={"pinned": 0, "released": 0, "starved": 0, "direct_layers": 0, "mixed_layers": 0, "ps_layers": 0, "deq_skipped": 0, "dir
+  **三 sha1 = 27e25cf67fda / b82b83f3d7eb / 6db4e9bb19e0**
+  与 v39 冻结值 **✓ 全中**
+  跑后 0x310=0x00000000 magic=0x50300001 ✓ 归零（第 120 条）
+  ── CPU→DDR 写回判据（0 次 `_flush`）──
+     flush 后 /dev/mem 与 CPU 视角不同 ： **0 / 0 次**（共 0 字节）
+
+==============================================================================
+  run4  hw=128  NOINV=1  mode=fixflush  （NOINV 生效值='1'）
+==============================================================================
+  epi_noinv() 实测 = True   BV_FREE=0
+  输入 x0 sha1 = 26c9796e18f0e6883680693b805ce8bb7ad51486（冻结口径 26c9796e18f0e6883680693b805ce8bb7ad51486） ✓
+  墙钟 52.070 s | PL 19.015 s | PS 50.599 s | conv 227 | lazy={"pinned": 0, "released": 0, "starved": 0, "direct_layers": 0, "mixed_layers": 0, "ps_layers": 0, "deq_skipped": 0, "dir
+  **三 sha1 = 27e25cf67fda / b82b83f3d7eb / 6db4e9bb19e0**
+  与 v39 冻结值 **✓ 全中**
+  跑后 0x310=0x00000000 magic=0x50300001 ✓ 归零（第 120 条）
+  ── CPU→DDR 写回判据（0 次 `_flush`）──
+     flush 后 /dev/mem 与 CPU 视角不同 ： **0 / 0 次**（共 0 字节）
+
+  128² 汇总：
+    run1 base    NOINV=1  三 sha1 b335b0860e/fc55e355dd/fc8af9f140  中=False
+    run2 incheck NOINV=1  三 sha1 27e25cf67f/b82b83f3d7/6db4e9bb19  中=True
+    run3 fixflush NOINV=1  三 sha1 27e25cf67f/b82b83f3d7/6db4e9bb19  中=True
+    run4 fixflush NOINV=1  三 sha1 27e25cf67f/b82b83f3d7/6db4e9bb19  中=True
+  256² 跳过：128² 的 NOINV=0 没有命中冻结值（任务书只要求命中后再跑）
+
+==============================================================================
+  小结（T-132）
+==============================================================================
+  run1 base    NOINV=1 sha1 = b335b0860e6c959537f8878be34703d4b1dd0f51 / fc55e355ddb644600cc5bd242a8a4db7a5155048 / fc8af9f140fcdd5699f2957068dda1f4a96d7220
+  run2 incheck NOINV=1 sha1 = 27e25cf67fdad22d95bfd488cc73ccc39cbe8134 / b82b83f3d7eb1e0dc92e0c22a3c9656a2b963b2e / 6db4e9bb19e0e744ef4f41a2c5a2eb6e003ad301
+  run3 fixflush NOINV=1 sha1 = 27e25cf67fdad22d95bfd488cc73ccc39cbe8134 / b82b83f3d7eb1e0dc92e0c22a3c9656a2b963b2e / 6db4e9bb19e0e744ef4f41a2c5a2eb6e003ad301
+  run4 fixflush NOINV=1 sha1 = 27e25cf67fdad22d95bfd488cc73ccc39cbe8134 / b82b83f3d7eb1e0dc92e0c22a3c9656a2b963b2e / 6db4e9bb19e0e744ef4f41a2c5a2eb6e003ad301
+  NOINV=0 是否命中 v39 = False
+  meminfo = {'MemTotal': 1028264, 'MemFree': 522432, 'MemAvailable': 636260, 'SwapTotal': 524284, 'SwapFree': 524284, 'CmaTotal': 262144, 'CmaFree': 980}
+[json] 已落盘 /home/xilinx/demoir/t132c_out/t132_t132c_080127.json

@@ -1,0 +1,128 @@
+[t131] arm=seed0 python=3.10.4 numpy=1.21.5 mach=armv7l vlanes_now=8
+[t131] PYTHONHASHSEED=None  hash('demoir-t131-哈希序')=0xfffffffffec20f1d  hash('demo')=0xffffffff890f1fcf  hash('demoir')=0xffffffffeeb9d412
+[t131] BIN_V50_* 残留=[]
+[t132] 日志 = /home/xilinx/demoir/t132b_out/t132_t132b_075716.log
+[t132] bit = /home/xilinx/demoir/design_1_150v53.bit
+[t132] 目标频率 = 50 MHz | 槽数 = 24
+[t132] plan = base,gap20,gap20,poll,instr
+[t132] 运行点 = {"BIN_PACK": "e1e2", "BIN_LAZY_DEQ": "0", "BIN_LAZY_SLOTS": "24", "BIN_CAT_FUSION": "1", "BIN_BILINEAR_C": "1", "BIN_PRECOMP": "1", "Q8CACHE": "1", "BIN_F32DIRECT": "1", "BIN_CAT_ECA_FUSE": "1", "BIN_EPI_NOINV": "1", "BIN_V50_FUSE": "", "BIN_VLANES": ""}
+[t132] meminfo = {'MemTotal': 1028264, 'MemFree': 768824, 'MemAvailable': 853432, 'SwapTotal': 524284, 'SwapFree': 524284, 'CmaTotal': 262144, 'CmaFree': 65608}
+
+==============================================================================
+  第 1 步：load v53 overlay + 指纹（本进程唯一一次 download=True）
+==============================================================================
+  Overlay(design_1_150v53.bit) 用时 2.644 s
+  IP 清单：['bin_unit_0', 'conv_uni_0', 'ps7']
+  conv_uni_0  base=0x40040000 length=0x20000 （期望 0x40040000）✓
+  bin_unit_0  base=0x40060000 length=0x20000 （期望 0x40060000）✓
+  **magic(0x314) = 0x50300001 期望 0x50300001 ⇒ 寄存器块在位 ✓**
+  **0x310 = 0x00000000 ⇒ 空闲 ✓**（load 后 PL 必须空闲）
+  load 后 fclk0 读回 = 125 MHz
+  ★ fclk0 目标 50 → **读回 50 MHz**；PL 状态 = {"fclk": 50.0, "base": "0x40060000", "magic": "0x50300001", "magic_ok": true, "st310": "0x00000000", "st310_zero": true, "done": false, "err": 0, "busy": false, "ap_ret_bin_unit_0": "0x00000000", "ap_ret_conv_uni_0": "0x00000000"}
+
+==============================================================================
+  第 1b 步：q8/c8deq/bpack 一次性装载（单独计时，不进稳态）
+==============================================================================
+  q8     load=0.272 s loaded=True why=ok
+  c8deq  load=4.328 s loaded=True why=ok
+  bpack  load=1.811 s loaded=True why=ok
+  **一次性装载合计 = 6.410 s**
+  128² 形状：max_in 0.295 MB / max_out 0.393 MB / 227 个 conv / 395 个 op
+  npix：max = 4096；npix ≥ 4096 的 op = 31 个
+  arena 需求：24 槽 × (0.295 + 0.393 MB + 4096) + 64 KB = **16.68 MB**
+  分配前 CmaFree = 1.27 MB
+  arena t132_arena128  16.68 MB / 24 槽 @0x30100000
+
+==============================================================================
+  run1  hw=128  NOINV=1  mode=plain  （NOINV 生效值='1'）
+==============================================================================
+  epi_noinv() 实测 = True   BV_FREE=0
+  输入 x0 sha1 = 26c9796e18f0e6883680693b805ce8bb7ad51486（冻结口径 26c9796e18f0e6883680693b805ce8bb7ad51486） ✓
+[DEPS] q8=fast c8deq=fast bpack=fast e1e2=fast catpack=fast safe=fast  ⇒ deps_closure_ok=True
+  墙钟 7.585 s | PL 2.335 s | PS 6.056 s | conv 227 | lazy={"pinned": 0, "released": 0, "starved": 0, "direct_layers": 0, "mixed_layers": 0, "ps_layers": 0, "deq_skipped": 0, "dir
+  **三 sha1 = d108620f0229 / b02b40306f85 / c060305f4ea8**
+  与 v39 冻结值 ✗ 不中
+  跑后 0x310=0x00000000 magic=0x50300001 ✓ 归零（第 120 条）
+
+==============================================================================
+  run2  hw=128  NOINV=1  mode=gap  （NOINV 生效值='1'）
+==============================================================================
+  epi_noinv() 实测 = True   BV_FREE=0
+  输入 x0 sha1 = 26c9796e18f0e6883680693b805ce8bb7ad51486（冻结口径 26c9796e18f0e6883680693b805ce8bb7ad51486） ✓
+  墙钟 10.662 s | PL 2.560 s | PS 4.747 s | conv 227 | lazy={"pinned": 0, "released": 0, "starved": 0, "direct_layers": 0, "mixed_layers": 0, "ps_layers": 0, "deq_skipped": 0, "dir
+  **三 sha1 = 4564d416e12b / dd06cd820f32 / 8e7d2ef97905**
+  与 v39 冻结值 ✗ 不中
+  跑后 0x310=0x00000000 magic=0x50300001 ✓ 归零（第 120 条）
+
+==============================================================================
+  run3  hw=128  NOINV=1  mode=gap  （NOINV 生效值='1'）
+==============================================================================
+  epi_noinv() 实测 = True   BV_FREE=0
+  输入 x0 sha1 = 26c9796e18f0e6883680693b805ce8bb7ad51486（冻结口径 26c9796e18f0e6883680693b805ce8bb7ad51486） ✓
+  墙钟 10.599 s | PL 2.532 s | PS 4.728 s | conv 227 | lazy={"pinned": 0, "released": 0, "starved": 0, "direct_layers": 0, "mixed_layers": 0, "ps_layers": 0, "deq_skipped": 0, "dir
+  **三 sha1 = 71ef6fe6d834 / 99ed1bc75024 / 12ad1549db20**
+  与 v39 冻结值 ✗ 不中
+  跑后 0x310=0x00000000 magic=0x50300001 ✓ 归零（第 120 条）
+
+==============================================================================
+  run4  hw=128  NOINV=1  mode=poll  （NOINV 生效值='1'）
+==============================================================================
+  epi_noinv() 实测 = True   BV_FREE=0
+  输入 x0 sha1 = 26c9796e18f0e6883680693b805ce8bb7ad51486（冻结口径 26c9796e18f0e6883680693b805ce8bb7ad51486） ✓
+  墙钟 7.762 s | PL 2.055 s | PS 4.827 s | conv 227 | lazy={"pinned": 0, "released": 0, "starved": 0, "direct_layers": 0, "mixed_layers": 0, "ps_layers": 0, "deq_skipped": 0, "dir
+  **三 sha1 = f6c167582f90 / a36dd3321140 / 94ea7ac003b1**
+  与 v39 冻结值 ✗ 不中
+  跑后 0x310=0x00000000 magic=0x50300001 ✓ 归零（第 120 条）
+  ── done 之后 /dev/mem 何时停止变化（227 个 conv）──
+     稳定（连续两次相同）= 225/227；排空时间 min/p50/p90/max = 2.98 / 3.89 / 13.27 / 47.5 ms
+     最久的 6 个：[(330, 47.5, 393216), (332, 46.34, 393216), (334, 45.86, 393216), (6, 41.28, 262144), (329, 33.41, 262144), (336, 33.03, 262144)]
+
+==============================================================================
+  run5  hw=128  NOINV=1  mode=instr  （NOINV 生效值='1'）
+==============================================================================
+  epi_noinv() 实测 = True   BV_FREE=0
+  输入 x0 sha1 = 26c9796e18f0e6883680693b805ce8bb7ad51486（冻结口径 26c9796e18f0e6883680693b805ce8bb7ad51486） ✓
+  墙钟 9.511 s | PL 2.757 s | PS 4.732 s | conv 227 | lazy={"pinned": 0, "released": 0, "starved": 0, "direct_layers": 0, "mixed_layers": 0, "ps_layers": 0, "deq_skipped": 0, "dir
+  **三 sha1 = 1a88d6191c7d / 5ead3bdc1996 / 9335293793d7**
+  与 v39 冻结值 ✗ 不中
+  跑后 0x310=0x00000000 magic=0x50300001 ✓ 归零（第 120 条）
+  ── 双通道判据（227 个 PL conv）──
+     C1(可缓存,不作废) ≠ U(/dev/mem 真值) ： **44 / 227** 个 op（其中 7 个只在尾部）
+     C2(显式失效后)  ≠ U                ： **32** 个 op
+     U1 ≠ U2（done 时仍在写）           ： **32** 个 op
+     C1 恰好 = 上一个租客的 DDR 内容     ： **0** 个 op
+       op2   r.encoder_1.rdb.conv_layers.0.conv 差   32209/ 262144 B  首   3424 (1.31%) 尾  54399  尾形=False  是上个租客=None
+       op4   r.encoder_1.rdb.conv_layers.1.conv 差   27993/ 262144 B  首   3296 (1.26%) 尾  54095  尾形=False  是上个租客=None
+       op6   r.encoder_1.rdb.conv_layers.2.conv 差   24940/ 262144 B  首   2976 (1.14%) 尾  49679  尾形=False  是上个租客=False
+       op8   coder.encoder_1.rdb.conv_post.conv 差   25794/ 196608 B  首   3416 (1.74%) 尾  50783  尾形=False  是上个租客=False
+       op50  4.ghost_layers.2.primary_conv.conv 差    1052/   8192 B  首   5552 (67.77%) 尾   8191  尾形=True  是上个租客=False
+       op51  host_layers.2.cheap_operation.conv 差    1619/   8192 B  首   5280 (64.45%) 尾   8191  尾形=True  是上个租客=False
+       op53  4.ghost_layers.3.primary_conv.conv 差    1060/   8192 B  首   5552 (67.77%) 尾   8191  尾形=True  是上个租客=False
+       op54  host_layers.3.cheap_operation.conv 差    1642/   8192 B  首   5248 (64.06%) 尾   8191  尾形=True  是上个租客=False
+       [写] op2   两次 /dev/mem 不同 54484/262144 B 首 19904
+       [写] op4   两次 /dev/mem 不同 56088/262144 B 首 19585
+       [写] op6   两次 /dev/mem 不同 41173/262144 B 首 15616
+       [写] op8   两次 /dev/mem 不同 47553/196608 B 首 16336
+       [写] op59  两次 /dev/mem 不同 149/12288 B 首 10112
+       [写] op65  两次 /dev/mem 不同 20811/98304 B 首 19288
+  [instr] 账本 227 个 op → instr_net128_hw128_run5.json
+
+  128² 汇总：
+    run1 base    NOINV=1  三 sha1 d108620f02/b02b40306f/c060305f4e  中=False
+    run2 gap20   NOINV=1  三 sha1 4564d416e1/dd06cd820f/8e7d2ef979  中=False
+    run3 gap20   NOINV=1  三 sha1 71ef6fe6d8/99ed1bc750/12ad1549db  中=False
+    run4 poll    NOINV=1  三 sha1 f6c167582f/a36dd33211/94ea7ac003  中=False
+    run5 instr   NOINV=1  三 sha1 1a88d6191c/5ead3bdc19/9335293793  中=False
+  256² 跳过：128² 的 NOINV=0 没有命中冻结值（任务书只要求命中后再跑）
+
+==============================================================================
+  小结（T-132）
+==============================================================================
+  run1 base    NOINV=1 sha1 = d108620f0229335a30ac4db7a063e022be2f48d8 / b02b40306f85e35afcfe398d7e2bfe0503f0067c / c060305f4ea82ac1728d260d04e8e0801f4b1281
+  run2 gap20   NOINV=1 sha1 = 4564d416e12b34e3e660669cd671b685c2300eb5 / dd06cd820f32f740051eb1e911177d4dfb5ec33a / 8e7d2ef979059f69eafd70ad9748c93d12eee523
+  run3 gap20   NOINV=1 sha1 = 71ef6fe6d834bf77215c75257533b0655348417d / 99ed1bc75024af3f032ddabad2a9c0cde13b0fea / 12ad1549db20617b89692c3e5aabaca99f0dd9a0
+  run4 poll    NOINV=1 sha1 = f6c167582f90d2dcae811df6982d8e130d97ab60 / a36dd3321140c0631fd5810eced6d21cb5677282 / 94ea7ac003b1c34e3ca73c058052ea44b4345fa6
+  run5 instr   NOINV=1 sha1 = 1a88d6191c7dbda11934ff2a0ccbcf62f4e5fed4 / 5ead3bdc199667d8461b9bbe5507264dc9b14c42 / 9335293793d7a4e12a28de1c10efa6e9952f2ce3
+  NOINV=0 是否命中 v39 = False
+  meminfo = {'MemTotal': 1028264, 'MemFree': 527340, 'MemAvailable': 639148, 'SwapTotal': 524284, 'SwapFree': 524284, 'CmaTotal': 262144, 'CmaFree': 1016}
+[json] 已落盘 /home/xilinx/demoir/t132b_out/t132_t132b_075716.json

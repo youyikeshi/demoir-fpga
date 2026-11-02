@@ -6737,3 +6737,27 @@ $$\Rightarrow\ \Rightarrow\ \textbf{若某块缓冲曾在前一个 op 被 CPU �
 $$\quad\ \Rightarrow\ \text{这与全部现象吻合}：\text{只在整网（缓冲被复用）、}\text{尾部件（\text{部分行留在缓存里}）、\text{非确定（\text{取决于缓存状态}）}$$
 $$\quad\ \Rightarrow\ \text{而单层测试缓冲是"新鲜的"、从没被 CPU 读过} \Rightarrow \textbf{结构上测不到}$$
 $$\Rightarrow\ \text{已派 T-132 跑 } \mathbf{\mathtt{BIN\_EPI\_NOINV}=0}（\text{打开失效）} \Rightarrow \text{纯环境开关，不用改代码}$$
+
+### 70.97 ★★★★★★★ 根因确定：**PS→PL 写入口的时间竞争**（T-132，2026-11-03 05:3x）
+
+**判据：缓存陈旧不定罪**
+$$\Rightarrow\ \text{同一时刻双通道（可缓存 vs } \mathtt{/dev/mem}）\ \text{读到不同} = \mathbf{43/227};\ \text{但其中 } 36\ \text{个是"}\mathtt{done}\ \text{时 PL 还在写"（两次 } \mathtt{/dev/mem}\ \text{也不同）}$$
+$$\Rightarrow\ \text{DDR 已稳定的 op 里只剩 } \mathbf{7/191}\ \text{是真·读取侧陈旧}，\text{全是 } 6144/8192/12288\ \text{B 小缓冲}$$
+$$\Rightarrow\ \mathbf{\mathtt{op13}/\mathtt{op15}\ \text{两通道完全一致}}（\mathtt{C1}{=}\mathtt{U1}{=}\mathtt{U2}{=}\mathtt{C2}）\Rightarrow \textbf{与首分歧 op 不一致}$$
+$$\Rightarrow\ \text{显式 invalidate 后稳定组 } \mathbf{227/227}\ \text{与 DDR 一致}，\text{但整网仍错} \Rightarrow \textbf{读侧不是根因}$$
+$$\Rightarrow\ \mathtt{BIN\_EPI\_NOINV}=0\ \text{两次仍各不同、均} \neq \mathtt{v39} \Rightarrow \text{未命中}$$
+
+**★ 真因（8 跑 8 中，剂量响应单调）**
+$$\Rightarrow\ \text{每次 } \mathtt{BE.\_flush}\ \text{之后}\textbf{纯 sleep 3 ms}（\text{不读任何通道、不做任何 cache 维护）}$$
+$$\Rightarrow\ \Rightarrow\ \text{三 sha1 }\mathbf{\text{逐位} = \mathtt{v39}}\ \text{参照}（\text{含一个独立租约 3 连跑三次全同）}$$
+$$\Rightarrow\ 1\ \text{ms 中 } 2/3;\ 0.2\ \text{ms 不中} \Rightarrow \textbf{剂量响应单调}$$
+$$\Rightarrow\ \text{而"}\mathtt{done}\ \text{之后睡 }20\ \text{ms"}\times2、\text{"等到每层 DDR 稳定（}p50\ 3.9/p90\ 13.3/\max\ 47.5\ \text{ms）"}\ \textbf{全部不修}$$
+$$\Rightarrow\ \text{而 } \mathtt{incheck}\ \text{臂实测 } \mathbf{908}\ \text{次 flush 之后 CPU 视角 vs } \mathtt{/dev/mem}\ \text{差异 } \mathbf{0/908}$$
+$$\Rightarrow\ \Rightarrow\ \textbf{不是 flush 没写回，而是 flush 之后 PL 仍按旧数据算} \Rightarrow \textbf{窗口在写入口，不在出口}$$
+
+$$\Rightarrow\ \textbf{一句话：}\text{128}^2\ \text{的错是"CPU 写完 + flush 之后到 PL 真正读到"之间的}\textbf{时间竞争}（\le 3\ \text{ms）}$$
+$$\Rightarrow\ \Rightarrow\ \mathbf{v53\ \text{的 RTL 逻辑是正确}}\text{的}——\text{一直是}\textbf{PS 侧写入口同步不足}$$
+$$\Rightarrow\ \text{代价：}6.2\to9.8\ \text{s}（+40\%）\Rightarrow \textbf{只能当取证护栏，不许当性能基线}$$
+$$\Rightarrow\ \textbf{第 128 条：}\text{"写完后 flush"}\ \textbf{不保证}\text{PL 通过 HP 口读到新数据；跨域写读必须靠}\textbf{显式 fence/回读}\ \text{或}\textbf{非缓存缓冲}$$
+$$\quad\ \Rightarrow\ \text{这也解释了为什么"所有单层测试都干净"}：\text{单层缓冲}\textbf{只写一次、从没被复用} \Rightarrow \text{竞争窗口小到撞不上}$$
+$$\quad\ \Rightarrow\ \text{而整网每层都复用缓冲} \Rightarrow \text{旧内容与新一轮写入在同一地址上竞争}$$

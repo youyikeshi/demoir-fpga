@@ -1,0 +1,407 @@
+{
+ "env_at_start": {
+  "BIN_PACK": "e1e2",
+  "BIN_LAZY_DEQ": "0",
+  "BIN_LAZY_SLOTS": "24",
+  "BIN_CAT_FUSION": "1",
+  "BIN_BILINEAR_C": "1",
+  "BIN_PRECOMP": "1",
+  "Q8CACHE": "1",
+  "BIN_F32DIRECT": "1",
+  "BIN_CAT_ECA_FUSE": "1",
+  "BIN_EPI_NOINV": "1",
+  "BIN_V50_FUSE": "",
+  "BIN_VLANES": ""
+ },
+ "steps": {
+  "load": {
+   "bit": "/home/xilinx/demoir/design_1_150v53.bit",
+   "seconds": 2.6575,
+   "ips": [
+    "bin_unit_0",
+    "conv_uni_0",
+    "ps7"
+   ],
+   "addr": {
+    "conv_uni_0": {
+     "base": "0x40040000",
+     "length": 131072,
+     "ok": true
+    },
+    "bin_unit_0": {
+     "base": "0x40060000",
+     "length": 131072,
+     "ok": true
+    }
+   },
+   "stat_after_load": {
+    "fclk": 125.0,
+    "base": "0x40060000",
+    "magic": "0x50300001",
+    "magic_ok": true,
+    "st310": "0x00000000",
+    "st310_zero": true,
+    "done": false,
+    "err": 0,
+    "busy": false,
+    "ap_ret_bin_unit_0": "0x00000000",
+    "ap_ret_conv_uni_0": "0x00000000"
+   },
+   "downloads": 1,
+   "fclk0_at_load": 125.0,
+   "meminfo_after_load": {
+    "MemTotal": 1028264,
+    "MemFree": 730912,
+    "MemAvailable": 831368,
+    "SwapTotal": 524284,
+    "SwapFree": 524284,
+    "CmaTotal": 262144,
+    "CmaFree": 33920
+   },
+   "fp_ok": true
+  },
+  "kernel_load": {
+   "q8": {
+    "loaded": true,
+    "seconds": 0.2577,
+    "why": "ok"
+   },
+   "c8deq": {
+    "loaded": true,
+    "seconds": 4.3452,
+    "why": "ok"
+   },
+   "bpack": {
+    "loaded": true,
+    "seconds": 1.8068,
+    "why": "ok"
+   }
+  },
+  "arena128": {
+   "hw": 128,
+   "slots": 24,
+   "need": 16678912,
+   "cma_free_before": 53248,
+   "cma_free_after": 53248,
+   "pa": "0x30100000",
+   "max_in": 294912,
+   "max_out": 393216,
+   "n_conv": 227,
+   "max_npix": 4096
+  },
+  "flushtest": {
+   "① 只写不做任何 flush": {
+    "n": 0,
+    "nb": 300000
+   },
+   "error": "KeyError('first')"
+  },
+  "net128": [
+   {
+    "run": 1,
+    "name": "net128",
+    "hw": 128,
+    "mode": "plain",
+    "noinv": "1",
+    "wall_s": 7.659,
+    "total_s": 7.6536455154418945,
+    "pl_s": 2.370163917541504,
+    "ps_s": 6.098095214849309,
+    "n_conv_ops": 227,
+    "deps_closure_ok": true,
+    "run_valid": true,
+    "lazy": {
+     "pinned": 0,
+     "released": 0,
+     "starved": 0,
+     "direct_layers": 0,
+     "mixed_layers": 0,
+     "ps_layers": 0,
+     "deq_skipped": 0,
+     "direct_bytes": 0,
+     "f32_bytes": 0
+    },
+    "sha1": {
+     "out1": "b335b0860e6c959537f8878be34703d4b1dd0f51",
+     "out2": "fc55e355ddb644600cc5bd242a8a4db7a5155048",
+     "out3": "fc8af9f140fcdd5699f2957068dda1f4a96d7220"
+    },
+    "v39_ref": [
+     "27e25cf67fdad22d95bfd488cc73ccc39cbe8134",
+     "b82b83f3d7eb1e0dc92e0c22a3c9656a2b963b2e",
+     "6db4e9bb19e0e744ef4f41a2c5a2eb6e003ad301"
+    ],
+    "hit_v39": false,
+    "x0_sha1": "26c9796e18f0e6883680693b805ce8bb7ad51486",
+    "post": {
+     "fclk": 50.0,
+     "base": "0x40060000",
+     "magic": "0x50300001",
+     "magic_ok": true,
+     "st310": "0x00000000",
+     "st310_zero": true,
+     "done": false,
+     "err": 0,
+     "busy": false,
+     "ap_ret_bin_unit_0": "0x00000001",
+     "ap_ret_conv_uni_0": "0x00000000"
+    },
+    "fclk": 50.0,
+    "cma_free_after_b": 77824,
+    "noinv_effective": true,
+    "devmem_err": null,
+    "devmem_reads": 1,
+    "gap_stats": {
+     "n": 0,
+     "ms_per_op": 20.0,
+     "total_ms": 0.0
+    },
+    "flush_mode": null,
+    "tok": "base"
+   },
+   {
+    "run": 2,
+    "name": "net128",
+    "hw": 128,
+    "mode": "incheck",
+    "noinv": "1",
+    "wall_s": 15.059,
+    "total_s": 15.053571224212646,
+    "pl_s": 4.710762977600098,
+    "ps_s": 13.532962435070658,
+    "n_conv_ops": 227,
+    "deps_closure_ok": true,
+    "run_valid": true,
+    "lazy": {
+     "pinned": 0,
+     "released": 0,
+     "starved": 0,
+     "direct_layers": 0,
+     "mixed_layers": 0,
+     "ps_layers": 0,
+     "deq_skipped": 0,
+     "direct_bytes": 0,
+     "f32_bytes": 0
+    },
+    "sha1": {
+     "out1": "27e25cf67fdad22d95bfd488cc73ccc39cbe8134",
+     "out2": "b82b83f3d7eb1e0dc92e0c22a3c9656a2b963b2e",
+     "out3": "6db4e9bb19e0e744ef4f41a2c5a2eb6e003ad301"
+    },
+    "v39_ref": [
+     "27e25cf67fdad22d95bfd488cc73ccc39cbe8134",
+     "b82b83f3d7eb1e0dc92e0c22a3c9656a2b963b2e",
+     "6db4e9bb19e0e744ef4f41a2c5a2eb6e003ad301"
+    ],
+    "hit_v39": true,
+    "x0_sha1": "26c9796e18f0e6883680693b805ce8bb7ad51486",
+    "post": {
+     "fclk": 50.0,
+     "base": "0x40060000",
+     "magic": "0x50300001",
+     "magic_ok": true,
+     "st310": "0x00000000",
+     "st310_zero": true,
+     "done": false,
+     "err": 0,
+     "busy": false,
+     "ap_ret_bin_unit_0": "0x00000001",
+     "ap_ret_conv_uni_0": "0x00000000"
+    },
+    "fclk": 50.0,
+    "cma_free_after_b": 73728,
+    "noinv_effective": true,
+    "devmem_err": null,
+    "devmem_reads": 909,
+    "gap_stats": {
+     "n": 0,
+     "ms_per_op": 20.0,
+     "total_ms": 0.0
+    },
+    "flush_mode": "check",
+    "flush": {
+     "n_flush": 908,
+     "n_bad": 0,
+     "bytes_bad": 0,
+     "bad": [],
+     "errors": [],
+     "cacheflush_err": null
+    },
+    "tok": "incheck"
+   },
+   {
+    "run": 3,
+    "name": "net128",
+    "hw": 128,
+    "mode": "fixflush",
+    "noinv": "1",
+    "wall_s": 52.078,
+    "total_s": 52.07231378555298,
+    "pl_s": 19.029433727264404,
+    "ps_s": 50.57715857210678,
+    "n_conv_ops": 227,
+    "deps_closure_ok": true,
+    "run_valid": true,
+    "lazy": {
+     "pinned": 0,
+     "released": 0,
+     "starved": 0,
+     "direct_layers": 0,
+     "mixed_layers": 0,
+     "ps_layers": 0,
+     "deq_skipped": 0,
+     "direct_bytes": 0,
+     "f32_bytes": 0
+    },
+    "sha1": {
+     "out1": "27e25cf67fdad22d95bfd488cc73ccc39cbe8134",
+     "out2": "b82b83f3d7eb1e0dc92e0c22a3c9656a2b963b2e",
+     "out3": "6db4e9bb19e0e744ef4f41a2c5a2eb6e003ad301"
+    },
+    "v39_ref": [
+     "27e25cf67fdad22d95bfd488cc73ccc39cbe8134",
+     "b82b83f3d7eb1e0dc92e0c22a3c9656a2b963b2e",
+     "6db4e9bb19e0e744ef4f41a2c5a2eb6e003ad301"
+    ],
+    "hit_v39": true,
+    "x0_sha1": "26c9796e18f0e6883680693b805ce8bb7ad51486",
+    "post": {
+     "fclk": 50.0,
+     "base": "0x40060000",
+     "magic": "0x50300001",
+     "magic_ok": true,
+     "st310": "0x00000000",
+     "st310_zero": true,
+     "done": false,
+     "err": 0,
+     "busy": false,
+     "ap_ret_bin_unit_0": "0x00000001",
+     "ap_ret_conv_uni_0": "0x00000000"
+    },
+    "fclk": 50.0,
+    "cma_free_after_b": 73728,
+    "noinv_effective": true,
+    "devmem_err": null,
+    "devmem_reads": 909,
+    "gap_stats": {
+     "n": 0,
+     "ms_per_op": 20.0,
+     "total_ms": 0.0
+    },
+    "flush_mode": "fix",
+    "flush": {
+     "n_flush": 0,
+     "n_bad": 0,
+     "bytes_bad": 0,
+     "bad": [],
+     "errors": [],
+     "cacheflush_err": null
+    },
+    "tok": "fixflush"
+   },
+   {
+    "run": 4,
+    "name": "net128",
+    "hw": 128,
+    "mode": "fixflush",
+    "noinv": "1",
+    "wall_s": 52.07,
+    "total_s": 52.064807415008545,
+    "pl_s": 19.015353202819824,
+    "ps_s": 50.598829508013296,
+    "n_conv_ops": 227,
+    "deps_closure_ok": true,
+    "run_valid": true,
+    "lazy": {
+     "pinned": 0,
+     "released": 0,
+     "starved": 0,
+     "direct_layers": 0,
+     "mixed_layers": 0,
+     "ps_layers": 0,
+     "deq_skipped": 0,
+     "direct_bytes": 0,
+     "f32_bytes": 0
+    },
+    "sha1": {
+     "out1": "27e25cf67fdad22d95bfd488cc73ccc39cbe8134",
+     "out2": "b82b83f3d7eb1e0dc92e0c22a3c9656a2b963b2e",
+     "out3": "6db4e9bb19e0e744ef4f41a2c5a2eb6e003ad301"
+    },
+    "v39_ref": [
+     "27e25cf67fdad22d95bfd488cc73ccc39cbe8134",
+     "b82b83f3d7eb1e0dc92e0c22a3c9656a2b963b2e",
+     "6db4e9bb19e0e744ef4f41a2c5a2eb6e003ad301"
+    ],
+    "hit_v39": true,
+    "x0_sha1": "26c9796e18f0e6883680693b805ce8bb7ad51486",
+    "post": {
+     "fclk": 50.0,
+     "base": "0x40060000",
+     "magic": "0x50300001",
+     "magic_ok": true,
+     "st310": "0x00000000",
+     "st310_zero": true,
+     "done": false,
+     "err": 0,
+     "busy": false,
+     "ap_ret_bin_unit_0": "0x00000001",
+     "ap_ret_conv_uni_0": "0x00000000"
+    },
+    "fclk": 50.0,
+    "cma_free_after_b": 151552,
+    "noinv_effective": true,
+    "devmem_err": null,
+    "devmem_reads": 909,
+    "gap_stats": {
+     "n": 0,
+     "ms_per_op": 20.0,
+     "total_ms": 0.0
+    },
+    "flush_mode": "fix",
+    "flush": {
+     "n_flush": 0,
+     "n_bad": 0,
+     "bytes_bad": 0,
+     "bad": [],
+     "errors": [],
+     "cacheflush_err": null
+    },
+    "tok": "fixflush"
+   }
+  ]
+ },
+ "python": "3.10.4",
+ "numpy": "1.21.5",
+ "machine": "armv7l",
+ "hash_probe": -469031399,
+ "pythonhashseed": null,
+ "arm": "t132c",
+ "meminfo_at_start": {
+  "MemTotal": 1028264,
+  "MemFree": 762544,
+  "MemAvailable": 847332,
+  "SwapTotal": 524284,
+  "SwapFree": 524284,
+  "CmaTotal": 262144,
+  "CmaFree": 64240
+ },
+ "args": {
+  "bit": "/home/xilinx/demoir/design_1_150v53.bit",
+  "pack": "/home/xilinx/demoir/deploy/bin_weights_new",
+  "outdir": "/home/xilinx/demoir/t132c_out",
+  "freq": 50.0,
+  "slots": 24,
+  "gap_ms": 20.0,
+  "poll_max_ms": 40.0,
+  "poll_step_ms": 2.0,
+  "plan": "base,incheck,fixflush,fixflush",
+  "hw256": 1,
+  "arm": "t132c",
+  "wd": 600.0,
+  "tag": "t132"
+ },
+ "fclk_target": 50.0,
+ "fclk_readback": 50.0,
+ "noinv0_hit": false
+}
