@@ -4739,3 +4739,29 @@ $$\Rightarrow\ \text{绝对阈值（N2=0）在本项目两次都是错的（v39 
 $$\Rightarrow\ \text{正确的三分类：}\textbf{① 越界写风险}（地址/突发/WE，相对 v39 不许更差）$$
 $$\quad\ \textbf{② 数据正确性风险}（CE/D 错拍，只能靠 sha1 判）\quad\ \textbf{③ 纯性能}（WNS/TNS，只影响快慢）$$
 $$\Rightarrow\ \text{把 ②③ 混进 ① 的门槛，就会把"能跑的位流"判死，也会放过"真会写坏内存"的位流}$$
+
+### 70.21 ⚠ `BIN_MMIO_POLL` 也是负收益；并新增"跨 session 不许比绝对值"（2026-11-02 09:00）
+
+| 臂 | total（热态中位，同一 session）| 相对 `off` |
+|---|---:|---:|
+| `off`（4 个锚点）| 6.671 / 6.625 / 6.678 / 6.660 | — |
+| **`POLL`（k=0.55）** | **7.004 / 6.955** | **+0.33~0.38** |
+| `POLL09`（k=0.9，睡更久）| 7.131 | +0.41 |
+| `ABC` | **6.211** | −0.449 |
+| `ABC+POLL` | 6.642~6.681 | 比 `ABC` 差 **+0.43** |
+
+$$\Rightarrow\ \textbf{机制}：\text{轮询读本来就发生在"等 PL"的时间窗里（免费）} \Rightarrow \text{强制睡反而引入过冲与调度延迟}$$
+$$\Rightarrow\ T-23\ \text{的离线模型只证明了"不漏 done"（那是}\textbf{正确性}\text{），}\textbf{方向判反了}\text{（收益）}$$
+$$\Rightarrow\ \textbf{第 88 条纪律：}\text{"减少轮询次数"在有硬件等待的循环里}\textbf{通常不是优化}——$$
+$$\quad\ \text{判据：}\text{先问"这些读是不是发生在等待窗口内"}；\text{是} \Rightarrow \text{它是免费的，动它只会引入过冲}$$
+
+**第 87 条纪律：板端绝对秒数只在同一 session 内可比**
+$$\Rightarrow\ \text{同一天同一代码：} \texttt{off}\ \text{在早批 } 6.528、\ \text{本批 } 6.625\sim6.678（\text{漂移 } \mathbf{0.1\sim0.15}）$$
+$$\Rightarrow\ \texttt{ABC}\ \text{在早批 } 5.989\sim6.008、\ \text{本批 } 6.211（\text{漂移 } 0.2）$$
+$$\Rightarrow\ \Rightarrow\ \text{跨 session 比绝对值会得出"退步/进步"的假结论} \Rightarrow \textbf{一律用同一 session 内的 off→X 对比}$$
+$$\quad\ \text{跨 session 只允许比}\textbf{无量纲量}：\text{冻结占比} \texttt{frz/cyc}、\ \texttt{cyc/term}、\ \text{桶占比}$$
+
+$$\Rightarrow\ \textbf{至此三条软件路线的结局}：$$
+$$\quad\ \text{① convfp 换 C 内核} \Rightarrow \text{负收益（A9 慢 2×）} \quad\ \text{② 轮询减访问} \Rightarrow \text{负收益（读是免费的）}$$
+$$\quad\ \text{③ prologue 三刀} \Rightarrow \mathbf{-0.45\sim-0.54\ s}\ \text{（唯一真收益，已进 v4）}$$
+$$\quad\ \Rightarrow\ \textbf{软件侧基本挖到底了}；\text{剩下的墙是}\textbf{RTL/架构}（\text{预取、pack 字节、融合}）$$
