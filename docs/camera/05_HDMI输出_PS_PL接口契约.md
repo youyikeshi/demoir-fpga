@@ -269,3 +269,25 @@ $$\Rightarrow\ 	ext{不许进复位、不许进使能、不许进 } 	exttt{hdmi\
 未锁时"像素域处于复位态"由**硬件拓扑**保证，不需要显式与：
 $$\Rightarrow\ 	ext{像素时钟本身就是 MMCM 派生} \Rightarrow 	ext{无锁即无时钟} \Rightarrow 	ext{像素域触发器停在初值}$$
 $$\Rightarrow\ \Rightarrow\ 	extbf{"不亮而已，不变砖"成立，靠拓扑而非靠逻辑门}$$
+
+### 8.6 ★ 门禁必须按"引脚级别"扫，并按"警告级别"兜底（2026-11-03，事故同形态的第二个来源）
+
+`bd 41-759` 事故复现：`axi_ctrl`（`axi_interconnect`）的 **per-port 复位** `S00_ARESETN` / `M00_ARESETN`
+没接，Vivado 把**低有效**脚绑成 0 ⇒ 该口永久处于复位 ⇒ PS 读 `0x400A0000` 无响应。
+
+$$\Rightarrow\ 	ext{这和 11-03 的 } 	exttt{dcm\_locked}\ 	ext{是}	extbf{同一个故障形态}（	ext{复位被永久按住}）$$
+$$\Rightarrow\ \Rightarrow\ 	extbf{说明“点名某一条已知的线”这种断言抓不住同类问题}$$
+
+**两条规则**：
+
+1. **按引脚扫，不按名字点名**
+   - 遍历目标 cell 的**全部** `*ARESETN*` / `*_rst` / `locked` 引脚，逐个检查"有驱动 + 驱动源正确"。
+   - 理由：`NUM_SI`/`NUM_MI` 一变就会冒出新脚，点名式断言必然漏。
+
+2. **`CRITICAL WARNING` 也是门禁**
+   - `validate_bd_design` / `generate_target` 之后要 **grep 构建日志**：
+     出现 `BD 41-759` 且下一行含我们自己例化的 cell ⇒ **ERROR 退出**。
+   - 白名单只许 PS7 的已知无关脚，且必须写成**显式清单 + 注释原因**。
+   - 理由：`CRITICAL WARNING` **不阻断构建** ⇒ 不主动抓就永远没人看 ⇒ 11-03 与本次都是这么漏的。
+
+$$\Rightarrow\ 	ext{一句话：} 	extbf{"不阻断构建的错误"才是真正的危险} \Rightarrow 	ext{门禁要盯它们，不是盯 } 	ext{ERROR}$$
