@@ -1,0 +1,204 @@
+# PetaLinux 操作清单：开 USB Host（接摄像头）+ HDMI 输出
+
+> **给谁看**：在这台机器上继续做板端镜像的人/agent。
+> **本机已核实的现状写在 §1**，不要重新装 PetaLinux——它已经装好了，工程也已经建好并成功构建过一次。
+> **一句话**：摄像头要**重建镜像**（内核缺 DWC2 host 驱动、设备树缺 usb 段）；**HDMI 不用重建镜像**（跟 overlay 位流走）。
+
+---
+
+## 1. 本机现状（2026-11-02 实测，不要重做）
+
+| 项 | 实测值 |
+|---|---|
+| PetaLinux 安装 | **`/data/petalinux/2025.2`**（12 GB，`settings.sh` 可用，`petalinux-util` 正常） |
+| 安装包（备用） | `/data/petalinux/petalinux-v2025.2-11160223-installer.run`（3.1 GB） |
+| Vivado / Vitis | `/data/xilinx/2025.2/2025.2.1/{Vivado,Vitis}/settings64.sh` |
+| 构建根 | **`/data/peta_prj`**（`/data` 剩 102 GB） |
+| PetaLinux 工程 | **`/data/peta_prj/ax_peta`**（33 GB） |
+| XSA | `/data/peta_prj/hardware/ps7_only.xsa`（PS7 已含 `PCW_EN_USB0=1`、`PCW_USE_S_AXI_HP0=1`） |
+| PYNQ rootfs | `/data/peta_prj/downloads/pynq/jammy.arm.3.1.0.tar.gz` |
+| 上次构建 | **2026-11-01 22:25 成功**：`BOOT.BIN`(1.1 MB) / `image.ub`(4.9 MB) / `system.dtb`(19 KB)，五项检查全过 |
+| 上次构建的下一步 | `deploy/pynq/build_pynq_rootfs.sh`（组装 PYNQ rootfs + SD 镜像）—— **尚未执行** |
+
+### 1.1 `deploy/env.sh` 的两处默认值在这台机器上是错的（必须先覆盖）
+
+```bash
+export PETALINUX_INSTALL=/data/petalinux/2025.2                                       # 默认 /opt/pkg/petalinux（不存在）
+export VITIS_SETTINGS=/data/xilinx/2025.2/2025.2.1/Vitis/settings64.sh                 # 默认 /home/zheyang/...（不存在）
+export PETALINUX_PRJ_ROOT=/data/peta_prj                                             # 默认 <仓库>/../peta_prj（会新建一个空根）
+export XSA_SRC=/data/peta_prj/hardware/ps7_only.xsa                                   # 默认 ../xilinx_project/...（不存在）
+```
+
+> 只要 `source deploy/env.sh` 之前设好这四个，`deploy/` 下所有脚本都能直接用。
+
+---
+
+## 2. 摄像头：当前到底缺哪一层（逐项实测）
+
+| 层 | 检查 | 现状 | 结论 |
+|---|---|---|---|
+| PS 控制器 | XSA `PCW_EN_USB0` | = 1 | ✅ 硬件层面在 |
+| 内核驱动 | `CONFIG_USB_DWC2` | **未设** | ❌ **最根本的缺口**（没有 host controller 驱动） |
+| 内核模式 | `CONFIG_USB_GADGET_XILINX` | = y | ⚠ 现在是 **device/gadget** 模式 |
+| ULPI PHY | `CONFIG_USB_ULPI*` | = y | ✅ 有 |
+| 网络类驱动 | `CONFIG_USB_NET_CDC_NCM` | **未设** | ❌ MaixCAM 的 NCM 网卡用不了 |
+| UVC 摄像头 | `CONFIG_USB_VIDEO_CLASS` + `CONFIG_MEDIA_USB_SUPPORT` | **未设** | ❌ 插普通 USB 摄像头也不行 |
+| 设备树 | `system-user.dtsi` 里的 `usb` 段 | **没有** | ❌ 需要加 |
+
+- 所以板端 `/sys/bus/usb/devices/` 为空、 `/dev/video*` 不存在 ⇒ **与观察一致**
+
+---
+
+## 3. 操作 A：开 USB Host（要重建镜像，约 20~40 min）
+
+### 3.1 内核配置（新增一个 cfg 片段，不要手改 `.config`）
+```bash
+CFG=/data/peta_prj/ax_peta/project-spec/meta-user/recipes-kernel/linux/linux-xlnx/usb-host.cfg
+mkdir -p "$(dirname "$CFG")"
+cat > "$CFG" <<'EOF'
+# USB Host（摄像头）—— 2026-11-02
+CONFIG_USB=y
+CONFIG_USB_SUPPORT=y
+CONFIG_USB_DWC2=y
+CONFIG_USB_DWC2_HOST=y
+CONFIG_USB_DWC2_DUAL_ROLE=y
+CONFIG_USB_DWC2_PERIPHERAL=y
+CONFIG_USB_ULPI=y
+CONFIG_USB_ULPI_BUS=y
+CONFIG_USB_ULPI_VIEWPORT=y
+# 网络类：MaixCAM 走 USB-NCM 网卡
+CONFIG_USB_NET_CDC_NCM=y
+CONFIG_USB_NET_CDCETHER=y
+CONFIG_USB_USBNET=y
+# 可选：普通 UVC 摄像头
+CONFIG_MEDIA_USB_SUPPORT=y
+CONFIG_MEDIA_SUPPORT=y
+CONFIG_VIDEO_DEV=y
+CONFIG_USB_VIDEO_CLASS=y
+EOF
+# 让 bbappend 吃到这个片段
+BB=/data/peta_prj/ax_peta/project-spec/meta-user/recipes-kernel/linux/linux-xlnx_%.bbappend
+grep -q 'usb-host.cfg' "$BB" 2>/dev/null || cat >> "$BB" <<'EOF'
+
+SRC_URI += "file://usb-host.cfg"
+FILESEXTRAPATHS:prepend := "${THISDIR}/${PN}:"
+EOF
+```
+> **判据**：重建后在板端 `zcat /proc/config.gz | grep CONFIG_USB_DWC2` 必须出现 `=y`。
+
+### 3.2 设备树（`usb0` 改成 host）
+在 `/data/peta_prj/ax_peta/project-spec/meta-user/recipes-bsp/device-tree/files/system-user.dtsi` 末尾加：
+```dts
+/* ── USB0：Host 模式（接 USB 摄像头 / MaixCAM NCM 网卡）──────────────
+ * 硬件依据：AX7015B PS 的 USB0 经 ULPI PHY 引出到 USB-A/Hub。
+ * 注意：这块板子原来跑 gadget 模式（CONFIG_USB_GADGET_XILINX），
+ *       改成 host 后 device 模式不可用 —— 如需两者共存用 dr_mode = "otg"。
+ */
+&usb0 {
+	status = "okay";
+	dr_mode = "host";
+	/* ULPI PHY 由 PS 内部 viewport 驱动；MIO 已在 XSA 中配好 */
+};
+```
+> 若厂商 BSP 里有现成的 usb 段（ALINX 手册有《USB 摄像头显示》例程），**优先抄厂商的**，别自己猜 ULPI 引脚。
+
+### 3.3 重建 + 校验
+```bash
+cd /media/felix/Data/coding/demoir-fpga
+export PETALINUX_INSTALL=/data/petalinux/2025.2
+export VITIS_SETTINGS=/data/xilinx/2025.2/2025.2.1/Vitis/settings64.sh
+export PETALINUX_PRJ_ROOT=/data/peta_prj
+export XSA_SRC=/data/peta_prj/hardware/ps7_only.xsa
+source deploy/env.sh
+
+source /data/petalinux/2025.2/settings.sh
+petalinux-build -p /data/peta_prj/ax_peta 2>&1 | tee /data/peta_prj/logs/03_usbhost.log
+```
+**三道判据（缺一不可）**
+1. 构建返回 0，`images/linux/{BOOT.BIN,image.ub,system.dtb}` 时间戳都更新；
+2. `system.dtb` 里 `usb@e0002000` 的 `status = "okay"`、`dr_mode = "host"`；
+3. 上板后 `ls /sys/bus/usb/devices/` **非空**，插 U 盘能枚举（先用 U 盘验 host，再接相机）。
+
+### 3.4 上板验证顺序（不要一步跳到相机）
+```
+① 只验 host：插 U 盘 → dmesg 有 "new high-speed USB device" → /dev/sda 出现
+② 再验网络类：插 MaixCAM → ip link 出现 usb0 → ping 10.13.148.1
+③ 最后才写取帧代码
+```
+
+---
+
+## 4. 操作 B：HDMI 输出（**不需要重建镜像**）
+
+### 4.1 为什么不用重建
+- 现在的 PYNQ 3.1 镜像用 FPGA manager 在运行时加载 overlay 位流
+- HDMI 链路 = 位流里的一段逻辑 ⇒ 换位流即可
+- PS 侧不装 DRM 驱动也行：VDMA/VTC 都是普通 AXI 寄存器，用 `mmap` 直接配
+- **所以 HDMI 是"RTL + Python"的活，不是"做镜像"的活**
+
+### 4.2 PL 侧要加的东西（按 `docs/camera/01_资源评估` 的方案 C）
+| 模块 | 作用 | 预估 |
+|---|---|---:|
+| 视频时序发生器 | 产生 720p60 / 1080p30 的 hs/vs/de | 自写 ~200 LUT，或用 VTC IP |
+| 源图行缓冲 | 缓存 2 行 $256^2$ 结果（最近邻放大用） | 1~2 RAMB18 |
+| 最近邻放大 | 4.22× 像素复制，读 DDR 走 HP2 | ~400 LUT |
+| TMDS 编码 + OSERDES | 10 bit 串行差分送 HDMI | ~800~1200 LUT，或用 Xilinx HDMI 1.4 TX IP |
+| 换帧同步 | 双缓冲 + `frame_id` 原子切换（防撕裂） | ~100 LUT |
+
+- 合计 +1.52.5k LUT ⇒ 整芯片 4850%
+- DDR 只多约 6 MB/s（因为直接从 256^2 源图放大，不写 1080p 帧缓冲）
+
+### 4.3 PS 侧只做三件事（Python，PYNQ 风格，无内核驱动）
+1. 每帧把 $256^2$ 结果写进 DDR 的源图缓冲（`mmap` + `memcpy`，197 KB，毫秒级）；
+2. 置 `frame_id`（PL 在帧边界读取并切换）；
+3. 启动时配一次视频时序寄存器表（分辨率、前后肩、行场同步）。
+
+---
+
+## 5. 时间与磁盘预算（决策用）
+
+| 动作 | 时间 | 磁盘增量 |
+|---|---|---|
+| 只重建内核 + dtb + image（改配置） | 20~40 min | +2~5 GB |
+| 从头全量构建 | 1.5~2 h | +30 GB |
+| 组装 PYNQ rootfs + SD 镜像 | 15~30 min | +6~10 GB |
+| PL 侧 HDMI RTL + 上板调试 | 数天（独立任务） | — |
+
+- `/data` 剩 102 GB ⇒ 全量重建 + 镜像都放得下
+- 但 `/` 只剩 32 GB ⇒ **所有构建产物必须留在 ** `/data`，不要落到 `/opt` 或 `\$HOME`
+
+---
+
+## 6. 门禁与回退
+
+**门禁**
+1. 改前先 `cp -a project-spec /data/peta_prj/backup_project-spec_$(date +%m%d_%H%M)`
+2. 内核 cfg 用独立文件（不改 `.config`），DT 改动集中在 `system-user.dtsi`
+3. 构建成功必须同时满足：`petalinux-build` rc=0 + 三个镜像时间戳更新 + `system.dtb` 里 usb 段正确
+4. 上板先验 U 盘，再验相机（分两步，不要合并）
+
+**回退**
+```bash
+rm -f /data/peta_prj/ax_peta/project-spec/meta-user/recipes-kernel/linux/linux-xlnx/usb-host.cfg
+# 还原 bbappend 与 system-user.dtsi 到备份
+cp -a /data/peta_prj/backup_project-spec_*/... <原位>
+petalinux-build -p /data/peta_prj/ax_peta
+```
+
+---
+
+## 7. 与现有文档的关系
+
+| 文档 | 内容 |
+|---|---|
+| `docs/camera/01_资源评估_摄像头与HDMI输出.md` | 资源够不够的定量结论（DDR/PL/CMA/CPU/HP） |
+| `docs/camera/板端USB网卡_PetaLinux工作清单.md` | 相机侧的拓扑与 MaixCAM 的 NCM 细节（本文补上了它缺的"内核配置具体项"） |
+| `docs/部署/`、`deploy/peta/*` | 完整的 XSA → 工程 → 构建 → rootfs 流程 |
+| `docs/baselines.md` | 位流/运行点/秒级数字的唯一权威 |
+
+---
+
+## 8. 一句话交接
+
+**摄像头**：加 `usb-host.cfg`（`CONFIG_USB_DWC2_HOST` + `CDC_NCM` + `UVC`）+ DT 里 `&usb0 { dr_mode="host" }`，重建 20~40 min，先验 U 盘再验相机。
+**HDMI**：不重建镜像；在 overlay 里加"时序 + 最近邻放大 + TMDS"，PS 用 `mmap` 配寄存器。资源够（+1.5~2.5k LUT，DDR +6 MB/s），但帧率只有 0.17 fps，只适合"结果展示"。
