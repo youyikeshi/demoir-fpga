@@ -471,5 +471,5 @@ MMCM 单 VCO = 1187.5 MHz（输入 100 MHz，`M=11.875`，`DIVCLK=1`）：
 | `tb_hdmi_fb_scan` | 6 case、23600 像素比对 0 失败 |
 | `tb_hdmi_top_scan` | D-1 彩条两档 921600 像素 0 失配；D-2 扫描流 921600 像素 0 失配；D-3 帧中途写本帧不变、下一帧才生效；D-4 starved 2162 → 稳态不增长；D-5 三路像素时钟全停后 AXI 六个寄存器仍可读写 |
 
-$$\Rightarrow\ 	extbf{D-2 的做法值得记}：	ext{帧缓冲不用内存镜像，而用地址公式生成像素 } pix(y,x) = \{x[7:0], y[7:0], (x+y)[7:0]\}$$
-$$\Rightarrow\ 	ext{三分量各不相同} \Rightarrow 	ext{任何通道交换/字节序错都会逐字节暴露} \Rightarrow 	ext{而且 } 2.76\ 	ext{MB 不落内存}$$
+- extbfD-2 的做法值得记： ext帧缓冲不用内存镜像，而用地址公式生成像素 pix(y,x) = \x[7:0], y[7:0], (x+y)[7:0]\
+- ext三分量各不相同 ⇒ ext任何通道交换/字节序错都会逐字节暴露 ⇒ ext而且 2.76 extMB 不落内存
