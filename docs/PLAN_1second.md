@@ -4980,9 +4980,11 @@ $$\quad\ \Rightarrow\ \text{该族在 v39 更糟时（} -1.605 \text{）都能�
 | v42 | 四参数 + 计数器 + e1e2 | 24 跑 24 种 sha1（非确定）| — |
 | v42c | `PF_AHEAD=2` + 计数器 | **挂死**（busy=1）| 跑完但**数据错且非确定** |
 | v42d | 只有计数器（参数 = v39）| **越界写**（金丝雀 8/4096）| — |
-| **v42e** | **只有 `PF_AHEAD=2`（零诊断）** | **挂死**（`AP_RETURN=0x02`, busy=1）| 待补 |
+| **v42e** | **只有 `PF_AHEAD=2`（零诊断）** | **挂死**（`AP_RETURN=0x02`, busy=1）| 跑完但 **sha1 错**（`9fd266f5…`，第三个互不相同的值）|
 
 $$\Rightarrow\ \text{v42e 是"v42c 去掉计数器"}\ \Rightarrow\ \text{挂死形态同型} \Rightarrow \textbf{计数器不是原因}$$
+$$\Rightarrow\ \textbf{100 MHz 补测定案}：\text{跑完但 } \texttt{sha1}\ \text{错} \Rightarrow \text{改频不改性质} \Rightarrow \textbf{纯功能错，与频率无关}$$
+$$\quad\ \text{三个互不相同的错值（} \texttt{bd8f848d…}/\texttt{ba212720…}/\texttt{9fd266f5…}\text{）} \Rightarrow \textbf{非确定性}$$
 $$\Rightarrow\ \text{剩余差异只有 } \texttt{PF\_AHEAD } 1\to2 \Rightarrow \textbf{预取簿记把读通路锁死}（\text{需求读等一条永不回填的线}）$$
 $$\Rightarrow\ \textbf{第 96 条纪律}：\text{参数之间若有契约（RTL 注释写着 } \texttt{PF\_DEPTH}\ \text{须配合 } \texttt{PF\_AHEAD}\text{），}$$
 $$\quad\ \text{则}\textbf{单独调任一维等于破坏契约}\text{；要么整对一起改+仿真证明，要么一维都别碰}$$
@@ -5004,3 +5006,23 @@ $$\Rightarrow\ \text{阶段 2 里"预取"这一项}\textbf{删除};\ \text{只�
 $$\Rightarrow\ \text{阶段 3（convfp 搬 PL，}-0.75\text{）}\textbf{升为下一个主攻}——\text{它是唯一"RTL 已验完、只缺集成"的大块}$$
 $$\Rightarrow\ \text{阶段 4（全融合）不变，但"conv 停顿"那一项从"有明确机制"降级为"机制待证"}$$
 $$\Rightarrow\ \text{新的里程碑：}5.99\ \to\ (\text{①②③实测 }-0.14)\ \approx 5.85\ \to\ (\text{convfp 搬 PL }-0.75)\ \approx \mathbf{5.1}$$
+
+### 70.32 `bin_engine/bin_net` 的**导入期常量**清单（T-54 踩坑，共 8 个）
+
+$$\Rightarrow\ \text{这 8 个在 } \texttt{import}\ \text{时就定型} \Rightarrow \text{运行点/开关}	extbf{必须在 import 之前}	ext{写进 } \texttt{os.environ}$$
+
+| 模块 | 常量 | 环境变量 |
+|---|---|---|
+| `bin_engine` | `_PROF` | `BIN_PROFILE` |
+| | `_E1E2_DBG` | `E1E2_DBG` |
+| | `_MMIO_FAST_ENV` | `BIN_MMIO_FAST` |
+| | `_MMIO_POLL_ENV` | `BIN_MMIO_POLL` |
+| | `_MMIO_C_ENV` | `BIN_MMIO_C` |
+| `bin_net` | `_TPOLL` | `NET_TPOLL` |
+| | `_fast_eca_env` | `BIN_FAST_ECA` |
+| | `_DBG_PREP` | `BIN_LAZY_DEBUG` |
+
+$$\Rightarrow\ \text{其余（} \texttt{BIN\_PACK/BIN\_LAZY\_*/BIN\_CAT\_FUSION/BIN\_BILINEAR\_C/BIN\_F32DIRECT/BIN\_PRECOMP/Q8CACHE/BIN\_CONVPF\_C/}\text{T-18 四刀} \text{）}$
+$\quad\ \text{都是实例/调用时读} \Rightarrow \texttt{set\_env()}\ \text{后重建 engine 即生效}$$
+
+$$\Rightarrow\ \textbf{机制化}：\text{import 前落环境 + import 后 } \texttt{assert BE.\_PROF}\ \text{这类硬断言} \Rightarrow \text{别再让一次上板白跑（本轮 rc=6）}$$
