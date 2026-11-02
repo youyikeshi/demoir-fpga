@@ -1,0 +1,603 @@
+
+****** Vivado v2025.2.1 (64-bit)
+  **** SW Build 6403652 on Thu Mar 19 13:47:00 MDT 2026
+  **** IP Build 6403511 on Thu Mar 19 12:41:45 MDT 2026
+  **** SharedData Build 6403650 on Thu Mar 19 14:02:13 MDT 2026
+  **** Start of session at: Mon Nov  2 08:20:35 2026
+    ** Copyright 1986-2022 Xilinx, Inc. All Rights Reserved.
+    ** Copyright 2022-2026 Advanced Micro Devices, Inc. All Rights Reserved.
+
+source pl/scripts/audit_v42_endpoints.tcl
+# source [file join [file dirname [info script]] _guard_build.tcl]
+## set _guard_root [file normalize [file join [file dirname [file normalize [info script]]] ../../..]]
+## set _owner_file [expr {[info exists ::env(DSH_BUILD_OWNER_FILE)] \
+##                         ? $::env(DSH_BUILD_OWNER_FILE) \
+##                         : [file join $_guard_root runs resguard BUILD_OWNER]}]
+## set _ttl [expr {[info exists ::env(BUILD_OWNER_TTL)] ? $::env(BUILD_OWNER_TTL) : 21600}]
+## proc _guard_fail {msg} {
+##     puts stderr "\n==========================================================================="
+##     puts stderr "  ⛔ 构建被资源闸门拒绝：$msg"
+##     puts stderr "==========================================================================="
+##     puts stderr "  本机 SwapTotal=0，必须串行构建。请改用它启动："
+##     puts stderr ""
+##     puts stderr "    cd /media/felix/Data/coding/demoir-fpga/pynq_specialized_code"
+##     puts stderr "    tools/memgate.sh <预估峰值GB> -- \\"
+##     puts stderr "        pl/scripts/vrun.sh scripts/build_final_150v39.tcl runs/xxx.log"
+##     puts stderr ""
+##     puts stderr "  预估峰值：综合约 4 GB，中小实现约 8 GB，大实现 16 GB。"
+##     puts stderr "  说明见 runs/resguard/RESOURCE.md"
+##     puts stderr "===========================================================================\n"
+##     error "_GUARD_REJECTED: $msg"
+## }
+## if {![info exists ::env(DSH_BUILD_TOKEN)]} {
+##     _guard_fail "缺少 DSH_BUILD_TOKEN 环境变量（不是通过 memgate.sh 启动的）"
+## }
+## if {![file readable $_owner_file]} {
+##     _guard_fail "找不到 BUILD_OWNER（$_owner_file）—— 没有构建正在进行，或已过期被清理"
+## }
+## set _fh [open $_owner_file r]
+## set _raw [read $_fh]
+## close $_fh
+## array set _own {token "" pid "" ts "" lock "" cmd ""}
+## foreach _line [split $_raw "\n"] {
+##     if {[regexp {^([a-zA-Z_]+)=(.*)$} $_line -> _k _v]} {
+##         set _own($_k) $_v
+##     }
+## }
+## if {$_own(token) eq ""} {
+##     _guard_fail "BUILD_OWNER 内容不合法（缺 token）"
+## }
+## if {$_own(token) ne $::env(DSH_BUILD_TOKEN)} {
+##     _guard_fail "令牌不匹配：env=$::env(DSH_BUILD_TOKEN) owner=$_own(token)（另有构建在跑，抢锁失败）"
+## }
+## set _age [expr {[clock seconds] - int($_own(ts))}]
+## if {$_age > $_ttl} {
+##     _guard_fail "BUILD_OWNER 已过期 ${_age}s > TTL ${_ttl}s（多半是上次构建异常中断留下的）"
+## }
+## if {$_age < 0} {
+##     _guard_fail "BUILD_OWNER 时间戳在未来（时钟异常）"
+## }
+## if {$_own(lock) ne "bypassed"} {
+##     set _lk [expr {[info exists _own(lockfile)] && $_own(lockfile) ne "" ? $_own(lockfile) : "/tmp/dsh_vivado.lock"}]
+##     if {[file readable $_lk]} {
+##         # 锁空闲 ⇒ flock 能拿到 ⇒ 说明没人持锁，本进程不是受控启动
+##         if {![catch {exec flock -n $_lk -c true} _out]} {
+##             _guard_fail "单实例锁 $_lk 处于空闲状态（预期被 memgate 持有）"
+##         }
+##     }
+## }
+## puts "\[guard\] ✅ 构建闸门通过  owner_pid=$_own(pid)  age=${_age}s  lock=$_own(lock)"
+[guard] ✅ 构建闸门通过  owner_pid=3805924  age=4s  lock=held
+## puts "\[guard\]    token=$_own(token)"
+[guard]    token=1793578834-3805924-2359619883
+## puts "\[guard\]    cmd=$_own(cmd)"
+[guard]    cmd=pl/scripts/vrun.sh pl/scripts/audit_v42_endpoints.tcl /media/felix/Data/coding/demoir-fpga/runs/timing_v42/audit_v42.log 7200
+# set_param general.maxThreads 2
+# set_param tcl.collectionResultDisplayLimit 0
+# set pl  /media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl
+# set args $argv
+# set dcp [file join $pl ../board/overlay_engine_150mhz/design_1_150v42_routed.dcp]
+# set od  /media/felix/Data/coding/demoir-fpga/runs/timing_v42
+# set want_period 6.667
+# while {[llength $args] > 0} {
+#     set a [lindex $args 0]; set args [lrange $args 1 end]
+#     switch -- $a {
+#         --dcp { set dcp [lindex $args 0]; set args [lrange $args 1 end] }
+#         --out { set od  [lindex $args 0]; set args [lrange $args 1 end] }
+#         default { puts "忽略未知参数 $a" }
+#     }
+# }
+# file mkdir $od
+# if {![file exists $dcp]} { error "缺 routed DCP: $dcp" }
+# puts "== audit_v42 =="
+== audit_v42 ==
+# puts "   dcp = $dcp"
+   dcp = /media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/../board/overlay_engine_150mhz/design_1_150v42_routed.dcp
+# puts "   out = $od"
+   out = /media/felix/Data/coding/demoir-fpga/runs/timing_v42
+# open_checkpoint $dcp
+Command: open_checkpoint /media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/../board/overlay_engine_150mhz/design_1_150v42_routed.dcp
+
+Starting open_checkpoint Task
+
+Time (s): cpu = 00:00:00.02 ; elapsed = 00:00:00.02 . Memory (MB): peak = 1543.754 ; gain = 0.000 ; free physical = 4964 ; free virtual = 11295
+INFO: [Device 21-403] Loading part xc7z015clg485-2
+Netlist sorting complete. Time (s): cpu = 00:00:00.12 ; elapsed = 00:00:00.12 . Memory (MB): peak = 1815.246 ; gain = 0.000 ; free physical = 4919 ; free virtual = 11295
+INFO: [Netlist 29-17] Analyzing 3625 Unisim elements for replacement
+INFO: [Netlist 29-28] Unisim Transformation completed in 0 CPU seconds
+INFO: [Project 1-479] Netlist was created with Vivado 2025.2.1
+INFO: [Project 1-570] Preparing netlist for logic optimization
+Read ShapeDB Complete: Time (s): cpu = 00:00:00.04 ; elapsed = 00:00:00.04 . Memory (MB): peak = 1917.152 ; gain = 4.250 ; free physical = 4797 ; free virtual = 11173
+INFO: [Timing 38-478] Restoring timing data from binary archive.
+INFO: [Timing 38-479] Binary timing data restore complete.
+INFO: [Project 1-856] Restoring constraints from binary archive.
+INFO: [Project 1-853] Binary constraint restore complete.
+INFO: [Designutils 20-5722] Start Reading Physical Databases.
+Reading placement.
+Read Netlist Cache: Time (s): cpu = 00:00:00.03 ; elapsed = 00:00:00.03 . Memory (MB): peak = 2552.160 ; gain = 0.000 ; free physical = 4203 ; free virtual = 10563
+Reading placer database...
+Read Device Cache: Time (s): cpu = 00:00:00.01 ; elapsed = 00:00:00.01 . Memory (MB): peak = 2552.160 ; gain = 0.000 ; free physical = 4195 ; free virtual = 10555
+Read PlaceDB: Time (s): cpu = 00:00:00 ; elapsed = 00:00:00 . Memory (MB): peak = 2552.160 ; gain = 0.000 ; free physical = 4195 ; free virtual = 10555
+Read placeStorage: Time (s): cpu = 00:00:00.59 ; elapsed = 00:00:00.6 . Memory (MB): peak = 2571.160 ; gain = 19.000 ; free physical = 4178 ; free virtual = 10537
+Read PulsedLatchDB: Time (s): cpu = 00:00:00 ; elapsed = 00:00:00 . Memory (MB): peak = 2571.160 ; gain = 0.000 ; free physical = 4178 ; free virtual = 10537
+Reading routing.
+Read RouteStorage: Time (s): cpu = 00:00:00.51 ; elapsed = 00:00:00.33 . Memory (MB): peak = 2592.504 ; gain = 21.344 ; free physical = 4122 ; free virtual = 10512
+Read Physdb Files: Time (s): cpu = 00:00:01 ; elapsed = 00:00:00.99 . Memory (MB): peak = 2592.504 ; gain = 40.344 ; free physical = 4121 ; free virtual = 10512
+Restored from archive | CPU: 1.180000 secs | Memory: 36.559692 MB |
+Finished XDEF File Restore: Time (s): cpu = 00:00:01 ; elapsed = 00:00:01 . Memory (MB): peak = 2592.504 ; gain = 47.281 ; free physical = 4123 ; free virtual = 10513
+Netlist sorting complete. Time (s): cpu = 00:00:00 ; elapsed = 00:00:00 . Memory (MB): peak = 2604.887 ; gain = 0.000 ; free physical = 4124 ; free virtual = 10512
+INFO: [Project 1-111] Unisim Transformation Summary:
+  A total of 297 instances were transformed.
+  RAM32M => RAM32M (RAMD32(x6), RAMS32(x2)): 5 instances
+  RAM32X1D => RAM32X1D (RAMD32(x2)): 4 instances
+  RAM64M => RAM64M (RAMD64E(x4)): 264 instances
+  RAM64X1D => RAM64X1D (RAMD64E(x2)): 24 instances
+
+INFO: [Project 1-604] Checkpoint was created with Vivado v2025.2.1 (64-bit) build 6403652
+open_checkpoint: Time (s): cpu = 00:00:14 ; elapsed = 00:00:13 . Memory (MB): peak = 2612.922 ; gain = 1069.168 ; free physical = 4123 ; free virtual = 10511
+# foreach c [get_clocks -quiet *] {
+#     puts "CLK\t[get_property NAME $c]\tperiod=[get_property -quiet PERIOD $c]"
+# }
+CLK	FCLK_CLK0	period=10.000
+# set clk [get_clocks -quiet FCLK_CLK0]
+# if {[llength $clk] == 0} { error "找不到 FCLK_CLK0" }
+# set per [get_property -quiet PERIOD $clk]
+# puts "FCLK_CLK0 period = $per ns（要求 $want_period）"
+FCLK_CLK0 period = 10.000 ns（要求 6.667）
+# if {abs($per - $want_period) > 0.001} {
+#     # 同源同名覆盖（UG903）：不改实现，只改要求
+#     set srcpin [get_property -quiet SOURCE_PINS $clk]
+#     if {$srcpin eq ""} { error "FCLK_CLK0 没有 SOURCE_PINS，无法安全覆盖" }
+#     puts "== 覆盖时钟：$per -> $want_period ns on $srcpin =="
+#     catch {create_clock -period $want_period -name FCLK_CLK0 [get_pins -quiet $srcpin]} e1
+#     puts "   create_clock(on pin) -> $e1"
+#     if {abs([get_property -quiet PERIOD [get_clocks -quiet FCLK_CLK0]] - $want_period) > 0.001} {
+#         puts "   WARN 同源同名覆盖未生效，改用 -add 兜底"
+#         catch {create_clock -period $want_period -name FCLK_CLK0_150 -add [get_pins -quiet $srcpin]} e2
+#         puts "   create_clock(-add) -> $e2"
+#     }
+#     update_timing -full
+#     set per [get_property -quiet PERIOD [get_clocks -quiet FCLK_CLK0]]
+#     puts "覆盖后 FCLK_CLK0 period = $per ns"
+#     # 硬断言：只有"FCLK_CLK0 自己被覆盖成 6.667"才接受（-add 兜底会让主时钟仍是 10.000，
+#     # 那样 report 里的 WNS 可能是 10.000 口径的，宁可停下也不出假结论）
+#     if {abs($per - $want_period) > 0.001} {
+#         error "覆盖失败：FCLK_CLK0 仍是 $per ns，不是 $want_period —— 口径不对，拒绝出结论"
+#     }
+#     puts "===== CLOCKS AFTER OVERRIDE ====="
+#     foreach c [get_clocks -quiet *] {
+#         puts "CLK\t[get_property NAME $c]\tperiod=[get_property -quiet PERIOD $c]\tsrc=[get_property -quiet SOURCE_PINS $c]"
+#     }
+# } else {
+#     puts "DCP 已经是 $want_period ns，无需覆盖"
+# }
+== 覆盖时钟：10.000 -> 6.667 ns on design_1_i/ps7/FCLK_CLK0 ==
+WARNING: [Constraints 18-619] A clock with name 'FCLK_CLK0' already exists, overwriting the previous clock with the same name.
+   create_clock(on pin) -> FCLK_CLK0
+覆盖后 FCLK_CLK0 period = 6.667 ns
+===== CLOCKS AFTER OVERRIDE =====
+CLK	FCLK_CLK0	period=6.667	src=design_1_i/ps7/FCLK_CLK0
+# set _base design_1_i/bin_unit_0/inst
+# foreach h {u_bin_unit/g_conv.u_unit/u_eng u_bin_unit/g_conv.u_pack u_bin_unit/g_conv.u_catpack u_bin_unit} {
+#     if {[llength [get_cells -quiet $_base/$h]] == 0} { continue }
+#     catch {
+#         set nseq  [llength [get_cells -quiet -hier -filter "NAME =~ $_base/$h/* && IS_SEQUENTIAL"]]
+#         set nlut  [llength [get_cells -quiet -hier -filter "NAME =~ $_base/$h/* && REF_NAME =~ LUT*"]]
+#         puts "FF-CENSUS\t$h\tseq=$nseq\tlut=$nlut"
+#     }
+# }
+FF-CENSUS	u_bin_unit/g_conv.u_unit/u_eng	seq=4562	lut=7901
+FF-CENSUS	u_bin_unit/g_conv.u_pack	seq=1135	lut=1426
+FF-CENSUS	u_bin_unit/g_conv.u_catpack	seq=1622	lut=1137
+FF-CENSUS	u_bin_unit	seq=12438	lut=13512
+# puts "===== 网表指纹（routed DCP）====="
+===== 网表指纹（routed DCP）=====
+# set _lat [get_cells -hier -quiet -filter {REF_NAME == LDCE || REF_NAME == LDPE}]
+# puts "FINGERPRINT\tLDCE_LDPE=\t[llength $_lat]"
+FINGERPRINT	LDCE_LDPE=	0
+# if {[llength $_lat] > 0} {
+#     puts "⚠ W2 失败：网表里有 [llength $_lat] 个 latch 原语（前 5 个）："
+#     foreach c [lrange $_lat 0 4] { puts "   [get_property NAME $c]" }
+# }
+# puts "FINGERPRINT\tDSP48E1=\t[llength [get_cells -hier -quiet -filter {REF_NAME == DSP48E1}]]"
+FINGERPRINT	DSP48E1=	101
+# puts "FINGERPRINT\tRAMB36E1=\t[llength [get_cells -hier -quiet -filter {REF_NAME == RAMB36E1}]]"
+FINGERPRINT	RAMB36E1=	31
+# puts "FINGERPRINT\tRAMB18E1=\t[llength [get_cells -hier -quiet -filter {REF_NAME == RAMB18E1}]]"
+FINGERPRINT	RAMB18E1=	0
+# puts "FINGERPRINT\tALL_CELLS=\t[llength [get_cells -hier -quiet]]"
+FINGERPRINT	ALL_CELLS=	46662
+# proc pin_class {pin} {
+#     set s [lindex [split $pin "/"] end]
+#     if {[regexp {^A(\[\d+\])?$} $s]}         { return A }
+#     if {[regexp {^B(\[\d+\])?$} $s]}         { return B }
+#     if {[regexp {^PCIN(\[\d+\])?$} $s]}      { return PCIN }
+#     if {[regexp {^ACIN(\[\d+\])?$} $s]}      { return ACIN }
+#     if {[regexp {^BCIN(\[\d+\])?$} $s]}      { return BCIN }
+#     if {[regexp {^CEP$} $s]}                 { return CEP }
+#     if {[regexp {^CED$} $s]}                 { return CED }
+#     if {[regexp {^CEA\d$} $s]}               { return CE }
+#     if {[regexp {^CEB\d$} $s]}               { return CE }
+#     if {[regexp {^CE0$} $s]}                 { return CE }
+#     if {[regexp {^CE$} $s]}                  { return CE }
+#     if {[regexp {^DIADI(\[\d+\])?$} $s]}     { return DIADI }
+#     if {[regexp {^DIBDI(\[\d+\])?$} $s]}     { return DIBDI }
+#     if {[regexp {^DIPADIP(\[\d+\])?$} $s]}   { return DIPADIP }
+#     if {[regexp {^WEA(\[\d+\])?$} $s]}       { return WEA }
+#     if {[regexp {^WEBWE(\[\d+\])?$} $s]}     { return WEBWE }
+#     if {[regexp {^WADR\d$} $s]}              { return WADR }
+#     if {[regexp {^WE$} $s]}                  { return WE }
+#     if {[regexp {^ADDR[AB]?RD?(EN)?(\[\d+\])?$} $s]} { return ADDR }
+#     if {[regexp {^ADDR} $s]}                 { return ADDR }
+#     if {[regexp {^ENARDEN$} $s]}             { return ADDR }
+#     if {[regexp {^REGCE[AB]$} $s]}           { return CE }
+#     if {[regexp {^I(\[\d+\])?$} $s]}         { return I }
+#     if {[regexp {^R$} $s]}                   { return R }
+#     if {[regexp {^D$} $s]}                   { return D }
+#     if {[regexp {^S$} $s]}                   { return S }
+#     if {[regexp {^CLK} $s]}                  { return CLK }
+#     if {[regexp {^D[AB]I(\[\d+\])?$} $s]}    { return DIADI }
+#     return OTHER
+# }
+# set _st {
+#     {"x/p_0_out/A[20]" A} {"x/p_0_out/B[7]" B} {"x/q/PCIN[3]" PCIN}
+#     {"x/acc_b_reg[5][0]/DIADI[4]" DIADI} {"x/win_q_reg_0/WEA[0]" WEA}
+#     {"x/lc_tag/WADR1" WADR} {"x/s1_pc_q_reg[5][5]/D" D}
+#     {"x/r_pad_reg[20]/CE" CE} {"x/acc_reg/CEP" CEP} {"x/u_bufgce/CE0" CE}
+#     {"x/araddr_l_reg[5]/C" OTHER} {"x/win_q_reg_12/CLKBWRCLK" CLK}
+# }
+# foreach t $_st {
+#     set pin [lindex $t 0]; set exp [lindex $t 1]
+#     set got [pin_class $pin]
+#     if {$got ne $exp} { error "pin_class 自检失败：'$pin' 得 '$got'，期望 '$exp'（分类器坏了，拒绝出结论）" }
+# }
+# puts {pin_class 自检：12/12 通过（含 v40 那个 A\[..\] 的口径 bug 用例）}
+pin_class 自检：12/12 通过（含 v40 那个 A\[..\] 的口径 bug 用例）
+# proc owner {pin} {
+#     if {[string match *u_bin_unit*      $pin]} { return bin_unit }
+#     if {[string match *conv_uni_0*      $pin]} { return conv_uni }
+#     if {[string match *ps7*             $pin]} { return ps7 }
+#     if {[string match *pc_conv_bin*     $pin]} { return pc_conv_bin }
+#     if {[string match *pc_conv_uni*     $pin]} { return pc_conv_uni }
+#     if {[string match *axi_ctrl*        $pin]} { return axi_ctrl }
+#     if {[string match *rst_0*           $pin]} { return rst }
+#     return other
+# }
+# proc bucket {pin ref} {
+#     if {[string match "*u_catpack*" $pin]} { return "catpack(死路径)" }
+#     if {[string match "*conv_uni_0*" $pin]} { return "conv_uni" }
+#     if {[string match "*u_bin_unit*" $pin]} {
+#         if {[string match "*u_pack*" $pin]} { return "bin_unit/E1E2-pack" }
+#         if {[string match "*u_eng*" $pin]} {
+#             if {$ref eq "DSP48E1"} { return "bin_unit/DSP" }
+#             if {[string match "*wmem*" $pin]} { return "bin_unit/wmem" }
+#             return "bin_unit/conv-core"
+#         }
+#         if {[string match "*win_q*" $pin] || [string match "*lc_*" $pin] || [string match "*fs_*" $pin] || [string match "*_rd_*" $pin] || [string match "*rd_hit*" $pin] || [string match "*ar_*" $pin]} { return "bin_unit/读侧-linecache" }
+#         if {[string match "*bf_*" $pin] || [string match "*df_*" $pin] || [string match "*ax_*" $pin] || [string match "*p_merge*" $pin] || [string match "*wr_*" $pin] || [string match "*aw_*" $pin]} { return "bin_unit/写口" }
+#         return "bin_unit/其它"
+#     }
+#     if {[string match "*ps7*" $pin]} { return "ps7" }
+#     if {[string match "*axi_ctrl*" $pin]} { return "axi_ctrl" }
+#     if {[string match "*pc_conv*" $pin]} { return "pc_conv" }
+#     if {[string match "*rst_0*" $pin]} { return "rst" }
+#     return "其它"
+# }
+# proc ip_fix {spreg} {
+#     if {[regexp {/araddr_l_reg} $spreg]} {
+#         return "修法：araddr_l（AR 通道地址/控制）在出本模块前加一级输出寄存，或在该 master 口插 AXI register slice"
+#     }
+#     if {[regexp {/awaddr_l_reg} $spreg]} {
+#         return "修法：awaddr_l 同上（AW 通道输出加一级寄存 / register slice）"
+#     }
+#     if {[regexp {/wdata_l_reg|/wstrb_l_reg} $spreg]} {
+#         return "修法：W 通道数据/选通输出加一级寄存（或 register slice）"
+#     }
+#     if {[regexp {/araddr|/awaddr|/wdata|/wstrb} $spreg]} {
+#         return "修法：该 AXI 通道输出加一级寄存（或 register slice）"
+#     }
+#     return "修法：起点在我们的 RTL（[lindex [split $spreg /] end]）⇒ 在该寄存器输出加一级寄存 / 或用 place 约束把这段拉近"
+# }
+# proc qs_reason {regname} {
+#     if {[regexp {/r_[a-z0-9_]+_reg} $regname]} {
+#         return "QS:AXI-Lite 配置寄存器（bin_unit_axi_wrap.v §1 写口，每条命令写 1 次，run 期不变）"
+#     }
+#     return ""
+# }
+# catch { report_timing_summary -max_paths 30 -warn_on_violation \
+#     -file [file join $od audit_v42_summary.rpt] } _e
+INFO: [Timing 38-91] UpdateTimingParams: Speed grade: -2, Delay Type: min_max.
+INFO: [Timing 38-191] Multithreading enabled for timing update using a maximum of 2 CPUs
+CRITICAL WARNING: [Timing 38-282] The design failed to meet the timing requirements. Please see the timing summary report for details on the timing violations.
+# catch { report_utilization -file [file join $od audit_v42_util.rpt] } _e
+# foreach {tag frompat topat} {
+#     "W_v41全局WNS_e1e2"  *win_q_reg*        *u_pack*acc_b*/DIADI
+#     "X_actd_to_eng"      *actd_q_reg*       *u_eng/s1_pc_q_reg*/D
+#     "Y_pf_prefetch"      *pf_*              *u_eng*
+# } {
+#     set fp [get_pins -hier -quiet -filter "NAME =~ $frompat"]
+#     set tp [get_pins -hier -quiet -filter "NAME =~ $topat"]
+#     set sl "N/A"
+#     catch {
+#         set p [get_timing_paths -from $fp -to $tp -max_paths 1 -quiet]
+#         if {[llength $p] > 0} { set sl [get_property SLACK $p] } else { set sl "NO_PATH" }
+#     }
+#     puts "   观测路径 $tag : slack = $sl"
+# }
+   观测路径 W_v41全局WNS_e1e2 : slack = NO_PATH
+   观测路径 X_actd_to_eng : slack = NO_PATH
+   观测路径 Y_pf_prefetch : slack = NO_PATH
+# set CAP 40000
+# puts "===== 取违例端点（unique_pins, slack<0, 先按任务口径 -max_paths $CAP）====="
+===== 取违例端点（unique_pins, slack<0, 先按任务口径 -max_paths 40000）=====
+# set t0 [clock seconds]
+# set paths {}
+# if {[catch {set paths [get_timing_paths -max_paths $CAP -nworst 1 -setup -slack_lesser_than 0 -unique_pins -quiet]} e]} {
+#     puts "ERROR get_timing_paths: $e"
+# }
+# set npaths [llength $paths]
+# puts "取到 $npaths 条，耗时 [expr {[clock seconds]-$t0}] s"
+取到 18618 条，耗时 3 s
+# if {$npaths >= $CAP} {
+#     set CAP2 200000
+#     puts "⚠ 取到 $npaths 条 == 上限 $CAP ⇒ 可能被截断，改用 -max_paths $CAP2 重取"
+#     set paths {}
+#     if {[catch {set paths [get_timing_paths -max_paths $CAP2 -nworst 1 -setup -slack_lesser_than 0 -unique_pins -quiet]} e]} {
+#         puts "ERROR 重取 get_timing_paths: $e"
+#     }
+#     set npaths [llength $paths]
+#     puts "重取到 $npaths 条（上限 $CAP2），累计耗时 [expr {[clock seconds]-$t0}] s"
+#     if {$npaths >= $CAP2} { puts "⚠⚠ 仍然取满 $CAP2 ⇒ 本份统计是下界，报告必须写明" }
+# }
+# set _wns "NA"
+# catch { set _wns [get_property SLACK [get_timing_paths -max_paths 1 -nworst 1 -setup]] }
+# puts "WNS(setup) = $_wns ns；unique_pins 取到 $npaths 条"
+WNS(setup) = -4.790 ns；unique_pins 取到 18618 条
+# if {$npaths == 0 && $_wns ne "NA" && $_wns < 0} {
+#     error "WNS=$_wns < 0 但 unique_pins 取到 0 条 ⇒ 取数失败（不是真 0 条），拒绝出结论"
+# }
+# set FATAL_PINS {D A B PCIN ACIN BCIN DIADI DIBDI DIPADIP WEA WEBWE WADR WE ADDR R I}
+# set csv [file join $od endpoints_classified_v42.csv]
+# set fh [open $csv w]
+# puts $fh "slack_ns,endpoint_pin_type,endpoint,pin_class,owner_end,startpoint_pin,startpoint_reg,endpoint_reg,path_levels,datapath_delay_ns,bucket_end,bucket_start,bucket3,reason"
+# array set cnt {}
+# array set worst {}
+# array set delay {}
+# set tns 0.0
+# array set b3of {}
+# set tops {}
+# foreach p $paths {
+#     set ep  [get_property -quiet ENDPOINT_PIN   $p]
+#     set sp  [get_property -quiet STARTPOINT_PIN $p]
+#     set sl  [get_property -quiet SLACK          $p]
+#     set lv  [get_property -quiet LOGIC_LEVELS   $p]
+#     set dd  [get_property -quiet DATAPATH_DELAY $p]
+#     set pc  [pin_class $ep]
+#     set ow  [owner $ep]
+#     set epc [get_cells -quiet -of_objects $ep]
+#     set epr ""; set epreg ""
+#     if {[llength $epc] > 0} {
+#         set epr    [get_property -quiet REF_NAME [lindex $epc 0]]
+#         set epreg  [get_property -quiet NAME     [lindex $epc 0]]
+#     }
+#     set spc [get_cells -quiet -of_objects $sp]
+#     set spreg ""
+#     if {[llength $spc] > 0} { set spreg [get_property -quiet NAME [lindex $spc 0]] }
+#     set be [bucket $ep $epr]
+#     set bs [bucket $sp ""]
+#     set HARD_IP  {ps7 conv_uni}
+#     set XIL_IP   {axi_ctrl pc_conv_bin pc_conv_uni rst other}
+#     set _sp_ours [expr {[owner $sp] eq "bin_unit"}]
+#     if {[lsearch -exact $HARD_IP $ow] >= 0} {
+#         set b3 N0
+#         if {$ow eq "conv_uni"} {
+#             set why "N0:终点在硬核/IP 边界 conv_uni_0 内部（RTL 改不到；该 IP 在 bin 整网里不被调用，见报告 §5.5）"
+#         } else {
+#             set why "N0:终点在硬核/IP 边界 ps7_0 内部（PS7 硬宏，没有 RTL 可改）"
+#         }
+#     } elseif {[lsearch -exact $XIL_IP $ow] >= 0} {
+#         if {$_sp_ours} {
+#             set b3 IP_OTHER
+#             set why "IP_OTHER:终点在 Xilinx IP（$ow）内部、起点是我们的 $spreg ⇒ [ip_fix $spreg]"
+#         } else {
+#             set b3 N0
+#             set why "N0:终点与起点都在 Xilinx 生成式 IP（$ow）内部（不是我们的 RTL，也不是硬核；单列在此并点名）"
+#         }
+#     } elseif {[lsearch -exact $FATAL_PINS $pc] >= 0} {
+#         set b3 N2
+#         set why "N2:活数据/地址/使能脚（终点在我们的 RTL，改得到）"
+#     } elseif {$pc eq "CE"} {
+#         set r [qs_reason $epreg]
+#         if {$r ne ""} { set b3 N1 ; set why $r } else {
+#             set b3 N2
+#             set why "N2:CE 脚但 D 侧非准静态（该寄存器每拍/每次填线都在变）"
+#         }
+#     } else {
+#         set b3 N2
+#         set why "N2:其它载荷脚（未归类，按不可容忍处理）"
+#     }
+#     puts $fh "$sl,$pc,$ep,$pc,$ow,$sp,$spreg,$epreg,$lv,$dd,$be,$bs,$b3,$why"
+#     set b3of($ep) $b3
+#     lappend tops [list $sl $b3 $pc $lv $ep $sp]
+#     set tns [expr {$tns + $sl}]
+#     set key "$b3|[pin_class $ep]|$be"
+#     if {![info exists cnt($key)]} { set cnt($key) 0; set worst($key) $sl }
+#     incr cnt($key)
+#     if {$sl < $worst($key)} { set worst($key) $sl }
+#     if {![info exists cnt($b3)]} { set cnt($b3) 0; set worst($b3) $sl }
+#     incr cnt($b3)
+#     if {$sl < $worst($b3)} { set worst($b3) $sl }
+# }
+# close $fh
+# puts "CSV: $csv"
+CSV: /media/felix/Data/coding/demoir-fpga/runs/timing_v42/endpoints_classified_v42.csv
+# foreach b {N0 N1 N2 IP_OTHER} { if {![info exists cnt($b)]} { set cnt($b) 0; set worst($b) 0 } }
+# set fh [open [file join $od audit_v42_summary_by_bucket.rpt] w]
+# puts $fh "== v42 逐端点三桶汇总（$per ns / 150 MHz；构建约束是 10.000，本审计按 6.667 重评审）=="
+# puts $fh [format "N_total = %d   TNS = %.3f" $npaths $tns]
+# puts $fh [format "N2 Fatal     = %5d   最差 %s" $cnt(N2) $worst(N2)]
+# puts $fh [format "N1 Tolerable = %5d   最差 %s" $cnt(N1) $worst(N1)]
+# puts $fh [format "N0 Inherited = %5d   最差 %s" $cnt(N0) $worst(N0)]
+# puts $fh [format "IP_OTHER     = %5d   最差 %s   （计入门槛：起点是我们的 RTL，可在源头加寄存）" $cnt(IP_OTHER) $worst(IP_OTHER)]
+# puts $fh ""
+# puts $fh "---- 按 (桶|引脚类|终点模块) 聚合 ----"
+# set rows {}
+# foreach k [array names cnt] {
+#     if {[string first "|" $k] < 0} continue
+#     lappend rows [list $cnt($k) $k $worst($k)]
+# }
+# foreach r [lsort -integer -decreasing -index 0 $rows] {
+#     puts $fh [format "%5d  worst=%8s  %s" [lindex $r 0] [lindex $r 2] [lindex $r 1]]
+# }
+# puts $fh ""
+# puts $fh "---- N0 逐 IP（按终点归属：条数 / 最差 slack / 为什么改不到）----"
+# array set ipc {}
+# array set ipw {}
+# foreach p $paths {
+#     set _ep [get_property -quiet ENDPOINT_PIN $p]
+#     if {![info exists b3of($_ep)] || $b3of($_ep) ne "N0"} { continue }
+#     set o [owner $_ep]
+#     set sl [get_property -quiet SLACK $p]
+#     if {![info exists ipc($o)]} { set ipc($o) 0; set ipw($o) $sl }
+#     incr ipc($o)
+#     if {$sl < $ipw($o)} { set ipw($o) $sl }
+# }
+# foreach o [array names ipc] {
+#     switch -- $o {
+#         conv_uni     { set why2 "conv_uni_0 在 bin 整网里不被调用；RTL 不归本版管，若启用需重新评估" }
+#         ps7          { set why2 "PS7 硬宏边界：通路从硬宏内部出来，没有 RTL 可改；只能靠系统级（降频 / AXI 插寄存器）" }
+#         axi_ctrl     { set why2 "xbar IP 内部，且**两端都在 IP 里**（不是我们的 RTL）⇒ 只能换 IP 参数/加 slice" }
+#         pc_conv_bin  { set why2 "AXI 协议转换器 IP 内部，同上" }
+#         pc_conv_uni  { set why2 "AXI 协议转换器 IP 内部，同上" }
+#         default      { set why2 "两端都不在我们的 RTL 里" }
+#     }
+#     puts $fh [format "  %-12s %5d  worst=%8s  %s" $o $ipc($o) $ipw($o) $why2]
+# }
+# close $fh
+# foreach b {N0 N1 N2 IP_OTHER} {
+#     puts [format "%-8s = %5d   worst=%s" $b $cnt($b) $worst($b)]
+# }
+N0       =  2648   worst=-3.057
+N1       =   936   worst=-2.026
+N2       = 14971   worst=-4.790
+IP_OTHER =    63   worst=-4.185
+# puts "汇总: [file join $od audit_v42_summary_by_bucket.rpt]"
+汇总: /media/felix/Data/coding/demoir-fpga/runs/timing_v42/audit_v42_summary_by_bucket.rpt
+# set fh [open [file join $od audit_v42_top20.rpt] w]
+# puts $fh "== 前 20 条（每端点取最差；N2=Fatal / N1=Tolerable / N0=Inherited / IP_OTHER 计入门槛）=="
+# puts $fh [format "%-9s %-3s %-6s %-5s  %s" "slack_ns" "桶" "引脚" "级数" "start -> end"]
+# set ntop 0
+# foreach t [lsort -real -increasing -index 0 $tops] {
+#     if {$ntop >= 20} break
+#     lassign $t sl b3 pc lv ep sp
+#     puts $fh [format "%-9s %-3s %-6s %-5s  %s -> %s" $sl $b3 $pc $lv \
+#         [string range $sp 0 58] [string range $ep 0 58]]
+#     incr ntop
+# }
+# close $fh
+# puts "前 20: [file join $od audit_v42_top20.rpt]"
+前 20: /media/felix/Data/coding/demoir-fpga/runs/timing_v42/audit_v42_top20.rpt
+# set fh [open [file join $od audit_v42_top10_gate.rpt] w]
+# puts $fh "== 门槛桶（N2 + IP_OTHER）最差 10 条 —— 父代理据此判性质 =="
+# puts $fh [format "%-9s %-9s %-6s %-5s %-8s %s" "slack_ns" "桶" "引脚" "级数" "活数据" "start -> end"]
+# set ntop 0
+# foreach t [lsort -real -increasing -index 0 $tops] {
+#     lassign $t sl b3 pc lv ep sp
+#     if {$b3 ne "N2" && $b3 ne "IP_OTHER"} { continue }
+#     if {$ntop >= 10} break
+#     set live "是（活数据/地址/使能）"
+#     if {$b3 eq "IP_OTHER"} { set live "是（源头可加寄存）" }
+#     if {$pc eq "CE"} { set live "否（CE 但 D 侧非准静态 -> 按判据仍致命）" }
+#     puts $fh [format "%-9s %-9s %-6s %-5s %-8s %s -> %s" $sl $b3 $pc $lv $live \
+#         [string range $sp 0 58] [string range $ep 0 58]]
+#     incr ntop
+# }
+# close $fh
+# puts "门槛桶前 10: [file join $od audit_v42_top10_gate.rpt]"
+门槛桶前 10: /media/felix/Data/coding/demoir-fpga/runs/timing_v42/audit_v42_top10_gate.rpt
+# set G2_GROUPS [list \
+#     [list "G2-A_e1e2组自增(desc/out/grp)/D" \
+#         {*u_pack/desc_q_reg*/D *u_pack/out_q_reg*/D *u_pack/grp_q_reg*/D}] \
+#     [list "G2-B_AXI_AR_AW_W载荷/D" \
+#         {*araddr_l_reg*/D *awaddr_l_reg*/D *wdata_l_reg*/D *wstrb_l_reg*/D *ax_addr_reg*/D *ax_len_reg*/D}] \
+#     [list "G2-C_线缓存win_q写地址" \
+#         {*win_q_reg*/ADDRBWRADDR* *win_q_reg*/ADDRARDADDR* *win_q_reg*/ADDRA* *win_q_reg*/ADDRB*}] \
+#     [list "G2-D_线缓存fill槽表/D" \
+#         {*fs_idx_reg*/D *fs_valid_reg*/D *cnt_fill_reg*/D}] \
+# ]
+# set g2fh [open [file join $od audit_v42_G2_address_paths.rpt] w]
+# puts $g2fh "== v42 G2 专项：地址 / 突发 / 写使能通路的 setup 违例（门槛：全部为 0 条）=="
+# puts $g2fh "   口径：$per ns (150 MHz)。每条通路给 ①绝对最差 slack（含不违例）②该组里的违例端点数"
+# puts $g2fh ""
+# set g2_bad 0
+# set g2_unproven 0
+# foreach g $G2_GROUPS {
+#     lassign $g tag pats
+#     set pins {}
+#     foreach pat $pats {
+#         set pins [concat $pins [get_pins -hier -quiet -filter "NAME =~ $pat"]]
+#     }
+#     set npin [llength $pins]
+#     # (1) 绝对最差 slack（不管违不违例）
+#     set absl "NA"; set absfrom "-"; set abslv "-"
+#     if {$npin > 0} {
+#         catch {
+#             set _p [get_timing_paths -to $pins -max_paths 1 -nworst 1 -setup -quiet]
+#             if {[llength $_p] > 0} {
+#                 set absl   [get_property -quiet SLACK $_p]
+#                 set absfrom [get_property -quiet STARTPOINT_PIN $_p]
+#                 set abslv  [get_property -quiet LOGIC_LEVELS $_p]
+#             }
+#         }
+#     }
+#     # (2) 该组内的违例端点（从已取到的违例集合里筛，避免重复跑 get_timing_paths）
+#     set nviol 0; set worstviol 0.0; set ex {}
+#     foreach t $tops {
+#         lassign $t sl b3 pc lv ep sp
+#         foreach pat $pats {
+#             if {[string match $pat $ep]} {
+#                 incr nviol
+#                 if {$sl < $worstviol} { set worstviol $sl }
+#                 lappend ex [list $sl $ep $sp $b3]
+#                 break
+#             }
+#         }
+#     }
+#     set verdict "PASS"
+#     if {$npin == 0} { set verdict "UNPROVEN"; incr g2_unproven }
+#     if {$nviol > 0} { set verdict "FAIL"; incr g2_bad }
+#     puts $g2fh [format "%-38s pins=%-6d 绝对最差=%9s  违例=%-4d  %s" $tag $npin $absl $nviol $verdict]
+#     puts $g2fh [format "%-38s   最差路径: levels=%s  %s" "" $abslv $absfrom]
+#     set k 0
+#     foreach e [lsort -real -increasing -index 0 $ex] {
+#         if {$k >= 5} { puts $g2fh "      ... 其余 [expr {$nviol-5}] 条见 CSV"; break }
+#         lassign $e sl ep sp b3
+#         puts $g2fh [format "      违例 %-9s %-4s %s  <- %s" $sl $b3 $ep $sp]
+#         incr k
+#     }
+#     puts $g2fh ""
+#     puts [format "G2 %-38s pins=%-6d worst=%-9s viol=%-4d %s" $tag $npin $absl $nviol $verdict]
+# }
+G2 G2-A_e1e2组自增(desc/out/grp)/D           pins=81     worst=1.311     viol=0    PASS
+G2 G2-B_AXI_AR_AW_W载荷/D                   pins=179    worst=-0.171    viol=1    FAIL
+G2 G2-C_线缓存win_q写地址                       pins=1024   worst=-2.665    viol=249  FAIL
+G2 G2-D_线缓存fill槽表/D                       pins=192    worst=-0.190    viol=6    FAIL
+# close $g2fh
+# puts "G2 专项报告: [file join $od audit_v42_G2_address_paths.rpt]"
+G2 专项报告: /media/felix/Data/coding/demoir-fpga/runs/timing_v42/audit_v42_G2_address_paths.rpt
+# puts [format "G2 结论：违规组 %d，无法证明组 %d  => %s" $g2_bad $g2_unproven \
+#       [expr {($g2_bad == 0 && $g2_unproven == 0) ? "**G2 PASS（地址路径无违例）**" : "**G2 不通过/未证明**"}]]
+G2 结论：违规组 3，无法证明组 0  => **G2 不通过/未证明**
+# puts "=============================================================="
+==============================================================
+# puts "上板硬门槛：N2 == 0  且  IP_OTHER == 0（+ 金丝雀 + md5 一致）"
+上板硬门槛：N2 == 0  且  IP_OTHER == 0（+ 金丝雀 + md5 一致）
+# set _bad [expr {$cnt(N2) + $cnt(IP_OTHER)}]
+# puts [format "  本次 N2 = %d，IP_OTHER = %d，合计 = %d  => %s" \
+#       $cnt(N2) $cnt(IP_OTHER) $_bad [expr {$_bad == 0 ? "**可上板**" : "**不可上板，继续修**"}]]
+  本次 N2 = 14971，IP_OTHER = 63，合计 = 15034  => **不可上板，继续修**
+# puts "=============================================================="
+==============================================================
+# puts "== DONE_AUDIT_V42 =="
+== DONE_AUDIT_V42 ==
+INFO: [Common 17-206] Exiting Vivado at Mon Nov  2 08:21:11 2026...

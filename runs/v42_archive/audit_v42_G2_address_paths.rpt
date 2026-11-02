@@ -1,0 +1,28 @@
+== v42 G2 专项：地址 / 突发 / 写使能通路的 setup 违例（门槛：全部为 0 条）==
+   口径：6.667 ns (150 MHz)。每条通路给 ①绝对最差 slack（含不违例）②该组里的违例端点数
+
+G2-A_e1e2组自增(desc/out/grp)/D           pins=81     绝对最差=    1.311  违例=0     PASS
+                                         最差路径: levels=11  design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_pack/hw_q0/CLK
+
+G2-B_AXI_AR_AW_W载荷/D                   pins=179    绝对最差=   -0.171  违例=1     FAIL
+                                         最差路径: levels=7  design_1_i/bin_unit_0/inst/u_bin_unit/df_rp_reg[1]/C
+      违例 -0.171    N2   design_1_i/bin_unit_0/inst/u_bin_unit/ax_len_reg[0]/D  <- design_1_i/bin_unit_0/inst/u_bin_unit/df_rp_reg[1]/C
+
+G2-C_线缓存win_q写地址                       pins=1024   绝对最差=   -2.665  违例=249   FAIL
+                                         最差路径: levels=3  design_1_i/ps7/inst/PS7_i/SAXIHP0ACLK
+      违例 -2.665    N2   design_1_i/bin_unit_0/inst/u_bin_unit/win_q_reg_2/ADDRARDADDR[11]  <- design_1_i/ps7/inst/PS7_i/SAXIHP0ACLK
+      违例 -2.478    N2   design_1_i/bin_unit_0/inst/u_bin_unit/win_q_reg_2/ADDRARDADDR[7]  <- design_1_i/ps7/inst/PS7_i/SAXIHP0ACLK
+      违例 -2.373    N2   design_1_i/bin_unit_0/inst/u_bin_unit/win_q_reg_4/ADDRARDADDR[11]  <- design_1_i/ps7/inst/PS7_i/SAXIHP0ACLK
+      违例 -2.332    N2   design_1_i/bin_unit_0/inst/u_bin_unit/win_q_reg_2/ADDRARDADDR[13]  <- design_1_i/ps7/inst/PS7_i/SAXIHP0ACLK
+      违例 -2.209    N2   design_1_i/bin_unit_0/inst/u_bin_unit/win_q_reg_4/ADDRARDADDR[13]  <- design_1_i/ps7/inst/PS7_i/SAXIHP0ACLK
+      ... 其余 244 条见 CSV
+
+G2-D_线缓存fill槽表/D                       pins=192    绝对最差=   -0.190  违例=6     FAIL
+                                         最差路径: levels=6  design_1_i/ps7/inst/PS7_i/SAXIHP0ACLK
+      违例 -0.190    N2   design_1_i/bin_unit_0/inst/u_bin_unit/fs_valid_reg[10]/D  <- design_1_i/ps7/inst/PS7_i/SAXIHP0ACLK
+      违例 -0.159    N2   design_1_i/bin_unit_0/inst/u_bin_unit/fs_valid_reg[11]/D  <- design_1_i/ps7/inst/PS7_i/SAXIHP0ACLK
+      违例 -0.143    N2   design_1_i/bin_unit_0/inst/u_bin_unit/fs_valid_reg[0]/D  <- design_1_i/ps7/inst/PS7_i/SAXIHP0ACLK
+      违例 -0.052    N2   design_1_i/bin_unit_0/inst/u_bin_unit/fs_valid_reg[15]/D  <- design_1_i/ps7/inst/PS7_i/SAXIHP0ACLK
+      违例 -0.040    N2   design_1_i/bin_unit_0/inst/u_bin_unit/fs_valid_reg[3]/D  <- design_1_i/ps7/inst/PS7_i/SAXIHP0ACLK
+      ... 其余 1 条见 CSV
+

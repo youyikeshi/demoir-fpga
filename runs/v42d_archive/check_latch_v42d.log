@@ -1,0 +1,96 @@
+[memgate] ===== 构建前预检 =====
+[memgate]   内存  MemAvailable   8.02 GB / 总  30.95 GB   (SwapTotal 0.0 GB)
+[memgate]   闸门  需 峰值 5 GB + 保留 2.5 GB = 7.50 GB   余量 0.52 GB
+[memgate]   根分区 /   31.96 GB 可用 / 98 GB    /tmp 当前占 2902 MB
+[memgate]   大分区 /media/felix/Data/tmp   33.17 GB 可用
+[memgate]   放行  TMPDIR=/media/felix/Data/tmp  (波形库/临时目录落这里)
+[memgate]   已持锁 /tmp/dsh_vivado.lock  2026-11-02 09:43:15  tag=felix
+[memgate]   复测 MemAvailable 8.01 GB >= 7.50 GB  ✔
+[memgate] ===== 放行 2026-11-02 09:43:15 =====
+[memgate]   令牌 DSH_BUILD_TOKEN=1793583795-4012214-174395403  BUILD_OWNER=/media/felix/Data/coding/demoir-fpga/runs/resguard/BUILD_OWNER
+
+****** Vivado v2025.2.1 (64-bit)
+  **** SW Build 6403652 on Thu Mar 19 13:47:00 MDT 2026
+  **** IP Build 6403511 on Thu Mar 19 12:41:45 MDT 2026
+  **** SharedData Build 6403650 on Thu Mar 19 14:02:13 MDT 2026
+  **** Start of session at: Mon Nov  2 09:43:16 2026
+    ** Copyright 1986-2022 Xilinx, Inc. All Rights Reserved.
+    ** Copyright 2022-2026 Advanced Micro Devices, Inc. All Rights Reserved.
+
+source /media/felix/Data/coding/demoir-fpga/runs/timing_v42d/check_v42d_latch_t34.tcl
+# set dcp [lindex $argv 0]
+# if {$dcp eq ""} { error "用法: check_v42d_latch_t34.tcl <routed.dcp>" }
+# puts "== open_checkpoint $dcp"
+== open_checkpoint /media/felix/Data/coding/demoir-fpga/pynq_specialized_code/board/overlay_engine_150mhz/design_1_150v42d_routed.dcp
+# open_checkpoint $dcp
+Command: open_checkpoint /media/felix/Data/coding/demoir-fpga/pynq_specialized_code/board/overlay_engine_150mhz/design_1_150v42d_routed.dcp
+
+Starting open_checkpoint Task
+
+Time (s): cpu = 00:00:00.05 ; elapsed = 00:00:00.02 . Memory (MB): peak = 1583.801 ; gain = 0.000 ; free physical = 4491 ; free virtual = 10744
+INFO: [Device 21-403] Loading part xc7z015clg485-2
+Netlist sorting complete. Time (s): cpu = 00:00:00.12 ; elapsed = 00:00:00.13 . Memory (MB): peak = 1833.371 ; gain = 0.000 ; free physical = 4293 ; free virtual = 10555
+INFO: [Netlist 29-17] Analyzing 3359 Unisim elements for replacement
+INFO: [Netlist 29-28] Unisim Transformation completed in 0 CPU seconds
+INFO: [Project 1-479] Netlist was created with Vivado 2025.2.1
+INFO: [Project 1-570] Preparing netlist for logic optimization
+Read ShapeDB Complete: Time (s): cpu = 00:00:00.03 ; elapsed = 00:00:00.04 . Memory (MB): peak = 1935.277 ; gain = 5.250 ; free physical = 4198 ; free virtual = 10461
+INFO: [Timing 38-478] Restoring timing data from binary archive.
+INFO: [Timing 38-479] Binary timing data restore complete.
+INFO: [Project 1-856] Restoring constraints from binary archive.
+INFO: [Constraints 18-5170] The checkpoint was created with non-default parameter values which do not match the current Vivado settings.  Mismatching parameters are:
+  general.maxThreads
+INFO: [Project 1-853] Binary constraint restore complete.
+INFO: [Designutils 20-5722] Start Reading Physical Databases.
+Reading placement.
+Read Netlist Cache: Time (s): cpu = 00:00:00.03 ; elapsed = 00:00:00.03 . Memory (MB): peak = 2559.277 ; gain = 0.000 ; free physical = 3661 ; free virtual = 9920
+Reading placer database...
+Read Device Cache: Time (s): cpu = 00:00:00.01 ; elapsed = 00:00:00.01 . Memory (MB): peak = 2559.277 ; gain = 0.000 ; free physical = 3656 ; free virtual = 9916
+Read PlaceDB: Time (s): cpu = 00:00:00 ; elapsed = 00:00:00 . Memory (MB): peak = 2559.277 ; gain = 0.000 ; free physical = 3656 ; free virtual = 9916
+Read placeStorage: Time (s): cpu = 00:00:00.59 ; elapsed = 00:00:00.59 . Memory (MB): peak = 2578.277 ; gain = 19.000 ; free physical = 3644 ; free virtual = 9905
+Read PulsedLatchDB: Time (s): cpu = 00:00:00 ; elapsed = 00:00:00 . Memory (MB): peak = 2578.277 ; gain = 0.000 ; free physical = 3644 ; free virtual = 9905
+Reading routing.
+Read RouteStorage: Time (s): cpu = 00:00:00.6 ; elapsed = 00:00:00.2 . Memory (MB): peak = 2598.645 ; gain = 20.367 ; free physical = 3627 ; free virtual = 9888
+Read Physdb Files: Time (s): cpu = 00:00:01 ; elapsed = 00:00:00.85 . Memory (MB): peak = 2598.645 ; gain = 39.367 ; free physical = 3627 ; free virtual = 9888
+Restored from archive | CPU: 1.310000 secs | Memory: 36.629898 MB |
+Finished XDEF File Restore: Time (s): cpu = 00:00:01 ; elapsed = 00:00:00.88 . Memory (MB): peak = 2598.645 ; gain = 46.305 ; free physical = 3627 ; free virtual = 9888
+Netlist sorting complete. Time (s): cpu = 00:00:00.01 ; elapsed = 00:00:00 . Memory (MB): peak = 2611.027 ; gain = 0.000 ; free physical = 3618 ; free virtual = 9880
+INFO: [Project 1-111] Unisim Transformation Summary:
+  A total of 201 instances were transformed.
+  RAM32M => RAM32M (RAMD32(x6), RAMS32(x2)): 5 instances
+  RAM32X1D => RAM32X1D (RAMD32(x2)): 4 instances
+  RAM64M => RAM64M (RAMD64E(x4)): 168 instances
+  RAM64X1D => RAM64X1D (RAMD64E(x2)): 24 instances
+
+INFO: [Project 1-604] Checkpoint was created with Vivado v2025.2.1 (64-bit) build 6403652
+open_checkpoint: Time (s): cpu = 00:00:16 ; elapsed = 00:00:11 . Memory (MB): peak = 2619.062 ; gain = 1035.262 ; free physical = 3617 ; free virtual = 9879
+# set lat_ce [get_cells -hier -quiet -filter {REF_NAME =~ LDCE*}]
+# set lat_pe [get_cells -hier -quiet -filter {REF_NAME =~ LDPE*}]
+# puts "FINGERPRINT Register-as-Latch : LDCE=[llength $lat_ce]  LDPE=[llength $lat_pe]  （必须 0 / 0）"
+FINGERPRINT Register-as-Latch : LDCE=0  LDPE=0  （必须 0 / 0）
+# set ff [get_cells -hier -quiet -filter {IS_SEQUENTIAL}]
+# puts "FINGERPRINT 时序 FF 总数        : [llength $ff]   （= Slice Registers 口径）"
+FINGERPRINT 时序 FF 总数        : 19973   （= Slice Registers 口径）
+# set t34_ff 0
+# foreach grp {cnt_t34_cyc cnt_t34_frz cnt_t34_fd cnt_t34_fa} {
+#     set f [get_cells -hier -quiet -filter "NAME =~ *${grp}* && REF_NAME =~ FD*"]
+#     set l [get_cells -hier -quiet -filter "NAME =~ *${grp}* && REF_NAME =~ LUT*"]
+#     set c [get_cells -hier -quiet -filter "NAME =~ *${grp}* && REF_NAME =~ CARRY*"]
+#     puts "FINGERPRINT ${grp}: FF=[llength $f] LUT=[llength $l] CARRY=[llength $c]"
+#     incr t34_ff [llength $f]
+# }
+FINGERPRINT cnt_t34_cyc: FF=32 LUT=34 CARRY=8
+FINGERPRINT cnt_t34_frz: FF=32 LUT=34 CARRY=8
+FINGERPRINT cnt_t34_fd: FF=32 LUT=34 CARRY=8
+FINGERPRINT cnt_t34_fa: FF=32 LUT=34 CARRY=8
+# set clr [get_cells -hier -quiet -filter "NAME =~ *clr_t34* && REF_NAME =~ FD*"]
+# puts "FINGERPRINT clr_t34 寄存器      : [llength $clr]"
+FINGERPRINT clr_t34 寄存器      : 1
+# puts "FINGERPRINT T-34 计数器**触发器**合计: $t34_ff （期望 128 = 4×32）"
+FINGERPRINT T-34 计数器**触发器**合计: 128 （期望 128 = 4×32）
+# if {[llength $lat_ce] + [llength $lat_pe] != 0} { error "网表里有 latch ⇒ 与报告口径不一致，停止" }
+# if {$t34_ff < 120} { error "T-34 计数器只剩 $t34_ff 个触发器（期望 128）⇒ 被优化掉，计数器没进位流" }
+# puts "== PASS：latch 指纹 0；T-34 计数器 4×32=128 个触发器已在网表"
+== PASS：latch 指纹 0；T-34 计数器 4×32=128 个触发器已在网表
+INFO: [Common 17-206] Exiting Vivado at Mon Nov  2 09:43:29 2026...
+[memgate] 命令结束 rc=0  2026-11-02 09:43:29

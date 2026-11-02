@@ -1,0 +1,184 @@
+====================================================================================================
+G1：逐桶对比（同一分类器；三者都是 10 ns 构建 + 6.667 ns 重评审，口径可比）
+====================================================================================================
+桶              v39     v42    v42c   Δ(v42c-v39)     v39最差     v42最差    v42c最差      Δ最差
+N2           15556   14971    3310        -12246    -5.331    -4.790    -3.057   +2.274
+N1             936     936     936            +0    -2.519    -2.026    -1.867   +0.652
+N0            4149    2648    3659          -490    -4.137    -3.057    -2.257   +1.880
+IP_OTHER        65      63      58            -7    -4.834    -4.185    -3.087   +1.747
+合计           20706   18618    7963        -12743
+TNS       -47312.40-44558.47-6164.01     +41148.38
+WNS         -5.331  -4.790  -3.087
+
+门槛（旧口径 N2+IP_OTHER）：v39 = 15621   v42 = 15034   v42c = 3368   ⇒ 都不过
+
+====================================================================================================
+G2：地址/突发/写使能/预取 tag 通路（父代理 2026-11-02 定的真安全判据；门槛 = 全部 0 条）
+====================================================================================================
+组                                    v39   v42  v42c       v39最差    v42最差   v42c最差
+G2-A_e1e2组自增(desc/out/grp)/D           0     0     0           无        无        无
+G2-B_AXI_AR_AW_W载荷/D                   0     1     0           无   -0.171        无
+G2-C_线缓存win_q写地址                     254   249   102      -1.605   -2.665   -2.198
+G2-D_线缓存fill槽表/D                       9     6     7      -0.375   -0.190   -0.241
+G2-E_预取tag_pf_全脚(新违例族)               136   235     3      -5.251   -4.719   -1.110
+合计（端点去重）                             399   491   112
+
+  G2-A_e1e2组自增(desc/out/grp)/D  （v39=0  v42=0  v42c=0）
+     无违例
+
+  G2-B_AXI_AR_AW_W载荷/D  （v39=0  v42=1  v42c=0）
+     无违例
+
+  G2-C_线缓存win_q写地址  （v39=254  v42=249  v42c=102）
+        -2.198  N2   ADDR   lv=3   END design_1_i/bin_unit_0/inst/u_bin_unit/win_q_reg_4/ADDRARDADDR[13]
+                                START design_1_i/ps7/inst/PS7_i/SAXIHP0ACLK
+        -2.182  N2   ADDR   lv=3   END design_1_i/bin_unit_0/inst/u_bin_unit/win_q_reg_8/ADDRARDADDR[13]
+                                START design_1_i/ps7/inst/PS7_i/SAXIHP0ACLK
+        -1.908  N2   ADDR   lv=3   END design_1_i/bin_unit_0/inst/u_bin_unit/win_q_reg_10/ADDRARDADDR[13]
+                                START design_1_i/ps7/inst/PS7_i/SAXIHP0ACLK
+        -1.890  N2   ADDR   lv=3   END design_1_i/bin_unit_0/inst/u_bin_unit/win_q_reg_12/ADDRARDADDR[13]
+                                START design_1_i/ps7/inst/PS7_i/SAXIHP0ACLK
+        -1.876  N2   ADDR   lv=3   END design_1_i/bin_unit_0/inst/u_bin_unit/win_q_reg_13/ADDRARDADDR[8]
+                                START design_1_i/ps7/inst/PS7_i/SAXIHP0ACLK
+
+  G2-D_线缓存fill槽表/D  （v39=9  v42=6  v42c=7）
+        -0.241  N2   D      lv=7   END design_1_i/bin_unit_0/inst/u_bin_unit/fs_valid_reg[14]/D
+                                START design_1_i/ps7/inst/PS7_i/SAXIHP0ACLK
+        -0.215  N2   D      lv=7   END design_1_i/bin_unit_0/inst/u_bin_unit/fs_valid_reg[0]/D
+                                START design_1_i/ps7/inst/PS7_i/SAXIHP0ACLK
+        -0.187  N2   D      lv=7   END design_1_i/bin_unit_0/inst/u_bin_unit/fs_valid_reg[4]/D
+                                START design_1_i/ps7/inst/PS7_i/SAXIHP0ACLK
+        -0.119  N2   D      lv=7   END design_1_i/bin_unit_0/inst/u_bin_unit/fs_valid_reg[13]/D
+                                START design_1_i/ps7/inst/PS7_i/SAXIHP0ACLK
+        -0.117  N2   D      lv=7   END design_1_i/bin_unit_0/inst/u_bin_unit/fs_valid_reg[11]/D
+                                START design_1_i/ps7/inst/PS7_i/SAXIHP0ACLK
+
+  G2-E_预取tag_pf_全脚(新违例族)  （v39=136  v42=235  v42c=3）
+        -1.110  N2   D      lv=9   END design_1_i/bin_unit_0/inst/u_bin_unit/pf_busy_reg[1]/D
+                                START design_1_i/ps7/inst/PS7_i/SAXIHP0ACLK
+        -0.996  N2   D      lv=9   END design_1_i/bin_unit_0/inst/u_bin_unit/pf_busy_reg[2]/D
+                                START design_1_i/ps7/inst/PS7_i/SAXIHP0ACLK
+        -0.994  N2   D      lv=9   END design_1_i/bin_unit_0/inst/u_bin_unit/pf_busy_reg[0]/D
+                                START design_1_i/ps7/inst/PS7_i/SAXIHP0ACLK
+
+====================================================================================================
+G2 各组：v42c 的违例端点里**有多少是 v39 没有的（新增）**
+====================================================================================================
+  G2-A_e1e2组自增(desc/out/grp)/D: v42c 违例 0 条 = 继承自 v39 0 + **新增 0**
+  G2-B_AXI_AR_AW_W载荷/D: v42c 违例 0 条 = 继承自 v39 0 + **新增 0**
+  G2-C_线缓存win_q写地址: v42c 违例 102 条 = 继承自 v39 57 + **新增 45**
+      新增    -2.182 N2   ADDR   lv=3   END design_1_i/bin_unit_0/inst/u_bin_unit/win_q_reg_8/ADDRARDADDR[13]  <- START[ps7] design_1_i/ps7/inst/PS7_i/SAXIHP0ACLK（v39 该端点不违例或不存在）
+      新增    -1.908 N2   ADDR   lv=3   END design_1_i/bin_unit_0/inst/u_bin_unit/win_q_reg_10/ADDRARDADDR[13]  <- START[ps7] design_1_i/ps7/inst/PS7_i/SAXIHP0ACLK（v39 该端点不违例或不存在）
+      新增    -1.890 N2   ADDR   lv=3   END design_1_i/bin_unit_0/inst/u_bin_unit/win_q_reg_12/ADDRARDADDR[13]  <- START[ps7] design_1_i/ps7/inst/PS7_i/SAXIHP0ACLK（v39 该端点不违例或不存在）
+      新增    -1.738 N2   ADDR   lv=3   END design_1_i/bin_unit_0/inst/u_bin_unit/win_q_reg_8/ADDRARDADDR[9]  <- START[ps7] design_1_i/ps7/inst/PS7_i/SAXIHP0ACLK（v39 该端点不违例或不存在）
+      新增    -1.555 N2   ADDR   lv=3   END design_1_i/bin_unit_0/inst/u_bin_unit/win_q_reg_8/ADDRARDADDR[8]  <- START[ps7] design_1_i/ps7/inst/PS7_i/SAXIHP0ACLK（v39 该端点不违例或不存在）
+      新增    -1.451 N2   ADDR   lv=3   END design_1_i/bin_unit_0/inst/u_bin_unit/win_q_reg_8/ADDRARDADDR[4]  <- START[ps7] design_1_i/ps7/inst/PS7_i/SAXIHP0ACLK（v39 该端点不违例或不存在）
+      新增    -1.446 N2   ADDR   lv=3   END design_1_i/bin_unit_0/inst/u_bin_unit/win_q_reg_12/ADDRARDADDR[9]  <- START[ps7] design_1_i/ps7/inst/PS7_i/SAXIHP0ACLK（v39 该端点不违例或不存在）
+      新增    -1.392 N2   ADDR   lv=3   END design_1_i/bin_unit_0/inst/u_bin_unit/win_q_reg_8/ADDRARDADDR[2]  <- START[ps7] design_1_i/ps7/inst/PS7_i/SAXIHP0ACLK（v39 该端点不违例或不存在）
+  G2-D_线缓存fill槽表/D: v42c 违例 7 条 = 继承自 v39 3 + **新增 4**
+      新增    -0.241 N2   D      lv=7   END design_1_i/bin_unit_0/inst/u_bin_unit/fs_valid_reg[14]/D  <- START[ps7] design_1_i/ps7/inst/PS7_i/SAXIHP0ACLK（v39 该端点不违例或不存在）
+      新增    -0.119 N2   D      lv=7   END design_1_i/bin_unit_0/inst/u_bin_unit/fs_valid_reg[13]/D  <- START[ps7] design_1_i/ps7/inst/PS7_i/SAXIHP0ACLK（v39 该端点不违例或不存在）
+      新增    -0.117 N2   D      lv=7   END design_1_i/bin_unit_0/inst/u_bin_unit/fs_valid_reg[11]/D  <- START[ps7] design_1_i/ps7/inst/PS7_i/SAXIHP0ACLK（v39 该端点不违例或不存在）
+      新增    -0.095 N2   D      lv=7   END design_1_i/bin_unit_0/inst/u_bin_unit/fs_valid_reg[2]/D  <- START[ps7] design_1_i/ps7/inst/PS7_i/SAXIHP0ACLK（v39 该端点不违例或不存在）
+  G2-E_预取tag_pf_全脚(新违例族): v42c 违例 3 条 = 继承自 v39 3 + **新增 0**
+
+====================================================================================================
+G1 补充：v42c 相对 v39 的新增/消失端点（逐端点全名比对）
+====================================================================================================
+新增 1918 条；消失 14661 条
+  新增按桶: {'N0': 1551, 'N2': 367}
+
+  新增按 (桶,引脚类) 前 12:
+        492  N0/CE
+        420  N0/A
+        354  N0/D
+        220  N0/B
+        142  N2/D
+         61  N2/ADDR
+         48  N2/PCIN
+         27  N2/DIADI
+         25  N2/B
+         24  N2/DIBDI
+         19  N0/DIADI
+         18  N0/DIBDI
+
+  新增按终点寄存器家族 前 12（剥掉下标）:
+        506  design_1_i/conv_uni_0/inst/u_conv_uni/u_unit/G_BANK[*].G_CH[*].acc_reg[*]
+        198  design_1_i/conv_uni_0/inst/u_conv_uni/fq_tag_reg[*][*]
+        195  design_1_i/conv_uni_0/inst/u_conv_uni/df_addr_reg[*][*]
+         91  design_1_i/conv_uni_0/inst/u_conv_uni/bf_data_reg[*][*]
+         51  design_1_i/conv_uni_0/inst/u_conv_uni/u_unit/s4v_q_reg[*][*]
+         49  design_1_i/conv_uni_0/inst/u_conv_uni/fq_rem_reg[*][*]
+         48  design_1_i/conv_uni_0/inst/u_conv_uni/u_unit/p_0_out__4
+         48  design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_unit/u_eng/cp3_q0__1
+         46  design_1_i/conv_uni_0/inst/u_conv_uni/u_unit/p_0_out__3
+         41  design_1_i/conv_uni_0/inst/u_conv_uni/u_unit/p_0_out
+         40  design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_unit/u_eng/g_wram[*].wmem_reg
+         38  design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_unit/u_eng/mask_last_q_reg[*]
+
+  新增里最差 12 条（全名）：
+         -2.222 N0   A      lv=1   END design_1_i/conv_uni_0/inst/u_conv_uni/u_unit/G_BANK[3].G_CH[3].acc_reg[27]/A[2]
+                                START design_1_i/conv_uni_0/inst/u_conv_uni/u_unit/r1b_rd_reg/C
+         -2.182 N2   ADDR   lv=3   END design_1_i/bin_unit_0/inst/u_bin_unit/win_q_reg_8/ADDRARDADDR[13]
+                                START design_1_i/ps7/inst/PS7_i/SAXIHP0ACLK
+         -2.094 N0   A      lv=1   END design_1_i/conv_uni_0/inst/u_conv_uni/u_unit/G_BANK[0].G_CH[7].acc_reg[7]/A[2]
+                                START design_1_i/conv_uni_0/inst/u_conv_uni/u_unit/r1b_rd_reg/C
+         -2.026 N0   A      lv=1   END design_1_i/conv_uni_0/inst/u_conv_uni/u_unit/G_BANK[0].G_CH[7].acc_reg[7]/A[0]
+                                START design_1_i/conv_uni_0/inst/u_conv_uni/u_unit/r1b_rd_reg/C
+         -1.986 N0   A      lv=1   END design_1_i/conv_uni_0/inst/u_conv_uni/u_unit/G_BANK[1].G_CH[0].acc_reg[8]/A[28]
+                                START design_1_i/conv_uni_0/inst/u_conv_uni/u_unit/r1b_rd_reg/C
+         -1.947 N2   DIADI  lv=1   END design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_unit/u_eng/g_wram[5].wmem_reg/DIADI[31]
+                                START design_1_i/bin_unit_0/inst/u_bin_unit/win_q_reg_7/CLKBWRCLK
+         -1.935 N0   A      lv=1   END design_1_i/conv_uni_0/inst/u_conv_uni/u_unit/G_BANK[1].G_CH[3].acc_reg[11]/A[2]
+                                START design_1_i/conv_uni_0/inst/u_conv_uni/u_unit/r1b_rd_reg/C
+         -1.908 N2   ADDR   lv=3   END design_1_i/bin_unit_0/inst/u_bin_unit/win_q_reg_10/ADDRARDADDR[13]
+                                START design_1_i/ps7/inst/PS7_i/SAXIHP0ACLK
+         -1.895 N0   A      lv=1   END design_1_i/conv_uni_0/inst/u_conv_uni/u_unit/G_BANK[1].G_CH[0].acc_reg[8]/A[26]
+                                START design_1_i/conv_uni_0/inst/u_conv_uni/u_unit/r1b_rd_reg/C
+         -1.895 N0   A      lv=1   END design_1_i/conv_uni_0/inst/u_conv_uni/u_unit/G_BANK[1].G_CH[0].acc_reg[8]/A[27]
+                                START design_1_i/conv_uni_0/inst/u_conv_uni/u_unit/r1b_rd_reg/C
+         -1.890 N2   ADDR   lv=3   END design_1_i/bin_unit_0/inst/u_bin_unit/win_q_reg_12/ADDRARDADDR[13]
+                                START design_1_i/ps7/inst/PS7_i/SAXIHP0ACLK
+         -1.886 N0   A      lv=1   END design_1_i/conv_uni_0/inst/u_conv_uni/u_unit/G_BANK[1].G_CH[0].acc_reg[8]/A[25]
+                                START design_1_i/conv_uni_0/inst/u_conv_uni/u_unit/r1b_rd_reg/C
+
+====================================================================================================
+G2-E 专项：预取 tag 违例族 ph_reg -> pf_tag/CE 是否还在（Z3 判据）
+====================================================================================================
+  v39   pf_tag_reg 端点  126 条，最差  -5.251   |   pf_* 端点  164 条，最差  -5.251
+  v42   pf_tag_reg 端点  221 条，最差  -4.719   |   pf_* 端点  295 条，最差  -4.719
+  v42c  pf_tag_reg 端点    0 条，最差   0.000   |   pf_* 端点   75 条，最差  -1.110
+
+  Z3 判据：v42c 的 pf_tag_reg 违例端点 = 0 条 ⇒ **通过（新违例族不存在）**
+
+  对照：v42 同一族共 221 条，最差 5 条（这就是被摘掉的那一族）：
+         -4.719 N2   CE     lv=16  END design_1_i/bin_unit_0/inst/u_bin_unit/pf_tag_reg[7][12]/CE
+                                START design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_pack/ph_reg[3]/C
+         -4.719 N2   CE     lv=16  END design_1_i/bin_unit_0/inst/u_bin_unit/pf_tag_reg[7][1]/CE
+                                START design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_pack/ph_reg[3]/C
+         -4.719 N2   CE     lv=16  END design_1_i/bin_unit_0/inst/u_bin_unit/pf_tag_reg[7][21]/CE
+                                START design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_pack/ph_reg[3]/C
+         -4.719 N2   CE     lv=16  END design_1_i/bin_unit_0/inst/u_bin_unit/pf_tag_reg[7][9]/CE
+                                START design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_pack/ph_reg[3]/C
+         -4.701 N2   CE     lv=16  END design_1_i/bin_unit_0/inst/u_bin_unit/pf_tag_reg[7][15]/CE
+                                START design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_pack/ph_reg[3]/C
+
+  pf_* 家族按寄存器名展开（违例端点数 / 最差），v39 vs v42c：
+      pf_act          v39=   1 条 /  -0.513   v42c=   0 条 /   0.000
+      pf_addr_q       v39=   3 条 /  -0.223   v42c=  31 条 /  -0.548
+      pf_busy         v39=   3 条 /  -1.340   v42c=   3 条 /  -1.110
+      pf_cap_q        v39=   5 条 /  -0.104   v42c=   0 条 /   0.000
+      pf_cnt          v39=   3 条 /  -4.580   v42c=   0 条 /   0.000
+      pf_drop_q       v39=   1 条 /  -0.568   v42c=   1 条 /  -0.719
+      pf_go_q         v39=   1 条 /  -0.732   v42c=   1 条 /  -0.705
+      pf_left         v39=   7 条 /  -0.483   v42c=   3 条 /  -0.055
+      pf_p            v39=   4 条 /  -0.454   v42c=   0 条 /   0.000
+      pf_plane_addr_q v39=   3 条 /  -0.006   v42c=  33 条 /  -0.701
+      pf_r            v39=   3 条 /  -0.235   v42c=   3 条 /  -0.203
+      pf_rp           v39=   2 条 /  -4.177   v42c=   0 条 /   0.000
+      pf_tag          v39= 126 条 /  -5.251   v42c=   0 条 /   0.000
+      pf_wp           v39=   2 条 /  -4.417   v42c=   0 条 /   0.000
+
+  G2-C_线缓存win_q写地址 起点归属：v39={'bin_unit': 135, 'ps7': 119} v42c={'ps7': 102}
+  G2-D_线缓存fill槽表/D 起点归属：v39={'ps7': 9} v42c={'ps7': 7}
+  G2-E_预取tag_pf_全脚(新违例族) 起点归属：v39={'bin_unit': 133, 'ps7': 3} v42c={'ps7': 3}

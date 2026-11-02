@@ -1,0 +1,142 @@
+====================================================================================================
+G1：v39 vs v42 逐桶对比（同一分类器；两者都是 10 ns 构建 + 6.667 重评审，口径可比）
+====================================================================================================
+桶              v39     v42        Δ       v39最差    v42最差      Δ最差
+N2           15556   14971     -585      -5.331   -4.790   +0.541
+N1             936     936       +0      -2.519   -2.026   +0.493
+N0            4149    2648    -1501      -4.137   -3.057   +1.080
+IP_OTHER        65      63       -2      -4.834   -4.185   +0.649
+合计           20706   18618    -2088
+TNS       -47312.40-44558.47 +2753.92
+WNS         -5.331  -4.790   +0.541
+
+门槛（旧口径）: v39 N2+IP_OTHER=15621   v42=15034  ⇒ 两者都不过
+
+====================================================================================================
+G2：地址/突发/写使能通路（★ 父代理 2026-11-02 定下的真安全判据）
+====================================================================================================
+组                                      v39   v42       v39最差    v42最差   说明
+G2-A_e1e2组自增(desc/out/grp)/D             0     0           无        无   
+G2-B_AXI_AR_AW_W载荷/D                     0     1           无   -0.171   
+G2-C_线缓存win_q写地址                       254   249      -1.605   -2.665   起点归属 v39={'bin_unit': 135, 'ps7': 119} v42={'ps7': 146, 'bin_unit': 103}
+G2-D_线缓存fill槽表/D                         9     6      -0.375   -0.190   起点归属 v39={'ps7': 9} v42={'ps7': 6}
+合计（引脚去重）                               263   256
+
+G2 每组 v42 最差 3 条（全名）：
+
+  G2-A_e1e2组自增(desc/out/grp)/D  （0 条）
+    无违例
+
+  G2-B_AXI_AR_AW_W载荷/D  （1 条）
+      -0.171  D      lv=  7  END design_1_i/bin_unit_0/inst/u_bin_unit/ax_len_reg[0]/D
+             START design_1_i/bin_unit_0/inst/u_bin_unit/df_rp_reg[1]/C
+
+  G2-C_线缓存win_q写地址  （249 条）
+      -2.665  ADDR   lv=  3  END design_1_i/bin_unit_0/inst/u_bin_unit/win_q_reg_2/ADDRARDADDR[11]
+             START design_1_i/ps7/inst/PS7_i/SAXIHP0ACLK
+      -2.478  ADDR   lv=  3  END design_1_i/bin_unit_0/inst/u_bin_unit/win_q_reg_2/ADDRARDADDR[7]
+             START design_1_i/ps7/inst/PS7_i/SAXIHP0ACLK
+      -2.373  ADDR   lv=  3  END design_1_i/bin_unit_0/inst/u_bin_unit/win_q_reg_4/ADDRARDADDR[11]
+             START design_1_i/ps7/inst/PS7_i/SAXIHP0ACLK
+
+  G2-D_线缓存fill槽表/D  （6 条）
+      -0.190  D      lv=  6  END design_1_i/bin_unit_0/inst/u_bin_unit/fs_valid_reg[10]/D
+             START design_1_i/ps7/inst/PS7_i/SAXIHP0ACLK
+      -0.159  D      lv=  6  END design_1_i/bin_unit_0/inst/u_bin_unit/fs_valid_reg[11]/D
+             START design_1_i/ps7/inst/PS7_i/SAXIHP0ACLK
+      -0.143  D      lv=  6  END design_1_i/bin_unit_0/inst/u_bin_unit/fs_valid_reg[0]/D
+             START design_1_i/ps7/inst/PS7_i/SAXIHP0ACLK
+
+====================================================================================================
+G1 补充：新增端点（v42 有、v39 没有）
+====================================================================================================
+新增 3262 条；消失 5350 条
+  新增按桶: {'N2': 2253, 'N0': 1008, 'IP_OTHER': 1}
+
+  新增按 (桶,引脚类) 前 12:
+      455  N2/D
+      414  N2/WE
+      396  N2/WADR
+      369  N0/A
+      301  N2/I
+      294  N0/CE
+      253  N2/CE
+      169  N0/D
+      117  N0/B
+      113  N2/ADDR
+      113  N2/B
+      104  N2/A
+
+  新增按终点寄存器家族 前 12（剥掉下标）:
+      421  design_1_i/conv_uni_0/inst/u_conv_uni/u_unit/G_BANK[*].G_CH[*].acc_reg[*]
+      118  design_1_i/bin_unit_0/inst/u_bin_unit/pf_tag_reg[*][*]
+       78  design_1_i/conv_uni_0/inst/u_conv_uni/fq_tag_reg[*][*]
+       67  design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_pack/wr_data_c_reg[*]
+       64  design_1_i/bin_unit_0/inst/u_bin_unit/df_len_reg[*][*]
+       49  design_1_i/conv_uni_0/inst/u_conv_uni/fq_rem_reg[*][*]
+       48  design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_unit/u_eng/cp3_q0__1
+       48  design_1_i/conv_uni_0/inst/u_conv_uni/u_unit/p_0_out__3
+       45  design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_unit/u_eng/g_wram[*].wmem_reg
+       44  design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_unit/u_eng/mask_last_q_reg[*]
+       38  design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_unit/u_eng/pw_reg[*][*]
+       35  design_1_i/conv_uni_0/inst/u_conv_uni/u_unit/kx_addr_q_reg[*]
+
+  新增里最差 12 条（全名）：
+      -4.719 N2       CE     lv= 16  END design_1_i/bin_unit_0/inst/u_bin_unit/pf_tag_reg[7][9]/CE
+             START design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_pack/ph_reg[3]/C
+      -4.719 N2       CE     lv= 16  END design_1_i/bin_unit_0/inst/u_bin_unit/pf_tag_reg[7][1]/CE
+             START design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_pack/ph_reg[3]/C
+      -4.719 N2       CE     lv= 16  END design_1_i/bin_unit_0/inst/u_bin_unit/pf_tag_reg[7][12]/CE
+             START design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_pack/ph_reg[3]/C
+      -4.719 N2       CE     lv= 16  END design_1_i/bin_unit_0/inst/u_bin_unit/pf_tag_reg[7][21]/CE
+             START design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_pack/ph_reg[3]/C
+      -4.701 N2       CE     lv= 16  END design_1_i/bin_unit_0/inst/u_bin_unit/pf_tag_reg[7][3]/CE
+             START design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_pack/ph_reg[3]/C
+      -4.701 N2       CE     lv= 16  END design_1_i/bin_unit_0/inst/u_bin_unit/pf_tag_reg[7][15]/CE
+             START design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_pack/ph_reg[3]/C
+      -4.701 N2       CE     lv= 16  END design_1_i/bin_unit_0/inst/u_bin_unit/pf_tag_reg[7][17]/CE
+             START design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_pack/ph_reg[3]/C
+      -4.701 N2       CE     lv= 16  END design_1_i/bin_unit_0/inst/u_bin_unit/pf_tag_reg[7][16]/CE
+             START design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_pack/ph_reg[3]/C
+      -4.683 N2       CE     lv= 16  END design_1_i/bin_unit_0/inst/u_bin_unit/pf_tag_reg[5][7]/CE
+             START design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_pack/ph_reg[3]/C
+      -4.683 N2       CE     lv= 16  END design_1_i/bin_unit_0/inst/u_bin_unit/pf_tag_reg[5][8]/CE
+             START design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_pack/ph_reg[3]/C
+      -4.683 N2       CE     lv= 16  END design_1_i/bin_unit_0/inst/u_bin_unit/pf_tag_reg[5][18]/CE
+             START design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_pack/ph_reg[3]/C
+      -4.683 N2       CE     lv= 16  END design_1_i/bin_unit_0/inst/u_bin_unit/pf_tag_reg[5][17]/CE
+             START design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_pack/ph_reg[3]/C
+
+====================================================================================================
+v42 门槛桶（N2+IP_OTHER）最差 10 条（全名，供判性质）
+====================================================================================================
+    -4.790  N2        R      lv= 18
+     END   design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_unit/u_eng/pw_reg[8][4]/R
+     START design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_pack/desc_q_reg[3]/C
+    -4.780  N2        CEP    lv= 17
+     END   design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_unit/u_eng/cp2_q0__1/CEP
+     START design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_pack/desc_q_reg[3]/C
+    -4.772  N2        R      lv= 18
+     END   design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_unit/u_eng/pw_reg[13][18]/R
+     START design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_pack/desc_q_reg[3]/C
+    -4.772  N2        R      lv= 18
+     END   design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_unit/u_eng/pw_reg[13][24]/R
+     START design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_pack/desc_q_reg[3]/C
+    -4.772  N2        R      lv= 18
+     END   design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_unit/u_eng/pw_reg[13][27]/R
+     START design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_pack/desc_q_reg[3]/C
+    -4.772  N2        R      lv= 18
+     END   design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_unit/u_eng/pw_reg[13][44]/R
+     START design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_pack/desc_q_reg[3]/C
+    -4.772  N2        CE     lv= 18
+     END   design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_unit/u_eng/pw_reg[8][14]/CE
+     START design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_pack/desc_q_reg[3]/C
+    -4.772  N2        CE     lv= 18
+     END   design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_unit/u_eng/pw_reg[8][26]/CE
+     START design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_pack/desc_q_reg[3]/C
+    -4.772  N2        CE     lv= 18
+     END   design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_unit/u_eng/pw_reg[8][27]/CE
+     START design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_pack/desc_q_reg[3]/C
+    -4.772  N2        CE     lv= 18
+     END   design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_unit/u_eng/pw_reg[8][57]/CE
+     START design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_pack/desc_q_reg[3]/C

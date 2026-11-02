@@ -1,0 +1,66 @@
+== v42 逐端点三桶汇总（6.667 ns / 150 MHz；构建约束是 10.000，本审计按 6.667 重评审）==
+N_total = 18618   TNS = -44558.472
+N2 Fatal     = 14971   最差 -4.790
+N1 Tolerable =   936   最差 -2.026
+N0 Inherited =  2648   最差 -3.057
+IP_OTHER     =    63   最差 -4.185   （计入门槛：起点是我们的 RTL，可在源头加寄存）
+
+---- 按 (桶|引脚类|终点模块) 聚合 ----
+ 4488  worst=  -4.772  N2|CE|bin_unit/conv-core
+ 1669  worst=  -4.259  N2|CE|bin_unit/写口
+ 1269  worst=  -4.162  N2|D|bin_unit/写口
+  936  worst=  -2.026  N1|CE|bin_unit/其它
+  883  worst=  -3.057  N0|CE|conv_uni
+  827  worst=  -4.507  N2|D|bin_unit/其它
+  820  worst=  -1.728  N2|WADR|bin_unit/读侧-linecache
+  777  worst=  -2.548  N0|D|conv_uni
+  768  worst=  -4.790  N2|R|bin_unit/conv-core
+  729  worst=  -4.702  N2|CE|bin_unit/E1E2-pack
+  684  worst=  -2.165  N0|A|conv_uni
+  662  worst=  -4.340  N2|D|bin_unit/conv-core
+  654  worst=  -4.719  N2|CE|bin_unit/其它
+  384  worst=  -4.533  N2|WE|bin_unit/E1E2-pack
+  350  worst=  -2.740  N2|A|bin_unit/DSP
+  265  worst=  -1.651  N2|I|bin_unit/读侧-linecache
+  264  worst=  -2.665  N2|ADDR|bin_unit/读侧-linecache
+  256  worst=  -3.881  N2|I|bin_unit/E1E2-pack
+  227  worst=  -2.529  N2|B|bin_unit/DSP
+  192  worst=  -1.327  N2|WE|bin_unit/读侧-linecache
+  192  worst=  -1.344  N2|PCIN|bin_unit/DSP
+  181  worst=  -3.008  N2|DIBDI|bin_unit/wmem
+  177  worst=  -2.702  N2|DIADI|bin_unit/wmem
+  176  worst=  -3.712  N2|CE|bin_unit/读侧-linecache
+  144  worst=  -3.610  N2|D|bin_unit/读侧-linecache
+  125  worst=  -1.636  N0|B|conv_uni
+   62  worst=  -4.393  N2|D|bin_unit/E1E2-pack
+   56  worst=  -3.271  IP_OTHER|D|axi_ctrl
+   56  worst=  -4.719  N2|WEBWE|bin_unit/wmem
+   40  worst=  -4.609  N2|CE|bin_unit/DSP
+   39  worst=  -3.039  N0|D|pc_conv
+   31  worst=  -4.780  N2|CEP|bin_unit/DSP
+   30  worst=  -3.035  N0|OTHER|ps7
+   27  worst=  -2.670  N0|CE|pc_conv
+   24  worst=  -1.036  N0|WEBWE|conv_uni
+   20  worst=  -1.930  N0|ADDR|conv_uni
+   16  worst=  -1.608  N2|DIBDI|bin_unit/E1E2-pack
+   16  worst=  -2.375  N2|A|bin_unit/E1E2-pack
+   16  worst=  -2.859  N2|B|bin_unit/E1E2-pack
+   16  worst=  -4.705  N2|OTHER|bin_unit/读侧-linecache
+   15  worst=  -0.614  N0|DIBDI|conv_uni
+   14  worst=  -0.614  N0|DIADI|conv_uni
+   10  worst=  -1.273  N2|DIADI|bin_unit/E1E2-pack
+    8  worst=  -2.164  N0|D|axi_ctrl
+    8  worst=  -3.950  N2|ADDR|bin_unit/wmem
+    7  worst=  -4.185  IP_OTHER|CE|其它
+    3  worst=  -3.841  N2|ADDR|bin_unit/E1E2-pack
+    2  worst=  -1.843  N0|OTHER|conv_uni
+    1  worst=  -4.473  N2|OTHER|bin_unit/E1E2-pack
+    1  worst=  -4.371  N2|CEP|bin_unit/E1E2-pack
+    1  worst=  -4.402  N2|OTHER|bin_unit/wmem
+
+---- N0 逐 IP（按终点归属：条数 / 最差 slack / 为什么改不到）----
+  pc_conv_bin     30  worst=  -1.136  AXI 协议转换器 IP 内部，同上
+  conv_uni      2544  worst=  -3.057  conv_uni_0 在 bin 整网里不被调用；RTL 不归本版管，若启用需重新评估
+  axi_ctrl         8  worst=  -2.164  xbar IP 内部，且**两端都在 IP 里**（不是我们的 RTL）⇒ 只能换 IP 参数/加 slice
+  ps7             30  worst=  -3.035  PS7 硬宏边界：通路从硬宏内部出来，没有 RTL 可改；只能靠系统级（降频 / AXI 插寄存器）
+  pc_conv_uni     36  worst=  -3.039  AXI 协议转换器 IP 内部，同上
