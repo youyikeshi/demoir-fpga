@@ -5067,3 +5067,29 @@ $$\quad\ \text{而被唤醒的代理与新代理}\textbf{共享同一批文件}�
 $$\Rightarrow\ \textbf{判据}：\text{决定"这个任务交给谁"之前，先看该代理是否已发过收尾消息}$$
 $$\quad\ \text{已收尾} \Rightarrow \textbf{新开};\ \text{仍在跑} \Rightarrow \texttt{send\_message}\ \text{才安全}$$
 $$\Rightarrow\ \text{补救手段（本次有效）：}\textbf{新代理动手前先做 mtime 审计}，\text{发现"另有写者"就报警而不是硬上}$$
+
+### 70.35 ★★★★ 重大发现：**基线 BD 自身过不了 validate**（所以它从未被重新生成过）（2026-11-02 10:52）
+
+T-55 的探针（**零 BD 编辑**，只对主工程跑 `generate_target all`）失败：
+
+$$\Rightarrow\ \texttt{BD 41-1031 Hdl Generation failed} \to 17\text{-}39$$
+$$\Rightarrow\ \text{根因①：既存 } \texttt{pc\_conv\_uni}/\texttt{bin}\ \text{的 } \texttt{MI\_PROTOCOL=AXI3}\ \text{被判越界（只收 AXI4/AXI4LITE）}$$
+$$\quad\ \Rightarrow \texttt{M\_AXI}\ \text{退化 AXI4} \Rightarrow \text{与 ps7 HP(AXI3) 报 } 41\text{-}237$$
+$$\Rightarrow\ \text{根因②：再叠加 6 条 } \texttt{FREQ\_HZ}\ 40\ \text{MHz vs } 150\ \text{MHz}$$
+
+$$\Rightarrow\ \Rightarrow\ \textbf{v39/v42e 的构建}\textbf{从不重新生成 BD} \Rightarrow \text{它们走既有 DCP/checkpoint 流，}\textbf{不是"从 BD 重新 elaborate"}$$
+$$\Rightarrow\ \textbf{这解释了为什么"改 BD"历史上三次挂板}：\text{那条路}\textbf{本来就没被走通过}$$
+$$\Rightarrow\ \text{也说明"新增一个 PL 单元"这件事的成本，比"写一个 IP"高一个数量级}$$
+
+**处置（改后的任务书）**
+$$\Rightarrow\ \text{先把主工程 } \texttt{.gen}\ \text{从 worktree 副本恢复（T-55 的 } \texttt{upgrade\_ip}\ \text{删了 } \texttt{synth/design\_1.v}\ \text{与 } \texttt{hw\_handoff/design\_1.hwh}）$$
+$$\Rightarrow\ \text{然后}\textbf{只在副本上}、\textbf{只改 IP 声明参数}（\texttt{MI\_PROTOCOL} 改合法值 + 6 条 \texttt{FREQ\_HZ}），\text{目标只是"让 } \texttt{generate\_target all}\ \text{过"}$$
+$$\Rightarrow\ \textbf{判据}：\texttt{.hwh}\ \text{产出 + 既有单元基址/地址段/FCLK/IP 参数相对 v39 }\textbf{逐项相同}$$
+$$\Rightarrow\ \text{过} \Rightarrow \text{路径可行，再谈加 fconv};\quad \text{不过} \Rightarrow \textbf{记为"convfp 搬 PL 被 BD 可再生成性阻塞"}（\text{平台级}）$$
+$$\Rightarrow\ \textbf{不起 P\&R、不写 v43 构建脚本}（\text{先只证"BD 能不能重新生成"这一件事}）$$
+
+**第 99 条纪律：先证"基础设施能重做一遍"，再往里加东西**
+$$\Rightarrow\ \text{本项目一直在用一颗}\textbf{冻结的 BD}\ \text{产出位流} \Rightarrow \text{它"能构建"这件事掩盖了"它不能被重新生成"}$$
+$$\quad\ \text{于是所有"加个单元"的计划都建立在一个}\textbf{没人验过的前提}\text{上}$$
+$$\Rightarrow\ \text{与刚才 8-lane 的决定同一条理由：}\textbf{两颗不稳定性叠加就归因不了}$$
+$$\Rightarrow\ \textbf{判据}：\text{任何"往既有硬件里加东西"的任务，第一步是}\textbf{对一个空改动跑一遍生成流程}，\text{确认它能原样重做}$$
