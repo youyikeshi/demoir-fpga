@@ -1,0 +1,334 @@
+{
+ "env_at_start": {
+  "BIN_PACK": "e1e2",
+  "BIN_LAZY_DEQ": "0",
+  "BIN_LAZY_SLOTS": "24",
+  "BIN_CAT_FUSION": "1",
+  "BIN_BILINEAR_C": "1",
+  "BIN_PRECOMP": "1",
+  "Q8CACHE": "1",
+  "BIN_F32DIRECT": "1",
+  "BIN_CAT_ECA_FUSE": "1",
+  "BIN_EPI_NOINV": "1",
+  "BIN_V50_FUSE": "",
+  "BIN_VLANES": ""
+ },
+ "steps": {
+  "load": {
+   "role": "v118",
+   "bit": "/home/xilinx/demoir/design_1_150v118.bit",
+   "seconds": 2.3461,
+   "ips": [
+    "bin_unit_0",
+    "conv_uni_0",
+    "ps7"
+   ],
+   "has_fconv": false,
+   "addr": {
+    "conv_uni_0": {
+     "base": "0x40040000",
+     "length": 131072,
+     "ok": true
+    },
+    "bin_unit_0": {
+     "base": "0x40060000",
+     "length": 131072,
+     "ok": true
+    }
+   },
+   "stat_after_load": {
+    "fclk": 125.0,
+    "base": "0x40060000",
+    "magic": "0x50300001",
+    "magic_ok": true,
+    "st310": "0x00000000",
+    "st310_zero": true,
+    "done": false,
+    "err": 0,
+    "busy": false,
+    "ap_ret_bin_unit_0": "0x00000000",
+    "ap_ret_conv_uni_0": "0x00000000"
+   },
+   "fclk0_at_load": 125.0,
+   "downloads": 1,
+   "meminfo_after_load": {
+    "MemTotal": 1028264,
+    "MemFree": 736780,
+    "MemAvailable": 837152,
+    "SwapTotal": 524284,
+    "SwapFree": 524284,
+    "CmaTotal": 262144,
+    "CmaFree": 24560
+   },
+   "fp_ok": true
+  },
+  "kernel_load": {
+   "q8": {
+    "loaded": true,
+    "seconds": 0.2694,
+    "why": "ok"
+   },
+   "c8deq": {
+    "loaded": true,
+    "seconds": 4.3167,
+    "why": "ok"
+   },
+   "bpack": {
+    "loaded": true,
+    "seconds": 1.7982,
+    "why": "ok"
+   }
+  }
+ },
+ "python": "3.10.4",
+ "numpy": "1.21.5",
+ "machine": "armv7l",
+ "role": "v118",
+ "meminfo_at_start": {
+  "MemTotal": 1028264,
+  "MemFree": 771244,
+  "MemAvailable": 855708,
+  "SwapTotal": 524284,
+  "SwapFree": 524284,
+  "CmaTotal": 262144,
+  "CmaFree": 54972
+ },
+ "args": {
+  "role": "v118",
+  "bit": "/home/xilinx/demoir/design_1_150v118.bit",
+  "pack": "/home/xilinx/demoir/deploy/bin_weights_new",
+  "outdir": "/home/xilinx/demoir/t121_out",
+  "freq": 50.0,
+  "slots": 24,
+  "runs_128": 2,
+  "runs_64": 1,
+  "runs_256": 1,
+  "wd128": 600.0,
+  "wd64": 420.0,
+  "wd256": 1500.0,
+  "tag": "t121"
+ },
+ "fclk_target": 50.0,
+ "fclk_readback": 50.0,
+ "net_64": {
+  "tag": "net64",
+  "hw": 64,
+  "slots": 24,
+  "arena_mb": 4.293,
+  "exact_need": true,
+  "fclk": 50.0,
+  "x0_sha1": "bbae82e46e363a776d8fce8d9004e94502456bdc",
+  "x0_ok": true,
+  "conv_cyc": 28605312,
+  "nrun": 1,
+  "runs": [
+   {
+    "run": 1,
+    "wall_s": 5.031,
+    "total_s": 5.025645971298218,
+    "pl_s": 1.490813970565796,
+    "ps_s": 3.6281140833643803,
+    "n_conv_ops": 227,
+    "deps_closure_ok": true,
+    "run_valid": true,
+    "lazy_deq": false,
+    "conv_cyc": 28605312,
+    "pl_cyc_meas": 74540699,
+    "pl_cyc_ratio": 2.6058,
+    "cma_free_before_b": 528384,
+    "cma_free_after_b": 307200,
+    "sha1": {
+     "out1": "bfa246d34681e748311bbcd2f1b87317a56923fe",
+     "out2": "226bd39e522aa373b8fc183acae5280931f8b63f",
+     "out3": "762d84b9618eab8922edd6da4f07ba06de865628"
+    },
+    "sha_ok": true,
+    "post": {
+     "fclk": 50.0,
+     "base": "0x40060000",
+     "magic": "0x50300001",
+     "magic_ok": true,
+     "st310": "0x00000000",
+     "st310_zero": true,
+     "done": false,
+     "err": 0,
+     "busy": false,
+     "ap_ret_bin_unit_0": "0x00000001",
+     "ap_ret_conv_uni_0": "0x00000000"
+    },
+    "fclk": 50.0
+   }
+  ],
+  "same_across_runs": null,
+  "sha_ok_all": true,
+  "lazy_deq": "0",
+  "pass": false
+ },
+ "net_128": {
+  "tag": "net128",
+  "hw": 128,
+  "slots": 24,
+  "arena_mb": 16.679,
+  "exact_need": null,
+  "fclk": 50.0,
+  "x0_sha1": "26c9796e18f0e6883680693b805ce8bb7ad51486",
+  "x0_ok": true,
+  "conv_cyc": 113098752,
+  "nrun": 2,
+  "runs": [
+   {
+    "run": 1,
+    "wall_s": 6.667,
+    "total_s": 6.661237955093384,
+    "pl_s": 1.6069691181182861,
+    "ps_s": 5.188900909093718,
+    "n_conv_ops": 227,
+    "deps_closure_ok": true,
+    "run_valid": true,
+    "lazy_deq": false,
+    "conv_cyc": 113098752,
+    "pl_cyc_meas": 80348456,
+    "pl_cyc_ratio": 0.7104,
+    "cma_free_before_b": 335872,
+    "cma_free_after_b": 552960,
+    "sha1": {
+     "out1": "2b71703d130bdb94b8b7b49043c85444582f2372",
+     "out2": "a163f1f657eaac83ae878e54c742cc80d5e53af7",
+     "out3": "b31ff6d6843cebd1c8258f75e9b30059fe2facbb"
+    },
+    "sha_ok": false,
+    "post": {
+     "fclk": 50.0,
+     "base": "0x40060000",
+     "magic": "0x50300001",
+     "magic_ok": true,
+     "st310": "0x00000000",
+     "st310_zero": true,
+     "done": false,
+     "err": 0,
+     "busy": false,
+     "ap_ret_bin_unit_0": "0x00000001",
+     "ap_ret_conv_uni_0": "0x00000000"
+    },
+    "fclk": 50.0
+   },
+   {
+    "run": 2,
+    "wall_s": 6.333,
+    "total_s": 6.327685594558716,
+    "pl_s": 1.5179712772369385,
+    "ps_s": 4.855481464796867,
+    "n_conv_ops": 227,
+    "deps_closure_ok": true,
+    "run_valid": true,
+    "lazy_deq": false,
+    "conv_cyc": 113098752,
+    "pl_cyc_meas": 75898564,
+    "pl_cyc_ratio": 0.6711,
+    "cma_free_before_b": 1404928,
+    "cma_free_after_b": 552960,
+    "sha1": {
+     "out1": "f208f89953d20cac213974c0681a2141fa35f8ae",
+     "out2": "b10606cf2148f6999a96bfbf56dba125c2841390",
+     "out3": "d9e8e34dc14af68c5041aa624b65c8445ebbc828"
+    },
+    "sha_ok": false,
+    "post": {
+     "fclk": 50.0,
+     "base": "0x40060000",
+     "magic": "0x50300001",
+     "magic_ok": true,
+     "st310": "0x00000000",
+     "st310_zero": true,
+     "done": false,
+     "err": 0,
+     "busy": false,
+     "ap_ret_bin_unit_0": "0x00000001",
+     "ap_ret_conv_uni_0": "0x00000000"
+    },
+    "fclk": 50.0
+   }
+  ],
+  "same_across_runs": false,
+  "sha_ok_all": false,
+  "lazy_deq": "0",
+  "pass": false
+ },
+ "net_256": {
+  "tag": "net256",
+  "hw": 256,
+  "slots": 24,
+  "arena_mb": 66.224,
+  "exact_need": null,
+  "fclk": 50.0,
+  "x0_sha1": "cfc75bc3f15d306b07787325fdc9ae715cfadd0a",
+  "x0_ok": true,
+  "conv_cyc": 451072512,
+  "nrun": 1,
+  "runs": [
+   {
+    "run": 1,
+    "wall_s": 17.29,
+    "total_s": 17.284416675567627,
+    "pl_s": 4.660654544830322,
+    "ps_s": 15.124775824371682,
+    "n_conv_ops": 227,
+    "deps_closure_ok": true,
+    "run_valid": true,
+    "lazy_deq": false,
+    "conv_cyc": 451072512,
+    "pl_cyc_meas": 233032727,
+    "pl_cyc_ratio": 0.5166,
+    "cma_free_before_b": 389120,
+    "cma_free_after_b": 0,
+    "sha1": {
+     "out1": "1cf0f2b9c1573ad431338dfaadaa65d22be04bff",
+     "out2": "175f4af9a634beea412eb8c852fddc5b75dd4ca5",
+     "out3": "83b6c0f1431ea0f9579aa37e75e5f3d55062219d"
+    },
+    "sha_ok": false,
+    "post": {
+     "fclk": 50.0,
+     "base": "0x40060000",
+     "magic": "0x50300001",
+     "magic_ok": true,
+     "st310": "0x00000000",
+     "st310_zero": true,
+     "done": false,
+     "err": 0,
+     "busy": false,
+     "ap_ret_bin_unit_0": "0x00000001",
+     "ap_ret_conv_uni_0": "0x00000000"
+    },
+    "fclk": 50.0
+   }
+  ],
+  "same_across_runs": null,
+  "sha_ok_all": false,
+  "lazy_deq": "0",
+  "pass": false
+ },
+ "verdict_128": "prefetch_innocent",
+ "criteria": {
+  "c64_frozen": true,
+  "c128_same_two": false,
+  "c128_eq_v39": false,
+  "c256_eq_v39": false,
+  "c64_triple": [
+   "bfa246d34681e748311bbcd2f1b87317a56923fe",
+   "226bd39e522aa373b8fc183acae5280931f8b63f",
+   "762d84b9618eab8922edd6da4f07ba06de865628"
+  ],
+  "c128_triple": [
+   "2b71703d130bdb94b8b7b49043c85444582f2372",
+   "a163f1f657eaac83ae878e54c742cc80d5e53af7",
+   "b31ff6d6843cebd1c8258f75e9b30059fe2facbb"
+  ],
+  "c256_triple": [
+   "1cf0f2b9c1573ad431338dfaadaa65d22be04bff",
+   "175f4af9a634beea412eb8c852fddc5b75dd4ca5",
+   "83b6c0f1431ea0f9579aa37e75e5f3d55062219d"
+  ]
+ },
+ "finished": "2025-05-09 05:36:20"
+}

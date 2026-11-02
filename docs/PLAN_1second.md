@@ -6416,3 +6416,21 @@ $$\Rightarrow\ \text{128}^2\ \text{同时跨过 } \mathtt{npix}=4096\ \text{与 
 $$\Rightarrow\ \text{要分离需跑}\textbf{非方形}（如 } \text{输入 } 64\times128 \Rightarrow \text{基 } 32\times64 \Rightarrow \mathtt{npix}=2048\ \text{但 } W=64）$$
 $$\quad\ \Rightarrow\ \text{若失败} \Rightarrow \textbf{W=64 是门槛};\ \text{若通过} \Rightarrow \textbf{npix}\ge4096\ \text{是门槛}$$
 $$\Rightarrow\ \text{但更值得先做的仍是 } \mathtt{PF\_EN}=0\ \text{的机制判决（T-119 在实现中）}$$
+
+### 70.84 ★★★ 预取无罪（T-121），嫌疑锁定到"k=3 行抽头 × 线缓存索引"（2026-11-03 02:5x）
+
+**A/B 判决（干净的单一变量）**
+$$\Rightarrow\ \mathtt{PF\_EN}=0\ \text{的 } \mathtt{v118}\ (\mathtt{8deb14f3})\ \text{在 } \mathbf{128^2}：\text{两次 sha1}\textbf{仍互不相同}\ \text{且}\textbf{均}\neq \mathtt{v39}\ \text{参照}$$
+$$\Rightarrow\ 256^2\ \text{仍错};\ 64^2\ \text{仍 = 冻结} \Rightarrow \text{正常路径没弄坏}$$
+$$\Rightarrow\ \text{单变量证明：}\mathtt{v53}\leftrightarrow\mathtt{v118}\ \text{源清单只差 }1\ \text{个文件};\ \text{网表 } \mathbf{LUT-527/FF-183}\ \text{证明参数真落地}$$
+$$\Rightarrow\ \Rightarrow\ \textbf{预取路径无罪} \Rightarrow \text{非确定源与错源都在 v50 的}\textbf{非预取}部分$$
+$$\Rightarrow\ \text{⚠ 更正：}\mathtt{v118}\ \text{的 } \mathtt{WNS} = \mathbf{-0.270}\ (\text{不是 } -0.103)，\text{真实数据通路} \Rightarrow \text{只许 } \le50\ \text{MHz}$$
+
+**新主假设：k=3 的行抽头在线缓存里撞索引**
+$$\Rightarrow\ \mathtt{wrap:2388\text{-}2396}\ \ \mathbf{\mathtt{idx}[3:0] = \mathtt{tag}[3:0]}\（\text{作者自己标注过的隐患）}$$
+$$\Rightarrow\ \text{每行线数} = W/16：W{=}32 \Rightarrow \mathbf{2}\ \text{条/行（行内 }1\ \text{位）};\ W{=}64 \Rightarrow \mathbf{4}\ \text{条/行（行内 }2\ \text{位）}$$
+$$\Rightarrow\ k{=}3\ \text{需同时取}\textbf{3 个相邻行}的线 \Rightarrow \text{行内位多 }1\ \text{位后，3 个抽头在 }4\ \text{位 } \mathtt{idx}\ \text{里}\textbf{互相覆盖}$$
+$$\Rightarrow\ \Rightarrow\ \textbf{可证伪预测}：$$
+$$\quad\ k{=}1 @ 64^2\ \text{应全对（不用行抽头）};\quad k{=}3 @ 64^2\ \text{应错};\quad k{=}3 @ 32^2\ \text{应全对}$$
+$$\quad\ \text{错行特征应为}\textbf{"某些行取到了相邻行的数据"}$$
+$$\Rightarrow\ \text{若命中} \Rightarrow \text{根因确定，}\text{修法是 } \mathtt{idx}\ \text{按"行内线号 + 行号"显式拼接，\text{而不是截取 } \mathtt{tag}\ \text{低位}$$
