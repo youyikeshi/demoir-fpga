@@ -1,0 +1,58 @@
+[t120] 日志 = /home/xilinx/demoir/t120_out/t120_v53_042229.log
+[t120] role = v53 | bit = /home/xilinx/demoir/design_1_150v53.bit
+[t120] 目标频率 = 50 MHz | 槽数 = 24
+[t120] 运行点 = {"BIN_PACK": "e1e2", "BIN_LAZY_DEQ": "0", "BIN_LAZY_SLOTS": "24", "BIN_CAT_FUSION": "1", "BIN_BILINEAR_C": "1", "BIN_PRECOMP": "1", "Q8CACHE": "1", "BIN_F32DIRECT": "1", "BIN_CAT_ECA_FUSE": "1", "BIN_EPI_NOINV": "1", "BIN_V50_FUSE": "", "BIN_VLANES": ""}
+[t120] meminfo = {'MemTotal': 1028264, 'MemFree': 772128, 'MemAvailable': 857080, 'SwapTotal': 524284, 'SwapFree': 524284, 'CmaTotal': 262144, 'CmaFree': 49320}
+
+==============================================================================
+  第 1 步：load v53 overlay + 指纹（本进程唯一一次 download=True）
+==============================================================================
+  Overlay(design_1_150v53.bit) 用时 2.748 s
+  IP 清单：['bin_unit_0', 'conv_uni_0', 'ps7']
+  conv_uni_0  base=0x40040000 length=0x20000 （期望 0x40040000）✓
+  bin_unit_0  base=0x40060000 length=0x20000 （期望 0x40060000）✓
+  **magic(0x314) = 0x50300001 期望 0x50300001 ⇒ 寄存器块在位 ✓**
+  **0x310 = 0x00000000 ⇒ 空闲 ✓**（load 后 PL 必须空闲）
+  load 后 fclk0 读回 = 125 MHz
+  ★ 第 1 步收尾：fclk0 目标 50 → **读回 50 MHz**；PL 状态 = {"fclk": 50.0, "base": "0x40060000", "magic": "0x50300001", "magic_ok": true, "st310": "0x00000000", "st310_zero": true, "done": false, "err": 0, "busy": false, "ap_ret_bin_unit_0": "0x00000000", "ap_ret_conv_uni_0": "0x00000000"}
+
+==============================================================================
+  第 1b 步：q8/c8deq/bpack 一次性装载（单独计时，不进稳态）
+==============================================================================
+  q8     load=0.267 s loaded=True why=ok
+  c8deq  load=4.278 s loaded=True why=ok
+  bpack  load=1.770 s loaded=True why=ok
+  **一次性装载合计 = 6.316 s**
+[json] 已落盘 /home/xilinx/demoir/t120_out/t120_v53_042229.json
+  128² 形状：max_in 0.295 MB / max_out 0.393 MB / 227 个 conv
+  npix：max = 4096；**npix ≥ 4096 的 op = 31 个**（T-115 阈值口径）
+  arena 需求：24 槽 × (0.295 + 0.393 MB + 4096) + 64 KB = **16.68 MB**
+  分配前 CmaFree = 0.46 MB
+  arena t120_arena128  16.68 MB / 24 槽 @0x30100000
+
+==============================================================================
+  整网 128²（LAZY_DEQ=0）arena 24 槽 / 16.68 MB，fclk 读回 50 MHz，连跑 2 次
+==============================================================================
+  BV_FREE=0
+  conv 总拍数（RTL 公式，频率无关）= 113,098,752 ⇒ @50 MHz 纯算 2.262 s
+  arena 槽数 = 24 | CmaFree 0.13 MB
+  输入 x0 sha1 = 26c9796e18f0e6883680693b805ce8bb7ad51486（无冻结口径；两版位流必须同值才可比）
+  [DEPS] q8=fast c8deq=fast bpack=fast e1e2=fast catpack=fast safe=fast  ⇒ deps_closure_ok=True
+  run1: 墙钟 7.629 s | PL 2.353 s | PS 6.079 s | conv 227
+        sha1 bf9cb522fa5d / 89057f875d85 / 19ea9ed5235f  （无参照，记录）
+        整网后 0x310=0x00000000 magic=0x50300001 ✓ 归零（第 120 条）
+  run2: 墙钟 6.186 s | PL 1.460 s | PS 4.710 s | conv 227
+        sha1 3b9ebebaac09 / d5fbd3e6c192 / 237e28c8b08c  （无参照，记录）
+        整网后 0x310=0x00000000 magic=0x50300001 ✓ 归零（第 120 条）
+  ⇒ 本块（128²）：两次相同=False；三 sha1（供与另一版位流 A/B）=
+       run1 bf9cb522fa5da6ac875b8827abbea8f46d9deb08 / 89057f875d850b08738b127c8315d076fe679131 / 19ea9ed5235f80d3711637f93bcbbd5a6c69a825
+       run2 3b9ebebaac099d3ba43f464d6e9e8b27e3a0911d / d5fbd3e6c192ead40079cbcb90f4c5d9a9ee7a7d / 237e28c8b08ccf28bc815e68f159f67cba731dc9
+[json] 已落盘 /home/xilinx/demoir/t120_out/t120_v53_042229.json
+
+==============================================================================
+  小结（role=v53）
+==============================================================================
+  128² run1 sha1 = bf9cb522fa5da6ac875b8827abbea8f46d9deb08 / 89057f875d850b08738b127c8315d076fe679131 / 19ea9ed5235f80d3711637f93bcbbd5a6c69a825
+  128² run2 sha1 = 3b9ebebaac099d3ba43f464d6e9e8b27e3a0911d / d5fbd3e6c192ead40079cbcb90f4c5d9a9ee7a7d / 237e28c8b08ccf28bc815e68f159f67cba731dc9
+  128² 两次相同 = False
+[json] 已落盘 /home/xilinx/demoir/t120_out/t120_v53_042229.json

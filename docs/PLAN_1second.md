@@ -6394,3 +6394,25 @@ $$\Rightarrow\ \text{恶化 }0.31\ \text{ns}\ \text{来自 P\&R 换了不同解}
 
 $$\Rightarrow\ \textbf{第 124 条：A/B 位流必须"各自时序干净"，否则单变量对比被 P\&R 噪声污染}$$
 $$\quad\ \text{本轮就是教训：删掉预取反而慢了 }0.31\ \text{ns，}\text{若直接上板，}\text{会把"预取无罪"误判成"预取有罪"}$$
+
+### 70.83 ★★★★★ 边界钉死：**128² 就错**，失效率门槛 = 每层 `npix = 4096` 恰好（T-120，2026-11-03 02:0x）
+
+**实验（一次 session、两次 load）**
+$$\Rightarrow\ \mathtt{v53}\ 128^2：\text{run1 } \mathtt{bf9cb522}/\mathtt{89057f87}/\mathtt{19ea9ed5};\ \text{run2 } \mathtt{3b9ebeba}/\mathtt{d5fbd3e6}/\mathtt{237e28c8} \Rightarrow \textbf{两次不同}$$
+$$\Rightarrow\ \mathtt{v39}\ 128^2（\text{参照}）：\textbf{两次逐位相同} = \mathtt{27e25cf6}/\mathtt{b82b83f3}/\mathtt{6db4e9bb}$$
+$$\Rightarrow\ \Rightarrow\ \textbf{v53 128}^2 \neq \mathtt{v39}\ 128^2，\text{且 v53 自身非确定} \Rightarrow \textbf{失效边界} \le 128^2$$
+$$\Rightarrow\ 128^2\ \text{输入} \Rightarrow \text{基分辨率 } 64^2 \Rightarrow \textbf{每层 } \mathtt{npix} = 4096\ \text{恰好}，\mathbf{31\ \text{个 op}}\ \text{命中}$$
+$$\Rightarrow\ \mathtt{v39}\ 64^2\ \text{仍 = 冻结} \Rightarrow \text{环境未变}$$
+$$\Rightarrow\ \text{PL 时间旁证：}\mathtt{v53}/\mathtt{v39}\ \text{在 }128^2\ \text{几乎相同（}2.35/2.22\ \text{s vs 公式 }2.26）\Rightarrow \textbf{不是丢拍/早收，是数据通路错}$$
+
+**★ 一条关键反证（T-120 自己给的）**
+$$\Rightarrow\ 64^2\ \text{已有 }1\ \text{个 op 的 } cb\cdot HW/16 = \mathbf{576} > \mathtt{LC\_N}=512\ \text{却}\textbf{逐位正确}$$
+$$\Rightarrow\ \Rightarrow\ \textbf{"超 512 条必错"不成立} \Rightarrow \text{纯容量不足}\textbf{不会}错数$$
+$$\Rightarrow\ \text{128}^2\ \text{有 16 个 op 超容（最大 2304）};\ 256^2\ \text{有 60 个（最大 9216）}$$
+$$\Rightarrow\ \text{故嫌疑转为}\textbf{"预取 fill 路径在更高压力下才被激活"}\ \text{而非"容量本身"}$$
+
+**当前唯一没分离的两个门槛**
+$$\Rightarrow\ \text{128}^2\ \text{同时跨过 } \mathtt{npix}=4096\ \text{与 } H=W=64\ \text{（}64^2\ \text{时最大 } H=W=32\text{）}$$
+$$\Rightarrow\ \text{要分离需跑}\textbf{非方形}（如 } \text{输入 } 64\times128 \Rightarrow \text{基 } 32\times64 \Rightarrow \mathtt{npix}=2048\ \text{但 } W=64）$$
+$$\quad\ \Rightarrow\ \text{若失败} \Rightarrow \textbf{W=64 是门槛};\ \text{若通过} \Rightarrow \textbf{npix}\ge4096\ \text{是门槛}$$
+$$\Rightarrow\ \text{但更值得先做的仍是 } \mathtt{PF\_EN}=0\ \text{的机制判决（T-119 在实现中）}$$

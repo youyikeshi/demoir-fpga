@@ -1,0 +1,412 @@
+[boardlock] 取得板级独占 01:46:45  使用者=T120
+[boardlock] 已签发唯一 load 令牌
+[t120] repo = /media/felix/Data/coding/demoir-fpga
+[t120] board = xilinx@192.168.7.2
+[t120] 探针 md5 = 17598a295851d0d6925d2afbdc6c2722
+[t120] 清单 md5 = 9de3d60c9abda79ff01b40801f3b809e
+[t120] 128² ×2（v53 与 v39 各一次 load），64² ×2（仅 v39 对照）
+[t120] ⓪ 两版 bit/hwh md5 = 冻结值 ✓（各自成对）
+[t120] ⓪ 打包 158 个文件（1.1M）
+--- uptime
+ 04:21:55 up 5 min,  1 user,  load average: 0.02, 0.17, 0.09
+--- disk
+/dev/root        28G  7.8G   19G  30% /
+/dev/root      3751936 208732 3543204    6% /
+--- mem/cma
+MemTotal:        1028264 kB
+MemFree:          703384 kB
+MemAvailable:     901092 kB
+SwapTotal:        524284 kB
+SwapFree:         524284 kB
+CmaTotal:         262144 kB
+CmaFree:           21964 kB
+--- 现存 python（pgrep -x python3）
+600 python3 /usr/local/bin/redirect_server
+--- 杀后残留
+  (无)
+--- 现有位流
+-rwxrwxr-x 1 xilinx xilinx 3510798 May  8 13:17 /home/xilinx/demoir/design_1_150v42.bit
+-rwxrwxr-x 1 xilinx xilinx 3510798 May  8 14:04 /home/xilinx/demoir/design_1_150v42c.bit
+-rwxrwxr-x 1 xilinx xilinx 3510798 May  8 14:33 /home/xilinx/demoir/design_1_150v42d.bit
+-rwxrwxr-x 1 xilinx xilinx 3510798 May  8 15:13 /home/xilinx/demoir/design_1_150v42e.bit
+-rwxrwxr-x 1 xilinx xilinx 3510798 May  9 00:13 /home/xilinx/demoir/design_1_150v50.bit
+-rwxrwxr-x 1 xilinx xilinx 3510798 May  9 04:12 /home/xilinx/demoir/design_1_150v51.bit
+-rwxrwxr-x 1 xilinx xilinx 3510798 May  9 04:05 /home/xilinx/demoir/design_1_150v52.bit
+-rwxrwxr-x 1 xilinx xilinx 3510798 May  9  2025 /home/xilinx/demoir/design_1_150v53.bit
+--- PACK 目录
+/home/xilinx/demoir/deploy/bin_weights_new
+5a793dd66daf650a4825b687fe4b24b4  /home/xilinx/demoir/deploy/bin_weights_new/index.json
+--- 真 python
+lrwxrwxrwx 1 root root 16 May  3 18:01 /usr/local/share/pynq-venv/bin/python3 -> /usr/bin/python3
+--- 腾 CMA：drop_caches 前
+CmaFree:           21652 kB
+  ✓ drop_caches
+--- 腾 CMA：drop_caches 后
+CmaFree:          131120 kB
+[t120] ① done
+[t120] ② scp done（ps 包 + md5 + 探针 + 清单 + 两版 bit/hwh）
+=== ③-a 位流落位 + md5（两版都要成对）===
+  design_1_150v53.bit = e19de0326fe657fc8de9ddd241ecc729 （期望 e19de0326fe657fc8de9ddd241ecc729）
+  design_1_150v53.hwh = 5235764602921d03351e121a81e35613 （期望 5235764602921d03351e121a81e35613）
+  design_1_150v39.bit = 602725b86941864eeeeab3be005e1e81 （期望 602725b86941864eeeeab3be005e1e81）
+  design_1_150v39.hwh = c1686bd8e080c1c7f46181d980543202 （期望 c1686bd8e080c1c7f46181d980543202）
+  ✓ 两版 bit/hwh = 冻结值，成对
+=== ③-b 解包 ps 源码 + 逐文件 md5 ===
+tar: ps/README.md: time stamp 2026-10-23 13:48:58 is 45998814.442095235 s in the future
+tar: ps/baremetal/main.c: time stamp 2026-10-21 04:36:48 is 45792884.432921703 s in the future
+tar: ps/c8/c8lib.py: time stamp 2026-10-22 18:21:23 is 45928759.431400487 s in the future
+tar: ps/c8/ops_c8.py: time stamp 2026-10-22 20:05:31 is 45935007.430269067 s in the future
+tar: ps/c8/run_all.sh: time stamp 2026-10-22 18:21:23 is 45928759.428914165 s in the future
+tar: ps/c8/txn_model.py: time stamp 2026-10-22 20:07:21 is 45935117.427939075 s in the future
+tar: ps/docs/REPORT.md: time stamp 2026-10-31 04:40:05 is 46657081.419357587 s in the future
+tar: ps/manifest_512.json: time stamp 2026-10-21 04:36:48 is 45792884.413684167 s in the future
+tar: ps/manifest_608x416.json: time stamp 2026-10-21 04:36:48 is 45792884.407378959 s in the future
+tar: ps/manifest_64.json: time stamp 2026-10-21 04:36:48 is 45792884.400201164 s in the future
+tar: ps/manifest_640.json: time stamp 2026-10-21 04:36:48 is 45792884.393339006 s in the future
+tar: ps/pynq/bilinear_c.c: time stamp 2026-10-31 12:23:53 is 46684909.391394994 s in the future
+tar: ps/pynq/bilinear_c.py: time stamp 2026-11-01 17:30:03 is 46789679.3894837 s in the future
+tar: ps/pynq/bin_catpack.py: time stamp 2026-10-30 19:41:05 is 46624741.388642548 s in the future
+tar: ps/pynq/bin_engine.py: time stamp 2026-11-02 09:30:49 is 46847325.376027218 s in the future
+tar: ps/pynq/bin_engine.py.bak_20261031_ps256: time stamp 2026-10-30 16:03:53 is 46611709.370884738 s in the future
+tar: ps/pynq/bin_engine.py.bak_before_c8direct: time stamp 2026-10-31 04:42:31 is 46657227.363773058 s in the future
+tar: ps/pynq/bin_engine.py.bak_before_catpack: time stamp 2026-10-31 04:10:49 is 46655325.355967274 s in the future
+tar: ps/pynq/bin_engine.py.bak_e1e2_20261031: time stamp 2026-10-30 19:27:49 is 46623945.352149354 s in the future
+tar: ps/pynq/bin_engine.py.bak_f32pool_20261031: time stamp 2026-10-30 21:20:05 is 46630681.346894428 s in the future
+tar: ps/pynq/bin_net.py: time stamp 2026-11-02 09:32:35 is 46847431.336511266 s in the future
+tar: ps/pynq/bin_net.py.bak_20261030: time stamp 2026-10-30 15:23:11 is 46609267.33446778 s in the future
+tar: ps/pynq/bin_net.py.bak_before_c8direct: time stamp 2026-10-31 04:42:31 is 46657227.332424498 s in the future
+tar: ps/pynq/bin_net.py.bak_before_catfusion: time stamp 2026-10-31 04:50:56 is 46657732.327421896 s in the future
+tar: ps/pynq/bin_net.py.bak_before_catpack: time stamp 2026-10-31 04:10:56 is 46655332.32389359 s in the future
+tar: ps/pynq/bin_net.py.bak_before_s2merge: time stamp 2026-10-31 05:22:23 is 46659619.318617772 s in the future
+tar: ps/pynq/bin_net.py.bak_f32pool_20261031: time stamp 2026-10-30 20:58:48 is 46629404.315527202 s in the future
+tar: ps/pynq/bin_ref_numpy.py: time stamp 2026-11-02 01:56:02 is 46820038.310775448 s in the future
+tar: ps/pynq/bin_ref_numpy.py.bak_20261030: time stamp 2026-10-30 15:23:11 is 46609267.308698506 s in the future
+tar: ps/pynq/bin_ref_numpy.py.bak_20261031_ps256: time stamp 2026-10-30 16:10:22 is 46612098.306500334 s in the future
+tar: ps/pynq/bin_test_staged.py: time stamp 2026-10-30 17:58:17 is 46618573.304267379 s in the future
+tar: ps/pynq/board_cat_fusion_ab.py: time stamp 2026-10-31 05:29:49 is 46660065.302414453 s in the future
+tar: ps/pynq/board_catpack.py: time stamp 2026-10-31 04:22:13 is 46656009.301263059 s in the future
+tar: ps/pynq/board_e1e2_smoke.py: time stamp 2026-10-30 20:53:49 is 46629105.292380875 s in the future
+tar: ps/pynq/board_fconv_verify.py: time stamp 2026-10-31 13:11:33 is 46687769.291254489 s in the future
+tar: ps/pynq/board_freq_sweep.py: time stamp 2026-10-31 07:23:09 is 46666865.289404209 s in the future
+tar: ps/pynq/board_lazy_ab.py: time stamp 2026-10-31 05:23:04 is 46659660.287550539 s in the future
+tar: ps/pynq/board_pack_ab.py: time stamp 2026-10-30 19:24:31 is 46623747.285835697 s in the future
+tar: ps/pynq/board_q8_bench.py: time stamp 2026-10-31 05:17:26 is 46659322.284079365 s in the future
+tar: ps/pynq/board_safe.py: time stamp 2026-10-30 04:08:36 is 46568792.282106361 s in the future
+tar: ps/pynq/board_test_staged.py: time stamp 2026-10-30 08:55:04 is 46585980.281112017 s in the future
+tar: ps/pynq/board_v39_verify.py: time stamp 2026-11-01 17:35:23 is 46789999.279888833 s in the future
+tar: ps/pynq/board_wrst_probe.py: time stamp 2026-10-31 10:57:51 is 46679747.278539709 s in the future
+tar: ps/pynq/bpack.c: time stamp 2026-10-30 19:19:59 is 46623475.277657043 s in the future
+tar: ps/pynq/bpack.py: time stamp 2026-10-30 19:23:30 is 46623686.276534443 s in the future
+tar: ps/pynq/c8_layout.py: time stamp 2026-10-22 20:05:10 is 45934986.275237921 s in the future
+tar: ps/pynq/c8deq.c: time stamp 2026-11-02 01:56:02 is 46820038.274235339 s in the future
+tar: ps/pynq/c8deq.py: time stamp 2026-11-02 01:56:02 is 46820038.273086495 s in the future
+tar: ps/pynq/c8deq.py.bak_f32pool_20261031: time stamp 2026-10-30 21:27:34 is 46631130.272040953 s in the future
+tar: ps/pynq/catpack.py: time stamp 2026-10-31 04:27:50 is 46656346.270413891 s in the future
+tar: ps/pynq/conv_engine.py: time stamp 2026-10-22 20:08:29 is 45935185.269478893 s in the future
+tar: ps/pynq/conv_ref_fast.c: time stamp 2026-10-27 18:04:38 is 46359754.268716503 s in the future
+tar: ps/pynq/conv_ref_fast.py: time stamp 2026-10-27 17:46:24 is 46358660.267939791 s in the future
+tar: ps/pynq/convpf_c.c: time stamp 2026-11-01 17:52:14 is 46791010.267085181 s in the future
+tar: ps/pynq/convpf_c.py: time stamp 2026-11-01 18:11:08 is 46792144.266046611 s in the future
+tar: ps/pynq/convpf_neon_shim.h: time stamp 2026-11-01 17:50:14 is 46790890.265086371 s in the future
+tar: ps/pynq/display_demo.py: time stamp 2026-11-02 17:42:10 is 46876806.257092577 s in the future
+tar: ps/pynq/display_layout.py: time stamp 2026-11-02 14:22:13 is 46864809.255827831 s in the future
+tar: ps/pynq/e1e2_sim.py: time stamp 2026-10-30 20:51:59 is 46628995.253851809 s in the future
+tar: ps/pynq/fconv.py: time stamp 2026-10-31 13:10:39 is 46687715.251897267 s in the future
+tar: ps/pynq/hdmi_out.py: time stamp 2026-11-02 17:37:21 is 46876517.250433117 s in the future
+tar: ps/pynq/i8_fast.c: time stamp 2026-10-23 00:54:10 is 45952326.249468275 s in the future
+tar: ps/pynq/i8_fast.py: time stamp 2026-10-23 00:53:07 is 45952263.248637071 s in the future
+tar: ps/pynq/k1_engine.py: time stamp 2026-10-27 15:25:15 is 46350191.247565483 s in the future
+tar: ps/pynq/k3_engine.py: time stamp 2026-10-27 02:43:42 is 46304498.245479415 s in the future
+tar: ps/pynq/k5_engine.py: time stamp 2026-10-27 03:09:46 is 46306062.243169655 s in the future
+tar: ps/pynq/lut_util.py: time stamp 2026-10-23 00:30:16 is 45950892.241122191 s in the future
+tar: ps/pynq/mmio_batch.c: time stamp 2026-11-01 23:57:51 is 46812947.239236319 s in the future
+tar: ps/pynq/mmio_batch.py: time stamp 2026-11-01 23:57:51 is 46812947.237383807 s in the future
+tar: ps/pynq/ops_numpy.py: time stamp 2026-10-27 12:24:18 is 46339334.235277987 s in the future
+tar: ps/pynq/perf_probe.py: time stamp 2026-10-30 15:16:14 is 46608850.232869041 s in the future
+tar: ps/pynq/pp_engine.py: time stamp 2026-10-22 03:44:16 is 45876132.223795067 s in the future
+tar: ps/pynq/pp_ops.py: time stamp 2026-10-22 20:18:37 is 45935793.222601133 s in the future
+tar: ps/pynq/q8.c: time stamp 2026-10-31 05:09:23 is 46658839.221563655 s in the future
+tar: ps/pynq/q8.py: time stamp 2026-10-31 05:10:30 is 46658906.219562031 s in the future
+tar: ps/pynq/qcache.py: time stamp 2026-11-02 07:23:55 is 46839711.217598165 s in the future
+tar: ps/pynq/ref_numpy.py: time stamp 2026-10-30 10:16:27 is 46590863.215743541 s in the future
+tar: ps/pynq/run_network_on_board.py: time stamp 2026-10-27 02:42:30 is 46304426.213699119 s in the future
+tar: ps/pynq/runner.py: time stamp 2026-10-30 10:16:45 is 46590881.207532865 s in the future
+tar: ps/pynq/sam_sum_fast.c: time stamp 2026-10-22 20:53:09 is 45937865.205491881 s in the future
+tar: ps/pynq/tap_pack.py: time stamp 2026-10-30 10:16:33 is 46590869.204261262 s in the future
+tar: ps/pynq/test_k1_on_board.py: time stamp 2026-10-23 13:42:06 is 45998402.203172952 s in the future
+tar: ps/pynq/test_on_board.py: time stamp 2026-10-23 00:04:43 is 45949359.202147276 s in the future
+tar: ps/pynq/uni_engine.py: time stamp 2026-10-30 10:56:56 is 46593292.200883994 s in the future
+tar: ps/tools/_diag_pool.py: time stamp 2026-10-21 04:36:48 is 45792884.199208458 s in the future
+tar: ps/tools/bench_blas_ab.py: time stamp 2026-10-31 04:36:48 is 46656884.198175216 s in the future
+tar: ps/tools/bench_conv_overhead.py: time stamp 2026-10-22 20:51:35 is 45937771.197207062 s in the future
+tar: ps/tools/bench_grid_2d.py: time stamp 2026-10-23 06:07:58 is 45971154.195298048 s in the future
+tar: ps/tools/bench_ops.py: time stamp 2026-10-27 12:25:34 is 46339410.193181638 s in the future
+tar: ps/tools/bench_phase_split.py: time stamp 2026-10-22 21:22:42 is 45939638.191235766 s in the future
+tar: ps/tools/bench_qcache.py: time stamp 2026-10-31 05:17:12 is 46659308.189652696 s in the future
+tar: ps/tools/bin_fp_ref.py: time stamp 2026-10-30 10:41:34 is 46592370.188493646 s in the future
+tar: ps/tools/board_safe_run.sh: time stamp 2026-10-22 21:28:47 is 45940003.187237228 s in the future
+tar: ps/tools/build_manifest.py: time stamp 2026-10-21 04:36:48 is 45792884.186152032 s in the future
+tar: ps/tools/cat_phase_diag.py: time stamp 2026-10-23 00:10:09 is 45949685.185117074 s in the future
+tar: ps/tools/check_bin_driver.py: time stamp 2026-10-30 10:55:48 is 46593224.18408901 s in the future
+tar: ps/tools/check_consistency.py: time stamp 2026-10-23 00:04:48 is 45949364.18272884 s in the future
+tar: ps/tools/check_i8_scaling.py: time stamp 2026-10-23 00:58:34 is 45952590.18193108 s in the future
+tar: ps/tools/check_numpy_ref.py: time stamp 2026-10-21 04:36:48 is 45792884.180826648 s in the future
+tar: ps/tools/check_pack_ref.py: time stamp 2026-10-21 04:36:48 is 45792884.179901004 s in the future
+tar: ps/tools/check_tap_pack.py: time stamp 2026-10-30 10:20:19 is 46591095.178882708 s in the future
+tar: ps/tools/convpf_ab.py: time stamp 2026-11-01 18:11:29 is 46792165.177609892 s in the future
+tar: ps/tools/convpf_neon_sim.py: time stamp 2026-11-01 17:50:29 is 46790905.17661388 s in the future
+tar: ps/tools/convpf_project.py: time stamp 2026-11-01 17:53:47 is 46791103.175610488 s in the future
+tar: ps/tools/convpf_timing.py: time stamp 2026-11-01 18:11:29 is 46792165.174370804 s in the future
+tar: ps/tools/deps_closure.py: time stamp 2026-11-02 07:31:49 is 46840185.173197444 s in the future
+tar: ps/tools/diag_pp_arena.py: time stamp 2026-10-22 20:02:27 is 45934823.172173028 s in the future
+tar: ps/tools/diag_sam_all.py: time stamp 2026-10-22 20:09:31 is 45935247.171421216 s in the future
+tar: ps/tools/diag_sam_num.py: time stamp 2026-10-22 20:08:23 is 45935179.170473912 s in the future
+tar: ps/tools/diag_scale.py: time stamp 2026-10-21 04:36:48 is 45792884.16946245 s in the future
+tar: ps/tools/dump_ref.cpp: time stamp 2026-10-21 04:36:48 is 45792884.168664324 s in the future
+tar: ps/tools/eval_generalize.py: time stamp 2026-10-21 04:36:48 is 45792884.167927224 s in the future
+tar: ps/tools/export_network.py: time stamp 2026-11-01 17:30:03 is 46789679.16672588 s in the future
+tar: ps/tools/gen_e1e2_desc.py: time stamp 2026-10-30 16:12:44 is 46612240.165208252 s in the future
+tar: ps/tools/img_io.py: time stamp 2026-10-21 04:36:48 is 45792884.16441879 s in the future
+tar: ps/tools/ip_route_coverage.py: time stamp 2026-10-27 02:44:48 is 46304564.163408678 s in the future
+tar: ps/tools/make_board_bundle.py: time stamp 2026-10-27 02:42:41 is 46304437.162234274 s in the future
+tar: ps/tools/make_image_pack.py: time stamp 2026-10-21 10:47:17 is 45815113.161287888 s in the future
+tar: ps/tools/make_mock_pack.py: time stamp 2026-10-23 00:04:43 is 45949359.16031947 s in the future
+tar: ps/tools/merge_gate.sh: time stamp 2026-11-02 00:08:17 is 46813573.15931213 s in the future
+tar: ps/tools/outlier_report.py: time stamp 2026-10-21 04:36:48 is 45792884.158331622 s in the future
+tar: ps/tools/pack_bin_weights.py: time stamp 2026-10-30 10:38:59 is 46592215.157009054 s in the future
+tar: ps/tools/prep_input.py: time stamp 2026-10-21 04:36:48 is 45792884.156029116 s in the future
+tar: ps/tools/probe_atlas_order.py: time stamp 2026-10-31 04:10:25 is 46655301.155003416 s in the future
+tar: ps/tools/probe_convfp_contract.py: time stamp 2026-10-31 04:12:44 is 46655440.153998608 s in the future
+tar: ps/tools/probe_serial_k.py: time stamp 2026-11-01 17:52:40 is 46791036.152863168 s in the future
+tar: ps/tools/render_compare.py: time stamp 2026-10-21 04:36:48 is 45792884.15188641 s in the future
+tar: ps/tools/repack_k3_pad12.py: time stamp 2026-10-22 23:30:22 is 45947298.150864172 s in the future
+tar: ps/tools/repack_k5_pad28.py: time stamp 2026-10-23 00:05:08 is 45949384.149777122 s in the future
+tar: ps/tools/repack_tap_stride.py: time stamp 2026-10-30 10:21:48 is 46591184.148693378 s in the future
+tar: ps/tools/run_blas_ab.sh: time stamp 2026-10-31 04:06:58 is 46655094.147881836 s in the future
+tar: ps/tools/run_image.py: time stamp 2026-10-22 17:36:54 is 45926090.147005386 s in the future
+tar: ps/tools/sgemm_bench.c: time stamp 2026-10-31 04:20:35 is 46655911.145875376 s in the future
+tar: ps/tools/sim_pp_net.py: time stamp 2026-10-22 20:04:18 is 45934934.144917488 s in the future
+tar: ps/tools/test_c8_ab.py: time stamp 2026-10-22 20:05:49 is 45935025.143640688 s in the future
+tar: ps/tools/test_driver_discovery.py: time stamp 2026-10-21 04:36:48 is 45792884.14256697 s in the future
+tar: ps/tools/test_eca_batch_ab.py: time stamp 2026-10-31 04:04:32 is 46654948.14154214 s in the future
+tar: ps/tools/test_fuse_out_ab.py: time stamp 2026-10-22 13:01:47 is 45909583.140460718 s in the future
+tar: ps/tools/test_fuse_sum_ab.py: time stamp 2026-10-22 15:45:32 is 45919408.139319338 s in the future
+tar: ps/tools/test_k1_dispatch.py: time stamp 2026-10-27 02:56:26 is 46305262.138376408 s in the future
+tar: ps/tools/test_k1_route.py: time stamp 2026-10-27 02:55:54 is 46305230.13734985 s in the future
+tar: ps/tools/test_k3k5_route.py: time stamp 2026-10-27 02:44:08 is 46304524.135783316 s in the future
+tar: ps/tools/test_ops_vs_torch.py: time stamp 2026-10-21 04:36:48 is 45792884.134772334 s in the future
+tar: ps/tools/test_pool_plan.py: time stamp 2026-10-21 13:49:28 is 45826044.13372105 s in the future
+tar: ps/tools/test_pp_on_board.py: time stamp 2026-10-22 03:44:54 is 45876170.132588706 s in the future
+tar: ps/tools/test_pp_vs_numpy.py: time stamp 2026-10-21 17:39:45 is 45839861.131616544 s in the future
+tar: ps/tools/test_ps_opt.py: time stamp 2026-10-21 13:48:46 is 45826002.130581562 s in the future
+tar: ps/tools/test_runner_local.py: time stamp 2026-10-21 04:36:48 is 45792884.129647188 s in the future
+tar: ps/tools/test_t16_ab.py: time stamp 2026-11-01 18:33:34 is 46793490.12849691 s in the future
+tar: ps/tools/test_tap_restride.py: time stamp 2026-10-30 08:57:21 is 46586117.127333498 s in the future
+tar: ps/tools/tiled_infer.py: time stamp 2026-10-21 04:36:48 is 45792884.126232894 s in the future
+tar: ps/tools/torchless_ckpt.py: time stamp 2026-10-30 10:12:25 is 46590621.125183554 s in the future
+tar: ps/tools/verify_bin_weights.py: time stamp 2026-10-30 12:22:12 is 46598408.12400501 s in the future
+tar: ps/tools/verify_cat_fusion.py: time stamp 2026-10-31 05:02:42 is 46658438.122793496 s in the future
+tar: ps/tools/verify_e1e2_direct.py: time stamp 2026-10-31 04:47:11 is 46657507.121897192 s in the future
+tar: ps/tools/verify_e1e2_path.py: time stamp 2026-10-30 20:57:36 is 46629332.120390628 s in the future
+tar: ps/tools/verify_lazy_net.py: time stamp 2026-11-01 15:19:30 is 46781846.11922634 s in the future
+tar: ps/tools/verify_t23_mmio.py: time stamp 2026-11-01 23:57:51 is 46812947.11814325 s in the future
+  解包完成（389 个文件）
+  ✓ md5 -c 全过：158 个文件
+  python = /usr/local/share/pynq-venv/bin/python3
+=== ③-c 依赖闭包清单（与 ps/ 一起同步）===
+  主清单 md5 = 9de3d60c9abda79ff01b40801f3b809e ；镜像 md5 = 9de3d60c9abda79ff01b40801f3b809e （主机 9de3d60c9abda79ff01b40801f3b809e）
+  判据①：cd ps/pynq && md5sum -c <主清单>
+    ✓ rc=0（一致文件数 = 20）
+  判据②：deps_closure --check
+✓ deps_closure --check PASS：14 模块 / 20 文件；目录 = /home/xilinx/demoir/ps/pynq
+  闭包：bin_net, bin_engine, bin_ref_numpy, qcache, fconv, board_safe, mmio_batch, catpack, e1e2_sim, bpack, c8deq, q8, bilinear_c, convpf_c
+    rc=0
+  pl_server = /usr/local/share/pynq-venv/lib/python3.10/site-packages/pynq/pl_server
+=== ③-d 清 PYNQ 残留状态 + 释放页缓存（v53 之前）===
+CmaTotal:         262144 kB
+CmaFree:          105724 kB
+  ✓ drop_caches
+MemFree:          870944 kB
+MemAvailable:     906352 kB
+CmaTotal:         262144 kB
+CmaFree:          130780 kB
+=== ③-e 进程①：load v53 → 128² ×2（★ 唯一 load #1）===
+[t120] role=v53 python=3.10.4 numpy=1.21.5 mach=armv7l
+[t120] vlanes_now()=8 BIN_V50_* 残留=[]
+[t120] 日志 = /home/xilinx/demoir/t120_out/t120_v53_042229.log
+[t120] role = v53 | bit = /home/xilinx/demoir/design_1_150v53.bit
+[t120] 目标频率 = 50 MHz | 槽数 = 24
+[t120] 运行点 = {"BIN_PACK": "e1e2", "BIN_LAZY_DEQ": "0", "BIN_LAZY_SLOTS": "24", "BIN_CAT_FUSION": "1", "BIN_BILINEAR_C": "1", "BIN_PRECOMP": "1", "Q8CACHE": "1", "BIN_F32DIRECT": "1", "BIN_CAT_ECA_FUSE": "1", "BIN_EPI_NOINV": "1", "BIN_V50_FUSE": "", "BIN_VLANES": ""}
+[t120] meminfo = {'MemTotal': 1028264, 'MemFree': 772128, 'MemAvailable': 857080, 'SwapTotal': 524284, 'SwapFree': 524284, 'CmaTotal': 262144, 'CmaFree': 49320}
+
+==============================================================================
+  第 1 步：load v53 overlay + 指纹（本进程唯一一次 download=True）
+==============================================================================
+  Overlay(design_1_150v53.bit) 用时 2.748 s
+  IP 清单：['bin_unit_0', 'conv_uni_0', 'ps7']
+  conv_uni_0  base=0x40040000 length=0x20000 （期望 0x40040000）✓
+  bin_unit_0  base=0x40060000 length=0x20000 （期望 0x40060000）✓
+  **magic(0x314) = 0x50300001 期望 0x50300001 ⇒ 寄存器块在位 ✓**
+  **0x310 = 0x00000000 ⇒ 空闲 ✓**（load 后 PL 必须空闲）
+  load 后 fclk0 读回 = 125 MHz
+  ★ 第 1 步收尾：fclk0 目标 50 → **读回 50 MHz**；PL 状态 = {"fclk": 50.0, "base": "0x40060000", "magic": "0x50300001", "magic_ok": true, "st310": "0x00000000", "st310_zero": true, "done": false, "err": 0, "busy": false, "ap_ret_bin_unit_0": "0x00000000", "ap_ret_conv_uni_0": "0x00000000"}
+
+==============================================================================
+  第 1b 步：q8/c8deq/bpack 一次性装载（单独计时，不进稳态）
+==============================================================================
+  q8     load=0.267 s loaded=True why=ok
+  c8deq  load=4.278 s loaded=True why=ok
+  bpack  load=1.770 s loaded=True why=ok
+  **一次性装载合计 = 6.316 s**
+[json] 已落盘 /home/xilinx/demoir/t120_out/t120_v53_042229.json
+  128² 形状：max_in 0.295 MB / max_out 0.393 MB / 227 个 conv
+  npix：max = 4096；**npix ≥ 4096 的 op = 31 个**（T-115 阈值口径）
+  arena 需求：24 槽 × (0.295 + 0.393 MB + 4096) + 64 KB = **16.68 MB**
+  分配前 CmaFree = 0.46 MB
+  arena t120_arena128  16.68 MB / 24 槽 @0x30100000
+
+==============================================================================
+  整网 128²（LAZY_DEQ=0）arena 24 槽 / 16.68 MB，fclk 读回 50 MHz，连跑 2 次
+==============================================================================
+  BV_FREE=0
+  conv 总拍数（RTL 公式，频率无关）= 113,098,752 ⇒ @50 MHz 纯算 2.262 s
+  arena 槽数 = 24 | CmaFree 0.13 MB
+  输入 x0 sha1 = 26c9796e18f0e6883680693b805ce8bb7ad51486（无冻结口径；两版位流必须同值才可比）
+  [DEPS] q8=fast c8deq=fast bpack=fast e1e2=fast catpack=fast safe=fast  ⇒ deps_closure_ok=True
+[DEPS] q8=fast c8deq=fast bpack=fast e1e2=fast catpack=fast safe=fast  ⇒ deps_closure_ok=True
+  run1: 墙钟 7.629 s | PL 2.353 s | PS 6.079 s | conv 227
+        sha1 bf9cb522fa5d / 89057f875d85 / 19ea9ed5235f  （无参照，记录）
+        整网后 0x310=0x00000000 magic=0x50300001 ✓ 归零（第 120 条）
+  run2: 墙钟 6.186 s | PL 1.460 s | PS 4.710 s | conv 227
+        sha1 3b9ebebaac09 / d5fbd3e6c192 / 237e28c8b08c  （无参照，记录）
+        整网后 0x310=0x00000000 magic=0x50300001 ✓ 归零（第 120 条）
+  ⇒ 本块（128²）：两次相同=False；三 sha1（供与另一版位流 A/B）=
+       run1 bf9cb522fa5da6ac875b8827abbea8f46d9deb08 / 89057f875d850b08738b127c8315d076fe679131 / 19ea9ed5235f80d3711637f93bcbbd5a6c69a825
+       run2 3b9ebebaac099d3ba43f464d6e9e8b27e3a0911d / d5fbd3e6c192ead40079cbcb90f4c5d9a9ee7a7d / 237e28c8b08ccf28bc815e68f159f67cba731dc9
+[json] 已落盘 /home/xilinx/demoir/t120_out/t120_v53_042229.json
+
+==============================================================================
+  小结（role=v53）
+==============================================================================
+  128² run1 sha1 = bf9cb522fa5da6ac875b8827abbea8f46d9deb08 / 89057f875d850b08738b127c8315d076fe679131 / 19ea9ed5235f80d3711637f93bcbbd5a6c69a825
+  128² run2 sha1 = 3b9ebebaac099d3ba43f464d6e9e8b27e3a0911d / d5fbd3e6c192ead40079cbcb90f4c5d9a9ee7a7d / 237e28c8b08ccf28bc815e68f159f67cba731dc9
+  128² 两次相同 = False
+[json] 已落盘 /home/xilinx/demoir/t120_out/t120_v53_042229.json
+  [t120] v53 探针 rc=4  用时 42 s
+e19de0326fe657fc8de9ddd241ecc729  /home/xilinx/demoir/design_1_150v53.bit
+=== ③-f 清 PYNQ 残留状态（两次 load 之间）===
+CmaFree:           87532 kB
+=== ③-g 进程②：load v39 → 128² ×2 + 64² ×2（★ 唯一 load #2）===
+[t120] role=v39 python=3.10.4 numpy=1.21.5 mach=armv7l
+[t120] vlanes_now()=8 BIN_V50_* 残留=[]
+[t120] 日志 = /home/xilinx/demoir/t120_out/t120_v39_042307.log
+[t120] role = v39 | bit = /home/xilinx/demoir/design_1_150v39.bit
+[t120] 目标频率 = 50 MHz | 槽数 = 24
+[t120] 运行点 = {"BIN_PACK": "e1e2", "BIN_LAZY_DEQ": "0", "BIN_LAZY_SLOTS": "24", "BIN_CAT_FUSION": "1", "BIN_BILINEAR_C": "1", "BIN_PRECOMP": "1", "Q8CACHE": "1", "BIN_F32DIRECT": "1", "BIN_CAT_ECA_FUSE": "1", "BIN_EPI_NOINV": "1", "BIN_V50_FUSE": "", "BIN_VLANES": ""}
+[t120] meminfo = {'MemTotal': 1028264, 'MemFree': 751096, 'MemAvailable': 857876, 'SwapTotal': 524284, 'SwapFree': 524284, 'CmaTotal': 262144, 'CmaFree': 47764}
+
+==============================================================================
+  第 1 步：load v39 overlay + 指纹（本进程唯一一次 download=True）
+==============================================================================
+  Overlay(design_1_150v39.bit) 用时 2.601 s
+  IP 清单：['bin_unit_0', 'conv_uni_0', 'ps7']
+  conv_uni_0  base=0x40040000 length=0x20000 （期望 0x40040000）✓
+  bin_unit_0  base=0x40060000 length=0x20000 （期望 0x40060000）✓
+  v39 无 0x314/0x310：不读、不判（AP_RETURN=0x00000000）
+  load 后 fclk0 读回 = 125 MHz
+  ★ 第 1 步收尾：fclk0 目标 50 → **读回 50 MHz**；PL 状态 = {"fclk": 50.0, "base": "0x40040000", "ret": "0x00000000", "done": false, "busy": false, "err": 0, "ctrl": "0x00000000"}
+
+==============================================================================
+  第 1b 步：q8/c8deq/bpack 一次性装载（单独计时，不进稳态）
+==============================================================================
+  q8     load=0.235 s loaded=True why=ok
+  c8deq  load=3.738 s loaded=True why=ok
+  bpack  load=1.685 s loaded=True why=ok
+  **一次性装载合计 = 5.658 s**
+[json] 已落盘 /home/xilinx/demoir/t120_out/t120_v39_042307.json
+  128² 形状：max_in 0.295 MB / max_out 0.393 MB / 227 个 conv
+  npix：max = 4096；**npix ≥ 4096 的 op = 31 个**（T-115 阈值口径）
+  arena 需求：24 槽 × (0.295 + 0.393 MB + 4096) + 64 KB = **16.68 MB**
+  分配前 CmaFree = 0.41 MB
+  arena t120_arena128  16.68 MB / 24 槽 @0x30100000
+
+==============================================================================
+  整网 128²（LAZY_DEQ=0）arena 24 槽 / 16.68 MB，fclk 读回 50 MHz，连跑 2 次
+==============================================================================
+  BV_FREE=0
+  conv 总拍数（RTL 公式，频率无关）= 113,098,752 ⇒ @50 MHz 纯算 2.262 s
+  arena 槽数 = 24 | CmaFree 0.11 MB
+  输入 x0 sha1 = 26c9796e18f0e6883680693b805ce8bb7ad51486（无冻结口径；两版位流必须同值才可比）
+  [DEPS] q8=fast c8deq=fast bpack=fast e1e2=fast catpack=fast safe=fast  ⇒ deps_closure_ok=True
+[DEPS] q8=fast c8deq=fast bpack=fast e1e2=fast catpack=fast safe=fast  ⇒ deps_closure_ok=True
+  run1: 墙钟 7.477 s | PL 2.223 s | PS 5.915 s | conv 227
+        sha1 27e25cf67fda / b82b83f3d7eb / 6db4e9bb19e0  （无参照，记录）
+        整网后 AP_RETURN=0x00000000（busy=False）
+  run2: 墙钟 6.244 s | PL 1.410 s | PS 4.691 s | conv 227
+        sha1 27e25cf67fda / b82b83f3d7eb / 6db4e9bb19e0  （无参照，记录）
+        整网后 AP_RETURN=0x00000000（busy=False）
+  ⇒ 本块（128²）：两次相同=True；三 sha1（供与另一版位流 A/B）=
+       run1 27e25cf67fdad22d95bfd488cc73ccc39cbe8134 / b82b83f3d7eb1e0dc92e0c22a3c9656a2b963b2e / 6db4e9bb19e0e744ef4f41a2c5a2eb6e003ad301
+       run2 27e25cf67fdad22d95bfd488cc73ccc39cbe8134 / b82b83f3d7eb1e0dc92e0c22a3c9656a2b963b2e / 6db4e9bb19e0e744ef4f41a2c5a2eb6e003ad301
+[json] 已落盘 /home/xilinx/demoir/t120_out/t120_v39_042307.json
+  64² 形状：max_in 0.074 MB / max_out 0.098 MB / 227 个 conv
+  npix：max = 1024；**npix ≥ 4096 的 op = 0 个**（T-115 阈值口径）
+  arena 需求：24 槽 × (0.074 + 0.098 MB + 4096) + 64 KB = **4.29 MB**
+  冻结尺寸 = 4292608 B（本 arena 4292608 B）⇒ exact=True
+  分配前 CmaFree = 17.80 MB
+  arena t120_arena64   4.29 MB / 24 槽 @0x30100000
+
+==============================================================================
+  整网 64²（LAZY_DEQ=0）arena 24 槽 / 4.29 MB，fclk 读回 50 MHz，连跑 2 次
+==============================================================================
+  BV_FREE=0
+  conv 总拍数（RTL 公式，频率无关）= 28,605,312 ⇒ @50 MHz 纯算 0.572 s
+  arena 槽数 = 24 | CmaFree 13.49 MB
+  输入 x0 sha1 = bbae82e46e363a776d8fce8d9004e94502456bdc（冻结口径 bbae82e46e363a776d8fce8d9004e94502456bdc）✓
+  [DEPS] q8=fast c8deq=fast bpack=fast e1e2=fast catpack=fast safe=fast  ⇒ deps_closure_ok=True
+  run1: 墙钟 3.940 s | PL 0.625 s | PS 2.619 s | conv 227
+        sha1 bfa246d34681 / 226bd39e522a / 762d84b9618e  OK = 冻结 ✓
+        整网后 AP_RETURN=0x00000000（busy=False）
+  run2: 墙钟 3.864 s | PL 0.608 s | PS 2.528 s | conv 227
+        sha1 bfa246d34681 / 226bd39e522a / 762d84b9618e  OK = 冻结 ✓
+        整网后 AP_RETURN=0x00000000（busy=False）
+  ⇒ 本块判据：sha1 全中=True，两次相同=True，**通过 ✓**
+[json] 已落盘 /home/xilinx/demoir/t120_out/t120_v39_042307.json
+
+==============================================================================
+  小结（role=v39）
+==============================================================================
+  128² run1 sha1 = 27e25cf67fdad22d95bfd488cc73ccc39cbe8134 / b82b83f3d7eb1e0dc92e0c22a3c9656a2b963b2e / 6db4e9bb19e0e744ef4f41a2c5a2eb6e003ad301
+  128² run2 sha1 = 27e25cf67fdad22d95bfd488cc73ccc39cbe8134 / b82b83f3d7eb1e0dc92e0c22a3c9656a2b963b2e / 6db4e9bb19e0e744ef4f41a2c5a2eb6e003ad301
+  128² 两次相同 = True
+  64² run1 sha1 = bfa246d34681e748311bbcd2f1b87317a56923fe / 226bd39e522aa373b8fc183acae5280931f8b63f / 762d84b9618eab8922edd6da4f07ba06de865628
+  64² run2 sha1 = bfa246d34681e748311bbcd2f1b87317a56923fe / 226bd39e522aa373b8fc183acae5280931f8b63f / 762d84b9618eab8922edd6da4f07ba06de865628
+  64² 冻结判据 = **通过 ✓**
+[json] 已落盘 /home/xilinx/demoir/t120_out/t120_v39_042307.json
+  [t120] v39 探针 rc=0  用时 45 s
+602725b86941864eeeeab3be005e1e81  /home/xilinx/demoir/design_1_150v39.bit
+=== ③-h 跑后凭据 ===
+MemFree:          786988 kB
+CmaTotal:         262144 kB
+CmaFree:           81648 kB
+total 84
+drwxrwxr-x  2 xilinx xilinx  4096 May  9 04:23 .
+drwxrwxr-x 48 xilinx xilinx 12288 May  9 04:21 ..
+-rw-rw-r--  1 xilinx xilinx   300 May  9 04:22 ps_deps_md5sum_c.txt
+-rw-rw-r--  1 xilinx xilinx  4704 May  9 04:22 ps_md5_board_check.txt
+-rw-r--r--  1 root   root    6071 May  9 04:23 t120_v39_042307.json
+-rw-r--r--  1 root   root    5977 May  9 04:23 t120_v39_042307.log
+-rw-rw-r--  1 xilinx xilinx    74 May  9 04:23 t120_v39_bit_after.md5
+-rw-rw-r--  1 xilinx xilinx  6170 May  9 04:23 t120_v39_run.log
+-rw-r--r--  1 root   root    4539 May  9 04:22 t120_v53_042229.json
+-rw-r--r--  1 root   root    4400 May  9 04:22 t120_v53_042229.log
+-rw-rw-r--  1 xilinx xilinx    74 May  9 04:22 t120_v53_bit_after.md5
+-rw-rw-r--  1 xilinx xilinx  4593 May  9 04:22 t120_v53_run.log
+72K	/home/xilinx/demoir/t120_out
+  [t120] 收尾只 sync（不 poweroff）
+  [t120] 仍开机：uptime=04:23:44 up 6 min,  1 user,  load average: 0.76, 0.42, 0.20
+  [t120] rc53=4 rc39=0
+[t120] ③ 返回 rc=0
+[t120] ④ 产物已拉回 /media/felix/Data/coding/demoir-fpga/runs/board_t120
+[t120] DONE rc=0
+[boardlock] 释放板级锁 01:48:36  rc=0

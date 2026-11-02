@@ -1,0 +1,206 @@
+{
+ "env_at_start": {
+  "BIN_PACK": "e1e2",
+  "BIN_LAZY_DEQ": "0",
+  "BIN_LAZY_SLOTS": "24",
+  "BIN_CAT_FUSION": "1",
+  "BIN_BILINEAR_C": "1",
+  "BIN_PRECOMP": "1",
+  "Q8CACHE": "1",
+  "BIN_F32DIRECT": "1",
+  "BIN_CAT_ECA_FUSE": "1",
+  "BIN_EPI_NOINV": "1",
+  "BIN_V50_FUSE": "",
+  "BIN_VLANES": ""
+ },
+ "steps": {
+  "load": {
+   "role": "v53",
+   "bit": "/home/xilinx/demoir/design_1_150v53.bit",
+   "seconds": 2.7481,
+   "ips": [
+    "bin_unit_0",
+    "conv_uni_0",
+    "ps7"
+   ],
+   "has_fconv": false,
+   "addr": {
+    "conv_uni_0": {
+     "base": "0x40040000",
+     "length": 131072,
+     "ok": true
+    },
+    "bin_unit_0": {
+     "base": "0x40060000",
+     "length": 131072,
+     "ok": true
+    }
+   },
+   "stat_after_load": {
+    "fclk": 125.0,
+    "base": "0x40060000",
+    "magic": "0x50300001",
+    "magic_ok": true,
+    "st310": "0x00000000",
+    "st310_zero": true,
+    "done": false,
+    "err": 0,
+    "busy": false,
+    "ap_ret_bin_unit_0": "0x00000000",
+    "ap_ret_conv_uni_0": "0x00000000"
+   },
+   "fclk0_at_load": 125.0,
+   "downloads": 1,
+   "meminfo_after_load": {
+    "MemTotal": 1028264,
+    "MemFree": 737520,
+    "MemAvailable": 838352,
+    "SwapTotal": 524284,
+    "SwapFree": 524284,
+    "CmaTotal": 262144,
+    "CmaFree": 18956
+   },
+   "fp_ok": true
+  },
+  "kernel_load": {
+   "q8": {
+    "loaded": true,
+    "seconds": 0.267,
+    "why": "ok"
+   },
+   "c8deq": {
+    "loaded": true,
+    "seconds": 4.2783,
+    "why": "ok"
+   },
+   "bpack": {
+    "loaded": true,
+    "seconds": 1.7705,
+    "why": "ok"
+   }
+  }
+ },
+ "python": "3.10.4",
+ "numpy": "1.21.5",
+ "machine": "armv7l",
+ "role": "v53",
+ "meminfo_at_start": {
+  "MemTotal": 1028264,
+  "MemFree": 772128,
+  "MemAvailable": 857080,
+  "SwapTotal": 524284,
+  "SwapFree": 524284,
+  "CmaTotal": 262144,
+  "CmaFree": 49320
+ },
+ "args": {
+  "role": "v53",
+  "bit": "/home/xilinx/demoir/design_1_150v53.bit",
+  "pack": "/home/xilinx/demoir/deploy/bin_weights_new",
+  "outdir": "/home/xilinx/demoir/t120_out",
+  "freq": 50.0,
+  "slots": 24,
+  "runs_128": 2,
+  "runs_64": 0,
+  "wd128": 420.0,
+  "wd64": 300.0,
+  "tag": "t120"
+ },
+ "fclk_target": 50.0,
+ "fclk_readback": 50.0,
+ "net_128": {
+  "tag": "net128",
+  "hw": 128,
+  "slots": 24,
+  "arena_mb": 16.679,
+  "exact_need": null,
+  "fclk": 50.0,
+  "x0_sha1": "26c9796e18f0e6883680693b805ce8bb7ad51486",
+  "x0_ok": null,
+  "conv_cyc": 113098752,
+  "nrun": 2,
+  "runs": [
+   {
+    "run": 1,
+    "wall_s": 7.629,
+    "total_s": 7.62332010269165,
+    "pl_s": 2.3533859252929688,
+    "ps_s": 6.0785480232166265,
+    "n_conv_ops": 227,
+    "deps_closure_ok": true,
+    "run_valid": true,
+    "lazy_deq": false,
+    "conv_cyc": 113098752,
+    "pl_cyc_meas": 117669296,
+    "pl_cyc_ratio": 1.0404,
+    "cma_free_before_b": 126976,
+    "cma_free_after_b": 126976,
+    "sha1": {
+     "out1": "bf9cb522fa5da6ac875b8827abbea8f46d9deb08",
+     "out2": "89057f875d850b08738b127c8315d076fe679131",
+     "out3": "19ea9ed5235f80d3711637f93bcbbd5a6c69a825"
+    },
+    "sha_ok": null,
+    "post": {
+     "fclk": 50.0,
+     "base": "0x40060000",
+     "magic": "0x50300001",
+     "magic_ok": true,
+     "st310": "0x00000000",
+     "st310_zero": true,
+     "done": false,
+     "err": 0,
+     "busy": false,
+     "ap_ret_bin_unit_0": "0x00000001",
+     "ap_ret_conv_uni_0": "0x00000000"
+    },
+    "fclk": 50.0
+   },
+   {
+    "run": 2,
+    "wall_s": 6.186,
+    "total_s": 6.180800199508667,
+    "pl_s": 1.4604837894439697,
+    "ps_s": 4.710139616170068,
+    "n_conv_ops": 227,
+    "deps_closure_ok": true,
+    "run_valid": true,
+    "lazy_deq": false,
+    "conv_cyc": 113098752,
+    "pl_cyc_meas": 73024189,
+    "pl_cyc_ratio": 0.6457,
+    "cma_free_before_b": 978944,
+    "cma_free_after_b": 126976,
+    "sha1": {
+     "out1": "3b9ebebaac099d3ba43f464d6e9e8b27e3a0911d",
+     "out2": "d5fbd3e6c192ead40079cbcb90f4c5d9a9ee7a7d",
+     "out3": "237e28c8b08ccf28bc815e68f159f67cba731dc9"
+    },
+    "sha_ok": null,
+    "post": {
+     "fclk": 50.0,
+     "base": "0x40060000",
+     "magic": "0x50300001",
+     "magic_ok": true,
+     "st310": "0x00000000",
+     "st310_zero": true,
+     "done": false,
+     "err": 0,
+     "busy": false,
+     "ap_ret_bin_unit_0": "0x00000001",
+     "ap_ret_conv_uni_0": "0x00000000"
+    },
+    "fclk": 50.0
+   }
+  ],
+  "same_across_runs": false,
+  "sha_ok_all": null,
+  "lazy_deq": "0",
+  "triple": {
+   "out1": "bf9cb522fa5da6ac875b8827abbea8f46d9deb08",
+   "out2": "89057f875d850b08738b127c8315d076fe679131",
+   "out3": "19ea9ed5235f80d3711637f93bcbbd5a6c69a825"
+  }
+ },
+ "finished": "2025-05-09 04:22:55"
+}

@@ -1,0 +1,276 @@
+{
+ "env_at_start": {
+  "BIN_PACK": "e1e2",
+  "BIN_LAZY_DEQ": "0",
+  "BIN_LAZY_SLOTS": "24",
+  "BIN_CAT_FUSION": "1",
+  "BIN_BILINEAR_C": "1",
+  "BIN_PRECOMP": "1",
+  "Q8CACHE": "1",
+  "BIN_F32DIRECT": "1",
+  "BIN_CAT_ECA_FUSE": "1",
+  "BIN_EPI_NOINV": "1",
+  "BIN_V50_FUSE": "",
+  "BIN_VLANES": ""
+ },
+ "steps": {
+  "load": {
+   "role": "v39",
+   "bit": "/home/xilinx/demoir/design_1_150v39.bit",
+   "seconds": 2.6007,
+   "ips": [
+    "bin_unit_0",
+    "conv_uni_0",
+    "ps7"
+   ],
+   "has_fconv": false,
+   "addr": {
+    "conv_uni_0": {
+     "base": "0x40040000",
+     "length": 131072,
+     "ok": true
+    },
+    "bin_unit_0": {
+     "base": "0x40060000",
+     "length": 131072,
+     "ok": true
+    }
+   },
+   "stat_after_load": {
+    "fclk": 125.0,
+    "base": "0x40040000",
+    "ret": "0x00000000",
+    "done": false,
+    "busy": false,
+    "err": 0,
+    "ctrl": "0x00000000"
+   },
+   "fclk0_at_load": 125.0,
+   "downloads": 1,
+   "meminfo_after_load": {
+    "MemTotal": 1028264,
+    "MemFree": 717884,
+    "MemAvailable": 836636,
+    "SwapTotal": 524284,
+    "SwapFree": 524284,
+    "CmaTotal": 262144,
+    "CmaFree": 16596
+   },
+   "fp_ok": true
+  },
+  "kernel_load": {
+   "q8": {
+    "loaded": true,
+    "seconds": 0.2353,
+    "why": "ok"
+   },
+   "c8deq": {
+    "loaded": true,
+    "seconds": 3.7379,
+    "why": "ok"
+   },
+   "bpack": {
+    "loaded": true,
+    "seconds": 1.6847,
+    "why": "ok"
+   }
+  }
+ },
+ "python": "3.10.4",
+ "numpy": "1.21.5",
+ "machine": "armv7l",
+ "role": "v39",
+ "meminfo_at_start": {
+  "MemTotal": 1028264,
+  "MemFree": 752012,
+  "MemAvailable": 858824,
+  "SwapTotal": 524284,
+  "SwapFree": 524284,
+  "CmaTotal": 262144,
+  "CmaFree": 47760
+ },
+ "args": {
+  "role": "v39",
+  "bit": "/home/xilinx/demoir/design_1_150v39.bit",
+  "pack": "/home/xilinx/demoir/deploy/bin_weights_new",
+  "outdir": "/home/xilinx/demoir/t120_out",
+  "freq": 50.0,
+  "slots": 24,
+  "runs_128": 2,
+  "runs_64": 2,
+  "wd128": 420.0,
+  "wd64": 300.0,
+  "tag": "t120"
+ },
+ "fclk_target": 50.0,
+ "fclk_readback": 50.0,
+ "net_128": {
+  "tag": "net128",
+  "hw": 128,
+  "slots": 24,
+  "arena_mb": 16.679,
+  "exact_need": null,
+  "fclk": 50.0,
+  "x0_sha1": "26c9796e18f0e6883680693b805ce8bb7ad51486",
+  "x0_ok": null,
+  "conv_cyc": 113098752,
+  "nrun": 2,
+  "runs": [
+   {
+    "run": 1,
+    "wall_s": 7.477,
+    "total_s": 7.471609115600586,
+    "pl_s": 2.2234249114990234,
+    "ps_s": 5.91495158300927,
+    "n_conv_ops": 227,
+    "deps_closure_ok": true,
+    "run_valid": true,
+    "lazy_deq": false,
+    "conv_cyc": 113098752,
+    "pl_cyc_meas": 111171246,
+    "pl_cyc_ratio": 0.983,
+    "cma_free_before_b": 106496,
+    "cma_free_after_b": 106496,
+    "sha1": {
+     "out1": "27e25cf67fdad22d95bfd488cc73ccc39cbe8134",
+     "out2": "b82b83f3d7eb1e0dc92e0c22a3c9656a2b963b2e",
+     "out3": "6db4e9bb19e0e744ef4f41a2c5a2eb6e003ad301"
+    },
+    "sha_ok": null,
+    "post": {
+     "fclk": 50.0,
+     "base": "0x40040000",
+     "ret": "0x00000000",
+     "done": false,
+     "busy": false,
+     "err": 0,
+     "ctrl": "0x00000000"
+    },
+    "fclk": 50.0
+   },
+   {
+    "run": 2,
+    "wall_s": 6.244,
+    "total_s": 6.238733768463135,
+    "pl_s": 1.4097390174865723,
+    "ps_s": 4.690888370577625,
+    "n_conv_ops": 227,
+    "deps_closure_ok": true,
+    "run_valid": true,
+    "lazy_deq": false,
+    "conv_cyc": 113098752,
+    "pl_cyc_meas": 70486951,
+    "pl_cyc_ratio": 0.6232,
+    "cma_free_before_b": 958464,
+    "cma_free_after_b": 106496,
+    "sha1": {
+     "out1": "27e25cf67fdad22d95bfd488cc73ccc39cbe8134",
+     "out2": "b82b83f3d7eb1e0dc92e0c22a3c9656a2b963b2e",
+     "out3": "6db4e9bb19e0e744ef4f41a2c5a2eb6e003ad301"
+    },
+    "sha_ok": null,
+    "post": {
+     "fclk": 50.0,
+     "base": "0x40040000",
+     "ret": "0x00000000",
+     "done": false,
+     "busy": false,
+     "err": 0,
+     "ctrl": "0x00000000"
+    },
+    "fclk": 50.0
+   }
+  ],
+  "same_across_runs": true,
+  "sha_ok_all": null,
+  "lazy_deq": "0",
+  "triple": {
+   "out1": "27e25cf67fdad22d95bfd488cc73ccc39cbe8134",
+   "out2": "b82b83f3d7eb1e0dc92e0c22a3c9656a2b963b2e",
+   "out3": "6db4e9bb19e0e744ef4f41a2c5a2eb6e003ad301"
+  }
+ },
+ "net_64": {
+  "tag": "net64",
+  "hw": 64,
+  "slots": 24,
+  "arena_mb": 4.293,
+  "exact_need": true,
+  "fclk": 50.0,
+  "x0_sha1": "bbae82e46e363a776d8fce8d9004e94502456bdc",
+  "x0_ok": true,
+  "conv_cyc": 28605312,
+  "nrun": 2,
+  "runs": [
+   {
+    "run": 1,
+    "wall_s": 3.94,
+    "total_s": 3.9347941875457764,
+    "pl_s": 0.6248555183410645,
+    "ps_s": 2.6187316883636527,
+    "n_conv_ops": 227,
+    "deps_closure_ok": true,
+    "run_valid": true,
+    "lazy_deq": false,
+    "conv_cyc": 28605312,
+    "pl_cyc_meas": 31242776,
+    "pl_cyc_ratio": 1.0922,
+    "cma_free_before_b": 13488128,
+    "cma_free_after_b": 11788288,
+    "sha1": {
+     "out1": "bfa246d34681e748311bbcd2f1b87317a56923fe",
+     "out2": "226bd39e522aa373b8fc183acae5280931f8b63f",
+     "out3": "762d84b9618eab8922edd6da4f07ba06de865628"
+    },
+    "sha_ok": true,
+    "post": {
+     "fclk": 50.0,
+     "base": "0x40040000",
+     "ret": "0x00000000",
+     "done": false,
+     "busy": false,
+     "err": 0,
+     "ctrl": "0x00000000"
+    },
+    "fclk": 50.0
+   },
+   {
+    "run": 2,
+    "wall_s": 3.864,
+    "total_s": 3.858227491378784,
+    "pl_s": 0.6082735061645508,
+    "ps_s": 2.527595448007446,
+    "n_conv_ops": 227,
+    "deps_closure_ok": true,
+    "run_valid": true,
+    "lazy_deq": false,
+    "conv_cyc": 28605312,
+    "pl_cyc_meas": 30413675,
+    "pl_cyc_ratio": 1.0632,
+    "cma_free_before_b": 12800000,
+    "cma_free_after_b": 11845632,
+    "sha1": {
+     "out1": "bfa246d34681e748311bbcd2f1b87317a56923fe",
+     "out2": "226bd39e522aa373b8fc183acae5280931f8b63f",
+     "out3": "762d84b9618eab8922edd6da4f07ba06de865628"
+    },
+    "sha_ok": true,
+    "post": {
+     "fclk": 50.0,
+     "base": "0x40040000",
+     "ret": "0x00000000",
+     "done": false,
+     "busy": false,
+     "err": 0,
+     "ctrl": "0x00000000"
+    },
+    "fclk": 50.0
+   }
+  ],
+  "same_across_runs": true,
+  "sha_ok_all": true,
+  "lazy_deq": "0",
+  "pass": true
+ },
+ "finished": "2025-05-09 04:23:42"
+}
