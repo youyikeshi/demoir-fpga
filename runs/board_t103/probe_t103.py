@@ -437,11 +437,17 @@ def main():
     ap.add_argument("--net-watchdog", type=float, default=180.0)
     ap.add_argument("--layer-freqs", default="100,95,90,75",
                     help="逐层要测的 fclk 目标（MHz，逗号分隔；读回按 PYNQ 就近值）")
+    ap.add_argument("--layer-runs", type=int, default=2,
+                    help="每个频率每层连跑几次（判据：全部 0 越界/0 不符/彼此逐字节相同）")
     ap.add_argument("--net-freqs", default="100,95,90,75",
                     help="整网要测的 fclk 目标（MHz，逗号分隔）")
     ap.add_argument("--net-runs-first", type=int, default=3,
                     help="第一个整网频率连跑几次（100 MHz 判据要 >=2）")
     ap.add_argument("--net-runs-other", type=int, default=1)
+    ap.add_argument("--soak", type=int, default=0,
+                    help="在指定频率上把两层各连跑 N 次（拿最高安全频率时要 >100）")
+    ap.add_argument("--soak-freq", type=float, default=0.0,
+                    help="soak 用的 fclk 目标 MHz；0 = 自动取逐层干净的最高档")
     a = ap.parse_args()
 
     os.makedirs(a.outdir, exist_ok=True)
@@ -517,9 +523,10 @@ def main():
         B = dict(block=btag, target=f, fclk=rb, layers=[], net=None)
         layer_ok = True
         for C in cases:
+            nl = int(a.layer_runs)
             try:
-                r1 = run_once(e, C, rb, btag + "#1")
-                r2 = run_once(e, C, rb, btag + "#2")
+                rr = [run_once(e, C, rb, "%s#%d" % (btag, j + 1))
+                      for j in range(nl)]
             except Exception as ex:                              # noqa: BLE001
                 traceback.print_exc()
                 log("  ✗✗ %s @ %g MHz 异常：%r" % (C["key"], rb, ex))
@@ -531,31 +538,38 @@ def main():
                 if isinstance(ex, TimeoutError) or "超时" in str(ex):
                     return EXIT_HANG
                 return EXIT_ERR
-            d12 = int(np.count_nonzero(r1["_got"] != r2["_got"]))
+            diffs = [int(np.count_nonzero(rr[0]["_got"] != r["_got"]))
+                     for r in rr[1:]]
+            mmax = max(r["mismatch"] for r in rr)
+            omax = max(r["oob_bytes"] for r in rr)
             rec = dict(key=C["key"], cin=C["cin"], cout=C["cout"], k=C["k"],
-                       out_n=r1["out_n"], exp_sha1=C["exp_sha1"],
-                       run1={k: v for k, v in r1.items() if not k.startswith("_")},
-                       run2={k: v for k, v in r2.items() if not k.startswith("_")},
-                       diff_bytes_1v2=d12, same_1v2=bool(d12 == 0),
-                       ok=bool(r1["oob_bytes"] == 0 and r2["oob_bytes"] == 0
-                               and r1["mismatch"] == 0 and r2["mismatch"] == 0
-                               and d12 == 0))
+                       out_n=rr[0]["out_n"], exp_sha1=C["exp_sha1"], nrun=nl,
+                       runs=[{k: v for k, v in r.items() if not k.startswith("_")}
+                             for r in rr],
+                       run1={k: v for k, v in rr[0].items()
+                             if not k.startswith("_")},
+                       run2={k: v for k, v in rr[1].items()
+                             if not k.startswith("_")},
+                       diff_bytes_1v2=diffs[0] if diffs else 0,
+                       diff_max=max(diffs) if diffs else 0,
+                       same_1v2=bool(diffs and max(diffs) == 0),
+                       mismatch_max=int(mmax), oob_max=int(omax),
+                       ok=bool(omax == 0 and mmax == 0 and diffs and max(diffs) == 0))
             layer_ok &= rec["ok"]
             B["layers"].append(rec)
-            log("  ---- %s (cin=%d cout=%d k=%d out_n=%d) @ %g MHz"
-                % (C["key"], C["cin"], C["cout"], C["k"], r1["out_n"], rb))
-            log("   run1: 越界 **%5d B** | 不符 **%6d/%d** | cyc=%9d | 0x310=%s | sha1=%s"
-                % (r1["oob_bytes"], r1["mismatch"], r1["out_n"], r1["cyc"],
-                   r1.get("st310"), r1["sha1"][:12]))
-            log("   run2: 越界 **%5d B** | 不符 **%6d/%d** | cyc=%9d | 0x310=%s | sha1=%s"
-                % (r2["oob_bytes"], r2["mismatch"], r2["out_n"], r2["cyc"],
-                   r2.get("st310"), r2["sha1"][:12]))
-            log("   两次互比：**不同 %d B** ⇒ %s | 与 golden 逐字节：%s | 判据：%s"
-                % (d12, "逐字节相同 ✓" if d12 == 0 else "**不同 ✗✗**",
-                   "相同 ✓" if (r1["mismatch"] == 0 and r2["mismatch"] == 0)
-                   else "不同 ✗✗", "✓ 过" if rec["ok"] else "✗✗ 不过"))
-            if r1["mismatch"]:
-                log("         run1 前几笔差异：%s" % (r1["first_diffs"] or []))
+            log("  ---- %s (cin=%d cout=%d k=%d out_n=%d) @ %g MHz，连跑 %d 次"
+                % (C["key"], C["cin"], C["cout"], C["k"], rr[0]["out_n"], rb, nl))
+            for j, r in enumerate(rr):
+                log("   run%d: 越界 **%5d B** | 不符 **%6d/%d** | cyc=%9d | 0x310=%s | sha1=%s"
+                    % (j + 1, r["oob_bytes"], r["mismatch"], r["out_n"], r["cyc"],
+                       r.get("st310"), r["sha1"][:12]))
+            log("   互比（run1 vs 其余）：%s ⇒ %s | 最差一次与 golden：不符 %d"
+                % (diffs, "**全部逐字节相同 ✓**" if (diffs and max(diffs) == 0)
+                   else "**不同 ✗✗**", mmax))
+            log("   判据（0 越界 + 0 不符 + 多次逐字节相同）：%s"
+                % ("✓ 过" if rec["ok"] else "✗✗ 不过"))
+            if mmax:
+                log("         run1 前几笔差异：%s" % (rr[0]["first_diffs"] or []))
         B["layers_ok"] = bool(layer_ok)
         log("  [%s MHz] 逐层小结：%s" % (btag, "两层 0 越界 / 0 不符 / 两次相同 ✓"
                                         if layer_ok else "✗✗ 不达标"))
@@ -563,7 +577,46 @@ def main():
         R["steps"]["blocks"] = blocks
         dump()
 
-    # ---------- 阶段 B：64² 整网（一律放在逐层之后）----------
+    # ---------- 阶段 B：soak（★ 必须在整网之前：整网会把 PL 留在 busy）----------
+    #   在"逐层干净的最高频率"上把两层各连跑 N 次（拿"最高安全频率"的主证据）
+    if a.soak > 0:
+        cand = a.soak_freq or 0.0
+        if not cand:
+            for B in blocks:              # blocks 按频率从高到低排
+                if B.get("layers_ok"):
+                    cand = float(B["target"])
+                    break
+        if not cand:
+            log("  (soak：没有逐层干净的频率，跳过)")
+        else:
+            rb = set_fclk(cand)
+            hdr("第 5 步：soak —— %g MHz（读回 %g MHz）两层各连跑 %d 次"
+                % (cand, rb, a.soak))
+            rows = []
+            for C in cases:
+                hist, mmax, omax, cyc_lo, cyc_hi = {}, 0, 0, None, None
+                for j in range(a.soak):
+                    r = run_once(e, C, rb, "soak#%d" % (j + 1))
+                    hist[r["sha1"]] = hist.get(r["sha1"], 0) + 1
+                    mmax = max(mmax, r["mismatch"])
+                    omax = max(omax, r["oob_bytes"])
+                    cyc_lo = r["cyc"] if cyc_lo is None else min(cyc_lo, r["cyc"])
+                    cyc_hi = r["cyc"] if cyc_hi is None else max(cyc_hi, r["cyc"])
+                ok = bool(mmax == 0 and omax == 0 and len(hist) == 1)
+                rows.append(dict(key=C["key"], n=a.soak, distinct_sha1=len(hist),
+                                 sha1=sorted(hist), mismatch_max=int(mmax),
+                                 oob_max=int(omax), cyc_min=cyc_lo, cyc_max=cyc_hi,
+                                 ok=ok))
+                log("  %-14s %d 次：不同 sha1 **%d** 种 | 最差不符 **%d/%d** | 越界 **%d B**"
+                    " | cyc %s..%s ⇒ %s"
+                    % (C["key"], a.soak, len(hist), mmax, C["need"], omax,
+                       cyc_lo, cyc_hi, "✓ 全部逐字节相同且 = golden"
+                       if ok else "✗✗ 有错/不一致"))
+            R["steps"]["soak"] = dict(freq_target=cand, fclk=rb, n=a.soak, rows=rows,
+                                      all_ok=bool(all(r["ok"] for r in rows)))
+            dump()
+
+    # ---------- 阶段 C：64² 整网（一律放在逐层与 soak 之后）----------
     net_freqs = [float(x) for x in a.net_freqs.split(",") if x.strip()]
     for i, f in enumerate(net_freqs):
         btag = "%g" % f
@@ -609,7 +662,7 @@ def main():
     # ---------- 汇总 ----------
     hdr("汇总：频率 × 是否达标")
     log("  %-8s %-10s %-34s %-12s %-10s %s"
-        % ("频率", "fclk读回", "两层（越界B / 不符B / 两次差B）", "64² sha1",
+        % ("频率", "fclk读回", "两层（越界B / 不符B最大 / 互比差最大）", "64² sha1",
            "两次相同", "达标"))
     for B in blocks:
         if B.get("error"):
@@ -617,13 +670,12 @@ def main():
                 % (B["block"], B["fclk"], "异常：" + B["error"][:28], "-", "-",
                    "✗✗"))
             continue
-        ls = " | ".join("%d/%d/%d" % (r["run1"]["oob_bytes"],
-                                      r["run1"]["mismatch"], r["diff_bytes_1v2"])
-                        for r in B["layers"] if "run1" in r)
-        if B["layers"] and all("run1" in r for r in B["layers"]):
-            allzero = all(r["run1"]["oob_bytes"] == 0 and r["run2"]["oob_bytes"] == 0
-                          and r["run1"]["mismatch"] == 0 and r["run2"]["mismatch"] == 0
-                          and r["diff_bytes_1v2"] == 0 for r in B["layers"])
+        ls = " | ".join("%d/%d/%d" % (r["oob_max"], r["mismatch_max"],
+                                      r["diff_max"])
+                        for r in B["layers"] if "mismatch_max" in r)
+        if B["layers"] and all("mismatch_max" in r for r in B["layers"]):
+            allzero = all(r["oob_max"] == 0 and r["mismatch_max"] == 0
+                          and r["diff_max"] == 0 for r in B["layers"])
             ls += " ⇒ %s" % ("全 0 ✓" if allzero else "非 0 ✗✗")
         nt = B.get("net") or {}
         log("  %-8s %-10s %-34s %-12s %-10s %s"

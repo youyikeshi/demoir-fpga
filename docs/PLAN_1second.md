@@ -6094,3 +6094,34 @@ $$\Rightarrow\ \textbf{第 118 条}：\text{整网测试}\textbf{必须放在所
 $$\quad\ \Rightarrow\ \text{它第一轮把整网插在频率块中间} \Rightarrow 95/90\ \text{的逐层读到"早到的 done"}（\mathtt{cyc}\approx19.5\mathtt{k}\ \text{而该层至少 }166\mathtt{k}）$$
 $$\quad\ \Rightarrow\ \text{它自己发现并重跑了全部数据} \Rightarrow \textbf{这批数字可信}$$
 $$\Rightarrow\ \textbf{第 119 条}：\text{同一 session 内改频率后，}\textbf{必须重读 magic 与 } \mathtt{0x310}\ \text{并确认 PL 空闲}$$
+
+### 70.71 ★★★★★ 频率扫描：**STA 低估 1.9\text{-}2.5 ns**，真实最差 ≈11.3\text{-}12.0 ns（T-103 追加，2026-11-02 23:2x）
+
+**v52 的逐层安全上限（PL 时钟只有 1500/n 格点，所以"最高"是离散的）**
+| fclk 目标（读回）| 周期 | 逐层 |
+|---|---:|---|
+| 100（100.0）| 10.00 | ✗ 23797/91836 |
+| 95（93.75）| 10.67 | ✗ 4287/16957 |
+| 90（88.2354）| 11.33 | ✗ `cin112` 0/0 但 `cin512` 246–296，**8 次 sha1 全不同** |
+| **83（83.3333）** | **12.00** | **✓ 最高安全档**（两层 8 次 + 300 次 soak 全同、0 越界）|
+| 79（78.9474）/ 75 | 12.67/13.33 | ✓ |
+
+$$\Rightarrow\ \textbf{88.235 的 } \mathtt{cin}512\ \text{8 次 sha1 每次都不同} \Rightarrow \text{踩在临界点，不是偶发}$$
+$$\Rightarrow\ \textbf{83.333 的 300 次 soak}：\text{两层各 300 次} \Rightarrow \textbf{不同 sha1 只有 1 种}、\text{最差 0/65536 与 0/196608}、\text{越界 0 B}$$
+
+$$\Rightarrow\ \Rightarrow\ \textbf{真实最差路径 } \approx \mathbf{11.3\text{-}12.0\ \text{ns}}，\text{而 STA 报 } 10.000-0.524 = \mathbf{9.476\ \text{ns}}$$
+$$\Rightarrow\ \Rightarrow\ \textbf{静态时序}\mathbf{\text{低估 } 1.9\text{-}2.5\ \text{ns}}，\text{而违例清单}\mathbf{0\ \text{条}} \Rightarrow \textbf{那条路径根本没被 report 覆盖到}$$
+$$\Rightarrow\ \text{一个可解释的线索：T-100 量到 }\text{SCD } 1.485 + \text{DCD } 1.240 = \mathbf{+2.725\ \text{ns}}\ \text{的"有利偏斜}$$
+$$\quad\ \Rightarrow\ \text{若板上实际偏斜没有这么有利} \Rightarrow \text{恰好差 } 2\sim2.7\ \text{ns} \Rightarrow \text{与实测缺口吻合（\text{待验证，不是结论）}}$$
+
+**⚠ 两条限定（T-103 自己加的，很重要）**
+$$\Rightarrow\ \text{① 这个"安全"只到}\textbf{逐层门禁}：64^2\ \text{整网在 } 100/93.75/88.235/83.333/78.947/75\ \textbf{全部 } \neq \text{冻结}$$
+$$\quad\ \Rightarrow\ \text{若把"整网对"算进安全定义，}\mathbf{\text{没有频率合格}}$$
+$$\quad\ \Rightarrow\ \text{且 83.333/79/75 各 3 次还互不相同} \Rightarrow \text{整网差异本身有随机成分} \Rightarrow \text{与"逻辑 bug"假设需分开验}$$
+$$\Rightarrow\ \text{② v51 的逐层安全上限}\textbf{至今没量过}（\text{本轮扫的是 v52）}$$
+$$\quad\ \Rightarrow\ \text{v51@100 只有 2238/3291 错（v52 是 23797/91836）} \Rightarrow \textbf{v51 的上限可能明显高于 83.333}$$
+$$\quad\ \Rightarrow\ \textbf{必须单独扫 v51}，\text{不能拿 v52 的数字代表 v51}$$
+
+**纪律补充（T-103 又踩了一次）**
+$$\Rightarrow\ \text{soak 第一版排在整网之后} \Rightarrow \text{又读到"早到的 done"}（\mathtt{cyc}\ 11\mathtt{k}\sim34\mathtt{k}\ \text{的无效数据）$$
+$$\Rightarrow\ \Rightarrow\ \textbf{第 120 条：任何紧接整网之后的 PL 操作都不可信，整网永远排最后}$$
