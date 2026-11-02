@@ -1,0 +1,15 @@
+Overlay(download=False) ok（PL 未被重载）
+Clocks.fclk0_mhz 读回 = 25.0
+缓冲：x=0x30046000 w=0x30047000 y=0x30048000（y 页 = 0x30048000）  y2=0x3004a000（y2 页 = 0x3004a000）
+  [flag-A1] 子进程退出码 0
+  A1: y=0x30048000 md5 相等=True  nW=512 nAW=32 nAR=157 nR=1256  DBG_FLAG=0x0  canary_ok=True  STATUS=0x00000081  0.0047s
+  [flag-A2] 子进程退出码 0
+  A2: y=0x30048000 md5 相等=True  nW=512 nAW=32 nAR=157 nR=1256  DBG_FLAG=0x0  canary_ok=True  STATUS=0x00000081  0.0047s
+  [flag-B1] 子进程退出码 0
+  B1: y=0x3004a000 md5 相等=True  nW=512 nAW=32 nAR=157 nR=1256  DBG_FLAG=0x4  canary_ok=True  STATUS=0x00000081  0.0048s
+  [flag-B2] 子进程退出码 0
+  B2: y=0x3004a000 md5 相等=True  nW=512 nAW=32 nAR=157 nR=1256  DBG_FLAG=0x0  canary_ok=True  STATUS=0x00000081  0.0046s
+
+判读：A1 flag_low3=0 A2=0   B1(新页) flag_low3=4 B2=0
+      nAW = 32/32/32/32（恒期望 32 = 512 拍 / WR_BURST_MAX16）
+⇒ DBG_FLAG bit2 是**假阳性**：它只在『首拍地址的页 ≠ 上一段 burst 起始页』时置位（复位后 wstart=0 / 换到新 y 页的首跑），4 次运行 nAW 恒为 32＝写通路从未真的跨 4 KB 切 burst，数据逐字节正确、金丝雀完好。

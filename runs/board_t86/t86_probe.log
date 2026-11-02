@@ -1,0 +1,34 @@
+=== T-86 §1 load v45 ===
+  bit  = /tmp/probe_T86/design_1_150v45.bit  md5=4e9853fbc69642b27943e34ba9481e1d
+  hwh  = /tmp/probe_T86/design_1_150v45.hwh  md5=194562af193ecfa9553f2debc454daf9
+  已清 /usr/local/share/pynq-venv/lib/python3.10/site-packages/pynq/pl_server/global_pl_state_.json
+  已清 /usr/local/share/pynq-venv/lib/python3.10/site-packages/pynq/pl_server/_current_metadata.pkl
+  ✓ load 完成（Overlay(download=True)）用时 2.56 s
+  IP conv_uni_0  base=0x40040000  期望=0x40040000  ✓
+  IP bin_unit_0  base=0x40060000  期望=0x40060000  ✓
+  IP fconv_0     base=0x40080000  期望=0x40080000  ✓
+  bin_unit_0 复位指纹：alpha_shift=0  slope_shift=0  AP_CTRL=0
+  （alpha_shift 是 RW 寄存器：裸载读 0 正常，不作为失败判据）
+  Clocks.fclk0_mhz 读回（load 后默认） = 125.0
+
+=== T-86 §2 fclk0=25 MHz + 0x40080000 读通性 ===
+  Clocks.fclk0_mhz 目标 25 → 读回 25.0  ✓
+  [fconv] 子进程退出码 0
+  ✓ 0x40080000 读通了（v44 的 SIGBUS 已消除）：R_NLANE=4（期望 4） ✓
+    STATUS=0x00000080  AP_RETURN=0x00010000  R_MODE=0x00000002  B_X=0x00000000
+  [0x400A0000] ✗ 子进程被信号打死：SIGBUS (7)
+  ✓ 对照 0x400A0000 仍 SIGBUS（探针方式正确）
+
+=== T-86 §3 HP2 4 KB 恒等卷积冒烟 ===
+  缓冲：x pa=0x30046000  w pa=0x30047000  y pa=0x30048000（y 尾 4 KB 金丝雀）
+  [hp2] 子进程退出码 0
+  md5(x) = 0c1781de10dee75d103e13921d6be448
+  md5(y) = 0c1781de10dee75d103e13921d6be448   ✓ 相等
+  字节差异 0 / 4096   f32 逐位差异 0 / 1024
+  DBG hit=3345 rdreq=3345 nAR=162 fills=162 nW=512 nAW=32 nR=1296 stall=1616 flag=0x4
+  STATUS=0x00000081  AP_RETURN=0x00010001  用时 0.0050 s
+  x 头 32B = [37, 73, 18, 62, 37, 73, 146, 62, 183, 109, 219, 62, 37, 73, 18, 63, 110, 219, 54, 63, 183, 109, 91, 63, 0, 0, 128, 63, 37, 73, 146, 63]
+  y 头 32B = [37, 73, 18, 62, 37, 73, 146, 62, 183, 109, 219, 62, 37, 73, 18, 63, 110, 219, 54, 63, 183, 109, 91, 63, 0, 0, 128, 63, 37, 73, 146, 63]
+  ⇒ §3 ✗ 未通过（见上表判读）
+
+T-86 结束：steps={'1_load': 'ok', '2_fconv': 'read_ok', '3_hp2': 'failed'}

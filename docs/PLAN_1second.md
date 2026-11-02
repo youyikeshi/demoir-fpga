@@ -5642,3 +5642,24 @@ $$\Rightarrow\ \textbf{这是 fconv 自己的 tag}\to\textbf{lane 路径}（\tex
 $$\Rightarrow\ \Rightarrow\ \text{真实最差周期 } \approx 25.745\ \text{ns} \Rightarrow \text{按 R8 的 } 1.3\times\ \text{余量} \Rightarrow \textbf{功能验证时钟 } = 25\ \text{MHz}$$
 
 $$\Rightarrow\ \textbf{结论}：\text{按 R8，这不阻塞功能验证};\ \text{但 fconv 要上正常频率必须}\textbf{加流水}（\text{把 } \mathtt{ic}\to\mathtt{acc\_arr}\ \text{打断）}$$
+
+### 70.55 ★★★★★ **HP2 数据通路被测通了**（v45，25 MHz）（2026-11-02 16:55）
+
+$$\Rightarrow\ \text{load v45 } \mathtt{4e9853fb}\ \text{成功}；\text{三个基址全对}（\mathtt{0x40040000/0x40060000/0x40080000}）$$
+$$\Rightarrow\ \textbf{`0x40080000` 读通了}：\mathtt{R\_NLANE} = \mathbf{4}，\mathtt{STATUS}=0x80（\text{idle}），\mathtt{AP\_RETURN}=0x10000 \Rightarrow \textbf{v44 的 SIGBUS 已消除}$$
+$$\Rightarrow\ \textbf{对照 } \mathtt{0x400A0000}\ \text{仍 SIGBUS(7)} \Rightarrow \textbf{探针方式正确}（\text{一通则通、一挂则挂）$$
+$$\Rightarrow\ \textbf{HP2 4 KB 恒等卷积}：\mathtt{md5}(x) = \mathtt{md5}(y) = \mathbf{\mathtt{0c1781de}}，\textbf{4096/4096 字节全等}，1024/1024 f32 \textbf{逐位相同}$$
+$$\Rightarrow\ \text{DBG } \mathtt{rdreq}=3345,\ \mathtt{nAR}=162,\ \mathtt{nAW}=32,\ \mathtt{nW}=512,\ \mathtt{nR}=1296\ \text{全非 0} \Rightarrow \textbf{HP2 读写双侧都真的走过}$$
+$$\Rightarrow\ \text{金丝雀 0/4096 被写坏}；\mathtt{STATUS}=0x81（done=1,\ err=0）$$
+
+$$\Rightarrow\ \Rightarrow\ \textbf{"把算子搬进 PL" 这条路线第一次被端到端验证}（\text{HP2 可用 + fconv 数据正确}）$$
+$$\Rightarrow\ \text{这是}\textbf{阶段 3 的地基}：\text{之后 } \mathtt{convfp}\ 1.15\ \text{s}\to\text{PL } 0.81\ \text{s}\ \text{不再有"能不能通"的疑问}$$
+
+**唯一未满足的判据已被证伪（T-86 的做法很硬）**
+$$\Rightarrow\ \text{判据要求 } \mathtt{DBG\_FLAG[0..2]}=0，\text{实测 } \mathtt{DBG\_FLAG}=0x4（\text{bit2 = 写 burst 跨 4 KB}）$$
+$$\Rightarrow\ \textbf{可证伪负对照}：\text{同一 } y\ \text{连跑两次} \Rightarrow \mathtt{flag}=0/0；\text{换新页 } y_2\ \text{首跑} = 0x4、\text{第二次 } 0$$
+$$\Rightarrow\ \text{且 } \mathtt{nAW}\ \text{四次恒为 } 32 = 512\ \text{拍}/16 \Rightarrow \textbf{没有多切一笔}；\text{数据逐位正确}$$
+$$\Rightarrow\ \Rightarrow \text{根因：RTL 的 } \mathtt{w\_b4k}\ \text{拿复位/陈旧的 } \mathtt{wstart}\ \text{与首拍页比较} \Rightarrow \textbf{假阳性}$$
+$$\Rightarrow\ \text{待修：}\text{首拍不比较 } \mathtt{wstart}（\text{记入低优先级）}$$
+
+**板子现状**：PL = v45、\mathtt{fclk0}=25\ MHz、仍开机、PS 已同步到冻结点、v39 位流未动。
