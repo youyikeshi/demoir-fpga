@@ -109,7 +109,19 @@ hls/pl/build/
 # ---------------------------------------------------------------------------
 # HLS 工程与 Vivado 工程可重建；bit/hwh/xsa 与部署包由脚本生成，不手工入库。
 pynq_specialized_code/pl/proj/
-pynq_specialized_code/pl/vivado/
+# 只忽略该目录的"内容"，以便能单独放行 hdmi_p1（git 不允许在整体被忽略的父目录里再放行文件）
+pynq_specialized_code/pl/vivado/*
+# 例外：HDMI P1 的"构建源"必须留档（脚本/wrapper/冻结 RTL/约束），否则位流无法复现。
+!pynq_specialized_code/pl/vivado/hdmi_p1/
+pynq_specialized_code/pl/vivado/hdmi_p1/proj/
+pynq_specialized_code/pl/vivado/hdmi_p1/*.runs/
+pynq_specialized_code/pl/vivado/hdmi_p1/**/*.dcp
+pynq_specialized_code/pl/vivado/hdmi_p1/**/*.bit
+pynq_specialized_code/pl/vivado/hdmi_p1/**/*.wdb
+pynq_specialized_code/pl/vivado/hdmi_p1/.Xil/
+pynq_specialized_code/pl/vivado/hdmi_p1/*.jou
+pynq_specialized_code/pl/vivado/hdmi_p1/*.log
+
 pynq_specialized_code/board/
 pynq_specialized_code/deploy/weights_pack/
 pynq_specialized_code/docs/reports/
