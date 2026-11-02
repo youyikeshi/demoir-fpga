@@ -6344,3 +6344,25 @@ $$\Rightarrow\ \text{唯二差异：16-lane 核 + } \mathtt{g\_wr\_split2}\ \tex
 $$\Rightarrow\ \text{每层写拍 }6144\ (64^2)\to \mathbf{98304}\ (256^2) = \times16 \Rightarrow \textbf{若丢拍概率小，只在大尺寸暴露}$$
 $$\Rightarrow\ \text{而 256}^2\ \text{的写 burst 是 }1.5\ \text{MB（}64^2\ \text{是 }96\ \text{KB）} \Rightarrow \textbf{FIFO 更容易满、反压更容易来}$$
 $$\quad\ \Rightarrow\ \Rightarrow\ \text{与 T-113 头号怀疑吻合：}\mathtt{beat\_go = c\_wr\_en \&\&\ u\_ce}\ \text{无条件覆盖 beat0}，\text{而 }\mathtt{wr\_accept\_ok}\ \text{不查 } \mathtt{pw\_valid}$$
+
+### 70.81 板子交还用户（用户指令 2026-11-03 01:10）
+
+$$\Rightarrow\ \textbf{停止一切板端操作}：\text{用户要自己用板子做别的测试}$$
+$$\Rightarrow\ \text{已通知在跑的 T-118：}\text{不再 load/跑探针/重建，}\text{只 } \mathtt{sync}\ \text{不 } \mathtt{poweroff}，\text{释放锁，}\text{并报告 PL/}\mathtt{fclk0}\ \text{/残留进程/是否开机}$$
+$$\Rightarrow\ \text{后续 256}^2\ \text{根因排查}\textbf{暂停在"下一步待做"状态}$$
+
+**停在这里的进展（下次接手直接用）**
+$$\Rightarrow\ \textbf{已定案}：\text{v39 位流 + 当前 PS 在 }256^2\ \text{命中冻结三件套} \Rightarrow \textbf{根因在 RTL}$$
+$$\Rightarrow\ \text{v53 与 v39 的差异只有：}16\text{-lane 核} + \text{线缓存（}\mathtt{LC\_N}=512\text{）} + \text{写串行化}$$
+$$\Rightarrow\ \textbf{写串行化已被逐拍追完判自洽}（\text{唯二真雷：}\mathtt{c\_wr\_sel}\neq 8\mathtt{hFF}\ \text{时，本网不触发）$$
+$$\Rightarrow\ \textbf{三条旧证据已销账}：\text{sticky-done 否证、PL 只干一半是估价器伪影、写拍无丢失}$$
+$$\Rightarrow\ \text{收敛到}\textbf{激活线缓存}：\text{每层线数 } = cb\cdot HW/16 \Rightarrow 64^2=64\sim576，128^2=\mathbf{256\sim2304}，256^2=1024\sim4096$$
+
+**下次待做的三步（按便宜程度）**
+$$\Rightarrow\ \textbf{① 跑 }128^2\ \text{输入（免费，无需重建）}：\text{若也错} \Rightarrow \text{边界是"线缓存压力"，与 }256\ \text{无关}$$
+$$\Rightarrow\ \textbf{② 建 } \mathtt{PF\_EN}=0\ \text{的隔离副本位流}（\text{约 12 分钟）\Rightarrow \text{区分"容量"与"预取争用"}$$
+$$\Rightarrow\ \textbf{③ 若需放大线缓存}：\mathtt{LC\_N}\ \text{只能到 }1024（+14\ \text{块 BRAM}）\ \text{或 }2048（+43\ \text{块）}$$
+$$\quad\ \Rightarrow\ \textbf{T-116 建议的 } 4096\ \textbf{不可行}（512\ \text{KB} \approx 113.6\ \text{块} > 95）$$
+
+$$\Rightarrow\ \text{另有一个反证要记住：}64^2\ \text{最深层 } cb=9 \Rightarrow 576\ \text{条} > 512\ \text{却结果正确}$$
+$$\quad\ \Rightarrow\ \textbf{"容量不够"本身不错数}，\text{只有"fill 与需求同拍争用"才错} \Rightarrow \text{这也是第②步值得做的原因}$$
