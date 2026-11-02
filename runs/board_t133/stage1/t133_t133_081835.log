@@ -1,0 +1,379 @@
+[t133] 日志 = /home/xilinx/demoir/t133_out/t133_t133_081835.log
+[t133] bit = /home/xilinx/demoir/design_1_150v53.bit
+[t133] 目标频率 = 50 MHz | 槽数 = 24
+[t133] plan = sleep3,sleep3,none,none,readall,readall,readtail,readtail,readhead,readhead,touchonly,touchonly,dsb,dsb,dsb0p3,dsb0p3,devmem,devmem
+[t133] 运行点 = {"BIN_PACK": "e1e2", "BIN_LAZY_DEQ": "0", "BIN_LAZY_SLOTS": "24", "BIN_CAT_FUSION": "1", "BIN_BILINEAR_C": "1", "BIN_PRECOMP": "1", "Q8CACHE": "1", "BIN_F32DIRECT": "1", "BIN_CAT_ECA_FUSE": "1", "BIN_EPI_NOINV": "1", "BIN_V50_FUSE": "", "BIN_VLANES": ""}
+[t133] meminfo = {'MemTotal': 1028264, 'MemFree': 761832, 'MemAvailable': 846912, 'SwapTotal': 524284, 'SwapFree': 524284, 'CmaTotal': 262144, 'CmaFree': 64684}
+
+==============================================================================
+  第 1 步：load v53 overlay + 指纹（本进程唯一一次 download=True）
+==============================================================================
+  Overlay(design_1_150v53.bit) 用时 2.653 s
+  IP 清单：['bin_unit_0', 'conv_uni_0', 'ps7']
+  conv_uni_0  base=0x40040000 length=0x20000 （期望 0x40040000）✓
+  bin_unit_0  base=0x40060000 length=0x20000 （期望 0x40060000）✓
+  **magic(0x314) = 0x50300001 期望 0x50300001 ⇒ 寄存器块在位 ✓**
+  **0x310 = 0x00000000 ⇒ 空闲 ✓**（load 后 PL 必须空闲）
+  load 后 fclk0 读回 = 125 MHz
+  ★ fclk0 目标 50 → **读回 50 MHz**；PL 状态 = {"fclk": 50.0, "base": "0x40060000", "magic": "0x50300001", "magic_ok": true, "st310": "0x00000000", "st310_zero": true, "done": false, "err": 0, "busy": false, "ap_ret_bin_unit_0": "0x00000000", "ap_ret_conv_uni_0": "0x00000000"}
+
+==============================================================================
+  第 1b 步：q8/c8deq/bpack 一次性装载（单独计时，不进稳态）
+==============================================================================
+  q8     load=0.258 s loaded=True why=ok
+  c8deq  load=4.337 s loaded=True why=ok
+  bpack  load=1.804 s loaded=True why=ok
+  **一次性装载合计 = 6.399 s**
+  128² 形状：max_in 0.295 MB / max_out 0.393 MB / 227 个 conv / 395 个 op
+  npix：max = 4096；npix ≥ 4096 的 op = 31 个
+  arena 需求：24 槽 × (0.295 + 0.393 MB + 4096) + 64 KB = **16.68 MB**
+  分配前 CmaFree = 0.40 MB
+  arena t133_arena128  16.68 MB / 24 槽 @0x30100000
+  arena 物理区间 = [0x30100000, 0x310e8000)
+
+==============================================================================
+  第 0 步：写回自测（PYNQ `flush()` 到底有没有把脏线写回 DDR）
+==============================================================================
+  ① 只写不做任何 flush         CPU 视角 vs /dev/mem：差 0 / 300000 B
+  ② 写 + arena.flush()    CPU 视角 vs /dev/mem：差 0 / 300000 B
+  ③ 写 + 真 cacheflush(rc=0) CPU 视角 vs /dev/mem：差 0 / 300000 B
+  ④ 再写 + flush()（第二次）    CPU 视角 vs /dev/mem：差 0 / 300000 B
+  ⇒ **PYNQ 的 flush() 有效**：写 + flush 之后 DDR 里就是 CPU 写的那份
+  ⚠ 对照（①不 flush）也读到一致 ⇒ 本自测在这块内存上不敏感，结论要打折
+
+==============================================================================
+  第 2 步：128² —— B0/B1 复现 + F1~F5 每个 2 跑（同一进程、同一 arena）
+==============================================================================
+
+  ── run1  tok=sleep3  fence=sleep(3.0 ms)
+
+==============================================================================
+  run1  hw=128  NOINV=1  mode=sleep  （NOINV 生效值='1'）
+==============================================================================
+  epi_noinv() 实测 = True   BV_FREE=0
+  输入 x0 sha1 = 26c9796e18f0e6883680693b805ce8bb7ad51486（冻结口径 26c9796e18f0e6883680693b805ce8bb7ad51486） ✓
+  墙钟 11.200 s | PL 3.672 s | PS 9.634 s | conv 227 | lazy={"pinned": 0, "released": 0, "starved": 0, "direct_layers": 0, "mixed_layers": 0, "ps_layers": 0, "deq_skipped": 0, "dir
+  **三 sha1 = 27e25cf67fda / b82b83f3d7eb / 6db4e9bb19e0**
+  与 v39 冻结值 **✓ 全中**
+  跑后 0x310=0x00000000 magic=0x50300001 ✓ 归零（第 120 条）
+
+  ── run2  tok=sleep3  fence=sleep(3.0 ms)
+
+==============================================================================
+  run2  hw=128  NOINV=1  mode=sleep  （NOINV 生效值='1'）
+==============================================================================
+  epi_noinv() 实测 = True   BV_FREE=0
+  输入 x0 sha1 = 26c9796e18f0e6883680693b805ce8bb7ad51486（冻结口径 26c9796e18f0e6883680693b805ce8bb7ad51486） ✓
+  墙钟 9.859 s | PL 2.829 s | PS 8.371 s | conv 227 | lazy={"pinned": 0, "released": 0, "starved": 0, "direct_layers": 0, "mixed_layers": 0, "ps_layers": 0, "deq_skipped": 0, "dir
+  **三 sha1 = 27e25cf67fda / b82b83f3d7eb / 6db4e9bb19e0**
+  与 v39 冻结值 **✓ 全中**
+  跑后 0x310=0x00000000 magic=0x50300001 ✓ 归零（第 120 条）
+
+  ── run3  tok=none  fence=none(0.0 ms)
+
+==============================================================================
+  run3  hw=128  NOINV=1  mode=none  （NOINV 生效值='1'）
+==============================================================================
+  epi_noinv() 实测 = True   BV_FREE=0
+  输入 x0 sha1 = 26c9796e18f0e6883680693b805ce8bb7ad51486（冻结口径 26c9796e18f0e6883680693b805ce8bb7ad51486） ✓
+  墙钟 6.323 s | PL 1.489 s | PS 4.808 s | conv 227 | lazy={"pinned": 0, "released": 0, "starved": 0, "direct_layers": 0, "mixed_layers": 0, "ps_layers": 0, "deq_skipped": 0, "dir
+  **三 sha1 = f035ca2b89a2 / aa8f1a73c5d2 / c6ea9ebcbdc0**
+  与 v39 冻结值 ✗ 不中
+  跑后 0x310=0x00000000 magic=0x50300001 ✓ 归零（第 120 条）
+
+  ── run4  tok=none  fence=none(0.0 ms)
+
+==============================================================================
+  run4  hw=128  NOINV=1  mode=none  （NOINV 生效值='1'）
+==============================================================================
+  epi_noinv() 实测 = True   BV_FREE=0
+  输入 x0 sha1 = 26c9796e18f0e6883680693b805ce8bb7ad51486（冻结口径 26c9796e18f0e6883680693b805ce8bb7ad51486） ✓
+  墙钟 6.276 s | PL 1.484 s | PS 4.802 s | conv 227 | lazy={"pinned": 0, "released": 0, "starved": 0, "direct_layers": 0, "mixed_layers": 0, "ps_layers": 0, "deq_skipped": 0, "dir
+  **三 sha1 = 2245a8ffd760 / 554598d0bc58 / bd157c98d175**
+  与 v39 冻结值 ✗ 不中
+  跑后 0x310=0x00000000 magic=0x50300001 ✓ 归零（第 120 条）
+
+  ── run5  tok=readall  fence=readall(0.0 ms)
+
+==============================================================================
+  run5  hw=128  NOINV=1  mode=readall  （NOINV 生效值='1'）
+==============================================================================
+  epi_noinv() 实测 = True   BV_FREE=0
+  输入 x0 sha1 = 26c9796e18f0e6883680693b805ce8bb7ad51486（冻结口径 26c9796e18f0e6883680693b805ce8bb7ad51486） ✓
+  墙钟 12.737 s | PL 3.795 s | PS 11.217 s | conv 227 | lazy={"pinned": 0, "released": 0, "starved": 0, "direct_layers": 0, "mixed_layers": 0, "ps_layers": 0, "deq_skipped": 0, "dir
+  **三 sha1 = 27e25cf67fda / b82b83f3d7eb / 6db4e9bb19e0**
+  与 v39 冻结值 **✓ 全中**
+  跑后 0x310=0x00000000 magic=0x50300001 ✓ 归零（第 120 条）
+
+  ── run6  tok=readall  fence=readall(0.0 ms)
+
+==============================================================================
+  run6  hw=128  NOINV=1  mode=readall  （NOINV 生效值='1'）
+==============================================================================
+  epi_noinv() 实测 = True   BV_FREE=0
+  输入 x0 sha1 = 26c9796e18f0e6883680693b805ce8bb7ad51486（冻结口径 26c9796e18f0e6883680693b805ce8bb7ad51486） ✓
+  墙钟 12.661 s | PL 3.912 s | PS 11.137 s | conv 227 | lazy={"pinned": 0, "released": 0, "starved": 0, "direct_layers": 0, "mixed_layers": 0, "ps_layers": 0, "deq_skipped": 0, "dir
+  **三 sha1 = 27e25cf67fda / b82b83f3d7eb / 6db4e9bb19e0**
+  与 v39 冻结值 **✓ 全中**
+  跑后 0x310=0x00000000 magic=0x50300001 ✓ 归零（第 120 条）
+
+  ── run7  tok=readtail  fence=readtail(0.0 ms)
+
+==============================================================================
+  run7  hw=128  NOINV=1  mode=readtail  （NOINV 生效值='1'）
+==============================================================================
+  epi_noinv() 实测 = True   BV_FREE=0
+  输入 x0 sha1 = 26c9796e18f0e6883680693b805ce8bb7ad51486（冻结口径 26c9796e18f0e6883680693b805ce8bb7ad51486） ✓
+  墙钟 6.504 s | PL 1.579 s | PS 5.040 s | conv 227 | lazy={"pinned": 0, "released": 0, "starved": 0, "direct_layers": 0, "mixed_layers": 0, "ps_layers": 0, "deq_skipped": 0, "dir
+  **三 sha1 = e6e3f4dba833 / cf71dd38cf76 / d107c194b555**
+  与 v39 冻结值 ✗ 不中
+  跑后 0x310=0x00000000 magic=0x50300001 ✓ 归零（第 120 条）
+
+  ── run8  tok=readtail  fence=readtail(0.0 ms)
+
+==============================================================================
+  run8  hw=128  NOINV=1  mode=readtail  （NOINV 生效值='1'）
+==============================================================================
+  epi_noinv() 实测 = True   BV_FREE=0
+  输入 x0 sha1 = 26c9796e18f0e6883680693b805ce8bb7ad51486（冻结口径 26c9796e18f0e6883680693b805ce8bb7ad51486） ✓
+  墙钟 6.549 s | PL 1.581 s | PS 5.038 s | conv 227 | lazy={"pinned": 0, "released": 0, "starved": 0, "direct_layers": 0, "mixed_layers": 0, "ps_layers": 0, "deq_skipped": 0, "dir
+  **三 sha1 = 7a93504fe2ee / 531bb8aba467 / df43478a1a9f**
+  与 v39 冻结值 ✗ 不中
+  跑后 0x310=0x00000000 magic=0x50300001 ✓ 归零（第 120 条）
+
+  ── run9  tok=readhead  fence=readhead(0.0 ms)
+
+==============================================================================
+  run9  hw=128  NOINV=1  mode=readhead  （NOINV 生效值='1'）
+==============================================================================
+  epi_noinv() 实测 = True   BV_FREE=0
+  输入 x0 sha1 = 26c9796e18f0e6883680693b805ce8bb7ad51486（冻结口径 26c9796e18f0e6883680693b805ce8bb7ad51486） ✓
+  墙钟 6.522 s | PL 1.585 s | PS 5.055 s | conv 227 | lazy={"pinned": 0, "released": 0, "starved": 0, "direct_layers": 0, "mixed_layers": 0, "ps_layers": 0, "deq_skipped": 0, "dir
+  **三 sha1 = 120d7cff6084 / 0f169f7359a5 / ca56e1a49248**
+  与 v39 冻结值 ✗ 不中
+  跑后 0x310=0x00000000 magic=0x50300001 ✓ 归零（第 120 条）
+
+  ── run10  tok=readhead  fence=readhead(0.0 ms)
+
+==============================================================================
+  run10  hw=128  NOINV=1  mode=readhead  （NOINV 生效值='1'）
+==============================================================================
+  epi_noinv() 实测 = True   BV_FREE=0
+  输入 x0 sha1 = 26c9796e18f0e6883680693b805ce8bb7ad51486（冻结口径 26c9796e18f0e6883680693b805ce8bb7ad51486） ✓
+  墙钟 6.547 s | PL 1.556 s | PS 5.046 s | conv 227 | lazy={"pinned": 0, "released": 0, "starved": 0, "direct_layers": 0, "mixed_layers": 0, "ps_layers": 0, "deq_skipped": 0, "dir
+  **三 sha1 = a0b2878db320 / 15b3594c3549 / 464351287f4f**
+  与 v39 冻结值 ✗ 不中
+  跑后 0x310=0x00000000 magic=0x50300001 ✓ 归零（第 120 条）
+
+  ── run11  tok=touchonly  fence=touchonly(0.0 ms)
+
+==============================================================================
+  run11  hw=128  NOINV=1  mode=touchonly  （NOINV 生效值='1'）
+==============================================================================
+  epi_noinv() 实测 = True   BV_FREE=0
+  输入 x0 sha1 = 26c9796e18f0e6883680693b805ce8bb7ad51486（冻结口径 26c9796e18f0e6883680693b805ce8bb7ad51486） ✓
+  墙钟 6.449 s | PL 1.550 s | PS 4.983 s | conv 227 | lazy={"pinned": 0, "released": 0, "starved": 0, "direct_layers": 0, "mixed_layers": 0, "ps_layers": 0, "deq_skipped": 0, "dir
+  **三 sha1 = ed13ac2413e2 / 39608c6fb04a / 47f878d4ae00**
+  与 v39 冻结值 ✗ 不中
+  跑后 0x310=0x00000000 magic=0x50300001 ✓ 归零（第 120 条）
+
+  ── run12  tok=touchonly  fence=touchonly(0.0 ms)
+
+==============================================================================
+  run12  hw=128  NOINV=1  mode=touchonly  （NOINV 生效值='1'）
+==============================================================================
+  epi_noinv() 实测 = True   BV_FREE=0
+  输入 x0 sha1 = 26c9796e18f0e6883680693b805ce8bb7ad51486（冻结口径 26c9796e18f0e6883680693b805ce8bb7ad51486） ✓
+  墙钟 6.416 s | PL 1.545 s | PS 4.953 s | conv 227 | lazy={"pinned": 0, "released": 0, "starved": 0, "direct_layers": 0, "mixed_layers": 0, "ps_layers": 0, "deq_skipped": 0, "dir
+  **三 sha1 = feb167a813d7 / f2c7e9fd6319 / 5c557b9024f1**
+  与 v39 冻结值 ✗ 不中
+  跑后 0x310=0x00000000 magic=0x50300001 ✓ 归零（第 120 条）
+
+  ── run13  tok=dsb  fence=dsb(0.0 ms)
+
+==============================================================================
+  run13  hw=128  NOINV=1  mode=dsb  （NOINV 生效值='1'）
+==============================================================================
+  epi_noinv() 实测 = True   BV_FREE=0
+  输入 x0 sha1 = 26c9796e18f0e6883680693b805ce8bb7ad51486（冻结口径 26c9796e18f0e6883680693b805ce8bb7ad51486） ✓
+  墙钟 7.115 s | PL 1.521 s | PS 5.645 s | conv 227 | lazy={"pinned": 0, "released": 0, "starved": 0, "direct_layers": 0, "mixed_layers": 0, "ps_layers": 0, "deq_skipped": 0, "dir
+  **三 sha1 = 5647f2e567db / 7e1be54fc6a4 / ef5649271a44**
+  与 v39 冻结值 ✗ 不中
+  跑后 0x310=0x00000000 magic=0x50300001 ✓ 归零（第 120 条）
+
+  ── run14  tok=dsb  fence=dsb(0.0 ms)
+
+==============================================================================
+  run14  hw=128  NOINV=1  mode=dsb  （NOINV 生效值='1'）
+==============================================================================
+  epi_noinv() 实测 = True   BV_FREE=0
+  输入 x0 sha1 = 26c9796e18f0e6883680693b805ce8bb7ad51486（冻结口径 26c9796e18f0e6883680693b805ce8bb7ad51486） ✓
+  墙钟 6.289 s | PL 1.502 s | PS 4.785 s | conv 227 | lazy={"pinned": 0, "released": 0, "starved": 0, "direct_layers": 0, "mixed_layers": 0, "ps_layers": 0, "deq_skipped": 0, "dir
+  **三 sha1 = e38041867e46 / f9d9cfc5836c / 2261b2afe3a3**
+  与 v39 冻结值 ✗ 不中
+  跑后 0x310=0x00000000 magic=0x50300001 ✓ 归零（第 120 条）
+
+  ── run15  tok=dsb0p3  fence=dsb_sleep(0.3 ms)
+
+==============================================================================
+  run15  hw=128  NOINV=1  mode=dsb_sleep  （NOINV 生效值='1'）
+==============================================================================
+  epi_noinv() 实测 = True   BV_FREE=0
+  输入 x0 sha1 = 26c9796e18f0e6883680693b805ce8bb7ad51486（冻结口径 26c9796e18f0e6883680693b805ce8bb7ad51486） ✓
+  墙钟 6.773 s | PL 1.652 s | PS 5.304 s | conv 227 | lazy={"pinned": 0, "released": 0, "starved": 0, "direct_layers": 0, "mixed_layers": 0, "ps_layers": 0, "deq_skipped": 0, "dir
+  **三 sha1 = f29e939f6fb1 / f8f6646bb57c / 7f79e44e1264**
+  与 v39 冻结值 ✗ 不中
+  跑后 0x310=0x00000000 magic=0x50300001 ✓ 归零（第 120 条）
+
+  ── run16  tok=dsb0p3  fence=dsb_sleep(0.3 ms)
+
+==============================================================================
+  run16  hw=128  NOINV=1  mode=dsb_sleep  （NOINV 生效值='1'）
+==============================================================================
+  epi_noinv() 实测 = True   BV_FREE=0
+  输入 x0 sha1 = 26c9796e18f0e6883680693b805ce8bb7ad51486（冻结口径 26c9796e18f0e6883680693b805ce8bb7ad51486） ✓
+  墙钟 6.766 s | PL 1.670 s | PS 5.301 s | conv 227 | lazy={"pinned": 0, "released": 0, "starved": 0, "direct_layers": 0, "mixed_layers": 0, "ps_layers": 0, "deq_skipped": 0, "dir
+  **三 sha1 = 9e22fe44548a / 96137f3fe5c9 / 7cca5acc1a54**
+  与 v39 冻结值 ✗ 不中
+  跑后 0x310=0x00000000 magic=0x50300001 ✓ 归零（第 120 条）
+
+  ── run17  tok=devmem  fence=devmem(0.0 ms)
+
+==============================================================================
+  run17  hw=128  NOINV=1  mode=devmem  （NOINV 生效值='1'）
+==============================================================================
+  epi_noinv() 实测 = True   BV_FREE=0
+  输入 x0 sha1 = 26c9796e18f0e6883680693b805ce8bb7ad51486（冻结口径 26c9796e18f0e6883680693b805ce8bb7ad51486） ✓
+  墙钟 6.217 s | PL 1.475 s | PS 4.712 s | conv 227 | lazy={"pinned": 0, "released": 0, "starved": 0, "direct_layers": 0, "mixed_layers": 0, "ps_layers": 0, "deq_skipped": 0, "dir
+  **三 sha1 = 585f7344a99d / ebe97fb6bc86 / 95b007312784**
+  与 v39 冻结值 ✗ 不中
+  跑后 0x310=0x00000000 magic=0x50300001 ✓ 归零（第 120 条）
+
+  ── run18  tok=devmem  fence=devmem(0.0 ms)
+
+==============================================================================
+  run18  hw=128  NOINV=1  mode=devmem  （NOINV 生效值='1'）
+==============================================================================
+  epi_noinv() 实测 = True   BV_FREE=0
+  输入 x0 sha1 = 26c9796e18f0e6883680693b805ce8bb7ad51486（冻结口径 26c9796e18f0e6883680693b805ce8bb7ad51486） ✓
+  墙钟 6.131 s | PL 1.465 s | PS 4.668 s | conv 227 | lazy={"pinned": 0, "released": 0, "starved": 0, "direct_layers": 0, "mixed_layers": 0, "ps_layers": 0, "deq_skipped": 0, "dir
+  **三 sha1 = 4e11cfa36dd6 / a92d30462454 / 0ae2a05b4f3b**
+  与 v39 冻结值 ✗ 不中
+  跑后 0x310=0x00000000 magic=0x50300001 ✓ 归零（第 120 条）
+
+  ⟲ F4 剂量：dsb+0.3 ms 未全中 ⇒ 补测 dsb+0.5 ms ×2
+
+  ── run19  tok=dsb0p5  fence=dsb_sleep(0.5 ms)
+
+==============================================================================
+  run19  hw=128  NOINV=1  mode=dsb_sleep  （NOINV 生效值='1'）
+==============================================================================
+  epi_noinv() 实测 = True   BV_FREE=0
+  输入 x0 sha1 = 26c9796e18f0e6883680693b805ce8bb7ad51486（冻结口径 26c9796e18f0e6883680693b805ce8bb7ad51486） ✓
+  墙钟 7.010 s | PL 1.759 s | PS 5.539 s | conv 227 | lazy={"pinned": 0, "released": 0, "starved": 0, "direct_layers": 0, "mixed_layers": 0, "ps_layers": 0, "deq_skipped": 0, "dir
+  **三 sha1 = 725bf37babfc / 5142de8b1995 / c7e2d37fc948**
+  与 v39 冻结值 ✗ 不中
+  跑后 0x310=0x00000000 magic=0x50300001 ✓ 归零（第 120 条）
+
+  ── run20  tok=dsb0p5  fence=dsb_sleep(0.5 ms)
+
+==============================================================================
+  run20  hw=128  NOINV=1  mode=dsb_sleep  （NOINV 生效值='1'）
+==============================================================================
+  epi_noinv() 实测 = True   BV_FREE=0
+  输入 x0 sha1 = 26c9796e18f0e6883680693b805ce8bb7ad51486（冻结口径 26c9796e18f0e6883680693b805ce8bb7ad51486） ✓
+  墙钟 6.964 s | PL 1.739 s | PS 5.498 s | conv 227 | lazy={"pinned": 0, "released": 0, "starved": 0, "direct_layers": 0, "mixed_layers": 0, "ps_layers": 0, "deq_skipped": 0, "dir
+  **三 sha1 = f34c6922faee / dccdbe0d3f07 / 0d6416b1fc8c**
+  与 v39 冻结值 ✗ 不中
+  跑后 0x310=0x00000000 magic=0x50300001 ✓ 归零（第 120 条）
+
+  128² 汇总（墙钟只算 net.run）：
+    run1  sleep3    墙钟 11.2   s  三 sha1 27e25cf67f/b82b83f3d7/6db4e9bb19  中=True   fence  1135 次 3.550 s（flush 0.229 s）
+    run2  sleep3    墙钟 9.859  s  三 sha1 27e25cf67f/b82b83f3d7/6db4e9bb19  中=True   fence  1135 次 3.551 s（flush 0.233 s）
+    run3  none      墙钟 6.323  s  三 sha1 f035ca2b89/aa8f1a73c5/c6ea9ebcbd  中=False  fence     0 次 0.000 s（flush 0.219 s）
+    run4  none      墙钟 6.276  s  三 sha1 2245a8ffd7/554598d0bc/bd157c98d1  中=False  fence     0 次 0.000 s（flush 0.218 s）
+    run5  readall   墙钟 12.737 s  三 sha1 27e25cf67f/b82b83f3d7/6db4e9bb19  中=True   fence  1135 次 6.180 s（flush 0.298 s）
+    run6  readall   墙钟 12.661 s  三 sha1 27e25cf67f/b82b83f3d7/6db4e9bb19  中=True   fence  1135 次 6.165 s（flush 0.297 s）
+    run7  readtail  墙钟 6.504  s  三 sha1 e6e3f4dba8/cf71dd38cf/d107c194b5  中=False  fence  1135 次 0.257 s（flush 0.230 s）
+    run8  readtail  墙钟 6.549  s  三 sha1 7a93504fe2/531bb8aba4/df43478a1a  中=False  fence  1135 次 0.257 s（flush 0.231 s）
+    run9  readhead  墙钟 6.522  s  三 sha1 120d7cff60/0f169f7359/ca56e1a492  中=False  fence  1135 次 0.261 s（flush 0.233 s）
+    run10 readhead  墙钟 6.547  s  三 sha1 a0b2878db3/15b3594c35/464351287f  中=False  fence  1135 次 0.255 s（flush 0.230 s）
+    run11 touchonly 墙钟 6.449  s  三 sha1 ed13ac2413/39608c6fb0/47f878d4ae  中=False  fence  1135 次 0.186 s（flush 0.233 s）
+    run12 touchonly 墙钟 6.416  s  三 sha1 feb167a813/f2c7e9fd63/5c557b9024  中=False  fence  1135 次 0.179 s（flush 0.229 s）
+    run13 dsb       墙钟 7.115  s  三 sha1 5647f2e567/7e1be54fc6/ef5649271a  中=False  fence  1135 次 0.799 s（flush 0.223 s）
+    run14 dsb       墙钟 6.289  s  三 sha1 e38041867e/f9d9cfc583/2261b2afe3  中=False  fence  1135 次 0.029 s（flush 0.218 s）
+    run15 dsb0p3    墙钟 6.773  s  三 sha1 f29e939f6f/f8f6646bb5/7f79e44e12  中=False  fence  1135 次 0.504 s（flush 0.234 s）
+    run16 dsb0p3    墙钟 6.766  s  三 sha1 9e22fe4454/96137f3fe5/7cca5acc1a  中=False  fence  1135 次 0.503 s（flush 0.231 s）
+    run17 devmem    墙钟 6.217  s  三 sha1 585f7344a9/ebe97fb6bc/95b0073127  中=False  fence     0 次 0.000 s（flush 0.176 s）
+    run18 devmem    墙钟 6.131  s  三 sha1 4e11cfa36d/a92d304624/0ae2a05b4f  中=False  fence     0 次 0.000 s（flush 0.174 s）
+    run19 dsb0p5    墙钟 7.01   s  三 sha1 725bf37bab/5142de8b19/c7e2d37fc9  中=False  fence  1135 次 0.732 s（flush 0.235 s）
+    run20 dsb0p5    墙钟 6.964  s  三 sha1 f34c6922fa/dccdbe0d3f/0d6416b1fc  中=False  fence  1135 次 0.731 s（flush 0.232 s）
+  ⇒ 最优臂 = **sleep3**（fence=sleep 3.0 ms，平均墙钟 10.529 s，命中 2 次）
+      候选 sleep3    墙钟 10.529 s  跑数 2
+      候选 readall   墙钟 12.699 s  跑数 2
+
+==============================================================================
+  第 3 步：256² 一次（用最优臂 sleep3）
+==============================================================================
+  256² 形状：max_in 1.180 MB / max_out 1.573 MB / 227 个 conv / 395 个 op
+  npix：max = 16384；npix ≥ 4096 的 op = 85 个
+  arena 需求：24 槽 × (1.180 + 1.573 MB + 4096) + 64 KB = **66.22 MB**
+  分配前 CmaFree = 17.80 MB
+  arena t133_arena256  66.22 MB / 24 槽 @0x31e00000
+
+==============================================================================
+  run90  hw=256  NOINV=1  mode=sleep  （NOINV 生效值='1'）
+==============================================================================
+  epi_noinv() 实测 = True   BV_FREE=1
+  输入 x0 sha1 = cfc75bc3f15d306b07787325fdc9ae715cfadd0a（冻结口径 cfc75bc3f15d306b07787325fdc9ae715cfadd0a） ✓
+  墙钟 20.115 s | PL 5.859 s | PS 18.032 s | conv 227 | lazy={"pinned": 0, "released": 0, "starved": 0, "direct_layers": 0, "mixed_layers": 0, "ps_layers": 0, "deq_skipped": 0, "dir
+  **三 sha1 = 7e266fc735f3 / 1c4becf43384 / 24ff1bba4f61**
+  与 v39 冻结值 ✗ 不中
+  跑后 0x310=0x00000000 magic=0x50300001 ✓ 归零（第 120 条）
+
+==============================================================================
+  第 3b 步：64² 一次（用最优臂 sleep3）
+==============================================================================
+  64² 形状：max_in 0.074 MB / max_out 0.098 MB / 227 个 conv / 395 个 op
+  npix：max = 1024；npix ≥ 4096 的 op = 0 个
+  arena 需求：24 槽 × (0.074 + 0.098 MB + 4096) + 64 KB = **4.29 MB**
+  分配前 CmaFree = 67.80 MB
+  arena t133_arena64   4.29 MB / 24 槽 @0x30100000
+
+==============================================================================
+  run91  hw=64  NOINV=1  mode=sleep  （NOINV 生效值='1'）
+==============================================================================
+  epi_noinv() 实测 = True   BV_FREE=0
+  输入 x0 sha1 = bbae82e46e363a776d8fce8d9004e94502456bdc（冻结口径 bbae82e46e363a776d8fce8d9004e94502456bdc） ✓
+  墙钟 7.588 s | PL 1.733 s | PS 6.274 s | conv 227 | lazy={"pinned": 0, "released": 0, "starved": 0, "direct_layers": 0, "mixed_layers": 0, "ps_layers": 0, "deq_skipped": 0, "dir
+  **三 sha1 = bfa246d34681 / 226bd39e522a / 762d84b9618e**
+  与 v39 冻结值 **✓ 全中**
+  跑后 0x310=0x00000000 magic=0x50300001 ✓ 归零（第 120 条）
+
+==============================================================================
+  小结（T-133）
+==============================================================================
+  run1  sleep3    墙钟 11.2   s sha1 = 27e25cf67fdad22d95bfd488cc73ccc39cbe8134 / b82b83f3d7eb1e0dc92e0c22a3c9656a2b963b2e / 6db4e9bb19e0e744ef4f41a2c5a2eb6e003ad301  中=True
+  run2  sleep3    墙钟 9.859  s sha1 = 27e25cf67fdad22d95bfd488cc73ccc39cbe8134 / b82b83f3d7eb1e0dc92e0c22a3c9656a2b963b2e / 6db4e9bb19e0e744ef4f41a2c5a2eb6e003ad301  中=True
+  run3  none      墙钟 6.323  s sha1 = f035ca2b89a2fbb68f92e96aa65a53e932f3c5c0 / aa8f1a73c5d2e1846b64ebdb02a005113065a697 / c6ea9ebcbdc0907a44de1578d3d1ec33c5234a82  中=False
+  run4  none      墙钟 6.276  s sha1 = 2245a8ffd7607c621bc6c077ab6bdf0b0538a566 / 554598d0bc58426717e87cf5937489c9ebacaa99 / bd157c98d17577a997763bdc8ec071daccc52b94  中=False
+  run5  readall   墙钟 12.737 s sha1 = 27e25cf67fdad22d95bfd488cc73ccc39cbe8134 / b82b83f3d7eb1e0dc92e0c22a3c9656a2b963b2e / 6db4e9bb19e0e744ef4f41a2c5a2eb6e003ad301  中=True
+  run6  readall   墙钟 12.661 s sha1 = 27e25cf67fdad22d95bfd488cc73ccc39cbe8134 / b82b83f3d7eb1e0dc92e0c22a3c9656a2b963b2e / 6db4e9bb19e0e744ef4f41a2c5a2eb6e003ad301  中=True
+  run7  readtail  墙钟 6.504  s sha1 = e6e3f4dba83372a735138faf40c156c174b76fc2 / cf71dd38cf7638abe631cf5076a9054ade54eee3 / d107c194b5559e0207f040dd961d715e64e35004  中=False
+  run8  readtail  墙钟 6.549  s sha1 = 7a93504fe2ee429a62e5b79b3a7c372496f9f0ad / 531bb8aba4670703a61b2a5324d046545ff1965b / df43478a1a9f955506c9f342f58929aafbb89211  中=False
+  run9  readhead  墙钟 6.522  s sha1 = 120d7cff6084a507ef1b2b83ea13c73f5f9510f7 / 0f169f7359a5b7d4bfc48e3c117e3184e761af7c / ca56e1a4924883ae25498efece7ae4a01091ea7c  中=False
+  run10 readhead  墙钟 6.547  s sha1 = a0b2878db320c21943a0f31a31ff84cf97a9208b / 15b3594c35495424477fa1005dc5b7d77374f469 / 464351287f4f91bea3f4247d7abbfb7ec4753343  中=False
+  run11 touchonly 墙钟 6.449  s sha1 = ed13ac2413e2fed88231c4c64336acb1bded5e41 / 39608c6fb04a532f9cff8ce594f5d459f2f98ef9 / 47f878d4ae000ed629bcc60765f379e3ab526f02  中=False
+  run12 touchonly 墙钟 6.416  s sha1 = feb167a813d7634a3d65f9eac4b5f3f418d03bb5 / f2c7e9fd6319aec3a00f6d01b186c6389a7899b7 / 5c557b9024f1c045d1c5c694060bba66016896af  中=False
+  run13 dsb       墙钟 7.115  s sha1 = 5647f2e567db1aba6b16204db5a9c77a69c81b5d / 7e1be54fc6a48796e9739fcac79b4b3f1ecf9d5a / ef5649271a44de5a132e9cd68b61530d82730d8b  中=False
+  run14 dsb       墙钟 6.289  s sha1 = e38041867e46d5c5d0dde149c3498aad2c92375f / f9d9cfc5836c8a9f63959c3fd191357f413b3fc9 / 2261b2afe3a3d274f63470d085aecccf77ea3c1e  中=False
+  run15 dsb0p3    墙钟 6.773  s sha1 = f29e939f6fb11d703b3b7934df2884a719f363c3 / f8f6646bb57c0fdf25cdb37f9813d15f8412f6fc / 7f79e44e12649b7675e0ad816d4de520ec1e8772  中=False
+  run16 dsb0p3    墙钟 6.766  s sha1 = 9e22fe44548ab0520ac93cfbe45c776aacd2673e / 96137f3fe5c906768b0df147b75e2f68fa231dd4 / 7cca5acc1a54419c0120bca78bffb286ea7904fa  中=False
+  run17 devmem    墙钟 6.217  s sha1 = 585f7344a99d36fd02466a28459056aece0c4be5 / ebe97fb6bc86251245ba2c8f782bc223c2a083cf / 95b00731278404dd46d8c6a55fd79db82a939efc  中=False
+  run18 devmem    墙钟 6.131  s sha1 = 4e11cfa36dd6ce34dc0256a4509076cc2c98c75f / a92d30462454bdaa8f16d42198d2912c6a3f1abe / 0ae2a05b4f3b3902af7cd3d830249fe96a344728  中=False
+  run19 dsb0p5    墙钟 7.01   s sha1 = 725bf37babfc93beb410f1ba77844102ac652887 / 5142de8b199530ac07e9c88b2a704959df22594c / c7e2d37fc948c4a8ab8c9118bd0d1f43eaa1aaf7  中=False
+  run20 dsb0p5    墙钟 6.964  s sha1 = f34c6922faee161e1bd1f9d50bf0b5df21c810f6 / dccdbe0d3f07ed7e7df6c65b011d7a6e47f84ab1 / 0d6416b1fc8c21059c1779760797184a5dbf81c3  中=False
+  B0(sleep3) 全中 = True ；B1(none) 全不中 = True
+  最优臂 = sleep3 ；256² 中 = False ；64² 中 = True
+  meminfo = {'MemTotal': 1028264, 'MemFree': 559316, 'MemAvailable': 652964, 'SwapTotal': 524284, 'SwapFree': 524284, 'CmaTotal': 262144, 'CmaFree': 65480}
+[json] 已落盘 /home/xilinx/demoir/t133_out/t133_t133_081835.json

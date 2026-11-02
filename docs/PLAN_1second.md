@@ -6761,3 +6761,40 @@ $$\Rightarrow\ \text{代价：}6.2\to9.8\ \text{s}（+40\%）\Rightarrow \textbf
 $$\Rightarrow\ \textbf{第 128 条：}\text{"写完后 flush"}\ \textbf{不保证}\text{PL 通过 HP 口读到新数据；跨域写读必须靠}\textbf{显式 fence/回读}\ \text{或}\textbf{非缓存缓冲}$$
 $$\quad\ \Rightarrow\ \text{这也解释了为什么"所有单层测试都干净"}：\text{单层缓冲}\textbf{只写一次、从没被复用} \Rightarrow \text{竞争窗口小到撞不上}$$
 $$\quad\ \Rightarrow\ \text{而整网每层都复用缓冲} \Rightarrow \text{旧内容与新一轮写入在同一地址上竞争}$$
+
+### 70.98 ★★★★★ T-133：**可见性与内存序全否 ⇒ 是 PL 对"读数据晚到"不鲁棒，真修法在 RTL**（2026-11-03 05:4x）
+
+**fence 全否（这是决定性的负面结果）**
+| 臂 | 墙钟 | 结果 |
+|---|---|---|
+| B0 sleep 3 ms（基线）| 10.53 s | **✓ 三 sha1 逐位 = v39** |
+| B1 只 flush | 6.30 s | ✗ 且两跑不同 |
+| F1 回读整区 | 12.70 s | ✓（但比 sleep **慢 2.2 s**）|
+| F2 尾 64 B | 6.51 s | ✗ |
+| F3 头 64 B | 6.52 s | ✗ |
+| F4a `dsb st`（无睡）| 6.29 s | ✗ |
+| F4 `dsb` + 0.3/0.5 ms | 6.77/6.99 s | ✗ |
+| **F5 device 映射、完全不 flush** | **6.17 s** | **✗** |
+
+$$\Rightarrow\ \textbf{三条把可见性彻底否证}：$$
+$$\quad\ \text{① "不 flush" 对照组 } \mathtt{/dev/mem}\ \text{与 CPU 也是 } \mathbf{0\ \text{字节差异}}$$
+$$\quad\ \text{② } \mathtt{F5}\ \text{直写 DDR（device 映射）仍错}$$
+$$\quad\ \text{③ 完整 } \mathtt{dsb\ st}\ \text{仍错}$$
+$$\Rightarrow\ 0.2/0.3/0.5/0.64\ \text{ms 全无效};\ 3.13/5.44\ \text{ms 有效} \Rightarrow \textbf{要的是"时间"，不是"读"}$$
+$$\Rightarrow\ \Rightarrow\ \mathbf{\text{不是缓存可见性、不是内存序，是 PL 对"kick 后多久才开始读"的时间敏感}}$$
+$$\quad\ \Rightarrow\ \text{PS 的 DDR 写突发把 PL 的读事务}\textbf{挤后/重排} \Rightarrow \mathbf{\text{RTL 没吸收"读数据晚到"}}$$
+$$\quad\ \Rightarrow\ \text{出口从某点起}\textbf{稳定地错} \Rightarrow \text{与 T-124 的}\textbf{尾部形状}完全一致$$
+$$\Rightarrow\ \Rightarrow\ \textbf{真修法在 RTL；PS 侧只能加时间}$$
+
+**两个新事实**
+$$\Rightarrow\ \text{sleep3 }\textbf{只在 } 128^2\ \text{成立}：256^2\ \text{仍错（}20.12\ \text{s，}\mathtt{7e266fc7}/\mathtt{1c4becf4}/\mathtt{24ff1bba}）\Rightarrow \text{窗口随规模变大}$$
+$$\Rightarrow\ 64^2\ \text{在 sleep3 下仍} = \text{冻结（}7.59\ \text{s）}$$
+
+**副产品：5:1 的护栏杠杆**
+$$\Rightarrow\ 1135\ \text{次 flush 只有 }\mathbf{5}\ \text{种尺寸、每种恰好 }227\ \text{次（}9437184/1179648/294912/1152/576\ \text{B）}$$
+$$\Rightarrow\ \text{flush 本身只 }0.22\ \text{s} \Rightarrow \mathbf{+3.55\ \text{s}\ \text{全是 sleep}}$$
+$$\Rightarrow\ \text{只给 }294912\ \text{B}\ \text{那组的 227 次加 sleep} \Rightarrow \text{护栏 }+3.55\to\mathbf{+0.68\ \text{s}}（\text{总 }\sim7.0\ \text{s）}$$
+
+$$\Rightarrow\ \textbf{第 129 条：}\text{"加延时就好"}\ \textbf{不是修法}\ \text{——它是指向"某处不能容忍晚到"的}\textbf{证据}$$
+$$\quad\ \Rightarrow\ \text{正确做法：}\text{在 } \mathtt{xsim}\ \text{里注入读延迟/乱序响应，}\text{把那个地方找出来}$$
+$$\quad\ \Rightarrow\ \text{MEMORY 里早有一条同族教训：}\text{v42e 改 } \mathtt{PF\_AHEAD}\ \text{判死，}\text{当时结论就是"预取需回炉（}\textbf{先做乱序 AXI 响应的 xsim 门禁}\text{"}）$$

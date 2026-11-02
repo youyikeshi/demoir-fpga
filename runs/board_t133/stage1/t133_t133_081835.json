@@ -1,0 +1,2355 @@
+{
+ "env_at_start": {
+  "BIN_PACK": "e1e2",
+  "BIN_LAZY_DEQ": "0",
+  "BIN_LAZY_SLOTS": "24",
+  "BIN_CAT_FUSION": "1",
+  "BIN_BILINEAR_C": "1",
+  "BIN_PRECOMP": "1",
+  "Q8CACHE": "1",
+  "BIN_F32DIRECT": "1",
+  "BIN_CAT_ECA_FUSE": "1",
+  "BIN_EPI_NOINV": "1",
+  "BIN_V50_FUSE": "",
+  "BIN_VLANES": ""
+ },
+ "steps": {
+  "load": {
+   "bit": "/home/xilinx/demoir/design_1_150v53.bit",
+   "seconds": 2.6534,
+   "ips": [
+    "bin_unit_0",
+    "conv_uni_0",
+    "ps7"
+   ],
+   "addr": {
+    "conv_uni_0": {
+     "base": "0x40040000",
+     "length": 131072,
+     "ok": true
+    },
+    "bin_unit_0": {
+     "base": "0x40060000",
+     "length": 131072,
+     "ok": true
+    }
+   },
+   "stat_after_load": {
+    "fclk": 125.0,
+    "base": "0x40060000",
+    "magic": "0x50300001",
+    "magic_ok": true,
+    "st310": "0x00000000",
+    "st310_zero": true,
+    "done": false,
+    "err": 0,
+    "busy": false,
+    "ap_ret_bin_unit_0": "0x00000000",
+    "ap_ret_conv_uni_0": "0x00000000"
+   },
+   "downloads": 1,
+   "fclk0_at_load": 125.0,
+   "meminfo_after_load": {
+    "MemTotal": 1028264,
+    "MemFree": 728692,
+    "MemAvailable": 829412,
+    "SwapTotal": 524284,
+    "SwapFree": 524284,
+    "CmaTotal": 262144,
+    "CmaFree": 34084
+   },
+   "fp_ok": true
+  },
+  "kernel_load": {
+   "q8": {
+    "loaded": true,
+    "seconds": 0.258,
+    "why": "ok"
+   },
+   "c8deq": {
+    "loaded": true,
+    "seconds": 4.3369,
+    "why": "ok"
+   },
+   "bpack": {
+    "loaded": true,
+    "seconds": 1.8045,
+    "why": "ok"
+   }
+  },
+  "arena128": {
+   "hw": 128,
+   "slots": 24,
+   "need": 16678912,
+   "cma_free_before": 159744,
+   "cma_free_after": 159744,
+   "pa": "0x30100000",
+   "max_in": 294912,
+   "max_out": 393216,
+   "n_conv": 227,
+   "max_npix": 4096
+  },
+  "flushtest": {
+   "① 只写不做任何 flush": {
+    "n": 0,
+    "nb": 300000
+   },
+   "control_unflushed_bytes": 0,
+   "② 写 + arena.flush()": {
+    "n": 0,
+    "nb": 300000
+   },
+   "③ 写 + 真 cacheflush(rc=0)": {
+    "n": 0,
+    "nb": 300000
+   },
+   "cacheflush_rc": 0,
+   "④ 再写 + flush()（第二次）": {
+    "n": 0,
+    "nb": 300000
+   },
+   "flushtest_ok": true,
+   "control_ok": false
+  },
+  "net128": [
+   {
+    "run": 1,
+    "name": "net128",
+    "hw": 128,
+    "mode": "sleep",
+    "noinv": "1",
+    "wall_s": 11.2,
+    "total_s": 11.194114446640015,
+    "pl_s": 3.6721930503845215,
+    "ps_s": 9.63447823084607,
+    "n_conv_ops": 227,
+    "deps_closure_ok": true,
+    "run_valid": true,
+    "lazy": {
+     "pinned": 0,
+     "released": 0,
+     "starved": 0,
+     "direct_layers": 0,
+     "mixed_layers": 0,
+     "ps_layers": 0,
+     "deq_skipped": 0,
+     "direct_bytes": 0,
+     "f32_bytes": 0
+    },
+    "sha1": {
+     "out1": "27e25cf67fdad22d95bfd488cc73ccc39cbe8134",
+     "out2": "b82b83f3d7eb1e0dc92e0c22a3c9656a2b963b2e",
+     "out3": "6db4e9bb19e0e744ef4f41a2c5a2eb6e003ad301"
+    },
+    "v39_ref": [
+     "27e25cf67fdad22d95bfd488cc73ccc39cbe8134",
+     "b82b83f3d7eb1e0dc92e0c22a3c9656a2b963b2e",
+     "6db4e9bb19e0e744ef4f41a2c5a2eb6e003ad301"
+    ],
+    "hit_v39": true,
+    "x0_sha1": "26c9796e18f0e6883680693b805ce8bb7ad51486",
+    "post": {
+     "fclk": 50.0,
+     "base": "0x40060000",
+     "magic": "0x50300001",
+     "magic_ok": true,
+     "st310": "0x00000000",
+     "st310_zero": true,
+     "done": false,
+     "err": 0,
+     "busy": false,
+     "ap_ret_bin_unit_0": "0x00000001",
+     "ap_ret_conv_uni_0": "0x00000000"
+    },
+    "fclk": 50.0,
+    "cma_free_after_b": 167936,
+    "noinv_effective": true,
+    "devmem_err": null,
+    "devmem_reads": 4,
+    "fence": {
+     "mode": "sleep",
+     "ms": 3.0,
+     "n": 1135,
+     "flush_n": 1135,
+     "skipped": 0,
+     "fence_secs": 3.55,
+     "flush_secs": 0.2292,
+     "fence_us_per": 3127.7,
+     "flush_us_per": 201.9,
+     "nbytes": 0,
+     "acc": 0,
+     "n_capped": 0,
+     "sizes_top": [
+      [
+       9437184,
+       227
+      ],
+      [
+       1179648,
+       227
+      ],
+      [
+       1152,
+       227
+      ],
+      [
+       576,
+       227
+      ],
+      [
+       294912,
+       227
+      ]
+     ],
+     "n_sizes": 5,
+     "err": [],
+     "dsb": null
+    },
+    "tok": "sleep3"
+   },
+   {
+    "run": 2,
+    "name": "net128",
+    "hw": 128,
+    "mode": "sleep",
+    "noinv": "1",
+    "wall_s": 9.859,
+    "total_s": 9.853874206542969,
+    "pl_s": 2.828565835952759,
+    "ps_s": 8.371438925267285,
+    "n_conv_ops": 227,
+    "deps_closure_ok": true,
+    "run_valid": true,
+    "lazy": {
+     "pinned": 0,
+     "released": 0,
+     "starved": 0,
+     "direct_layers": 0,
+     "mixed_layers": 0,
+     "ps_layers": 0,
+     "deq_skipped": 0,
+     "direct_bytes": 0,
+     "f32_bytes": 0
+    },
+    "sha1": {
+     "out1": "27e25cf67fdad22d95bfd488cc73ccc39cbe8134",
+     "out2": "b82b83f3d7eb1e0dc92e0c22a3c9656a2b963b2e",
+     "out3": "6db4e9bb19e0e744ef4f41a2c5a2eb6e003ad301"
+    },
+    "v39_ref": [
+     "27e25cf67fdad22d95bfd488cc73ccc39cbe8134",
+     "b82b83f3d7eb1e0dc92e0c22a3c9656a2b963b2e",
+     "6db4e9bb19e0e744ef4f41a2c5a2eb6e003ad301"
+    ],
+    "hit_v39": true,
+    "x0_sha1": "26c9796e18f0e6883680693b805ce8bb7ad51486",
+    "post": {
+     "fclk": 50.0,
+     "base": "0x40060000",
+     "magic": "0x50300001",
+     "magic_ok": true,
+     "st310": "0x00000000",
+     "st310_zero": true,
+     "done": false,
+     "err": 0,
+     "busy": false,
+     "ap_ret_bin_unit_0": "0x00000001",
+     "ap_ret_conv_uni_0": "0x00000000"
+    },
+    "fclk": 50.0,
+    "cma_free_after_b": 167936,
+    "noinv_effective": true,
+    "devmem_err": null,
+    "devmem_reads": 4,
+    "fence": {
+     "mode": "sleep",
+     "ms": 3.0,
+     "n": 1135,
+     "flush_n": 1135,
+     "skipped": 0,
+     "fence_secs": 3.5507,
+     "flush_secs": 0.2331,
+     "fence_us_per": 3128.4,
+     "flush_us_per": 205.4,
+     "nbytes": 0,
+     "acc": 0,
+     "n_capped": 0,
+     "sizes_top": [
+      [
+       9437184,
+       227
+      ],
+      [
+       1179648,
+       227
+      ],
+      [
+       1152,
+       227
+      ],
+      [
+       576,
+       227
+      ],
+      [
+       294912,
+       227
+      ]
+     ],
+     "n_sizes": 5,
+     "err": [],
+     "dsb": null
+    },
+    "tok": "sleep3"
+   },
+   {
+    "run": 3,
+    "name": "net128",
+    "hw": 128,
+    "mode": "none",
+    "noinv": "1",
+    "wall_s": 6.323,
+    "total_s": 6.3175084590911865,
+    "pl_s": 1.489032506942749,
+    "ps_s": 4.808368380396132,
+    "n_conv_ops": 227,
+    "deps_closure_ok": true,
+    "run_valid": true,
+    "lazy": {
+     "pinned": 0,
+     "released": 0,
+     "starved": 0,
+     "direct_layers": 0,
+     "mixed_layers": 0,
+     "ps_layers": 0,
+     "deq_skipped": 0,
+     "direct_bytes": 0,
+     "f32_bytes": 0
+    },
+    "sha1": {
+     "out1": "f035ca2b89a2fbb68f92e96aa65a53e932f3c5c0",
+     "out2": "aa8f1a73c5d2e1846b64ebdb02a005113065a697",
+     "out3": "c6ea9ebcbdc0907a44de1578d3d1ec33c5234a82"
+    },
+    "v39_ref": [
+     "27e25cf67fdad22d95bfd488cc73ccc39cbe8134",
+     "b82b83f3d7eb1e0dc92e0c22a3c9656a2b963b2e",
+     "6db4e9bb19e0e744ef4f41a2c5a2eb6e003ad301"
+    ],
+    "hit_v39": false,
+    "x0_sha1": "26c9796e18f0e6883680693b805ce8bb7ad51486",
+    "post": {
+     "fclk": 50.0,
+     "base": "0x40060000",
+     "magic": "0x50300001",
+     "magic_ok": true,
+     "st310": "0x00000000",
+     "st310_zero": true,
+     "done": false,
+     "err": 0,
+     "busy": false,
+     "ap_ret_bin_unit_0": "0x00000001",
+     "ap_ret_conv_uni_0": "0x00000000"
+    },
+    "fclk": 50.0,
+    "cma_free_after_b": 167936,
+    "noinv_effective": true,
+    "devmem_err": null,
+    "devmem_reads": 4,
+    "fence": {
+     "mode": "none",
+     "ms": 0.0,
+     "n": 0,
+     "flush_n": 1135,
+     "skipped": 0,
+     "fence_secs": 0.0,
+     "flush_secs": 0.219,
+     "fence_us_per": 0.0,
+     "flush_us_per": 192.9,
+     "nbytes": 0,
+     "acc": 0,
+     "n_capped": 0,
+     "sizes_top": [
+      [
+       9437184,
+       227
+      ],
+      [
+       1179648,
+       227
+      ],
+      [
+       1152,
+       227
+      ],
+      [
+       576,
+       227
+      ],
+      [
+       294912,
+       227
+      ]
+     ],
+     "n_sizes": 5,
+     "err": [],
+     "dsb": null
+    },
+    "tok": "none"
+   },
+   {
+    "run": 4,
+    "name": "net128",
+    "hw": 128,
+    "mode": "none",
+    "noinv": "1",
+    "wall_s": 6.276,
+    "total_s": 6.270410537719727,
+    "pl_s": 1.4837100505828857,
+    "ps_s": 4.8022788749258325,
+    "n_conv_ops": 227,
+    "deps_closure_ok": true,
+    "run_valid": true,
+    "lazy": {
+     "pinned": 0,
+     "released": 0,
+     "starved": 0,
+     "direct_layers": 0,
+     "mixed_layers": 0,
+     "ps_layers": 0,
+     "deq_skipped": 0,
+     "direct_bytes": 0,
+     "f32_bytes": 0
+    },
+    "sha1": {
+     "out1": "2245a8ffd7607c621bc6c077ab6bdf0b0538a566",
+     "out2": "554598d0bc58426717e87cf5937489c9ebacaa99",
+     "out3": "bd157c98d17577a997763bdc8ec071daccc52b94"
+    },
+    "v39_ref": [
+     "27e25cf67fdad22d95bfd488cc73ccc39cbe8134",
+     "b82b83f3d7eb1e0dc92e0c22a3c9656a2b963b2e",
+     "6db4e9bb19e0e744ef4f41a2c5a2eb6e003ad301"
+    ],
+    "hit_v39": false,
+    "x0_sha1": "26c9796e18f0e6883680693b805ce8bb7ad51486",
+    "post": {
+     "fclk": 50.0,
+     "base": "0x40060000",
+     "magic": "0x50300001",
+     "magic_ok": true,
+     "st310": "0x00000000",
+     "st310_zero": true,
+     "done": false,
+     "err": 0,
+     "busy": false,
+     "ap_ret_bin_unit_0": "0x00000001",
+     "ap_ret_conv_uni_0": "0x00000000"
+    },
+    "fclk": 50.0,
+    "cma_free_after_b": 167936,
+    "noinv_effective": true,
+    "devmem_err": null,
+    "devmem_reads": 4,
+    "fence": {
+     "mode": "none",
+     "ms": 0.0,
+     "n": 0,
+     "flush_n": 1135,
+     "skipped": 0,
+     "fence_secs": 0.0,
+     "flush_secs": 0.2185,
+     "fence_us_per": 0.0,
+     "flush_us_per": 192.5,
+     "nbytes": 0,
+     "acc": 0,
+     "n_capped": 0,
+     "sizes_top": [
+      [
+       9437184,
+       227
+      ],
+      [
+       1179648,
+       227
+      ],
+      [
+       1152,
+       227
+      ],
+      [
+       576,
+       227
+      ],
+      [
+       294912,
+       227
+      ]
+     ],
+     "n_sizes": 5,
+     "err": [],
+     "dsb": null
+    },
+    "tok": "none"
+   },
+   {
+    "run": 5,
+    "name": "net128",
+    "hw": 128,
+    "mode": "readall",
+    "noinv": "1",
+    "wall_s": 12.737,
+    "total_s": 12.731446504592896,
+    "pl_s": 3.7950525283813477,
+    "ps_s": 11.216840867480641,
+    "n_conv_ops": 227,
+    "deps_closure_ok": true,
+    "run_valid": true,
+    "lazy": {
+     "pinned": 0,
+     "released": 0,
+     "starved": 0,
+     "direct_layers": 0,
+     "mixed_layers": 0,
+     "ps_layers": 0,
+     "deq_skipped": 0,
+     "direct_bytes": 0,
+     "f32_bytes": 0
+    },
+    "sha1": {
+     "out1": "27e25cf67fdad22d95bfd488cc73ccc39cbe8134",
+     "out2": "b82b83f3d7eb1e0dc92e0c22a3c9656a2b963b2e",
+     "out3": "6db4e9bb19e0e744ef4f41a2c5a2eb6e003ad301"
+    },
+    "v39_ref": [
+     "27e25cf67fdad22d95bfd488cc73ccc39cbe8134",
+     "b82b83f3d7eb1e0dc92e0c22a3c9656a2b963b2e",
+     "6db4e9bb19e0e744ef4f41a2c5a2eb6e003ad301"
+    ],
+    "hit_v39": true,
+    "x0_sha1": "26c9796e18f0e6883680693b805ce8bb7ad51486",
+    "post": {
+     "fclk": 50.0,
+     "base": "0x40060000",
+     "magic": "0x50300001",
+     "magic_ok": true,
+     "st310": "0x00000000",
+     "st310_zero": true,
+     "done": false,
+     "err": 0,
+     "busy": false,
+     "ap_ret_bin_unit_0": "0x00000001",
+     "ap_ret_conv_uni_0": "0x00000000"
+    },
+    "fclk": 50.0,
+    "cma_free_after_b": 167936,
+    "noinv_effective": true,
+    "devmem_err": null,
+    "devmem_reads": 1139,
+    "fence": {
+     "mode": "readall",
+     "ms": 0.0,
+     "n": 1135,
+     "flush_n": 1135,
+     "skipped": 0,
+     "fence_secs": 6.1797,
+     "flush_secs": 0.2977,
+     "fence_us_per": 5444.6,
+     "flush_us_per": 262.3,
+     "nbytes": 811170880,
+     "acc": 3505379031,
+     "n_capped": 227,
+     "sizes_top": [
+      [
+       9437184,
+       227
+      ],
+      [
+       1179648,
+       227
+      ],
+      [
+       1152,
+       227
+      ],
+      [
+       576,
+       227
+      ],
+      [
+       294912,
+       227
+      ]
+     ],
+     "n_sizes": 5,
+     "err": [],
+     "dsb": null
+    },
+    "tok": "readall"
+   },
+   {
+    "run": 6,
+    "name": "net128",
+    "hw": 128,
+    "mode": "readall",
+    "noinv": "1",
+    "wall_s": 12.661,
+    "total_s": 12.655887126922607,
+    "pl_s": 3.9122822284698486,
+    "ps_s": 11.137368563788186,
+    "n_conv_ops": 227,
+    "deps_closure_ok": true,
+    "run_valid": true,
+    "lazy": {
+     "pinned": 0,
+     "released": 0,
+     "starved": 0,
+     "direct_layers": 0,
+     "mixed_layers": 0,
+     "ps_layers": 0,
+     "deq_skipped": 0,
+     "direct_bytes": 0,
+     "f32_bytes": 0
+    },
+    "sha1": {
+     "out1": "27e25cf67fdad22d95bfd488cc73ccc39cbe8134",
+     "out2": "b82b83f3d7eb1e0dc92e0c22a3c9656a2b963b2e",
+     "out3": "6db4e9bb19e0e744ef4f41a2c5a2eb6e003ad301"
+    },
+    "v39_ref": [
+     "27e25cf67fdad22d95bfd488cc73ccc39cbe8134",
+     "b82b83f3d7eb1e0dc92e0c22a3c9656a2b963b2e",
+     "6db4e9bb19e0e744ef4f41a2c5a2eb6e003ad301"
+    ],
+    "hit_v39": true,
+    "x0_sha1": "26c9796e18f0e6883680693b805ce8bb7ad51486",
+    "post": {
+     "fclk": 50.0,
+     "base": "0x40060000",
+     "magic": "0x50300001",
+     "magic_ok": true,
+     "st310": "0x00000000",
+     "st310_zero": true,
+     "done": false,
+     "err": 0,
+     "busy": false,
+     "ap_ret_bin_unit_0": "0x00000001",
+     "ap_ret_conv_uni_0": "0x00000000"
+    },
+    "fclk": 50.0,
+    "cma_free_after_b": 167936,
+    "noinv_effective": true,
+    "devmem_err": null,
+    "devmem_reads": 2274,
+    "fence": {
+     "mode": "readall",
+     "ms": 0.0,
+     "n": 1135,
+     "flush_n": 1135,
+     "skipped": 0,
+     "fence_secs": 6.1651,
+     "flush_secs": 0.2971,
+     "fence_us_per": 5431.8,
+     "flush_us_per": 261.7,
+     "nbytes": 811170880,
+     "acc": 3505379031,
+     "n_capped": 227,
+     "sizes_top": [
+      [
+       9437184,
+       227
+      ],
+      [
+       1179648,
+       227
+      ],
+      [
+       1152,
+       227
+      ],
+      [
+       576,
+       227
+      ],
+      [
+       294912,
+       227
+      ]
+     ],
+     "n_sizes": 5,
+     "err": [],
+     "dsb": null
+    },
+    "tok": "readall"
+   },
+   {
+    "run": 7,
+    "name": "net128",
+    "hw": 128,
+    "mode": "readtail",
+    "noinv": "1",
+    "wall_s": 6.504,
+    "total_s": 6.498387575149536,
+    "pl_s": 1.579129695892334,
+    "ps_s": 5.040147914154659,
+    "n_conv_ops": 227,
+    "deps_closure_ok": true,
+    "run_valid": true,
+    "lazy": {
+     "pinned": 0,
+     "released": 0,
+     "starved": 0,
+     "direct_layers": 0,
+     "mixed_layers": 0,
+     "ps_layers": 0,
+     "deq_skipped": 0,
+     "direct_bytes": 0,
+     "f32_bytes": 0
+    },
+    "sha1": {
+     "out1": "e6e3f4dba83372a735138faf40c156c174b76fc2",
+     "out2": "cf71dd38cf7638abe631cf5076a9054ade54eee3",
+     "out3": "d107c194b5559e0207f040dd961d715e64e35004"
+    },
+    "v39_ref": [
+     "27e25cf67fdad22d95bfd488cc73ccc39cbe8134",
+     "b82b83f3d7eb1e0dc92e0c22a3c9656a2b963b2e",
+     "6db4e9bb19e0e744ef4f41a2c5a2eb6e003ad301"
+    ],
+    "hit_v39": false,
+    "x0_sha1": "26c9796e18f0e6883680693b805ce8bb7ad51486",
+    "post": {
+     "fclk": 50.0,
+     "base": "0x40060000",
+     "magic": "0x50300001",
+     "magic_ok": true,
+     "st310": "0x00000000",
+     "st310_zero": true,
+     "done": false,
+     "err": 0,
+     "busy": false,
+     "ap_ret_bin_unit_0": "0x00000001",
+     "ap_ret_conv_uni_0": "0x00000000"
+    },
+    "fclk": 50.0,
+    "cma_free_after_b": 167936,
+    "noinv_effective": true,
+    "devmem_err": null,
+    "devmem_reads": 3409,
+    "fence": {
+     "mode": "readtail",
+     "ms": 0.0,
+     "n": 1135,
+     "flush_n": 1135,
+     "skipped": 0,
+     "fence_secs": 0.2572,
+     "flush_secs": 0.2297,
+     "fence_us_per": 226.6,
+     "flush_us_per": 202.3,
+     "nbytes": 72640,
+     "acc": 2028922999,
+     "n_capped": 0,
+     "sizes_top": [
+      [
+       9437184,
+       227
+      ],
+      [
+       1179648,
+       227
+      ],
+      [
+       1152,
+       227
+      ],
+      [
+       576,
+       227
+      ],
+      [
+       294912,
+       227
+      ]
+     ],
+     "n_sizes": 5,
+     "err": [],
+     "dsb": null
+    },
+    "tok": "readtail"
+   },
+   {
+    "run": 8,
+    "name": "net128",
+    "hw": 128,
+    "mode": "readtail",
+    "noinv": "1",
+    "wall_s": 6.549,
+    "total_s": 6.543336391448975,
+    "pl_s": 1.5812397003173828,
+    "ps_s": 5.037582498536722,
+    "n_conv_ops": 227,
+    "deps_closure_ok": true,
+    "run_valid": true,
+    "lazy": {
+     "pinned": 0,
+     "released": 0,
+     "starved": 0,
+     "direct_layers": 0,
+     "mixed_layers": 0,
+     "ps_layers": 0,
+     "deq_skipped": 0,
+     "direct_bytes": 0,
+     "f32_bytes": 0
+    },
+    "sha1": {
+     "out1": "7a93504fe2ee429a62e5b79b3a7c372496f9f0ad",
+     "out2": "531bb8aba4670703a61b2a5324d046545ff1965b",
+     "out3": "df43478a1a9f955506c9f342f58929aafbb89211"
+    },
+    "v39_ref": [
+     "27e25cf67fdad22d95bfd488cc73ccc39cbe8134",
+     "b82b83f3d7eb1e0dc92e0c22a3c9656a2b963b2e",
+     "6db4e9bb19e0e744ef4f41a2c5a2eb6e003ad301"
+    ],
+    "hit_v39": false,
+    "x0_sha1": "26c9796e18f0e6883680693b805ce8bb7ad51486",
+    "post": {
+     "fclk": 50.0,
+     "base": "0x40060000",
+     "magic": "0x50300001",
+     "magic_ok": true,
+     "st310": "0x00000000",
+     "st310_zero": true,
+     "done": false,
+     "err": 0,
+     "busy": false,
+     "ap_ret_bin_unit_0": "0x00000001",
+     "ap_ret_conv_uni_0": "0x00000000"
+    },
+    "fclk": 50.0,
+    "cma_free_after_b": 167936,
+    "noinv_effective": true,
+    "devmem_err": null,
+    "devmem_reads": 4544,
+    "fence": {
+     "mode": "readtail",
+     "ms": 0.0,
+     "n": 1135,
+     "flush_n": 1135,
+     "skipped": 0,
+     "fence_secs": 0.2567,
+     "flush_secs": 0.2306,
+     "fence_us_per": 226.1,
+     "flush_us_per": 203.2,
+     "nbytes": 72640,
+     "acc": 2394274487,
+     "n_capped": 0,
+     "sizes_top": [
+      [
+       9437184,
+       227
+      ],
+      [
+       1179648,
+       227
+      ],
+      [
+       1152,
+       227
+      ],
+      [
+       576,
+       227
+      ],
+      [
+       294912,
+       227
+      ]
+     ],
+     "n_sizes": 5,
+     "err": [],
+     "dsb": null
+    },
+    "tok": "readtail"
+   },
+   {
+    "run": 9,
+    "name": "net128",
+    "hw": 128,
+    "mode": "readhead",
+    "noinv": "1",
+    "wall_s": 6.522,
+    "total_s": 6.5166826248168945,
+    "pl_s": 1.5852992534637451,
+    "ps_s": 5.055491798100775,
+    "n_conv_ops": 227,
+    "deps_closure_ok": true,
+    "run_valid": true,
+    "lazy": {
+     "pinned": 0,
+     "released": 0,
+     "starved": 0,
+     "direct_layers": 0,
+     "mixed_layers": 0,
+     "ps_layers": 0,
+     "deq_skipped": 0,
+     "direct_bytes": 0,
+     "f32_bytes": 0
+    },
+    "sha1": {
+     "out1": "120d7cff6084a507ef1b2b83ea13c73f5f9510f7",
+     "out2": "0f169f7359a5b7d4bfc48e3c117e3184e761af7c",
+     "out3": "ca56e1a4924883ae25498efece7ae4a01091ea7c"
+    },
+    "v39_ref": [
+     "27e25cf67fdad22d95bfd488cc73ccc39cbe8134",
+     "b82b83f3d7eb1e0dc92e0c22a3c9656a2b963b2e",
+     "6db4e9bb19e0e744ef4f41a2c5a2eb6e003ad301"
+    ],
+    "hit_v39": false,
+    "x0_sha1": "26c9796e18f0e6883680693b805ce8bb7ad51486",
+    "post": {
+     "fclk": 50.0,
+     "base": "0x40060000",
+     "magic": "0x50300001",
+     "magic_ok": true,
+     "st310": "0x00000000",
+     "st310_zero": true,
+     "done": false,
+     "err": 0,
+     "busy": false,
+     "ap_ret_bin_unit_0": "0x00000001",
+     "ap_ret_conv_uni_0": "0x00000000"
+    },
+    "fclk": 50.0,
+    "cma_free_after_b": 167936,
+    "noinv_effective": true,
+    "devmem_err": null,
+    "devmem_reads": 5679,
+    "fence": {
+     "mode": "readhead",
+     "ms": 0.0,
+     "n": 1135,
+     "flush_n": 1135,
+     "skipped": 0,
+     "fence_secs": 0.2608,
+     "flush_secs": 0.2329,
+     "fence_us_per": 229.7,
+     "flush_us_per": 205.2,
+     "nbytes": 72640,
+     "acc": 4278033723,
+     "n_capped": 0,
+     "sizes_top": [
+      [
+       9437184,
+       227
+      ],
+      [
+       1179648,
+       227
+      ],
+      [
+       1152,
+       227
+      ],
+      [
+       576,
+       227
+      ],
+      [
+       294912,
+       227
+      ]
+     ],
+     "n_sizes": 5,
+     "err": [],
+     "dsb": null
+    },
+    "tok": "readhead"
+   },
+   {
+    "run": 10,
+    "name": "net128",
+    "hw": 128,
+    "mode": "readhead",
+    "noinv": "1",
+    "wall_s": 6.547,
+    "total_s": 6.541944265365601,
+    "pl_s": 1.5558500289916992,
+    "ps_s": 5.045660270679946,
+    "n_conv_ops": 227,
+    "deps_closure_ok": true,
+    "run_valid": true,
+    "lazy": {
+     "pinned": 0,
+     "released": 0,
+     "starved": 0,
+     "direct_layers": 0,
+     "mixed_layers": 0,
+     "ps_layers": 0,
+     "deq_skipped": 0,
+     "direct_bytes": 0,
+     "f32_bytes": 0
+    },
+    "sha1": {
+     "out1": "a0b2878db320c21943a0f31a31ff84cf97a9208b",
+     "out2": "15b3594c35495424477fa1005dc5b7d77374f469",
+     "out3": "464351287f4f91bea3f4247d7abbfb7ec4753343"
+    },
+    "v39_ref": [
+     "27e25cf67fdad22d95bfd488cc73ccc39cbe8134",
+     "b82b83f3d7eb1e0dc92e0c22a3c9656a2b963b2e",
+     "6db4e9bb19e0e744ef4f41a2c5a2eb6e003ad301"
+    ],
+    "hit_v39": false,
+    "x0_sha1": "26c9796e18f0e6883680693b805ce8bb7ad51486",
+    "post": {
+     "fclk": 50.0,
+     "base": "0x40060000",
+     "magic": "0x50300001",
+     "magic_ok": true,
+     "st310": "0x00000000",
+     "st310_zero": true,
+     "done": false,
+     "err": 0,
+     "busy": false,
+     "ap_ret_bin_unit_0": "0x00000001",
+     "ap_ret_conv_uni_0": "0x00000000"
+    },
+    "fclk": 50.0,
+    "cma_free_after_b": 167936,
+    "noinv_effective": true,
+    "devmem_err": null,
+    "devmem_reads": 6814,
+    "fence": {
+     "mode": "readhead",
+     "ms": 0.0,
+     "n": 1135,
+     "flush_n": 1135,
+     "skipped": 0,
+     "fence_secs": 0.2554,
+     "flush_secs": 0.2303,
+     "fence_us_per": 225.0,
+     "flush_us_per": 202.9,
+     "nbytes": 72640,
+     "acc": 4003455804,
+     "n_capped": 0,
+     "sizes_top": [
+      [
+       9437184,
+       227
+      ],
+      [
+       1179648,
+       227
+      ],
+      [
+       1152,
+       227
+      ],
+      [
+       576,
+       227
+      ],
+      [
+       294912,
+       227
+      ]
+     ],
+     "n_sizes": 5,
+     "err": [],
+     "dsb": null
+    },
+    "tok": "readhead"
+   },
+   {
+    "run": 11,
+    "name": "net128",
+    "hw": 128,
+    "mode": "touchonly",
+    "noinv": "1",
+    "wall_s": 6.449,
+    "total_s": 6.44396710395813,
+    "pl_s": 1.5503795146942139,
+    "ps_s": 4.98293390469189,
+    "n_conv_ops": 227,
+    "deps_closure_ok": true,
+    "run_valid": true,
+    "lazy": {
+     "pinned": 0,
+     "released": 0,
+     "starved": 0,
+     "direct_layers": 0,
+     "mixed_layers": 0,
+     "ps_layers": 0,
+     "deq_skipped": 0,
+     "direct_bytes": 0,
+     "f32_bytes": 0
+    },
+    "sha1": {
+     "out1": "ed13ac2413e2fed88231c4c64336acb1bded5e41",
+     "out2": "39608c6fb04a532f9cff8ce594f5d459f2f98ef9",
+     "out3": "47f878d4ae000ed629bcc60765f379e3ab526f02"
+    },
+    "v39_ref": [
+     "27e25cf67fdad22d95bfd488cc73ccc39cbe8134",
+     "b82b83f3d7eb1e0dc92e0c22a3c9656a2b963b2e",
+     "6db4e9bb19e0e744ef4f41a2c5a2eb6e003ad301"
+    ],
+    "hit_v39": false,
+    "x0_sha1": "26c9796e18f0e6883680693b805ce8bb7ad51486",
+    "post": {
+     "fclk": 50.0,
+     "base": "0x40060000",
+     "magic": "0x50300001",
+     "magic_ok": true,
+     "st310": "0x00000000",
+     "st310_zero": true,
+     "done": false,
+     "err": 0,
+     "busy": false,
+     "ap_ret_bin_unit_0": "0x00000001",
+     "ap_ret_conv_uni_0": "0x00000000"
+    },
+    "fclk": 50.0,
+    "cma_free_after_b": 167936,
+    "noinv_effective": true,
+    "devmem_err": null,
+    "devmem_reads": 7949,
+    "fence": {
+     "mode": "touchonly",
+     "ms": 0.0,
+     "n": 1135,
+     "flush_n": 1135,
+     "skipped": 0,
+     "fence_secs": 0.1863,
+     "flush_secs": 0.2331,
+     "fence_us_per": 164.2,
+     "flush_us_per": 205.4,
+     "nbytes": 4648960,
+     "acc": 0,
+     "n_capped": 0,
+     "sizes_top": [
+      [
+       9437184,
+       227
+      ],
+      [
+       1179648,
+       227
+      ],
+      [
+       1152,
+       227
+      ],
+      [
+       576,
+       227
+      ],
+      [
+       294912,
+       227
+      ]
+     ],
+     "n_sizes": 5,
+     "err": [],
+     "dsb": null
+    },
+    "tok": "touchonly"
+   },
+   {
+    "run": 12,
+    "name": "net128",
+    "hw": 128,
+    "mode": "touchonly",
+    "noinv": "1",
+    "wall_s": 6.416,
+    "total_s": 6.410634279251099,
+    "pl_s": 1.5448412895202637,
+    "ps_s": 4.95342722816531,
+    "n_conv_ops": 227,
+    "deps_closure_ok": true,
+    "run_valid": true,
+    "lazy": {
+     "pinned": 0,
+     "released": 0,
+     "starved": 0,
+     "direct_layers": 0,
+     "mixed_layers": 0,
+     "ps_layers": 0,
+     "deq_skipped": 0,
+     "direct_bytes": 0,
+     "f32_bytes": 0
+    },
+    "sha1": {
+     "out1": "feb167a813d7634a3d65f9eac4b5f3f418d03bb5",
+     "out2": "f2c7e9fd6319aec3a00f6d01b186c6389a7899b7",
+     "out3": "5c557b9024f1c045d1c5c694060bba66016896af"
+    },
+    "v39_ref": [
+     "27e25cf67fdad22d95bfd488cc73ccc39cbe8134",
+     "b82b83f3d7eb1e0dc92e0c22a3c9656a2b963b2e",
+     "6db4e9bb19e0e744ef4f41a2c5a2eb6e003ad301"
+    ],
+    "hit_v39": false,
+    "x0_sha1": "26c9796e18f0e6883680693b805ce8bb7ad51486",
+    "post": {
+     "fclk": 50.0,
+     "base": "0x40060000",
+     "magic": "0x50300001",
+     "magic_ok": true,
+     "st310": "0x00000000",
+     "st310_zero": true,
+     "done": false,
+     "err": 0,
+     "busy": false,
+     "ap_ret_bin_unit_0": "0x00000001",
+     "ap_ret_conv_uni_0": "0x00000000"
+    },
+    "fclk": 50.0,
+    "cma_free_after_b": 167936,
+    "noinv_effective": true,
+    "devmem_err": null,
+    "devmem_reads": 9084,
+    "fence": {
+     "mode": "touchonly",
+     "ms": 0.0,
+     "n": 1135,
+     "flush_n": 1135,
+     "skipped": 0,
+     "fence_secs": 0.1788,
+     "flush_secs": 0.2289,
+     "fence_us_per": 157.5,
+     "flush_us_per": 201.6,
+     "nbytes": 4648960,
+     "acc": 0,
+     "n_capped": 0,
+     "sizes_top": [
+      [
+       9437184,
+       227
+      ],
+      [
+       1179648,
+       227
+      ],
+      [
+       1152,
+       227
+      ],
+      [
+       576,
+       227
+      ],
+      [
+       294912,
+       227
+      ]
+     ],
+     "n_sizes": 5,
+     "err": [],
+     "dsb": null
+    },
+    "tok": "touchonly"
+   },
+   {
+    "run": 13,
+    "name": "net128",
+    "hw": 128,
+    "mode": "dsb",
+    "noinv": "1",
+    "wall_s": 7.115,
+    "total_s": 7.109369516372681,
+    "pl_s": 1.5207793712615967,
+    "ps_s": 5.645343893223981,
+    "n_conv_ops": 227,
+    "deps_closure_ok": true,
+    "run_valid": true,
+    "lazy": {
+     "pinned": 0,
+     "released": 0,
+     "starved": 0,
+     "direct_layers": 0,
+     "mixed_layers": 0,
+     "ps_layers": 0,
+     "deq_skipped": 0,
+     "direct_bytes": 0,
+     "f32_bytes": 0
+    },
+    "sha1": {
+     "out1": "5647f2e567db1aba6b16204db5a9c77a69c81b5d",
+     "out2": "7e1be54fc6a48796e9739fcac79b4b3f1ecf9d5a",
+     "out3": "ef5649271a44de5a132e9cd68b61530d82730d8b"
+    },
+    "v39_ref": [
+     "27e25cf67fdad22d95bfd488cc73ccc39cbe8134",
+     "b82b83f3d7eb1e0dc92e0c22a3c9656a2b963b2e",
+     "6db4e9bb19e0e744ef4f41a2c5a2eb6e003ad301"
+    ],
+    "hit_v39": false,
+    "x0_sha1": "26c9796e18f0e6883680693b805ce8bb7ad51486",
+    "post": {
+     "fclk": 50.0,
+     "base": "0x40060000",
+     "magic": "0x50300001",
+     "magic_ok": true,
+     "st310": "0x00000000",
+     "st310_zero": true,
+     "done": false,
+     "err": 0,
+     "busy": false,
+     "ap_ret_bin_unit_0": "0x00000001",
+     "ap_ret_conv_uni_0": "0x00000000"
+    },
+    "fclk": 50.0,
+    "cma_free_after_b": 167936,
+    "noinv_effective": true,
+    "devmem_err": null,
+    "devmem_reads": 9084,
+    "fence": {
+     "mode": "dsb",
+     "ms": 0.0,
+     "n": 1135,
+     "flush_n": 1135,
+     "skipped": 0,
+     "fence_secs": 0.7986,
+     "flush_secs": 0.2232,
+     "fence_us_per": 703.7,
+     "flush_us_per": 196.7,
+     "nbytes": 0,
+     "acc": 0,
+     "n_capped": 0,
+     "sizes_top": [
+      [
+       9437184,
+       227
+      ],
+      [
+       1179648,
+       227
+      ],
+      [
+       1152,
+       227
+      ],
+      [
+       576,
+       227
+      ],
+      [
+       294912,
+       227
+      ]
+     ],
+     "n_sizes": 5,
+     "err": [],
+     "dsb": {
+      "cc": "rc=0",
+      "so": "/tmp/t133_fence/t133_fence_armv7l.so",
+      "ok": true,
+      "err": null
+     }
+    },
+    "tok": "dsb"
+   },
+   {
+    "run": 14,
+    "name": "net128",
+    "hw": 128,
+    "mode": "dsb",
+    "noinv": "1",
+    "wall_s": 6.289,
+    "total_s": 6.283595561981201,
+    "pl_s": 1.501694917678833,
+    "ps_s": 4.785443694414425,
+    "n_conv_ops": 227,
+    "deps_closure_ok": true,
+    "run_valid": true,
+    "lazy": {
+     "pinned": 0,
+     "released": 0,
+     "starved": 0,
+     "direct_layers": 0,
+     "mixed_layers": 0,
+     "ps_layers": 0,
+     "deq_skipped": 0,
+     "direct_bytes": 0,
+     "f32_bytes": 0
+    },
+    "sha1": {
+     "out1": "e38041867e46d5c5d0dde149c3498aad2c92375f",
+     "out2": "f9d9cfc5836c8a9f63959c3fd191357f413b3fc9",
+     "out3": "2261b2afe3a3d274f63470d085aecccf77ea3c1e"
+    },
+    "v39_ref": [
+     "27e25cf67fdad22d95bfd488cc73ccc39cbe8134",
+     "b82b83f3d7eb1e0dc92e0c22a3c9656a2b963b2e",
+     "6db4e9bb19e0e744ef4f41a2c5a2eb6e003ad301"
+    ],
+    "hit_v39": false,
+    "x0_sha1": "26c9796e18f0e6883680693b805ce8bb7ad51486",
+    "post": {
+     "fclk": 50.0,
+     "base": "0x40060000",
+     "magic": "0x50300001",
+     "magic_ok": true,
+     "st310": "0x00000000",
+     "st310_zero": true,
+     "done": false,
+     "err": 0,
+     "busy": false,
+     "ap_ret_bin_unit_0": "0x00000001",
+     "ap_ret_conv_uni_0": "0x00000000"
+    },
+    "fclk": 50.0,
+    "cma_free_after_b": 167936,
+    "noinv_effective": true,
+    "devmem_err": null,
+    "devmem_reads": 9084,
+    "fence": {
+     "mode": "dsb",
+     "ms": 0.0,
+     "n": 1135,
+     "flush_n": 1135,
+     "skipped": 0,
+     "fence_secs": 0.0288,
+     "flush_secs": 0.2176,
+     "fence_us_per": 25.4,
+     "flush_us_per": 191.7,
+     "nbytes": 0,
+     "acc": 0,
+     "n_capped": 0,
+     "sizes_top": [
+      [
+       9437184,
+       227
+      ],
+      [
+       1179648,
+       227
+      ],
+      [
+       1152,
+       227
+      ],
+      [
+       576,
+       227
+      ],
+      [
+       294912,
+       227
+      ]
+     ],
+     "n_sizes": 5,
+     "err": [],
+     "dsb": {
+      "cc": "rc=0",
+      "so": "/tmp/t133_fence/t133_fence_armv7l.so",
+      "ok": true,
+      "err": null
+     }
+    },
+    "tok": "dsb"
+   },
+   {
+    "run": 15,
+    "name": "net128",
+    "hw": 128,
+    "mode": "dsb_sleep",
+    "noinv": "1",
+    "wall_s": 6.773,
+    "total_s": 6.76747465133667,
+    "pl_s": 1.6521952152252197,
+    "ps_s": 5.304469796183184,
+    "n_conv_ops": 227,
+    "deps_closure_ok": true,
+    "run_valid": true,
+    "lazy": {
+     "pinned": 0,
+     "released": 0,
+     "starved": 0,
+     "direct_layers": 0,
+     "mixed_layers": 0,
+     "ps_layers": 0,
+     "deq_skipped": 0,
+     "direct_bytes": 0,
+     "f32_bytes": 0
+    },
+    "sha1": {
+     "out1": "f29e939f6fb11d703b3b7934df2884a719f363c3",
+     "out2": "f8f6646bb57c0fdf25cdb37f9813d15f8412f6fc",
+     "out3": "7f79e44e12649b7675e0ad816d4de520ec1e8772"
+    },
+    "v39_ref": [
+     "27e25cf67fdad22d95bfd488cc73ccc39cbe8134",
+     "b82b83f3d7eb1e0dc92e0c22a3c9656a2b963b2e",
+     "6db4e9bb19e0e744ef4f41a2c5a2eb6e003ad301"
+    ],
+    "hit_v39": false,
+    "x0_sha1": "26c9796e18f0e6883680693b805ce8bb7ad51486",
+    "post": {
+     "fclk": 50.0,
+     "base": "0x40060000",
+     "magic": "0x50300001",
+     "magic_ok": true,
+     "st310": "0x00000000",
+     "st310_zero": true,
+     "done": false,
+     "err": 0,
+     "busy": false,
+     "ap_ret_bin_unit_0": "0x00000001",
+     "ap_ret_conv_uni_0": "0x00000000"
+    },
+    "fclk": 50.0,
+    "cma_free_after_b": 167936,
+    "noinv_effective": true,
+    "devmem_err": null,
+    "devmem_reads": 9084,
+    "fence": {
+     "mode": "dsb_sleep",
+     "ms": 0.3,
+     "n": 1135,
+     "flush_n": 1135,
+     "skipped": 0,
+     "fence_secs": 0.5045,
+     "flush_secs": 0.2344,
+     "fence_us_per": 444.5,
+     "flush_us_per": 206.5,
+     "nbytes": 0,
+     "acc": 0,
+     "n_capped": 0,
+     "sizes_top": [
+      [
+       9437184,
+       227
+      ],
+      [
+       1179648,
+       227
+      ],
+      [
+       1152,
+       227
+      ],
+      [
+       576,
+       227
+      ],
+      [
+       294912,
+       227
+      ]
+     ],
+     "n_sizes": 5,
+     "err": [],
+     "dsb": {
+      "cc": "rc=0",
+      "so": "/tmp/t133_fence/t133_fence_armv7l.so",
+      "ok": true,
+      "err": null
+     }
+    },
+    "tok": "dsb0p3"
+   },
+   {
+    "run": 16,
+    "name": "net128",
+    "hw": 128,
+    "mode": "dsb_sleep",
+    "noinv": "1",
+    "wall_s": 6.766,
+    "total_s": 6.760167360305786,
+    "pl_s": 1.6695117950439453,
+    "ps_s": 5.300637797910895,
+    "n_conv_ops": 227,
+    "deps_closure_ok": true,
+    "run_valid": true,
+    "lazy": {
+     "pinned": 0,
+     "released": 0,
+     "starved": 0,
+     "direct_layers": 0,
+     "mixed_layers": 0,
+     "ps_layers": 0,
+     "deq_skipped": 0,
+     "direct_bytes": 0,
+     "f32_bytes": 0
+    },
+    "sha1": {
+     "out1": "9e22fe44548ab0520ac93cfbe45c776aacd2673e",
+     "out2": "96137f3fe5c906768b0df147b75e2f68fa231dd4",
+     "out3": "7cca5acc1a54419c0120bca78bffb286ea7904fa"
+    },
+    "v39_ref": [
+     "27e25cf67fdad22d95bfd488cc73ccc39cbe8134",
+     "b82b83f3d7eb1e0dc92e0c22a3c9656a2b963b2e",
+     "6db4e9bb19e0e744ef4f41a2c5a2eb6e003ad301"
+    ],
+    "hit_v39": false,
+    "x0_sha1": "26c9796e18f0e6883680693b805ce8bb7ad51486",
+    "post": {
+     "fclk": 50.0,
+     "base": "0x40060000",
+     "magic": "0x50300001",
+     "magic_ok": true,
+     "st310": "0x00000000",
+     "st310_zero": true,
+     "done": false,
+     "err": 0,
+     "busy": false,
+     "ap_ret_bin_unit_0": "0x00000001",
+     "ap_ret_conv_uni_0": "0x00000000"
+    },
+    "fclk": 50.0,
+    "cma_free_after_b": 167936,
+    "noinv_effective": true,
+    "devmem_err": null,
+    "devmem_reads": 9084,
+    "fence": {
+     "mode": "dsb_sleep",
+     "ms": 0.3,
+     "n": 1135,
+     "flush_n": 1135,
+     "skipped": 0,
+     "fence_secs": 0.5027,
+     "flush_secs": 0.231,
+     "fence_us_per": 442.9,
+     "flush_us_per": 203.5,
+     "nbytes": 0,
+     "acc": 0,
+     "n_capped": 0,
+     "sizes_top": [
+      [
+       9437184,
+       227
+      ],
+      [
+       1179648,
+       227
+      ],
+      [
+       1152,
+       227
+      ],
+      [
+       576,
+       227
+      ],
+      [
+       294912,
+       227
+      ]
+     ],
+     "n_sizes": 5,
+     "err": [],
+     "dsb": {
+      "cc": "rc=0",
+      "so": "/tmp/t133_fence/t133_fence_armv7l.so",
+      "ok": true,
+      "err": null
+     }
+    },
+    "tok": "dsb0p3"
+   },
+   {
+    "run": 17,
+    "name": "net128",
+    "hw": 128,
+    "mode": "devmem",
+    "noinv": "1",
+    "wall_s": 6.217,
+    "total_s": 6.211521863937378,
+    "pl_s": 1.4752705097198486,
+    "ps_s": 4.711703112199757,
+    "n_conv_ops": 227,
+    "deps_closure_ok": true,
+    "run_valid": true,
+    "lazy": {
+     "pinned": 0,
+     "released": 0,
+     "starved": 0,
+     "direct_layers": 0,
+     "mixed_layers": 0,
+     "ps_layers": 0,
+     "deq_skipped": 0,
+     "direct_bytes": 0,
+     "f32_bytes": 0
+    },
+    "sha1": {
+     "out1": "585f7344a99d36fd02466a28459056aece0c4be5",
+     "out2": "ebe97fb6bc86251245ba2c8f782bc223c2a083cf",
+     "out3": "95b00731278404dd46d8c6a55fd79db82a939efc"
+    },
+    "v39_ref": [
+     "27e25cf67fdad22d95bfd488cc73ccc39cbe8134",
+     "b82b83f3d7eb1e0dc92e0c22a3c9656a2b963b2e",
+     "6db4e9bb19e0e744ef4f41a2c5a2eb6e003ad301"
+    ],
+    "hit_v39": false,
+    "x0_sha1": "26c9796e18f0e6883680693b805ce8bb7ad51486",
+    "post": {
+     "fclk": 50.0,
+     "base": "0x40060000",
+     "magic": "0x50300001",
+     "magic_ok": true,
+     "st310": "0x00000000",
+     "st310_zero": true,
+     "done": false,
+     "err": 0,
+     "busy": false,
+     "ap_ret_bin_unit_0": "0x00000001",
+     "ap_ret_conv_uni_0": "0x00000000"
+    },
+    "fclk": 50.0,
+    "cma_free_after_b": 163840,
+    "noinv_effective": true,
+    "devmem_err": null,
+    "devmem_reads": 9084,
+    "fence": {
+     "mode": "devmem",
+     "ms": 0.0,
+     "n": 0,
+     "flush_n": 908,
+     "skipped": 227,
+     "fence_secs": 0.0,
+     "flush_secs": 0.1757,
+     "fence_us_per": 0.0,
+     "flush_us_per": 193.5,
+     "nbytes": 0,
+     "acc": 0,
+     "n_capped": 0,
+     "sizes_top": [
+      [
+       9437184,
+       227
+      ],
+      [
+       1179648,
+       227
+      ],
+      [
+       1152,
+       227
+      ],
+      [
+       576,
+       227
+      ]
+     ],
+     "n_sizes": 4,
+     "err": [],
+     "dsb": null
+    },
+    "tok": "devmem"
+   },
+   {
+    "run": 18,
+    "name": "net128",
+    "hw": 128,
+    "mode": "devmem",
+    "noinv": "1",
+    "wall_s": 6.131,
+    "total_s": 6.126073360443115,
+    "pl_s": 1.4648609161376953,
+    "ps_s": 4.668002513428291,
+    "n_conv_ops": 227,
+    "deps_closure_ok": true,
+    "run_valid": true,
+    "lazy": {
+     "pinned": 0,
+     "released": 0,
+     "starved": 0,
+     "direct_layers": 0,
+     "mixed_layers": 0,
+     "ps_layers": 0,
+     "deq_skipped": 0,
+     "direct_bytes": 0,
+     "f32_bytes": 0
+    },
+    "sha1": {
+     "out1": "4e11cfa36dd6ce34dc0256a4509076cc2c98c75f",
+     "out2": "a92d30462454bdaa8f16d42198d2912c6a3f1abe",
+     "out3": "0ae2a05b4f3b3902af7cd3d830249fe96a344728"
+    },
+    "v39_ref": [
+     "27e25cf67fdad22d95bfd488cc73ccc39cbe8134",
+     "b82b83f3d7eb1e0dc92e0c22a3c9656a2b963b2e",
+     "6db4e9bb19e0e744ef4f41a2c5a2eb6e003ad301"
+    ],
+    "hit_v39": false,
+    "x0_sha1": "26c9796e18f0e6883680693b805ce8bb7ad51486",
+    "post": {
+     "fclk": 50.0,
+     "base": "0x40060000",
+     "magic": "0x50300001",
+     "magic_ok": true,
+     "st310": "0x00000000",
+     "st310_zero": true,
+     "done": false,
+     "err": 0,
+     "busy": false,
+     "ap_ret_bin_unit_0": "0x00000001",
+     "ap_ret_conv_uni_0": "0x00000000"
+    },
+    "fclk": 50.0,
+    "cma_free_after_b": 163840,
+    "noinv_effective": true,
+    "devmem_err": null,
+    "devmem_reads": 9084,
+    "fence": {
+     "mode": "devmem",
+     "ms": 0.0,
+     "n": 0,
+     "flush_n": 908,
+     "skipped": 227,
+     "fence_secs": 0.0,
+     "flush_secs": 0.1744,
+     "fence_us_per": 0.0,
+     "flush_us_per": 192.1,
+     "nbytes": 0,
+     "acc": 0,
+     "n_capped": 0,
+     "sizes_top": [
+      [
+       9437184,
+       227
+      ],
+      [
+       1179648,
+       227
+      ],
+      [
+       1152,
+       227
+      ],
+      [
+       576,
+       227
+      ]
+     ],
+     "n_sizes": 4,
+     "err": [],
+     "dsb": null
+    },
+    "tok": "devmem"
+   },
+   {
+    "run": 19,
+    "name": "net128",
+    "hw": 128,
+    "mode": "dsb_sleep",
+    "noinv": "1",
+    "wall_s": 7.01,
+    "total_s": 7.004580736160278,
+    "pl_s": 1.7588653564453125,
+    "ps_s": 5.539187106802274,
+    "n_conv_ops": 227,
+    "deps_closure_ok": true,
+    "run_valid": true,
+    "lazy": {
+     "pinned": 0,
+     "released": 0,
+     "starved": 0,
+     "direct_layers": 0,
+     "mixed_layers": 0,
+     "ps_layers": 0,
+     "deq_skipped": 0,
+     "direct_bytes": 0,
+     "f32_bytes": 0
+    },
+    "sha1": {
+     "out1": "725bf37babfc93beb410f1ba77844102ac652887",
+     "out2": "5142de8b199530ac07e9c88b2a704959df22594c",
+     "out3": "c7e2d37fc948c4a8ab8c9118bd0d1f43eaa1aaf7"
+    },
+    "v39_ref": [
+     "27e25cf67fdad22d95bfd488cc73ccc39cbe8134",
+     "b82b83f3d7eb1e0dc92e0c22a3c9656a2b963b2e",
+     "6db4e9bb19e0e744ef4f41a2c5a2eb6e003ad301"
+    ],
+    "hit_v39": false,
+    "x0_sha1": "26c9796e18f0e6883680693b805ce8bb7ad51486",
+    "post": {
+     "fclk": 50.0,
+     "base": "0x40060000",
+     "magic": "0x50300001",
+     "magic_ok": true,
+     "st310": "0x00000000",
+     "st310_zero": true,
+     "done": false,
+     "err": 0,
+     "busy": false,
+     "ap_ret_bin_unit_0": "0x00000001",
+     "ap_ret_conv_uni_0": "0x00000000"
+    },
+    "fclk": 50.0,
+    "cma_free_after_b": 163840,
+    "noinv_effective": true,
+    "devmem_err": null,
+    "devmem_reads": 9084,
+    "fence": {
+     "mode": "dsb_sleep",
+     "ms": 0.5,
+     "n": 1135,
+     "flush_n": 1135,
+     "skipped": 0,
+     "fence_secs": 0.7323,
+     "flush_secs": 0.2348,
+     "fence_us_per": 645.2,
+     "flush_us_per": 206.9,
+     "nbytes": 0,
+     "acc": 0,
+     "n_capped": 0,
+     "sizes_top": [
+      [
+       9437184,
+       227
+      ],
+      [
+       1179648,
+       227
+      ],
+      [
+       1152,
+       227
+      ],
+      [
+       576,
+       227
+      ],
+      [
+       294912,
+       227
+      ]
+     ],
+     "n_sizes": 5,
+     "err": [],
+     "dsb": {
+      "cc": "rc=0",
+      "so": "/tmp/t133_fence/t133_fence_armv7l.so",
+      "ok": true,
+      "err": null
+     }
+    },
+    "tok": "dsb0p5"
+   },
+   {
+    "run": 20,
+    "name": "net128",
+    "hw": 128,
+    "mode": "dsb_sleep",
+    "noinv": "1",
+    "wall_s": 6.964,
+    "total_s": 6.959040641784668,
+    "pl_s": 1.7390224933624268,
+    "ps_s": 5.498247911389626,
+    "n_conv_ops": 227,
+    "deps_closure_ok": true,
+    "run_valid": true,
+    "lazy": {
+     "pinned": 0,
+     "released": 0,
+     "starved": 0,
+     "direct_layers": 0,
+     "mixed_layers": 0,
+     "ps_layers": 0,
+     "deq_skipped": 0,
+     "direct_bytes": 0,
+     "f32_bytes": 0
+    },
+    "sha1": {
+     "out1": "f34c6922faee161e1bd1f9d50bf0b5df21c810f6",
+     "out2": "dccdbe0d3f07ed7e7df6c65b011d7a6e47f84ab1",
+     "out3": "0d6416b1fc8c21059c1779760797184a5dbf81c3"
+    },
+    "v39_ref": [
+     "27e25cf67fdad22d95bfd488cc73ccc39cbe8134",
+     "b82b83f3d7eb1e0dc92e0c22a3c9656a2b963b2e",
+     "6db4e9bb19e0e744ef4f41a2c5a2eb6e003ad301"
+    ],
+    "hit_v39": false,
+    "x0_sha1": "26c9796e18f0e6883680693b805ce8bb7ad51486",
+    "post": {
+     "fclk": 50.0,
+     "base": "0x40060000",
+     "magic": "0x50300001",
+     "magic_ok": true,
+     "st310": "0x00000000",
+     "st310_zero": true,
+     "done": false,
+     "err": 0,
+     "busy": false,
+     "ap_ret_bin_unit_0": "0x00000001",
+     "ap_ret_conv_uni_0": "0x00000000"
+    },
+    "fclk": 50.0,
+    "cma_free_after_b": 163840,
+    "noinv_effective": true,
+    "devmem_err": null,
+    "devmem_reads": 9084,
+    "fence": {
+     "mode": "dsb_sleep",
+     "ms": 0.5,
+     "n": 1135,
+     "flush_n": 1135,
+     "skipped": 0,
+     "fence_secs": 0.7308,
+     "flush_secs": 0.2319,
+     "fence_us_per": 643.9,
+     "flush_us_per": 204.3,
+     "nbytes": 0,
+     "acc": 0,
+     "n_capped": 0,
+     "sizes_top": [
+      [
+       9437184,
+       227
+      ],
+      [
+       1179648,
+       227
+      ],
+      [
+       1152,
+       227
+      ],
+      [
+       576,
+       227
+      ],
+      [
+       294912,
+       227
+      ]
+     ],
+     "n_sizes": 5,
+     "err": [],
+     "dsb": {
+      "cc": "rc=0",
+      "so": "/tmp/t133_fence/t133_fence_armv7l.so",
+      "ok": true,
+      "err": null
+     }
+    },
+    "tok": "dsb0p5"
+   }
+  ],
+  "arena256": {
+   "hw": 256,
+   "slots": 24,
+   "need": 66224128,
+   "cma_free_before": 385024,
+   "cma_free_after": 385024,
+   "pa": "0x31e00000",
+   "max_in": 1179648,
+   "max_out": 1572864,
+   "n_conv": 227,
+   "max_npix": 16384
+  },
+  "net256": {
+   "run": 90,
+   "name": "net256",
+   "hw": 256,
+   "mode": "sleep",
+   "noinv": "1",
+   "wall_s": 20.115,
+   "total_s": 20.109529972076416,
+   "pl_s": 5.858567714691162,
+   "ps_s": 18.031720461996883,
+   "n_conv_ops": 227,
+   "deps_closure_ok": true,
+   "run_valid": true,
+   "lazy": {
+    "pinned": 0,
+    "released": 0,
+    "starved": 0,
+    "direct_layers": 0,
+    "mixed_layers": 0,
+    "ps_layers": 0,
+    "deq_skipped": 0,
+    "direct_bytes": 0,
+    "f32_bytes": 0
+   },
+   "sha1": {
+    "out1": "7e266fc735f30f81a25b28b82d4e5fa3b4f92caf",
+    "out2": "1c4becf43384ffe72efb4d9a522226cf604ee242",
+    "out3": "24ff1bba4f61ddfcb2d2832099c770801ff5b585"
+   },
+   "v39_ref": [
+    "9b1940c8955be53ccffd7905e333deffcea31f0a",
+    "f86a7035621bed133374a1bef42a27db204e7019",
+    "025757a83c3993c8f592e31219b6a97906020363"
+   ],
+   "hit_v39": false,
+   "x0_sha1": "cfc75bc3f15d306b07787325fdc9ae715cfadd0a",
+   "post": {
+    "fclk": 50.0,
+    "base": "0x40060000",
+    "magic": "0x50300001",
+    "magic_ok": true,
+    "st310": "0x00000000",
+    "st310_zero": true,
+    "done": false,
+    "err": 0,
+    "busy": false,
+    "ap_ret_bin_unit_0": "0x00000001",
+    "ap_ret_conv_uni_0": "0x00000000"
+   },
+   "fclk": 50.0,
+   "cma_free_after_b": 360448,
+   "noinv_effective": true,
+   "devmem_err": null,
+   "devmem_reads": 9084,
+   "fence": {
+    "mode": "sleep",
+    "ms": 3.0,
+    "n": 1135,
+    "flush_n": 1135,
+    "skipped": 0,
+    "fence_secs": 3.5506,
+    "flush_secs": 0.2352,
+    "fence_us_per": 3128.3,
+    "flush_us_per": 207.2,
+    "nbytes": 0,
+    "acc": 0,
+    "n_capped": 0,
+    "sizes_top": [
+     [
+      1179648,
+      454
+     ],
+     [
+      9437184,
+      227
+     ],
+     [
+      1152,
+      227
+     ],
+     [
+      576,
+      227
+     ]
+    ],
+    "n_sizes": 4,
+    "err": [],
+    "dsb": null
+   },
+   "tok": "sleep3"
+  },
+  "arena64": {
+   "hw": 64,
+   "slots": 24,
+   "need": 4292608,
+   "cma_free_before": 63520768,
+   "cma_free_after": 63520768,
+   "pa": "0x30100000",
+   "max_in": 73728,
+   "max_out": 98304,
+   "n_conv": 227,
+   "max_npix": 1024
+  },
+  "net64": {
+   "run": 91,
+   "name": "net64",
+   "hw": 64,
+   "mode": "sleep",
+   "noinv": "1",
+   "wall_s": 7.588,
+   "total_s": 7.582794904708862,
+   "pl_s": 1.7328684329986572,
+   "ps_s": 6.274241788794825,
+   "n_conv_ops": 227,
+   "deps_closure_ok": true,
+   "run_valid": true,
+   "lazy": {
+    "pinned": 0,
+    "released": 0,
+    "starved": 0,
+    "direct_layers": 0,
+    "mixed_layers": 0,
+    "ps_layers": 0,
+    "deq_skipped": 0,
+    "direct_bytes": 0,
+    "f32_bytes": 0
+   },
+   "sha1": {
+    "out1": "bfa246d34681e748311bbcd2f1b87317a56923fe",
+    "out2": "226bd39e522aa373b8fc183acae5280931f8b63f",
+    "out3": "762d84b9618eab8922edd6da4f07ba06de865628"
+   },
+   "v39_ref": [
+    "bfa246d34681e748311bbcd2f1b87317a56923fe",
+    "226bd39e522aa373b8fc183acae5280931f8b63f",
+    "762d84b9618eab8922edd6da4f07ba06de865628"
+   ],
+   "hit_v39": true,
+   "x0_sha1": "bbae82e46e363a776d8fce8d9004e94502456bdc",
+   "post": {
+    "fclk": 50.0,
+    "base": "0x40060000",
+    "magic": "0x50300001",
+    "magic_ok": true,
+    "st310": "0x00000000",
+    "st310_zero": true,
+    "done": false,
+    "err": 0,
+    "busy": false,
+    "ap_ret_bin_unit_0": "0x00000001",
+    "ap_ret_conv_uni_0": "0x00000000"
+   },
+   "fclk": 50.0,
+   "cma_free_after_b": 61743104,
+   "noinv_effective": true,
+   "devmem_err": null,
+   "devmem_reads": 9084,
+   "fence": {
+    "mode": "sleep",
+    "ms": 3.0,
+    "n": 1135,
+    "flush_n": 1135,
+    "skipped": 0,
+    "fence_secs": 3.5487,
+    "flush_secs": 0.2235,
+    "fence_us_per": 3126.6,
+    "flush_us_per": 196.9,
+    "nbytes": 0,
+    "acc": 0,
+    "n_capped": 0,
+    "sizes_top": [
+     [
+      9437184,
+      227
+     ],
+     [
+      1179648,
+      227
+     ],
+     [
+      1152,
+      227
+     ],
+     [
+      576,
+      227
+     ],
+     [
+      73728,
+      227
+     ]
+    ],
+    "n_sizes": 5,
+    "err": [],
+    "dsb": null
+   },
+   "tok": "sleep3"
+  }
+ },
+ "python": "3.10.4",
+ "numpy": "1.21.5",
+ "machine": "armv7l",
+ "hash_probe": -1877778953,
+ "pythonhashseed": null,
+ "arm": "t133",
+ "meminfo_at_start": {
+  "MemTotal": 1028264,
+  "MemFree": 761832,
+  "MemAvailable": 846912,
+  "SwapTotal": 524284,
+  "SwapFree": 524284,
+  "CmaTotal": 262144,
+  "CmaFree": 64684
+ },
+ "args": {
+  "bit": "/home/xilinx/demoir/design_1_150v53.bit",
+  "pack": "/home/xilinx/demoir/deploy/bin_weights_new",
+  "outdir": "/home/xilinx/demoir/t133_out",
+  "freq": 50.0,
+  "slots": 24,
+  "plan": "sleep3,sleep3,none,none,readall,readall,readtail,readtail,readhead,readhead,touchonly,touchonly,dsb,dsb,dsb0p3,dsb0p3,devmem,devmem",
+  "hw256": 1,
+  "hw64": 1,
+  "arm": "t133",
+  "tag": "t133",
+  "wd": 900.0
+ },
+ "fclk_target": 50.0,
+ "fclk_readback": 50.0,
+ "winner": {
+  "tok": "sleep3",
+  "mode": "sleep",
+  "ms": 3.0,
+  "wall_s": 10.529,
+  "n": 2,
+  "n_hits": 2,
+  "hits": [
+   "sleep3",
+   "readall"
+  ],
+  "table": [
+   {
+    "tok": "sleep3",
+    "wall_s": 10.529,
+    "n": 2,
+    "pref": 99
+   },
+   {
+    "tok": "readall",
+    "wall_s": 12.699,
+    "n": 2,
+    "pref": 5
+   }
+  ],
+  "all_toks": {
+   "sleep3": [
+    true,
+    true
+   ],
+   "none": [
+    false,
+    false
+   ],
+   "readall": [
+    true,
+    true
+   ],
+   "readtail": [
+    false,
+    false
+   ],
+   "readhead": [
+    false,
+    false
+   ],
+   "touchonly": [
+    false,
+    false
+   ],
+   "dsb": [
+    false,
+    false
+   ],
+   "dsb0p3": [
+    false,
+    false
+   ],
+   "devmem": [
+    false,
+    false
+   ],
+   "dsb0p5": [
+    false,
+    false
+   ]
+  }
+ },
+ "verdict": {
+  "base_ok": true,
+  "base_bad": true,
+  "winner": "sleep3",
+  "hit256": false,
+  "hit64": true,
+  "ok": false
+ }
+}
