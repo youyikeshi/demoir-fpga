@@ -6517,3 +6517,25 @@ $$\Rightarrow\ \textbf{下一步不是再扫形状}，\text{而是 } \mathbf{128
 $$\quad\ \Rightarrow\ \text{这不属于"二分"：}\textbf{一次 dump 出全部 op 的输出}，\text{与 v39 逐个比 md5，\text{直接指出第一个错的}}
 $$\quad\ \Rightarrow\ \text{判别工具已现成：} \mathtt{analyze\_t122.py}\ \text{的口径}$$
 $$\quad\ \quad\ \text{错块能在 } \mathtt{exp}\ \text{别处找到} \Rightarrow \text{地址/置换/槽错位};\ \text{找不到 + 错段极短 + 错值 } \pm1 \Rightarrow \text{时序/量化}$$
+
+### 70.88 ★★★★★ T-124 定案方向：**写回未落地**，不是地址、不是量化、不是后处理（2026-11-03 03:2x）
+
+**逐 op 归属（128²，395 op / 173 MB 全量 dump，v53 vs v39）**
+$$\Rightarrow\ \textbf{首错 op 会漂移}：\text{run1} = \mathtt{op15}\ (\mathtt{ghost\_layers.1.primary\_conv.conv},\ \mathtt{cin}112/\mathtt{cout}32/k1,\ \mathbf{44860}/131072 = 34.2\%)$$
+$$\quad\ \text{run2}\ \text{与}\ \text{run1-vs-run2}\ \text{前移到 } \mathtt{op13}\ (\mathtt{cheap\_operation.conv},\ \mathtt{cin}32/\mathtt{cout}32/k3,\ \mathbf{1281}/131072 = 0.98\%)$$
+$$\Rightarrow\ \text{前 13\sim15 个 op（含 convfp/unshuffle/cat/rdb 链）}\textbf{逐字节相同}$$
+$$\Rightarrow\ \text{不一致 op 占比 } \mathbf{340/395 = 86.1\%}（\text{run1）/}342/395（\text{run2}）$$
+
+**错误形状（这是定罪的关键）**
+$$\Rightarrow\ \text{错的是输出缓冲的}\textbf{连续"尾巴"}（\text{物理 C8 组主序）}：\textbf{"从某个字起往后全错"}$$
+$$\Rightarrow\ \text{首错字逐 run 移动：}12233 / 9793 / 9780 / 1992\ (\text{of }16384)$$
+$$\Rightarrow\ \mathtt{op15}\ \text{里恰好是}\textbf{通道 } 0\sim15\ \text{全对、}16\sim31\ \text{全错}（\text{后半、C8 组 }2/3）$$
+$$\Rightarrow\ \text{错值 } |\Delta|_{\max} = 103\ \text{LSB}，\textbf{非 } \pm1，\text{与参照 } r=0.107，\text{无饱和}$$
+$$\Rightarrow\ \mathbf{413}\ \text{个坏块在参照里}\textbf{全部找不到}：\text{无平移/置换匹配，也不是同形状 op 的残留} \Rightarrow \textbf{不是地址/置换/槽错位}$$
+
+$$\Rightarrow\ \Rightarrow\ \textbf{根因方向：写回/完成交接没有落地}（\text{PL 末尾若干行写回晚于 } \mathtt{done}，\text{消费者在尾巴落地前就读）}$$
+$$\Rightarrow\ \text{为什么只在整网、只 }\ge 128^2：\mathtt{op2/4/6/8/12}\ \text{也是 } \mathtt{npix}=4096\ \text{却全对} \Rightarrow \textbf{取决于时序而非形状}$$
+$$\Rightarrow\ \textbf{边界随 run 变 = 非确定} \Rightarrow \textbf{逻辑算错不可能非确定，逻辑错这条彻底排除}$$
+
+$$\Rightarrow\ \text{这与 T-105 的判断一致：}\mathbf{\text{BRESP 已回} \neq \text{已落 DDR}}；\text{而 T-106 认为 RTL 的 } \mathtt{wr\_all\_idle}\ \text{已覆盖——}\textbf{现在数据说明还不够}$$
+$$\Rightarrow\ \text{与 T-104 的 B 类（尾部段错、随 run 变）}\textbf{是同一个病}$$
