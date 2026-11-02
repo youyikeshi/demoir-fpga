@@ -4900,3 +4900,32 @@ $$\Rightarrow\ \texttt{PF\_AHEAD}\ \text{单改（v42c）与全配方（v42）}\
 $$\Rightarrow\ \text{RTL 注释自己写着"}\texttt{PF\_DEPTH}\ \text{必须 2 的幂且配合 } \texttt{PF\_AHEAD=2}\text{"} \Rightarrow \text{它们是}\textbf{一对契约}$$
 $$\quad\ \Rightarrow\ \text{拆开改任一端都破坏契约} \Rightarrow \text{这不是"调参空间"，是"要么整对成立、要么整对崩"}$$
 $$\Rightarrow\ \textbf{要再动它，必须先在 xsim 里做出"冻结 + 同时写入 + 响应乱序"的门禁，再上板}$$
+
+### 70.27 ★★★★ v42d（v39 + 只读计数器）**也写坏内存** ⇒ 归因翻转（2026-11-02 09:52）
+
+$$\Rightarrow\ \text{v42d} = \text{v39 原文} + \textbf{只有 4 个 32 位只读计数器}\ (\texttt{PF\_AHEAD/DEPTH/MAX/AR\_SLOTS} = 1/4/4/4，一位未动)$$
+$$\Rightarrow\ \text{板端第 1 跑：}\textbf{\texttt{bin\_unit OUT: 金丝雀被写坏 8/4096 字节 ⇒ 引擎越界写}}$$
+$$\quad\ \text{墙钟 } 6.859\ \text{s（v39 同形状 } 2.939\text{）}，\ \texttt{AP\_RETURN}=0x1（done=1,\ err=0，\textbf{非超时}）$$
+$$\Rightarrow\ \text{同 session 对照：v39 金丝雀干净、64² = 冻结} \Rightarrow \textbf{差异只在这一个位流}$$
+$$\Rightarrow\ \text{失败窗口计数器：} \texttt{cyc}=2{,}104{,}242,\ \texttt{frz}=1{,}473{,}302 \Rightarrow \textbf{frz/cyc}=70\%$$
+
+**它证明了什么、没证明什么（必须分清）**
+$$\Rightarrow\ \textbf{证明了}：\text{"加只读计数器"这一件事}\textbf{足以}\text{把 v39 从可用变成越界写}$$
+$$\Rightarrow\ \textbf{没证明}：\texttt{PF\_AHEAD=2}\ \text{无罪}——\text{v42c 同时带着计数器，所以它不能用来判 } \texttt{PF\_AHEAD}$$
+$$\quad\ \Rightarrow\ \text{我上一节写的"元凶在计数器"是}\textbf{过度归因}\text{，正确表述是"计数器是充分元凶，预取参数未被洗清"}$$
+
+**最可能的机制（两条，都指向同一件事）**
+$$\Rightarrow\ \text{① 计数器监听的是读通路的活信号（} \texttt{rd\_want/rd\_hit/fill}\text{）} \Rightarrow \text{给这些网加了扇出与延迟}$$
+$$\quad\ \Rightarrow\ \text{它们在 150 MHz 下本来就紧} \Rightarrow \text{错拍} \Rightarrow \text{读通路状态机走错} \Rightarrow \text{越界写}$$
+$$\Rightarrow\ \text{② } \texttt{0x25C}\ \text{写译码可能与既有寄存器地址冲突/改变了 } \texttt{case}\ \text{优先级}$$
+$$\Rightarrow\ \textbf{而且 } \texttt{frz/cyc}=70\%\ \text{说明读通路确实在颠簸} \Rightarrow \text{不像是"计数器没算对"，像是"读通路被拖坏"}$$
+
+**第 95 条纪律：观测器本身会被测系统的一部分**
+$$\Rightarrow\ \text{"只读计数器"在 RTL 里不是免费的：它}\textbf{给被测信号加扇出} \Rightarrow \text{改变时序} \Rightarrow \text{改变行为}$$
+$$\Rightarrow\ \textbf{判据}：\text{诊断逻辑必须}\textbf{先在"已知能跑的配置"上验过它自身无害}（即：v39 + 计数器 必须与 v39 逐字节等价）$$
+$$\quad\ \text{我们跳过了这一步，代价是一颗位流 + 两次构建 + 三轮上板才把归因搞复杂}$$
+$$\Rightarrow\ \text{替代做法：诊断口用}\textbf{独立寄存器复制信号}（\texttt{(* ASYNC\_REG *)}/\texttt{KEEP\_DUPLICATE}）\text{或干脆走 ILA/DBG 硬核，不要直接监听从数据通路读} $$
+
+**下一步（唯一还有意义的实验）**：`v42e = v39 + 只改 PF_AHEAD=2`（**不带任何计数器**）
+$$\Rightarrow\ \text{若 v42e 对} \Rightarrow \texttt{PF\_AHEAD=2}\ \text{本身可用} \Rightarrow \text{再单独解决 } \texttt{PF\_DEPTH=8}\ \text{的 tag 时序（T-42 §9 已给修法：}\texttt{ph\_reg[3]}\to\texttt{pf\_tag/CE}\ \text{加一级）}$$
+$$\Rightarrow\ \text{若 v42e 错} \Rightarrow \text{预取这条路必须}\textbf{回炉重做}（配乱序 AXI 的仿真门禁）}$$
