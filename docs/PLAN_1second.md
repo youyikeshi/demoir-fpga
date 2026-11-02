@@ -5843,3 +5843,22 @@ $$\Rightarrow\ \textbf{第 116 条：TB 脚本里必须写死"被测文件的绝
 $$\Rightarrow\ 32\times32\ \text{层：}v8\ 76{,}028\ \text{拍} \to v16\ 55{,}774（\mathbf{0.73\times}）$$
 $$\Rightarrow\ \text{但 } \mathtt{cout}{=}24\ \text{层 } v16\ \textbf{反而 } 1.47\times\ \text{慢}（2\ \text{组}\times16\ \text{lane}\ \text{算空 }8\ \text{lane}）$$
 $$\Rightarrow\ \Rightarrow\ \textbf{16-lane 不是无条件更好};\ \text{全图净收益要上板量}$$
+
+### 70.62 v51 构建成功（写通路修复版）：WNS +0.113、LUT 反降 1,270（T-95，2026-11-02 20:37）
+
+$$\Rightarrow\ \text{门禁：manifest } \mathtt{MATCH=35\ PASS}；\text{打包层 } \mathtt{.VLANES(16)\ .FUSE\_EN(0)\ .BAND\_ROWS(1)\ .BAND\_HALO(0)\ .BAND\_C\_MAX(8)}\ \text{全对}$$
+$$\Rightarrow\ \text{xbar 译码 }\mathbf{2\ \text{段}}（\mathtt{M02}=0x40040000/\mathtt{M03}=0x40060000，\text{各 }128\mathtt{K}，\mathtt{M00/M01/M04}\ \text{未译码）\Rightarrow \text{无 } 0x4008}$$
+$$\Rightarrow\ \text{构件：Latch } 0（\text{报告 } 0.00\% + \mathtt{LDCE/LDPE}\ \text{双查）、DRC }\mathbf{0\ \text{Errors}}、\mathtt{.bit}\ 3{,}510{,}798\ \text{B}$$
+$$\Rightarrow\ \mathbf{WNS\ +\ 0.113\ ns}、\text{TNS } 0、\text{违例端点 } 0$$
+$$\quad\ \text{最差路径 } \mathtt{win\_q\_reg\_15 \to g\_conv.u\_core/s1\_pc\_q\_reg[14][5]/D}（9.720\ \text{ns}/11\ \text{级）}$$
+$$\quad\ \textbf{不是新写通路};\ \text{碰 } \mathtt{g\_wr\_split2}\ \text{的最差一条比全局好 } 1.036\ \text{ns}$$
+$$\Rightarrow\ \text{相对 v50（}+0.120\text{）只差 } \mathbf{-0.007\ ns} \Rightarrow \text{新增逻辑没有代价}$$
+$$\Rightarrow\ \text{资源：LUT } \mathbf{21{,}873}（\text{v50 23,143，\textbf{反降 1,270}}）/ \text{FF } 21{,}822 / \text{BRAM } 43（=）/ \text{DSP } 126（=）$$
+$$\quad\ \Rightarrow\ \text{BRAM/DSP/LUTRAM 一位未变} \Rightarrow \textbf{引擎没被裁掉}$$
+$$\Rightarrow\ \text{W5：}\mathtt{bin\_conv\_core\_v50}=1、\text{8-lane}=0、\mathtt{g\_wram[*]}=16、\texttt{g\_wr_split2}\ \text{在（614 cell）}$$
+$$\Rightarrow\ \text{bit } \mathtt{16766e1f}；\text{hwh } \mathtt{52357646}；\text{建议功能时钟 } \mathbf{100\ \text{MHz}}$$
+
+**流程坑（要写进文档）**
+$$\Rightarrow\ \mathtt{bd\_v50.tcl}\ \text{里 } \mathtt{generate\_target\ all\ -force}\ \text{会}\textbf{删掉 auto\_pc 的 OOC dcp+stub}（\mathtt{proj\_v50}\ \text{里 auto\_pc 无 OOC run}）$$
+$$\Rightarrow\ \text{首次构建因此在 0c 之后 rc=1（}\textbf{零烧时}）;\ \text{已按 v50 配方复用 0 参数差异旧产物}（\text{xml 同尺寸，10 行 diff 全是时间戳}）$$
+$$\Rightarrow\ \Rightarrow\ \textbf{以后每次跑 } \mathtt{bd\_v50.tcl}\ \text{都要先补这一步}$$

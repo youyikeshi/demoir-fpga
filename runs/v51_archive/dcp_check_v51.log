@@ -1,0 +1,158 @@
+[memgate] ===== 构建前预检 =====
+[memgate]   内存  MemAvailable  15.00 GB / 总  30.95 GB   (SwapTotal 0.0 GB)
+[memgate]   闸门  需 峰值 5 GB + 保留 2.5 GB = 7.50 GB   余量 7.50 GB
+[memgate]   根分区 /   31.72 GB 可用 / 98 GB    /tmp 当前占 3168 MB
+[memgate]   大分区 /media/felix/Data/tmp   83.80 GB 可用
+[memgate]   放行  TMPDIR=/media/felix/Data/tmp  (波形库/临时目录落这里)
+[memgate]   已持锁 /tmp/dsh_vivado.lock  2026-11-02 20:35:08  tag=felix
+[memgate]   复测 MemAvailable 14.99 GB >= 7.50 GB  ✔
+[memgate] ===== 放行 2026-11-02 20:35:08 =====
+[memgate]   令牌 DSH_BUILD_TOKEN=1793622908-977560-88247980  BUILD_OWNER=/media/felix/Data/coding/demoir-fpga/runs/resguard/BUILD_OWNER
+
+****** Vivado v2025.2.1 (64-bit)
+  **** SW Build 6403652 on Thu Mar 19 13:47:00 MDT 2026
+  **** IP Build 6403511 on Thu Mar 19 12:41:45 MDT 2026
+  **** SharedData Build 6403650 on Thu Mar 19 14:02:13 MDT 2026
+  **** Start of session at: Mon Nov  2 20:35:09 2026
+    ** Copyright 1986-2022 Xilinx, Inc. All Rights Reserved.
+    ** Copyright 2022-2026 Advanced Micro Devices, Inc. All Rights Reserved.
+
+source runs/timing_v50/dcp_check_v51.tcl -notrace
+== 读 pynq_specialized_code/board/overlay_engine_150mhz/design_1_150v51_routed.dcp ==
+Command: open_checkpoint pynq_specialized_code/board/overlay_engine_150mhz/design_1_150v51_routed.dcp
+
+Starting open_checkpoint Task
+
+Time (s): cpu = 00:00:00.04 ; elapsed = 00:00:00.03 . Memory (MB): peak = 1513.797 ; gain = 0.000 ; free physical = 6579 ; free virtual = 15191
+INFO: [Device 21-403] Loading part xc7z015clg485-2
+Netlist sorting complete. Time (s): cpu = 00:00:00.11 ; elapsed = 00:00:00.11 . Memory (MB): peak = 1821.336 ; gain = 0.000 ; free physical = 6319 ; free virtual = 14930
+INFO: [Netlist 29-17] Analyzing 3856 Unisim elements for replacement
+INFO: [Netlist 29-28] Unisim Transformation completed in 0 CPU seconds
+INFO: [Project 1-479] Netlist was created with Vivado 2025.2.1
+INFO: [Project 1-570] Preparing netlist for logic optimization
+Read ShapeDB Complete: Time (s): cpu = 00:00:00.03 ; elapsed = 00:00:00.04 . Memory (MB): peak = 1937.117 ; gain = 4.250 ; free physical = 6107 ; free virtual = 14720
+INFO: [Timing 38-478] Restoring timing data from binary archive.
+INFO: [Timing 38-479] Binary timing data restore complete.
+INFO: [Project 1-856] Restoring constraints from binary archive.
+INFO: [Constraints 18-5170] The checkpoint was created with non-default parameter values which do not match the current Vivado settings.  Mismatching parameters are:
+  general.maxThreads
+INFO: [Project 1-853] Binary constraint restore complete.
+INFO: [Designutils 20-5722] Start Reading Physical Databases.
+Reading placement.
+Read Netlist Cache: Time (s): cpu = 00:00:00.03 ; elapsed = 00:00:00.04 . Memory (MB): peak = 2561.117 ; gain = 0.000 ; free physical = 5600 ; free virtual = 14206
+Reading placer database...
+Read Device Cache: Time (s): cpu = 00:00:00.01 ; elapsed = 00:00:00.01 . Memory (MB): peak = 2561.117 ; gain = 0.000 ; free physical = 5599 ; free virtual = 14206
+Read PlaceDB: Time (s): cpu = 00:00:00 ; elapsed = 00:00:00 . Memory (MB): peak = 2561.117 ; gain = 0.000 ; free physical = 5599 ; free virtual = 14206
+Read placeStorage: Time (s): cpu = 00:00:00.66 ; elapsed = 00:00:00.66 . Memory (MB): peak = 2585.117 ; gain = 24.000 ; free physical = 5614 ; free virtual = 14221
+Read PulsedLatchDB: Time (s): cpu = 00:00:00 ; elapsed = 00:00:00 . Memory (MB): peak = 2585.117 ; gain = 0.000 ; free physical = 5614 ; free virtual = 14221
+Reading routing.
+Read RouteStorage: Time (s): cpu = 00:00:00.74 ; elapsed = 00:00:00.23 . Memory (MB): peak = 2609.969 ; gain = 24.852 ; free physical = 5586 ; free virtual = 14193
+Read Physdb Files: Time (s): cpu = 00:00:01 ; elapsed = 00:00:00.96 . Memory (MB): peak = 2609.969 ; gain = 48.852 ; free physical = 5586 ; free virtual = 14193
+Restored from archive | CPU: 1.520000 secs | Memory: 41.621155 MB |
+Finished XDEF File Restore: Time (s): cpu = 00:00:01 ; elapsed = 00:00:00.99 . Memory (MB): peak = 2609.969 ; gain = 55.789 ; free physical = 5586 ; free virtual = 14193
+Netlist sorting complete. Time (s): cpu = 00:00:00 ; elapsed = 00:00:00.01 . Memory (MB): peak = 2624.789 ; gain = 0.000 ; free physical = 5575 ; free virtual = 14182
+INFO: [Project 1-111] Unisim Transformation Summary:
+  A total of 192 instances were transformed.
+  RAM64M => RAM64M (RAMD64E(x4)): 168 instances
+  RAM64X1D => RAM64X1D (RAMD64E(x2)): 24 instances
+
+INFO: [Project 1-604] Checkpoint was created with Vivado v2025.2.1 (64-bit) build 6403652
+open_checkpoint: Time (s): cpu = 00:00:17 ; elapsed = 00:00:11 . Memory (MB): peak = 2632.824 ; gain = 1119.027 ; free physical = 5574 ; free virtual = 14182
+   part = xc7z015clg485-2
+
+== W5-① 16-lane 核的实例（bin_conv_core_v50）==
+   REF_NAME =~ bin_conv_core_v50*  = 1   （期望 1）
+      design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_core   REF=bin_conv_core_v50
+   W5-② 8-lane 老核 bin_conv_core  = 0   （期望 0）
+   （参照）REF_NAME =~ bin_conv_core* 总数 = 1
+
+== W5-③ g_wram[*] 实例数（16 个 lane 的权重 RAM）==
+   g_wram 相关 cell = 105；不同索引 = 16   （期望 16）
+   索引表 = 0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15
+
+== W5-④ g_wr_split2（T-94 的 2 拍串行化）==
+   g_wr_split2 相关 cell = 614   （期望 >0）
+   REF 种类（前 10）= {CARRY4,DSP48E1,FDCE,LUT2,LUT3,LUT4,LUT5,LUT6}
+   新增寄存器 *pix_q*   = 117
+   新增寄存器 *pbase_q* = 33
+   新增寄存器 *p1_addr* = 64
+
+== bin_unit 层次 LUT / FF / DSP ==
+   bin_unit_0 实例 = 1
+      NAME=design_1_i/bin_unit_0  REF=design_1_bin_unit_0_18
+   bin_unit LUT = 0
+   bin_unit FF  = 0
+   bin_unit DSP = 0
+
+== 全片资源（cells 口径，与 util 报告对照）==
+   LUT  (LUT1..6)      = 0
+   FF   (FD*)          = 0
+   DSP48E1             = 126
+   RAMB36E1            = 39
+   RAMB18E1            = 8
+
+== W2-① latch 指纹（必须 0/0）==
+   LDCE = 0   LDPE = 0   合计 = 0
+
+== W3 时序（10 ns 约束）+ 最差 20 条归属判断 ==
+   WNS = 0.113 ns
+   data path delay = 9.720 ns  levels = 11
+   from = design_1_i/bin_unit_0/inst/u_bin_unit/win_q_reg_15/CLKBWRCLK
+   to   = design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_core/s1_pc_q_reg[14][5]/D
+WARNING: [Vivado 12-975] No timing paths matched 'get_timing_paths -max_paths 4000 -nworst 1 -setup -slack_lesser_than 0'.
+   违例端点（每条取最坏，上限 4000）= 0   TNS = 0.0 ns
+   --- 最差 20 条 setup 路径（slack / 级别 / from -> to）---
+    1    +0.113 ns  11 级  design_1_i/bin_unit_0/inst/u_bin_unit/win_q_reg_15/CLKBWRCLK
+         -> design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_core/s1_pc_q_reg[14][5]/D
+    2    +0.113 ns  11 级  design_1_i/bin_unit_0/inst/u_bin_unit/win_q_reg_15/CLKBWRCLK
+         -> design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_core/s1_pc_q_reg[14][5]/D
+    3    +0.113 ns  11 级  design_1_i/bin_unit_0/inst/u_bin_unit/win_q_reg_15/CLKBWRCLK
+         -> design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_core/s1_pc_q_reg[14][5]/D
+    4    +0.113 ns  11 级  design_1_i/bin_unit_0/inst/u_bin_unit/win_q_reg_15/CLKBWRCLK
+         -> design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_core/s1_pc_q_reg[14][5]/D
+    5    +0.113 ns  11 级  design_1_i/bin_unit_0/inst/u_bin_unit/win_q_reg_15/CLKBWRCLK
+         -> design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_core/s1_pc_q_reg[14][5]/D
+    6    +0.113 ns  11 级  design_1_i/bin_unit_0/inst/u_bin_unit/win_q_reg_15/CLKBWRCLK
+         -> design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_core/s1_pc_q_reg[14][5]/D
+    7    +0.113 ns  11 级  design_1_i/bin_unit_0/inst/u_bin_unit/win_q_reg_15/CLKBWRCLK
+         -> design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_core/s1_pc_q_reg[14][5]/D
+    8    +0.113 ns  11 级  design_1_i/bin_unit_0/inst/u_bin_unit/win_q_reg_15/CLKBWRCLK
+         -> design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_core/s1_pc_q_reg[14][5]/D
+    9    +0.113 ns  11 级  design_1_i/bin_unit_0/inst/u_bin_unit/win_q_reg_15/CLKBWRCLK
+         -> design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_core/s1_pc_q_reg[14][5]/D
+   10    +0.113 ns  11 级  design_1_i/bin_unit_0/inst/u_bin_unit/win_q_reg_15/CLKBWRCLK
+         -> design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_core/s1_pc_q_reg[14][5]/D
+   11    +0.113 ns  11 级  design_1_i/bin_unit_0/inst/u_bin_unit/win_q_reg_15/CLKBWRCLK
+         -> design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_core/s1_pc_q_reg[14][5]/D
+   12    +0.113 ns  11 级  design_1_i/bin_unit_0/inst/u_bin_unit/win_q_reg_15/CLKBWRCLK
+         -> design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_core/s1_pc_q_reg[14][5]/D
+   13    +0.113 ns  11 级  design_1_i/bin_unit_0/inst/u_bin_unit/win_q_reg_15/CLKBWRCLK
+         -> design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_core/s1_pc_q_reg[14][5]/D
+   14    +0.113 ns  11 级  design_1_i/bin_unit_0/inst/u_bin_unit/win_q_reg_15/CLKBWRCLK
+         -> design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_core/s1_pc_q_reg[14][5]/D
+   15    +0.113 ns  11 级  design_1_i/bin_unit_0/inst/u_bin_unit/win_q_reg_15/CLKBWRCLK
+         -> design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_core/s1_pc_q_reg[14][5]/D
+   16    +0.113 ns  11 级  design_1_i/bin_unit_0/inst/u_bin_unit/win_q_reg_15/CLKBWRCLK
+         -> design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_core/s1_pc_q_reg[14][5]/D
+   17    +0.113 ns  11 级  design_1_i/bin_unit_0/inst/u_bin_unit/win_q_reg_15/CLKBWRCLK
+         -> design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_core/s1_pc_q_reg[14][5]/D
+   18    +0.113 ns  11 级  design_1_i/bin_unit_0/inst/u_bin_unit/win_q_reg_15/CLKBWRCLK
+         -> design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_core/s1_pc_q_reg[14][5]/D
+   19    +0.113 ns  11 级  design_1_i/bin_unit_0/inst/u_bin_unit/win_q_reg_15/CLKBWRCLK
+         -> design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_core/s1_pc_q_reg[14][5]/D
+   20    +0.113 ns  11 级  design_1_i/bin_unit_0/inst/u_bin_unit/win_q_reg_15/CLKBWRCLK
+         -> design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_core/s1_pc_q_reg[14][5]/D
+   ⇒ 最差 20 条里命中新增写通路（g_wr_split2/pix_q/pbase_q/p1_*/beat_）的条数 = 0
+   全违例集里 endpoint 落在 g_wr_split2 内的 = 0
+INFO: [Timing 38-78] ReportTimingParams: -max_paths 20 -nworst 20 -delay_type max -sort_by slack.
+   报告 -> pynq_specialized_code/board/overlay_engine_150mhz/timing_v51_worst20_dcp.rpt
+
+== W2-② DRC（routed DCP，0 Errors 才算过）==
+Command: report_drc -file pynq_specialized_code/board/overlay_engine_150mhz/drc_v51.rpt -checks {NSTD-1 UCIO-1 UPROP-1 PLIDC-1 PLIDC-3 RTSTAT-1 RTSTAT-2 RTSTAT-6 RTSTAT-9 ZPS7-1 ZPS7-2}
+report_drc failed
+   report_drc 失败：ERROR: [Vivado_Tcl 2-144] Invalid DRC rule name 'UPROP-1'
+
+
+DCP_CHECK_DONE
+INFO: [Common 17-206] Exiting Vivado at Mon Nov  2 20:35:27 2026...
+[memgate] 命令结束 rc=0  2026-11-02 20:35:27
