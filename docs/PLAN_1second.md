@@ -5124,3 +5124,21 @@ $$\Rightarrow\ \textbf{第 102 条纪律：主工程不许被"实验"碰到}$$
 $$\quad\ \text{本轮 10:56 那次尝试直接跑在主工程上（脚本里 } \texttt{set proj .../proj\_engine}\text{）} \Rightarrow \text{一次试探就把可构建状态弄没了}$$
 $$\quad\ \Rightarrow\ \textbf{判据}：\text{任何 BD/工程级实验，脚本第一行必须是 } \texttt{set proj <副本路径>}；$$
 $$\quad\ \text{主工程只允许"构建"和"从副本恢复"两种操作}$$
+
+### 70.37 我又犯了第 98 条（第二次）：同一目标派了两个代理（2026-11-02 11:08）
+
+$$\Rightarrow\ \text{我先给 T-56 发了"选 A，分两步"} \Rightarrow \textbf{把它从收工状态唤醒} \Rightarrow \text{它开始做 } \texttt{v43base}$$
+$$\Rightarrow\ \text{我随后又}\textbf{新开 T-57} \text{ 做同一件事} \Rightarrow \textbf{两个写者、两套脚本、两次 vivado}$$
+$$\Rightarrow\ \text{memgate 的 } \texttt{flock}\ \text{挡住了同时运行} \Rightarrow \text{没有同时写坏，}\textbf{但日志被互相覆盖}（\texttt{bd\_regen.log}）$$
+$$\Rightarrow\ \text{T-57 的第一跑（rc=1）日志被 T-56 的第二跑覆盖}$$
+
+**这次的实际损失：三次无效构建尝试 + 一轮互相推翻的结论**
+$$\Rightarrow\ \text{T-56 一度认为主工程"原样"，而实测 } \texttt{.hwh}=\texttt{ac97eb7c}、\texttt{.bd}=\texttt{1179543c}\ \text{都已被改}$$
+$$\Rightarrow\ \Rightarrow\ \textbf{多代理并行最贵的不是 CPU，是状态不可信}$$
+
+**第 103 条纪律：派活前先查"这个目标有没有人拥有"**
+$$\Rightarrow\ \textbf{建立归属台账}：\text{每个"目标"（} \texttt{v43base}、\texttt{v43}、\texttt{T-18}\ \text{…}）\text{任一时刻}\textbf{只能有一个代理} $$
+$$\quad\ \text{台账至少包含：目标名 / 拥有者 / 开始时间 / 输出路径（含日志路径）}$$
+$$\Rightarrow\ \textbf{派活三步}：①\text{查台账} \to \text{②查该代理是否已收尾}（\text{第 98 条}）\to \text{③}\textbf{给每个代理分配互不相同的日志路径}$$
+$$\quad\ \text{——}\text{日志路径冲突是"两个写者"最灵敏的探针，也是最先暴露的表征}$$
+$$\Rightarrow\ \text{补救（本次有效）}：\text{新代理开工第一件事做 }\texttt{mtime}\ \text{审计}\Rightarrow\text{T-57 正是这样发现撞车的}$$
