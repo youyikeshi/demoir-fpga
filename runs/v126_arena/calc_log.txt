@@ -1,0 +1,132 @@
+====================================================================================================
+### hw=64  conv_ops=227  max_in=73728 (0.074 MB)  max_out=98304 (0.098 MB)  arena(24 槽声明)=4292608 (4.29 MB)
+-- 实跑 nbuf=2 (BIN_LAZY_DEQ=0)：IN 槽区间 / OUT 槽区间（相对 arena 基址 0x30100000）
+   IN : [0x0,+73728) | [0x12000,+73728)
+   OUT: [0x24000,+102400) | [0x3d000,+102400)
+   槽与槽之间重叠：无（bump 分配器按定义不相交）
+   逐 op（真实读写跨度）重叠：25538 对 ⇒ 其中【同槽时域复用】25538 对，【跨槽（=非法覆盖）】0 对
+   槽容量检查：越界 op 数 = 0
+   id   name                                           slot      in_off   out_off  out_bytes
+   2    encoder.encoder_1.rdb.conv_layers.0.conv       0         0x0      0x24000  65536
+   4    encoder.encoder_1.rdb.conv_layers.1.conv       1         0x12000  0x3d000  65536
+   6    encoder.encoder_1.rdb.conv_layers.2.conv       0         0x0      0x24000  65536
+   8    encoder.encoder_1.rdb.conv_post.conv           1         0x12000  0x3d000  49152
+   12   m_blocks.0.b0.ghost_layers.0.primary_conv.conv 0         0x0      0x24000  32768
+   13   locks.0.b0.ghost_layers.0.cheap_operation.conv 1         0x12000  0x3d000  32768
+   15   m_blocks.0.b0.ghost_layers.1.primary_conv.conv 0         0x0      0x24000  32768
+   16   locks.0.b0.ghost_layers.1.cheap_operation.conv 1         0x12000  0x3d000  32768
+   18   m_blocks.0.b0.ghost_layers.2.primary_conv.conv 0         0x0      0x24000  32768
+   19   locks.0.b0.ghost_layers.2.cheap_operation.conv 1         0x12000  0x3d000  32768
+   21   m_blocks.0.b0.ghost_layers.3.primary_conv.conv 0         0x0      0x24000  32768
+   22   locks.0.b0.ghost_layers.3.cheap_operation.conv 1         0x12000  0x3d000  32768
+   24   m_blocks.0.b0.ghost_layers.4.primary_conv.conv 0         0x0      0x24000  32768
+   25   locks.0.b0.ghost_layers.4.cheap_operation.conv 1         0x12000  0x3d000  32768
+   27   encoder.encoder_1.sam_blocks.0.b0.conv.conv    0         0x0      0x24000  49152
+   28   m_blocks.0.b2.ghost_layers.0.primary_conv.conv 1         0x12000  0x3d000  8192
+   29   locks.0.b2.ghost_layers.0.cheap_operation.conv 0         0x0      0x24000  8192
+   31   m_blocks.0.b2.ghost_layers.1.primary_conv.conv 1         0x12000  0x3d000  8192
+   32   locks.0.b2.ghost_layers.1.cheap_operation.conv 0         0x0      0x24000  8192
+   34   m_blocks.0.b2.ghost_layers.2.primary_conv.conv 1         0x12000  0x3d000  8192
+   35   locks.0.b2.ghost_layers.2.cheap_operation.conv 0         0x0      0x24000  8192
+   37   m_blocks.0.b2.ghost_layers.3.primary_conv.conv 1         0x12000  0x3d000  8192
+   38   locks.0.b2.ghost_layers.3.cheap_operation.conv 0         0x0      0x24000  8192
+   40   m_blocks.0.b2.ghost_layers.4.primary_conv.conv 1         0x12000  0x3d000  8192
+   41   locks.0.b2.ghost_layers.4.cheap_operation.conv 0         0x0      0x24000  8192
+   最大 out_bytes op = op330 decoder.decoder_1.rdb.conv_layers.0.conv : 98304 B (out_off=0x24000)
+   offset 非 64B 对齐的 op 数 = 0（全部为 0 ⇒ align=64 生效）
+   out 跨度跨 4KB 边界的 op 数 = 92（227 个 op 中）
+   共用同一 (槽,in_off,out_off) 的 op 组数 = 2，最多 114 个 op 共用一组
+-- 若 nbuf=24：IN 槽区间 / OUT 槽区间（相对 arena 基址 0x30100000）
+   IN : [0x0,+73728) | [0x12000,+73728) | [0x24000,+73728) | [0x36000,+73728) | [0x48000,+73728) | [0x5a000,+73728) | [0x6c000,+73728) | [0x7e000,+73728) | [0x90000,+73728) | [0xa2000,+73728) | [0xb4000,+73728) | [0xc6000,+73728) | [0xd8000,+73728) | [0xea000,+73728) | [0xfc000,+73728) | [0x10e000,+73728) | [0x120000,+73728) | [0x132000,+73728) | [0x144000,+73728) | [0x156000,+73728) | [0x168000,+73728) | [0x17a000,+73728) | [0x18c000,+73728) | [0x19e000,+73728)
+   OUT: [0x1b0000,+102400) | [0x1c9000,+102400) | [0x1e2000,+102400) | [0x1fb000,+102400) | [0x214000,+102400) | [0x22d000,+102400) | [0x246000,+102400) | [0x25f000,+102400) | [0x278000,+102400) | [0x291000,+102400) | [0x2aa000,+102400) | [0x2c3000,+102400) | [0x2dc000,+102400) | [0x2f5000,+102400) | [0x30e000,+102400) | [0x327000,+102400) | [0x340000,+102400) | [0x359000,+102400) | [0x372000,+102400) | [0x38b000,+102400) | [0x3a4000,+102400) | [0x3bd000,+102400) | [0x3d6000,+102400) | [0x3ef000,+102400)
+   槽与槽之间重叠：无（bump 分配器按定义不相交）
+   逐 op（真实读写跨度）重叠：1926 对 ⇒ 其中【同槽时域复用】1926 对，【跨槽（=非法覆盖）】0 对
+   槽容量检查：越界 op 数 = 0
+====================================================================================================
+### hw=128  conv_ops=227  max_in=294912 (0.295 MB)  max_out=393216 (0.393 MB)  arena(24 槽声明)=16678912 (16.68 MB)
+-- 实跑 nbuf=2 (BIN_LAZY_DEQ=0)：IN 槽区间 / OUT 槽区间（相对 arena 基址 0x30100000）
+   IN : [0x0,+294912) | [0x48000,+294912)
+   OUT: [0x90000,+397312) | [0xf1000,+397312)
+   槽与槽之间重叠：无（bump 分配器按定义不相交）
+   逐 op（真实读写跨度）重叠：25538 对 ⇒ 其中【同槽时域复用】25538 对，【跨槽（=非法覆盖）】0 对
+   槽容量检查：越界 op 数 = 0
+   id   name                                           slot      in_off   out_off  out_bytes
+   2    encoder.encoder_1.rdb.conv_layers.0.conv       0         0x0      0x90000  262144
+   4    encoder.encoder_1.rdb.conv_layers.1.conv       1         0x48000  0xf1000  262144
+   6    encoder.encoder_1.rdb.conv_layers.2.conv       0         0x0      0x90000  262144
+   8    encoder.encoder_1.rdb.conv_post.conv           1         0x48000  0xf1000  196608
+   12   m_blocks.0.b0.ghost_layers.0.primary_conv.conv 0         0x0      0x90000  131072
+   13   locks.0.b0.ghost_layers.0.cheap_operation.conv 1         0x48000  0xf1000  131072
+   15   m_blocks.0.b0.ghost_layers.1.primary_conv.conv 0         0x0      0x90000  131072
+   16   locks.0.b0.ghost_layers.1.cheap_operation.conv 1         0x48000  0xf1000  131072
+   18   m_blocks.0.b0.ghost_layers.2.primary_conv.conv 0         0x0      0x90000  131072
+   19   locks.0.b0.ghost_layers.2.cheap_operation.conv 1         0x48000  0xf1000  131072
+   21   m_blocks.0.b0.ghost_layers.3.primary_conv.conv 0         0x0      0x90000  131072
+   22   locks.0.b0.ghost_layers.3.cheap_operation.conv 1         0x48000  0xf1000  131072
+   24   m_blocks.0.b0.ghost_layers.4.primary_conv.conv 0         0x0      0x90000  131072
+   25   locks.0.b0.ghost_layers.4.cheap_operation.conv 1         0x48000  0xf1000  131072
+   27   encoder.encoder_1.sam_blocks.0.b0.conv.conv    0         0x0      0x90000  196608
+   28   m_blocks.0.b2.ghost_layers.0.primary_conv.conv 1         0x48000  0xf1000  32768
+   29   locks.0.b2.ghost_layers.0.cheap_operation.conv 0         0x0      0x90000  32768
+   31   m_blocks.0.b2.ghost_layers.1.primary_conv.conv 1         0x48000  0xf1000  32768
+   32   locks.0.b2.ghost_layers.1.cheap_operation.conv 0         0x0      0x90000  32768
+   34   m_blocks.0.b2.ghost_layers.2.primary_conv.conv 1         0x48000  0xf1000  32768
+   35   locks.0.b2.ghost_layers.2.cheap_operation.conv 0         0x0      0x90000  32768
+   37   m_blocks.0.b2.ghost_layers.3.primary_conv.conv 1         0x48000  0xf1000  32768
+   38   locks.0.b2.ghost_layers.3.cheap_operation.conv 0         0x0      0x90000  32768
+   40   m_blocks.0.b2.ghost_layers.4.primary_conv.conv 1         0x48000  0xf1000  32768
+   41   locks.0.b2.ghost_layers.4.cheap_operation.conv 0         0x0      0x90000  32768
+   最大 out_bytes op = op330 decoder.decoder_1.rdb.conv_layers.0.conv : 393216 B (out_off=0x90000)
+   offset 非 64B 对齐的 op 数 = 0（全部为 0 ⇒ align=64 生效）
+   out 跨度跨 4KB 边界的 op 数 = 163（227 个 op 中）
+   共用同一 (槽,in_off,out_off) 的 op 组数 = 2，最多 114 个 op 共用一组
+-- 若 nbuf=24：IN 槽区间 / OUT 槽区间（相对 arena 基址 0x30100000）
+   IN : [0x0,+294912) | [0x48000,+294912) | [0x90000,+294912) | [0xd8000,+294912) | [0x120000,+294912) | [0x168000,+294912) | [0x1b0000,+294912) | [0x1f8000,+294912) | [0x240000,+294912) | [0x288000,+294912) | [0x2d0000,+294912) | [0x318000,+294912) | [0x360000,+294912) | [0x3a8000,+294912) | [0x3f0000,+294912) | [0x438000,+294912) | [0x480000,+294912) | [0x4c8000,+294912) | [0x510000,+294912) | [0x558000,+294912) | [0x5a0000,+294912) | [0x5e8000,+294912) | [0x630000,+294912) | [0x678000,+294912)
+   OUT: [0x6c0000,+397312) | [0x721000,+397312) | [0x782000,+397312) | [0x7e3000,+397312) | [0x844000,+397312) | [0x8a5000,+397312) | [0x906000,+397312) | [0x967000,+397312) | [0x9c8000,+397312) | [0xa29000,+397312) | [0xa8a000,+397312) | [0xaeb000,+397312) | [0xb4c000,+397312) | [0xbad000,+397312) | [0xc0e000,+397312) | [0xc6f000,+397312) | [0xcd0000,+397312) | [0xd31000,+397312) | [0xd92000,+397312) | [0xdf3000,+397312) | [0xe54000,+397312) | [0xeb5000,+397312) | [0xf16000,+397312) | [0xf77000,+397312)
+   槽与槽之间重叠：无（bump 分配器按定义不相交）
+   逐 op（真实读写跨度）重叠：1926 对 ⇒ 其中【同槽时域复用】1926 对，【跨槽（=非法覆盖）】0 对
+   槽容量检查：越界 op 数 = 0
+====================================================================================================
+### hw=256  conv_ops=227  max_in=1179648 (1.180 MB)  max_out=1572864 (1.573 MB)  arena(24 槽声明)=66224128 (66.22 MB)
+-- 实跑 nbuf=2 (BIN_LAZY_DEQ=0)：IN 槽区间 / OUT 槽区间（相对 arena 基址 0x30100000）
+   IN : [0x0,+1179648) | [0x120000,+1179648)
+   OUT: [0x240000,+1576960) | [0x3c1000,+1576960)
+   槽与槽之间重叠：无（bump 分配器按定义不相交）
+   逐 op（真实读写跨度）重叠：25538 对 ⇒ 其中【同槽时域复用】25538 对，【跨槽（=非法覆盖）】0 对
+   槽容量检查：越界 op 数 = 0
+   id   name                                           slot      in_off   out_off  out_bytes
+   2    encoder.encoder_1.rdb.conv_layers.0.conv       0         0x0      0x240000 1048576
+   4    encoder.encoder_1.rdb.conv_layers.1.conv       1         0x120000 0x3c1000 1048576
+   6    encoder.encoder_1.rdb.conv_layers.2.conv       0         0x0      0x240000 1048576
+   8    encoder.encoder_1.rdb.conv_post.conv           1         0x120000 0x3c1000 786432
+   12   m_blocks.0.b0.ghost_layers.0.primary_conv.conv 0         0x0      0x240000 524288
+   13   locks.0.b0.ghost_layers.0.cheap_operation.conv 1         0x120000 0x3c1000 524288
+   15   m_blocks.0.b0.ghost_layers.1.primary_conv.conv 0         0x0      0x240000 524288
+   16   locks.0.b0.ghost_layers.1.cheap_operation.conv 1         0x120000 0x3c1000 524288
+   18   m_blocks.0.b0.ghost_layers.2.primary_conv.conv 0         0x0      0x240000 524288
+   19   locks.0.b0.ghost_layers.2.cheap_operation.conv 1         0x120000 0x3c1000 524288
+   21   m_blocks.0.b0.ghost_layers.3.primary_conv.conv 0         0x0      0x240000 524288
+   22   locks.0.b0.ghost_layers.3.cheap_operation.conv 1         0x120000 0x3c1000 524288
+   24   m_blocks.0.b0.ghost_layers.4.primary_conv.conv 0         0x0      0x240000 524288
+   25   locks.0.b0.ghost_layers.4.cheap_operation.conv 1         0x120000 0x3c1000 524288
+   27   encoder.encoder_1.sam_blocks.0.b0.conv.conv    0         0x0      0x240000 786432
+   28   m_blocks.0.b2.ghost_layers.0.primary_conv.conv 1         0x120000 0x3c1000 131072
+   29   locks.0.b2.ghost_layers.0.cheap_operation.conv 0         0x0      0x240000 131072
+   31   m_blocks.0.b2.ghost_layers.1.primary_conv.conv 1         0x120000 0x3c1000 131072
+   32   locks.0.b2.ghost_layers.1.cheap_operation.conv 0         0x0      0x240000 131072
+   34   m_blocks.0.b2.ghost_layers.2.primary_conv.conv 1         0x120000 0x3c1000 131072
+   35   locks.0.b2.ghost_layers.2.cheap_operation.conv 0         0x0      0x240000 131072
+   37   m_blocks.0.b2.ghost_layers.3.primary_conv.conv 1         0x120000 0x3c1000 131072
+   38   locks.0.b2.ghost_layers.3.cheap_operation.conv 0         0x0      0x240000 131072
+   40   m_blocks.0.b2.ghost_layers.4.primary_conv.conv 1         0x120000 0x3c1000 131072
+   41   locks.0.b2.ghost_layers.4.cheap_operation.conv 0         0x0      0x240000 131072
+   最大 out_bytes op = op330 decoder.decoder_1.rdb.conv_layers.0.conv : 1572864 B (out_off=0x240000)
+   offset 非 64B 对齐的 op 数 = 0（全部为 0 ⇒ align=64 生效）
+   out 跨度跨 4KB 边界的 op 数 = 206（227 个 op 中）
+   共用同一 (槽,in_off,out_off) 的 op 组数 = 2，最多 114 个 op 共用一组
+-- 若 nbuf=24：IN 槽区间 / OUT 槽区间（相对 arena 基址 0x30100000）
+   IN : [0x0,+1179648) | [0x120000,+1179648) | [0x240000,+1179648) | [0x360000,+1179648) | [0x480000,+1179648) | [0x5a0000,+1179648) | [0x6c0000,+1179648) | [0x7e0000,+1179648) | [0x900000,+1179648) | [0xa20000,+1179648) | [0xb40000,+1179648) | [0xc60000,+1179648) | [0xd80000,+1179648) | [0xea0000,+1179648) | [0xfc0000,+1179648) | [0x10e0000,+1179648) | [0x1200000,+1179648) | [0x1320000,+1179648) | [0x1440000,+1179648) | [0x1560000,+1179648) | [0x1680000,+1179648) | [0x17a0000,+1179648) | [0x18c0000,+1179648) | [0x19e0000,+1179648)
+   OUT: [0x1b00000,+1576960) | [0x1c81000,+1576960) | [0x1e02000,+1576960) | [0x1f83000,+1576960) | [0x2104000,+1576960) | [0x2285000,+1576960) | [0x2406000,+1576960) | [0x2587000,+1576960) | [0x2708000,+1576960) | [0x2889000,+1576960) | [0x2a0a000,+1576960) | [0x2b8b000,+1576960) | [0x2d0c000,+1576960) | [0x2e8d000,+1576960) | [0x300e000,+1576960) | [0x318f000,+1576960) | [0x3310000,+1576960) | [0x3491000,+1576960) | [0x3612000,+1576960) | [0x3793000,+1576960) | [0x3914000,+1576960) | [0x3a95000,+1576960) | [0x3c16000,+1576960) | [0x3d97000,+1576960)
+   槽与槽之间重叠：无（bump 分配器按定义不相交）
+   逐 op（真实读写跨度）重叠：1926 对 ⇒ 其中【同槽时域复用】1926 对，【跨槽（=非法覆盖）】0 对
+   槽容量检查：越界 op 数 = 0

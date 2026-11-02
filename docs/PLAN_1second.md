@@ -6564,3 +6564,31 @@ $$\Rightarrow\ \textbf{下一轮转向}：\text{查 } \mathtt{op13}\ \text{附�
 $$\Rightarrow\ \text{新假设（待验）：}\mathbf{\text{arena 缓冲在 } \ge 128^2\ \text{时}\textbf{地址重叠}} \Rightarrow \text{后期 op 覆盖前期结果}$$
 $$\quad\ \Rightarrow\ \text{能解释：}\text{稳定错、从第 }13\ \text{个 op 起、逐 op 放大、单层全对（只用一块缓冲）}$$
 $$\quad\ \Rightarrow\ \text{而且}\textbf{纯主机侧可查}：\text{把每个 op 的 } [\mathtt{offset},\ \mathtt{offset}+\mathtt{size})\ \text{算出来做两两重叠检查}$$
+
+### 70.90 T-126：arena 重叠假设**被否**，但暴露两个更重要的东西（2026-11-03 04:0x）
+
+**假设不成立（结构上不可能）**
+$$\Rightarrow\ \text{arena 是}\textbf{单指针 bump 分配器}（\mathtt{bin\_engine.py:428\text{-}436}\text{）}：\text{IN 槽全部切完再切 OUT}$$
+$$\Rightarrow\ \mathtt{IN0.end} = \mathtt{IN1.start} = \mathtt{0x48000};\ \mathtt{OUT0.end} = \mathtt{OUT1.start} = \mathtt{0xF1000} \Rightarrow \textbf{不可能相交}$$
+$$\Rightarrow\ \textbf{跨槽非法重叠 = 0 对};\ 64^2/128^2/256^2\ \text{三档都是 0};\ \mathtt{max\_in}/\mathtt{max\_out}\ \text{精确 }4\times$$
+$$\Rightarrow\ \textbf{没有任何按 }64^2\ \text{写死的上界};\ \mathtt{OUT0}\ \text{偏移} = \mathtt{nbuf}\cdot\mathtt{align64}(\mathtt{max\_in})\ \text{随尺寸放大}$$
+$$\Rightarrow\ \text{模型已被板端反证：算出 }128^2\ \text{arena} = 16678912\ \text{B}\ \text{与 T-124 板上日志逐位相同}$$
+$$\Rightarrow\ \textbf{反向证据（这条很硬）}：\text{若真是"被覆盖"，覆盖者写的是它的}\textbf{合法输出} \Rightarrow \text{在参照里}\textbf{必然找得到}$$
+$$\quad\ \text{而 T-124 明确报"坏块在参照里找不到"} \Rightarrow \textbf{是"没写进去/写偏"，不是"被盖"}$$
+
+**★ 但它暴露了一个护栏盲区（可能一直是我们的盲点）**
+$$\Rightarrow\ \mathtt{BinGuard.fill\_canary}\ (\mathtt{bin\_engine.py:203\text{-}205})\ \text{只涂}\textbf{槽尾 4 KB}$$
+$$\Rightarrow\ \text{小 op（}\mathtt{out\_bytes}=32768\ \text{B}\ \text{对 }397312\ \text{B}\ \text{的槽）可以}\textbf{越界 }\sim352\ \text{KB}\ \text{而任何护栏都不报警}$$
+$$\Rightarrow\ \Rightarrow\ \textbf{"金丝雀没报警"不能证明没有越界写}——\text{这解释了为什么一路"0 B 越界"却没找到病}$$
+
+**★ 另一个前提修正（影响我前面所有说"24 槽"的结论）**
+$$\Rightarrow\ \mathtt{BIN\_LAZY\_DEQ=0}\ \text{时 } \mathtt{BIN\_LAZY\_SLOTS}=24\ \textbf{不生效}（\mathtt{bin\_net.py:2988/2995}，\text{探针传 } \mathtt{nbuf}=2）$$
+$$\Rightarrow\ \Rightarrow\ \text{实际只 }\mathbf{2}\ \text{槽};\ 16.68\ \text{MB 里 }15.3\ \text{MB}\ \textbf{从未被写}（256^2\ \text{是 }66.22\ \text{MB 用 }5.51\ \text{MB）}$$
+$$\Rightarrow\ \text{之前"槽数 2/4/8/24 全对"的实验因此意义有限（都是 2 槽）——\text{但}\textbf{结论方向不变}（PS 侧无差别）}$$
+
+**★ T-126 反向提示的第 8 条指向了我一直漏掉的对照**
+$$\Rightarrow\ \text{PS arena 排除后，能"跨 op 累积"的只剩 PL 内部收笔状态，}\text{或者}\textbf{"层间 C8 交接"本身}$$
+$$\Rightarrow\ \textbf{关键遗漏}：\text{所有单层测试的输入都是}\textbf{PS/numpy 准备好}的，\text{而整网里 op }N\ \text{读的是}\mathbf{op}\ N{-}1\ \textbf{由 PL 写出的 C8 输出}$$
+$$\Rightarrow\ \Rightarrow\ \textbf{"写出的布局" \neq "读入的期望"} \text{这一类错，单层测试}\textbf{结构上测不到}$$
+$$\quad\ \Rightarrow\ \text{而 T-122 的"双 op 交替"是}\textbf{两个独立 op}（\text{各自用 PS 准备的输入）}，\textbf{不是链式}$$
+$$\Rightarrow\ \text{已派 T-127 做}\textbf{链式两 op}（\text{消费者读生产者的输出），128^2 + 64^2 对照}$$
