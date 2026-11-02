@@ -306,3 +306,26 @@ $$\Rightarrow\ \text{本阶段的融合只做 }\mathbf{CONV}\to\mathbf{PACK}\ \t
 $$\Rightarrow\ \text{旧语义：段输入张量基址（DDR）}$$
 $$\Rightarrow\ \text{band 模式：输入来自 band 缓冲} \Rightarrow \text{字 0 改用为}\textbf{段输入在 DDR 的源基址}（\text{填充器用}）$$
 $$\Rightarrow\ \Rightarrow\ \textbf{裁定：字 0 在 } \mathtt{FUSE\_MODE=1}\ \text{时解释为"段输入 DDR 基址"}，\text{band 偏移由 } \mathtt{band\_y0}\ \text{与填行号算}$$
+
+---
+
+## 13. 契约 B **最终定稿**（2026-11-02 17:05，解决 w3 归属冲突）
+
+> T-87 报：IMP-B2 的填充器把 **w3 低 16 当 `W`**，而 §12.3 + PS 把低 16 当 `cfg_h`、`W` 在 w4。
+> **裁定：以本文为准，填充器改。**
+
+| 字 | 字段 | 说明 |
+|---|---|---|
+| **w0** | `src_pa` | `FUSE_MODE=1`：段输入在 DDR 的**源基址**；`=0`：旧语义（段输入张量基址）|
+| **w1** | `out_pa` | 输出基址（**不带**带偏移；偏移只由 w6 给）|
+| **w2** | `cfg_c` | 组通道数（旧语义）|
+| **w3** | `cfg_h`(低 16) ‖ `H_in`(高 16) | `cfg_h` = 本带**有效输出行数**（不含 halo）；`H_in` = 输入张量高度 |
+| **w4** | `cfg_w` | **行宽 `W`** |
+| **w5** | `cfg_group` | 组数（旧语义）|
+| **w6** | `band_y0` | 本带首个有效输出行的**绝对行号** |
+| **w7** | `flags` | bit0 末带 / bit1 物化 / bit2 shuffle / bit3 f32；未定义位**忽略** |
+| **w8** | `next_pa` | 下一描述符物理地址；**0 = 链尾** |
+| **w9** | `nband`(低 16) ‖ `op_mask`(高 16) | `op_mask`：bit0 conv / bit1 pack / bit2 sam（**sam 本阶段禁用**）|
+
+$$\Rightarrow\ \textbf{填充器必须}：\text{行宽取 } \mathtt{w4}，\text{带内有效行数取 } \mathtt{w3}\ \text{低 16}，\text{输入高度取 } \mathtt{w3}\ \text{高 16}$$
+$$\Rightarrow\ \textbf{不许}：\text{把 } \mathtt{w3}\ \text{低 16 当 } W（\text{IMP-B2 的写法，必须改}）$$
