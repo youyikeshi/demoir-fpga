@@ -5892,3 +5892,31 @@ $$\quad\ \Rightarrow\ \text{每字 } 4\ \text{lane}（\text{V=8 时 alpha 2 字}
 $$\Rightarrow\ \text{T-94 把"压力线丢拍"改成"hold-until-accepted"} \Rightarrow \textbf{正确但会停核}$$
 $$\Rightarrow\ \Rightarrow\ \text{根因是}\textbf{写 FIFO 不够深 / 不能连续吞两拍}，\text{不是协议错}$$
 $$\Rightarrow\ \text{修法方向：加深写 FIFO 或让串行化器每拍都能接一拍} \Rightarrow \text{而不是回到丢拍}$$
+
+### 70.64 ★★★★ T-97：±1 **不在 RTL 里**（三条怀疑全否证）；吞吐真因是**写合并被打散**（2026-11-02 21:08）
+
+**结论一：RTL 一个字节没改，三个怀疑全部否证**
+$$\Rightarrow\ \text{数值 TB = 包装层，参数/权重}\textbf{直接取板上那一份 } \mathtt{deploy/bin\_weights\_new}，\text{golden 用探针同一个 } \mathtt{bin\_ref\_numpy.conv\_rtl}$$
+$$\Rightarrow\ \text{5 个真实失败层（板上几何）：}V16\ \text{一次 vs } V8\ \text{两趟}\ \mathbf{\text{逐字节 0 差}}\ (65536/65536,\ 49152/49152,\ 196608/196608)$$
+$$\Rightarrow\ \text{其中 2 层把}\textbf{激活也换成板上逐字节同一份} \Rightarrow 0\ \text{差};\ \text{极端环境（读延迟 } 400\text{-}800\ \text{拍、}\mathtt{MAXOUTSTANDING}=1、+\mathtt{WSTALLN}=80）\text{仍 } 0\ \text{差}$$
+$$\Rightarrow\ \Rightarrow\ \textbf{PRM 槽位读邻居 / 末块补零掩码 / 权重 BRAM lane 选择 —— 三条都持不住}$$
+$$\Rightarrow\ \text{我上一轮把 }\pm1\ \text{归因到 } \mathtt{PRM}\ \text{是}\textbf{错的}（\text{第 4 次"我以为的机制"被数据推翻}）$$
+
+**结论二：板上错误形状指向"激活字读错"，且是硬件层**
+$$\Rightarrow\ \textbf{非确定性}：\text{同层两次 session 就不同}（\mathtt{c48}\ 1381/1353;\ \mathtt{c112}\ 24476/24856;\ \mathtt{c176}\ 18540/19222）$$
+$$\quad\ \Rightarrow\ \text{映射/槽位类是}\textbf{确定错}，\text{非确定}\Rightarrow \text{不是那类}$$
+$$\Rightarrow\ \textbf{同像素成簇、多通道}：\mathtt{c112}\ \text{首批 8 个错字节像素全 } =12，\text{平均 } 26/64\ \text{通道/像素}$$
+$$\quad\ \Rightarrow\ \text{错的是该像素共享的 }\mathbf{64\text{-}bit\ \text{激活字}}，\text{不是各 lane 自己的参数}$$
+$$\Rightarrow\ \Rightarrow\ \textbf{bitstream } \neq \textbf{ RTL 已被排除} \Rightarrow \text{剩下是}\textbf{时序/环境}$$
+$$\Rightarrow\ \text{时序：WNS } +0.113\ \text{ns}、\text{WHS } +0.038\ \text{ns（100 MHz）} \Rightarrow \textbf{余量 1\% / 0.4\%}$$
+
+**结论三：吞吐 —— 我的"FIFO 不够深"假设不成立**
+$$\Rightarrow\ \text{板上每 8 B 写 beat 的拍数：}\mathbf{20.03/20.28/22.13/20.43/20.03}（5/5\ \text{层）} \Rightarrow \textbf{恒定墙，与 } \mathtt{cin}/\mathtt{cout}/k\ \text{无关}$$
+$$\Rightarrow\ \text{同形状 } \mathtt{xsim}\ \text{的 AW 笔数：}V8 = 1049/1039\ \text{笔（}7.8\ \text{beat/AW}）;\ V16 = \mathbf{8192}\ \text{笔（}\mathbf{1.00\ \text{beat/AW}}）$$
+$$\quad\ \Rightarrow\ \text{beat0/beat1 在两个相隔 } H_{\text{out}}W_{\text{out}}\times 8\ \text{字节的平面交替} \Rightarrow \textbf{每拍都断链} \Rightarrow 1\ \text{beat}=1\ \text{AW}$$
+$$\quad\ \Rightarrow\ \text{撞上 } \mathtt{AW}\to\mathtt{W}\to\mathtt{B}\ \text{往返} \approx 20\ \text{拍}$$
+$$\Rightarrow\ \text{FIFO 深度扫描 } 16\to24\to32\to64：\text{总拍 } 41728\to41407（\mathbf{-0.8\%}）\Rightarrow \textbf{加深无用}$$
+$$\Rightarrow\ \text{要不停核需 } K\ge 40;\ \text{本网 } K=9,18,27,4,8\ \mathbf{\text{全}<40} \Rightarrow \textbf{没有任何有限深度能解决}$$
+$$\Rightarrow\ \Rightarrow\ \textbf{唯一方向：提高排空速率} —— \text{两半平面各攒 } 8\ \text{beat 成一笔 burst（写合并）}$$
+
+**顺手发现（未改）**：非融合 done 判据 `wr_all_idle` 含 `!p_valid&&!pw_valid` 但不含 `wr_split_pend_i`；融合通路的 `seg_band_done` 反而含了。仿真里该窗口 = 0 拍 ⇒ 不是 ±1 的原因。

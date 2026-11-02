@@ -1,0 +1,1 @@
+xsim {snap} -testplusarg GOLDEN=/media/felix/Data/coding/demoir-fpga/runs/v97_lane1bit/golden/v97_c240_o48_32x32 -testplusarg SHAPE_NAME=v97_c240_o48_32x32 -testplusarg NOSTOP=1 -testplusarg CIN=240 -testplusarg COUT=48 -testplusarg K=1 -testplusarg S=1 -testplusarg D=1 -testplusarg PAD=0 -testplusarg H=32 -testplusarg W=32 -testplusarg SHIFT=4 -autoloadwcfg -runall
