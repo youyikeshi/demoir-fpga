@@ -4972,3 +4972,35 @@ $$\Rightarrow\ \textbf{G2-E 通过}：\texttt{pf\_tag\_reg}\ \text{违例 } \mat
 $$\quad\ \texttt{ph\_reg}\to\texttt{pf\_tag}\ \text{直查 } \textbf{NO\_PATH} \Rightarrow \text{v42 那条 } -4.719\ \text{的锥在本版}\textbf{不存在}$$
 $$\Rightarrow\ \textbf{唯一负面记账}：\text{G2-C 的 } \texttt{win\_q}\ \text{写地址最差 } -1.605\to-2.404（-0.8\ \text{ns}，64\ \text{条新端点，起点全是 ps7）}$$
 $$\quad\ \Rightarrow\ \text{该族在 v39 更糟时（} -1.605 \text{）都能跑} \Rightarrow \text{风险等级与 v39 同级，不是新类型}$$
+
+### 70.30 ⛔ 预取路线正式关闭：`PF_AHEAD` 这一维不可动（2026-11-02 10:35）
+
+| 位流 | RTL 差异 | 150 MHz | 100 MHz |
+|---|---|---|---|
+| v42 | 四参数 + 计数器 + e1e2 | 24 跑 24 种 sha1（非确定）| — |
+| v42c | `PF_AHEAD=2` + 计数器 | **挂死**（busy=1）| 跑完但**数据错且非确定** |
+| v42d | 只有计数器（参数 = v39）| **越界写**（金丝雀 8/4096）| — |
+| **v42e** | **只有 `PF_AHEAD=2`（零诊断）** | **挂死**（`AP_RETURN=0x02`, busy=1）| 待补 |
+
+$$\Rightarrow\ \text{v42e 是"v42c 去掉计数器"}\ \Rightarrow\ \text{挂死形态同型} \Rightarrow \textbf{计数器不是原因}$$
+$$\Rightarrow\ \text{剩余差异只有 } \texttt{PF\_AHEAD } 1\to2 \Rightarrow \textbf{预取簿记把读通路锁死}（\text{需求读等一条永不回填的线}）$$
+$$\Rightarrow\ \textbf{第 96 条纪律}：\text{参数之间若有契约（RTL 注释写着 } \texttt{PF\_DEPTH}\ \text{须配合 } \texttt{PF\_AHEAD}\text{），}$$
+$$\quad\ \text{则}\textbf{单独调任一维等于破坏契约}\text{；要么整对一起改+仿真证明，要么一维都别碰}$$
+$$\quad\ \Rightarrow\ \text{本项目为此烧掉 4 颗位流（v42/v42c/v42d/v42e）+ 5 轮上板}$$
+
+$$\Rightarrow\ \text{要再动它，前置条件是}\textbf{新的仿真门禁}：\text{TB 必须能}\textbf{乱序/背压}返回 AXI 响应 + \text{"冻结 + 同时写入"}$$
+$$\Rightarrow\ \text{在此之前，conv 的 } 1.12\ \text{s 里那块缺口（算力地板 } 0.377\text{）}\textbf{不许当成"可回收"写进路线图}$$
+
+**口径更正（T-54）**：v39 热态 `conv ≈ 1.117 s`（逐跑 1.155/1.113/1.121），**1.25 是冷跑/off 口径**。以后判据写「1.12 → 0.9~1.0」。
+
+**导入期常量（T-54 踩到，已入记忆）**：`BE._PROF` / `_MMIO_*` / `_E1E2_DBG` 都是 `bin_engine` **导入期**读的常量
+⇒ 运行点与开关**必须在 `import bin_engine` 之前**写进 `os.environ`；放进 `set_env()` 会得到 `_PROF=False`（实测 rc=6）。
+
+---
+
+### 70.31 路线图更新（预取出局后的重排）
+
+$$\Rightarrow\ \text{阶段 2 里"预取"这一项}\textbf{删除};\ \text{只剩 } \texttt{pack 698\to227}\ \text{（}-0.02\sim0.37\text{）}$$
+$$\Rightarrow\ \text{阶段 3（convfp 搬 PL，}-0.75\text{）}\textbf{升为下一个主攻}——\text{它是唯一"RTL 已验完、只缺集成"的大块}$$
+$$\Rightarrow\ \text{阶段 4（全融合）不变，但"conv 停顿"那一项从"有明确机制"降级为"机制待证"}$$
+$$\Rightarrow\ \text{新的里程碑：}5.99\ \to\ (\text{①②③实测 }-0.14)\ \approx 5.85\ \to\ (\text{convfp 搬 PL }-0.75)\ \approx \mathbf{5.1}$$
