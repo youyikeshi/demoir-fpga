@@ -1,0 +1,327 @@
+{
+ "env_at_start": {
+  "BIN_PACK": "e1e2",
+  "BIN_LAZY_DEQ": "0",
+  "BIN_LAZY_SLOTS": "24",
+  "BIN_CAT_FUSION": "1",
+  "BIN_BILINEAR_C": "1",
+  "BIN_PRECOMP": "1",
+  "Q8CACHE": "1",
+  "BIN_F32DIRECT": "1",
+  "BIN_CAT_ECA_FUSE": "1",
+  "BIN_EPI_NOINV": "1",
+  "BIN_PROFILE": "1",
+  "BIN_V50_FUSE": "",
+  "BIN_VLANES": ""
+ },
+ "steps": {
+  "load": {
+   "bit": "/home/xilinx/demoir/design_1_150v39.bit",
+   "seconds": 2.7305,
+   "ips": [
+    "bin_unit_0",
+    "conv_uni_0",
+    "ps7"
+   ],
+   "has_fconv": false,
+   "addr": {
+    "conv_uni_0": {
+     "base": "0x40040000",
+     "length": 131072,
+     "ok": true
+    },
+    "bin_unit_0": {
+     "base": "0x40060000",
+     "length": 131072,
+     "ok": true
+    }
+   },
+   "fclk0_at_load": 125.0,
+   "downloads": 1,
+   "meminfo_after_load": {
+    "MemTotal": 1028264,
+    "MemFree": 755568,
+    "MemAvailable": 832284,
+    "SwapTotal": 524284,
+    "SwapFree": 508412,
+    "CmaTotal": 262144,
+    "CmaFree": 51088
+   },
+   "fp_ok": true
+  },
+  "identity": {
+   "alpha_shift": 9,
+   "slope_shift": 8,
+   "ap_ctrl": 0,
+   "ap_ret": 0,
+   "dbg_flag": 0,
+   "resv_0x18": 0,
+   "ip": "bin_unit_0",
+   "base": 1074135040,
+   "range": 131072,
+   "ok": true,
+   "magic_note": "v39 无 0x314 CHAIN_ID（未读，不算故障）"
+  },
+  "kernel_load": {
+   "q8": {
+    "loaded": true,
+    "seconds": 0.2703,
+    "why": "ok"
+   },
+   "c8deq": {
+    "loaded": true,
+    "seconds": 4.3508,
+    "why": "ok"
+   },
+   "bpack": {
+    "loaded": true,
+    "seconds": 1.7686,
+    "why": "ok"
+   }
+  }
+ },
+ "python": "3.10.4",
+ "numpy": "1.21.5",
+ "machine": "armv7l",
+ "meminfo_at_start": {
+  "MemTotal": 1028264,
+  "MemFree": 787692,
+  "MemAvailable": 848228,
+  "SwapTotal": 524284,
+  "SwapFree": 508412,
+  "CmaTotal": 262144,
+  "CmaFree": 82704
+ },
+ "args": {
+  "bit": "/home/xilinx/demoir/design_1_150v39.bit",
+  "pack": "/home/xilinx/demoir/deploy/bin_weights_new",
+  "outdir": "/home/xilinx/demoir/t117_out",
+  "freq": 50.0,
+  "slots": 24,
+  "runs_big": 2,
+  "runs_64": 2,
+  "wd64": 240.0,
+  "wd256": 900.0,
+  "tag": "t117"
+ },
+ "fclk_target": 50.0,
+ "fclk_readback": 50.0,
+ "net_256": {
+  "tag": "net256",
+  "hw": 256,
+  "slots": 24,
+  "arena_mb": 66.224,
+  "exact_need": true,
+  "fclk": 50.0,
+  "x0_sha1": "cfc75bc3f15d306b07787325fdc9ae715cfadd0a",
+  "x0_ok": true,
+  "conv_cyc": 451072512,
+  "nrun": 2,
+  "runs": [
+   {
+    "run": 1,
+    "wall_s": 18.002,
+    "total_s": 17.99697780609131,
+    "pl_s": 5.225391149520874,
+    "ps_s": 15.522134751998237,
+    "prologue": 10.282410621643066,
+    "epilogue": 1.0323264309990918,
+    "nonconv": 4.207397699356079,
+    "overlap": 4.0006444454193115,
+    "wait": 1.5465397834777832,
+    "pack_pl": 0.0,
+    "n_conv_ops": 227,
+    "mmio_writes": 6117,
+    "deps_closure_ok": true,
+    "perf_warm": true,
+    "run_valid": true,
+    "lazy_deq": false,
+    "lazy": {
+     "pinned": 0,
+     "released": 0,
+     "starved": 0,
+     "direct_layers": 0,
+     "mixed_layers": 0,
+     "ps_layers": 0,
+     "deq_skipped": 0,
+     "direct_bytes": 0,
+     "f32_bytes": 0
+    },
+    "conv_cyc": 451072512,
+    "pl_cyc_meas": 261269557,
+    "pl_cyc_ratio": 0.5792,
+    "cma_free_before_b": 94208,
+    "cma_free_after_b": 40960,
+    "sha1": {
+     "out1": "9b1940c8955be53ccffd7905e333deffcea31f0a",
+     "out2": "f86a7035621bed133374a1bef42a27db204e7019",
+     "out3": "025757a83c3993c8f592e31219b6a97906020363"
+    },
+    "sha_ok": true,
+    "ap_ret_after": "0x00000000",
+    "pl_idle_after": false,
+    "fclk": 50.0
+   },
+   {
+    "run": 2,
+    "wall_s": 16.686,
+    "total_s": 16.680839776992798,
+    "pl_s": 4.3587212562561035,
+    "ps_s": 14.282650013932198,
+    "prologue": 9.96464228630066,
+    "epilogue": 1.0389645299997028,
+    "nonconv": 3.279043197631836,
+    "overlap": 3.137187957763672,
+    "wait": 1.5491833686828613,
+    "pack_pl": 0.0,
+    "n_conv_ops": 227,
+    "mmio_writes": 6117,
+    "deps_closure_ok": true,
+    "perf_warm": true,
+    "run_valid": true,
+    "lazy_deq": false,
+    "lazy": {
+     "pinned": 0,
+     "released": 0,
+     "starved": 0,
+     "direct_layers": 0,
+     "mixed_layers": 0,
+     "ps_layers": 0,
+     "deq_skipped": 0,
+     "direct_bytes": 0,
+     "f32_bytes": 0
+    },
+    "conv_cyc": 451072512,
+    "pl_cyc_meas": 217936063,
+    "pl_cyc_ratio": 0.4832,
+    "cma_free_before_b": 892928,
+    "cma_free_after_b": 40960,
+    "sha1": {
+     "out1": "9b1940c8955be53ccffd7905e333deffcea31f0a",
+     "out2": "f86a7035621bed133374a1bef42a27db204e7019",
+     "out3": "025757a83c3993c8f592e31219b6a97906020363"
+    },
+    "sha_ok": true,
+    "ap_ret_after": "0x00000000",
+    "pl_idle_after": false,
+    "fclk": 50.0
+   }
+  ],
+  "same_across_runs": true,
+  "sha_ok_all": true,
+  "pl_idle_all": false,
+  "lazy_deq": "0",
+  "pass": true
+ },
+ "net_64": {
+  "tag": "net64",
+  "hw": 64,
+  "slots": 24,
+  "arena_mb": 4.293,
+  "exact_need": true,
+  "fclk": 50.0,
+  "x0_sha1": "bbae82e46e363a776d8fce8d9004e94502456bdc",
+  "x0_ok": true,
+  "conv_cyc": 28605312,
+  "nrun": 2,
+  "runs": [
+   {
+    "run": 1,
+    "wall_s": 3.943,
+    "total_s": 3.9374496936798096,
+    "pl_s": 0.62481689453125,
+    "ps_s": 2.62991702528484,
+    "prologue": 2.066103935241699,
+    "epilogue": 0.20506632299907324,
+    "nonconv": 0.3587467670440674,
+    "overlap": 0.46295738220214844,
+    "wait": 0.1658945083618164,
+    "pack_pl": 0.0,
+    "n_conv_ops": 227,
+    "mmio_writes": 6119,
+    "deps_closure_ok": true,
+    "perf_warm": true,
+    "run_valid": true,
+    "lazy_deq": false,
+    "lazy": {
+     "pinned": 0,
+     "released": 0,
+     "starved": 0,
+     "direct_layers": 0,
+     "mixed_layers": 0,
+     "ps_layers": 0,
+     "deq_skipped": 0,
+     "direct_bytes": 0,
+     "f32_bytes": 0
+    },
+    "conv_cyc": 28605312,
+    "pl_cyc_meas": 31240845,
+    "pl_cyc_ratio": 1.0921,
+    "cma_free_before_b": 63086592,
+    "cma_free_after_b": 61333504,
+    "sha1": {
+     "out1": "bfa246d34681e748311bbcd2f1b87317a56923fe",
+     "out2": "226bd39e522aa373b8fc183acae5280931f8b63f",
+     "out3": "762d84b9618eab8922edd6da4f07ba06de865628"
+    },
+    "sha_ok": true,
+    "ap_ret_after": "0x00000000",
+    "pl_idle_after": false,
+    "fclk": 50.0
+   },
+   {
+    "run": 2,
+    "wall_s": 3.836,
+    "total_s": 3.8310952186584473,
+    "pl_s": 0.6088337898254395,
+    "ps_s": 2.5201407900167396,
+    "prologue": 1.9646601676940918,
+    "epilogue": 0.20476093199977186,
+    "nonconv": 0.350719690322876,
+    "overlap": 0.44622254371643066,
+    "wait": 0.16750192642211914,
+    "pack_pl": 0.0,
+    "n_conv_ops": 227,
+    "mmio_writes": 6119,
+    "deps_closure_ok": true,
+    "perf_warm": true,
+    "run_valid": true,
+    "lazy_deq": false,
+    "lazy": {
+     "pinned": 0,
+     "released": 0,
+     "starved": 0,
+     "direct_layers": 0,
+     "mixed_layers": 0,
+     "ps_layers": 0,
+     "deq_skipped": 0,
+     "direct_bytes": 0,
+     "f32_bytes": 0
+    },
+    "conv_cyc": 28605312,
+    "pl_cyc_meas": 30441689,
+    "pl_cyc_ratio": 1.0642,
+    "cma_free_before_b": 62398464,
+    "cma_free_after_b": 61362176,
+    "sha1": {
+     "out1": "bfa246d34681e748311bbcd2f1b87317a56923fe",
+     "out2": "226bd39e522aa373b8fc183acae5280931f8b63f",
+     "out3": "762d84b9618eab8922edd6da4f07ba06de865628"
+    },
+    "sha_ok": true,
+    "ap_ret_after": "0x00000000",
+    "pl_idle_after": false,
+    "fclk": 50.0
+   }
+  ],
+  "same_across_runs": true,
+  "sha_ok_all": true,
+  "pl_idle_all": false,
+  "lazy_deq": "0",
+  "pass": true
+ },
+ "verdict": "v39 在 256² 上仍对 ⇒ 根因在 RTL（v53）",
+ "v39_256_ok": true,
+ "v39_64_ok": true,
+ "finished": "2025-05-09 04:51:09"
+}

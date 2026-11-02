@@ -1,0 +1,87 @@
+[t117] 日志 = /home/xilinx/demoir/t117_out/t117_045007.log
+[t117] bit = /home/xilinx/demoir/design_1_150v39.bit
+[t117] 目标频率 = 50 MHz | 槽数 = 24
+[t117] 运行点 = {"BIN_PACK": "e1e2", "BIN_LAZY_DEQ": "0", "BIN_LAZY_SLOTS": "24", "BIN_CAT_FUSION": "1", "BIN_BILINEAR_C": "1", "BIN_PRECOMP": "1", "Q8CACHE": "1", "BIN_F32DIRECT": "1", "BIN_CAT_ECA_FUSE": "1", "BIN_EPI_NOINV": "1", "BIN_PROFILE": "1", "BIN_V50_FUSE": "", "BIN_VLANES": ""}
+[t117] meminfo = {'MemTotal': 1028264, 'MemFree': 787692, 'MemAvailable': 848228, 'SwapTotal': 524284, 'SwapFree': 508412, 'CmaTotal': 262144, 'CmaFree': 82704}
+
+==============================================================================
+  第 1 步：load v39 overlay + 基址指纹（本进程唯一一次 download=True）
+==============================================================================
+  Overlay(design_1_150v39.bit) 用时 2.731 s
+  IP 清单：['bin_unit_0', 'conv_uni_0', 'ps7']
+  conv_uni_0  base=0x40040000 length=0x20000 （期望 0x40040000）✓
+  bin_unit_0  base=0x40060000 length=0x20000 （期望 0x40060000）✓
+  load 后 fclk0 读回 = 125 MHz
+  ★ 第 1 步收尾：fclk0 目标 50 → **读回 50 MHz**；AP_RETURN=0x00000000
+
+==============================================================================
+  第 1b 步：v39 身份指纹（★ 不读 0x314 magic：v39 没有这个寄存器）
+==============================================================================
+  alpha_shift=9 slope_shift=8（期望 9 / 8）
+  AP_CTRL=0x00000000 AP_RETURN=0x00000000 DBG_FLAG=0x00000000
+  保留页 ResvPage[0x18] = 0x0（期望 0）
+  引擎认到的 IP=bin_unit_0 base=0x40060000 range=0x20000
+[json] 已落盘 /home/xilinx/demoir/t117_out/t117_045007.json
+
+==============================================================================
+  第 1c 步：q8/c8deq/bpack 一次性装载（单独计时，不进稳态）
+==============================================================================
+  q8     load=0.270 s loaded=True why=ok
+  c8deq  load=4.351 s loaded=True why=ok
+  bpack  load=1.769 s loaded=True why=ok
+  **一次性装载合计 = 6.390 s**
+[json] 已落盘 /home/xilinx/demoir/t117_out/t117_045007.json
+  256² 形状：max_in 1.180 MB / max_out 1.573 MB / 227 个 conv
+  arena 需求：24 槽 × (1.180 + 1.573 MB + 4096) + 64 KB = **66.22 MB**
+  冻结尺寸 = 66224128 B（本 arena 66224128 B）⇒ exact=True
+  分配前 CmaFree = 17.78 MB
+  arena t117_arena256  66.22 MB / 24 槽 @0x30100000
+
+==============================================================================
+  整网 256²（LAZY_DEQ=0）arena 24 槽 / 66.22 MB，fclk 读回 50 MHz，连跑 2 次
+==============================================================================
+  conv 总拍数（RTL 公式，频率无关）= 451,072,512 ⇒ @50 MHz 纯算 9.021 s
+  arena 槽数 = 24 | CmaFree 0.09 MB
+  输入 x0 sha1 = cfc75bc3f15d306b07787325fdc9ae715cfadd0a（冻结口径 cfc75bc3f15d306b07787325fdc9ae715cfadd0a）✓
+  [DEPS] q8=fast c8deq=fast bpack=fast e1e2=fast catpack=fast safe=fast  ⇒ deps_closure_ok=True
+  run1: 墙钟 18.002 s | 总 17.997 = PL 5.225 + PS 15.522 - overlap 4.001 + wait 1.547
+        PL 拍数（由 PS 记的 PL 时间换算，非硬件计数器）= 261,269,557（公式 451,072,512，比 0.5792）
+        sha1 9b1940c8955b / f86a7035621b / 025757a83c39  OK = 冻结 ✓ | 跑后 AP_RETURN=0x00000000 **（PL 非空闲 ✗✗）**
+  run2: 墙钟 16.686 s | 总 16.681 = PL 4.359 + PS 14.283 - overlap 3.137 + wait 1.549
+        PL 拍数（由 PS 记的 PL 时间换算，非硬件计数器）= 217,936,063（公式 451,072,512，比 0.4832）
+        sha1 9b1940c8955b / f86a7035621b / 025757a83c39  OK = 冻结 ✓ | 跑后 AP_RETURN=0x00000000 **（PL 非空闲 ✗✗）**
+  ⇒ 本块判据：sha1 全中=True，两次相同=True，PL 每跑后空闲=False，**通过 ✓**
+[json] 已落盘 /home/xilinx/demoir/t117_out/t117_045007.json
+  64² 形状：max_in 0.074 MB / max_out 0.098 MB / 227 个 conv
+  arena 需求：24 槽 × (0.074 + 0.098 MB + 4096) + 64 KB = **4.29 MB**
+  冻结尺寸 = 4292608 B（本 arena 4292608 B）⇒ exact=True
+  分配前 CmaFree = 67.22 MB
+  arena t117_arena64   4.29 MB / 24 槽 @0x30100000
+
+==============================================================================
+  整网 64²（LAZY_DEQ=0）arena 24 槽 / 4.29 MB，fclk 读回 50 MHz，连跑 2 次
+==============================================================================
+  conv 总拍数（RTL 公式，频率无关）= 28,605,312 ⇒ @50 MHz 纯算 0.572 s
+  arena 槽数 = 24 | CmaFree 63.09 MB
+  输入 x0 sha1 = bbae82e46e363a776d8fce8d9004e94502456bdc（冻结口径 bbae82e46e363a776d8fce8d9004e94502456bdc）✓
+  [DEPS] q8=fast c8deq=fast bpack=fast e1e2=fast catpack=fast safe=fast  ⇒ deps_closure_ok=True
+  run1: 墙钟 3.943 s | 总 3.937 = PL 0.625 + PS 2.630 - overlap 0.463 + wait 0.166
+        PL 拍数（由 PS 记的 PL 时间换算，非硬件计数器）= 31,240,845（公式 28,605,312，比 1.0921）
+        sha1 bfa246d34681 / 226bd39e522a / 762d84b9618e  OK = 冻结 ✓ | 跑后 AP_RETURN=0x00000000 **（PL 非空闲 ✗✗）**
+  run2: 墙钟 3.836 s | 总 3.831 = PL 0.609 + PS 2.520 - overlap 0.446 + wait 0.168
+        PL 拍数（由 PS 记的 PL 时间换算，非硬件计数器）= 30,441,689（公式 28,605,312，比 1.0642）
+        sha1 bfa246d34681 / 226bd39e522a / 762d84b9618e  OK = 冻结 ✓ | 跑后 AP_RETURN=0x00000000 **（PL 非空闲 ✗✗）**
+  ⇒ 本块判据：sha1 全中=True，两次相同=True，PL 每跑后空闲=False，**通过 ✓**
+[json] 已落盘 /home/xilinx/demoir/t117_out/t117_045007.json
+
+==============================================================================
+  判定（T-117：v39 位流 + 当前 PS）
+==============================================================================
+  256²（冻结 9b1940c8 / f86a7035 / 025757a8，两次相同）= **对 ✓**
+    run1 sha1 = 9b1940c8955b / f86a7035621b / 025757a83c39 | same=True
+    run2 sha1 = 9b1940c8955b / f86a7035621b / 025757a83c39 | same=True
+  64²（冻结 bfa246d3 / 226bd39e / 762d84b9，两次相同）= **对 ✓**
+    run1 sha1 = bfa246d34681 / 226bd39e522a / 762d84b9618e
+    run2 sha1 = bfa246d34681 / 226bd39e522a / 762d84b9618e
+  ⇒ **v39 在 256² 上仍对 ⇒ 根因在 RTL（v53）**
+[json] 已落盘 /home/xilinx/demoir/t117_out/t117_045007.json

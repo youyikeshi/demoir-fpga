@@ -6322,3 +6322,25 @@ $$\Rightarrow\ \Rightarrow\ \textbf{有相当一部分 conv "PS 认为 done、PL
 $$\Rightarrow\ \mathtt{wait()}\ \text{在写 } \mathtt{start}\ \text{后立即轮询 } \mathtt{AP\_RET.bit0}，\text{而 RTL done 是}\textbf{sticky}、\text{只由下一次 } \mathtt{start}\ \text{清}$$
 $$\Rightarrow\ \Rightarrow\ \text{可能读到}\textbf{上一层留下的 done} \Rightarrow \text{立刻"完成"} \Rightarrow \text{该 op 实际没跑}$$
 $$\Rightarrow\ \text{已派 T-115 做零副作用插桩：每 op 记 } (\mathtt{t0},\mathtt{t\_done},\mathtt{seconds},\mathtt{est\_s},\mathtt{cycles})，\text{数 } \mathtt{seconds}\approx0\ \text{的 op}$$
+
+### 70.80 ★★★★★ 对照实验定案：**根因在 RTL，不在 PS**；且两个"时间指纹"被反证（T-117，2026-11-03 00:58）
+
+**决定性对照（v39 位流 + 当前 PS）**
+$$\Rightarrow\ \mathtt{v39}\ \text{位流 } \mathtt{602725b8} + \text{同目录 } \mathtt{.hwh}\ \mathtt{c1686bd8}\ \text{成对};\ \mathtt{fclk0}=50\ \text{MHz}$$
+$$\Rightarrow\ 256^2\ \text{冻结运行点、24 槽 exact}：\text{run1 = run2} = \mathtt{9b1940c8}/\mathtt{f86a7035}/\mathtt{025757a8}\ \textbf{（冻结三件套）}$$
+$$\Rightarrow\ 64^2\ \text{同 session 也照旧全中}$$
+$$\Rightarrow\ \Rightarrow\ \textbf{当前 PS 在 }256^2\ \text{上没有回归} \Rightarrow \textbf{根因锁定在 RTL}（\text{16-lane 核 或 写串行化）$$
+
+**★ T-117 顺带把两个"故障指纹"反证掉了（很重要）**
+$$\Rightarrow\ \text{在}\textbf{结果全对的 v39 跑}里，\text{PS 时间 } 256^2/64^2 = \mathbf{5.67\times}（\text{数据 }16\times）$$
+$$\quad\ \Rightarrow\ \text{与 v53 错跑的"PS 只涨 }5.7\times"\textbf{一模一样} \Rightarrow \text{那不是故障指纹}$$
+$$\Rightarrow\ \text{PL 实测/公式拍数比} = \mathbf{0.483/0.579} \Rightarrow \text{与 v53 错跑的 }0.48\sim0.50\ \textbf{一模一样}$$
+$$\Rightarrow\ \Rightarrow\ \textbf{"PL 只干一半"也不是故障指纹}，\text{只是重叠执行下分桶不可比}$$
+$$\Rightarrow\ \Rightarrow\ \text{T-114 的"sticky done/PS 跳过 op"方向}\textbf{应予降权（撤销）}$$
+$$\Rightarrow\ \text{第 123 条：}\textbf{时间账比值必须先在对的参照跑上取一次}，\text{否则会把"正常行为"当故障指纹}$$
+
+**所以 v53 的 256² 是纯数据通路错，且非确定（9 跑 9 个不同 sha1）**
+$$\Rightarrow\ \text{唯二差异：16-lane 核 + } \mathtt{g\_wr\_split2}\ \text{写串行化}$$
+$$\Rightarrow\ \text{每层写拍 }6144\ (64^2)\to \mathbf{98304}\ (256^2) = \times16 \Rightarrow \textbf{若丢拍概率小，只在大尺寸暴露}$$
+$$\Rightarrow\ \text{而 256}^2\ \text{的写 burst 是 }1.5\ \text{MB（}64^2\ \text{是 }96\ \text{KB）} \Rightarrow \textbf{FIFO 更容易满、反压更容易来}$$
+$$\quad\ \Rightarrow\ \Rightarrow\ \text{与 T-113 头号怀疑吻合：}\mathtt{beat\_go = c\_wr\_en \&\&\ u\_ce}\ \text{无条件覆盖 beat0}，\text{而 }\mathtt{wr\_accept\_ok}\ \text{不查 } \mathtt{pw\_valid}$$
