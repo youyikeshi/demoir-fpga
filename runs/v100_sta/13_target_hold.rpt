@@ -1,0 +1,75 @@
+Copyright 1986-2022 Xilinx, Inc. All Rights Reserved. Copyright 2022-2026 Advanced Micro Devices, Inc. All Rights Reserved.
+-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+| Tool Version : Vivado v.2025.2.1 (lin64) Build 6403652 Thu Mar 19 13:47:00 MDT 2026
+| Date         : Mon Nov  2 21:28:13 2026
+| Host         : 2 running 64-bit Ubuntu 22.04.5 LTS
+| Command      : report_timing -from FCLK_CLK0 -to FCLK_CLK0 -delay_type min -path_type full_clock -file /media/felix/Data/coding/demoir-fpga/runs/v100_sta/13_target_hold.rpt
+| Design       : design_1_wrapper
+| Device       : 7z015-clg485
+| Speed File   : -2  PRODUCTION 1.12 2019-11-22
+| Design State : Physopt postRoute
+-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+Timing Report
+
+Slack (MET) :             2.321ns  (arrival time - required time)
+  Source:                 design_1_i/bin_unit_0/inst/u_bin_unit/win_q_reg_15/CLKBWRCLK
+                            (rising edge-triggered cell RAMB36E1 clocked by FCLK_CLK0  {rise@0.000ns fall@5.000ns period=10.000ns})
+  Destination:            design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_core/s1_pc_q_reg[14][5]/D
+                            (rising edge-triggered cell FDRE clocked by FCLK_CLK0  {rise@0.000ns fall@5.000ns period=10.000ns})
+  Path Group:             FCLK_CLK0
+  Path Type:              Hold (Min at Fast Process Corner)
+  Requirement:            0.000ns  (FCLK_CLK0 rise@0.000ns - FCLK_CLK0 rise@0.000ns)
+  Data Path Delay:        2.653ns  (logic 1.044ns (39.349%)  route 1.609ns (60.651%))
+  Logic Levels:           7  (CARRY4=2 LUT2=1 LUT4=1 LUT5=1 LUT6=2)
+  Clock Path Skew:        0.198ns (DCD - SCD - CPR)
+    Destination Clock Delay (DCD):    0.817ns
+    Source Clock Delay      (SCD):    0.614ns
+    Clock Pessimism Removal (CPR):    0.005ns
+
+    Location             Delay type                Incr(ns)  Path(ns)    Netlist Resource(s)
+  -------------------------------------------------------------------    -------------------
+                         (clock FCLK_CLK0 rise edge)
+                                                      0.000     0.000 r  
+    BUFGCTRL_X0Y17       BUFG                         0.000     0.000 r  design_1_i/ps7/inst/buffer_fclk_clk_0.FCLK_CLK_0_BUFG/O
+                         net (fo=20741, routed)       0.614     0.614    design_1_i/bin_unit_0/inst/u_bin_unit/FCLK_CLK0
+    RAMB36_X0Y5          RAMB36E1                                     r  design_1_i/bin_unit_0/inst/u_bin_unit/win_q_reg_15/CLKBWRCLK
+  -------------------------------------------------------------------    -------------------
+    RAMB36_X0Y5          RAMB36E1 (Prop_ramb36e1_CLKBWRCLK_DOBDO[1])
+                                                      0.585     1.199 r  design_1_i/bin_unit_0/inst/u_bin_unit/win_q_reg_15/DOBDO[1]
+                         net (fo=4, routed)           0.318     1.517    design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_core/pw_reg[14][63]_0[1]
+    SLICE_X17Y27         LUT2 (Prop_lut2_I0_O)        0.045     1.562 r  design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_core/p_0_out__3_i_6/O
+                         net (fo=45, routed)          0.465     2.027    design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_core/D[59]
+    SLICE_X50Y27         LUT4 (Prop_lut4_I3_O)        0.045     2.072 r  design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_core/s1_pc_q[9][3]_i_100/O
+                         net (fo=24, routed)          0.473     2.545    design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_core/act_c[61]
+    SLICE_X65Y25         LUT6 (Prop_lut6_I5_O)        0.045     2.590 r  design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_core/s1_pc_q[14][3]_i_40/O
+                         net (fo=4, routed)           0.144     2.734    design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_core/s1_pc_q[14][3]_i_40_n_0
+    SLICE_X66Y25         LUT5 (Prop_lut5_I0_O)        0.045     2.779 r  design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_core/s1_pc_q[14][3]_i_31/O
+                         net (fo=2, routed)           0.210     2.988    design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_core/s1_pc_q[14][3]_i_31_n_0
+    SLICE_X70Y23         LUT6 (Prop_lut6_I5_O)        0.045     3.033 r  design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_core/s1_pc_q[14][3]_i_9/O
+                         net (fo=1, routed)           0.000     3.033    design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_core/s1_pc_q[14][3]_i_9_n_0
+    SLICE_X70Y23         CARRY4 (Prop_carry4_S[0]_CO[3])
+                                                      0.145     3.178 r  design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_core/s1_pc_q_reg[14][3]_i_1/CO[3]
+                         net (fo=1, routed)           0.000     3.178    design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_core/s1_pc_q_reg[14][3]_i_1_n_0
+    SLICE_X70Y24         CARRY4 (Prop_carry4_CI_O[1])
+                                                      0.089     3.267 r  design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_core/s1_pc_q_reg[14][6]_i_1/O[1]
+                         net (fo=1, routed)           0.000     3.267    design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_core/pop64_return30_out[5]
+    SLICE_X70Y24         FDRE                                         r  design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_core/s1_pc_q_reg[14][5]/D
+  -------------------------------------------------------------------    -------------------
+
+                         (clock FCLK_CLK0 rise edge)
+                                                      0.000     0.000 r  
+    BUFGCTRL_X0Y17       BUFG                         0.000     0.000 r  design_1_i/ps7/inst/buffer_fclk_clk_0.FCLK_CLK_0_BUFG/O
+                         net (fo=20741, routed)       0.817     0.817    design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_core/FCLK_CLK0
+    SLICE_X70Y24         FDRE                                         r  design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_core/s1_pc_q_reg[14][5]/C
+                         clock pessimism             -0.005     0.812    
+    SLICE_X70Y24         FDRE (Hold_fdre_C_D)         0.134     0.946    design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_core/s1_pc_q_reg[14][5]
+  -------------------------------------------------------------------
+                         required time                         -0.946    
+                         arrival time                           3.267    
+  -------------------------------------------------------------------
+                         slack                                  2.321    
+
+
+
+

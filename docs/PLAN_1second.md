@@ -5950,3 +5950,47 @@ $$\Rightarrow\ \text{75 MHz 已验证两层功能全对且确定} \Rightarrow \t
 $$\Rightarrow\ \text{16-lane 省一半周期，}\text{但 75 MHz 只有 150 MHz 的一半} \Rightarrow \text{墙钟} \approx \text{持平（甚至略慢）}$$
 $$\Rightarrow\ 100\ \text{MHz}：0.55C/100M = 0.825\times\ \text{原} \Rightarrow \textbf{只有 100 MHz 才把收益变成墙钟}$$
 $$\Rightarrow\ \Rightarrow\ \textbf{必须在 100 MHz 上跑通}，\text{否则这半年的 16-lane 等于白做}$$
+
+### 70.66 ★★★★★ T-100 STA 审计 + **我必须纠正的账：−0.56 s 站不住**（2026-11-02 21:31）
+
+**D1 这条路径的 slack 分解（10.000 周期）**
+$$\Rightarrow\ 10.000 + \text{DCD}\ 1.240 + \text{CPR}\ 0.012 - \text{unc}\ 0.035 + \text{setup}\ 0.101 - \text{SCD}\ 1.485 - \text{data}\ 9.720 = \mathbf{+0.113}$$
+$$\Rightarrow\ \text{data 三段}：\text{BRAM CLK}\to\text{DO}\ 2.125\ /\ \text{DO}\to\text{act\_c}\ 3.096（\text{两条 fo}=45,36\ \text{长网占 }2.093）/\ \text{pop64 树}\ 4.499（9\ \text{级）}$$
+$$\Rightarrow\ \textbf{clock skew } -0.233;\ \text{SCD } 1.485\ \text{与 DCD } 1.240\ \text{说明}\textbf{时钟偏斜很大}$$
+
+**D1-unc（决定性）：****`uncertainty` 只算了 0.035 ns**
+$$\Rightarrow\ \text{TSJ } 0.071/2，\text{TIJ}=\text{DJ}=\text{PE}=0；\text{全仓 } \mathtt{set\_clock\_uncertainty}/\mathtt{set\_input\_jitter}/\mathtt{clock\_groups}/\mathtt{max\_delay}\ \mathbf{0\ \text{处}}$$
+$$\Rightarrow\ \mathtt{create\_clock}\ \text{打 } \mathtt{ps7/FCLK\_CLK0}\ \text{引脚} \Rightarrow \textbf{PS PLL 被当理想时钟源}$$
+$$\quad\ \Rightarrow\ \textbf{PLL 抖动、串扰、IR-drop 全部未建模} \Rightarrow \text{这就是"WNS } +0.113\ \text{却在板上炸"的直接原因}$$
+$$\Rightarrow\ \text{不是 CDC、没被切（3 条 } \mathtt{false\_path}\ \text{只圈 } \mathtt{catpack}）;\ \text{全设计 }\mathbf{1\ \text{个时钟}}、22{,}815\ \text{端点、}\mathtt{check\_timing}\ \mathbf{12/12\ \text{全 0}}$$
+
+**D4 安全频率（`unc`=0.5 重算）**
+$$\Rightarrow\ 100\ \text{MHz} = \mathbf{-0.352};\ 95 = +0.174;\ \mathbf{90 = +0.759};\ 85 = +1.413;\ 75 = +3.0\ (\text{实测已验证})$$
+$$\Rightarrow\ \Rightarrow\ \textbf{安全频率 = 90 MHz};\ \text{要 } \ge1\ \text{ns 真余量取 } 85\ \text{MHz}$$
+
+**D6：真余量不足 + 模型乐观，不是 STA 漏覆盖**
+$$\Rightarrow\ \text{前 27 条全在同一锥（104 条族）};\ \text{slack}<0.2\ \text{有 } \mathbf{7}\ \text{个}，<0.5\ \text{有 } \mathbf{45}\ \text{个}$$
+$$\Rightarrow\ 0.2\text{-}0.3\ \text{ns 建模误差就同时掀翻 } 7\text{-}15\ \text{个 lane 的 popcount 位}$$
+$$\quad\ \Rightarrow\ \textbf{与 T-98 的"同像素成簇/多通道/}\pm1\ \text{与}\pm127\ \text{饱和"完全吻合}$$
+
+**⚠ 追加警告（影响决策）：第二族已在 +0.389**
+$$\Rightarrow\ \mathtt{ps7\ SAXIHP1ACLK \to conv\_uni\_ent\_out\_reg[4][*]}\（\text{data } 9.43/9.41，\text{#28/#31}）$$
+$$\Rightarrow\ \text{只修 popcount 锥，WNS 也只能到 } \approx\mathbf{+0.39}\ (\approx104\ \text{MHz}) \Rightarrow \text{仍撑不住"100 MHz + 0.5 ns"}$$
+$$\Rightarrow\ \text{v50 同路径 } +0.120 \Rightarrow \textbf{结构性}，\text{不是这次布线的运气}$$
+
+---
+
+#### ★ 我必须纠正的账：**−0.56 s 站不住**
+$$\Rightarrow\ \text{16-lane 砍一半周期，但}\textbf{时钟从 150 MHz 掉到 } \le100\ \text{MHz} \Rightarrow \text{两者互相抵消}$$
+$$\Rightarrow\ \text{按实测 } 0.55\times\ \text{周期比} + \text{conv 在 } 5.83\ \text{s 里占 } 1.12\ \text{s}：$$
+
+| 运行点 | conv | vs 基线 | 结论 |
+|---|---|---|---|
+| v39 8-lane @150 | 1.120 s | — | 基线 |
+| v51 16-lane @**100** | 0.924 s | **+17.5%** | 只有这里才有收益 |
+| v51 16-lane @90 | 1.027 s | +8.3% | 只剩一点 |
+| v51 16-lane @75 | 1.232 s | **−10.0%** | 反而更慢 |
+
+$$\Rightarrow\ \Rightarrow\ \textbf{16-lane 的真实收益是 } -0.20\ \text{s（约 } 5.63\ \text{s）}，\textbf{不是 } -0.56\ \text{s}$$
+$$\Rightarrow\ \text{而 } -0.56\ \text{s 只有在"}\textbf{保持 150 MHz}"\text{时成立——那是做不到的}$$
+$$\Rightarrow\ \text{论文/汇报里} \mathbf{必须用 } -0.20\ \text{s}，\text{不能用 } -0.56\ \text{s}$$

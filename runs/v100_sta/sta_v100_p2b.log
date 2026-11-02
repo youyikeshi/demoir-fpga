@@ -1,0 +1,516 @@
+
+****** Vivado v2025.2.1 (64-bit)
+  **** SW Build 6403652 on Thu Mar 19 13:47:00 MDT 2026
+  **** IP Build 6403511 on Thu Mar 19 12:41:45 MDT 2026
+  **** SharedData Build 6403650 on Thu Mar 19 14:02:13 MDT 2026
+  **** Start of session at: Mon Nov  2 21:27:56 2026
+    ** Copyright 1986-2022 Xilinx, Inc. All Rights Reserved.
+    ** Copyright 2022-2026 Advanced Micro Devices, Inc. All Rights Reserved.
+
+source runs/v100_sta/sta_v100_p2b.tcl
+# proc P {s} { puts $s }
+# set dcp  [lindex $argv 0]
+# set odir [lindex $argv 1]
+# file mkdir $odir
+# open_checkpoint $dcp
+Command: open_checkpoint /media/felix/Data/coding/demoir-fpga/runs/v51_archive/design_1_150v51_routed.dcp
+
+Starting open_checkpoint Task
+
+Time (s): cpu = 00:00:00.05 ; elapsed = 00:00:00.02 . Memory (MB): peak = 1514.363 ; gain = 0.000 ; free physical = 1442 ; free virtual = 14495
+INFO: [Device 21-403] Loading part xc7z015clg485-2
+Netlist sorting complete. Time (s): cpu = 00:00:00.11 ; elapsed = 00:00:00.12 . Memory (MB): peak = 1820.918 ; gain = 0.000 ; free physical = 1053 ; free virtual = 14107
+INFO: [Netlist 29-17] Analyzing 3856 Unisim elements for replacement
+INFO: [Netlist 29-28] Unisim Transformation completed in 0 CPU seconds
+INFO: [Project 1-479] Netlist was created with Vivado 2025.2.1
+INFO: [Project 1-570] Preparing netlist for logic optimization
+Read ShapeDB Complete: Time (s): cpu = 00:00:00.04 ; elapsed = 00:00:00.04 . Memory (MB): peak = 1937.668 ; gain = 4.250 ; free physical = 1137 ; free virtual = 14178
+INFO: [Timing 38-478] Restoring timing data from binary archive.
+INFO: [Timing 38-479] Binary timing data restore complete.
+INFO: [Project 1-856] Restoring constraints from binary archive.
+INFO: [Constraints 18-5170] The checkpoint was created with non-default parameter values which do not match the current Vivado settings.  Mismatching parameters are:
+  general.maxThreads
+INFO: [Project 1-853] Binary constraint restore complete.
+INFO: [Designutils 20-5722] Start Reading Physical Databases.
+Reading placement.
+Read Netlist Cache: Time (s): cpu = 00:00:00.04 ; elapsed = 00:00:00.03 . Memory (MB): peak = 2561.668 ; gain = 0.000 ; free physical = 644 ; free virtual = 13685
+Reading placer database...
+Read Device Cache: Time (s): cpu = 00:00:00.01 ; elapsed = 00:00:00 . Memory (MB): peak = 2561.668 ; gain = 0.000 ; free physical = 644 ; free virtual = 13685
+Read PlaceDB: Time (s): cpu = 00:00:00 ; elapsed = 00:00:00 . Memory (MB): peak = 2561.668 ; gain = 0.000 ; free physical = 644 ; free virtual = 13685
+Read placeStorage: Time (s): cpu = 00:00:00.63 ; elapsed = 00:00:00.64 . Memory (MB): peak = 2585.668 ; gain = 24.000 ; free physical = 610 ; free virtual = 13651
+Read PulsedLatchDB: Time (s): cpu = 00:00:00 ; elapsed = 00:00:00 . Memory (MB): peak = 2585.668 ; gain = 0.000 ; free physical = 610 ; free virtual = 13651
+Reading routing.
+Read RouteStorage: Time (s): cpu = 00:00:00.65 ; elapsed = 00:00:00.22 . Memory (MB): peak = 2610.520 ; gain = 24.852 ; free physical = 591 ; free virtual = 13632
+Read Physdb Files: Time (s): cpu = 00:00:01 ; elapsed = 00:00:00.91 . Memory (MB): peak = 2610.520 ; gain = 48.852 ; free physical = 591 ; free virtual = 13632
+Restored from archive | CPU: 1.410000 secs | Memory: 41.621155 MB |
+Finished XDEF File Restore: Time (s): cpu = 00:00:01 ; elapsed = 00:00:00.95 . Memory (MB): peak = 2610.520 ; gain = 56.789 ; free physical = 591 ; free virtual = 13632
+Netlist sorting complete. Time (s): cpu = 00:00:00 ; elapsed = 00:00:00 . Memory (MB): peak = 2625.340 ; gain = 0.000 ; free physical = 594 ; free virtual = 13635
+INFO: [Project 1-111] Unisim Transformation Summary:
+  A total of 192 instances were transformed.
+  RAM64M => RAM64M (RAMD64E(x4)): 168 instances
+  RAM64X1D => RAM64X1D (RAMD64E(x2)): 24 instances
+
+INFO: [Project 1-604] Checkpoint was created with Vivado v2025.2.1 (64-bit) build 6403652
+open_checkpoint: Time (s): cpu = 00:00:17 ; elapsed = 00:00:11 . Memory (MB): peak = 2633.375 ; gain = 1119.012 ; free physical = 594 ; free virtual = 13635
+# P "   part=[get_property PART [current_design]]"
+   part=xc7z015clg485-2
+# set wp0    [get_timing_paths -max_paths 1 -nworst 1 -setup]
+# set srcpin [get_property STARTPOINT_PIN $wp0]
+# set dstpin [get_property ENDPOINT_PIN   $wp0]
+# set scn    [get_property STARTPOINT_CLOCK $wp0]
+# set dcn    [get_property ENDPOINT_CLOCK   $wp0]
+# P "   src pin = $srcpin"
+   src pin = design_1_i/bin_unit_0/inst/u_bin_unit/win_q_reg_15/CLKBWRCLK
+# P "   dst pin = $dstpin"
+   dst pin = design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_core/s1_pc_q_reg[14][5]/D
+# P "   src clk = $scn   dst clk = $dcn   same = [string equal $scn $dcn]"
+   src clk = FCLK_CLK0   dst clk = FCLK_CLK0   same = 1
+# set ck [get_clocks -quiet $scn]
+# P "   clock period = [get_property PERIOD $ck] ns   waveform = [get_property WAVEFORM $ck]   clocks in design = [llength [get_clocks -quiet]]"
+   clock period = 10.000 ns   waveform = 0.000 5.000   clocks in design = 1
+# set wq [get_cells -hier -quiet -filter {NAME =~ *u_bin_unit/win_q_reg*}]
+# set r36 0
+# set r18 0
+# foreach c $wq {
+#     set r [get_property REF_NAME $c]
+#     if {$r eq "RAMB36E1"} { incr r36 } elseif {$r eq "RAMB18E1"} { incr r18 }
+# }
+# P "   win_q cells = [llength $wq]  RAMB36=$r36 RAMB18=$r18"
+   win_q cells = 127  RAMB36=16 RAMB18=0
+# report_timing -from $srcpin -to $dstpin -delay_type max -path_type full_clock \
+#     -file [file join $odir 10_target_full_clock.rpt]
+INFO: [Timing 38-78] ReportTimingParams: -from_pins  -to_pins  -max_paths 1 -nworst 1 -delay_type max -sort_by slack.
+# report_timing -from $srcpin -to $dstpin -delay_type max -path_type full_clock_expanded \
+#     -file [file join $odir 11_target_full_clock_expanded.rpt]
+INFO: [Timing 38-78] ReportTimingParams: -from_pins  -to_pins  -max_paths 1 -nworst 1 -delay_type max -sort_by slack.
+# report_timing -from $srcpin -to $dstpin -delay_type max -path_type summary \
+#     -file [file join $odir 12_target_summary.rpt]
+INFO: [Timing 38-78] ReportTimingParams: -from_pins  -to_pins  -max_paths 1 -nworst 1 -delay_type max -sort_by slack.
+# catch { report_timing -from $srcpin -to $dstpin -delay_type min -path_type full_clock \
+#     -file [file join $odir 13_target_hold.rpt] }
+INFO: [Timing 38-78] ReportTimingParams: -from_pins  -to_pins  -max_paths 1 -nworst 1 -delay_type min -sort_by slack.
+# foreach f {12_target_summary.rpt 10_target_full_clock.rpt} {
+#     set fp [file join $odir $f]
+#     P ""
+#     P "   ---- $f ----"
+#     if {[file exists $fp]} {
+#         set fh [open $fp r]; set dt [read $fh]; close $fh
+#         foreach ln [split $dt \n] { P "   | $ln" }
+#     } else { P "   (not generated)" }
+# }
+
+   ---- 12_target_summary.rpt ----
+   | Copyright 1986-2022 Xilinx, Inc. All Rights Reserved. Copyright 2022-2026 Advanced Micro Devices, Inc. All Rights Reserved.
+   | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+   | | Tool Version : Vivado v.2025.2.1 (lin64) Build 6403652 Thu Mar 19 13:47:00 MDT 2026
+   | | Date         : Mon Nov  2 21:28:13 2026
+   | | Host         : 2 running 64-bit Ubuntu 22.04.5 LTS
+   | | Command      : report_timing -from FCLK_CLK0 -to FCLK_CLK0 -delay_type max -path_type summary -file /media/felix/Data/coding/demoir-fpga/runs/v100_sta/12_target_summary.rpt
+   | | Design       : design_1_wrapper
+   | | Device       : 7z015-clg485
+   | | Speed File   : -2  PRODUCTION 1.12 2019-11-22
+   | | Design State : Physopt postRoute
+   | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+   | 
+   | Timing Report
+   | 
+   | Startpoint                     Endpoint                       Slack(ns)     
+   | ----------------------------------------------------------------------------
+   | design_1_i/bin_unit_0/inst/u_bin_unit/win_q_reg_15/CLKBWRCLK
+   |                                design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_core/s1_pc_q_reg[14][5]/D
+   |                                                               0.113         
+   | 
+   | 
+   | 
+   | 
+
+   ---- 10_target_full_clock.rpt ----
+   | Copyright 1986-2022 Xilinx, Inc. All Rights Reserved. Copyright 2022-2026 Advanced Micro Devices, Inc. All Rights Reserved.
+   | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+   | | Tool Version : Vivado v.2025.2.1 (lin64) Build 6403652 Thu Mar 19 13:47:00 MDT 2026
+   | | Date         : Mon Nov  2 21:28:12 2026
+   | | Host         : 2 running 64-bit Ubuntu 22.04.5 LTS
+   | | Command      : report_timing -from FCLK_CLK0 -to FCLK_CLK0 -delay_type max -path_type full_clock -file /media/felix/Data/coding/demoir-fpga/runs/v100_sta/10_target_full_clock.rpt
+   | | Design       : design_1_wrapper
+   | | Device       : 7z015-clg485
+   | | Speed File   : -2  PRODUCTION 1.12 2019-11-22
+   | | Design State : Physopt postRoute
+   | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+   | 
+   | Timing Report
+   | 
+   | Slack (MET) :             0.113ns  (required time - arrival time)
+   |   Source:                 design_1_i/bin_unit_0/inst/u_bin_unit/win_q_reg_15/CLKBWRCLK
+   |                             (rising edge-triggered cell RAMB36E1 clocked by FCLK_CLK0  {rise@0.000ns fall@5.000ns period=10.000ns})
+   |   Destination:            design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_core/s1_pc_q_reg[14][5]/D
+   |                             (rising edge-triggered cell FDRE clocked by FCLK_CLK0  {rise@0.000ns fall@5.000ns period=10.000ns})
+   |   Path Group:             FCLK_CLK0
+   |   Path Type:              Setup (Max at Slow Process Corner)
+   |   Requirement:            10.000ns  (FCLK_CLK0 rise@10.000ns - FCLK_CLK0 rise@0.000ns)
+   |   Data Path Delay:        9.720ns  (logic 3.988ns (41.028%)  route 5.732ns (58.972%))
+   |   Logic Levels:           11  (CARRY4=2 LUT2=1 LUT4=2 LUT5=2 LUT6=4)
+   |   Clock Path Skew:        -0.233ns (DCD - SCD + CPR)
+   |     Destination Clock Delay (DCD):    1.240ns = ( 11.240 - 10.000 ) 
+   |     Source Clock Delay      (SCD):    1.485ns
+   |     Clock Pessimism Removal (CPR):    0.012ns
+   |   Clock Uncertainty:      0.035ns  ((TSJ^2 + TIJ^2)^1/2 + DJ) / 2 + PE
+   |     Total System Jitter     (TSJ):    0.071ns
+   |     Total Input Jitter      (TIJ):    0.000ns
+   |     Discrete Jitter          (DJ):    0.000ns
+   |     Phase Error              (PE):    0.000ns
+   | 
+   |     Location             Delay type                Incr(ns)  Path(ns)    Netlist Resource(s)
+   |   -------------------------------------------------------------------    -------------------
+   |                          (clock FCLK_CLK0 rise edge)
+   |                                                       0.000     0.000 r  
+   |     BUFGCTRL_X0Y17       BUFG                         0.000     0.000 r  design_1_i/ps7/inst/buffer_fclk_clk_0.FCLK_CLK_0_BUFG/O
+   |                          net (fo=20741, routed)       1.485     1.485    design_1_i/bin_unit_0/inst/u_bin_unit/FCLK_CLK0
+   |     RAMB36_X0Y5          RAMB36E1                                     r  design_1_i/bin_unit_0/inst/u_bin_unit/win_q_reg_15/CLKBWRCLK
+   |   -------------------------------------------------------------------    -------------------
+   |     RAMB36_X0Y5          RAMB36E1 (Prop_ramb36e1_CLKBWRCLK_DOBDO[2])
+   |                                                       2.125     3.610 r  design_1_i/bin_unit_0/inst/u_bin_unit/win_q_reg_15/DOBDO[2]
+   |                          net (fo=4, routed)           0.625     4.234    design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_core/pw_reg[14][63]_0[2]
+   |     SLICE_X11Y25         LUT2 (Prop_lut2_I0_O)        0.110     4.344 r  design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_core/p_0_out__3_i_5/O
+   |                          net (fo=45, routed)          1.083     5.427    design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_core/D[60]
+   |     SLICE_X46Y25         LUT4 (Prop_lut4_I3_O)        0.268     5.695 r  design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_core/s1_pc_q[9][3]_i_99/O
+   |                          net (fo=36, routed)          1.010     6.705    design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_core/act_c[62]
+   |     SLICE_X65Y25         LUT6 (Prop_lut6_I3_O)        0.105     6.810 r  design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_core/s1_pc_q[14][3]_i_40/O
+   |                          net (fo=4, routed)           0.492     7.302    design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_core/s1_pc_q[14][3]_i_40_n_0
+   |     SLICE_X66Y25         LUT4 (Prop_lut4_I2_O)        0.125     7.427 f  design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_core/s1_pc_q[14][6]_i_52/O
+   |                          net (fo=2, routed)           0.554     7.980    design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_core/s1_pc_q[14][6]_i_52_n_0
+   |     SLICE_X67Y25         LUT6 (Prop_lut6_I4_O)        0.264     8.244 r  design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_core/s1_pc_q[14][6]_i_26/O
+   |                          net (fo=2, routed)           0.370     8.614    design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_core/s1_pc_q[14][6]_i_26_n_0
+   |     SLICE_X68Y25         LUT5 (Prop_lut5_I4_O)        0.105     8.719 r  design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_core/s1_pc_q[14][6]_i_20/O
+   |                          net (fo=2, routed)           0.540     9.258    design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_core/s1_pc_q[14][6]_i_20_n_0
+   |     SLICE_X69Y25         LUT5 (Prop_lut5_I4_O)        0.105     9.363 r  design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_core/s1_pc_q[14][6]_i_14/O
+   |                          net (fo=3, routed)           0.671    10.034    design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_core/s1_pc_q[14][6]_i_14_n_0
+   |     SLICE_X71Y23         LUT6 (Prop_lut6_I3_O)        0.105    10.139 r  design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_core/s1_pc_q[14][3]_i_2/O
+   |                          net (fo=2, routed)           0.390    10.529    design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_core/s1_pc_q[14][3]_i_2_n_0
+   |     SLICE_X70Y23         LUT6 (Prop_lut6_I3_O)        0.105    10.634 r  design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_core/s1_pc_q[14][3]_i_6/O
+   |                          net (fo=1, routed)           0.000    10.634    design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_core/s1_pc_q[14][3]_i_6_n_0
+   |     SLICE_X70Y23         CARRY4 (Prop_carry4_S[3]_CO[3])
+   |                                                       0.314    10.948 r  design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_core/s1_pc_q_reg[14][3]_i_1/CO[3]
+   |                          net (fo=1, routed)           0.000    10.948    design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_core/s1_pc_q_reg[14][3]_i_1_n_0
+   |     SLICE_X70Y24         CARRY4 (Prop_carry4_CI_O[1])
+   |                                                       0.257    11.205 r  design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_core/s1_pc_q_reg[14][6]_i_1/O[1]
+   |                          net (fo=1, routed)           0.000    11.205    design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_core/pop64_return30_out[5]
+   |     SLICE_X70Y24         FDRE                                         r  design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_core/s1_pc_q_reg[14][5]/D
+   |   -------------------------------------------------------------------    -------------------
+   | 
+   |                          (clock FCLK_CLK0 rise edge)
+   |                                                      10.000    10.000 r  
+   |     BUFGCTRL_X0Y17       BUFG                         0.000    10.000 r  design_1_i/ps7/inst/buffer_fclk_clk_0.FCLK_CLK_0_BUFG/O
+   |                          net (fo=20741, routed)       1.240    11.240    design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_core/FCLK_CLK0
+   |     SLICE_X70Y24         FDRE                                         r  design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_core/s1_pc_q_reg[14][5]/C
+   |                          clock pessimism              0.012    11.252    
+   |                          clock uncertainty           -0.035    11.216    
+   |     SLICE_X70Y24         FDRE (Setup_fdre_C_D)        0.101    11.317    design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_core/s1_pc_q_reg[14][5]
+   |   -------------------------------------------------------------------
+   |                          required time                         11.317    
+   |                          arrival time                         -11.205    
+   |   -------------------------------------------------------------------
+   |                          slack                                  0.113    
+   | 
+   | 
+   | 
+   | 
+   | 
+# set tp [get_timing_paths -from $srcpin -to $dstpin -delay_type max -max_paths 1 -nworst 1]
+# P ""
+
+# P "   ---- get_timing_paths properties ----"
+   ---- get_timing_paths properties ----
+# foreach prop {SLACK ARRIVAL REQUIRED DATAPATH_DELAY LOGIC_LEVELS REQUIREMENT INTERCONNECT_DELAY} {
+#     set v "N/A"
+#     catch { set v [get_property $prop $tp] }
+#     P [format "   %-20s = %s" $prop $v]
+# }
+   SLACK                = 0.113
+   ARRIVAL              = N/A
+   REQUIRED             = N/A
+   DATAPATH_DELAY       = 9.720
+   LOGIC_LEVELS         = 11
+   REQUIREMENT          = 10.000
+   INTERCONNECT_DELAY   = N/A
+# set ally [get_timing_paths -to $dstpin -delay_type max -max_paths 30 -nworst 1]
+# P ""
+
+# P "   paths to the same endpoint (nworst=1): [llength $ally]"
+   paths to the same endpoint (nworst=1): 1
+# foreach pp [lrange $ally 0 14] {
+#     P [format "      %+8.3f lv=%2d data=%6.3f %s" [get_property SLACK $pp] \
+#         [get_property LOGIC_LEVELS $pp] [get_property DATAPATH_DELAY $pp] [get_property STARTPOINT_PIN $pp]]
+# }
+        +0.113 lv=11 data= 9.720 design_1_i/bin_unit_0/inst/u_bin_unit/win_q_reg_15/CLKBWRCLK
+# catch { report_timing_summary -delay_type max -max_paths 20 -file [file join $odir 20_timing_summary_max.rpt] }
+# catch { report_timing_summary -delay_type min -max_paths 20 -file [file join $odir 21_timing_summary_min.rpt] }
+# catch { report_timing_summary -delay_type min_max -max_paths 20 -file [file join $odir 22_timing_summary_minmax.rpt] }
+# set wns [get_timing_paths -max_paths 1 -nworst 1 -setup]
+# set whs [get_timing_paths -max_paths 1 -nworst 1 -hold]
+# P ""
+
+# P "   WNS = [get_property SLACK $wns]   data=[get_property DATAPATH_DELAY $wns]  lv=[get_property LOGIC_LEVELS $wns]"
+   WNS = 0.113   data=9.720  lv=11
+# P "         from [get_property STARTPOINT_PIN $wns]"
+         from design_1_i/bin_unit_0/inst/u_bin_unit/win_q_reg_15/CLKBWRCLK
+# P "         to   [get_property ENDPOINT_PIN $wns]"
+         to   design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_core/s1_pc_q_reg[14][5]/D
+# P "   WHS = [get_property SLACK $whs]"
+   WHS = 0.038
+# P "         from [get_property STARTPOINT_PIN $whs]"
+         from design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_core/e2_rp5_q_reg[11][22]/C
+# P "         to   [get_property ENDPOINT_PIN $whs]"
+         to   design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_core/e2_r_q_reg[11][22]/D
+# set all [get_timing_paths -max_paths 40000 -nworst 1 -setup -slack_lesser_than 1.0]
+# P ""
+
+# P "   endpoints with slack < 1.0 (worst per endpoint) = [llength $all]"
+   endpoints with slack < 1.0 (worst per endpoint) = 273
+# foreach thr {0 0.113 0.2 0.3 0.5 1.0} {
+#     set cnt 0
+#     foreach pp $all { if {[get_property SLACK $pp] < $thr} { incr cnt } }
+#     P [format "      slack < %-6s : %5d" $thr $cnt]
+# }
+      slack < 0      :     0
+      slack < 0.113  :     0
+      slack < 0.2    :     7
+      slack < 0.3    :    15
+      slack < 0.5    :    45
+      slack < 1.0    :   273
+# set tns 0.0
+# foreach pp $all { set s [get_property SLACK $pp]; if {$s < 0} { set tns [expr {$tns + $s}] } }
+# P [format "      TNS = %.3f ns" $tns]
+      TNS = 0.000 ns
+# P ""
+
+# P "   ---- worst 40 setup paths ----"
+   ---- worst 40 setup paths ----
+# set n 0
+# foreach pp [lrange $all 0 39] {
+#     incr n
+#     P [format "   %2d %+8.3f lv=%2d data=%6.3f  %s" $n [get_property SLACK $pp] \
+#         [get_property LOGIC_LEVELS $pp] [get_property DATAPATH_DELAY $pp] [get_property STARTPOINT_PIN $pp]]
+#     P "        -> [get_property ENDPOINT_PIN $pp]"
+# }
+    1   +0.113 lv=11 data= 9.720  design_1_i/bin_unit_0/inst/u_bin_unit/win_q_reg_15/CLKBWRCLK
+        -> design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_core/s1_pc_q_reg[14][5]/D
+    2   +0.128 lv=10 data= 9.709  design_1_i/bin_unit_0/inst/u_bin_unit/win_q_reg_15/CLKBWRCLK
+        -> design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_core/s1_pc_q_reg[4][6]/D
+    3   +0.134 lv=11 data= 9.715  design_1_i/bin_unit_0/inst/u_bin_unit/win_q_reg_15/CLKBWRCLK
+        -> design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_core/s1_pc_q_reg[4][5]/D
+    4   +0.145 lv=10 data= 9.693  design_1_i/bin_unit_0/inst/u_bin_unit/win_q_reg_13/CLKBWRCLK
+        -> design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_core/s1_pc_q_reg[3][5]/D
+    5   +0.145 lv= 9 data= 9.680  design_1_i/bin_unit_0/inst/u_bin_unit/win_q_reg_13/CLKBWRCLK
+        -> design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_core/s1_pc_q_reg[3][6]/D
+    6   +0.167 lv=11 data= 9.654  design_1_i/bin_unit_0/inst/u_bin_unit/win_q_reg_15/CLKBWRCLK
+        -> design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_core/s1_pc_q_reg[14][6]/D
+    7   +0.192 lv=11 data= 9.641  design_1_i/bin_unit_0/inst/u_bin_unit/win_q_reg_15/CLKBWRCLK
+        -> design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_core/s1_pc_q_reg[14][4]/D
+    8   +0.215 lv= 9 data= 9.606  design_1_i/bin_unit_0/inst/u_bin_unit/win_q_reg_3/CLKBWRCLK
+        -> design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_core/s1_pc_q_reg[2][6]/D
+    9   +0.218 lv=11 data= 9.631  design_1_i/bin_unit_0/inst/u_bin_unit/win_q_reg_15/CLKBWRCLK
+        -> design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_core/s1_pc_q_reg[4][4]/D
+   10   +0.224 lv=10 data= 9.614  design_1_i/bin_unit_0/inst/u_bin_unit/win_q_reg_13/CLKBWRCLK
+        -> design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_core/s1_pc_q_reg[3][4]/D
+   11   +0.245 lv=11 data= 9.661  design_1_i/bin_unit_0/inst/u_bin_unit/win_q_reg_15/CLKBWRCLK
+        -> design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_core/s1_pc_q_reg[9][5]/D
+   12   +0.264 lv=10 data= 9.550  design_1_i/bin_unit_0/inst/u_bin_unit/win_q_reg_3/CLKBWRCLK
+        -> design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_core/s1_pc_q_reg[12][6]/D
+   13   +0.267 lv= 9 data= 9.531  design_1_i/bin_unit_0/inst/u_bin_unit/win_q_reg_12/CLKBWRCLK
+        -> design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_core/s1_pc_q_reg[9][6]/D
+   14   +0.280 lv=10 data= 9.497  design_1_i/bin_unit_0/inst/u_bin_unit/win_q_reg_3/CLKBWRCLK
+        -> design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_core/s1_pc_q_reg[6][6]/D
+   15   +0.283 lv=10 data= 9.483  design_1_i/bin_unit_0/inst/u_bin_unit/win_q_reg_11/CLKBWRCLK
+        -> design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_core/s1_pc_q_reg[10][6]/D
+   16   +0.304 lv=11 data= 9.533  design_1_i/bin_unit_0/inst/u_bin_unit/win_q_reg_13/CLKBWRCLK
+        -> design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_core/s1_pc_q_reg[2][5]/D
+   17   +0.314 lv=10 data= 9.635  design_1_i/bin_unit_0/inst/u_bin_unit/win_q_reg_2/CLKBWRCLK
+        -> design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_core/s1_pc_q_reg[15][5]/D
+   18   +0.329 lv=11 data= 9.577  design_1_i/bin_unit_0/inst/u_bin_unit/win_q_reg_15/CLKBWRCLK
+        -> design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_core/s1_pc_q_reg[9][4]/D
+   19   +0.338 lv=11 data= 9.493  design_1_i/bin_unit_0/inst/u_bin_unit/win_q_reg_13/CLKBWRCLK
+        -> design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_core/s1_pc_q_reg[12][5]/D
+   20   +0.347 lv=10 data= 9.452  design_1_i/bin_unit_0/inst/u_bin_unit/win_q_reg_15/CLKBWRCLK
+        -> design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_core/s1_pc_q_reg[6][5]/D
+   21   +0.360 lv= 9 data= 9.420  design_1_i/bin_unit_0/inst/u_bin_unit/win_q_reg_15/CLKBWRCLK
+        -> design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_core/s1_pc_q_reg[8][6]/D
+   22   +0.368 lv=10 data= 9.569  design_1_i/bin_unit_0/inst/u_bin_unit/win_q_reg_2/CLKBWRCLK
+        -> design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_core/s1_pc_q_reg[15][6]/D
+   23   +0.369 lv=11 data= 9.456  design_1_i/bin_unit_0/inst/u_bin_unit/win_q_reg_2/CLKBWRCLK
+        -> design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_core/s1_pc_q_reg[5][6]/D
+   24   +0.376 lv=10 data= 9.522  design_1_i/bin_unit_0/inst/u_bin_unit/win_q_reg_15/CLKBWRCLK
+        -> design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_core/s1_pc_q_reg[13][5]/D
+   25   +0.381 lv=10 data= 9.514  design_1_i/bin_unit_0/inst/u_bin_unit/win_q_reg_13/CLKBWRCLK
+        -> design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_core/s1_pc_q_reg[11][6]/D
+   26   +0.383 lv=11 data= 9.454  design_1_i/bin_unit_0/inst/u_bin_unit/win_q_reg_13/CLKBWRCLK
+        -> design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_core/s1_pc_q_reg[2][4]/D
+   27   +0.384 lv=11 data= 9.524  design_1_i/bin_unit_0/inst/u_bin_unit/win_q_reg_13/CLKBWRCLK
+        -> design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_core/s1_pc_q_reg[11][5]/D
+   28   +0.389 lv= 9 data= 9.409  design_1_i/ps7/inst/PS7_i/SAXIHP1ACLK
+        -> design_1_i/conv_uni_0/inst/u_conv_uni/ent_out_reg[4][0]/D
+   29   +0.393 lv=10 data= 9.556  design_1_i/bin_unit_0/inst/u_bin_unit/win_q_reg_2/CLKBWRCLK
+        -> design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_core/s1_pc_q_reg[15][4]/D
+   30   +0.399 lv=10 data= 9.380  design_1_i/bin_unit_0/inst/u_bin_unit/win_q_reg_11/CLKBWRCLK
+        -> design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_core/s1_pc_q_reg[10][5]/D
+   31   +0.405 lv= 9 data= 9.430  design_1_i/ps7/inst/PS7_i/SAXIHP1ACLK
+        -> design_1_i/conv_uni_0/inst/u_conv_uni/ent_out_reg[4][1]/D
+   32   +0.415 lv=10 data= 9.469  design_1_i/bin_unit_0/inst/u_bin_unit/win_q_reg_15/CLKBWRCLK
+        -> design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_core/s1_pc_q_reg[13][6]/D
+   33   +0.417 lv=11 data= 9.414  design_1_i/bin_unit_0/inst/u_bin_unit/win_q_reg_13/CLKBWRCLK
+        -> design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_core/s1_pc_q_reg[12][4]/D
+   34   +0.422 lv=10 data= 9.371  design_1_i/bin_unit_0/inst/u_bin_unit/win_q_reg_15/CLKBWRCLK
+        -> design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_core/s1_pc_q_reg[8][5]/D
+   35   +0.428 lv=10 data= 9.470  design_1_i/bin_unit_0/inst/u_bin_unit/win_q_reg_15/CLKBWRCLK
+        -> design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_core/s1_pc_q_reg[0][5]/D
+   36   +0.431 lv=10 data= 9.368  design_1_i/bin_unit_0/inst/u_bin_unit/win_q_reg_15/CLKBWRCLK
+        -> design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_core/s1_pc_q_reg[6][4]/D
+   37   +0.459 lv=10 data= 9.341  design_1_i/bin_unit_0/inst/u_bin_unit/win_q_reg_15/CLKBWRCLK
+        -> design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_core/s1_pc_q_reg[1][5]/D
+   38   +0.460 lv=10 data= 9.438  design_1_i/bin_unit_0/inst/u_bin_unit/win_q_reg_15/CLKBWRCLK
+        -> design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_core/s1_pc_q_reg[13][4]/D
+   39   +0.466 lv=10 data= 9.143  design_1_i/bin_unit_0/inst/u_bin_unit/win_q_reg_12/CLKBWRCLK
+        -> design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_pack/acc_b_reg[5][0]/DIADI[6]
+   40   +0.468 lv=10 data= 9.138  design_1_i/bin_unit_0/inst/u_bin_unit/win_q_reg_12/CLKBWRCLK
+        -> design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_pack/acc_b_reg[6][0]/DIADI[6]
+# catch { report_timing -max_paths 200 -nworst 1 -setup -path_type summary -file [file join $odir 23_worst200.rpt] }
+INFO: [Timing 38-78] ReportTimingParams: -max_paths 200 -nworst 1 -delay_type max -sort_by slack.
+# set nw 0
+# set worst 999.0
+# set sum 0.0
+# set b1 0
+# set b2 0
+# set b3 0
+# set nsp 0
+# foreach pp $all {
+#     if {[regexp {win_q_} [get_property STARTPOINT_PIN $pp]]} {
+#         incr nw
+#         set s [get_property SLACK $pp]
+#         set sum [expr {$sum + $s}]
+#         if {$s < $worst} { set worst $s }
+#         if {$s < 0.2} { incr b1 } elseif {$s < 0.5} { incr b2 } elseif {$s < 1.0} { incr b3 }
+#         if {[regexp {s1_pc_q} [get_property ENDPOINT_PIN $pp]]} { incr nsp }
+#     }
+# }
+# P ""
+
+# P "   ---- path family starting at win_q_* (16 BRAM tiles) ----"
+   ---- path family starting at win_q_* (16 BRAM tiles) ----
+# P "   count=$nw  worst=$worst  mean=[expr {$nw>0 ? $sum/$nw : 0}]"
+   count=104  worst=0.113  mean=0.5867115384615386
+# P [format "   slack<0.2:%d   0.2..0.5:%d   0.5..1.0:%d" $b1 $b2 $b3]
+   slack<0.2:7   0.2..0.5:35   0.5..1.0:62
+# P "   of which endpoint is s1_pc_q = $nsp"
+   of which endpoint is s1_pc_q = 73
+# set c2 0
+# P ""
+
+# P "   ---- paths ending at s1_pc_q_reg (any startpoint), worst 10 ----"
+   ---- paths ending at s1_pc_q_reg (any startpoint), worst 10 ----
+# foreach pp $all {
+#     if {[regexp {s1_pc_q_reg} [get_property ENDPOINT_PIN $pp]]} {
+#         incr c2
+#         if {$c2 <= 10} {
+#             P [format "      %+8.3f lv=%2d  %s" [get_property SLACK $pp] \
+#                 [get_property LOGIC_LEVELS $pp] [get_property STARTPOINT_PIN $pp]]
+#         }
+#     }
+# }
+        +0.113 lv=11  design_1_i/bin_unit_0/inst/u_bin_unit/win_q_reg_15/CLKBWRCLK
+        +0.128 lv=10  design_1_i/bin_unit_0/inst/u_bin_unit/win_q_reg_15/CLKBWRCLK
+        +0.134 lv=11  design_1_i/bin_unit_0/inst/u_bin_unit/win_q_reg_15/CLKBWRCLK
+        +0.145 lv=10  design_1_i/bin_unit_0/inst/u_bin_unit/win_q_reg_13/CLKBWRCLK
+        +0.145 lv= 9  design_1_i/bin_unit_0/inst/u_bin_unit/win_q_reg_13/CLKBWRCLK
+        +0.167 lv=11  design_1_i/bin_unit_0/inst/u_bin_unit/win_q_reg_15/CLKBWRCLK
+        +0.192 lv=11  design_1_i/bin_unit_0/inst/u_bin_unit/win_q_reg_15/CLKBWRCLK
+        +0.215 lv= 9  design_1_i/bin_unit_0/inst/u_bin_unit/win_q_reg_3/CLKBWRCLK
+        +0.218 lv=11  design_1_i/bin_unit_0/inst/u_bin_unit/win_q_reg_15/CLKBWRCLK
+        +0.224 lv=10  design_1_i/bin_unit_0/inst/u_bin_unit/win_q_reg_13/CLKBWRCLK
+# P "   total within slack<1.0 = $c2"
+   total within slack<1.0 = 73
+# P ""
+
+# P "   ---- worst 10 hold paths ----"
+   ---- worst 10 hold paths ----
+# foreach pp [get_timing_paths -max_paths 10 -nworst 1 -hold] {
+#     P [format "      %+8.3f  %s -> %s" [get_property SLACK $pp] \
+#         [get_property STARTPOINT_PIN $pp] [get_property ENDPOINT_PIN $pp]]
+# }
+        +0.038  design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_core/e2_rp5_q_reg[11][22]/C -> design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_core/e2_r_q_reg[11][22]/D
+        +0.039  design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_core/e2_rp4_q_reg[11][22]/C -> design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_core/e2_rp5_q_reg[11][22]/D
+        +0.039  design_1_i/conv_uni_0/inst/u_conv_uni/u_unit/bias_q_reg[2][0]/C -> design_1_i/conv_uni_0/inst/u_conv_uni/u_unit/s3q_q_reg[2][4]/D
+        +0.041  design_1_i/conv_uni_0/inst/u_conv_uni/u_unit/s2tprev_reg[3][0]/C -> design_1_i/conv_uni_0/inst/u_conv_uni/u_unit/s2sum_reg[3][4]/D
+        +0.043  design_1_i/conv_uni_0/inst/u_conv_uni/u_unit/obase_q_reg[24]/C -> design_1_i/conv_uni_0/inst/u_conv_uni/u_unit/oaddr_q_reg[24]/D
+        +0.045  design_1_i/conv_uni_0/inst/u_conv_uni/u_unit/obase_q_reg[12]/C -> design_1_i/conv_uni_0/inst/u_conv_uni/u_unit/oaddr_q_reg[12]/D
+        +0.050  design_1_i/conv_uni_0/inst/u_conv_uni/u_unit/bias_q_reg[2][0]/C -> design_1_i/conv_uni_0/inst/u_conv_uni/u_unit/s3q_q_reg[2][6]/D
+        +0.050  design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_core/e2_ddp5_q_reg[6]/C -> design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_core/e2_r_q_reg[6][28]/D
+        +0.050  design_1_i/conv_uni_0/inst/u_conv_uni/u_unit/raddr_q_reg[24]/C -> design_1_i/conv_uni_0/inst/u_conv_uni/p_addr_reg[24]/D
+        +0.052  design_1_i/conv_uni_0/inst/u_conv_uni/u_unit/s2tprev_reg[3][0]/C -> design_1_i/conv_uni_0/inst/u_conv_uni/u_unit/s2sum_reg[3][6]/D
+# catch { report_timing -delay_type min -max_paths 50 -nworst 1 -path_type summary -file [file join $odir 24_hold50.rpt] }
+INFO: [Timing 38-78] ReportTimingParams: -max_paths 50 -nworst 1 -delay_type min -sort_by slack.
+# set req  [get_property REQUIREMENT    $tp]
+# set slk  [get_property SLACK          $tp]
+# set data [get_property DATAPATH_DELAY $tp]
+# set unc0 0.035
+# set tmin0 [expr {$req - $slk}]
+# P ""
+
+# P "== D4 recompute fmax (pure arithmetic, design constraints untouched) =="
+== D4 recompute fmax (pure arithmetic, design constraints untouched) ==
+# P [format "   data=%.3f  requirement=%.3f  slack=%+.3f" $data $req $slk]
+   data=9.720  requirement=10.000  slack=+0.113
+# P [format "   => period at slack=0 = %.3f ns = %.2f MHz" $tmin0 [expr {1000.0/$tmin0}]]
+   => period at slack=0 = 9.887 ns = 101.14 MHz
+# P "      identity: T_min = T - slack = 9.887 ns, exact because slack is linear in T with slope 1;"
+      identity: T_min = T - slack = 9.887 ns, exact because slack is linear in T with slope 1;
+# P "      the -0.233 ns clock skew is ALREADY inside the 0.113 -> do not add it a second time."
+      the -0.233 ns clock skew is ALREADY inside the 0.113 -> do not add it a second time.
+# foreach unc {0.035 0.100 0.200 0.300 0.400 0.500} {
+#     set tm [expr {$tmin0 + ($unc - $unc0)}]
+#     P [format "   unc=%.3f ns => fmax=%6.2f MHz (T=%.3f ns)" $unc [expr {1000.0/$tm}] $tm]
+# }
+   unc=0.035 ns => fmax=101.14 MHz (T=9.887 ns)
+   unc=0.100 ns => fmax=100.48 MHz (T=9.952 ns)
+   unc=0.200 ns => fmax= 99.48 MHz (T=10.052 ns)
+   unc=0.300 ns => fmax= 98.50 MHz (T=10.152 ns)
+   unc=0.400 ns => fmax= 97.54 MHz (T=10.252 ns)
+   unc=0.500 ns => fmax= 96.60 MHz (T=10.352 ns)
+# P ""
+
+# P [format "   %-7s %-10s | %-9s %-9s %-9s" f_MHz T_ns "s_at_0.035" "s_at_0.30" "s_at_0.50"]
+   f_MHz   T_ns       | s_at_0.035 s_at_0.30 s_at_0.50
+# foreach f {100 95 90 85 80 75} {
+#     set T  [expr {1000.0/$f}]
+#     set s1 [expr {$T - $tmin0}]
+#     set s2 [expr {$s1 - (0.300 - $unc0)}]
+#     set s3 [expr {$s1 - (0.500 - $unc0)}]
+#     P [format "   %-7s %-10.3f | %+9.3f %+9.3f %+9.3f" $f $T $s1 $s2 $s3]
+# }
+   100     10.000     |    +0.113    -0.152    -0.352
+   95      10.526     |    +0.639    +0.374    +0.174
+   90      11.111     |    +1.224    +0.959    +0.759
+   85      11.765     |    +1.878    +1.613    +1.413
+   80      12.500     |    +2.613    +2.348    +2.148
+   75      13.333     |    +3.446    +3.181    +2.981
+# P ""
+
+# P "   criterion: slack(unc=0.50) >= +0.50 ns"
+   criterion: slack(unc=0.50) >= +0.50 ns
+# foreach f {100 95 90 85 80 75} {
+#     set T  [expr {1000.0/$f}]
+#     set s3 [expr {$T - $tmin0 - (0.500 - $unc0)}]
+#     set v [expr {$s3 >= 0.5 ? "SAFE" : ($s3 >= 0 ? "MARGINAL" : "VIOLATION")}]
+#     P [format "   %3d MHz : slack(unc=0.5)=%+7.3f => %s" $f $s3 $v]
+# }
+   100 MHz : slack(unc=0.5)= -0.352 => VIOLATION
+    95 MHz : slack(unc=0.5)= +0.174 => MARGINAL
+    90 MHz : slack(unc=0.5)= +0.759 => SAFE
+    85 MHz : slack(unc=0.5)= +1.413 => SAFE
+    80 MHz : slack(unc=0.5)= +2.148 => SAFE
+    75 MHz : slack(unc=0.5)= +2.981 => SAFE
+# catch { report_qor -file [file join $odir 30_qor.rpt] }
+# P ""
+
+# P "== PART2 DONE"
+== PART2 DONE
+# exit
+INFO: [Common 17-206] Exiting Vivado at Mon Nov  2 21:28:16 2026...

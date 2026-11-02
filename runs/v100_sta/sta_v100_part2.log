@@ -1,0 +1,78 @@
+
+****** Vivado v2025.2.1 (64-bit)
+  **** SW Build 6403652 on Thu Mar 19 13:47:00 MDT 2026
+  **** IP Build 6403511 on Thu Mar 19 12:41:45 MDT 2026
+  **** SharedData Build 6403650 on Thu Mar 19 14:02:13 MDT 2026
+  **** Start of session at: Mon Nov  2 21:23:38 2026
+    ** Copyright 1986-2022 Xilinx, Inc. All Rights Reserved.
+    ** Copyright 2022-2026 Advanced Micro Devices, Inc. All Rights Reserved.
+
+source runs/v100_sta/sta_v100_part2.tcl
+# set dcp  [lindex $argv 0]
+# set odir [lindex $argv 1]
+# file mkdir $odir
+# open_checkpoint $dcp
+Command: open_checkpoint /media/felix/Data/coding/demoir-fpga/runs/v51_archive/design_1_150v51_routed.dcp
+
+Starting open_checkpoint Task
+
+Time (s): cpu = 00:00:00.04 ; elapsed = 00:00:00.02 . Memory (MB): peak = 1514.512 ; gain = 0.000 ; free physical = 1734 ; free virtual = 14920
+INFO: [Device 21-403] Loading part xc7z015clg485-2
+Netlist sorting complete. Time (s): cpu = 00:00:00.12 ; elapsed = 00:00:00.12 . Memory (MB): peak = 1821.152 ; gain = 0.000 ; free physical = 1656 ; free virtual = 14848
+INFO: [Netlist 29-17] Analyzing 3856 Unisim elements for replacement
+INFO: [Netlist 29-28] Unisim Transformation completed in 0 CPU seconds
+INFO: [Project 1-479] Netlist was created with Vivado 2025.2.1
+INFO: [Project 1-570] Preparing netlist for logic optimization
+Read ShapeDB Complete: Time (s): cpu = 00:00:00.03 ; elapsed = 00:00:00.04 . Memory (MB): peak = 1937.934 ; gain = 4.250 ; free physical = 1534 ; free virtual = 14725
+INFO: [Timing 38-478] Restoring timing data from binary archive.
+INFO: [Timing 38-479] Binary timing data restore complete.
+INFO: [Project 1-856] Restoring constraints from binary archive.
+INFO: [Constraints 18-5170] The checkpoint was created with non-default parameter values which do not match the current Vivado settings.  Mismatching parameters are:
+  general.maxThreads
+INFO: [Project 1-853] Binary constraint restore complete.
+INFO: [Designutils 20-5722] Start Reading Physical Databases.
+Reading placement.
+Read Netlist Cache: Time (s): cpu = 00:00:00.04 ; elapsed = 00:00:00.03 . Memory (MB): peak = 2562.965 ; gain = 0.000 ; free physical = 879 ; free virtual = 14070
+Reading placer database...
+Read Device Cache: Time (s): cpu = 00:00:00.01 ; elapsed = 00:00:00.01 . Memory (MB): peak = 2562.965 ; gain = 0.000 ; free physical = 869 ; free virtual = 14060
+Read PlaceDB: Time (s): cpu = 00:00:00 ; elapsed = 00:00:00 . Memory (MB): peak = 2562.965 ; gain = 0.000 ; free physical = 867 ; free virtual = 14058
+Read placeStorage: Time (s): cpu = 00:00:00.71 ; elapsed = 00:00:00.72 . Memory (MB): peak = 2584.965 ; gain = 22.000 ; free physical = 809 ; free virtual = 14001
+Read PulsedLatchDB: Time (s): cpu = 00:00:00 ; elapsed = 00:00:00 . Memory (MB): peak = 2584.965 ; gain = 0.000 ; free physical = 811 ; free virtual = 14003
+Reading routing.
+Read RouteStorage: Time (s): cpu = 00:00:00.67 ; elapsed = 00:00:00.22 . Memory (MB): peak = 2610.816 ; gain = 25.852 ; free physical = 783 ; free virtual = 13977
+Read Physdb Files: Time (s): cpu = 00:00:01 ; elapsed = 00:00:00.99 . Memory (MB): peak = 2610.816 ; gain = 47.852 ; free physical = 783 ; free virtual = 13977
+Restored from archive | CPU: 1.510000 secs | Memory: 41.621155 MB |
+Finished XDEF File Restore: Time (s): cpu = 00:00:01 ; elapsed = 00:00:01 . Memory (MB): peak = 2610.816 ; gain = 55.789 ; free physical = 783 ; free virtual = 13977
+Netlist sorting complete. Time (s): cpu = 00:00:00.01 ; elapsed = 00:00:00.01 . Memory (MB): peak = 2624.637 ; gain = 0.000 ; free physical = 565 ; free virtual = 13759
+INFO: [Project 1-111] Unisim Transformation Summary:
+  A total of 192 instances were transformed.
+  RAM64M => RAM64M (RAMD64E(x4)): 168 instances
+  RAM64X1D => RAM64X1D (RAMD64E(x2)): 24 instances
+
+INFO: [Project 1-604] Checkpoint was created with Vivado v2025.2.1 (64-bit) build 6403652
+open_checkpoint: Time (s): cpu = 00:00:16 ; elapsed = 00:00:11 . Memory (MB): peak = 2632.672 ; gain = 1118.160 ; free physical = 564 ; free virtual = 13759
+# puts "   part=[get_property PART [current_design]]  state=[get_property DESIGN_STATE [current_design]]"
+   part=xc7z015clg485-2  state=
+# set _wp0 [get_timing_paths -max_paths 1 -nworst 1 -setup]
+# set srcpin [get_property STARTPOINT_PIN $_wp0]
+# set dstpin [get_property ENDPOINT_PIN $_wp0]
+# puts "   ≪全局 WNS 路径的起止引脚（直接取自 get_timing_paths，避免通配符匹配不到带 [] 的引脚名）≫"
+   ≪全局 WNS 路径的起止引脚（直接取自 get_timing_paths，避免通配符匹配不到带  的引脚名）≫
+# puts "   src = $srcpin"
+   src = design_1_i/bin_unit_0/inst/u_bin_unit/win_q_reg_15/CLKBWRCLK
+# puts "   dst = $dstpin"
+   dst = design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_core/s1_pc_q_reg[14][5]/D
+# set _wqcell [get_cells -hier -quiet *win_q_reg_15]
+# if {[llength $_wqcell]} { puts "   src cell = [get_property NAME [lindex $_wqcell 0]]  REF=[get_property REF_NAME [lindex $_wqcell 0]]" } else { puts "   src cell 查不到（跳过）" }
+   src cell = design_1_i/bin_unit_0/inst/u_bin_unit/win_q_reg_15  REF=RAMB36E1
+# set _scn [get_property STARTPOINT_CLOCK $_wp0]
+# set _dcn [get_property ENDPOINT_CLOCK $_wp0]
+# puts "   src clock = $_scn   dst clock = $_dcn"
+   src clock = FCLK_CLK0   dst clock = FCLK_CLK0
+can't read "scn": no such variable
+    while executing
+"expr {$scn eq $dcn}"
+    invoked from within
+"puts "   same-clock = [expr {$scn eq $dcn}]（取自 timing path 的 STARTPOINT_CLOCK/ENDPOINT_CLOCK）""
+    (file "runs/v100_sta/sta_v100_part2.tcl" line 24)
+INFO: [Common 17-206] Exiting Vivado at Mon Nov  2 21:23:54 2026...
