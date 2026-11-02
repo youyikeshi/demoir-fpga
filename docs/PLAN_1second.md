@@ -5769,3 +5769,34 @@ $$\Rightarrow\ \text{③ 运行点 } 100\ \text{MHz}、\text{非融合路径}$$
 
 **产物**：\mathtt{runs/v50\_archive/}（27 项 + MD5SUMS 94 条）；bit \mathtt{b300e598}；hwh \mathtt{e284199f}
 **门禁**：\mathtt{verify\_rtl\_root}\ \mathtt{MATCH=35\ DIFF=0}；\text{25 条 v39 基线一条未动}；\mathtt{proj\_engine}/\mathtt{proj\_v43base2}\ \text{零改动}
+
+### 70.60 ★★★★★ 上板结算：**16-lane 的加速是真的（0.54~0.61×），但写通路坏了**（T-93，2026-11-02 19:33）
+
+**好消息：加速方向被实测证实**
+$$\Rightarrow\ \text{同层同 100 MHz，}\mathtt{v50}\ \text{vs}\ \mathtt{v39}\ \text{拍数}：$$
+$$\quad\ 68{,}665\ \text{vs}\ 116{,}158\ (\mathbf{0.59\times});\ 125{,}766\ \text{vs}\ 228{,}834\ (0.55\times);\ 183{,}821\ \text{vs}\ 342{,}512\ (0.54\times)$$
+$$\quad\ 41{,}795\ \text{vs}\ 44{,}489\ (0.94\times,\ k{=}1/\mathtt{cout}{=}48);\ 191{,}689\ \text{vs}\ 314{,}689\ (0.61\times)$$
+$$\Rightarrow\ \Rightarrow\ \textbf{16-lane 真的砍掉一半组遍历} \Rightarrow \text{"延迟受限"的判断成立}$$
+$$\Rightarrow\ \text{cyc/term（stage5 口径）}\mathtt{v39}\ 0.19\text{-}0.20 \to \mathtt{v50}\ 0.10\text{-}0.12$$
+
+**坏消息：写通路错，而且每层都错**
+$$\Rightarrow\ \text{v50 每层}\textbf{越界写 } 904\text{–}4{,}096\ \text{B}；\text{已写区间}\mathbf{93\text{–}98\%}\ \text{与 numpy 不符}$$
+$$\Rightarrow\ \textbf{控制组 v39：同 5 层，0 B 越界、0/65536 逐字节不符} \Rightarrow \textbf{探针与 PS 代码干净}$$
+$$\Rightarrow\ \Rightarrow\ \text{故障归位}\textbf{16-lane 写通路}（\S10.1\ \text{的 2 拍串行化 / drain 字数与地址）$$
+$$\Rightarrow\ \text{与"权重只装 8 组"无关（权重与 PRM 都是核自己从 DDR 拉）}$$
+$$\Rightarrow\ 64^2\ \text{在 op3（}\mathtt{cin}{=}176,\ \mathtt{cout}{=}64,\ k{=}3,\ 32\times32)\ \textbf{挂死}：5.05\ \text{s 未 done，}\mathtt{AP\_RET}=0x2$$
+$$\quad\ \mathtt{DBG\_RD}\ 1\ \text{s 内增量 } 0 \Rightarrow \textbf{真冻住不是慢};\ 0x310=0x0403\ (\text{done}=1/\text{err}=1/\text{code}=4)$$
+$$\Rightarrow\ \Rightarrow\ \textbf{sha1 拿不到} \Rightarrow \textbf{本轮无法结算 } -0.56\ \text{s}$$
+
+**两个地址事实（修正我的假设）**
+$$\Rightarrow\ \text{magic 在 } \mathbf{base + 0x10000 + 0x314}（\text{CFG 页}）;\ \mathtt{base+0x314}\ \text{读 0}$$
+$$\quad\ \Rightarrow\ \text{我此前按 } \mathtt{base+0x314}\ \text{记录，}\textbf{是错的}（\text{第 3 次地址/名字凭印象写}）$$
+$$\Rightarrow\ \text{magic } = \mathtt{0x50300001}\ \checkmark,\ 0x310\ \text{复位 } = 0\ \checkmark,\ \mathtt{fclk0}=100\ \text{MHz}\ \checkmark$$
+
+**方法论收获（这轮靠它把"位流坏"和"PS 坏"分开）**
+$$\Rightarrow\ \textbf{64 KB 垫子 + 越界计数 + 与 numpy 逐字节} \text{三件套} \Rightarrow \text{每层 5 s 内出结论}$$
+$$\Rightarrow\ \textbf{控制组（v39 同代码）} \Rightarrow \text{直接排除 PS 侧} \Rightarrow \text{省掉一整轮排查}$$
+$$\Rightarrow\ \Rightarrow\ \textbf{第 115 条：任何新位流的功能验证，必须带"}\textbf{同代码 + 老位流对照}\text{"}$$
+
+$$\Rightarrow\ \textbf{裁定}：-0.56\ \text{s}\ \textbf{不进任何基线表}，\text{直到写通路修好（采纳 T-93 建议）}$$
+$$\Rightarrow\ \text{v50 位流}\textbf{封存}（\text{标注"仅用于写通路调试，不可用于数值"}）$$

@@ -1,0 +1,40 @@
+[diag] log = /home/xilinx/demoir/t93_out/t93_diag_001716.log
+
+======================================================================
+A. 读当前 PL 的挂死状态（不 load）
+======================================================================
+  [t=0.0s] 0x310=1027 0x304=0 AP_RET=2 cfg_cin=176 cfg_cout=64 DBG_RD=29491302 DBG_WR=1560496323 FLAG=0
+  [t=+1.0s] 0x310=1027 0x304=0 AP_RET=2 cfg_cin=176 cfg_cout=64 DBG_RD=29491302 DBG_WR=1560496323 FLAG=0
+  ⇒ DBG_RD 1 s 内增量 = 0 （核不动了 ⇒ 真正冻住）
+
+======================================================================
+B. load overlay + 指纹（本 session 唯一一次 download）
+======================================================================
+  load 用时 1.685 s；IP=['bin_unit_0', 'conv_uni_0', 'ps7']
+  magic(0x10314)=0x50300001（期望 0x50300001）；0x310=0x00000000
+  fclk0 目标 100 → 读回 100
+
+======================================================================
+C. 逐层隔离（H=W=32，只改 cin/cb；timeout=4.0 s/层）
+======================================================================
+  ---- cin48_k3_d1  (cb=1 K=9) : encoder.encoder_1.rdb.conv_layers.0.conv
+       ✗ 异常：RuntimeError('bin_unit OUT: 金丝雀被写坏 896/4096 字节 ⇒ 引擎越界写，立即停机排查')
+[json] /home/xilinx/demoir/t93_out/t93_diag_001716.json
+  ---- cin112_k3_d2 (cb=2 K=18) : encoder.encoder_1.rdb.conv_layers.1.conv
+       ✗ 异常：RuntimeError('bin_unit OUT: 金丝雀被写坏 1552/4096 字节 ⇒ 引擎越界写，立即停机排查')
+[json] /home/xilinx/demoir/t93_out/t93_diag_001716.json
+  ---- cin176_k3_d1 (cb=3 K=27) : encoder.encoder_1.rdb.conv_layers.2.conv
+       ✗ 异常：RuntimeError('bin_unit OUT: 金丝雀被写坏 2048/4096 字节 ⇒ 引擎越界写，立即停机排查')
+[json] /home/xilinx/demoir/t93_out/t93_diag_001716.json
+  ---- cin240_k1    (cb=4 K=4)  : encoder.encoder_1.rdb.conv_post.conv
+       ✗ 异常：RuntimeError('bin_unit OUT: 金丝雀被写坏 456/4096 字节 ⇒ 引擎越界写，立即停机排查')
+[json] /home/xilinx/demoir/t93_out/t93_diag_001716.json
+  ---- cin512_k1    (cb=8 K=8)  : encoder.encoder_3.sam_blocks.0.b0.conv.conv
+       ✗ 异常：RuntimeError('bin_unit OUT: 金丝雀被写坏 800/4096 字节 ⇒ 引擎越界写，立即停机排查')
+[json] /home/xilinx/demoir/t93_out/t93_diag_001716.json
+
+======================================================================
+D. 收尾
+======================================================================
+[json] /home/xilinx/demoir/t93_out/t93_diag_001716.json
+[diag] DONE

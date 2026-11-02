@@ -1,0 +1,61 @@
+[t93] python=3.10.4 numpy=1.21.5 mach=armv7l
+[t93] BIN_V50_FUSE=None  BIN_VLANES=None  v50_fuse_on()=False  vlanes_now()=8
+[t93] cat_eca_fuse=True  epi_noinv=True  BIN_V50_* 残留=[]
+[t93] 日志 = /home/xilinx/demoir/t93_out/t93_v50_001354.log
+[t93] bit = /home/xilinx/demoir/design_1_150v50.bit
+
+==============================================================================
+  步骤 1：load overlay + 指纹（本进程唯一一次 download=True）
+==============================================================================
+  Overlay(design_1_150v50.bit) 用时 2.354 s
+  IP 清单：['bin_unit_0', 'conv_uni_0', 'ps7']
+  conv_uni_0  base=0x40040000 length=0x20000 （期望 0x40040000）✓
+  bin_unit_0  base=0x40060000 length=0x20000 （期望 0x40060000）✓
+  fconv_0 在 IP 清单里 = False （期望 False）
+  0x40070314 = 0x50300001   (CFG+0x314 (契约口径))
+  0x40060314 = 0x00000000   (base+0x314 (任务书字面))
+  0x40060310 = 0x00000000   (0x310 CHAIN_STATUS)
+  0x40060308 = 0x00000000   (0x308 BAND_ROWS)
+  **magic(0x314) = 0x50300001 期望 0x50300001 ⇒ v50 寄存器块在位 ✓**
+  **0x310 复位值 = 0x00000000 期望 0（契约 R3：err 位不许置）**
+
+==============================================================================
+  步骤 2：fclk0 设 100 MHz 并读回
+==============================================================================
+  目标 100 MHz → **读回 100 MHz** ✓
+
+==============================================================================
+  步骤 0b：q8/c8deq/bpack/bilinear_c 一次性装载（不进稳态）
+==============================================================================
+  q8     load=0.256 s loaded=True
+  c8deq  load=4.352 s loaded=True
+  bpack  load=1.798 s loaded=True
+  bilinear load=0.705 s
+  一次性装载合计 7.112 s；[DEPS] q8=fast c8deq=fast bpack=fast e1e2=fast catpack=fast safe=fast  ⇒ deps_closure_ok=True
+  arena t93_arena64 4.29 MB（24 槽 × (in 0.07 + out 0.10 MB)）@0x30100000
+
+==============================================================================
+  步骤 3：整网 64²（fclk 读回 100 MHz）
+==============================================================================
+  开跑（运行点见 json，BIN_V50_*=空）  [DEPS] q8=fast c8deq=fast bpack=fast e1e2=fast catpack=fast safe=fast  ⇒ deps_closure_ok=True
+[DEPS] q8=fast c8deq=fast bpack=fast e1e2=fast catpack=fast safe=fast  ⇒ deps_closure_ok=True
+  [LAZY_DEQ] IN/OUT 槽数 = 24（BIN_LAZY_SLOTS）
+Traceback (most recent call last):
+  File "/tmp/probe_T93/probe_t93_v50.py", line 551, in <module>
+    rc = main()
+  File "/tmp/probe_T93/probe_t93_v50.py", line 506, in main
+    row64 = run_net(ov, 64, arena, a.slots, fclk, "net64")
+  File "/tmp/probe_T93/probe_t93_v50.py", line 328, in run_net
+    outs, st = net.run(x0, pipeline=True, nbuf=2, arena=arena)
+  File "/home/xilinx/demoir/ps/pynq/bin_net.py", line 3181, in run
+    y, rs, t_e = be.finish(pl_task)
+  File "/home/xilinx/demoir/ps/pynq/bin_net.py", line 1084, in finish
+    rs = e.reap(task.t0, task.timeout, out_buf=task.out_buf, L=task.layer,
+  File "/tmp/probe_T93/probe_t93_v50.py", line 170, in _reap_hook
+    rs = _orig_reap(self, t0, timeout, out_buf=out_buf, L=L,
+  File "/home/xilinx/demoir/ps/pynq/bin_engine.py", line 1800, in reap
+    st, _ = self.wait(timeout, est_s=est_s)
+  File "/home/xilinx/demoir/ps/pynq/bin_engine.py", line 1474, in wait
+    raise TimeoutError(msg)
+TimeoutError: bin_unit 超时 5.0s 未 done（timeout=5.047312213333333）。**不再发第二次 start**：引擎可能还在访存，继续跑会踩内存。
+[json] 已落盘 /home/xilinx/demoir/t93_out/t93_v50_001354.json

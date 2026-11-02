@@ -1,0 +1,111 @@
+{
+ "env_at_start": {
+  "BIN_PACK": "e1e2",
+  "BIN_LAZY_DEQ": "1",
+  "BIN_LAZY_SLOTS": "24",
+  "BIN_CAT_FUSION": "1",
+  "BIN_BILINEAR_C": "1",
+  "BIN_PRECOMP": "1",
+  "Q8CACHE": "1",
+  "BIN_F32DIRECT": "1",
+  "BIN_CAT_ECA_FUSE": "1",
+  "BIN_EPI_NOINV": "1",
+  "BIN_PROFILE": "1",
+  "Q8CACHE_MB": "32",
+  "BIN_V50_FUSE": "",
+  "BIN_VLANES": ""
+ },
+ "steps": {
+  "load": {
+   "bit": "/home/xilinx/demoir/design_1_150v50.bit",
+   "bit_sha": null,
+   "download": true,
+   "seconds": 2.3541,
+   "ips": [
+    "bin_unit_0",
+    "conv_uni_0",
+    "ps7"
+   ],
+   "addr": {
+    "conv_uni_0": {
+     "base": 1074003968,
+     "base_hex": "0x40040000",
+     "length": 131072,
+     "expected": "0x40040000",
+     "ok": true
+    },
+    "bin_unit_0": {
+     "base": 1074135040,
+     "base_hex": "0x40060000",
+     "length": 131072,
+     "expected": "0x40060000",
+     "ok": true
+    }
+   },
+   "fconv_present": false,
+   "magic": {
+    "CFG+0x314 (契约口径)": {
+     "abs_addr": "0x40070314",
+     "value": 1345323009,
+     "hex": "0x50300001"
+    },
+    "base+0x314 (任务书字面)": {
+     "abs_addr": "0x40060314",
+     "value": 0,
+     "hex": "0x00000000"
+    },
+    "0x310 CHAIN_STATUS": {
+     "abs_addr": "0x40060310",
+     "value": 0,
+     "hex": "0x00000000"
+    },
+    "0x308 BAND_ROWS": {
+     "abs_addr": "0x40060308",
+     "value": 0,
+     "hex": "0x00000000"
+    }
+   },
+   "magic_ok": true,
+   "chain_status_reset": 0
+  },
+  "fclk": {
+   "target": 100.0,
+   "readback": 100.0,
+   "ok": true
+  },
+  "kernel_load": {
+   "seconds": 7.1117,
+   "detail": {
+    "q8": {
+     "loaded": true,
+     "seconds": 0.2564
+    },
+    "c8deq": {
+     "loaded": true,
+     "seconds": 4.3523
+    },
+    "bpack": {
+     "loaded": true,
+     "seconds": 1.7978
+    }
+   }
+  }
+ },
+ "args": {
+  "bit": "/home/xilinx/demoir/design_1_150v50.bit",
+  "pack": "/home/xilinx/demoir/deploy/bin_weights_new",
+  "golden": "/home/xilinx/demoir/pl/rtl_hand/golden",
+  "fclk": 100.0,
+  "slots": 24,
+  "hw": "64,256",
+  "outdir": "/home/xilinx/demoir/t93_out",
+  "no_load": false,
+  "skip_256": false
+ },
+ "base_want": {
+  "conv_uni_0": 1074003968,
+  "bin_unit_0": 1074135040
+ },
+ "magic_want": "0x50300001",
+ "fatal": "Traceback (most recent call last):\n  File \"/tmp/probe_T93/probe_t93_v50.py\", line 551, in <module>\n    rc = main()\n  File \"/tmp/probe_T93/probe_t93_v50.py\", line 506, in main\n    row64 = run_net(ov, 64, arena, a.slots, fclk, \"net64\")\n  File \"/tmp/probe_T93/probe_t93_v50.py\", line 328, in run_net\n    outs, st = net.run(x0, pipeline=True, nbuf=2, arena=arena)\n  File \"/home/xilinx/demoir/ps/pynq/bin_net.py\", line 3181, in run\n    y, rs, t_e = be.finish(pl_task)\n  File \"/home/xilinx/demoir/ps/pynq/bin_net.py\", line 1084, in finish\n    rs = e.reap(task.t0, task.timeout, out_buf=task.out_buf, L=task.layer,\n  File \"/tmp/probe_T93/probe_t93_v50.py\", line 170, in _reap_hook\n    rs = _orig_reap(self, t0, timeout, out_buf=out_buf, L=L,\n  File \"/home/xilinx/demoir/ps/pynq/bin_engine.py\", line 1800, in reap\n    st, _ = self.wait(timeout, est_s=est_s)\n  File \"/home/xilinx/demoir/ps/pynq/bin_engine.py\", line 1474, in wait\n    raise TimeoutError(msg)\nTimeoutError: bin_unit 超时 5.0s 未 done（timeout=5.047312213333333）。**不再发第二次 start**：引擎可能还在访存，继续跑会踩内存。\n"
+}
