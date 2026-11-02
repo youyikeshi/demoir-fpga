@@ -6658,3 +6658,33 @@ $$\Rightarrow\ \text{整网会}\textbf{提前 } \mathtt{prepare}(N{+}1) \text{�
 $$\Rightarrow\ \Rightarrow\ \text{若 } \mathtt{prepare}(N{+}1)\ \text{的目标缓冲与 } \mathtt{op}\ N\ \text{正在读/写的缓冲有交集} \Rightarrow \textbf{稳定覆盖}（\text{与"稳定错"吻合）}$$
 $$\Rightarrow\ \text{且能解释尺寸依赖}：\text{尺寸越大} \Rightarrow \text{PL 每个 op 跑得越久} \Rightarrow \textbf{重叠窗口越大} \Rightarrow \text{从某个尺寸起必错}$$
 $$\Rightarrow\ \text{已派 T-129 做}\textbf{3 op 的真实流水排程}（\mathtt{prepare}\ \text{提前 + } \mathtt{kick}\ \text{推迟，128}^2）$$
+
+### 70.94 ★★★ T-129：流水重叠真实存在但不出错；**我的前提被推翻**（2026-11-03 04:4x）
+
+**三档全对（每档 2 跑，逐 op 物理 C8 裸字节）**
+| 臂 | 错字节 | 确定 |
+|---|---|---|
+| S 串行 | **0** | ✓ |
+| P1 提前 prepare | **0** | ✓ |
+| P2 整网真实流水（一行不改） | **0** | ✓ |
+| P2nc / P2ncan / P2lazy（24 槽） | 0 | ✓ |
+| **H 压力 100 次 × 3 op（300 op）** | **0 / 300** | 每 op 单一 sha1 |
+
+$$\Rightarrow\ \textbf{重叠真实存在}：\mathtt{prepare}(N{+}1)\ \text{完整落在 } \mathtt{op}\ N\ \text{的 PL 飞行窗口里}，\mathbf{31.57/32.11\ \text{ms} = 98\%}$$
+$$\Rightarrow\ \textbf{但覆盖判据 = 0 字节}：\text{写IN}\cap\text{读IN} = \text{写IN}\cap\text{写OUT} = \text{金丝雀}\cap\text{读IN} = \text{金丝雀}\cap\text{写OUT} = \mathbf{0\ \text{B}}$$
+$$\quad\ \Rightarrow\ \mathtt{nbuf}<2\ \text{在 } \mathtt{Net.run()}\ \text{里被硬拦（注释写的就是这个理由）} \Rightarrow \textbf{"目标缓冲与在飞缓冲相交"结构上不可能}$$
+$$\Rightarrow\ \text{重叠的唯一可测效应是}\textbf{性能}：\text{被重叠的 op PL 时间 } \times\mathbf{5.6}（1.59\mathtt{M}\ \text{拍 vs } 318\mathtt{k}）$$
+
+**★ 而它反手否掉了我更大的一个前提**
+$$\Rightarrow\ \text{T-124 实测整网 } \mathtt{op15} = 395\mathtt{k}\ \text{拍} \Rightarrow \text{整网跑在"}\textbf{不重叠}"\text{量级}（\times1.24）\text{而不是重叠量级}（\times5.0）$$
+$$\Rightarrow\ \Rightarrow\ \textbf{整网 98\% 的相邻 op 是线性依赖}（N{+}1\ \text{的输入就是 } N\ \text{的输出）} \Rightarrow \textbf{结构上不可能提前 prepare}$$
+$$\Rightarrow\ \Rightarrow\ \textbf{"整网会提前 prepare 而 op N 还在跑"这个前提本身不成立} \Rightarrow \text{流水线这一维}\textbf{彻底排除}$$
+
+**另两条顺手否掉的**
+$$\Rightarrow\ \textbf{F 写回落地}：\mathtt{done}+0/20/121/422\ \text{ms 四次回读同一 sha1}（= \text{参照，0 错）} \Rightarrow \text{64}^2\ \text{下没这问题}$$
+$$\Rightarrow\ \textbf{D done 位语义}：\mathtt{kick}\ \text{后 } +0/0.05/0.2/1/2/4\ \text{ms 全 } \mathtt{done}{=}0\ \mathtt{busy}{=}1，\text{首 done } 5.46\ \text{ms} \Rightarrow \mathtt{done}\ \text{由 start 清干净，}\mathtt{poll()}\ \textbf{不会被 sticky done 骗}$$
+
+$$\Rightarrow\ \textbf{至此：结构维度全测干净，且"很多 op"也被 300 op 压力测试否掉}$$
+$$\Rightarrow\ \Rightarrow\ \text{剩下的只能是}\textbf{"整网真实用到、但我从未测过的形状"}：$$
+$$\quad\ \mathtt{cin}\in\{176,256,544\}、\mathtt{cout}\in\{96,192\}、k{=}5、\text{以及 } \mathtt{interp/sam/eca/rprelu}\ \text{这些}\textbf{非 conv 算子}$$
+$$\quad\ \text{T-122 测到的最大 } \mathtt{cin}{=}112、\mathtt{cout}{=}64 \Rightarrow \textbf{这两个维度上是空白}$$

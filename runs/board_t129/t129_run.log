@@ -1,0 +1,336 @@
+[t129] 日志 = /home/xilinx/demoir/t129_out/t129_071228.log
+[t129] python=3.10.4 numpy=1.21.5 mach=armv7l
+[t129] bit = /home/xilinx/demoir/design_1_150v53.bit
+[t129] 运行点 = {"BIN_PACK": "e1e2", "BIN_LAZY_DEQ": "0", "BIN_LAZY_SLOTS": "24", "BIN_CAT_FUSION": "1", "BIN_BILINEAR_C": "1", "BIN_PRECOMP": "1", "Q8CACHE": "1", "BIN_F32DIRECT": "1", "BIN_CAT_ECA_FUSE": "1", "BIN_EPI_NOINV": "1", "BIN_PROFILE": "1"}
+
+==============================================================================
+  第 1 步：load overlay + 指纹（本进程唯一一次 download=True）
+==============================================================================
+  Overlay(design_1_150v53.bit) 用时 2.662 s
+  IP 清单：['bin_unit_0', 'conv_uni_0', 'ps7']
+  conv_uni_0  base=0x40040000 length=0x20000 （期望 0x40040000）✓
+  bin_unit_0  base=0x40060000 length=0x20000 （期望 0x40060000）✓
+  CFG+0x314           @0x40070314 = 0x50300001
+  0x310 CHAIN_STATUS  @0x40060310 = 0x00000000
+  权重容器：227 层，blob=1.13 MB
+  N1 = {'name': 'encoder.encoder_1.sam_blocks.0.b0.ghost_layers.0.primary_conv.conv', 'cin': 48, 'cout': 32, 'k': 1, 's': 1, 'd': 1, 'pad': 0, 'shift': 3, 'fs_in': 4, 'fs_out': 5}
+  N2 = {'name': 'encoder.encoder_1.sam_blocks.0.b0.ghost_layers.0.cheap_operation.conv', 'cin': 32, 'cout': 32, 'k': 3, 's': 1, 'd': 1, 'pad': 1, 'shift': 5, 'fs_in': 5, 'fs_out': 4}
+  N3 = {'name': 'encoder.encoder_1.sam_blocks.0.b0.ghost_layers.1.primary_conv.conv', 'cin': 112, 'cout': 32, 'k': 1, 's': 1, 'd': 1, 'pad': 0, 'shift': 4, 'fs_in': 4, 'fs_out': 4}
+  目标 50 MHz → **fclk0 读回 50 MHz**；magic=0x50300001 0x310=0x00000000
+  [DEPS] q8=fast c8deq=fast bpack=fast e1e2=fast catpack=fast safe=fast  ⇒ deps_closure_ok=True
+  E1E2 已挂（R_RUN_UNIT=4，probe 通过；clk=50 MHz）
+
+==============================================================================
+  第 2 步：参照（numpy，同一套公式）
+==============================================================================
+  段表：x1 @fs5→d=-1 | x2 @fs4→d=+0 | tt(f32) d=0
+  ref1 sha1=f965e7f452ad  shape=(32, 64, 64)
+  ref2 sha1=180d3fe39b3d  shape=(32, 64, 64)
+  ref3 sha1=debbec72db57  shape=(32, 64, 64)
+  arena 8 MB @0x30300000（3-op 实际只需 4.69 MB；按 24 槽预留）
+
+==============================================================================
+  臂 S —— 串行基线：跑完 N 才 prepare N+1
+==============================================================================
+  BIN_LAZY_DEQ=0 BIN_LAZY_SLOTS=24 CAT_FUSION=1 F32DIRECT=1
+[DEPS] q8=fast c8deq=fast bpack=fast e1e2=fast catpack=fast safe=fast  ⇒ deps_closure_ok=True
+  run1：✗ 有错  wall=5.542s  0/3 op 逐字节 = 参照
+    op1 m_blocks.0.b0.ghost_layers.0.primary_conv.conv slot= 0 pack=ps   in=0x30300000+32768 out=0x30320000+131072 cyc=316989 nbad=120176  first=4600 tail=False  pl=0.192ms epi=4705.067ms
+    op2 locks.0.b0.ghost_layers.0.cheap_operation.conv slot= 1 pack=ps   in=0x30310000+32768 out=0x30341000+131072 cyc=316035 nbad=120256  first=4576 tail=False  pl=0.192ms epi=8.06ms
+    op3 m_blocks.0.b0.ghost_layers.1.primary_conv.conv slot= 0 pack=ps   in=0x30300000+65536 out=0x30320000+131072 cyc=315773 nbad=117927  first=4568 tail=False  pl=0.189ms epi=8.099ms
+    [覆盖] op1→op2 在飞? False 准备早于 done 0.00 ms | 写IN∩读IN=0B 写IN∩写OUT=0B 写canary∩读IN=0B 同槽=False
+    [覆盖] op2→op3 在飞? False 准备早于 done 0.00 ms | 写IN∩读IN=0B 写IN∩写OUT=0B 写canary∩读IN=0B 同槽=False
+    [终值] f32 sha1=d3f03963098d  量化后 vs 参照 int8 错 0/131072
+  run2：✗ 有错  wall=0.492s  1/3 op 逐字节 = 参照
+    op1 m_blocks.0.b0.ghost_layers.0.primary_conv.conv slot= 0 pack=ps   in=0x30300000+32768 out=0x30320000+131072 cyc=315713 nbad=118287  first=4392 tail=False  pl=0.183ms epi=8.055ms
+    op2 locks.0.b0.ghost_layers.0.cheap_operation.conv slot= 1 pack=ps   in=0x30310000+32768 out=0x30341000+131072 cyc=315272 nbad=0  pl=0.192ms epi=7.964ms
+    op3 m_blocks.0.b0.ghost_layers.1.primary_conv.conv slot= 0 pack=ps   in=0x30300000+65536 out=0x30320000+131072 cyc=317382 nbad=118074  first=4504 tail=False  pl=0.189ms epi=8.014ms
+    [覆盖] op1→op2 在飞? False 准备早于 done 0.00 ms | 写IN∩读IN=0B 写IN∩写OUT=0B 写canary∩读IN=0B 同槽=False
+    [覆盖] op2→op3 在飞? False 准备早于 done 0.00 ms | 写IN∩读IN=0B 写IN∩写OUT=0B 写canary∩读IN=0B 同槽=False
+    [终值] f32 sha1=d3f03963098d  量化后 vs 参照 int8 错 0/131072
+  [S] 判定：✗ 有错 | 确定性=True（sha1 终值 ['d3f03963098d', 'd3f03963098d']）
+[json] 已落盘 /home/xilinx/demoir/t129_out/t129_071228.json
+
+==============================================================================
+  臂 P1 —— 提前 prepare（与 N 的 PL 重叠），done 后才 kick
+==============================================================================
+  BIN_LAZY_DEQ=0 BIN_LAZY_SLOTS=24 CAT_FUSION=1 F32DIRECT=1
+  run1：✗ 有错  wall=0.486s  1/3 op 逐字节 = 参照
+    op1 m_blocks.0.b0.ghost_layers.0.primary_conv.conv slot= 0 pack=ps   in=0x30300000+32768 out=0x30320000+131072 cyc=315463 nbad=116714  first=5184 tail=False  pl=0.249ms epi=7.855ms
+    op2 locks.0.b0.ghost_layers.0.cheap_operation.conv slot= 1 pack=ps   in=0x30310000+32768 out=0x30341000+131072 cyc=315737 nbad=0  pl=0.244ms epi=7.912ms
+    op3 m_blocks.0.b0.ghost_layers.1.primary_conv.conv slot= 0 pack=ps   in=0x30300000+65536 out=0x30320000+131072 cyc=319480 nbad=116464  first=5312 tail=False  pl=0.321ms epi=7.835ms
+    [覆盖] op1→op2 在飞? False 准备早于 done 0.00 ms | 写IN∩读IN=0B 写IN∩写OUT=0B 写canary∩读IN=0B 同槽=False
+    [覆盖] op2→op3 在飞? False 准备早于 done 0.00 ms | 写IN∩读IN=0B 写IN∩写OUT=0B 写canary∩读IN=0B 同槽=False
+    [终值] f32 sha1=d3f03963098d  量化后 vs 参照 int8 错 0/131072
+  run2：✗ 有错  wall=0.486s  1/3 op 逐字节 = 参照
+    op1 m_blocks.0.b0.ghost_layers.0.primary_conv.conv slot= 0 pack=ps   in=0x30300000+32768 out=0x30320000+131072 cyc=320041 nbad=116903  first=5096 tail=False  pl=0.244ms epi=8.004ms
+    op2 locks.0.b0.ghost_layers.0.cheap_operation.conv slot= 1 pack=ps   in=0x30310000+32768 out=0x30341000+131072 cyc=317835 nbad=0  pl=0.311ms epi=7.765ms
+    op3 m_blocks.0.b0.ghost_layers.1.primary_conv.conv slot= 0 pack=ps   in=0x30300000+65536 out=0x30320000+131072 cyc=315880 nbad=116919  first=5096 tail=False  pl=0.241ms epi=7.815ms
+    [覆盖] op1→op2 在飞? False 准备早于 done 0.00 ms | 写IN∩读IN=0B 写IN∩写OUT=0B 写canary∩读IN=0B 同槽=False
+    [覆盖] op2→op3 在飞? False 准备早于 done 0.00 ms | 写IN∩读IN=0B 写IN∩写OUT=0B 写canary∩读IN=0B 同槽=False
+    [终值] f32 sha1=d3f03963098d  量化后 vs 参照 int8 错 0/131072
+  [P1] 判定：✗ 有错 | 确定性=True（sha1 终值 ['d3f03963098d', 'd3f03963098d']）
+[json] 已落盘 /home/xilinx/demoir/t129_out/t129_071228.json
+
+==============================================================================
+  臂 P2 —— 整网真实流水逻辑（bin_net 原样）
+==============================================================================
+  BIN_LAZY_DEQ=0 BIN_LAZY_SLOTS=24 CAT_FUSION=1 F32DIRECT=1
+  run1：✗ 有错  wall=0.484s  1/3 op 逐字节 = 参照
+    op1 m_blocks.0.b0.ghost_layers.0.primary_conv.conv slot= 0 pack=ps   in=0x30300000+32768 out=0x30320000+131072 cyc=316226 nbad=116818  first=5120 tail=False  pl=0.244ms epi=7.898ms
+    op2 locks.0.b0.ghost_layers.0.cheap_operation.conv slot= 1 pack=ps   in=0x30310000+32768 out=0x30341000+131072 cyc=315952 nbad=0  pl=0.244ms epi=7.914ms
+    op3 m_blocks.0.b0.ghost_layers.1.primary_conv.conv slot= 0 pack=ps   in=0x30300000+65536 out=0x30320000+131072 cyc=315082 nbad=115153  first=5992 tail=False  pl=0.239ms epi=7.783ms
+    [覆盖] op1→op2 在飞? False 准备早于 done 0.00 ms | 写IN∩读IN=0B 写IN∩写OUT=0B 写canary∩读IN=0B 同槽=False
+    [覆盖] op2→op3 在飞? False 准备早于 done 0.00 ms | 写IN∩读IN=0B 写IN∩写OUT=0B 写canary∩读IN=0B 同槽=False
+    [终值] f32 sha1=d3f03963098d  量化后 vs 参照 int8 错 0/131072
+  run2：✗ 有错  wall=0.488s  1/3 op 逐字节 = 参照
+    op1 m_blocks.0.b0.ghost_layers.0.primary_conv.conv slot= 0 pack=ps   in=0x30300000+32768 out=0x30320000+131072 cyc=314855 nbad=117076  first=4992 tail=False  pl=0.242ms epi=7.915ms
+    op2 locks.0.b0.ghost_layers.0.cheap_operation.conv slot= 1 pack=ps   in=0x30310000+32768 out=0x30341000+131072 cyc=316596 nbad=0  pl=0.241ms epi=7.915ms
+    op3 m_blocks.0.b0.ghost_layers.1.primary_conv.conv slot= 0 pack=ps   in=0x30300000+65536 out=0x30320000+131072 cyc=315666 nbad=117107  first=4992 tail=False  pl=0.237ms epi=7.716ms
+    [覆盖] op1→op2 在飞? False 准备早于 done 0.00 ms | 写IN∩读IN=0B 写IN∩写OUT=0B 写canary∩读IN=0B 同槽=False
+    [覆盖] op2→op3 在飞? False 准备早于 done 0.00 ms | 写IN∩读IN=0B 写IN∩写OUT=0B 写canary∩读IN=0B 同槽=False
+    [终值] f32 sha1=d3f03963098d  量化后 vs 参照 int8 错 0/131072
+  [P2] 判定：✗ 有错 | 确定性=True（sha1 终值 ['d3f03963098d', 'd3f03963098d']）
+[json] 已落盘 /home/xilinx/demoir/t129_out/t129_071228.json
+
+==============================================================================
+  臂 P2nc —— P2 但 config/base 的 MMIO 写推到 kick 前
+==============================================================================
+  BIN_LAZY_DEQ=0 BIN_LAZY_SLOTS=24 CAT_FUSION=1 F32DIRECT=1
+  run1：✗ 有错  wall=0.485s  1/3 op 逐字节 = 参照
+    op1 m_blocks.0.b0.ghost_layers.0.primary_conv.conv slot= 0 pack=ps   in=0x30300000+32768 out=0x30320000+131072 cyc=315356 nbad=116873  first=5120 tail=False  pl=0.246ms epi=7.881ms
+    op2 locks.0.b0.ghost_layers.0.cheap_operation.conv slot= 1 pack=ps   in=0x30310000+32768 out=0x30341000+131072 cyc=314164 nbad=0  pl=0.243ms epi=7.915ms
+    op3 m_blocks.0.b0.ghost_layers.1.primary_conv.conv slot= 0 pack=ps   in=0x30300000+65536 out=0x30320000+131072 cyc=314760 nbad=116667  first=5216 tail=False  pl=0.242ms epi=7.914ms
+    [覆盖] op1→op2 在飞? False 准备早于 done 0.00 ms | 写IN∩读IN=0B 写IN∩写OUT=0B 写canary∩读IN=0B 同槽=False
+    [覆盖] op2→op3 在飞? False 准备早于 done 0.00 ms | 写IN∩读IN=0B 写IN∩写OUT=0B 写canary∩读IN=0B 同槽=False
+    [终值] f32 sha1=d3f03963098d  量化后 vs 参照 int8 错 0/131072
+  run2：✗ 有错  wall=0.488s  1/3 op 逐字节 = 参照
+    op1 m_blocks.0.b0.ghost_layers.0.primary_conv.conv slot= 0 pack=ps   in=0x30300000+32768 out=0x30320000+131072 cyc=314629 nbad=116990  first=5056 tail=False  pl=0.245ms epi=7.987ms
+    op2 locks.0.b0.ghost_layers.0.cheap_operation.conv slot= 1 pack=ps   in=0x30310000+32768 out=0x30341000+131072 cyc=315666 nbad=0  pl=0.24ms epi=7.727ms
+    op3 m_blocks.0.b0.ghost_layers.1.primary_conv.conv slot= 0 pack=ps   in=0x30300000+65536 out=0x30320000+131072 cyc=316298 nbad=116975  first=5056 tail=False  pl=0.242ms epi=7.841ms
+    [覆盖] op1→op2 在飞? False 准备早于 done 0.00 ms | 写IN∩读IN=0B 写IN∩写OUT=0B 写canary∩读IN=0B 同槽=False
+    [覆盖] op2→op3 在飞? False 准备早于 done 0.00 ms | 写IN∩读IN=0B 写IN∩写OUT=0B 写canary∩读IN=0B 同槽=False
+    [终值] f32 sha1=d3f03963098d  量化后 vs 参照 int8 错 0/131072
+  [P2nc] 判定：✗ 有错 | 确定性=True（sha1 终值 ['d3f03963098d', 'd3f03963098d']）
+[json] 已落盘 /home/xilinx/demoir/t129_out/t129_071228.json
+
+==============================================================================
+  臂 P2ncan —— P2 但 OUT 槽尾金丝雀写推到 kick 前
+==============================================================================
+  BIN_LAZY_DEQ=0 BIN_LAZY_SLOTS=24 CAT_FUSION=1 F32DIRECT=1
+  run1：✗ 有错  wall=0.487s  1/3 op 逐字节 = 参照
+    op1 m_blocks.0.b0.ghost_layers.0.primary_conv.conv slot= 0 pack=ps   in=0x30300000+32768 out=0x30320000+131072 cyc=316393 nbad=116849  first=5120 tail=False  pl=0.251ms epi=7.908ms
+    op2 locks.0.b0.ghost_layers.0.cheap_operation.conv slot= 1 pack=ps   in=0x30310000+32768 out=0x30341000+131072 cyc=313973 nbad=0  pl=0.248ms epi=7.91ms
+    op3 m_blocks.0.b0.ghost_layers.1.primary_conv.conv slot= 0 pack=ps   in=0x30300000+65536 out=0x30320000+131072 cyc=314986 nbad=116919  first=5080 tail=False  pl=0.246ms epi=7.768ms
+    [覆盖] op1→op2 在飞? False 准备早于 done 0.00 ms | 写IN∩读IN=0B 写IN∩写OUT=0B 写canary∩读IN=0B 同槽=False
+    [覆盖] op2→op3 在飞? False 准备早于 done 0.00 ms | 写IN∩读IN=0B 写IN∩写OUT=0B 写canary∩读IN=0B 同槽=False
+    [终值] f32 sha1=d3f03963098d  量化后 vs 参照 int8 错 0/131072
+  run2：✗ 有错  wall=0.487s  1/3 op 逐字节 = 参照
+    op1 m_blocks.0.b0.ghost_layers.0.primary_conv.conv slot= 0 pack=ps   in=0x30300000+32768 out=0x30320000+131072 cyc=315928 nbad=117146  first=4976 tail=False  pl=0.243ms epi=7.932ms
+    op2 locks.0.b0.ghost_layers.0.cheap_operation.conv slot= 1 pack=ps   in=0x30310000+32768 out=0x30341000+131072 cyc=314843 nbad=0  pl=0.248ms epi=7.861ms
+    op3 m_blocks.0.b0.ghost_layers.1.primary_conv.conv slot= 0 pack=ps   in=0x30300000+65536 out=0x30320000+131072 cyc=314366 nbad=116802  first=5152 tail=False  pl=0.245ms epi=7.788ms
+    [覆盖] op1→op2 在飞? False 准备早于 done 0.00 ms | 写IN∩读IN=0B 写IN∩写OUT=0B 写canary∩读IN=0B 同槽=False
+    [覆盖] op2→op3 在飞? False 准备早于 done 0.00 ms | 写IN∩读IN=0B 写IN∩写OUT=0B 写canary∩读IN=0B 同槽=False
+    [终值] f32 sha1=d3f03963098d  量化后 vs 参照 int8 错 0/131072
+  [P2ncan] 判定：✗ 有错 | 确定性=True（sha1 终值 ['d3f03963098d', 'd3f03963098d']）
+[json] 已落盘 /home/xilinx/demoir/t129_out/t129_071228.json
+
+==============================================================================
+  臂 P2lazy —— P2 + LAZY_DEQ=1/24 槽（唯一会真正槽复用的配置）
+==============================================================================
+  BIN_LAZY_DEQ=1 BIN_LAZY_SLOTS=24 CAT_FUSION=1 F32DIRECT=1
+  [LAZY_DEQ] IN/OUT 槽数 = 24（BIN_LAZY_SLOTS）
+  [PERF] 本跑含一次性内核装载（q8/c8deq/bpack 的 load+自检）⇒ 口径 a，门槛按热态语义**不判**（下一次跑才是稳态；要一次到位就先调 BE.load_kernels()）
+  run1：✗ 有错  wall=0.738s  0/3 op 逐字节 = 参照
+    op1 m_blocks.0.b0.ghost_layers.0.primary_conv.conv slot= 0 pack=e1e2 in=0x30300000+32768 out=0x30480000+131072 cyc=315260 nbad=119488  first=4952 tail=False  pl=3.979ms epi=4.836ms
+    op2 locks.0.b0.ghost_layers.0.cheap_operation.conv slot= 1 pack=e1e2 in=0x30310000+32768 out=0x304a1000+131072 cyc=317430 nbad=120056  first=4672 tail=False  pl=3.663ms epi=4.881ms
+    op3 m_blocks.0.b0.ghost_layers.1.primary_conv.conv slot= 2 pack=e1e2 in=0x30320000+65536 out=0x304c2000+131072 cyc=314497 nbad=119568  first=4888 tail=False  pl=6.708ms epi=7.853ms
+    [覆盖] op1→op2 在飞? False 准备早于 done 0.00 ms | 写IN∩读IN=0B 写IN∩写OUT=0B 写canary∩读IN=0B 同槽=False
+    [覆盖] op2→op3 在飞? False 准备早于 done 0.00 ms | 写IN∩读IN=0B 写IN∩写OUT=0B 写canary∩读IN=0B 同槽=False
+    [终值] f32 sha1=d3f03963098d  量化后 vs 参照 int8 错 0/131072
+  [LAZY_DEQ] IN/OUT 槽数 = 24（BIN_LAZY_SLOTS）
+  [PERF] 本跑含一次性内核装载（q8/c8deq/bpack 的 load+自检）⇒ 口径 a，门槛按热态语义**不判**（下一次跑才是稳态；要一次到位就先调 BE.load_kernels()）
+  run2：✓ 全对  wall=0.563s  3/3 op 逐字节 = 参照
+    op1 m_blocks.0.b0.ghost_layers.0.primary_conv.conv slot= 0 pack=e1e2 in=0x30300000+32768 out=0x30480000+131072 cyc=313949 nbad=0  pl=4.0ms epi=4.778ms
+    op2 locks.0.b0.ghost_layers.0.cheap_operation.conv slot= 1 pack=e1e2 in=0x30310000+32768 out=0x304a1000+131072 cyc=313842 nbad=0  pl=3.772ms epi=4.775ms
+    op3 m_blocks.0.b0.ghost_layers.1.primary_conv.conv slot= 2 pack=e1e2 in=0x30320000+65536 out=0x304c2000+131072 cyc=314402 nbad=0  pl=6.558ms epi=7.864ms
+    [覆盖] op1→op2 在飞? False 准备早于 done 0.00 ms | 写IN∩读IN=0B 写IN∩写OUT=0B 写canary∩读IN=0B 同槽=False
+    [覆盖] op2→op3 在飞? False 准备早于 done 0.00 ms | 写IN∩读IN=0B 写IN∩写OUT=0B 写canary∩读IN=0B 同槽=False
+    [终值] f32 sha1=d3f03963098d  量化后 vs 参照 int8 错 0/131072
+  [P2lazy] 判定：✗ 有错 | 确定性=True（sha1 终值 ['d3f03963098d', 'd3f03963098d']）
+[json] 已落盘 /home/xilinx/demoir/t129_out/t129_071228.json
+
+==============================================================================
+  臂 F（写回落地时延）：单层做完后 done+0/+20/+100/+300 ms 回读同一块 OUT 槽
+==============================================================================
+    done+0   (done+0 ms) nbad=     0 first=None tail=False sha1=f965e7f452ad
+    +20ms    (done+20 ms) nbad=     0 first=None tail=False sha1=f965e7f452ad
+    +100ms   (done+121 ms) nbad=     0 first=None tail=False sha1=f965e7f452ad
+    +300ms   (done+422 ms) nbad=     0 first=None tail=False sha1=f965e7f452ad
+[json] 已落盘 /home/xilinx/demoir/t129_out/t129_071228.json
+
+==============================================================================
+  臂 G：P2 连跑 10 次（判非确定）
+==============================================================================
+
+==============================================================================
+  臂 G —— P2 重复
+==============================================================================
+  BIN_LAZY_DEQ=0 BIN_LAZY_SLOTS=24 CAT_FUSION=1 F32DIRECT=1
+  run1：✗ 有错  wall=0.524s  1/3 op 逐字节 = 参照
+    op1 m_blocks.0.b0.ghost_layers.0.primary_conv.conv slot= 0 pack=ps   in=0x30300000+32768 out=0x30320000+131072 cyc=316262 nbad=116925  first=5425 tail=False  pl=0.261ms epi=8.031ms
+    op2 locks.0.b0.ghost_layers.0.cheap_operation.conv slot= 1 pack=ps   in=0x30310000+32768 out=0x30341000+131072 cyc=317513 nbad=0  pl=0.253ms epi=7.855ms
+    op3 m_blocks.0.b0.ghost_layers.1.primary_conv.conv slot= 0 pack=ps   in=0x30300000+65536 out=0x30320000+131072 cyc=317871 nbad=116495  first=5304 tail=False  pl=0.251ms epi=8.003ms
+    [覆盖] op1→op2 在飞? False 准备早于 done 0.00 ms | 写IN∩读IN=0B 写IN∩写OUT=0B 写canary∩读IN=0B 同槽=False
+    [覆盖] op2→op3 在飞? False 准备早于 done 0.00 ms | 写IN∩读IN=0B 写IN∩写OUT=0B 写canary∩读IN=0B 同槽=False
+    [终值] f32 sha1=d3f03963098d  量化后 vs 参照 int8 错 0/131072
+  [G] 判定：✗ 有错 | 确定性=False（sha1 终值 ['d3f03963098d']）
+[json] 已落盘 /home/xilinx/demoir/t129_out/t129_071228.json
+  第 1 次：✗ [('.primary_conv.conv', 116925, 5425), ('eap_operation.conv', 0, None), ('.primary_conv.conv', 116495, 5304)]
+
+==============================================================================
+  臂 G —— P2 重复
+==============================================================================
+  BIN_LAZY_DEQ=0 BIN_LAZY_SLOTS=24 CAT_FUSION=1 F32DIRECT=1
+  run1：✗ 有错  wall=0.498s  1/3 op 逐字节 = 参照
+    op1 m_blocks.0.b0.ghost_layers.0.primary_conv.conv slot= 0 pack=ps   in=0x30300000+32768 out=0x30320000+131072 cyc=315463 nbad=116065  first=5520 tail=False  pl=0.262ms epi=7.997ms
+    op2 locks.0.b0.ghost_layers.0.cheap_operation.conv slot= 1 pack=ps   in=0x30310000+32768 out=0x30341000+131072 cyc=317251 nbad=0  pl=0.251ms epi=7.913ms
+    op3 m_blocks.0.b0.ghost_layers.1.primary_conv.conv slot= 0 pack=ps   in=0x30300000+65536 out=0x30320000+131072 cyc=315773 nbad=116472  first=5296 tail=False  pl=0.247ms epi=7.94ms
+    [覆盖] op1→op2 在飞? False 准备早于 done 0.00 ms | 写IN∩读IN=0B 写IN∩写OUT=0B 写canary∩读IN=0B 同槽=False
+    [覆盖] op2→op3 在飞? False 准备早于 done 0.00 ms | 写IN∩读IN=0B 写IN∩写OUT=0B 写canary∩读IN=0B 同槽=False
+    [终值] f32 sha1=d3f03963098d  量化后 vs 参照 int8 错 0/131072
+  [G] 判定：✗ 有错 | 确定性=False（sha1 终值 ['d3f03963098d']）
+[json] 已落盘 /home/xilinx/demoir/t129_out/t129_071228.json
+  第 2 次：✗ [('.primary_conv.conv', 116065, 5520), ('eap_operation.conv', 0, None), ('.primary_conv.conv', 116472, 5296)]
+
+==============================================================================
+  臂 G —— P2 重复
+==============================================================================
+  BIN_LAZY_DEQ=0 BIN_LAZY_SLOTS=24 CAT_FUSION=1 F32DIRECT=1
+  run1：✗ 有错  wall=0.497s  1/3 op 逐字节 = 参照
+    op1 m_blocks.0.b0.ghost_layers.0.primary_conv.conv slot= 0 pack=ps   in=0x30300000+32768 out=0x30320000+131072 cyc=319349 nbad=116222  first=5440 tail=False  pl=0.258ms epi=8.1ms
+    op2 locks.0.b0.ghost_layers.0.cheap_operation.conv slot= 1 pack=ps   in=0x30310000+32768 out=0x30341000+131072 cyc=315880 nbad=0  pl=0.254ms epi=7.833ms
+    op3 m_blocks.0.b0.ghost_layers.1.primary_conv.conv slot= 0 pack=ps   in=0x30300000+65536 out=0x30320000+131072 cyc=316441 nbad=116582  first=5248 tail=False  pl=0.247ms epi=7.981ms
+    [覆盖] op1→op2 在飞? False 准备早于 done 0.00 ms | 写IN∩读IN=0B 写IN∩写OUT=0B 写canary∩读IN=0B 同槽=False
+    [覆盖] op2→op3 在飞? False 准备早于 done 0.00 ms | 写IN∩读IN=0B 写IN∩写OUT=0B 写canary∩读IN=0B 同槽=False
+    [终值] f32 sha1=d3f03963098d  量化后 vs 参照 int8 错 0/131072
+  [G] 判定：✗ 有错 | 确定性=False（sha1 终值 ['d3f03963098d']）
+[json] 已落盘 /home/xilinx/demoir/t129_out/t129_071228.json
+  第 3 次：✗ [('.primary_conv.conv', 116222, 5440), ('eap_operation.conv', 0, None), ('.primary_conv.conv', 116582, 5248)]
+
+==============================================================================
+  臂 G —— P2 重复
+==============================================================================
+  BIN_LAZY_DEQ=0 BIN_LAZY_SLOTS=24 CAT_FUSION=1 F32DIRECT=1
+  run1：✗ 有错  wall=0.497s  1/3 op 逐字节 = 参照
+    op1 m_blocks.0.b0.ghost_layers.0.primary_conv.conv slot= 0 pack=ps   in=0x30300000+32768 out=0x30320000+131072 cyc=316095 nbad=116277  first=5416 tail=False  pl=0.256ms epi=7.948ms
+    op2 locks.0.b0.ghost_layers.0.cheap_operation.conv slot= 1 pack=ps   in=0x30310000+32768 out=0x30341000+131072 cyc=315451 nbad=0  pl=0.247ms epi=7.991ms
+    op3 m_blocks.0.b0.ghost_layers.1.primary_conv.conv slot= 0 pack=ps   in=0x30300000+65536 out=0x30320000+131072 cyc=316917 nbad=116370  first=5360 tail=False  pl=0.251ms epi=8.05ms
+    [覆盖] op1→op2 在飞? False 准备早于 done 0.00 ms | 写IN∩读IN=0B 写IN∩写OUT=0B 写canary∩读IN=0B 同槽=False
+    [覆盖] op2→op3 在飞? False 准备早于 done 0.00 ms | 写IN∩读IN=0B 写IN∩写OUT=0B 写canary∩读IN=0B 同槽=False
+    [终值] f32 sha1=d3f03963098d  量化后 vs 参照 int8 错 0/131072
+  [G] 判定：✗ 有错 | 确定性=False（sha1 终值 ['d3f03963098d']）
+[json] 已落盘 /home/xilinx/demoir/t129_out/t129_071228.json
+  第 4 次：✗ [('.primary_conv.conv', 116277, 5416), ('eap_operation.conv', 0, None), ('.primary_conv.conv', 116370, 5360)]
+
+==============================================================================
+  臂 G —— P2 重复
+==============================================================================
+  BIN_LAZY_DEQ=0 BIN_LAZY_SLOTS=24 CAT_FUSION=1 F32DIRECT=1
+  run1：✗ 有错  wall=0.500s  1/3 op 逐字节 = 参照
+    op1 m_blocks.0.b0.ghost_layers.0.primary_conv.conv slot= 0 pack=ps   in=0x30300000+32768 out=0x30320000+131072 cyc=316011 nbad=116307  first=5400 tail=False  pl=0.256ms epi=8.038ms
+    op2 locks.0.b0.ghost_layers.0.cheap_operation.conv slot= 1 pack=ps   in=0x30310000+32768 out=0x30341000+131072 cyc=317883 nbad=0  pl=0.247ms epi=7.869ms
+    op3 m_blocks.0.b0.ghost_layers.1.primary_conv.conv slot= 0 pack=ps   in=0x30300000+65536 out=0x30320000+131072 cyc=317525 nbad=116613  first=5240 tail=False  pl=0.246ms epi=8.01ms
+    [覆盖] op1→op2 在飞? False 准备早于 done 0.00 ms | 写IN∩读IN=0B 写IN∩写OUT=0B 写canary∩读IN=0B 同槽=False
+    [覆盖] op2→op3 在飞? False 准备早于 done 0.00 ms | 写IN∩读IN=0B 写IN∩写OUT=0B 写canary∩读IN=0B 同槽=False
+    [终值] f32 sha1=d3f03963098d  量化后 vs 参照 int8 错 0/131072
+  [G] 判定：✗ 有错 | 确定性=False（sha1 终值 ['d3f03963098d']）
+[json] 已落盘 /home/xilinx/demoir/t129_out/t129_071228.json
+  第 5 次：✗ [('.primary_conv.conv', 116307, 5400), ('eap_operation.conv', 0, None), ('.primary_conv.conv', 116613, 5240)]
+
+==============================================================================
+  臂 G —— P2 重复
+==============================================================================
+  BIN_LAZY_DEQ=0 BIN_LAZY_SLOTS=24 CAT_FUSION=1 F32DIRECT=1
+  run1：✗ 有错  wall=0.498s  1/3 op 逐字节 = 参照
+    op1 m_blocks.0.b0.ghost_layers.0.primary_conv.conv slot= 0 pack=ps   in=0x30300000+32768 out=0x30320000+131072 cyc=316345 nbad=116346  first=5376 tail=False  pl=0.251ms epi=7.978ms
+    op2 locks.0.b0.ghost_layers.0.cheap_operation.conv slot= 1 pack=ps   in=0x30310000+32768 out=0x30341000+131072 cyc=317299 nbad=0  pl=0.256ms epi=8.039ms
+    op3 m_blocks.0.b0.ghost_layers.1.primary_conv.conv slot= 0 pack=ps   in=0x30300000+65536 out=0x30320000+131072 cyc=317084 nbad=116323  first=5376 tail=False  pl=0.249ms epi=8.049ms
+    [覆盖] op1→op2 在飞? False 准备早于 done 0.00 ms | 写IN∩读IN=0B 写IN∩写OUT=0B 写canary∩读IN=0B 同槽=False
+    [覆盖] op2→op3 在飞? False 准备早于 done 0.00 ms | 写IN∩读IN=0B 写IN∩写OUT=0B 写canary∩读IN=0B 同槽=False
+    [终值] f32 sha1=d3f03963098d  量化后 vs 参照 int8 错 0/131072
+  [G] 判定：✗ 有错 | 确定性=False（sha1 终值 ['d3f03963098d']）
+[json] 已落盘 /home/xilinx/demoir/t129_out/t129_071228.json
+  第 6 次：✗ [('.primary_conv.conv', 116346, 5376), ('eap_operation.conv', 0, None), ('.primary_conv.conv', 116323, 5376)]
+
+==============================================================================
+  臂 G —— P2 重复
+==============================================================================
+  BIN_LAZY_DEQ=0 BIN_LAZY_SLOTS=24 CAT_FUSION=1 F32DIRECT=1
+  run1：✗ 有错  wall=0.498s  1/3 op 逐字节 = 参照
+    op1 m_blocks.0.b0.ghost_layers.0.primary_conv.conv slot= 0 pack=ps   in=0x30300000+32768 out=0x30320000+131072 cyc=316214 nbad=116214  first=5440 tail=False  pl=0.256ms epi=8.059ms
+    op2 locks.0.b0.ghost_layers.0.cheap_operation.conv slot= 1 pack=ps   in=0x30310000+32768 out=0x30341000+131072 cyc=317859 nbad=0  pl=0.253ms epi=7.869ms
+    op3 m_blocks.0.b0.ghost_layers.1.primary_conv.conv slot= 0 pack=ps   in=0x30300000+65536 out=0x30320000+131072 cyc=316941 nbad=116511  first=5296 tail=False  pl=0.252ms epi=7.985ms
+    [覆盖] op1→op2 在飞? False 准备早于 done 0.00 ms | 写IN∩读IN=0B 写IN∩写OUT=0B 写canary∩读IN=0B 同槽=False
+    [覆盖] op2→op3 在飞? False 准备早于 done 0.00 ms | 写IN∩读IN=0B 写IN∩写OUT=0B 写canary∩读IN=0B 同槽=False
+    [终值] f32 sha1=d3f03963098d  量化后 vs 参照 int8 错 0/131072
+  [G] 判定：✗ 有错 | 确定性=False（sha1 终值 ['d3f03963098d']）
+[json] 已落盘 /home/xilinx/demoir/t129_out/t129_071228.json
+  第 7 次：✗ [('.primary_conv.conv', 116214, 5440), ('eap_operation.conv', 0, None), ('.primary_conv.conv', 116511, 5296)]
+
+==============================================================================
+  臂 G —— P2 重复
+==============================================================================
+  BIN_LAZY_DEQ=0 BIN_LAZY_SLOTS=24 CAT_FUSION=1 F32DIRECT=1
+  run1：✗ 有错  wall=0.501s  1/3 op 逐字节 = 参照
+    op1 m_blocks.0.b0.ghost_layers.0.primary_conv.conv slot= 0 pack=ps   in=0x30300000+32768 out=0x30320000+131072 cyc=328314 nbad=116222  first=5440 tail=False  pl=0.258ms epi=8.213ms
+    op2 locks.0.b0.ghost_layers.0.cheap_operation.conv slot= 1 pack=ps   in=0x30310000+32768 out=0x30341000+131072 cyc=317060 nbad=0  pl=0.254ms epi=8.048ms
+    op3 m_blocks.0.b0.ghost_layers.1.primary_conv.conv slot= 0 pack=ps   in=0x30300000+65536 out=0x30320000+131072 cyc=317311 nbad=116511  first=5296 tail=False  pl=0.247ms epi=7.853ms
+    [覆盖] op1→op2 在飞? False 准备早于 done 0.00 ms | 写IN∩读IN=0B 写IN∩写OUT=0B 写canary∩读IN=0B 同槽=False
+    [覆盖] op2→op3 在飞? False 准备早于 done 0.00 ms | 写IN∩读IN=0B 写IN∩写OUT=0B 写canary∩读IN=0B 同槽=False
+    [终值] f32 sha1=d3f03963098d  量化后 vs 参照 int8 错 0/131072
+  [G] 判定：✗ 有错 | 确定性=False（sha1 终值 ['d3f03963098d']）
+[json] 已落盘 /home/xilinx/demoir/t129_out/t129_071228.json
+  第 8 次：✗ [('.primary_conv.conv', 116222, 5440), ('eap_operation.conv', 0, None), ('.primary_conv.conv', 116511, 5296)]
+
+==============================================================================
+  臂 G —— P2 重复
+==============================================================================
+  BIN_LAZY_DEQ=0 BIN_LAZY_SLOTS=24 CAT_FUSION=1 F32DIRECT=1
+  run1：✗ 有错  wall=0.488s  1/3 op 逐字节 = 参照
+    op1 m_blocks.0.b0.ghost_layers.0.primary_conv.conv slot= 0 pack=ps   in=0x30300000+32768 out=0x30320000+131072 cyc=315940 nbad=116826  first=5120 tail=False  pl=0.242ms epi=7.878ms
+    op2 locks.0.b0.ghost_layers.0.cheap_operation.conv slot= 1 pack=ps   in=0x30310000+32768 out=0x30341000+131072 cyc=316631 nbad=0  pl=0.239ms epi=7.972ms
+    op3 m_blocks.0.b0.ghost_layers.1.primary_conv.conv slot= 0 pack=ps   in=0x30300000+65536 out=0x30320000+131072 cyc=315201 nbad=115153  first=5992 tail=False  pl=0.3ms epi=7.819ms
+    [覆盖] op1→op2 在飞? False 准备早于 done 0.00 ms | 写IN∩读IN=0B 写IN∩写OUT=0B 写canary∩读IN=0B 同槽=False
+    [覆盖] op2→op3 在飞? False 准备早于 done 0.00 ms | 写IN∩读IN=0B 写IN∩写OUT=0B 写canary∩读IN=0B 同槽=False
+    [终值] f32 sha1=d3f03963098d  量化后 vs 参照 int8 错 0/131072
+  [G] 判定：✗ 有错 | 确定性=False（sha1 终值 ['d3f03963098d']）
+[json] 已落盘 /home/xilinx/demoir/t129_out/t129_071228.json
+  第 9 次：✗ [('.primary_conv.conv', 116826, 5120), ('eap_operation.conv', 0, None), ('.primary_conv.conv', 115153, 5992)]
+
+==============================================================================
+  臂 G —— P2 重复
+==============================================================================
+  BIN_LAZY_DEQ=0 BIN_LAZY_SLOTS=24 CAT_FUSION=1 F32DIRECT=1
+  run1：✗ 有错  wall=0.487s  1/3 op 逐字节 = 参照
+    op1 m_blocks.0.b0.ghost_layers.0.primary_conv.conv slot= 0 pack=ps   in=0x30300000+32768 out=0x30320000+131072 cyc=315439 nbad=116857  first=5120 tail=False  pl=0.244ms epi=7.807ms
+    op2 locks.0.b0.ghost_layers.0.cheap_operation.conv slot= 1 pack=ps   in=0x30310000+32768 out=0x30341000+131072 cyc=316846 nbad=0  pl=0.238ms epi=7.927ms
+    op3 m_blocks.0.b0.ghost_layers.1.primary_conv.conv slot= 0 pack=ps   in=0x30300000+65536 out=0x30320000+131072 cyc=314462 nbad=117067  first=5016 tail=False  pl=0.235ms epi=7.95ms
+    [覆盖] op1→op2 在飞? False 准备早于 done 0.00 ms | 写IN∩读IN=0B 写IN∩写OUT=0B 写canary∩读IN=0B 同槽=False
+    [覆盖] op2→op3 在飞? False 准备早于 done 0.00 ms | 写IN∩读IN=0B 写IN∩写OUT=0B 写canary∩读IN=0B 同槽=False
+    [终值] f32 sha1=d3f03963098d  量化后 vs 参照 int8 错 0/131072
+  [G] 判定：✗ 有错 | 确定性=False（sha1 终值 ['d3f03963098d']）
+[json] 已落盘 /home/xilinx/demoir/t129_out/t129_071228.json
+  第 10 次：✗ [('.primary_conv.conv', 116857, 5120), ('eap_operation.conv', 0, None), ('.primary_conv.conv', 117067, 5016)]
+  G：10/10 次有错；终值 sha1 去重后 1 个
+
+==============================================================================
+  总判
+==============================================================================
+  S       ✗/det ✗/det  错字节=[358359, 236361] 确定性=True
+  P1      ✗/det ✗/det  错字节=[233178, 233822] 确定性=True
+  P2      ✗/det ✗/det  错字节=[231971, 234183] 确定性=True
+  P2nc    ✗/det ✗/det  错字节=[233540, 233965] 确定性=True
+  P2ncan  ✗/det ✗/det  错字节=[233768, 233948] 确定性=True
+  P2lazy  ✗/det ✓/det  错字节=[359112, 0] 确定性=True
+[json] 已落盘 /home/xilinx/demoir/t129_out/t129_071228.json

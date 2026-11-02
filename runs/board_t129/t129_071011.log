@@ -1,0 +1,25 @@
+[t129] 日志 = /home/xilinx/demoir/t129_out/t129_071011.log
+[t129] python=3.10.4 numpy=1.21.5 mach=armv7l
+[t129] bit = /home/xilinx/demoir/design_1_150v53.bit
+[t129] 运行点 = {"BIN_PACK": "e1e2", "BIN_LAZY_DEQ": "0", "BIN_LAZY_SLOTS": "24", "BIN_CAT_FUSION": "1", "BIN_BILINEAR_C": "1", "BIN_PRECOMP": "1", "Q8CACHE": "1", "BIN_F32DIRECT": "1", "BIN_CAT_ECA_FUSE": "1", "BIN_EPI_NOINV": "1", "BIN_PROFILE": "1"}
+
+==============================================================================
+  第 1 步：load overlay + 指纹（本进程唯一一次 download=True）
+==============================================================================
+  Overlay(design_1_150v53.bit) 用时 2.654 s
+  IP 清单：['bin_unit_0', 'conv_uni_0', 'ps7']
+  conv_uni_0  base=0x40040000 length=0x20000 （期望 0x40040000）✓
+  bin_unit_0  base=0x40060000 length=0x20000 （期望 0x40060000）✓
+  CFG+0x314           @0x40070314 = 0x50300001
+  0x310 CHAIN_STATUS  @0x40060310 = 0x00000000
+✗✗ 未捕获异常：
+Traceback (most recent call last):
+  File "/tmp/probe_T129/probe_t129.py", line 876, in <module>
+    sys.exit(main())
+  File "/tmp/probe_T129/probe_t129.py", line 710, in main
+    ov, fp_ok = step1_load(a.bit, bool(a.magic_required))
+  File "/tmp/probe_T129/probe_t129.py", line 296, in step1_load
+    R["steps"]["load"] = dict(bit=os.path.basename(bit), sec=round(dt, 3),
+KeyError: 'steps'
+
+[json] 已落盘 /home/xilinx/demoir/t129_out/t129_071011.json

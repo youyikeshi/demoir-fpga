@@ -1,0 +1,199 @@
+[t129] 日志 = /home/xilinx/demoir/t129c_out/t129_072238.log
+[t129] python=3.10.4 numpy=1.21.5 mach=armv7l
+[t129] bit = /home/xilinx/demoir/design_1_150v53.bit
+[t129] 运行点 = {"BIN_PACK": "e1e2", "BIN_LAZY_DEQ": "0", "BIN_LAZY_SLOTS": "24", "BIN_CAT_FUSION": "1", "BIN_BILINEAR_C": "1", "BIN_PRECOMP": "1", "Q8CACHE": "1", "BIN_F32DIRECT": "1", "BIN_CAT_ECA_FUSE": "1", "BIN_EPI_NOINV": "1", "BIN_PROFILE": "1"}
+
+==============================================================================
+  第 1 步：load overlay + 指纹（本进程唯一一次 download=True）
+==============================================================================
+  Overlay(design_1_150v53.bit) 用时 2.522 s
+  IP 清单：['bin_unit_0', 'conv_uni_0', 'ps7']
+  conv_uni_0  base=0x40040000 length=0x20000 （期望 0x40040000）✓
+  bin_unit_0  base=0x40060000 length=0x20000 （期望 0x40060000）✓
+  CFG+0x314           @0x40070314 = 0x50300001
+  0x310 CHAIN_STATUS  @0x40060310 = 0x00000000
+  权重容器：227 层，blob=1.13 MB
+  A = {'name': 'encoder.encoder_1.sam_blocks.0.b0.ghost_layers.0.primary_conv.conv', 'cin': 48, 'cout': 32, 'k': 1, 's': 1, 'd': 1, 'pad': 0, 'shift': 3, 'fs_in': 4, 'fs_out': 5}
+  B = {'name': 'encoder.encoder_1.sam_blocks.0.b0.ghost_layers.1.primary_conv.conv', 'cin': 112, 'cout': 32, 'k': 1, 's': 1, 'd': 1, 'pad': 0, 'shift': 4, 'fs_in': 4, 'fs_out': 4}
+  C = {'name': 'encoder.encoder_1.sam_blocks.0.b0.ghost_layers.1.primary_conv.conv', 'cin': 112, 'cout': 32, 'k': 1, 's': 1, 'd': 1, 'pad': 0, 'shift': 4, 'fs_in': 4, 'fs_out': 4}
+  目标 50 MHz → **fclk0 读回 50 MHz**；magic=0x50300001 0x310=0x00000000
+  [DEPS] q8=fast c8deq=fast bpack=fast e1e2=fast catpack=fast safe=fast  ⇒ deps_closure_ok=True
+  E1E2 已挂（R_RUN_UNIT=4，probe 通过；clk=50 MHz）
+
+==============================================================================
+  第 2 步：参照（numpy，同一套公式）
+==============================================================================
+  三个 op 完全独立：A(cin48) / B(cin112) / C(cin112，同层不同输入)
+  ref1 sha1=f965e7f452ad  shape=(32, 64, 64)
+  ref2 sha1=737c09984db9  shape=(32, 64, 64)
+  ref3 sha1=8311e541f5c6  shape=(32, 64, 64)
+  arena 8 MB @0x30300000（3-op 实际只需 4.69 MB；按 24 槽预留）
+
+==============================================================================
+  臂 S —— 串行基线：跑完 N 才 prepare N+1
+==============================================================================
+  BIN_LAZY_DEQ=0 BIN_LAZY_SLOTS=24 CAT_FUSION=1 F32DIRECT=1
+[DEPS] q8=fast c8deq=fast bpack=fast e1e2=fast catpack=fast safe=fast  ⇒ deps_closure_ok=True
+  run1：✓ 全对  wall=5.186s  3/3 op 逐字节 = 参照
+    op1 t129:A                             slot= 0 pack=ps   in=0x30300000+32768 out=0x30320000+131072 cyc=317454 nbad=0  pl=5.632ms epi=4283.426ms
+    op2 t129:B                             slot= 1 pack=ps   in=0x30310000+65536 out=0x30341000+131072 cyc=317990 nbad=0  pl=5.637ms epi=9.629ms
+    op3 t129:C                             slot= 0 pack=ps   in=0x30300000+65536 out=0x30320000+131072 cyc=318360 nbad=0  pl=5.645ms epi=9.59ms
+    [覆盖] op1→op2 在飞? False 准备早于 done 0.00 ms | 写IN∩读IN=0B 写IN∩写OUT=0B 写canary∩读IN=0B 同槽=False
+    [覆盖] op2→op3 在飞? False 准备早于 done 0.00 ms | 写IN∩读IN=0B 写IN∩写OUT=0B 写canary∩读IN=0B 同槽=False
+    [终值] A nbad=0 sha1=16b8e0177e | B nbad=0 sha1=ac7eb4e252 | C nbad=0 sha1=9caf0ff587
+  run2：✓ 全对  wall=0.503s  3/3 op 逐字节 = 参照
+    op1 t129:A                             slot= 0 pack=ps   in=0x30300000+32768 out=0x30320000+131072 cyc=316607 nbad=0  pl=5.611ms epi=9.503ms
+    op2 t129:B                             slot= 1 pack=ps   in=0x30310000+65536 out=0x30341000+131072 cyc=317168 nbad=0  pl=5.623ms epi=9.573ms
+    op3 t129:C                             slot= 0 pack=ps   in=0x30300000+65536 out=0x30320000+131072 cyc=317072 nbad=0  pl=5.616ms epi=9.61ms
+    [覆盖] op1→op2 在飞? False 准备早于 done 0.00 ms | 写IN∩读IN=0B 写IN∩写OUT=0B 写canary∩读IN=0B 同槽=False
+    [覆盖] op2→op3 在飞? False 准备早于 done 0.00 ms | 写IN∩读IN=0B 写IN∩写OUT=0B 写canary∩读IN=0B 同槽=False
+    [终值] A nbad=0 sha1=16b8e0177e | B nbad=0 sha1=ac7eb4e252 | C nbad=0 sha1=9caf0ff587
+  [S] 判定：✓ 全对 | 确定性=True（sha1 终值 ['f8493aaf5aba', 'f8493aaf5aba']）
+[json] 已落盘 /home/xilinx/demoir/t129c_out/t129_072238.json
+
+==============================================================================
+  臂 P1 —— 提前 prepare（与 N 的 PL 重叠），done 后才 kick
+==============================================================================
+  BIN_LAZY_DEQ=0 BIN_LAZY_SLOTS=24 CAT_FUSION=1 F32DIRECT=1
+  run1：✓ 全对  wall=0.493s  3/3 op 逐字节 = 参照
+    op1 t129:A                             slot= 0 pack=ps   in=0x30300000+32768 out=0x30320000+131072 cyc=1587176 nbad=0  pl=31.959ms epi=4.28ms
+    op2 t129:B                             slot= 1 pack=ps   in=0x30310000+65536 out=0x30341000+131072 cyc=1565766 nbad=0  pl=31.555ms epi=4.275ms
+    op3 t129:C                             slot= 0 pack=ps   in=0x30300000+65536 out=0x30320000+131072 cyc=328755 nbad=0  pl=5.859ms epi=9.968ms
+    [覆盖] op1→op2 在飞? True 准备早于 done 31.70 ms | 写IN∩读IN=0B 写IN∩写OUT=0B 写canary∩读IN=0B 同槽=False
+    [覆盖] op2→op3 在飞? True 准备早于 done 31.23 ms | 写IN∩读IN=0B 写IN∩写OUT=0B 写canary∩读IN=0B 同槽=False
+    [终值] A nbad=0 sha1=16b8e0177e | B nbad=0 sha1=ac7eb4e252 | C nbad=0 sha1=9caf0ff587
+  run2：✓ 全对  wall=0.494s  3/3 op 逐字节 = 参照
+    op1 t129:A                             slot= 0 pack=ps   in=0x30300000+32768 out=0x30320000+131072 cyc=1595902 nbad=0  pl=32.131ms epi=4.29ms
+    op2 t129:B                             slot= 1 pack=ps   in=0x30310000+65536 out=0x30341000+131072 cyc=1579380 nbad=0  pl=31.827ms epi=4.328ms
+    op3 t129:C                             slot= 0 pack=ps   in=0x30300000+65536 out=0x30320000+131072 cyc=319099 nbad=0  pl=5.676ms epi=9.471ms
+    [覆盖] op1→op2 在飞? True 准备早于 done 31.88 ms | 写IN∩读IN=0B 写IN∩写OUT=0B 写canary∩读IN=0B 同槽=False
+    [覆盖] op2→op3 在飞? True 准备早于 done 31.50 ms | 写IN∩读IN=0B 写IN∩写OUT=0B 写canary∩读IN=0B 同槽=False
+    [终值] A nbad=0 sha1=16b8e0177e | B nbad=0 sha1=ac7eb4e252 | C nbad=0 sha1=9caf0ff587
+  [P1] 判定：✓ 全对 | 确定性=True（sha1 终值 ['f8493aaf5aba', 'f8493aaf5aba']）
+[json] 已落盘 /home/xilinx/demoir/t129c_out/t129_072238.json
+
+==============================================================================
+  臂 P2 —— 整网真实流水逻辑（bin_net 原样）
+==============================================================================
+  BIN_LAZY_DEQ=0 BIN_LAZY_SLOTS=24 CAT_FUSION=1 F32DIRECT=1
+  run1：✓ 全对  wall=0.492s  3/3 op 逐字节 = 参照
+    op1 t129:A                             slot= 0 pack=ps   in=0x30300000+32768 out=0x30320000+131072 cyc=1594924 nbad=0  pl=32.112ms epi=4.177ms
+    op2 t129:B                             slot= 1 pack=ps   in=0x30310000+65536 out=0x30341000+131072 cyc=1572573 nbad=0  pl=31.691ms epi=4.273ms
+    op3 t129:C                             slot= 0 pack=ps   in=0x30300000+65536 out=0x30320000+131072 cyc=320303 nbad=0  pl=5.686ms epi=9.691ms
+    [覆盖] op1→op2 在飞? True 准备早于 done 31.86 ms | 写IN∩读IN=0B 写IN∩写OUT=0B 写canary∩读IN=0B 同槽=False
+    [覆盖] op2→op3 在飞? True 准备早于 done 31.36 ms | 写IN∩读IN=0B 写IN∩写OUT=0B 写canary∩读IN=0B 同槽=False
+    [终值] A nbad=0 sha1=16b8e0177e | B nbad=0 sha1=ac7eb4e252 | C nbad=0 sha1=9caf0ff587
+  run2：✓ 全对  wall=0.494s  3/3 op 逐字节 = 参照
+    op1 t129:A                             slot= 0 pack=ps   in=0x30300000+32768 out=0x30320000+131072 cyc=1603686 nbad=0  pl=32.287ms epi=4.384ms
+    op2 t129:B                             slot= 1 pack=ps   in=0x30310000+65536 out=0x30341000+131072 cyc=1577544 nbad=0  pl=31.79ms epi=4.416ms
+    op3 t129:C                             slot= 0 pack=ps   in=0x30300000+65536 out=0x30320000+131072 cyc=329852 nbad=0  pl=5.791ms epi=9.789ms
+    [覆盖] op1→op2 在飞? True 准备早于 done 32.03 ms | 写IN∩读IN=0B 写IN∩写OUT=0B 写canary∩读IN=0B 同槽=False
+    [覆盖] op2→op3 在飞? True 准备早于 done 31.47 ms | 写IN∩读IN=0B 写IN∩写OUT=0B 写canary∩读IN=0B 同槽=False
+    [终值] A nbad=0 sha1=16b8e0177e | B nbad=0 sha1=ac7eb4e252 | C nbad=0 sha1=9caf0ff587
+  [P2] 判定：✓ 全对 | 确定性=True（sha1 终值 ['f8493aaf5aba', 'f8493aaf5aba']）
+[json] 已落盘 /home/xilinx/demoir/t129c_out/t129_072238.json
+
+==============================================================================
+  臂 P2nc —— P2 但 config/base 的 MMIO 写推到 kick 前
+==============================================================================
+  BIN_LAZY_DEQ=0 BIN_LAZY_SLOTS=24 CAT_FUSION=1 F32DIRECT=1
+  run1：✓ 全对  wall=0.492s  3/3 op 逐字节 = 参照
+    op1 t129:A                             slot= 0 pack=ps   in=0x30300000+32768 out=0x30320000+131072 cyc=1581370 nbad=0  pl=31.851ms epi=4.179ms
+    op2 t129:B                             slot= 1 pack=ps   in=0x30310000+65536 out=0x30341000+131072 cyc=1548743 nbad=0  pl=31.21ms epi=4.371ms
+    op3 t129:C                             slot= 0 pack=ps   in=0x30300000+65536 out=0x30320000+131072 cyc=316917 nbad=0  pl=5.625ms epi=9.649ms
+    [覆盖] op1→op2 在飞? True 准备早于 done 31.60 ms | 写IN∩读IN=0B 写IN∩写OUT=0B 写canary∩读IN=0B 同槽=False
+    [覆盖] op2→op3 在飞? True 准备早于 done 30.92 ms | 写IN∩读IN=0B 写IN∩写OUT=0B 写canary∩读IN=0B 同槽=False
+    [终值] A nbad=0 sha1=16b8e0177e | B nbad=0 sha1=ac7eb4e252 | C nbad=0 sha1=9caf0ff587
+  run2：✓ 全对  wall=0.492s  3/3 op 逐字节 = 参照
+    op1 t129:A                             slot= 0 pack=ps   in=0x30300000+32768 out=0x30320000+131072 cyc=1584529 nbad=0  pl=31.914ms epi=4.314ms
+    op2 t129:B                             slot= 1 pack=ps   in=0x30310000+65536 out=0x30341000+131072 cyc=1561510 nbad=0  pl=31.467ms epi=4.431ms
+    op3 t129:C                             slot= 0 pack=ps   in=0x30300000+65536 out=0x30320000+131072 cyc=318610 nbad=0  pl=5.656ms epi=9.499ms
+    [覆盖] op1→op2 在飞? True 准备早于 done 31.66 ms | 写IN∩读IN=0B 写IN∩写OUT=0B 写canary∩读IN=0B 同槽=False
+    [覆盖] op2→op3 在飞? True 准备早于 done 31.18 ms | 写IN∩读IN=0B 写IN∩写OUT=0B 写canary∩读IN=0B 同槽=False
+    [终值] A nbad=0 sha1=16b8e0177e | B nbad=0 sha1=ac7eb4e252 | C nbad=0 sha1=9caf0ff587
+  [P2nc] 判定：✓ 全对 | 确定性=True（sha1 终值 ['f8493aaf5aba', 'f8493aaf5aba']）
+[json] 已落盘 /home/xilinx/demoir/t129c_out/t129_072238.json
+
+==============================================================================
+  臂 P2ncan —— P2 但 OUT 槽尾金丝雀写推到 kick 前
+==============================================================================
+  BIN_LAZY_DEQ=0 BIN_LAZY_SLOTS=24 CAT_FUSION=1 F32DIRECT=1
+  run1：✓ 全对  wall=0.495s  3/3 op 逐字节 = 参照
+    op1 t129:A                             slot= 0 pack=ps   in=0x30300000+32768 out=0x30320000+131072 cyc=1596963 nbad=0  pl=32.162ms epi=4.187ms
+    op2 t129:B                             slot= 1 pack=ps   in=0x30310000+65536 out=0x30341000+131072 cyc=1560866 nbad=0  pl=31.53ms epi=4.371ms
+    op3 t129:C                             slot= 0 pack=ps   in=0x30300000+65536 out=0x30320000+131072 cyc=319182 nbad=0  pl=5.687ms epi=9.678ms
+    [覆盖] op1→op2 在飞? True 准备早于 done 31.90 ms | 写IN∩读IN=0B 写IN∩写OUT=0B 写canary∩读IN=0B 同槽=False
+    [覆盖] op2→op3 在飞? True 准备早于 done 31.21 ms | 写IN∩读IN=0B 写IN∩写OUT=0B 写canary∩读IN=0B 同槽=False
+    [终值] A nbad=0 sha1=16b8e0177e | B nbad=0 sha1=ac7eb4e252 | C nbad=0 sha1=9caf0ff587
+  run2：✓ 全对  wall=0.486s  3/3 op 逐字节 = 参照
+    op1 t129:A                             slot= 0 pack=ps   in=0x30300000+32768 out=0x30320000+131072 cyc=1566398 nbad=0  pl=31.538ms epi=4.285ms
+    op2 t129:B                             slot= 1 pack=ps   in=0x30310000+65536 out=0x30341000+131072 cyc=1549220 nbad=0  pl=31.218ms epi=4.241ms
+    op3 t129:C                             slot= 0 pack=ps   in=0x30300000+65536 out=0x30320000+131072 cyc=323522 nbad=0  pl=5.771ms epi=9.67ms
+    [覆盖] op1→op2 在飞? True 准备早于 done 31.29 ms | 写IN∩读IN=0B 写IN∩写OUT=0B 写canary∩读IN=0B 同槽=False
+    [覆盖] op2→op3 在飞? True 准备早于 done 30.91 ms | 写IN∩读IN=0B 写IN∩写OUT=0B 写canary∩读IN=0B 同槽=False
+    [终值] A nbad=0 sha1=16b8e0177e | B nbad=0 sha1=ac7eb4e252 | C nbad=0 sha1=9caf0ff587
+  [P2ncan] 判定：✓ 全对 | 确定性=True（sha1 终值 ['f8493aaf5aba', 'f8493aaf5aba']）
+[json] 已落盘 /home/xilinx/demoir/t129c_out/t129_072238.json
+
+==============================================================================
+  臂 P2lazy —— P2 + LAZY_DEQ=1/24 槽（唯一会真正槽复用的配置）
+==============================================================================
+  BIN_LAZY_DEQ=1 BIN_LAZY_SLOTS=24 CAT_FUSION=1 F32DIRECT=1
+  [LAZY_DEQ] IN/OUT 槽数 = 24（BIN_LAZY_SLOTS）
+  [PERF] 本跑含一次性内核装载（q8/c8deq/bpack 的 load+自检）⇒ 口径 a，门槛按热态语义**不判**（下一次跑才是稳态；要一次到位就先调 BE.load_kernels()）
+  run1：✓ 全对  wall=0.792s  3/3 op 逐字节 = 参照
+    op1 t129:A                             slot= 0 pack=e1e2 in=0x30300000+32768 out=0x30480000+131072 cyc=706577 nbad=0  pl=18.084ms epi=5.262ms
+    op2 t129:B                             slot= 1 pack=e1e2 in=0x30310000+65536 out=0x304a1000+131072 cyc=709092 nbad=0  pl=20.822ms epi=4.231ms
+    op3 t129:C                             slot= 2 pack=e1e2 in=0x30320000+65536 out=0x304c2000+131072 cyc=322031 nbad=0  pl=12.127ms epi=9.596ms
+    [覆盖] op1→op2 在飞? True 准备早于 done 14.09 ms | 写IN∩读IN=0B 写IN∩写OUT=0B 写canary∩读IN=0B 同槽=False
+    [覆盖] op2→op3 在飞? True 准备早于 done 14.15 ms | 写IN∩读IN=0B 写IN∩写OUT=0B 写canary∩读IN=0B 同槽=False
+    [终值] A nbad=0 sha1=16b8e0177e | B nbad=0 sha1=ac7eb4e252 | C nbad=0 sha1=9caf0ff587
+  [LAZY_DEQ] IN/OUT 槽数 = 24（BIN_LAZY_SLOTS）
+  [PERF] 本跑含一次性内核装载（q8/c8deq/bpack 的 load+自检）⇒ 口径 a，门槛按热态语义**不判**（下一次跑才是稳态；要一次到位就先调 BE.load_kernels()）
+  run2：✓ 全对  wall=0.609s  3/3 op 逐字节 = 参照
+    op1 t129:A                             slot= 0 pack=e1e2 in=0x30300000+32768 out=0x30480000+131072 cyc=740706 nbad=0  pl=18.808ms epi=4.252ms
+    op2 t129:B                             slot= 1 pack=e1e2 in=0x30310000+65536 out=0x304a1000+131072 cyc=723278 nbad=0  pl=21.216ms epi=4.452ms
+    op3 t129:C                             slot= 2 pack=e1e2 in=0x30320000+65536 out=0x304c2000+131072 cyc=323832 nbad=0  pl=12.312ms epi=9.681ms
+    [覆盖] op1→op2 在飞? True 准备早于 done 14.78 ms | 写IN∩读IN=0B 写IN∩写OUT=0B 写canary∩读IN=0B 同槽=False
+    [覆盖] op2→op3 在飞? True 准备早于 done 14.42 ms | 写IN∩读IN=0B 写IN∩写OUT=0B 写canary∩读IN=0B 同槽=False
+    [终值] A nbad=0 sha1=16b8e0177e | B nbad=0 sha1=ac7eb4e252 | C nbad=0 sha1=9caf0ff587
+  [P2lazy] 判定：✓ 全对 | 确定性=True（sha1 终值 ['f8493aaf5aba', 'f8493aaf5aba']）
+[json] 已落盘 /home/xilinx/demoir/t129c_out/t129_072238.json
+
+==============================================================================
+  臂 D（done 位语义）：kick 之后连读 AP_RET，看 done 是否 sticky
+==============================================================================
+    冷（load 后第一次）：kick 后 done 位 ['0.00ms:0', '0.05ms:0', '0.20ms:0', '1.00ms:0', '2.00ms:0', '4.00ms:0'] ⇒ 首个 "done" 出现在 5.459 ms，真完成 5.656 ms
+    热（紧接着第二次）：kick 后 done 位 ['0.00ms:0', '0.05ms:0', '0.20ms:0', '1.00ms:0', '2.00ms:0', '4.00ms:0'] ⇒ 首个 "done" 出现在 5.474 ms，真完成 5.628 ms
+[json] 已落盘 /home/xilinx/demoir/t129c_out/t129_072238.json
+
+==============================================================================
+  臂 F（写回落地时延）：单层做完后 done+0/+20/+100/+300 ms 回读同一块 OUT 槽
+==============================================================================
+    done+0   (done+0 ms) nbad=     0 first=None tail=False sha1=f965e7f452ad
+    +20ms    (done+21 ms) nbad=     0 first=None tail=False sha1=f965e7f452ad
+    +100ms   (done+121 ms) nbad=     0 first=None tail=False sha1=f965e7f452ad
+    +300ms   (done+422 ms) nbad=     0 first=None tail=False sha1=f965e7f452ad
+[json] 已落盘 /home/xilinx/demoir/t129c_out/t129_072238.json
+
+==============================================================================
+  臂 H（最高压力）：3 个**独立** op，A 的 PL 里连续 prepare B、C，连跑 100 次
+==============================================================================
+  已完成 20/100 次（累计错 op 数 = 0）
+  已完成 40/100 次（累计错 op 数 = 0）
+  已完成 60/100 次（累计错 op 数 = 0）
+  已完成 80/100 次（累计错 op 数 = 0）
+  已完成 100/100 次（累计错 op 数 = 0）
+[json] 已落盘 /home/xilinx/demoir/t129c_out/t129_072238.json
+  [H] 100/100 次跑完，累计错 op = 0；重叠时长 30.6~34.2 ms；各 op sha1 去重后 {'A': 1, 'B': 1, 'C': 1}
+
+==============================================================================
+  总判
+==============================================================================
+  S       ✓/det ✓/det  错字节=[0, 0] 确定性=True
+  P1      ✓/det ✓/det  错字节=[0, 0] 确定性=True
+  P2      ✓/det ✓/det  错字节=[0, 0] 确定性=True
+  P2nc    ✓/det ✓/det  错字节=[0, 0] 确定性=True
+  P2ncan  ✓/det ✓/det  错字节=[0, 0] 确定性=True
+  P2lazy  ✓/det ✓/det  错字节=[0, 0] 确定性=True
+[json] 已落盘 /home/xilinx/demoir/t129c_out/t129_072238.json

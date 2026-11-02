@@ -1,0 +1,2670 @@
+{
+ "env_at_start": {
+  "BIN_PACK": "e1e2",
+  "BIN_LAZY_DEQ": "0",
+  "BIN_LAZY_SLOTS": "24",
+  "BIN_CAT_FUSION": "1",
+  "BIN_BILINEAR_C": "1",
+  "BIN_PRECOMP": "1",
+  "Q8CACHE": "1",
+  "BIN_F32DIRECT": "1",
+  "BIN_CAT_ECA_FUSE": "1",
+  "BIN_EPI_NOINV": "1",
+  "BIN_PROFILE": "1"
+ },
+ "steps": {
+  "load": {
+   "bit": "design_1_150v53.bit",
+   "sec": 2.513,
+   "ips": [
+    "bin_unit_0",
+    "conv_uni_0",
+    "ps7"
+   ],
+   "base": {
+    "conv_uni_0": {
+     "base": "0x40040000",
+     "length": 131072,
+     "ok": true
+    },
+    "bin_unit_0": {
+     "base": "0x40060000",
+     "length": 131072,
+     "ok": true
+    }
+   },
+   "magic": {
+    "CFG+0x314": {
+     "abs_addr": "0x40070314",
+     "hex": "0x50300001"
+    },
+    "0x310 CHAIN_STATUS": {
+     "abs_addr": "0x40060310",
+     "hex": "0x00000000"
+    }
+   },
+   "load_sec310": 0,
+   "ok": true
+  }
+ },
+ "arms": {
+  "S": {
+   "tag": "S",
+   "armspec": {
+    "tag": "S",
+    "pipeline": false,
+    "note": "串行基线：跑完 N 才 prepare N+1"
+   },
+   "runs": [
+    {
+     "run": 1,
+     "wall_s": 5.142,
+     "per_op": [
+      {
+       "op": "m_blocks.0.b0.ghost_layers.0.primary_conv.conv",
+       "slot": 0,
+       "in_pa": "0x30300000",
+       "in_len": 32768,
+       "out_pa": "0x30320000",
+       "out_len": 131072,
+       "pack": "ps",
+       "cyc": 320482,
+       "st": "0x00000001",
+       "oob": 0,
+       "prep_ms": 359.875,
+       "pl_ms": 5.684,
+       "reap_wait_ms": 5.504,
+       "epi_ms": 4275.129,
+       "nbad": 0,
+       "first": null,
+       "tail": false,
+       "frac": null,
+       "sha1": "f965e7f452adf1fd136a9b3e4425726641283b0e"
+      },
+      {
+       "op": "m_blocks.0.b0.ghost_layers.1.primary_conv.conv",
+       "slot": 1,
+       "in_pa": "0x30310000",
+       "in_len": 65536,
+       "out_pa": "0x30341000",
+       "out_len": 131072,
+       "pack": "ps",
+       "cyc": 324833,
+       "st": "0x00000001",
+       "oob": 0,
+       "prep_ms": 31.792,
+       "pl_ms": 5.785,
+       "reap_wait_ms": 5.603,
+       "epi_ms": 9.841,
+       "nbad": 0,
+       "first": null,
+       "tail": false,
+       "frac": null,
+       "sha1": "737c09984db97265c205a80db595b610ec45190c"
+      },
+      {
+       "op": "locks.0.b0.ghost_layers.0.cheap_operation.conv",
+       "slot": 0,
+       "in_pa": "0x30300000",
+       "in_len": 32768,
+       "out_pa": "0x30320000",
+       "out_len": 131072,
+       "pack": "ps",
+       "cyc": 316202,
+       "st": "0x00000001",
+       "oob": 0,
+       "prep_ms": 16.079,
+       "pl_ms": 5.602,
+       "reap_wait_ms": 5.424,
+       "epi_ms": 9.462,
+       "nbad": 0,
+       "first": null,
+       "tail": false,
+       "frac": null,
+       "sha1": "180d3fe39b3d324c6dbe1a4f65ead1a66194f672"
+      }
+     ],
+     "timeline": [
+      {
+       "op": "m_blocks.0.b0.ghost_layers.0.primary_conv.conv",
+       "slot": 0,
+       "t_prep": 1746775126.497732,
+       "t_prep_end": 1746775126.857608,
+       "t_kick": 1746775126.857657,
+       "t_fin": 1746775126.857838,
+       "t_reap": 1746775126.863341,
+       "in_pa": 808452096,
+       "out_pa": 808583168,
+       "pack": "ps"
+      },
+      {
+       "op": "m_blocks.0.b0.ghost_layers.1.primary_conv.conv",
+       "slot": 1,
+       "t_prep": 1746775131.134764,
+       "t_prep_end": 1746775131.166556,
+       "t_kick": 1746775131.166603,
+       "t_fin": 1746775131.166785,
+       "t_reap": 1746775131.172388,
+       "in_pa": 808517632,
+       "out_pa": 808718336,
+       "pack": "ps"
+      },
+      {
+       "op": "locks.0.b0.ghost_layers.0.cheap_operation.conv",
+       "slot": 0,
+       "t_prep": 1746775131.178399,
+       "t_prep_end": 1746775131.194478,
+       "t_kick": 1746775131.194525,
+       "t_fin": 1746775131.194702,
+       "t_reap": 1746775131.200127,
+       "in_pa": 808452096,
+       "out_pa": 808583168,
+       "pack": "ps"
+      }
+     ],
+     "cover": [
+      {
+       "n": 1,
+       "next": 2,
+       "overlap_inflight": false,
+       "prep_ms_before_done": 0.0,
+       "prep_ms_inside_flight": 0.0,
+       "in_w_in": 0,
+       "in_w_out": 0,
+       "can_on_in": 0,
+       "can_on_out": 0,
+       "same_slot": false,
+       "in_pa_same": false,
+       "out_pa_same": false
+      },
+      {
+       "n": 2,
+       "next": 3,
+       "overlap_inflight": false,
+       "prep_ms_before_done": 0.0,
+       "prep_ms_inside_flight": 0.0,
+       "in_w_in": 0,
+       "in_w_out": 0,
+       "can_on_in": 0,
+       "can_on_out": 0,
+       "same_slot": false,
+       "in_pa_same": false,
+       "out_pa_same": false
+      }
+     ],
+     "outs_sha1": {
+      "encoder.encoder_1.sam_blocks.0.b0.ghost_layers.0.cheap_operation.conv": "40ec235cf57f7a96f423ea96055ac674b1d9f0f1",
+      "encoder.encoder_1.sam_blocks.0.b0.ghost_layers.1.primary_conv.conv": "ac7eb4e252cab401053fab4171c61fdc9b5ed07f",
+      "encoder.encoder_1.sam_blocks.0.b0.ghost_layers.0.primary_conv.conv": "16b8e0177e7957f52601a2863c23b3e933765f45"
+     },
+     "lazy_stats": {
+      "pinned": 0,
+      "released": 0,
+      "starved": 0,
+      "direct_layers": 0,
+      "mixed_layers": 0,
+      "ps_layers": 0,
+      "deq_skipped": 0,
+      "direct_bytes": 0,
+      "f32_bytes": 0
+     },
+     "ok": true,
+     "pl_s": null,
+     "ps_s": null,
+     "tag": "S",
+     "pipeline": false,
+     "note": "串行基线：跑完 N 才 prepare N+1",
+     "final_f32": [
+      {
+       "op": "A",
+       "shape": [
+        32,
+        64,
+        64
+       ],
+       "nbad": 0,
+       "sha1": "16b8e0177e7957f52601a2863c23b3e933765f45"
+      },
+      {
+       "op": "B",
+       "shape": [
+        32,
+        64,
+        64
+       ],
+       "nbad": 0,
+       "sha1": "ac7eb4e252cab401053fab4171c61fdc9b5ed07f"
+      },
+      {
+       "op": "C",
+       "shape": [
+        32,
+        64,
+        64
+       ],
+       "nbad": 0,
+       "sha1": "40ec235cf57f7a96f423ea96055ac674b1d9f0f1"
+      }
+     ]
+    },
+    {
+     "run": 2,
+     "wall_s": 0.513,
+     "per_op": [
+      {
+       "op": "m_blocks.0.b0.ghost_layers.0.primary_conv.conv",
+       "slot": 0,
+       "in_pa": "0x30300000",
+       "in_len": 32768,
+       "out_pa": "0x30320000",
+       "out_len": 131072,
+       "pack": "ps",
+       "cyc": 326263,
+       "st": "0x00000001",
+       "oob": 0,
+       "prep_ms": 30.725,
+       "pl_ms": 5.754,
+       "reap_wait_ms": 5.579,
+       "epi_ms": 10.906,
+       "nbad": 0,
+       "first": null,
+       "tail": false,
+       "frac": null,
+       "sha1": "f965e7f452adf1fd136a9b3e4425726641283b0e"
+      },
+      {
+       "op": "m_blocks.0.b0.ghost_layers.1.primary_conv.conv",
+       "slot": 1,
+       "in_pa": "0x30310000",
+       "in_len": 65536,
+       "out_pa": "0x30341000",
+       "out_len": 131072,
+       "pack": "ps",
+       "cyc": 316381,
+       "st": "0x00000001",
+       "oob": 0,
+       "prep_ms": 31.609,
+       "pl_ms": 5.607,
+       "reap_wait_ms": 5.431,
+       "epi_ms": 9.54,
+       "nbad": 0,
+       "first": null,
+       "tail": false,
+       "frac": null,
+       "sha1": "737c09984db97265c205a80db595b610ec45190c"
+      },
+      {
+       "op": "locks.0.b0.ghost_layers.0.cheap_operation.conv",
+       "slot": 0,
+       "in_pa": "0x30300000",
+       "in_len": 32768,
+       "out_pa": "0x30320000",
+       "out_len": 131072,
+       "pack": "ps",
+       "cyc": 321090,
+       "st": "0x00000001",
+       "oob": 0,
+       "prep_ms": 17.329,
+       "pl_ms": 5.637,
+       "reap_wait_ms": 5.449,
+       "epi_ms": 9.868,
+       "nbad": 0,
+       "first": null,
+       "tail": false,
+       "frac": null,
+       "sha1": "180d3fe39b3d324c6dbe1a4f65ead1a66194f672"
+      }
+     ],
+     "timeline": [
+      {
+       "op": "m_blocks.0.b0.ghost_layers.0.primary_conv.conv",
+       "slot": 0,
+       "t_prep": 1746775132.249805,
+       "t_prep_end": 1746775132.28053,
+       "t_kick": 1746775132.280577,
+       "t_fin": 1746775132.280752,
+       "t_reap": 1746775132.286332,
+       "in_pa": 808452096,
+       "out_pa": 808583168,
+       "pack": "ps"
+      },
+      {
+       "op": "m_blocks.0.b0.ghost_layers.1.primary_conv.conv",
+       "slot": 1,
+       "t_prep": 1746775132.293452,
+       "t_prep_end": 1746775132.325061,
+       "t_kick": 1746775132.325106,
+       "t_fin": 1746775132.325282,
+       "t_reap": 1746775132.330713,
+       "in_pa": 808517632,
+       "out_pa": 808718336,
+       "pack": "ps"
+      },
+      {
+       "op": "locks.0.b0.ghost_layers.0.cheap_operation.conv",
+       "slot": 0,
+       "t_prep": 1746775132.336793,
+       "t_prep_end": 1746775132.354122,
+       "t_kick": 1746775132.354172,
+       "t_fin": 1746775132.354361,
+       "t_reap": 1746775132.359809,
+       "in_pa": 808452096,
+       "out_pa": 808583168,
+       "pack": "ps"
+      }
+     ],
+     "cover": [
+      {
+       "n": 1,
+       "next": 2,
+       "overlap_inflight": false,
+       "prep_ms_before_done": 0.0,
+       "prep_ms_inside_flight": 0.0,
+       "in_w_in": 0,
+       "in_w_out": 0,
+       "can_on_in": 0,
+       "can_on_out": 0,
+       "same_slot": false,
+       "in_pa_same": false,
+       "out_pa_same": false
+      },
+      {
+       "n": 2,
+       "next": 3,
+       "overlap_inflight": false,
+       "prep_ms_before_done": 0.0,
+       "prep_ms_inside_flight": 0.0,
+       "in_w_in": 0,
+       "in_w_out": 0,
+       "can_on_in": 0,
+       "can_on_out": 0,
+       "same_slot": false,
+       "in_pa_same": false,
+       "out_pa_same": false
+      }
+     ],
+     "outs_sha1": {
+      "encoder.encoder_1.sam_blocks.0.b0.ghost_layers.0.cheap_operation.conv": "40ec235cf57f7a96f423ea96055ac674b1d9f0f1",
+      "encoder.encoder_1.sam_blocks.0.b0.ghost_layers.1.primary_conv.conv": "ac7eb4e252cab401053fab4171c61fdc9b5ed07f",
+      "encoder.encoder_1.sam_blocks.0.b0.ghost_layers.0.primary_conv.conv": "16b8e0177e7957f52601a2863c23b3e933765f45"
+     },
+     "lazy_stats": {
+      "pinned": 0,
+      "released": 0,
+      "starved": 0,
+      "direct_layers": 0,
+      "mixed_layers": 0,
+      "ps_layers": 0,
+      "deq_skipped": 0,
+      "direct_bytes": 0,
+      "f32_bytes": 0
+     },
+     "ok": true,
+     "pl_s": null,
+     "ps_s": null,
+     "tag": "S",
+     "pipeline": false,
+     "note": "串行基线：跑完 N 才 prepare N+1",
+     "final_f32": [
+      {
+       "op": "A",
+       "shape": [
+        32,
+        64,
+        64
+       ],
+       "nbad": 0,
+       "sha1": "16b8e0177e7957f52601a2863c23b3e933765f45"
+      },
+      {
+       "op": "B",
+       "shape": [
+        32,
+        64,
+        64
+       ],
+       "nbad": 0,
+       "sha1": "ac7eb4e252cab401053fab4171c61fdc9b5ed07f"
+      },
+      {
+       "op": "C",
+       "shape": [
+        32,
+        64,
+        64
+       ],
+       "nbad": 0,
+       "sha1": "40ec235cf57f7a96f423ea96055ac674b1d9f0f1"
+      }
+     ]
+    }
+   ],
+   "deterministic": true,
+   "all_ok": true,
+   "sha1_final": [
+    "6e5dd3a067a2670f056b8825e8effaf784c937b2",
+    "6e5dd3a067a2670f056b8825e8effaf784c937b2"
+   ]
+  },
+  "P1": {
+   "tag": "P1",
+   "armspec": {
+    "tag": "P1",
+    "pipeline": true,
+    "note": "提前 prepare（与 N 的 PL 重叠），done 后才 kick"
+   },
+   "runs": [
+    {
+     "run": 1,
+     "wall_s": 0.475,
+     "per_op": [
+      {
+       "op": "m_blocks.0.b0.ghost_layers.0.primary_conv.conv",
+       "slot": 0,
+       "in_pa": "0x30300000",
+       "in_len": 32768,
+       "out_pa": "0x30320000",
+       "out_len": 131072,
+       "pack": "ps",
+       "cyc": 1558578,
+       "st": "0x00000001",
+       "oob": 0,
+       "prep_ms": 30.398,
+       "pl_ms": 31.377,
+       "reap_wait_ms": 0.129,
+       "epi_ms": 4.3,
+       "nbad": 0,
+       "first": null,
+       "tail": false,
+       "frac": null,
+       "sha1": "f965e7f452adf1fd136a9b3e4425726641283b0e"
+      },
+      {
+       "op": "m_blocks.0.b0.ghost_layers.1.primary_conv.conv",
+       "slot": 1,
+       "in_pa": "0x30310000",
+       "in_len": 65536,
+       "out_pa": "0x30341000",
+       "out_len": 131072,
+       "pack": "ps",
+       "cyc": 808036,
+       "st": "0x00000001",
+       "oob": 0,
+       "prep_ms": 30.861,
+       "pl_ms": 16.392,
+       "reap_wait_ms": 0.129,
+       "epi_ms": 4.242,
+       "nbad": 0,
+       "first": null,
+       "tail": false,
+       "frac": null,
+       "sha1": "737c09984db97265c205a80db595b610ec45190c"
+      },
+      {
+       "op": "locks.0.b0.ghost_layers.0.cheap_operation.conv",
+       "slot": 0,
+       "in_pa": "0x30300000",
+       "in_len": 32768,
+       "out_pa": "0x30320000",
+       "out_len": 131072,
+       "pack": "ps",
+       "cyc": 326192,
+       "st": "0x00000001",
+       "oob": 0,
+       "prep_ms": 15.807,
+       "pl_ms": 5.822,
+       "reap_wait_ms": 5.508,
+       "epi_ms": 9.699,
+       "nbad": 0,
+       "first": null,
+       "tail": false,
+       "frac": null,
+       "sha1": "180d3fe39b3d324c6dbe1a4f65ead1a66194f672"
+      }
+     ],
+     "timeline": [
+      {
+       "op": "m_blocks.0.b0.ghost_layers.0.primary_conv.conv",
+       "slot": 0,
+       "t_prep": 1746775133.824445,
+       "t_prep_end": 1746775133.854844,
+       "t_kick": 1746775133.854912,
+       "t_fin": 1746775133.886161,
+       "t_reap": 1746775133.886289,
+       "in_pa": 808452096,
+       "out_pa": 808583168,
+       "pack": "ps"
+      },
+      {
+       "op": "m_blocks.0.b0.ghost_layers.1.primary_conv.conv",
+       "slot": 1,
+       "t_prep": 1746775133.85516,
+       "t_prep_end": 1746775133.886021,
+       "t_kick": 1746775133.892266,
+       "t_fin": 1746775133.90853,
+       "t_reap": 1746775133.908659,
+       "in_pa": 808517632,
+       "out_pa": 808718336,
+       "pack": "ps"
+      },
+      {
+       "op": "locks.0.b0.ghost_layers.0.cheap_operation.conv",
+       "slot": 0,
+       "t_prep": 1746775133.892583,
+       "t_prep_end": 1746775133.90839,
+       "t_kick": 1746775133.914559,
+       "t_fin": 1746775133.914873,
+       "t_reap": 1746775133.920381,
+       "in_pa": 808452096,
+       "out_pa": 808583168,
+       "pack": "ps"
+      }
+     ],
+     "cover": [
+      {
+       "n": 1,
+       "next": 2,
+       "overlap_inflight": true,
+       "prep_ms_before_done": 31.129,
+       "prep_ms_inside_flight": 30.86,
+       "in_w_in": 0,
+       "in_w_out": 0,
+       "can_on_in": 0,
+       "can_on_out": 0,
+       "same_slot": false,
+       "in_pa_same": false,
+       "out_pa_same": false
+      },
+      {
+       "n": 2,
+       "next": 3,
+       "overlap_inflight": true,
+       "prep_ms_before_done": 16.076,
+       "prep_ms_inside_flight": 15.81,
+       "in_w_in": 0,
+       "in_w_out": 0,
+       "can_on_in": 0,
+       "can_on_out": 0,
+       "same_slot": false,
+       "in_pa_same": false,
+       "out_pa_same": false
+      }
+     ],
+     "outs_sha1": {
+      "encoder.encoder_1.sam_blocks.0.b0.ghost_layers.0.cheap_operation.conv": "40ec235cf57f7a96f423ea96055ac674b1d9f0f1",
+      "encoder.encoder_1.sam_blocks.0.b0.ghost_layers.1.primary_conv.conv": "ac7eb4e252cab401053fab4171c61fdc9b5ed07f",
+      "encoder.encoder_1.sam_blocks.0.b0.ghost_layers.0.primary_conv.conv": "16b8e0177e7957f52601a2863c23b3e933765f45"
+     },
+     "lazy_stats": {
+      "pinned": 0,
+      "released": 0,
+      "starved": 0,
+      "direct_layers": 0,
+      "mixed_layers": 0,
+      "ps_layers": 0,
+      "deq_skipped": 0,
+      "direct_bytes": 0,
+      "f32_bytes": 0
+     },
+     "ok": true,
+     "pl_s": 0.05385613441467285,
+     "ps_s": 0.08707663209861494,
+     "tag": "P1",
+     "pipeline": true,
+     "note": "提前 prepare（与 N 的 PL 重叠），done 后才 kick",
+     "final_f32": [
+      {
+       "op": "A",
+       "shape": [
+        32,
+        64,
+        64
+       ],
+       "nbad": 0,
+       "sha1": "16b8e0177e7957f52601a2863c23b3e933765f45"
+      },
+      {
+       "op": "B",
+       "shape": [
+        32,
+        64,
+        64
+       ],
+       "nbad": 0,
+       "sha1": "ac7eb4e252cab401053fab4171c61fdc9b5ed07f"
+      },
+      {
+       "op": "C",
+       "shape": [
+        32,
+        64,
+        64
+       ],
+       "nbad": 0,
+       "sha1": "40ec235cf57f7a96f423ea96055ac674b1d9f0f1"
+      }
+     ]
+    },
+    {
+     "run": 2,
+     "wall_s": 0.476,
+     "per_op": [
+      {
+       "op": "m_blocks.0.b0.ghost_layers.0.primary_conv.conv",
+       "slot": 0,
+       "in_pa": "0x30300000",
+       "in_len": 32768,
+       "out_pa": "0x30320000",
+       "out_len": 131072,
+       "pack": "ps",
+       "cyc": 1560771,
+       "st": "0x00000001",
+       "oob": 0,
+       "prep_ms": 30.678,
+       "pl_ms": 31.426,
+       "reap_wait_ms": 0.133,
+       "epi_ms": 4.26,
+       "nbad": 0,
+       "first": null,
+       "tail": false,
+       "frac": null,
+       "sha1": "f965e7f452adf1fd136a9b3e4425726641283b0e"
+      },
+      {
+       "op": "m_blocks.0.b0.ghost_layers.1.primary_conv.conv",
+       "slot": 1,
+       "in_pa": "0x30310000",
+       "in_len": 65536,
+       "out_pa": "0x30341000",
+       "out_len": 131072,
+       "pack": "ps",
+       "cyc": 811648,
+       "st": "0x00000001",
+       "oob": 0,
+       "prep_ms": 30.903,
+       "pl_ms": 16.463,
+       "reap_wait_ms": 0.129,
+       "epi_ms": 4.23,
+       "nbad": 0,
+       "first": null,
+       "tail": false,
+       "frac": null,
+       "sha1": "737c09984db97265c205a80db595b610ec45190c"
+      },
+      {
+       "op": "locks.0.b0.ghost_layers.0.cheap_operation.conv",
+       "slot": 0,
+       "in_pa": "0x30300000",
+       "in_len": 32768,
+       "out_pa": "0x30320000",
+       "out_len": 131072,
+       "pack": "ps",
+       "cyc": 322449,
+       "st": "0x00000001",
+       "oob": 0,
+       "prep_ms": 15.881,
+       "pl_ms": 5.75,
+       "reap_wait_ms": 5.434,
+       "epi_ms": 9.527,
+       "nbad": 0,
+       "first": null,
+       "tail": false,
+       "frac": null,
+       "sha1": "180d3fe39b3d324c6dbe1a4f65ead1a66194f672"
+      }
+     ],
+     "timeline": [
+      {
+       "op": "m_blocks.0.b0.ghost_layers.0.primary_conv.conv",
+       "slot": 0,
+       "t_prep": 1746775134.933419,
+       "t_prep_end": 1746775134.964097,
+       "t_kick": 1746775134.964166,
+       "t_fin": 1746775134.995459,
+       "t_reap": 1746775134.995592,
+       "in_pa": 808452096,
+       "out_pa": 808583168,
+       "pack": "ps"
+      },
+      {
+       "op": "m_blocks.0.b0.ghost_layers.1.primary_conv.conv",
+       "slot": 1,
+       "t_prep": 1746775134.964409,
+       "t_prep_end": 1746775134.995312,
+       "t_kick": 1746775135.001537,
+       "t_fin": 1746775135.017871,
+       "t_reap": 1746775135.017999,
+       "in_pa": 808517632,
+       "out_pa": 808718336,
+       "pack": "ps"
+      },
+      {
+       "op": "locks.0.b0.ghost_layers.0.cheap_operation.conv",
+       "slot": 0,
+       "t_prep": 1746775135.00185,
+       "t_prep_end": 1746775135.017731,
+       "t_kick": 1746775135.023874,
+       "t_fin": 1746775135.024191,
+       "t_reap": 1746775135.029624,
+       "in_pa": 808452096,
+       "out_pa": 808583168,
+       "pack": "ps"
+      }
+     ],
+     "cover": [
+      {
+       "n": 1,
+       "next": 2,
+       "overlap_inflight": true,
+       "prep_ms_before_done": 31.183,
+       "prep_ms_inside_flight": 30.900000000000002,
+       "in_w_in": 0,
+       "in_w_out": 0,
+       "can_on_in": 0,
+       "can_on_out": 0,
+       "same_slot": false,
+       "in_pa_same": false,
+       "out_pa_same": false
+      },
+      {
+       "n": 2,
+       "next": 3,
+       "overlap_inflight": true,
+       "prep_ms_before_done": 16.149,
+       "prep_ms_inside_flight": 15.879999999999999,
+       "in_w_in": 0,
+       "in_w_out": 0,
+       "can_on_in": 0,
+       "can_on_out": 0,
+       "same_slot": false,
+       "in_pa_same": false,
+       "out_pa_same": false
+      }
+     ],
+     "outs_sha1": {
+      "encoder.encoder_1.sam_blocks.0.b0.ghost_layers.0.cheap_operation.conv": "40ec235cf57f7a96f423ea96055ac674b1d9f0f1",
+      "encoder.encoder_1.sam_blocks.0.b0.ghost_layers.1.primary_conv.conv": "ac7eb4e252cab401053fab4171c61fdc9b5ed07f",
+      "encoder.encoder_1.sam_blocks.0.b0.ghost_layers.0.primary_conv.conv": "16b8e0177e7957f52601a2863c23b3e933765f45"
+     },
+     "lazy_stats": {
+      "pinned": 0,
+      "released": 0,
+      "starved": 0,
+      "direct_layers": 0,
+      "mixed_layers": 0,
+      "ps_layers": 0,
+      "deq_skipped": 0,
+      "direct_bytes": 0,
+      "f32_bytes": 0
+     },
+     "ok": true,
+     "pl_s": 0.05389738082885742,
+     "ps_s": 0.08732864814919594,
+     "tag": "P1",
+     "pipeline": true,
+     "note": "提前 prepare（与 N 的 PL 重叠），done 后才 kick",
+     "final_f32": [
+      {
+       "op": "A",
+       "shape": [
+        32,
+        64,
+        64
+       ],
+       "nbad": 0,
+       "sha1": "16b8e0177e7957f52601a2863c23b3e933765f45"
+      },
+      {
+       "op": "B",
+       "shape": [
+        32,
+        64,
+        64
+       ],
+       "nbad": 0,
+       "sha1": "ac7eb4e252cab401053fab4171c61fdc9b5ed07f"
+      },
+      {
+       "op": "C",
+       "shape": [
+        32,
+        64,
+        64
+       ],
+       "nbad": 0,
+       "sha1": "40ec235cf57f7a96f423ea96055ac674b1d9f0f1"
+      }
+     ]
+    }
+   ],
+   "deterministic": true,
+   "all_ok": true,
+   "sha1_final": [
+    "6e5dd3a067a2670f056b8825e8effaf784c937b2",
+    "6e5dd3a067a2670f056b8825e8effaf784c937b2"
+   ]
+  },
+  "P2": {
+   "tag": "P2",
+   "armspec": {
+    "tag": "P2",
+    "pipeline": true,
+    "note": "整网真实流水逻辑（bin_net 原样）"
+   },
+   "runs": [
+    {
+     "run": 1,
+     "wall_s": 0.472,
+     "per_op": [
+      {
+       "op": "m_blocks.0.b0.ghost_layers.0.primary_conv.conv",
+       "slot": 0,
+       "in_pa": "0x30300000",
+       "in_len": 32768,
+       "out_pa": "0x30320000",
+       "out_len": 131072,
+       "pack": "ps",
+       "cyc": 1558005,
+       "st": "0x00000001",
+       "oob": 0,
+       "prep_ms": 30.498,
+       "pl_ms": 31.366,
+       "reap_wait_ms": 0.131,
+       "epi_ms": 4.302,
+       "nbad": 0,
+       "first": null,
+       "tail": false,
+       "frac": null,
+       "sha1": "f965e7f452adf1fd136a9b3e4425726641283b0e"
+      },
+      {
+       "op": "m_blocks.0.b0.ghost_layers.1.primary_conv.conv",
+       "slot": 1,
+       "in_pa": "0x30310000",
+       "in_len": 65536,
+       "out_pa": "0x30341000",
+       "out_len": 131072,
+       "pack": "ps",
+       "cyc": 809144,
+       "st": "0x00000001",
+       "oob": 0,
+       "prep_ms": 30.855,
+       "pl_ms": 16.417,
+       "reap_wait_ms": 0.13,
+       "epi_ms": 4.246,
+       "nbad": 0,
+       "first": null,
+       "tail": false,
+       "frac": null,
+       "sha1": "737c09984db97265c205a80db595b610ec45190c"
+      },
+      {
+       "op": "locks.0.b0.ghost_layers.0.cheap_operation.conv",
+       "slot": 0,
+       "in_pa": "0x30300000",
+       "in_len": 32768,
+       "out_pa": "0x30320000",
+       "out_len": 131072,
+       "pack": "ps",
+       "cyc": 317740,
+       "st": "0x00000001",
+       "oob": 0,
+       "prep_ms": 15.831,
+       "pl_ms": 5.663,
+       "reap_wait_ms": 5.348,
+       "epi_ms": 9.533,
+       "nbad": 0,
+       "first": null,
+       "tail": false,
+       "frac": null,
+       "sha1": "180d3fe39b3d324c6dbe1a4f65ead1a66194f672"
+      }
+     ],
+     "timeline": [
+      {
+       "op": "m_blocks.0.b0.ghost_layers.0.primary_conv.conv",
+       "slot": 0,
+       "t_prep": 1746775136.323533,
+       "t_prep_end": 1746775136.354031,
+       "t_kick": 1746775136.354099,
+       "t_fin": 1746775136.385335,
+       "t_reap": 1746775136.385465,
+       "in_pa": 808452096,
+       "out_pa": 808583168,
+       "pack": "ps"
+      },
+      {
+       "op": "m_blocks.0.b0.ghost_layers.1.primary_conv.conv",
+       "slot": 1,
+       "t_prep": 1746775136.35434,
+       "t_prep_end": 1746775136.385196,
+       "t_kick": 1746775136.391424,
+       "t_fin": 1746775136.407711,
+       "t_reap": 1746775136.407841,
+       "in_pa": 808517632,
+       "out_pa": 808718336,
+       "pack": "ps"
+      },
+      {
+       "op": "locks.0.b0.ghost_layers.0.cheap_operation.conv",
+       "slot": 0,
+       "t_prep": 1746775136.391737,
+       "t_prep_end": 1746775136.407568,
+       "t_kick": 1746775136.413748,
+       "t_fin": 1746775136.414062,
+       "t_reap": 1746775136.41941,
+       "in_pa": 808452096,
+       "out_pa": 808583168,
+       "pack": "ps"
+      }
+     ],
+     "cover": [
+      {
+       "n": 1,
+       "next": 2,
+       "overlap_inflight": true,
+       "prep_ms_before_done": 31.125,
+       "prep_ms_inside_flight": 30.86,
+       "in_w_in": 0,
+       "in_w_out": 0,
+       "can_on_in": 0,
+       "can_on_out": 0,
+       "same_slot": false,
+       "in_pa_same": false,
+       "out_pa_same": false
+      },
+      {
+       "n": 2,
+       "next": 3,
+       "overlap_inflight": true,
+       "prep_ms_before_done": 16.105,
+       "prep_ms_inside_flight": 15.83,
+       "in_w_in": 0,
+       "in_w_out": 0,
+       "can_on_in": 0,
+       "can_on_out": 0,
+       "same_slot": false,
+       "in_pa_same": false,
+       "out_pa_same": false
+      }
+     ],
+     "outs_sha1": {
+      "encoder.encoder_1.sam_blocks.0.b0.ghost_layers.0.cheap_operation.conv": "40ec235cf57f7a96f423ea96055ac674b1d9f0f1",
+      "encoder.encoder_1.sam_blocks.0.b0.ghost_layers.1.primary_conv.conv": "ac7eb4e252cab401053fab4171c61fdc9b5ed07f",
+      "encoder.encoder_1.sam_blocks.0.b0.ghost_layers.0.primary_conv.conv": "16b8e0177e7957f52601a2863c23b3e933765f45"
+     },
+     "lazy_stats": {
+      "pinned": 0,
+      "released": 0,
+      "starved": 0,
+      "direct_layers": 0,
+      "mixed_layers": 0,
+      "ps_layers": 0,
+      "deq_skipped": 0,
+      "direct_bytes": 0,
+      "f32_bytes": 0
+     },
+     "ok": true,
+     "pl_s": 0.053697824478149414,
+     "ps_s": 0.08725524836518161,
+     "tag": "P2",
+     "pipeline": true,
+     "note": "整网真实流水逻辑（bin_net 原样）",
+     "final_f32": [
+      {
+       "op": "A",
+       "shape": [
+        32,
+        64,
+        64
+       ],
+       "nbad": 0,
+       "sha1": "16b8e0177e7957f52601a2863c23b3e933765f45"
+      },
+      {
+       "op": "B",
+       "shape": [
+        32,
+        64,
+        64
+       ],
+       "nbad": 0,
+       "sha1": "ac7eb4e252cab401053fab4171c61fdc9b5ed07f"
+      },
+      {
+       "op": "C",
+       "shape": [
+        32,
+        64,
+        64
+       ],
+       "nbad": 0,
+       "sha1": "40ec235cf57f7a96f423ea96055ac674b1d9f0f1"
+      }
+     ]
+    },
+    {
+     "run": 2,
+     "wall_s": 0.474,
+     "per_op": [
+      {
+       "op": "m_blocks.0.b0.ghost_layers.0.primary_conv.conv",
+       "slot": 0,
+       "in_pa": "0x30300000",
+       "in_len": 32768,
+       "out_pa": "0x30320000",
+       "out_len": 131072,
+       "pack": "ps",
+       "cyc": 1576995,
+       "st": "0x00000001",
+       "oob": 0,
+       "prep_ms": 30.254,
+       "pl_ms": 31.748,
+       "reap_wait_ms": 0.132,
+       "epi_ms": 4.175,
+       "nbad": 0,
+       "first": null,
+       "tail": false,
+       "frac": null,
+       "sha1": "f965e7f452adf1fd136a9b3e4425726641283b0e"
+      },
+      {
+       "op": "m_blocks.0.b0.ghost_layers.1.primary_conv.conv",
+       "slot": 1,
+       "in_pa": "0x30310000",
+       "in_len": 65536,
+       "out_pa": "0x30341000",
+       "out_len": 131072,
+       "pack": "ps",
+       "cyc": 809633,
+       "st": "0x00000001",
+       "oob": 0,
+       "prep_ms": 31.233,
+       "pl_ms": 16.427,
+       "reap_wait_ms": 0.13,
+       "epi_ms": 4.33,
+       "nbad": 0,
+       "first": null,
+       "tail": false,
+       "frac": null,
+       "sha1": "737c09984db97265c205a80db595b610ec45190c"
+      },
+      {
+       "op": "locks.0.b0.ghost_layers.0.cheap_operation.conv",
+       "slot": 0,
+       "in_pa": "0x30300000",
+       "in_len": 32768,
+       "out_pa": "0x30320000",
+       "out_len": 131072,
+       "pack": "ps",
+       "cyc": 318038,
+       "st": "0x00000001",
+       "oob": 0,
+       "prep_ms": 15.738,
+       "pl_ms": 5.668,
+       "reap_wait_ms": 5.352,
+       "epi_ms": 9.516,
+       "nbad": 0,
+       "first": null,
+       "tail": false,
+       "frac": null,
+       "sha1": "180d3fe39b3d324c6dbe1a4f65ead1a66194f672"
+      }
+     ],
+     "timeline": [
+      {
+       "op": "m_blocks.0.b0.ghost_layers.0.primary_conv.conv",
+       "slot": 0,
+       "t_prep": 1746775137.428149,
+       "t_prep_end": 1746775137.458404,
+       "t_kick": 1746775137.458472,
+       "t_fin": 1746775137.490089,
+       "t_reap": 1746775137.490221,
+       "in_pa": 808452096,
+       "out_pa": 808583168,
+       "pack": "ps"
+      },
+      {
+       "op": "m_blocks.0.b0.ghost_layers.1.primary_conv.conv",
+       "slot": 1,
+       "t_prep": 1746775137.458716,
+       "t_prep_end": 1746775137.489949,
+       "t_kick": 1746775137.49624,
+       "t_fin": 1746775137.512537,
+       "t_reap": 1746775137.512667,
+       "in_pa": 808517632,
+       "out_pa": 808718336,
+       "pack": "ps"
+      },
+      {
+       "op": "locks.0.b0.ghost_layers.0.cheap_operation.conv",
+       "slot": 0,
+       "t_prep": 1746775137.49666,
+       "t_prep_end": 1746775137.512398,
+       "t_kick": 1746775137.518641,
+       "t_fin": 1746775137.518957,
+       "t_reap": 1746775137.524309,
+       "in_pa": 808452096,
+       "out_pa": 808583168,
+       "pack": "ps"
+      }
+     ],
+     "cover": [
+      {
+       "n": 1,
+       "next": 2,
+       "overlap_inflight": true,
+       "prep_ms_before_done": 31.505,
+       "prep_ms_inside_flight": 31.23,
+       "in_w_in": 0,
+       "in_w_out": 0,
+       "can_on_in": 0,
+       "can_on_out": 0,
+       "same_slot": false,
+       "in_pa_same": false,
+       "out_pa_same": false
+      },
+      {
+       "n": 2,
+       "next": 3,
+       "overlap_inflight": true,
+       "prep_ms_before_done": 16.008,
+       "prep_ms_inside_flight": 15.74,
+       "in_w_in": 0,
+       "in_w_out": 0,
+       "can_on_in": 0,
+       "can_on_out": 0,
+       "same_slot": false,
+       "in_pa_same": false,
+       "out_pa_same": false
+      }
+     ],
+     "outs_sha1": {
+      "encoder.encoder_1.sam_blocks.0.b0.ghost_layers.0.cheap_operation.conv": "40ec235cf57f7a96f423ea96055ac674b1d9f0f1",
+      "encoder.encoder_1.sam_blocks.0.b0.ghost_layers.1.primary_conv.conv": "ac7eb4e252cab401053fab4171c61fdc9b5ed07f",
+      "encoder.encoder_1.sam_blocks.0.b0.ghost_layers.0.primary_conv.conv": "16b8e0177e7957f52601a2863c23b3e933765f45"
+     },
+     "lazy_stats": {
+      "pinned": 0,
+      "released": 0,
+      "starved": 0,
+      "direct_layers": 0,
+      "mixed_layers": 0,
+      "ps_layers": 0,
+      "deq_skipped": 0,
+      "direct_bytes": 0,
+      "f32_bytes": 0
+     },
+     "ok": true,
+     "pl_s": 0.054093360900878906,
+     "ps_s": 0.08724742863705615,
+     "tag": "P2",
+     "pipeline": true,
+     "note": "整网真实流水逻辑（bin_net 原样）",
+     "final_f32": [
+      {
+       "op": "A",
+       "shape": [
+        32,
+        64,
+        64
+       ],
+       "nbad": 0,
+       "sha1": "16b8e0177e7957f52601a2863c23b3e933765f45"
+      },
+      {
+       "op": "B",
+       "shape": [
+        32,
+        64,
+        64
+       ],
+       "nbad": 0,
+       "sha1": "ac7eb4e252cab401053fab4171c61fdc9b5ed07f"
+      },
+      {
+       "op": "C",
+       "shape": [
+        32,
+        64,
+        64
+       ],
+       "nbad": 0,
+       "sha1": "40ec235cf57f7a96f423ea96055ac674b1d9f0f1"
+      }
+     ]
+    }
+   ],
+   "deterministic": true,
+   "all_ok": true,
+   "sha1_final": [
+    "6e5dd3a067a2670f056b8825e8effaf784c937b2",
+    "6e5dd3a067a2670f056b8825e8effaf784c937b2"
+   ]
+  },
+  "P2nc": {
+   "tag": "P2nc",
+   "armspec": {
+    "tag": "P2nc",
+    "pipeline": true,
+    "defer_cfg": true,
+    "note": "P2 但 config/base 的 MMIO 写推到 kick 前"
+   },
+   "runs": [
+    {
+     "run": 1,
+     "wall_s": 0.472,
+     "per_op": [
+      {
+       "op": "m_blocks.0.b0.ghost_layers.0.primary_conv.conv",
+       "slot": 0,
+       "in_pa": "0x30300000",
+       "in_len": 32768,
+       "out_pa": "0x30320000",
+       "out_len": 131072,
+       "pack": "ps",
+       "cyc": 1535665,
+       "st": "0x00000001",
+       "oob": 0,
+       "prep_ms": 29.622,
+       "pl_ms": 30.927,
+       "reap_wait_ms": 0.129,
+       "epi_ms": 4.423,
+       "nbad": 0,
+       "first": null,
+       "tail": false,
+       "frac": null,
+       "sha1": "f965e7f452adf1fd136a9b3e4425726641283b0e"
+      },
+      {
+       "op": "m_blocks.0.b0.ghost_layers.1.primary_conv.conv",
+       "slot": 1,
+       "in_pa": "0x30310000",
+       "in_len": 65536,
+       "out_pa": "0x30341000",
+       "out_len": 131072,
+       "pack": "ps",
+       "cyc": 783121,
+       "st": "0x00000001",
+       "oob": 0,
+       "prep_ms": 30.413,
+       "pl_ms": 15.89,
+       "reap_wait_ms": 0.131,
+       "epi_ms": 4.338,
+       "nbad": 0,
+       "first": null,
+       "tail": false,
+       "frac": null,
+       "sha1": "737c09984db97265c205a80db595b610ec45190c"
+      },
+      {
+       "op": "locks.0.b0.ghost_layers.0.cheap_operation.conv",
+       "slot": 0,
+       "in_pa": "0x30300000",
+       "in_len": 32768,
+       "out_pa": "0x30320000",
+       "out_len": 131072,
+       "pack": "ps",
+       "cyc": 324606,
+       "st": "0x00000001",
+       "oob": 0,
+       "prep_ms": 15.344,
+       "pl_ms": 5.776,
+       "reap_wait_ms": 5.499,
+       "epi_ms": 9.69,
+       "nbad": 0,
+       "first": null,
+       "tail": false,
+       "frac": null,
+       "sha1": "180d3fe39b3d324c6dbe1a4f65ead1a66194f672"
+      }
+     ],
+     "timeline": [
+      {
+       "op": "m_blocks.0.b0.ghost_layers.0.primary_conv.conv",
+       "slot": 0,
+       "t_prep": 1746775138.831161,
+       "t_prep_end": 1746775138.860783,
+       "t_kick": 1746775138.861609,
+       "t_fin": 1746775138.892407,
+       "t_reap": 1746775138.892535,
+       "in_pa": 808452096,
+       "out_pa": 808583168,
+       "pack": "ps"
+      },
+      {
+       "op": "m_blocks.0.b0.ghost_layers.1.primary_conv.conv",
+       "slot": 1,
+       "t_prep": 1746775138.861852,
+       "t_prep_end": 1746775138.892265,
+       "t_kick": 1746775138.899105,
+       "t_fin": 1746775138.914863,
+       "t_reap": 1746775138.914994,
+       "in_pa": 808517632,
+       "out_pa": 808718336,
+       "pack": "ps"
+      },
+      {
+       "op": "locks.0.b0.ghost_layers.0.cheap_operation.conv",
+       "slot": 0,
+       "t_prep": 1746775138.899378,
+       "t_prep_end": 1746775138.914721,
+       "t_kick": 1746775138.921504,
+       "t_fin": 1746775138.921781,
+       "t_reap": 1746775138.92728,
+       "in_pa": 808452096,
+       "out_pa": 808583168,
+       "pack": "ps"
+      }
+     ],
+     "cover": [
+      {
+       "n": 1,
+       "next": 2,
+       "overlap_inflight": true,
+       "prep_ms_before_done": 30.684,
+       "prep_ms_inside_flight": 30.41,
+       "in_w_in": 0,
+       "in_w_out": 0,
+       "can_on_in": 0,
+       "can_on_out": 0,
+       "same_slot": false,
+       "in_pa_same": false,
+       "out_pa_same": false
+      },
+      {
+       "n": 2,
+       "next": 3,
+       "overlap_inflight": true,
+       "prep_ms_before_done": 15.617,
+       "prep_ms_inside_flight": 15.34,
+       "in_w_in": 0,
+       "in_w_out": 0,
+       "can_on_in": 0,
+       "can_on_out": 0,
+       "same_slot": false,
+       "in_pa_same": false,
+       "out_pa_same": false
+      }
+     ],
+     "outs_sha1": {
+      "encoder.encoder_1.sam_blocks.0.b0.ghost_layers.0.cheap_operation.conv": "40ec235cf57f7a96f423ea96055ac674b1d9f0f1",
+      "encoder.encoder_1.sam_blocks.0.b0.ghost_layers.1.primary_conv.conv": "ac7eb4e252cab401053fab4171c61fdc9b5ed07f",
+      "encoder.encoder_1.sam_blocks.0.b0.ghost_layers.0.primary_conv.conv": "16b8e0177e7957f52601a2863c23b3e933765f45"
+     },
+     "lazy_stats": {
+      "pinned": 0,
+      "released": 0,
+      "starved": 0,
+      "direct_layers": 0,
+      "mixed_layers": 0,
+      "ps_layers": 0,
+      "deq_skipped": 0,
+      "direct_bytes": 0,
+      "f32_bytes": 0
+     },
+     "ok": true,
+     "pl_s": 0.052867889404296875,
+     "ps_s": 0.08564593823211908,
+     "tag": "P2nc",
+     "pipeline": true,
+     "defer_cfg": true,
+     "note": "P2 但 config/base 的 MMIO 写推到 kick 前",
+     "final_f32": [
+      {
+       "op": "A",
+       "shape": [
+        32,
+        64,
+        64
+       ],
+       "nbad": 0,
+       "sha1": "16b8e0177e7957f52601a2863c23b3e933765f45"
+      },
+      {
+       "op": "B",
+       "shape": [
+        32,
+        64,
+        64
+       ],
+       "nbad": 0,
+       "sha1": "ac7eb4e252cab401053fab4171c61fdc9b5ed07f"
+      },
+      {
+       "op": "C",
+       "shape": [
+        32,
+        64,
+        64
+       ],
+       "nbad": 0,
+       "sha1": "40ec235cf57f7a96f423ea96055ac674b1d9f0f1"
+      }
+     ]
+    },
+    {
+     "run": 2,
+     "wall_s": 0.481,
+     "per_op": [
+      {
+       "op": "m_blocks.0.b0.ghost_layers.0.primary_conv.conv",
+       "slot": 0,
+       "in_pa": "0x30300000",
+       "in_len": 32768,
+       "out_pa": "0x30320000",
+       "out_len": 131072,
+       "pack": "ps",
+       "cyc": 1556348,
+       "st": "0x00000001",
+       "oob": 0,
+       "prep_ms": 29.744,
+       "pl_ms": 31.345,
+       "reap_wait_ms": 0.133,
+       "epi_ms": 4.287,
+       "nbad": 0,
+       "first": null,
+       "tail": false,
+       "frac": null,
+       "sha1": "f965e7f452adf1fd136a9b3e4425726641283b0e"
+      },
+      {
+       "op": "m_blocks.0.b0.ghost_layers.1.primary_conv.conv",
+       "slot": 1,
+       "in_pa": "0x30310000",
+       "in_len": 65536,
+       "out_pa": "0x30341000",
+       "out_len": 131072,
+       "pack": "ps",
+       "cyc": 779664,
+       "st": "0x00000001",
+       "oob": 0,
+       "prep_ms": 30.821,
+       "pl_ms": 15.821,
+       "reap_wait_ms": 0.13,
+       "epi_ms": 4.323,
+       "nbad": 0,
+       "first": null,
+       "tail": false,
+       "frac": null,
+       "sha1": "737c09984db97265c205a80db595b610ec45190c"
+      },
+      {
+       "op": "locks.0.b0.ghost_layers.0.cheap_operation.conv",
+       "slot": 0,
+       "in_pa": "0x30300000",
+       "in_len": 32768,
+       "out_pa": "0x30320000",
+       "out_len": 131072,
+       "pack": "ps",
+       "cyc": 323247,
+       "st": "0x00000001",
+       "oob": 0,
+       "prep_ms": 15.277,
+       "pl_ms": 5.759,
+       "reap_wait_ms": 5.48,
+       "epi_ms": 9.557,
+       "nbad": 0,
+       "first": null,
+       "tail": false,
+       "frac": null,
+       "sha1": "180d3fe39b3d324c6dbe1a4f65ead1a66194f672"
+      }
+     ],
+     "timeline": [
+      {
+       "op": "m_blocks.0.b0.ghost_layers.0.primary_conv.conv",
+       "slot": 0,
+       "t_prep": 1746775139.940849,
+       "t_prep_end": 1746775139.970593,
+       "t_kick": 1746775139.971434,
+       "t_fin": 1746775140.002646,
+       "t_reap": 1746775140.002779,
+       "in_pa": 808452096,
+       "out_pa": 808583168,
+       "pack": "ps"
+      },
+      {
+       "op": "m_blocks.0.b0.ghost_layers.1.primary_conv.conv",
+       "slot": 1,
+       "t_prep": 1746775139.971682,
+       "t_prep_end": 1746775140.002504,
+       "t_kick": 1746775140.009234,
+       "t_fin": 1746775140.024925,
+       "t_reap": 1746775140.025054,
+       "in_pa": 808517632,
+       "out_pa": 808718336,
+       "pack": "ps"
+      },
+      {
+       "op": "locks.0.b0.ghost_layers.0.cheap_operation.conv",
+       "slot": 0,
+       "t_prep": 1746775140.009506,
+       "t_prep_end": 1746775140.024783,
+       "t_kick": 1746775140.031561,
+       "t_fin": 1746775140.03184,
+       "t_reap": 1746775140.03732,
+       "in_pa": 808452096,
+       "out_pa": 808583168,
+       "pack": "ps"
+      }
+     ],
+     "cover": [
+      {
+       "n": 1,
+       "next": 2,
+       "overlap_inflight": true,
+       "prep_ms_before_done": 31.096,
+       "prep_ms_inside_flight": 30.82,
+       "in_w_in": 0,
+       "in_w_out": 0,
+       "can_on_in": 0,
+       "can_on_out": 0,
+       "same_slot": false,
+       "in_pa_same": false,
+       "out_pa_same": false
+      },
+      {
+       "n": 2,
+       "next": 3,
+       "overlap_inflight": true,
+       "prep_ms_before_done": 15.549,
+       "prep_ms_inside_flight": 15.28,
+       "in_w_in": 0,
+       "in_w_out": 0,
+       "can_on_in": 0,
+       "can_on_out": 0,
+       "same_slot": false,
+       "in_pa_same": false,
+       "out_pa_same": false
+      }
+     ],
+     "outs_sha1": {
+      "encoder.encoder_1.sam_blocks.0.b0.ghost_layers.0.cheap_operation.conv": "40ec235cf57f7a96f423ea96055ac674b1d9f0f1",
+      "encoder.encoder_1.sam_blocks.0.b0.ghost_layers.1.primary_conv.conv": "ac7eb4e252cab401053fab4171c61fdc9b5ed07f",
+      "encoder.encoder_1.sam_blocks.0.b0.ghost_layers.0.primary_conv.conv": "16b8e0177e7957f52601a2863c23b3e933765f45"
+     },
+     "lazy_stats": {
+      "pinned": 0,
+      "released": 0,
+      "starved": 0,
+      "direct_layers": 0,
+      "mixed_layers": 0,
+      "ps_layers": 0,
+      "deq_skipped": 0,
+      "direct_bytes": 0,
+      "f32_bytes": 0
+     },
+     "ok": true,
+     "pl_s": 0.053185224533081055,
+     "ps_s": 0.08585059152937902,
+     "tag": "P2nc",
+     "pipeline": true,
+     "defer_cfg": true,
+     "note": "P2 但 config/base 的 MMIO 写推到 kick 前",
+     "final_f32": [
+      {
+       "op": "A",
+       "shape": [
+        32,
+        64,
+        64
+       ],
+       "nbad": 0,
+       "sha1": "16b8e0177e7957f52601a2863c23b3e933765f45"
+      },
+      {
+       "op": "B",
+       "shape": [
+        32,
+        64,
+        64
+       ],
+       "nbad": 0,
+       "sha1": "ac7eb4e252cab401053fab4171c61fdc9b5ed07f"
+      },
+      {
+       "op": "C",
+       "shape": [
+        32,
+        64,
+        64
+       ],
+       "nbad": 0,
+       "sha1": "40ec235cf57f7a96f423ea96055ac674b1d9f0f1"
+      }
+     ]
+    }
+   ],
+   "deterministic": true,
+   "all_ok": true,
+   "sha1_final": [
+    "6e5dd3a067a2670f056b8825e8effaf784c937b2",
+    "6e5dd3a067a2670f056b8825e8effaf784c937b2"
+   ]
+  },
+  "P2ncan": {
+   "tag": "P2ncan",
+   "armspec": {
+    "tag": "P2ncan",
+    "pipeline": true,
+    "defer_canary": true,
+    "note": "P2 但 OUT 槽尾金丝雀写推到 kick 前"
+   },
+   "runs": [
+    {
+     "run": 1,
+     "wall_s": 0.472,
+     "per_op": [
+      {
+       "op": "m_blocks.0.b0.ghost_layers.0.primary_conv.conv",
+       "slot": 0,
+       "in_pa": "0x30300000",
+       "in_len": 32768,
+       "out_pa": "0x30320000",
+       "out_len": 131072,
+       "pack": "ps",
+       "cyc": 1558125,
+       "st": "0x00000001",
+       "oob": 0,
+       "prep_ms": 30.525,
+       "pl_ms": 31.373,
+       "reap_wait_ms": 0.131,
+       "epi_ms": 4.306,
+       "nbad": 0,
+       "first": null,
+       "tail": false,
+       "frac": null,
+       "sha1": "f965e7f452adf1fd136a9b3e4425726641283b0e"
+      },
+      {
+       "op": "m_blocks.0.b0.ghost_layers.1.primary_conv.conv",
+       "slot": 1,
+       "in_pa": "0x30310000",
+       "in_len": 65536,
+       "out_pa": "0x30341000",
+       "out_len": 131072,
+       "pack": "ps",
+       "cyc": 807976,
+       "st": "0x00000001",
+       "oob": 0,
+       "prep_ms": 30.862,
+       "pl_ms": 16.395,
+       "reap_wait_ms": 0.129,
+       "epi_ms": 4.262,
+       "nbad": 0,
+       "first": null,
+       "tail": false,
+       "frac": null,
+       "sha1": "737c09984db97265c205a80db595b610ec45190c"
+      },
+      {
+       "op": "locks.0.b0.ghost_layers.0.cheap_operation.conv",
+       "slot": 0,
+       "in_pa": "0x30300000",
+       "in_len": 32768,
+       "out_pa": "0x30320000",
+       "out_len": 131072,
+       "pack": "ps",
+       "cyc": 317537,
+       "st": "0x00000001",
+       "oob": 0,
+       "prep_ms": 15.813,
+       "pl_ms": 5.663,
+       "reap_wait_ms": 5.35,
+       "epi_ms": 9.53,
+       "nbad": 0,
+       "first": null,
+       "tail": false,
+       "frac": null,
+       "sha1": "180d3fe39b3d324c6dbe1a4f65ead1a66194f672"
+      }
+     ],
+     "timeline": [
+      {
+       "op": "m_blocks.0.b0.ghost_layers.0.primary_conv.conv",
+       "slot": 0,
+       "t_prep": 1746775141.352272,
+       "t_prep_end": 1746775141.382797,
+       "t_kick": 1746775141.382931,
+       "t_fin": 1746775141.414172,
+       "t_reap": 1746775141.414303,
+       "in_pa": 808452096,
+       "out_pa": 808583168,
+       "pack": "ps"
+      },
+      {
+       "op": "m_blocks.0.b0.ghost_layers.1.primary_conv.conv",
+       "slot": 1,
+       "t_prep": 1746775141.383175,
+       "t_prep_end": 1746775141.414037,
+       "t_kick": 1746775141.420356,
+       "t_fin": 1746775141.436622,
+       "t_reap": 1746775141.436751,
+       "in_pa": 808517632,
+       "out_pa": 808718336,
+       "pack": "ps"
+      },
+      {
+       "op": "locks.0.b0.ghost_layers.0.cheap_operation.conv",
+       "slot": 0,
+       "t_prep": 1746775141.420661,
+       "t_prep_end": 1746775141.436474,
+       "t_kick": 1746775141.442726,
+       "t_fin": 1746775141.443038,
+       "t_reap": 1746775141.448388,
+       "in_pa": 808452096,
+       "out_pa": 808583168,
+       "pack": "ps"
+      }
+     ],
+     "cover": [
+      {
+       "n": 1,
+       "next": 2,
+       "overlap_inflight": true,
+       "prep_ms_before_done": 31.128,
+       "prep_ms_inside_flight": 30.86,
+       "in_w_in": 0,
+       "in_w_out": 0,
+       "can_on_in": 0,
+       "can_on_out": 0,
+       "same_slot": false,
+       "in_pa_same": false,
+       "out_pa_same": false
+      },
+      {
+       "n": 2,
+       "next": 3,
+       "overlap_inflight": true,
+       "prep_ms_before_done": 16.09,
+       "prep_ms_inside_flight": 15.81,
+       "in_w_in": 0,
+       "in_w_out": 0,
+       "can_on_in": 0,
+       "can_on_out": 0,
+       "same_slot": false,
+       "in_pa_same": false,
+       "out_pa_same": false
+      }
+     ],
+     "outs_sha1": {
+      "encoder.encoder_1.sam_blocks.0.b0.ghost_layers.0.cheap_operation.conv": "40ec235cf57f7a96f423ea96055ac674b1d9f0f1",
+      "encoder.encoder_1.sam_blocks.0.b0.ghost_layers.1.primary_conv.conv": "ac7eb4e252cab401053fab4171c61fdc9b5ed07f",
+      "encoder.encoder_1.sam_blocks.0.b0.ghost_layers.0.primary_conv.conv": "16b8e0177e7957f52601a2863c23b3e933765f45"
+     },
+     "lazy_stats": {
+      "pinned": 0,
+      "released": 0,
+      "starved": 0,
+      "direct_layers": 0,
+      "mixed_layers": 0,
+      "ps_layers": 0,
+      "deq_skipped": 0,
+      "direct_bytes": 0,
+      "f32_bytes": 0
+     },
+     "ok": true,
+     "pl_s": 0.05367279052734375,
+     "ps_s": 0.08727435566470376,
+     "tag": "P2ncan",
+     "pipeline": true,
+     "defer_canary": true,
+     "note": "P2 但 OUT 槽尾金丝雀写推到 kick 前",
+     "final_f32": [
+      {
+       "op": "A",
+       "shape": [
+        32,
+        64,
+        64
+       ],
+       "nbad": 0,
+       "sha1": "16b8e0177e7957f52601a2863c23b3e933765f45"
+      },
+      {
+       "op": "B",
+       "shape": [
+        32,
+        64,
+        64
+       ],
+       "nbad": 0,
+       "sha1": "ac7eb4e252cab401053fab4171c61fdc9b5ed07f"
+      },
+      {
+       "op": "C",
+       "shape": [
+        32,
+        64,
+        64
+       ],
+       "nbad": 0,
+       "sha1": "40ec235cf57f7a96f423ea96055ac674b1d9f0f1"
+      }
+     ]
+    },
+    {
+     "run": 2,
+     "wall_s": 0.48,
+     "per_op": [
+      {
+       "op": "m_blocks.0.b0.ghost_layers.0.primary_conv.conv",
+       "slot": 0,
+       "in_pa": "0x30300000",
+       "in_len": 32768,
+       "out_pa": "0x30320000",
+       "out_len": 131072,
+       "pack": "ps",
+       "cyc": 1578545,
+       "st": "0x00000001",
+       "oob": 0,
+       "prep_ms": 30.163,
+       "pl_ms": 31.776,
+       "reap_wait_ms": 0.125,
+       "epi_ms": 4.285,
+       "nbad": 0,
+       "first": null,
+       "tail": false,
+       "frac": null,
+       "sha1": "f965e7f452adf1fd136a9b3e4425726641283b0e"
+      },
+      {
+       "op": "m_blocks.0.b0.ghost_layers.1.primary_conv.conv",
+       "slot": 1,
+       "in_pa": "0x30310000",
+       "in_len": 65536,
+       "out_pa": "0x30341000",
+       "out_len": 131072,
+       "pack": "ps",
+       "cyc": 806295,
+       "st": "0x00000001",
+       "oob": 0,
+       "prep_ms": 31.268,
+       "pl_ms": 16.379,
+       "reap_wait_ms": 0.143,
+       "epi_ms": 4.251,
+       "nbad": 0,
+       "first": null,
+       "tail": false,
+       "frac": null,
+       "sha1": "737c09984db97265c205a80db595b610ec45190c"
+      },
+      {
+       "op": "locks.0.b0.ghost_layers.0.cheap_operation.conv",
+       "slot": 0,
+       "in_pa": "0x30300000",
+       "in_len": 32768,
+       "out_pa": "0x30320000",
+       "out_len": 131072,
+       "pack": "ps",
+       "cyc": 323760,
+       "st": "0x00000001",
+       "oob": 0,
+       "prep_ms": 15.719,
+       "pl_ms": 5.787,
+       "reap_wait_ms": 5.476,
+       "epi_ms": 9.534,
+       "nbad": 0,
+       "first": null,
+       "tail": false,
+       "frac": null,
+       "sha1": "180d3fe39b3d324c6dbe1a4f65ead1a66194f672"
+      }
+     ],
+     "timeline": [
+      {
+       "op": "m_blocks.0.b0.ghost_layers.0.primary_conv.conv",
+       "slot": 0,
+       "t_prep": 1746775142.462122,
+       "t_prep_end": 1746775142.492285,
+       "t_kick": 1746775142.492418,
+       "t_fin": 1746775142.52407,
+       "t_reap": 1746775142.524194,
+       "in_pa": 808452096,
+       "out_pa": 808583168,
+       "pack": "ps"
+      },
+      {
+       "op": "m_blocks.0.b0.ghost_layers.1.primary_conv.conv",
+       "slot": 1,
+       "t_prep": 1746775142.492666,
+       "t_prep_end": 1746775142.523934,
+       "t_kick": 1746775142.530251,
+       "t_fin": 1746775142.546487,
+       "t_reap": 1746775142.54663,
+       "in_pa": 808517632,
+       "out_pa": 808718336,
+       "pack": "ps"
+      },
+      {
+       "op": "locks.0.b0.ghost_layers.0.cheap_operation.conv",
+       "slot": 0,
+       "t_prep": 1746775142.530557,
+       "t_prep_end": 1746775142.546276,
+       "t_kick": 1746775142.552605,
+       "t_fin": 1746775142.552917,
+       "t_reap": 1746775142.558392,
+       "in_pa": 808452096,
+       "out_pa": 808583168,
+       "pack": "ps"
+      }
+     ],
+     "cover": [
+      {
+       "n": 1,
+       "next": 2,
+       "overlap_inflight": true,
+       "prep_ms_before_done": 31.529,
+       "prep_ms_inside_flight": 31.27,
+       "in_w_in": 0,
+       "in_w_out": 0,
+       "can_on_in": 0,
+       "can_on_out": 0,
+       "same_slot": false,
+       "in_pa_same": false,
+       "out_pa_same": false
+      },
+      {
+       "n": 2,
+       "next": 3,
+       "overlap_inflight": true,
+       "prep_ms_before_done": 16.073,
+       "prep_ms_inside_flight": 15.72,
+       "in_w_in": 0,
+       "in_w_out": 0,
+       "can_on_in": 0,
+       "can_on_out": 0,
+       "same_slot": false,
+       "in_pa_same": false,
+       "out_pa_same": false
+      }
+     ],
+     "outs_sha1": {
+      "encoder.encoder_1.sam_blocks.0.b0.ghost_layers.0.cheap_operation.conv": "40ec235cf57f7a96f423ea96055ac674b1d9f0f1",
+      "encoder.encoder_1.sam_blocks.0.b0.ghost_layers.1.primary_conv.conv": "ac7eb4e252cab401053fab4171c61fdc9b5ed07f",
+      "encoder.encoder_1.sam_blocks.0.b0.ghost_layers.0.primary_conv.conv": "16b8e0177e7957f52601a2863c23b3e933765f45"
+     },
+     "lazy_stats": {
+      "pinned": 0,
+      "released": 0,
+      "starved": 0,
+      "direct_layers": 0,
+      "mixed_layers": 0,
+      "ps_layers": 0,
+      "deq_skipped": 0,
+      "direct_bytes": 0,
+      "f32_bytes": 0
+     },
+     "ok": true,
+     "pl_s": 0.05417203903198242,
+     "ps_s": 0.08706359292409616,
+     "tag": "P2ncan",
+     "pipeline": true,
+     "defer_canary": true,
+     "note": "P2 但 OUT 槽尾金丝雀写推到 kick 前",
+     "final_f32": [
+      {
+       "op": "A",
+       "shape": [
+        32,
+        64,
+        64
+       ],
+       "nbad": 0,
+       "sha1": "16b8e0177e7957f52601a2863c23b3e933765f45"
+      },
+      {
+       "op": "B",
+       "shape": [
+        32,
+        64,
+        64
+       ],
+       "nbad": 0,
+       "sha1": "ac7eb4e252cab401053fab4171c61fdc9b5ed07f"
+      },
+      {
+       "op": "C",
+       "shape": [
+        32,
+        64,
+        64
+       ],
+       "nbad": 0,
+       "sha1": "40ec235cf57f7a96f423ea96055ac674b1d9f0f1"
+      }
+     ]
+    }
+   ],
+   "deterministic": true,
+   "all_ok": true,
+   "sha1_final": [
+    "6e5dd3a067a2670f056b8825e8effaf784c937b2",
+    "6e5dd3a067a2670f056b8825e8effaf784c937b2"
+   ]
+  },
+  "P2lazy": {
+   "tag": "P2lazy",
+   "armspec": {
+    "tag": "P2lazy",
+    "pipeline": true,
+    "lazy": true,
+    "note": "P2 + LAZY_DEQ=1/24 槽（唯一会真正槽复用的配置）"
+   },
+   "runs": [
+    {
+     "run": 1,
+     "wall_s": 0.78,
+     "per_op": [
+      {
+       "op": "m_blocks.0.b0.ghost_layers.0.primary_conv.conv",
+       "slot": 0,
+       "in_pa": "0x30300000",
+       "in_len": 32768,
+       "out_pa": "0x30480000",
+       "out_len": 131072,
+       "pack": "e1e2",
+       "cyc": 708699,
+       "st": "0x00000001",
+       "oob": 0,
+       "prep_ms": 297.277,
+       "pl_ms": 18.144,
+       "reap_wait_ms": 0.131,
+       "epi_ms": 4.368,
+       "nbad": 0,
+       "first": null,
+       "tail": false,
+       "frac": null,
+       "sha1": "f965e7f452adf1fd136a9b3e4425726641283b0e"
+      },
+      {
+       "op": "m_blocks.0.b0.ghost_layers.1.primary_conv.conv",
+       "slot": 1,
+       "in_pa": "0x30310000",
+       "in_len": 65536,
+       "out_pa": "0x304a1000",
+       "out_len": 131072,
+       "pack": "e1e2",
+       "cyc": 319731,
+       "st": "0x00000001",
+       "oob": 0,
+       "prep_ms": 13.867,
+       "pl_ms": 13.159,
+       "reap_wait_ms": 0.13,
+       "epi_ms": 4.209,
+       "nbad": 0,
+       "first": null,
+       "tail": false,
+       "frac": null,
+       "sha1": "737c09984db97265c205a80db595b610ec45190c"
+      },
+      {
+       "op": "locks.0.b0.ghost_layers.0.cheap_operation.conv",
+       "slot": 2,
+       "in_pa": "0x30320000",
+       "in_len": 32768,
+       "out_pa": "0x304c2000",
+       "out_len": 131072,
+       "pack": "e1e2",
+       "cyc": 322699,
+       "st": "0x00000001",
+       "oob": 0,
+       "prep_ms": 6.08,
+       "pl_ms": 9.364,
+       "reap_wait_ms": 5.474,
+       "epi_ms": 9.59,
+       "nbad": 0,
+       "first": null,
+       "tail": false,
+       "frac": null,
+       "sha1": "180d3fe39b3d324c6dbe1a4f65ead1a66194f672"
+      }
+     ],
+     "timeline": [
+      {
+       "op": "m_blocks.0.b0.ghost_layers.0.primary_conv.conv",
+       "slot": 0,
+       "t_prep": 1746775143.940871,
+       "t_prep_end": 1746775144.238148,
+       "t_kick": 1746775144.238215,
+       "t_fin": 1746775144.256227,
+       "t_reap": 1746775144.256359,
+       "in_pa": 808452096,
+       "out_pa": 810024960,
+       "pack": "e1e2"
+      },
+      {
+       "op": "m_blocks.0.b0.ghost_layers.1.primary_conv.conv",
+       "slot": 1,
+       "t_prep": 1746775144.242219,
+       "t_prep_end": 1746775144.256085,
+       "t_kick": 1746775144.262388,
+       "t_fin": 1746775144.275417,
+       "t_reap": 1746775144.275547,
+       "in_pa": 808517632,
+       "out_pa": 810160128,
+       "pack": "e1e2"
+      },
+      {
+       "op": "locks.0.b0.ghost_layers.0.cheap_operation.conv",
+       "slot": 2,
+       "t_prep": 1746775144.269195,
+       "t_prep_end": 1746775144.275275,
+       "t_kick": 1746775144.281423,
+       "t_fin": 1746775144.285313,
+       "t_reap": 1746775144.290787,
+       "in_pa": 808583168,
+       "out_pa": 810295296,
+       "pack": "e1e2"
+      }
+     ],
+     "cover": [
+      {
+       "n": 1,
+       "next": 2,
+       "overlap_inflight": true,
+       "prep_ms_before_done": 14.14,
+       "prep_ms_inside_flight": 13.870000000000001,
+       "in_w_in": 0,
+       "in_w_out": 0,
+       "can_on_in": 0,
+       "can_on_out": 0,
+       "same_slot": false,
+       "in_pa_same": false,
+       "out_pa_same": false
+      },
+      {
+       "n": 2,
+       "next": 3,
+       "overlap_inflight": true,
+       "prep_ms_before_done": 6.352,
+       "prep_ms_inside_flight": 6.08,
+       "in_w_in": 0,
+       "in_w_out": 0,
+       "can_on_in": 0,
+       "can_on_out": 0,
+       "same_slot": false,
+       "in_pa_same": false,
+       "out_pa_same": false
+      }
+     ],
+     "outs_sha1": {
+      "encoder.encoder_1.sam_blocks.0.b0.ghost_layers.0.cheap_operation.conv": "40ec235cf57f7a96f423ea96055ac674b1d9f0f1",
+      "encoder.encoder_1.sam_blocks.0.b0.ghost_layers.1.primary_conv.conv": "ac7eb4e252cab401053fab4171c61fdc9b5ed07f",
+      "encoder.encoder_1.sam_blocks.0.b0.ghost_layers.0.primary_conv.conv": "16b8e0177e7957f52601a2863c23b3e933765f45"
+     },
+     "lazy_stats": {
+      "pinned": 0,
+      "released": 0,
+      "starved": 0,
+      "direct_layers": 3,
+      "mixed_layers": 0,
+      "ps_layers": 0,
+      "deq_skipped": 0,
+      "direct_bytes": 0,
+      "f32_bytes": 786432
+     },
+     "ok": true,
+     "pl_s": 0.04088902473449707,
+     "ps_s": 0.3271717006191466,
+     "tag": "P2lazy",
+     "pipeline": true,
+     "lazy": true,
+     "note": "P2 + LAZY_DEQ=1/24 槽（唯一会真正槽复用的配置）",
+     "final_f32": [
+      {
+       "op": "A",
+       "shape": [
+        32,
+        64,
+        64
+       ],
+       "nbad": 0,
+       "sha1": "16b8e0177e7957f52601a2863c23b3e933765f45"
+      },
+      {
+       "op": "B",
+       "shape": [
+        32,
+        64,
+        64
+       ],
+       "nbad": 0,
+       "sha1": "ac7eb4e252cab401053fab4171c61fdc9b5ed07f"
+      },
+      {
+       "op": "C",
+       "shape": [
+        32,
+        64,
+        64
+       ],
+       "nbad": 0,
+       "sha1": "40ec235cf57f7a96f423ea96055ac674b1d9f0f1"
+      }
+     ]
+    },
+    {
+     "run": 2,
+     "wall_s": 0.583,
+     "per_op": [
+      {
+       "op": "m_blocks.0.b0.ghost_layers.0.primary_conv.conv",
+       "slot": 0,
+       "in_pa": "0x30300000",
+       "in_len": 32768,
+       "out_pa": "0x30480000",
+       "out_len": 131072,
+       "pack": "e1e2",
+       "cyc": 713789,
+       "st": "0x00000001",
+       "oob": 0,
+       "prep_ms": 129.547,
+       "pl_ms": 18.241,
+       "reap_wait_ms": 0.132,
+       "epi_ms": 4.202,
+       "nbad": 0,
+       "first": null,
+       "tail": false,
+       "frac": null,
+       "sha1": "f965e7f452adf1fd136a9b3e4425726641283b0e"
+      },
+      {
+       "op": "m_blocks.0.b0.ghost_layers.1.primary_conv.conv",
+       "slot": 1,
+       "in_pa": "0x30310000",
+       "in_len": 65536,
+       "out_pa": "0x304a1000",
+       "out_len": 131072,
+       "pack": "e1e2",
+       "cyc": 321960,
+       "st": "0x00000001",
+       "oob": 0,
+       "prep_ms": 13.971,
+       "pl_ms": 13.091,
+       "reap_wait_ms": 0.131,
+       "epi_ms": 4.282,
+       "nbad": 0,
+       "first": null,
+       "tail": false,
+       "frac": null,
+       "sha1": "737c09984db97265c205a80db595b610ec45190c"
+      },
+      {
+       "op": "locks.0.b0.ghost_layers.0.cheap_operation.conv",
+       "slot": 2,
+       "in_pa": "0x30320000",
+       "in_len": 32768,
+       "out_pa": "0x304c2000",
+       "out_len": 131072,
+       "pack": "e1e2",
+       "cyc": 324630,
+       "st": "0x00000001",
+       "oob": 0,
+       "prep_ms": 6.128,
+       "pl_ms": 9.368,
+       "reap_wait_ms": 5.516,
+       "epi_ms": 9.617,
+       "nbad": 0,
+       "first": null,
+       "tail": false,
+       "frac": null,
+       "sha1": "180d3fe39b3d324c6dbe1a4f65ead1a66194f672"
+      }
+     ],
+     "timeline": [
+      {
+       "op": "m_blocks.0.b0.ghost_layers.0.primary_conv.conv",
+       "slot": 0,
+       "t_prep": 1746775145.397612,
+       "t_prep_end": 1746775145.527159,
+       "t_kick": 1746775145.527225,
+       "t_fin": 1746775145.545334,
+       "t_reap": 1746775145.545466,
+       "in_pa": 808452096,
+       "out_pa": 810024960,
+       "pack": "e1e2"
+      },
+      {
+       "op": "m_blocks.0.b0.ghost_layers.1.primary_conv.conv",
+       "slot": 1,
+       "t_prep": 1746775145.531224,
+       "t_prep_end": 1746775145.545196,
+       "t_kick": 1746775145.551316,
+       "t_fin": 1746775145.564276,
+       "t_reap": 1746775145.564407,
+       "in_pa": 808517632,
+       "out_pa": 810160128,
+       "pack": "e1e2"
+      },
+      {
+       "op": "locks.0.b0.ghost_layers.0.cheap_operation.conv",
+       "slot": 2,
+       "t_prep": 1746775145.558006,
+       "t_prep_end": 1746775145.564135,
+       "t_kick": 1746775145.570351,
+       "t_fin": 1746775145.574203,
+       "t_reap": 1746775145.579719,
+       "in_pa": 808583168,
+       "out_pa": 810295296,
+       "pack": "e1e2"
+      }
+     ],
+     "cover": [
+      {
+       "n": 1,
+       "next": 2,
+       "overlap_inflight": true,
+       "prep_ms_before_done": 14.242,
+       "prep_ms_inside_flight": 13.97,
+       "in_w_in": 0,
+       "in_w_out": 0,
+       "can_on_in": 0,
+       "can_on_out": 0,
+       "same_slot": false,
+       "in_pa_same": false,
+       "out_pa_same": false
+      },
+      {
+       "n": 2,
+       "next": 3,
+       "overlap_inflight": true,
+       "prep_ms_before_done": 6.401,
+       "prep_ms_inside_flight": 6.13,
+       "in_w_in": 0,
+       "in_w_out": 0,
+       "can_on_in": 0,
+       "can_on_out": 0,
+       "same_slot": false,
+       "in_pa_same": false,
+       "out_pa_same": false
+      }
+     ],
+     "outs_sha1": {
+      "encoder.encoder_1.sam_blocks.0.b0.ghost_layers.0.cheap_operation.conv": "40ec235cf57f7a96f423ea96055ac674b1d9f0f1",
+      "encoder.encoder_1.sam_blocks.0.b0.ghost_layers.1.primary_conv.conv": "ac7eb4e252cab401053fab4171c61fdc9b5ed07f",
+      "encoder.encoder_1.sam_blocks.0.b0.ghost_layers.0.primary_conv.conv": "16b8e0177e7957f52601a2863c23b3e933765f45"
+     },
+     "lazy_stats": {
+      "pinned": 0,
+      "released": 0,
+      "starved": 0,
+      "direct_layers": 3,
+      "mixed_layers": 0,
+      "ps_layers": 0,
+      "deq_skipped": 0,
+      "direct_bytes": 0,
+      "f32_bytes": 786432
+     },
+     "ok": true,
+     "pl_s": 0.040915727615356445,
+     "ps_s": 0.15960249631825718,
+     "tag": "P2lazy",
+     "pipeline": true,
+     "lazy": true,
+     "note": "P2 + LAZY_DEQ=1/24 槽（唯一会真正槽复用的配置）",
+     "final_f32": [
+      {
+       "op": "A",
+       "shape": [
+        32,
+        64,
+        64
+       ],
+       "nbad": 0,
+       "sha1": "16b8e0177e7957f52601a2863c23b3e933765f45"
+      },
+      {
+       "op": "B",
+       "shape": [
+        32,
+        64,
+        64
+       ],
+       "nbad": 0,
+       "sha1": "ac7eb4e252cab401053fab4171c61fdc9b5ed07f"
+      },
+      {
+       "op": "C",
+       "shape": [
+        32,
+        64,
+        64
+       ],
+       "nbad": 0,
+       "sha1": "40ec235cf57f7a96f423ea96055ac674b1d9f0f1"
+      }
+     ]
+    }
+   ],
+   "deterministic": true,
+   "all_ok": true,
+   "sha1_final": [
+    "6e5dd3a067a2670f056b8825e8effaf784c937b2",
+    "6e5dd3a067a2670f056b8825e8effaf784c937b2"
+   ]
+  },
+  "F_writeback": {
+   "op": "primary_conv",
+   "slot": "F",
+   "in_pa": "0x30300000",
+   "in_len": 32768,
+   "out_pa": "0x30308000",
+   "out_len": 131072,
+   "pl_ms": 8.062,
+   "cyc": 277709,
+   "probes": [
+    {
+     "at": "done+0",
+     "since_done_ms": 0.0,
+     "nbad": 0,
+     "first": null,
+     "tail": false,
+     "sha1": "f965e7f452adf1fd136a9b3e4425726641283b0e"
+    },
+    {
+     "at": "+20ms",
+     "since_done_ms": 0.021,
+     "nbad": 0,
+     "first": null,
+     "tail": false,
+     "sha1": "f965e7f452adf1fd136a9b3e4425726641283b0e"
+    },
+    {
+     "at": "+100ms",
+     "since_done_ms": 0.121,
+     "nbad": 0,
+     "first": null,
+     "tail": false,
+     "sha1": "f965e7f452adf1fd136a9b3e4425726641283b0e"
+    },
+    {
+     "at": "+300ms",
+     "since_done_ms": 0.421,
+     "nbad": 0,
+     "first": null,
+     "tail": false,
+     "sha1": "f965e7f452adf1fd136a9b3e4425726641283b0e"
+    }
+   ]
+  },
+  "G": {
+   "n": 10,
+   "nbad_runs": 0,
+   "sha1": [
+    "40ec235cf57f7a96f423ea96055ac674b1d9f0f1"
+   ]
+  }
+ },
+ "args": {
+  "bit": "/home/xilinx/demoir/design_1_150v53.bit",
+  "pack": "/home/xilinx/demoir/deploy/bin_weights_new",
+  "outdir": "/home/xilinx/demoir/t129b_out",
+  "freq": 50.0,
+  "H": 64,
+  "magic_required": 1,
+  "reps": 2,
+  "stress": 10,
+  "only": "",
+  "seed": 20261103,
+  "no_e1e2": 0
+ },
+ "runpoint": {
+  "BIN_PACK": "e1e2",
+  "BIN_LAZY_DEQ": "0",
+  "BIN_LAZY_SLOTS": "24",
+  "BIN_CAT_FUSION": "1",
+  "BIN_BILINEAR_C": "1",
+  "BIN_PRECOMP": "1",
+  "Q8CACHE": "1",
+  "BIN_F32DIRECT": "1",
+  "BIN_CAT_ECA_FUSE": "1",
+  "BIN_EPI_NOINV": "1",
+  "BIN_PROFILE": "1"
+ },
+ "layers": [
+  {
+   "name": "encoder.encoder_1.sam_blocks.0.b0.ghost_layers.0.primary_conv.conv",
+   "cin": 48,
+   "cout": 32,
+   "k": 1,
+   "s": 1,
+   "d": 1,
+   "pad": 0,
+   "shift": 3,
+   "fs_in": 4,
+   "fs_out": 5
+  },
+  {
+   "name": "encoder.encoder_1.sam_blocks.0.b0.ghost_layers.1.primary_conv.conv",
+   "cin": 112,
+   "cout": 32,
+   "k": 1,
+   "s": 1,
+   "d": 1,
+   "pad": 0,
+   "shift": 4,
+   "fs_in": 4,
+   "fs_out": 4
+  },
+  {
+   "name": "encoder.encoder_1.sam_blocks.0.b0.ghost_layers.0.cheap_operation.conv",
+   "cin": 32,
+   "cout": 32,
+   "k": 3,
+   "s": 1,
+   "d": 1,
+   "pad": 1,
+   "shift": 5,
+   "fs_in": 5,
+   "fs_out": 4
+  }
+ ],
+ "fclk": {
+  "target": 50.0,
+  "readback": 50.0,
+  "magic": "0x50300001",
+  "st310": "0x00000000",
+  "st310_zero": true,
+  "busy": false
+ },
+ "deps": {
+  "line": "[DEPS] q8=fast c8deq=fast bpack=fast e1e2=fast catpack=fast safe=fast  ⇒ deps_closure_ok=True",
+  "closure_ok": true
+ },
+ "e1e2": {
+  "ok": true
+ },
+ "ref": {
+  "d": {
+   "d31": 0,
+   "d_ab": 0
+  },
+  "c8_sha1": [
+   "f965e7f452adf1fd136a9b3e4425726641283b0e",
+   "737c09984db97265c205a80db595b610ec45190c",
+   "180d3fe39b3d324c6dbe1a4f65ead1a66194f672"
+  ],
+  "xq3_sha1": "863d30eeedbafdb37b05e93f82f22ed4e493896b",
+  "tt_sha1": "577a8bbb088d46f2247c81e67c38bfd2fa63105c",
+  "inda_sha1": "c2209906127ff618978383b50a2a744ff2ab1101"
+ },
+ "summary": [
+  {
+   "arm": "S",
+   "verdict": [
+    "✓/det",
+    "✓/det"
+   ],
+   "nbad": [
+    0,
+    0
+   ],
+   "det": true
+  },
+  {
+   "arm": "P1",
+   "verdict": [
+    "✓/det",
+    "✓/det"
+   ],
+   "nbad": [
+    0,
+    0
+   ],
+   "det": true
+  },
+  {
+   "arm": "P2",
+   "verdict": [
+    "✓/det",
+    "✓/det"
+   ],
+   "nbad": [
+    0,
+    0
+   ],
+   "det": true
+  },
+  {
+   "arm": "P2nc",
+   "verdict": [
+    "✓/det",
+    "✓/det"
+   ],
+   "nbad": [
+    0,
+    0
+   ],
+   "det": true
+  },
+  {
+   "arm": "P2ncan",
+   "verdict": [
+    "✓/det",
+    "✓/det"
+   ],
+   "nbad": [
+    0,
+    0
+   ],
+   "det": true
+  },
+  {
+   "arm": "P2lazy",
+   "verdict": [
+    "✓/det",
+    "✓/det"
+   ],
+   "nbad": [
+    0,
+    0
+   ],
+   "det": true
+  }
+ ],
+ "verdict": {
+  "all_arms_ok": true
+ }
+}
