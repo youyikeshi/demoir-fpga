@@ -124,16 +124,18 @@ $$\Rightarrow\ \text{代价：}\text{最后要补一轮专门的时序战役（�
 
 ### R8 的补充：功能验证时钟要**按位流自己的最差路径算**（2026-11-02 14:50）
 
-$$\Rightarrow\ 	ext{新块（fconv）的最差路径} = \mathbf{15.545\ ns}\ (	exttt{oc\_base\_reg[3]/C} 	o 	exttt{wd\_len\_reg\_*/RAMA/WE},\ 12\ 	ext{级})$$
-$$\Rightarrow\ 	ext{真实最差} pprox 16.1\ 	ext{ns} \Rightarrow 	ext{10 ns 约束下 } 	exttt{WNS } -6.076 \Rightarrow 	extbf{只支持 62 MHz}$$
-$$\Rightarrow\ \Rightarrow\ 	ext{若在 } 100\ 	ext{MHz 验功能，这条路径}	extbf{仍然错拍} \Rightarrow 	ext{错分不清逻辑还是时序} \Rightarrow 	extbf{R8 的分离失效}$$
+$$\Rightarrow\ \text{新块（fconv）的最差路径} = \mathbf{15.545\ ns}\ (\texttt{oc\_base\_reg[3]/C} \to \texttt{wd\_len\_reg\_*/RAMA/WE},\ 12\ \text{级})$$
+$$\Rightarrow\ \text{真实最差} \approx 16.1\ \text{ns} \Rightarrow \text{10 ns 约束下 } \texttt{WNS } -6.076 \Rightarrow \textbf{只支持 62 MHz}$$
+$$\Rightarrow\ \Rightarrow\ \text{若在 } 100\ \text{MHz 验功能，这条路径}\textbf{仍然错拍} \Rightarrow \text{错分不清逻辑还是时序} \Rightarrow \textbf{R8 的分离失效}$$
 
-$$\Rightarrow\ 	extbf{规则}：	ext{功能验证时钟} = \left\lfloor \dfrac{1}{1.3 	imes T_{	ext{worst}}} ightfloor_{5\,	ext{MHz}}$$
-$$\quad\ 	ext{本次} \Rightarrow 1/(1.3 	imes 16.1\ 	ext{ns}) pprox 47.8 \Rightarrow \mathbf{45\ MHz}\ (	ext{整网 } 15\sim22\ 	ext{s})$$
-$$\Rightarrow\ 	ext{分两阶段验更稳}：	ext{先验"不含 fconv 的老功能"在 } 100\ 	ext{MHz 是否正常} \Rightarrow 	ext{再验 fconv 在 } 45\ 	ext{MHz}$$
+$$\Rightarrow\ \textbf{规则}：\text{功能验证时钟} = \left\lfloor \dfrac{1}{1.3 \times T_{\text{worst}}} 
+ight
+floor_{5\,\text{MHz}}$$
+$$\quad\ \text{本次} \Rightarrow 1/(1.3 \times 16.1\ \text{ns}) \approx 47.8 \Rightarrow \mathbf{45\ MHz}\ (\text{整网 } 15\sim22\ \text{s})$$
+$$\Rightarrow\ \text{分两阶段验更稳}：\text{先验"不含 fconv 的老功能"在 } 100\ \text{MHz 是否正常} \Rightarrow \text{再验 fconv 在 } 45\ \text{MHz}$$
 
-$$\Rightarrow\ 	ext{这样"慢"是有明确代价的：}	extbf{每颗新位流的功能验证要跑 } 15\sim22\ 	ext{s}\ 	ext{的整网}$$
-$$\quad\ \Rightarrow\ 	ext{但}	extbf{判据是 } 	exttt{sha1}	ext{，与速度无关} \Rightarrow 	ext{慢不损失判据强度}$$
+$$\Rightarrow\ \text{这样"慢"是有明确代价的：}\textbf{每颗新位流的功能验证要跑 } 15\sim22\ \text{s}\ \text{的整网}$$
+$$\quad\ \Rightarrow\ \text{但}\textbf{判据是 } \texttt{sha1}\text{，与速度无关} \Rightarrow \text{慢不损失判据强度}$$
 
 ---
 
