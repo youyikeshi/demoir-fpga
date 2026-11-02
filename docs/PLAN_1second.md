@@ -6153,3 +6153,25 @@ $$\Rightarrow\ \text{① 单独跑 } \mathtt{encoder.encoder\_1.down.conv} \Righ
 $$\Rightarrow\ \text{② 单独跑 } \mathtt{decoder.decoder\_3.rdb.conv\_layers.0.conv}（\mathtt{cin}{=}64,\ \mathbf{\mathtt{cout}{=}96},\ \mathbf{s{=}1}）$$
 $$\quad\ \Rightarrow\ \text{若全对} \Rightarrow \textbf{触发是 } s{=}2\ \text{而不是 } \mathtt{cout}{=}96$$
 $$\Rightarrow\ \text{RTL 判据：}f = (0,2,4,6,1,3,5,7,8,10,12,14)\ \text{必须能被核的组/pair 计数逐项复算出来}$$
+
+### 70.73 目标再调整（用户指令 2026-11-02 23:5x）
+
+$$\Rightarrow\ \textbf{① 停止整网测试}（\text{整网错已知，不必再测}）$$
+$$\Rightarrow\ \textbf{② 先修 RTL 逻辑问题}（\text{A 类 } s{=}2\ \text{组交错；B 类 done/写排空）$$
+$$\Rightarrow\ \textbf{③ 同时}\textbf{系统审查"层与层之间的交接"与"边界"问题}（\text{不是只修这一个 bug，而是把这一类审干净）$$
+$$\Rightarrow\ \textbf{④ 逻辑修好后}\text{才回到时序}$$
+
+**为什么这条指令是对的**
+$$\Rightarrow\ \text{A 类（}s{=}2\ \text{组交错）与 B 类（done 早于写落地）}\textbf{都是"交接/边界"问题}，\text{不是孤立 bug}$$
+$$\Rightarrow\ \text{而逐层 harness 从未测 } s{=}2 \Rightarrow \textbf{门禁漏一个维度就放行一个类别}$$
+$$\Rightarrow\ \Rightarrow\ \text{必须}\textbf{把不变量列出来逐条对照}，\text{而不是等下一个 op 暴露}$$
+
+**已确立的不变量候选（待审计代理逐条核）**
+$$\Rightarrow\ \text{输出组平面序 vs 写地址序}（\text{本次 } f\ \text{置换的根）$$
+$$\Rightarrow\ \text{C8 平面布局 vs 下游 op 的激活读布局}（\text{C16 pair 交错）$$
+$$\Rightarrow\ \text{末组掩码（}\mathtt{cout}\%\mathtt{VLANES}）\ \text{与写使能对齐}$$
+$$\Rightarrow\ \text{末像素 / 尾部连续段（} \mathtt{tail\_empty}、\mathtt{wr\_split\_pend}）$$
+$$\Rightarrow\ \mathtt{done}\ \text{必须晚于}\mathbf{\text{写全部落地}}（\mathtt{wr\_all\_idle}\ \text{是否含 } \mathtt{wr\_split\_pend_i}）$$
+$$\Rightarrow\ s{=}2\ \text{的 } H_{\text{out}}W_{\text{out}}\ \text{减半与 } \mathtt{plane\_stride}\ \text{的一致性}$$
+$$\Rightarrow\ \text{边界 pad（}k{=}3\ \text{在张量边缘）与 halo 的叠加}$$
+$$\Rightarrow\ \text{奇数 } H/W、\text{末带、} \mathtt{nband} < \mathtt{BAND\_ROWS}\ \text{等边界}$$
