@@ -339,10 +339,10 @@ $$\Rightarrow\ 100\ \text{MHz} \Rightarrow 300\ \text{MB/s};\quad 150\ \text{MHz
 
 ### 8.10 ★ 用户决定：**720p30 就够用**，降低时序压力（2026-11-03 02:0x）
 
-$$\Rightarrow\ 	ext{720p30 像素时钟 } = 1650 	imes 750 	imes 30 = 37.125\ 	ext{MHz} \Rightarrow 	extbf{只有 720p60 的一半}$$
-$$\Rightarrow\ 	ext{PL 像素域时序从 } 13.47\ 	ext{ns 放宽到 } \mathbf{26.94\ ns} \Rightarrow 	ext{新逻辑的时序风险大幅下降}$$
-$$\Rightarrow\ 	ext{行内瞬时带宽 } = 3 	imes 37.125 = \mathbf{111\ MB/s} \Rightarrow 	ext{对 } 100\ 	ext{MHz AXI}(300)\ 	extbf{余量 63\%}$$
-$$\Rightarrow\ 	ext{平均 } = 1280 	imes 720 	imes 3 	imes 30 = \mathbf{82.9\ MB/s}$$
+- ext720p30 像素时钟 = 1650 imes 750 imes 30 = 37.125 extMHz ⇒ extbf只有 720p60 的一半
+- extPL 像素域时序从 13.47 extns 放宽到 **26.94 ns** ⇒ ext新逻辑的时序风险大幅下降
+- ext行内瞬时带宽 = 3 imes 37.125 = **111 MB/s** ⇒ ext对 100 extMHz AXI(300) extbf余量 63%
+- ext平均 = 1280 imes 720 imes 3 imes 30 = **82.9 MB/s**
 
 **因此：P2 真画面默认 720p30。**
 
@@ -365,10 +365,10 @@ MMCM 单 VCO = 1187.5 MHz（输入 100 MHz，`M=11.875`，`DIVCLK=1`）：
 | 2 | 1080p30 | 74.21875 MHz | 2200/1920, 1125/1080 | 未验证 |
 | **3** | **720p30** | **37.109375 MHz** | **1650/1280, 750/720** | **P2 默认，待板端验证** |
 
-$$\Rightarrow\ 	ext{三输入时钟选择用两级 } 	exttt{BUFGMUX}\ 	ext{串联（}	ext{select[0] 选 CLKOUT0/1，再与 CLKOUT2 选）}$$
-$$\Rightarrow\ 	ext{切换协议不变：} 	exttt{enable=0} 	o 	ext{写 } 	exttt{VIDEO\_MODE} 	o 	ext{等 } \ge 2\ 	ext{帧} 	o 	exttt{enable=1}$$
-$$\Rightarrow\ 	ext{约束：三路像素时钟各自 } 	exttt{create\_clock}（6.737 / 13.474 / \mathbf{26.936}\ 	ext{ns}）	ext{，两两互斥、都与 } 	exttt{s\_axi\_aclk}\ 	ext{异步}$$
-$$\Rightarrow\ 	extbf{三路 } WNS \ge 0\ 	ext{是门禁}$$
+- ext三输入时钟选择用两级 extttBUFGMUX ext串联（ extselect[0] 选 CLKOUT0/1，再与 CLKOUT2 选）
+- ext切换协议不变： extttenable=0 o ext写 extttVIDEO\_MODE o ext等 ≥ 2 ext帧 o extttenable=1
+- ext约束：三路像素时钟各自 extttcreate\_clock（6.737 / 13.474 / **26.936** extns） ext，两两互斥、都与 exttts\_axi\_aclk ext异步
+- extbf三路 WNS ≥ 0 ext是门禁
 
 ### 8.12 ★ P2 构建的四个口径裁定（2026-11-03 02:1x）
 
@@ -380,26 +380,26 @@ $$\Rightarrow\ 	extbf{三路 } WNS \ge 0\ 	ext{是门禁}$$
 | 4 | `u_hdmi_out_top` 层次 LUT 门禁 | **≤ 1200**（不是 1000） |
 
 #### 关于 #1 的理由
-$$\Rightarrow\ 	ext{项目纪律是"约束 == 实跑频率"} \Rightarrow 	ext{实跑 } 37.109375\ 	ext{MHz} \Rightarrow 	extbf{周期 } 26.9474\ 	ext{ns}$$
-$$\Rightarrow\ 	ext{标称 } 26.936\ 	ext{偏紧 } 0.04\% \Rightarrow 	ext{虽保守但会让 }	extbf{跨模式 WNS 不可比}$$
-$$\Rightarrow\ 	ext{报告里实际值与标称值}	extbf{都要写}，	ext{并标 } -421\ 	ext{ppm}$$
+- ext项目纪律是"约束 == 实跑频率" ⇒ ext实跑 37.109375 extMHz ⇒ extbf周期 26.9474 extns
+- ext标称 26.936 ext偏紧 0.04% ⇒ ext虽保守但会让 extbf跨模式 WNS 不可比
+- ext报告里实际值与标称值 extbf都要写， ext并标 -421 extppm
 
 #### 关于 #2 的理由
-$$\Rightarrow\ 	ext{同一 pin 再 } 	exttt{create\_clock}\ 	ext{会造出两个时钟源} \Rightarrow 	extbf{WNS 失真（上一轮已被否）}$$
-$$\Rightarrow\ 	ext{BD 构建里 MMCM 派生是}	extbf{真相} \Rightarrow 	ext{用断言去卡它，而不是用第二个时钟源覆盖它}$$
-$$\Rightarrow\ 	ext{显式 } 	exttt{create\_clock}\ 	ext{只保留在 }	extbf{OOC 流程}	ext{（那里没有 BD，必须手写）}$$
+- ext同一 pin 再 extttcreate\_clock ext会造出两个时钟源 ⇒ extbfWNS 失真（上一轮已被否）
+- extBD 构建里 MMCM 派生是 extbf真相 ⇒ ext用断言去卡它，而不是用第二个时钟源覆盖它
+- ext显式 extttcreate\_clock ext只保留在 extbfOOC 流程 ext（那里没有 BD，必须手写）
 
 #### 关于 #3 的理由
-$$\Rightarrow\ 	ext{与 } 	exttt{s\_axi}\ 	ext{路径同套路} \Rightarrow 	ext{已被本项目验证过}$$
-$$\Rightarrow\ 	ext{只读主口的 } 	exttt{AW/W/B}\ 	ext{会被 BD 绑 } 0 \Rightarrow 	ext{必须在门禁 5b 白名单加 3 条并写清"扫描器是只读主口"}$$
-$$\Rightarrow\ 	ext{若白名单可以随便加，门禁 5b 就废了} \Rightarrow 	extbf{白名单条目必须逐条注明理由}，	ext{且每轮构建打印出来供人复核}$$
+- ext与 exttts\_axi ext路径同套路 ⇒ ext已被本项目验证过
+- ext只读主口的 extttAW/W/B ext会被 BD 绑 0 ⇒ ext必须在门禁 5b 白名单加 3 条并写清"扫描器是只读主口"
+- ext若白名单可以随便加，门禁 5b 就废了 ⇒ extbf白名单条目必须逐条注明理由， ext且每轮构建打印出来供人复核
 
 #### 关于 #4 的理由
-$$\Rightarrow\ 	ext{P1 实测 } 383 + 	ext{P2 扫描器 OOC } 587 = 970 \Rightarrow 	ext{再加 mux/时钟选择/胶合} pprox 1020\sim1070$$
-$$\Rightarrow\ 	ext{门禁 } 1000\ 	extbf{会误杀} \Rightarrow 	ext{定 } 1200$$
-$$\Rightarrow\ 	ext{但若超过 } 1200 \Rightarrow 	extbf{先查原因，不许改门禁了事}$$
+- extP1 实测 383 + extP2 扫描器 OOC 587 = 970 ⇒ ext再加 mux/时钟选择/胶合 pprox 10201070
+- ext门禁 1000 extbf会误杀 ⇒ ext定 1200
+- ext但若超过 1200 ⇒ extbf先查原因，不许改门禁了事
 
 #### 附加要求
-$$\Rightarrow\ 	ext{行缓冲 } 	exttt{ram\_style=block}\ 	ext{预计 } 2\ 	ext{个 RAMB36} \Rightarrow 	ext{整 BD BRAM 门禁 } \le 4，	ext{实际值必须写进台账}$$
-$$\Rightarrow\ 	ext{三个派生周期的断言容差 } \pm 0.02\ 	ext{ns}$$
-$$\Rightarrow\ 	ext{三路 } WNS\ 	ext{全部 } \ge 0\ 	ext{才放行}；	ext{任一路为负就停下报原因}$$
+- ext行缓冲 extttram\_style=block ext预计 2 ext个 RAMB36 ⇒ ext整 BD BRAM 门禁 ≤ 4， ext实际值必须写进台账
+- ext三个派生周期的断言容差 ± 0.02 extns
+- ext三路 WNS ext全部 ≥ 0 ext才放行； ext任一路为负就停下报原因
