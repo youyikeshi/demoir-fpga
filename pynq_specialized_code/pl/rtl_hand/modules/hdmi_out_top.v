@@ -23,9 +23,19 @@
 //                       （2 bit 数据在 toggle 到达前已稳定，不逐位同步）；
 //        s_axi -> pix : pwr_good / soft_reset 电平各 2FF；
 //        pix -> s_axi : vsync 翻转电平 + 2FF + 边沿检测（不直接同步单拍脉冲）。
+//        pix -> s_axi : pix_hb（慢变电平）+ mmcm_locked（单 bit）各一条 2FF；
+//                       二者都不进 pix_rst / soft_rst，也不清 hb_cnt。
 //   5) 0x2C UNDERFLOW_CNT（RO，P1 恒 0；P3 由扫描器驱动）。
 //   6) cfg_upd / fid_upd：AXI 写配置寄存器 / 写 FRAME_ID 的 1 拍脉冲，
 //      与扫描器同在 s_axi_aclk 域，P3 直接接 hdmi_fb_scan 同名输入。
+//   7) 0x30 PIX_HB（2026-11-03 事故驱动，契约 §8.2）：这是**唯一**能在"像素时钟
+//      死掉"时仍然可读的"体检"寄存器 —— 它是 AXI 时钟域的，数据源只是两个单 bit
+//      2FF 同步链，因此 pix_clk 停摆时它读回稳定值（不跳、不挂总线）。
+//      上板协议：两次读 0x30[0] 必须变化 ⇒ 才允许读 0x04/0x08 等；
+//      不变 ⇒ 像素时钟没跑 ⇒ 立刻停，不要再做任何 AXI 访问。
+//      mmcm_locked 只做状态上报（2FF），**不**参与任何复位/门控：
+//      像素域的复位仍只看 aresetn / pwr_good / soft_reset / 模式切换（契约 §8.1：
+//      AXI 侧逻辑绝不许被 PL 侧 MMCM 锁定门控）。
 //
 // 寄存器图（32-bit，4 字节对齐）：
 //   0x00 CTRL  RW [0]enable [1]soft_reset(写1自清) [2]test_pattern
@@ -35,6 +45,9 @@
 //   0x0C FB_ADDR_LO 0x10 FB_ADDR_HI 0x14 FB_STRIDE 0x18 FB_W 0x1C FB_H
 //   0x20 FRAME_ID RW   0x24 FRAME_ID_LATCHED RO(P1=0)   0x28 PIXEL_FMT RW
 //   0x2C UNDERFLOW_CNT RO (P1=0)
+//   0x30 PIX_HB RO [0]pix_hb（像素域自由计数 bit16，2FF 到 aclk）
+//                  [1]mmcm_locked（外部输入，2FF 到 aclk）
+//                  [31:2] 保留，读 0
 // ============================================================================
 `timescale 1ns / 1ps
 
@@ -47,6 +60,7 @@ module hdmi_out_top #(
     input  wire        aresetn,
     input  wire        pix_clk_a,        // 148.4375 MHz（BD MMCM CLKOUT0）
     input  wire        pix_clk_b,        //  74.21875 MHz（BD MMCM CLKOUT1）
+    input  wire        mmcm_locked,      // BD MMCM.locked（只做 0x30[1] 状态上报）
 
     // ---- AXI4-Lite 配置页 ----
     input  wire [31:0] s_axi_awaddr,  input wire s_axi_awvalid, output wire s_axi_awready,
@@ -99,6 +113,45 @@ module hdmi_out_top #(
     );
 
     assign pix_clk = pix_clk_i;
+
+    // ---------------------------------------------------------------- 0x30 PIX_HB
+    // 目的（契约 §8.2）：PS 在读任何状态寄存器之前，先用两次读 0x30 确认像素时钟活着。
+    // 设计要求（缺一条这条判据就失效）：
+    //   1) hb_cnt 是像素域里**唯一不被 soft_reset / pwr_good / 模式切换清零**的计数器；
+    //      只有 aresetn（PS 域硬复位）清它。否则 soft_reset 后 1 ms 内读会读到"没在跑"。
+    //   2) 取固定位 bit[16]（不按绝对时间，同一份 RTL 适配两路像素时钟）：
+    //        pix_clk_a 148.4375 MHz -> 翻转周期 2*2^16/f = 0.883 ms
+    //        pix_clk_b  74.21875 MHz -> 翻转周期 2*2^16/f = 1.766 ms
+    //      两次读间隔 >= 2 ms 必然跨过至少一个翻转沿（最慢一路 1.766 ms 也够）。
+    //   3) 跨域只用单 bit 2FF（慢变电平，天然安全）；像素时钟停摆时同步链保持最后值
+    //      ⇒ 0x30[0] 冻结，而 AXI 时钟域寄存器读写完全不受影响。
+    //   4) 0x30 只读：写路径的 case 里没有 6'h0C 分支 ⇒ 写被忽略（不影响回读值）。
+    //   5) pix_hb 不锁存成"曾经翻转"粘滞位：要求的是"现在还在跑"，粘滞位会掩盖停摆。
+    reg  [16:0] hb_cnt;
+    wire        pix_hb_pix = hb_cnt[16];
+
+    always @(posedge pix_clk_i or negedge aresetn) begin
+        if (!aresetn) hb_cnt <= 17'd0;
+        else          hb_cnt <= hb_cnt + 17'd1;   // 复位只认 aresetn
+    end
+
+    // pix -> aclk：pix_hb 与 mmcm_locked 各一条 2FF
+    reg hb_meta, hb_sync;
+    reg lk_meta, lk_sync;
+
+    always @(posedge s_axi_aclk) begin
+        if (!aresetn) begin
+            hb_meta <= 1'b0;
+            hb_sync <= 1'b0;
+            lk_meta <= 1'b0;
+            lk_sync <= 1'b0;
+        end else begin
+            hb_meta <= pix_hb_pix;
+            hb_sync <= hb_meta;
+            lk_meta <= mmcm_locked;
+            lk_sync <= lk_meta;
+        end
+    end
 
     // ---------------------------------------------------------------- 模式参数
     localparam integer H_TOTAL_720  = 1650, H_ACTIVE_720  = 1280;
@@ -167,6 +220,7 @@ module hdmi_out_top #(
                 6'h09:   rd_mux = 32'd0;              // FRAME_ID_LATCHED（P2）
                 6'h0A:   rd_mux = pixel_fmt;
                 6'h0B:   rd_mux = 32'd0;              // UNDERFLOW_CNT（P3 扫描器驱动）
+                6'h0C:   rd_mux = {30'd0, lk_sync, hb_sync};   // 0x30 PIX_HB（RO）
                 default: rd_mux = 32'd0;              // 越界回 0，不挂总线
             endcase
         end
