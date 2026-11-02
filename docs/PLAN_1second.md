@@ -5255,3 +5255,37 @@ $$\quad\ \text{静态中性}\textbf{不能代替上板}:\ \text{v43base（错 RT
 **工具化建议（T-60 提的，值得做）**
 $$\Rightarrow\ \text{新增 } \texttt{tools/verify\_rtl\_root.sh <manifest>}：\text{逐条比对 manifest 的 } \texttt{(file, md5)}\ \text{并打印报表}$$
 $$\Rightarrow\ \text{任何构建脚本第一行调用它} \Rightarrow \text{把第 105/106 条纪律}\textbf{机制化}，\text{而不是靠人记得}$$
+
+### 70.42 ★★★★★ BD 重建中性 = 上板确认（阶段 3/4 入口正式打通）（2026-11-02 13:10）
+
+$$\text{v43base2} = \text{重建 BD} + \textbf{manifest 级验证过的 v39 位流 RTL（}\texttt{rtl\_v39\_exact}\text{）}$$
+
+| 档 | 判据 | 结果 |
+|---|---|---|
+| 1 | `.bit 65ca57ef` + `.hwh 6b552758` 成对、fclk 150.000、两 IP 基址、复位指纹 | **PASS** |
+| 2 | `--hw 64` 全关 **×2**：两次**彼此相同** 且 = 64² 冻结 | **PASS** |
+| 3 | `--hw 256` 全关 **×2**：相同 且 = 256² 冻结 | **PASS** |
+| 4 | `--hw 256` + v5 **×3**：3/3 = 冻结 | **PASS** |
+| 5 | OUT 金丝雀 `fill=227 / check=227 / 尾坏 0/24 区 / raises=0` | **PASS（全绿）** |
+
+**同 session A/B（换回 v39 + 它的 `.hwh`）**
+
+| | v43base2 | v39 | Δ |
+|---|---:|---:|---:|
+| `total` | 6.266 | 6.219 | **+0.048（+0.77%）** |
+| `total_med3` | — | — | +0.94%（同向同量级）|
+| `convfp` | 1.1427 | 1.1425 | **+0.0002（PL 计算实质相同）** |
+| `pl` / `pack_pl` | | | +0.0099 / −0.0208 |
+| `epilogue` | | | −0.0001 |
+| `nonconv` | | | +0.0071 |
+| `cat/eca/sam/interp/add` | | | 全部 ≤ +0.0024 |
+| **`prologue`** | | | **+0.0569**（>100% 的 Δ）|
+
+$$\Rightarrow\ \text{总差 } +0.048/+0.77\% \textbf{ 在 } \pm3.1\%\ \text{噪声底内} \Rightarrow \textbf{性能中性}$$
+$$\Rightarrow\ \text{唯一为正的桶是 } \texttt{prologue} +0.0569：\textbf{每层固定开销/首跑冷态}，\text{在 PS 侧，}\textbf{与位流无关}$$
+$$\Rightarrow\ \text{无偶发错：11/11 跑 } \texttt{sha\_ok/deps\_closure\_ok/run\_valid}\ \text{全 True；无金丝雀报警、无段错误、无超时}$$
+$$\Rightarrow\ \textbf{AWID 常量 0 的写通路嫌疑本轮未被触发}：\texttt{q8b}\ \text{两臂落在同一组取值}、\texttt{pack\_pl}\ \text{中位 } 1.0745\ \text{vs } 1.0953\ \Rightarrow \text{写通路无量级异常}$$
+
+$$\Rightarrow\ \Rightarrow\ \textbf{BD 重建中性 = 静态 + 动态双证} \Rightarrow \textbf{阶段 3（convfp 搬 PL）与阶段 4（全融合）第一次有了可执行前提}$$
+$$\Rightarrow\ \text{这是今晚唯一"打通一扇门"的成果；其余都是关掉门或修地板}$$
+
