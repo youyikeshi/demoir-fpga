@@ -1,0 +1,19 @@
+[health] bit = /home/xilinx/demoir/design_1_150v54.bit ；目标 fclk = 50 MHz
+
+① 复位前（不 new Overlay，直接 /dev/mem 只读）
+   0x40060310  bin_0x310_CHAIN_STATUS   = 0x00000000
+   0x40070010  bin_AP_RETURN(0x10010)   = 0x00000002
+   0x40050010  conv_AP_RETURN(0x10010)  = 0x00000000
+   0x40070314  MAGIC(0x314)             = 0x50300001
+   ⇒ bin AP busy=1 done=0 err=0 ；conv AP busy=0 done=0 err=0 ；0x310=0x00000000
+
+② load v54（本次唯一一次 download=True）+ 设 50 MHz
+   Overlay 用时 2.735 s ；IP=['bin_unit_0', 'conv_uni_0', 'ps7']
+   fclk0 读回 = 50 MHz ；base = 0x40060000
+   magic(0x314) = 0x50300001（期望 0x50300001）✓
+   0x310 = 0x00000000 ⇒ 空闲 ✓
+   bin_unit_0  AP_RETURN=0x00000000 ⇒ busy=0 err=0
+   conv_uni_0  AP_RETURN=0x00000000 ⇒ busy=0 err=0
+
+★★ 复位结论：**板子已在已知good状态（v54 @ 50 MHz、PL 空闲）**
+[health] json = /home/xilinx/demoir/t137d_out/health_094736.json

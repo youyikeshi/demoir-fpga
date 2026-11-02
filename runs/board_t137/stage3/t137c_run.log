@@ -1,0 +1,65 @@
+[t137] python=3.10.4 numpy=1.21.5 mach=armv7l
+[t137] 运行点 = {"BIN_PACK": "e1e2", "BIN_LAZY_DEQ": "0", "BIN_LAZY_SLOTS": "24", "BIN_CAT_FUSION": "1", "BIN_BILINEAR_C": "1", "BIN_PRECOMP": "1", "Q8CACHE": "1", "BIN_F32DIRECT": "1", "BIN_CAT_ECA_FUSE": "1", "BIN_EPI_NOINV": "1", "BIN_V50_FUSE": "", "BIN_VLANES": "", "BIN_SETTLE_MS": ""}
+[t137] BIN_V50_* 残留=[]
+[t137] 日志 = /home/xilinx/demoir/t137c_out/t137c_094612.log
+[t137] bit = /home/xilinx/demoir/design_1_150v54.bit ；pack = /home/xilinx/demoir/deploy/bin_weights_new
+[t137] meminfo = {'MemTotal': 1028264, 'MemFree': 777124, 'MemAvailable': 862080, 'SwapTotal': 524284, 'SwapFree': 524284, 'CmaTotal': 262144, 'CmaFree': 78540}
+
+==============================================================================
+  第 1 步：load v54 overlay + 指纹（本进程唯一一次 download=True）
+==============================================================================
+  Overlay(design_1_150v54.bit) 用时 2.727 s
+  IP 清单：['bin_unit_0', 'conv_uni_0', 'ps7']
+  conv_uni_0  base=0x40040000 length=0x20000 （期望 0x40040000）✓
+  bin_unit_0  base=0x40060000 length=0x20000 （期望 0x40060000）✓
+  0x40070314 = 0x50300001   (CFG+0x314)
+  0x40060310 = 0x00000000   (0x310 CHAIN_STATUS)
+  0x40060308 = 0x00000000   (0x308 BAND_ROWS)
+  **magic(0x314) = 0x50300001 期望 0x50300001 ⇒ 寄存器块在位 ✓**
+  **0x310 = 0x00000000 ⇒ 空闲 ✓**（load 后 PL 必须空闲）
+  load 后 fclk0 读回 = 125 MHz
+
+  ★ 第 1 步收尾：fclk0 请求 50 → **读回 50 MHz**（1500/30=50.0000）；magic=0x50300001 0x310=0x00000000（第 119 条）
+
+==============================================================================
+  准备 64² arena
+==============================================================================
+  64² 形状：max_in 0.074 MB / max_out 0.098 MB / 227 个 conv
+  arena 需求 24 槽 × (0.074 + 0.098 MB + 4096) + 64 KB = **4.29 MB**；CmaFree 44.1 MB
+  arena t137_arena64   4.29 MB / 24 槽 @0x30100000
+
+==============================================================================
+  第 2 步：频率阶梯（每档 1 次 64² 整网，无护栏；判三个冻结 sha1）
+==============================================================================
+  请求序列 = [75.0, 93.75, 100.0]
+
+################ 请求 75 MHz（格点 1500/20 = 75.0000）
+  fclk0 请求 75 → **读回 75 MHz**；magic=0x50300001 0x310=0x00000000（第 119 条：改频后重读）
+
+==============================================================================
+  整网 64²（LAZY_DEQ=0，sel=none ms=0.0 site=-）fclk 读回 75 MHz，连跑 1 次
+==============================================================================
+  conv 总拍数（RTL 公式，频率无关）= 28,605,312 ⇒ @75 MHz 纯算 0.381 s
+  arena 槽数 = 24 | CmaFree 42.5 MB | [DEPS] q8=fast c8deq=fast bpack=fast e1e2=fast catpack=fast safe=fast  ⇒ deps_closure_ok=True
+  输入 x0 sha1 = bbae82e46e363a776d8fce8d9004e94502456bdc（冻结口径 bbae82e46e363a776d8fce8d9004e94502456bdc）✓
+[DEPS] q8=fast c8deq=fast bpack=fast e1e2=fast catpack=fast safe=fast  ⇒ deps_closure_ok=True
+  run1: 墙钟 9.453 s | 总 9.44505262374878 = PL 1.331 + PS 8.082 - overlap 1.214 + wait 4.384
+        PL 忙 1.331 s ⇒ 折算 99,824,613 拍（公式 28,605,312；隐含真实时钟 21.492 MHz @读回 75）
+        整网后空闲：0x310=0x00000000 ；APbusy=(0,0) ⇒ 空闲 ✓
+        sha1 bfa246d34681 / 226bd39e522a / 762d84b9618e  OK = 冻结 ✓ | 整网后 0x310=0x00000000 （归零 ✓）
+        护栏：flush 1135 次；睡 0 次 = 0.000 s（0.00% 墙钟）；净 9.453 s
+        flush 尺寸 top=[[9437184, 227], [1179648, 227], [1152, 227], [576, 227], [73728, 227]]
+  ⇒ 本块判据：sha1 全中=True，0x310 每跑后归零=True，AP 每跑后空闲=True，**通过 ✓**
+[json] 已落盘 /home/xilinx/demoir/t137c_out/t137c_094612.json
+
+################ 请求 93.75 MHz（格点 1500/16 = 93.7500）
+  fclk0 请求 93.75 → **读回 93.75 MHz**；magic=0x50300001 0x310=0x00000000（第 119 条：改频后重读）
+
+==============================================================================
+  整网 64²（LAZY_DEQ=0，sel=none ms=0.0 site=-）fclk 读回 93.75 MHz，连跑 1 次
+==============================================================================
+  conv 总拍数（RTL 公式，频率无关）= 28,605,312 ⇒ @93.75 MHz 纯算 0.305 s
+  arena 槽数 = 24 | CmaFree 1.5 MB | [DEPS] q8=fast c8deq=fast bpack=fast e1e2=fast catpack=fast safe=fast  ⇒ deps_closure_ok=True
+  输入 x0 sha1 = bbae82e46e363a776d8fce8d9004e94502456bdc（冻结口径 bbae82e46e363a776d8fce8d9004e94502456bdc）✓
+  ✗✗ 整网 @ 93.75 MHz 超时（看门狗）：TimeoutError('E1E2 等 idle 超时 30.0s（上一跑还在访存，不能发新 start）') ⇒ 停、报
+[json] 已落盘 /home/xilinx/demoir/t137c_out/t137c_094612.json

@@ -1,0 +1,909 @@
+{
+ "env_at_start": {
+  "BIN_PACK": "e1e2",
+  "BIN_LAZY_DEQ": "0",
+  "BIN_LAZY_SLOTS": "24",
+  "BIN_CAT_FUSION": "1",
+  "BIN_BILINEAR_C": "1",
+  "BIN_PRECOMP": "1",
+  "Q8CACHE": "1",
+  "BIN_F32DIRECT": "1",
+  "BIN_CAT_ECA_FUSE": "1",
+  "BIN_EPI_NOINV": "1",
+  "BIN_V50_FUSE": "",
+  "BIN_VLANES": "",
+  "BIN_SETTLE_MS": ""
+ },
+ "steps": {
+  "load": {
+   "bit": "/home/xilinx/demoir/design_1_150v54.bit",
+   "seconds": 2.8427,
+   "ips": [
+    "bin_unit_0",
+    "conv_uni_0",
+    "ps7"
+   ],
+   "has_fconv": false,
+   "addr": {
+    "conv_uni_0": {
+     "base": "0x40040000",
+     "length": 131072,
+     "ok": true
+    },
+    "bin_unit_0": {
+     "base": "0x40060000",
+     "length": 131072,
+     "ok": true
+    }
+   },
+   "magic": {
+    "CFG+0x314": {
+     "abs_addr": "0x40070314",
+     "hex": "0x50300001"
+    },
+    "0x310 CHAIN_STATUS": {
+     "abs_addr": "0x40060310",
+     "hex": "0x00000000"
+    },
+    "0x308 BAND_ROWS": {
+     "abs_addr": "0x40060308",
+     "hex": "0x00000000"
+    }
+   },
+   "magic_ok": true,
+   "st310_zero": true,
+   "fclk0_at_load": 125.0,
+   "downloads": 1,
+   "meminfo": {
+    "MemTotal": 1028264,
+    "MemFree": 739240,
+    "MemAvailable": 839708,
+    "SwapTotal": 524284,
+    "SwapFree": 524284,
+    "CmaTotal": 262144,
+    "CmaFree": 45224
+   },
+   "fp_ok": true
+  },
+  "tenured_50": {
+   "target": 50.0,
+   "readback": 50.0,
+   "divider": 30,
+   "grid_mhz": 50.0,
+   "base": "0x40060000",
+   "magic": "0x50300001",
+   "magic_ok": true,
+   "st310": "0x00000000",
+   "st310_zero": true,
+   "fclk": 50.0,
+   "ap_bin_unit_0": "0x00000000",
+   "apbusy_bin_unit_0": 0,
+   "ap_conv_uni_0": "0x00000000",
+   "apbusy_conv_uni_0": 0,
+   "idle_ok": true,
+   "idle_why": "ok"
+  },
+  "ladder": [
+   {
+    "tag": "net64_83.33",
+    "hw": 64,
+    "slots": 24,
+    "fclk": 83.333333,
+    "x0_sha1": "bbae82e46e363a776d8fce8d9004e94502456bdc",
+    "x0_ok": true,
+    "conv_cyc": 28605312,
+    "nrun": 1,
+    "runs": [
+     {
+      "run": 1,
+      "wall_s": 10.205,
+      "total_s": 10.196942567825317,
+      "pl_s": 1.3188436031341553,
+      "ps_s": 8.049171963390108,
+      "prologue": 2.4415416717529297,
+      "epilogue": 4.498981753047701,
+      "nonconv": 1.1086485385894775,
+      "overlap": 1.2051353454589844,
+      "wait": 4.408451318740845,
+      "pack_pl": 0.0,
+      "n_conv_ops": 227,
+      "mmio_writes": 6105,
+      "deps_closure_ok": true,
+      "run_valid": true,
+      "lazy": {
+       "pinned": 0,
+       "released": 0,
+       "starved": 0,
+       "direct_layers": 0,
+       "mixed_layers": 0,
+       "ps_layers": 0,
+       "deq_skipped": 0,
+       "direct_bytes": 0,
+       "f32_bytes": 0
+      },
+      "conv_cyc": 28605312,
+      "pl_cyc_meas": 109903633,
+      "pl_implied_mhz": 21.69,
+      "sha1": {
+       "out1": "bfa246d34681e748311bbcd2f1b87317a56923fe",
+       "out2": "226bd39e522aa373b8fc183acae5280931f8b63f",
+       "out3": "762d84b9618eab8922edd6da4f07ba06de865628"
+      },
+      "sha_ok": true,
+      "st310_after": "0x00000000",
+      "st310_after_zero": true,
+      "apbusy_after": [
+       0,
+       0
+      ],
+      "idle_after_ok": true,
+      "idle_after_why": "ok",
+      "magic_after": "0x50300001",
+      "fclk": 83.333333,
+      "sel": "none",
+      "ms": 0.0,
+      "site": "",
+      "fence": {
+       "sel": "none",
+       "ms": 0.0,
+       "target_nb": 0,
+       "site_tag": "",
+       "sizes_set": [],
+       "flush_n": 1135,
+       "inbuf_flush_n": 227,
+       "sleep_n": 0,
+       "flush_secs": 0.2084,
+       "sleep_secs": 0.0,
+       "flush_us_per": 183.6,
+       "sleep_hist": {},
+       "sizes_top": [
+        [
+         9437184,
+         227
+        ],
+        [
+         1179648,
+         227
+        ],
+        [
+         1152,
+         227
+        ],
+        [
+         576,
+         227
+        ],
+        [
+         73728,
+         227
+        ]
+       ],
+       "inbuf_sizes": [
+        [
+         73728,
+         227
+        ]
+       ],
+       "by_site": [
+        [
+         "pack_int8",
+         9437184,
+         227
+        ],
+        [
+         "pack_int8",
+         1179648,
+         227
+        ],
+        [
+         "pack_int8",
+         1152,
+         227
+        ],
+        [
+         "pack_int8",
+         576,
+         227
+        ],
+        [
+         "push_input",
+         73728,
+         227
+        ]
+       ],
+       "n_sizes": 5,
+       "err": []
+      },
+      "sleep_n": 0,
+      "sleep_s": 0.0,
+      "net_s": 10.205
+     }
+    ],
+    "trips": [
+     [
+      "bfa246d34681e748311bbcd2f1b87317a56923fe",
+      "226bd39e522aa373b8fc183acae5280931f8b63f",
+      "762d84b9618eab8922edd6da4f07ba06de865628"
+     ]
+    ],
+    "same_across_runs": null,
+    "sha_ok_all": true,
+    "st310_ok_all": true,
+    "idle_ok_all": true,
+    "sel": "none",
+    "ms": 0.0,
+    "site": "",
+    "pass": true,
+    "freq_req": 83.33,
+    "grid_div": 18,
+    "pass_": true
+   }
+  ],
+  "top": {
+   "freq_req": 83.33,
+   "fclk": 83.333333,
+   "grid_div": 18
+  },
+  "confirm3": {
+   "fclk": 83.333333,
+   "rows": {
+    "tag": "net64_top_confirm",
+    "hw": 64,
+    "slots": 24,
+    "fclk": 83.333333,
+    "x0_sha1": "bbae82e46e363a776d8fce8d9004e94502456bdc",
+    "x0_ok": true,
+    "conv_cyc": 28605312,
+    "nrun": 2,
+    "runs": [
+     {
+      "run": 1,
+      "wall_s": 3.84,
+      "total_s": 3.8328561782836914,
+      "pl_s": 0.5805220603942871,
+      "ps_s": 2.5474546963996545,
+      "prologue": 1.9958665370941162,
+      "epilogue": 0.20157704899975215,
+      "nonconv": 0.35001111030578613,
+      "overlap": 0.4667339324951172,
+      "wait": 0.1138300895690918,
+      "pack_pl": 0.0,
+      "n_conv_ops": 227,
+      "mmio_writes": 6106,
+      "deps_closure_ok": true,
+      "run_valid": true,
+      "lazy": {
+       "pinned": 0,
+       "released": 0,
+       "starved": 0,
+       "direct_layers": 0,
+       "mixed_layers": 0,
+       "ps_layers": 0,
+       "deq_skipped": 0,
+       "direct_bytes": 0,
+       "f32_bytes": 0
+      },
+      "conv_cyc": 28605312,
+      "pl_cyc_meas": 48376838,
+      "pl_implied_mhz": 49.275,
+      "sha1": {
+       "out1": "bfa246d34681e748311bbcd2f1b87317a56923fe",
+       "out2": "226bd39e522aa373b8fc183acae5280931f8b63f",
+       "out3": "762d84b9618eab8922edd6da4f07ba06de865628"
+      },
+      "sha_ok": true,
+      "st310_after": "0x00000000",
+      "st310_after_zero": true,
+      "apbusy_after": [
+       0,
+       0
+      ],
+      "idle_after_ok": true,
+      "idle_after_why": "ok",
+      "magic_after": "0x50300001",
+      "fclk": 83.333333,
+      "sel": "none",
+      "ms": 0.0,
+      "site": "",
+      "fence": {
+       "sel": "none",
+       "ms": 0.0,
+       "target_nb": 0,
+       "site_tag": "",
+       "sizes_set": [],
+       "flush_n": 1135,
+       "inbuf_flush_n": 227,
+       "sleep_n": 0,
+       "flush_secs": 0.209,
+       "sleep_secs": 0.0,
+       "flush_us_per": 184.2,
+       "sleep_hist": {},
+       "sizes_top": [
+        [
+         9437184,
+         227
+        ],
+        [
+         1179648,
+         227
+        ],
+        [
+         1152,
+         227
+        ],
+        [
+         576,
+         227
+        ],
+        [
+         73728,
+         227
+        ]
+       ],
+       "inbuf_sizes": [
+        [
+         73728,
+         227
+        ]
+       ],
+       "by_site": [
+        [
+         "pack_int8",
+         9437184,
+         227
+        ],
+        [
+         "pack_int8",
+         1179648,
+         227
+        ],
+        [
+         "pack_int8",
+         1152,
+         227
+        ],
+        [
+         "pack_int8",
+         576,
+         227
+        ],
+        [
+         "push_input",
+         73728,
+         227
+        ]
+       ],
+       "n_sizes": 5,
+       "err": []
+      },
+      "sleep_n": 0,
+      "sleep_s": 0.0,
+      "net_s": 3.84
+     },
+     {
+      "run": 2,
+      "wall_s": 3.823,
+      "total_s": 3.815307855606079,
+      "pl_s": 0.5701429843902588,
+      "ps_s": 2.53759120660834,
+      "prologue": 1.9863967895507812,
+      "epilogue": 0.2020873900037259,
+      "nonconv": 0.349107027053833,
+      "overlap": 0.456876277923584,
+      "wait": 0.1136934757232666,
+      "pack_pl": 0.0,
+      "n_conv_ops": 227,
+      "mmio_writes": 6106,
+      "deps_closure_ok": true,
+      "run_valid": true,
+      "lazy": {
+       "pinned": 0,
+       "released": 0,
+       "starved": 0,
+       "direct_layers": 0,
+       "mixed_layers": 0,
+       "ps_layers": 0,
+       "deq_skipped": 0,
+       "direct_bytes": 0,
+       "f32_bytes": 0
+      },
+      "conv_cyc": 28605312,
+      "pl_cyc_meas": 47511915,
+      "pl_implied_mhz": 50.172,
+      "sha1": {
+       "out1": "bfa246d34681e748311bbcd2f1b87317a56923fe",
+       "out2": "226bd39e522aa373b8fc183acae5280931f8b63f",
+       "out3": "762d84b9618eab8922edd6da4f07ba06de865628"
+      },
+      "sha_ok": true,
+      "st310_after": "0x00000000",
+      "st310_after_zero": true,
+      "apbusy_after": [
+       0,
+       0
+      ],
+      "idle_after_ok": true,
+      "idle_after_why": "ok",
+      "magic_after": "0x50300001",
+      "fclk": 83.333333,
+      "sel": "none",
+      "ms": 0.0,
+      "site": "",
+      "fence": {
+       "sel": "none",
+       "ms": 0.0,
+       "target_nb": 0,
+       "site_tag": "",
+       "sizes_set": [],
+       "flush_n": 1135,
+       "inbuf_flush_n": 227,
+       "sleep_n": 0,
+       "flush_secs": 0.2091,
+       "sleep_secs": 0.0,
+       "flush_us_per": 184.2,
+       "sleep_hist": {},
+       "sizes_top": [
+        [
+         9437184,
+         227
+        ],
+        [
+         1179648,
+         227
+        ],
+        [
+         1152,
+         227
+        ],
+        [
+         576,
+         227
+        ],
+        [
+         73728,
+         227
+        ]
+       ],
+       "inbuf_sizes": [
+        [
+         73728,
+         227
+        ]
+       ],
+       "by_site": [
+        [
+         "pack_int8",
+         9437184,
+         227
+        ],
+        [
+         "pack_int8",
+         1179648,
+         227
+        ],
+        [
+         "pack_int8",
+         1152,
+         227
+        ],
+        [
+         "pack_int8",
+         576,
+         227
+        ],
+        [
+         "push_input",
+         73728,
+         227
+        ]
+       ],
+       "n_sizes": 5,
+       "err": []
+      },
+      "sleep_n": 0,
+      "sleep_s": 0.0,
+      "net_s": 3.823
+     }
+    ],
+    "trips": [
+     [
+      "bfa246d34681e748311bbcd2f1b87317a56923fe",
+      "226bd39e522aa373b8fc183acae5280931f8b63f",
+      "762d84b9618eab8922edd6da4f07ba06de865628"
+     ],
+     [
+      "bfa246d34681e748311bbcd2f1b87317a56923fe",
+      "226bd39e522aa373b8fc183acae5280931f8b63f",
+      "762d84b9618eab8922edd6da4f07ba06de865628"
+     ]
+    ],
+    "same_across_runs": true,
+    "sha_ok_all": true,
+    "st310_ok_all": true,
+    "idle_ok_all": true,
+    "sel": "none",
+    "ms": 0.0,
+    "site": "",
+    "pass": true
+   },
+   "same3": true,
+   "ok3": true,
+   "why": "跑数=3 三次全同=True",
+   "trips": [
+    [
+     "bfa246d34681e748311bbcd2f1b87317a56923fe",
+     "226bd39e522aa373b8fc183acae5280931f8b63f",
+     "762d84b9618eab8922edd6da4f07ba06de865628"
+    ],
+    [
+     "bfa246d34681e748311bbcd2f1b87317a56923fe",
+     "226bd39e522aa373b8fc183acae5280931f8b63f",
+     "762d84b9618eab8922edd6da4f07ba06de865628"
+    ],
+    [
+     "bfa246d34681e748311bbcd2f1b87317a56923fe",
+     "226bd39e522aa373b8fc183acae5280931f8b63f",
+     "762d84b9618eab8922edd6da4f07ba06de865628"
+    ]
+   ],
+   "wall_min": 3.823,
+   "walls": [
+    10.205,
+    3.84,
+    3.823
+   ],
+   "pl_sum": 2.47,
+   "ps_sum": 13.134
+  },
+  "big": {
+   "tag": "net256_83.3333",
+   "hw": 256,
+   "slots": 24,
+   "fclk": 83.333333,
+   "x0_sha1": "cfc75bc3f15d306b07787325fdc9ae715cfadd0a",
+   "x0_ok": true,
+   "conv_cyc": 451072512,
+   "nrun": 2,
+   "runs": [
+    {
+     "run": 1,
+     "wall_s": 23.396,
+     "total_s": 23.38817262649536,
+     "pl_s": 6.358556509017944,
+     "ps_s": 21.54065272131993,
+     "prologue": 17.05158233642578,
+     "epilogue": 1.044583290014998,
+     "nonconv": 3.4444870948791504,
+     "overlap": 5.749048709869385,
+     "wait": 0.9389376640319824,
+     "pack_pl": 0.0,
+     "n_conv_ops": 227,
+     "mmio_writes": 6113,
+     "deps_closure_ok": true,
+     "run_valid": true,
+     "lazy": {
+      "pinned": 0,
+      "released": 0,
+      "starved": 0,
+      "direct_layers": 0,
+      "mixed_layers": 0,
+      "ps_layers": 0,
+      "deq_skipped": 0,
+      "direct_bytes": 0,
+      "f32_bytes": 0
+     },
+     "conv_cyc": 451072512,
+     "pl_cyc_meas": 529879707,
+     "pl_implied_mhz": 70.939,
+     "sha1": {
+      "out1": "9b1940c8955be53ccffd7905e333deffcea31f0a",
+      "out2": "f86a7035621bed133374a1bef42a27db204e7019",
+      "out3": "025757a83c3993c8f592e31219b6a97906020363"
+     },
+     "sha_ok": true,
+     "st310_after": "0x00000000",
+     "st310_after_zero": true,
+     "apbusy_after": [
+      0,
+      0
+     ],
+     "idle_after_ok": true,
+     "idle_after_why": "ok",
+     "magic_after": "0x50300001",
+     "fclk": 83.333333,
+     "sel": "site",
+     "ms": 32.0,
+     "site": "pack_int8",
+     "fence": {
+      "sel": "site",
+      "ms": 32.0,
+      "target_nb": 9437184,
+      "site_tag": "pack_int8",
+      "sizes_set": [],
+      "flush_n": 1135,
+      "inbuf_flush_n": 227,
+      "sleep_n": 227,
+      "flush_secs": 0.2307,
+      "sleep_secs": 7.2688,
+      "flush_us_per": 203.3,
+      "sleep_hist": {
+       "32.0": 227
+      },
+      "sizes_top": [
+       [
+        1179648,
+        454
+       ],
+       [
+        9437184,
+        227
+       ],
+       [
+        1152,
+        227
+       ],
+       [
+        576,
+        227
+       ]
+      ],
+      "inbuf_sizes": [
+       [
+        1179648,
+        227
+       ]
+      ],
+      "by_site": [
+       [
+        "pack_int8",
+        9437184,
+        227
+       ],
+       [
+        "pack_int8",
+        1179648,
+        227
+       ],
+       [
+        "pack_int8",
+        1152,
+        227
+       ],
+       [
+        "pack_int8",
+        576,
+        227
+       ],
+       [
+        "push_input",
+        1179648,
+        227
+       ]
+      ],
+      "n_sizes": 4,
+      "err": []
+     },
+     "sleep_n": 227,
+     "sleep_s": 7.2688,
+     "net_s": 16.127
+    },
+    {
+     "run": 2,
+     "wall_s": 23.099,
+     "total_s": 23.091457843780518,
+     "pl_s": 6.203843116760254,
+     "ps_s": 21.265833852958167,
+     "prologue": 16.924774646759033,
+     "epilogue": 1.0459372980112676,
+     "nonconv": 3.295121908187866,
+     "overlap": 5.59316086769104,
+     "wait": 0.9402549266815186,
+     "pack_pl": 0.0,
+     "n_conv_ops": 227,
+     "mmio_writes": 6113,
+     "deps_closure_ok": true,
+     "run_valid": true,
+     "lazy": {
+      "pinned": 0,
+      "released": 0,
+      "starved": 0,
+      "direct_layers": 0,
+      "mixed_layers": 0,
+      "ps_layers": 0,
+      "deq_skipped": 0,
+      "direct_bytes": 0,
+      "f32_bytes": 0
+     },
+     "conv_cyc": 451072512,
+     "pl_cyc_meas": 516986924,
+     "pl_implied_mhz": 72.709,
+     "sha1": {
+      "out1": "9b1940c8955be53ccffd7905e333deffcea31f0a",
+      "out2": "f86a7035621bed133374a1bef42a27db204e7019",
+      "out3": "025757a83c3993c8f592e31219b6a97906020363"
+     },
+     "sha_ok": true,
+     "st310_after": "0x00000000",
+     "st310_after_zero": true,
+     "apbusy_after": [
+      0,
+      0
+     ],
+     "idle_after_ok": true,
+     "idle_after_why": "ok",
+     "magic_after": "0x50300001",
+     "fclk": 83.333333,
+     "sel": "site",
+     "ms": 32.0,
+     "site": "pack_int8",
+     "fence": {
+      "sel": "site",
+      "ms": 32.0,
+      "target_nb": 9437184,
+      "site_tag": "pack_int8",
+      "sizes_set": [],
+      "flush_n": 1135,
+      "inbuf_flush_n": 227,
+      "sleep_n": 227,
+      "flush_secs": 0.2332,
+      "sleep_secs": 7.269,
+      "flush_us_per": 205.5,
+      "sleep_hist": {
+       "32.0": 227
+      },
+      "sizes_top": [
+       [
+        1179648,
+        454
+       ],
+       [
+        9437184,
+        227
+       ],
+       [
+        1152,
+        227
+       ],
+       [
+        576,
+        227
+       ]
+      ],
+      "inbuf_sizes": [
+       [
+        1179648,
+        227
+       ]
+      ],
+      "by_site": [
+       [
+        "pack_int8",
+        9437184,
+        227
+       ],
+       [
+        "pack_int8",
+        1179648,
+        227
+       ],
+       [
+        "pack_int8",
+        1152,
+        227
+       ],
+       [
+        "pack_int8",
+        576,
+        227
+       ],
+       [
+        "push_input",
+        1179648,
+        227
+       ]
+      ],
+      "n_sizes": 4,
+      "err": []
+     },
+     "sleep_n": 227,
+     "sleep_s": 7.269,
+     "net_s": 15.83
+    }
+   ],
+   "trips": [
+    [
+     "9b1940c8955be53ccffd7905e333deffcea31f0a",
+     "f86a7035621bed133374a1bef42a27db204e7019",
+     "025757a83c3993c8f592e31219b6a97906020363"
+    ],
+    [
+     "9b1940c8955be53ccffd7905e333deffcea31f0a",
+     "f86a7035621bed133374a1bef42a27db204e7019",
+     "025757a83c3993c8f592e31219b6a97906020363"
+    ]
+   ],
+   "same_across_runs": true,
+   "sha_ok_all": true,
+   "st310_ok_all": true,
+   "idle_ok_all": true,
+   "sel": "site",
+   "ms": 32.0,
+   "site": "pack_int8",
+   "pass": true
+  },
+  "after": {
+   "base": "0x40060000",
+   "magic": "0x50300001",
+   "magic_ok": true,
+   "st310": "0x00000000",
+   "st310_zero": true,
+   "fclk": 50.0,
+   "ap_bin_unit_0": "0x00000001",
+   "apbusy_bin_unit_0": 0,
+   "ap_conv_uni_0": "0x00000000",
+   "apbusy_conv_uni_0": 0,
+   "idle_ok": true,
+   "idle_why": "ok"
+  }
+ },
+ "python": "3.10.4",
+ "numpy": "1.21.5",
+ "machine": "armv7l",
+ "args": {
+  "bit": "/home/xilinx/demoir/design_1_150v54.bit",
+  "pack": "/home/xilinx/demoir/deploy/bin_weights_new",
+  "outdir": "/home/xilinx/demoir/t137b_out",
+  "freqs": "83.33",
+  "extend_if_top": 0.0,
+  "confirm_runs": 2,
+  "slots64": 24,
+  "big_hw": 256,
+  "big_runs": 2,
+  "big_ms": 32.0,
+  "big_tnb": 9437184,
+  "slots_big": 24,
+  "big_fallback": 1,
+  "fallback_freqs": "83.33,75,50",
+  "skip_big": 0,
+  "wd64": 180.0,
+  "wd256": 900.0,
+  "tag": "t137b"
+ },
+ "meminfo_at_start": {
+  "MemTotal": 1028264,
+  "MemFree": 776448,
+  "MemAvailable": 861232,
+  "SwapTotal": 524284,
+  "SwapFree": 524284,
+  "CmaTotal": 262144,
+  "CmaFree": 78160
+ },
+ "ap_off_note": "no AP_RETURN hook in t137 (v54 的 ERR_SIZE 已由 T-136 验过)",
+ "fclk_ladder": {
+  "83.3333": {
+   "target": 83.33,
+   "grid_div": 18,
+   "grid_mhz": 83.333333,
+   "readback": 83.333333,
+   "magic": "0x50300001",
+   "st310": "0x00000000"
+  }
+ },
+ "verdict": {
+  "freq_top_req": 83.33,
+  "freq_top": 83.333333,
+  "grid_div": 18,
+  "ladder_plain": [
+   "  83.330→ 83.3333 PASS"
+  ],
+  "same3": true,
+  "ok3": true,
+  "next_above_exists": false,
+  "next_above_fails": false,
+  "wall64_min": 3.823,
+  "big_hw": 256,
+  "big_at": 83.333333,
+  "big_ok": true,
+  "big_pass_at": 83.333333
+ }
+}

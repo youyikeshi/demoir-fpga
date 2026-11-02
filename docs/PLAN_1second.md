@@ -6886,3 +6886,39 @@ $$\quad\ \textbf{① 16-lane 功能完全正确}（\text{三尺寸逐字节等�
 $$\quad\ \textbf{② 时序达标}（\text{WNS}+0.103、\text{零拍数代价}）$$
 $$\quad\ \textbf{③ 根因查清}（\text{PS 侧"kick 早于排空"，}\textbf{与 RTL 无关}）$$
 $$\quad\ \textbf{④ 64}^2\ \text{无需护栏} \Rightarrow \text{可直接做频率与性能}$$
+
+### 70.102 ★★★★★★ T-137：**频率不是杠杆，PL 只占墙钟 15%**（2026-11-03 07:1x）
+
+**频率阶梯（64²，无护栏，每档 1 跑）**
+| 请求 | 读回 | 结果 |
+|---|---|---|
+| 50 | 50.0000 | ✓ |
+| 75 | 75.0000 | ✓（3.891 s）|
+| 79 | 78.9474 | ✓（3.933 s）|
+| **83.33** | **83.3333** | **✓ 上限（3.856 s）** |
+| 88.24 | 88.2353 | **✗ 三 sha1 全不中** |
+| 93.75 | 93.75 | **第一笔 PL 操作完成不了**：\mathtt{E1E2}\ \text{等 idle 超时 }30\ \text{s，一次 } \mathtt{SIGSEGV}\ rc{=}139 |
+| 100 | — | 按铁律停 |
+
+$$\Rightarrow\ \textbf{上限 } 83.3333\ \text{MHz}，\textbf{与 v53 分毫不差} \Rightarrow \textbf{v54 的 } \mathtt{WNS}+0.103\ \text{没换来任何频率余量}$$
+$$\Rightarrow\ \text{最高档 4 跑三 sha1 逐位全同且} = \text{冻结}；\text{零睡眠}（\mathtt{flush}\ 1135、\text{睡 }0）；\text{上一档必败} \Rightarrow \text{真上限}$$
+$$\Rightarrow\ \text{v54 在 }93.75/100\ \text{的失败形态}\textbf{比 v53 更糟}：\text{v53 是"错数但完成"，v54 是"完成不了 + 卡 } \mathtt{busy} + \text{进程 } \mathtt{segfault}$$
+
+**★★ 真正的发现：分桶**
+$$\Rightarrow\ \mathbf{64^2\ @83.33}：\text{墙钟 }\mathbf{3.823\ \text{s}} = \text{PL }\mathbf{0.575} + \text{PS }\mathbf{2.553}$$
+$$\Rightarrow\ \Rightarrow\ \textbf{PL 只占墙钟 } 15\% \Rightarrow \text{升频（}50\to83.33，+67\%）\ \text{只值 } \mathbf{-2.3\%}\ \text{墙钟（PL 单独 }-16.3\%）$$
+$$\Rightarrow\ \mathbf{256^2\ @83.33}：\text{墙钟 } \mathbf{23.099\ \text{s}} = \text{PL } 6.204 + \text{PS } 21.266（\text{含护栏 } \mathbf{7.269 = 31.5\%}）$$
+$$\quad\ \text{conv } 451{,}072{,}512\ \text{拍} \Rightarrow \text{纯算 } 5.413\ \text{s}（\text{占 } 23.4\%）$$
+$$\Rightarrow\ \Rightarrow\ \text{升频对 }256^2\ \text{也只值 } 2.3\%；\textbf{护栏剂量不需随频率改}$$
+
+$$\Rightarrow\ \textbf{战略结论（改变整个优先级）}：$$
+$$\quad\ \mathbf{\text{16-lane 的 PL 优势被 PS 完全遮蔽；PL 频率不是"1 秒"的杠杆}}$$
+$$\Rightarrow\ \text{新的优先级}：$$
+$$\quad\ \textbf{① 消除 }256^2\ \text{的 } 7.27\ \text{s 护栏}（\text{占 }31.5\%）\ \Leftarrow \textbf{最大单点杠杆}$$
+$$\quad\ \textbf{② 压 PS 时间}（64^2\ \text{的 }2.553\ \text{s}、256^2\ \text{净 }13.997\ \text{s）\ \Leftarrow \textbf{主战场}$$
+$$\quad\ \textbf{③ PL 频率/lane 数} \Leftarrow \text{只剩 }2.3\%\ \text{可挖}$$
+
+**★ 附带一个会影响所有探针的机制坑**
+$$\Rightarrow\ \mathbf{\mathtt{0x310}=0\ \ne\ \text{PL 空闲}}：\text{实测 } \mathtt{bin\_AP\_RETURN}=\mathtt{0x00000002}（\mathtt{busy}{=}1）\ \text{而 } 0x310=0$$
+$$\quad\ \Rightarrow 30\ \text{s idle 门永远过不去} \Rightarrow \textbf{已落地 } \mathtt{idle\_gate()}：0x310{=}0\ \textbf{且} \text{两 IP } \mathtt{AP\ busy}{=}0；\text{读失败不算空闲}$$
+$$\Rightarrow\ \textbf{第 131 条：}\text{判 PL 空闲必须同时看 } 0x310\ \text{与两 IP 的 } \mathtt{AP\ busy}\ \text{位}$$
