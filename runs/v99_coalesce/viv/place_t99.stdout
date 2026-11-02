@@ -1,0 +1,1657 @@
+[memgate] ===== 构建前预检 =====
+[memgate]   内存  MemAvailable  14.82 GB / 总  30.95 GB   (SwapTotal 0.0 GB)
+[memgate]   闸门  需 峰值 8 GB + 保留 4 GB = 12.00 GB   余量 2.82 GB
+[memgate]   根分区 /   31.70 GB 可用 / 98 GB    /tmp 当前占 3168 MB
+[memgate]   大分区 /media/felix/Data/tmp   83.68 GB 可用
+[memgate]   放行  TMPDIR=/media/felix/Data/tmp  (波形库/临时目录落这里)
+[memgate]   已持锁 /tmp/dsh_vivado.lock  2026-11-02 21:30:41  tag=felix
+[memgate]   复测 MemAvailable 14.80 GB >= 12.00 GB  ✔
+[memgate] ===== 放行 2026-11-02 21:30:41 =====
+[memgate]   令牌 DSH_BUILD_TOKEN=1793626241-1085343-2602531615  BUILD_OWNER=/media/felix/Data/coding/demoir-fpga/runs/resguard/BUILD_OWNER
+
+****** Vivado v2025.2.1 (64-bit)
+  **** SW Build 6403652 on Thu Mar 19 13:47:00 MDT 2026
+  **** IP Build 6403511 on Thu Mar 19 12:41:45 MDT 2026
+  **** SharedData Build 6403650 on Thu Mar 19 14:02:13 MDT 2026
+  **** Start of session at: Mon Nov  2 21:30:42 2026
+    ** Copyright 1986-2022 Xilinx, Inc. All Rights Reserved.
+    ** Copyright 2022-2026 Advanced Micro Devices, Inc. All Rights Reserved.
+
+source runs/v99_coalesce/build_t99_place.tcl
+# source /media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/scripts/_guard_build.tcl
+## set _guard_root [file normalize [file join [file dirname [file normalize [info script]]] ../../..]]
+## set _owner_file [expr {[info exists ::env(DSH_BUILD_OWNER_FILE)] \
+##                         ? $::env(DSH_BUILD_OWNER_FILE) \
+##                         : [file join $_guard_root runs resguard BUILD_OWNER]}]
+## set _ttl [expr {[info exists ::env(BUILD_OWNER_TTL)] ? $::env(BUILD_OWNER_TTL) : 21600}]
+## proc _guard_fail {msg} {
+##     puts stderr "\n==========================================================================="
+##     puts stderr "  ⛔ 构建被资源闸门拒绝：$msg"
+##     puts stderr "==========================================================================="
+##     puts stderr "  本机 SwapTotal=0，必须串行构建。请改用它启动："
+##     puts stderr ""
+##     puts stderr "    cd /media/felix/Data/coding/demoir-fpga/pynq_specialized_code"
+##     puts stderr "    tools/memgate.sh <预估峰值GB> -- \\"
+##     puts stderr "        pl/scripts/vrun.sh scripts/build_final_150v39.tcl runs/xxx.log"
+##     puts stderr ""
+##     puts stderr "  预估峰值：综合约 4 GB，中小实现约 8 GB，大实现 16 GB。"
+##     puts stderr "  说明见 runs/resguard/RESOURCE.md"
+##     puts stderr "===========================================================================\n"
+##     error "_GUARD_REJECTED: $msg"
+## }
+## if {![info exists ::env(DSH_BUILD_TOKEN)]} {
+##     _guard_fail "缺少 DSH_BUILD_TOKEN 环境变量（不是通过 memgate.sh 启动的）"
+## }
+## if {![file readable $_owner_file]} {
+##     _guard_fail "找不到 BUILD_OWNER（$_owner_file）—— 没有构建正在进行，或已过期被清理"
+## }
+## set _fh [open $_owner_file r]
+## set _raw [read $_fh]
+## close $_fh
+## array set _own {token "" pid "" ts "" lock "" cmd ""}
+## foreach _line [split $_raw "\n"] {
+##     if {[regexp {^([a-zA-Z_]+)=(.*)$} $_line -> _k _v]} {
+##         set _own($_k) $_v
+##     }
+## }
+## if {$_own(token) eq ""} {
+##     _guard_fail "BUILD_OWNER 内容不合法（缺 token）"
+## }
+## if {$_own(token) ne $::env(DSH_BUILD_TOKEN)} {
+##     _guard_fail "令牌不匹配：env=$::env(DSH_BUILD_TOKEN) owner=$_own(token)（另有构建在跑，抢锁失败）"
+## }
+## set _age [expr {[clock seconds] - int($_own(ts))}]
+## if {$_age > $_ttl} {
+##     _guard_fail "BUILD_OWNER 已过期 ${_age}s > TTL ${_ttl}s（多半是上次构建异常中断留下的）"
+## }
+## if {$_age < 0} {
+##     _guard_fail "BUILD_OWNER 时间戳在未来（时钟异常）"
+## }
+## if {$_own(lock) ne "bypassed"} {
+##     set _lk [expr {[info exists _own(lockfile)] && $_own(lockfile) ne "" ? $_own(lockfile) : "/tmp/dsh_vivado.lock"}]
+##     if {[file readable $_lk]} {
+##         # 锁空闲 ⇒ flock 能拿到 ⇒ 说明没人持锁，本进程不是受控启动
+##         if {![catch {exec flock -n $_lk -c true} _out]} {
+##             _guard_fail "单实例锁 $_lk 处于空闲状态（预期被 memgate 持有）"
+##         }
+##     }
+## }
+## puts "\[guard\] ✅ 构建闸门通过  owner_pid=$_own(pid)  age=${_age}s  lock=$_own(lock)"
+[guard] ✅ 构建闸门通过  owner_pid=1085343  age=3s  lock=held
+## puts "\[guard\]    token=$_own(token)"
+[guard]    token=1793626241-1085343-2602531615
+## puts "\[guard\]    cmd=$_own(cmd)"
+[guard]    cmd=/media/felix/325/xilinx/2025.2/2025.2.1/Vivado/bin/vivado -mode batch -source runs/v99_coalesce/build_t99_place.tcl -log runs/v99_coalesce/viv/place_t99.log -journal runs/v99_coalesce/viv/place_t99.jou
+# set_param general.maxThreads 2
+# set pl   /media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl
+# set bd   $pl/vivado/proj_v50/proj_engine.gen/sources_1/bd/design_1
+# set rtl  /media/felix/Data/coding/demoir-fpga/runs/timing_v50/rtl_v50
+# set out  [file normalize /media/felix/Data/coding/demoir-fpga/runs/v99_coalesce/viv]
+# set part xc7z015clg485-2
+# file mkdir $out
+# puts "== 0a) RTL 根硬断言（verify_rtl_root.sh；位流 manifest + 冻结副本 manifest）=="
+== 0a) RTL 根硬断言（verify_rtl_root.sh；位流 manifest + 冻结副本 manifest）==
+# set _VR /media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/scripts/verify_rtl_root.sh
+# if {![file exists $_VR]} { error "缺 verify_rtl_root.sh：$_VR（判据工具不可得 ⇒ 拒绝构建）" }
+# set _MAN39 /media/felix/Data/coding/demoir-fpga/pynq_specialized_code/board/overlay_engine_150mhz/build_v39_manifest.txt
+# set _MAN50 /media/felix/Data/coding/demoir-fpga/runs/timing_v50/rtl_v50_manifest.txt
+# foreach _m [list $_MAN39 $_MAN50] {
+#     if {![file exists $_m]} { error "缺 manifest: $_m（判据不可得 ⇒ 拒绝构建）" }
+# }
+# if {[catch {exec bash $_VR $_MAN39 $rtl --allow-extra * 2>@1} _o]} {
+#     puts $_o
+#     error "v39 位流 manifest 比对失败：v50 基线与 v39 位流输入不一致。绝不许改 RTL 让它过。"
+# }
+# puts $_o
+== verify_rtl_root ==
+   manifest : /media/felix/Data/coding/demoir-fpga/pynq_specialized_code/board/overlay_engine_150mhz/build_v39_manifest.txt
+   rtl_dir  : /media/felix/Data/coding/demoir-fpga/runs/timing_v50/rtl_v50
+   allow    : *
+   manifest 条目 15 → RTL 条目 12，跳过 3
+      SKIP  /media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/vivado/proj_engine/proj_engine.gen/sources_1/bd/design_1/synth/design_1.v（不属于本 RTL 根）
+      SKIP  /media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/vivado/proj_engine/proj_engine.gen/sources_1/bd/design_1/hdl/design_1_wrapper.v（不属于本 RTL 根）
+      SKIP  /media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/scripts/build_final_150v39.tcl（不属于本 RTL 根）
+   MATCH    bin_catpack.v  cfa8132264cb22256379d5fc4bff80bd
+   MATCH    bin_conv_core.v  acaa8540cd6e2701b370e0cff85a6821
+   MATCH    bin_conv_core8.v  4e9887a9b125c61116ee3663ade425ce
+   MATCH    bin_e1e2.v  28375eec288f067e9235c0ecd486abb5
+   MATCH    bin_interp.v  fa4198e6cba9d4e65c58866bf278bc8c
+   MATCH    bin_rprelu.v  18f77f2f2ceb153605063334060d2775
+   MATCH    bin_sam.v  c9ef0488fd79ca36b321924f00c92d74
+   MATCH    bin_unit_axi_wrap.v  0cf68b2e31ac106ed03e30bd5591504d
+   MATCH    bin_unit_axi_wrap_bd.v  a9ac6fd7ba307cfa2c256fca776953cb
+   MATCH    conv_int8_uni.v  c7913f58cfc5d7a46c104a7486134ac5
+   MATCH    conv_uni_axi_wrap.v  34012562d6aa1d3d919b372ae3adb618
+   MATCH    conv_uni_axi_wrap_bd.v  0877f62db82d01a89bc3a61b4e617acd
+   rtl_dir 文件总数 35，其中 .v/.sv 共 35；manifest 覆盖 12
+   EXTRA-OK _selftest_bad.v（--allow-extra 放行）
+   EXTRA-OK _selftest_ok.v（--allow-extra 放行）
+   EXTRA-OK conv_k1_engine.v（--allow-extra 放行）
+   EXTRA-OK conv_k3_engine.v（--allow-extra 放行）
+   EXTRA-OK conv_k5_engine.v（--allow-extra 放行）
+   EXTRA-OK k1_axi_wrap.v（--allow-extra 放行）
+   EXTRA-OK k1_axi_wrap_bd.v（--allow-extra 放行）
+   EXTRA-OK k3_axi_wrap.v（--allow-extra 放行）
+   EXTRA-OK k3_axi_wrap_bd.v（--allow-extra 放行）
+   EXTRA-OK k3_cfg_check.v（--allow-extra 放行）
+   EXTRA-OK k5_axi_wrap.v（--allow-extra 放行）
+   EXTRA-OK k5_axi_wrap_bd.v（--allow-extra 放行）
+   EXTRA-OK k5_cfg_check.v（--allow-extra 放行）
+   EXTRA-OK lane16/bin_band_buf.v（--allow-extra 放行）
+   EXTRA-OK lane16/bin_band_fill_v50.v（--allow-extra 放行）
+   EXTRA-OK lane16/bin_catpack_v50.v（--allow-extra 放行）
+   EXTRA-OK lane16/bin_conv_core_v50.v（--allow-extra 放行）
+   EXTRA-OK lane16/bin_interp_v50.v（--allow-extra 放行）
+   EXTRA-OK lane16/bin_rprelu_v50.v（--allow-extra 放行）
+   EXTRA-OK lane16/bin_sam_v50.v（--allow-extra 放行）
+   EXTRA-OK lane16/bin_segq.v（--allow-extra 放行）
+   EXTRA-OK lane16/bin_unit_axi_wrap_bd_v50.v（--allow-extra 放行）
+   EXTRA-OK lane16/bin_unit_axi_wrap_v50.v（--allow-extra 放行）
+MATCH=12 DIFF=0 EXTRA=0 MISSING=0
+ALLOWED_EXTRA=23  V_TOTAL=35  MANIFEST_RTL=12
+RESULT: PASS
+# if {[catch {exec bash $_VR $_MAN50 $rtl 2>@1} _o]} {
+#     puts $_o
+#     error "v50 冻结 RTL 根 manifest 比对失败：runs/timing_v50/rtl_v50 被改动过（不是冻结副本）"
+# }
+# puts $_o
+== verify_rtl_root ==
+   manifest : /media/felix/Data/coding/demoir-fpga/runs/timing_v50/rtl_v50_manifest.txt
+   rtl_dir  : /media/felix/Data/coding/demoir-fpga/runs/timing_v50/rtl_v50
+   manifest 条目 35 → RTL 条目 35，跳过 0
+   MATCH    _selftest_bad.v  fcc96728b5c8334ea594063ff0629703
+   MATCH    _selftest_ok.v  fcc96728b5c8334ea594063ff0629703
+   MATCH    bin_catpack.v  cfa8132264cb22256379d5fc4bff80bd
+   MATCH    bin_conv_core.v  acaa8540cd6e2701b370e0cff85a6821
+   MATCH    bin_conv_core8.v  4e9887a9b125c61116ee3663ade425ce
+   MATCH    bin_e1e2.v  28375eec288f067e9235c0ecd486abb5
+   MATCH    bin_interp.v  fa4198e6cba9d4e65c58866bf278bc8c
+   MATCH    bin_rprelu.v  18f77f2f2ceb153605063334060d2775
+   MATCH    bin_sam.v  c9ef0488fd79ca36b321924f00c92d74
+   MATCH    bin_unit_axi_wrap.v  0cf68b2e31ac106ed03e30bd5591504d
+   MATCH    bin_unit_axi_wrap_bd.v  a9ac6fd7ba307cfa2c256fca776953cb
+   MATCH    conv_int8_uni.v  c7913f58cfc5d7a46c104a7486134ac5
+   MATCH    conv_k1_engine.v  6b759e48e5a223d6a103ec39a260969c
+   MATCH    conv_k3_engine.v  900ffed925d68eddadde6fb3039166b5
+   MATCH    conv_k5_engine.v  5d87182e92ec4c623782c096cb8979f6
+   MATCH    conv_uni_axi_wrap.v  34012562d6aa1d3d919b372ae3adb618
+   MATCH    conv_uni_axi_wrap_bd.v  0877f62db82d01a89bc3a61b4e617acd
+   MATCH    k1_axi_wrap.v  1f7a6ae7755210ef593ac00f09a341ca
+   MATCH    k1_axi_wrap_bd.v  3a3c04dfcbd20e57329a9b96e022a6dc
+   MATCH    k3_axi_wrap.v  250cffbb6b9a4c19578a89a8248039d5
+   MATCH    k3_axi_wrap_bd.v  d1e3973082e7fe4335178eccc33c2e7c
+   MATCH    k3_cfg_check.v  fd8ac087100300c80dc01cb1584d0f84
+   MATCH    k5_axi_wrap.v  5ef4b22d57f69ed15b9f163c34fc85fd
+   MATCH    k5_axi_wrap_bd.v  8e141bde4675d060d2ffa822f1cc1ace
+   MATCH    k5_cfg_check.v  21ae24b3f3c7c27ad5e0734881308014
+   MATCH    lane16/bin_band_buf.v  f966667d52c0c48f9d1e1a29b5602c06
+   MATCH    lane16/bin_band_fill_v50.v  1b0407bd83056739ebfb8d6b01b60c68
+   MATCH    lane16/bin_catpack_v50.v  e5d7b3b7b4c5791e5a85815d15620c1f
+   MATCH    lane16/bin_conv_core_v50.v  61568f39a5206e9f1e1c9f3b620dadb3
+   MATCH    lane16/bin_interp_v50.v  314a6f18e038c9c8cecde09706e1193b
+   MATCH    lane16/bin_rprelu_v50.v  dba8b606acdd9cdd8109a59599ebae71
+   MATCH    lane16/bin_sam_v50.v  8f242a2758dc715bc6d78a8e198a5a46
+   MATCH    lane16/bin_segq.v  266454b87d8b7e4124d1fb1323d78178
+   MATCH    lane16/bin_unit_axi_wrap_bd_v50.v  9303ad6f61289ec6e7b259210a367bb7
+   MATCH    lane16/bin_unit_axi_wrap_v50.v  c88b25f085f97e92788eefd7291e09a2
+   rtl_dir 文件总数 35，其中 .v/.sv 共 35；manifest 覆盖 35
+MATCH=35 DIFF=0 EXTRA=0 MISSING=0
+ALLOWED_EXTRA=0  V_TOTAL=35  MANIFEST_RTL=35
+RESULT: PASS
+# puts "== 0a) ✓ 两层判定通过：12/12 = v39 位流输入，冻结副本逐条一致 =="
+== 0a) ✓ 两层判定通过：12/12 = v39 位流输入，冻结副本逐条一致 ==
+# if {[info exists ::env(V50_ASSERT_ONLY)] && $::env(V50_ASSERT_ONLY) eq "1"} {
+#     puts "== 0a) V50_ASSERT_ONLY=1 ⇒ 断言通过，按要求不进入构建 =="
+#     exit 0
+# }
+# puts "== 0) BD 前置断言（必须是重建后的 design_1）=="
+== 0) BD 前置断言（必须是重建后的 design_1）==
+# set _bdv [file join $bd synth design_1.v]
+# set _bdh [file join $bd hw_handoff design_1.hwh]
+# foreach _f [list $_bdv $_bdh] {
+#     if {![file exists $_f]} { error "缺 BD 产物：$_f —— 先跑 pl/scripts/bd_v50.tcl" }
+# }
+# set _md5h [lindex [exec md5sum $_bdh] 0]
+# if {$_md5h eq "c1686bd8e080c1c7f46181d980543202"} {
+#     error "design_1.hwh 还是 baseline（$_md5h）—— BD 没重建"
+# }
+# set _fh [open $_bdh r]
+# set _t [read $_fh]
+# close $_fh
+# if {[string match "*pc_conv_uni*" $_t]} { error "hwh 里还有 pc_conv_uni —— 不是重建后的 BD" }
+# if {[string match "*fconv*" $_t]}        { error "hwh 里出现了 fconv —— 本步不许带 fconv" }
+# set _hp2 "?"
+# regexp {NAME="PCW_USE_S_AXI_HP2" VALUE="([01])"} $_t -> _hp2
+# if {$_hp2 ne "0"} { error "hwh 里 PCW_USE_S_AXI_HP2=$_hp2 —— 本步不许开 HP2" }
+# puts "   PCW_USE_S_AXI_HP2=0 ✔（本步不开 HP2）"
+   PCW_USE_S_AXI_HP2=0 ✔（本步不开 HP2）
+# foreach {_pat _want} [list "0x40040000" "conv_uni_0" "0x40060000" "bin_unit_0"] {
+#     if {![string match "*$_pat*" $_t]} { error "hwh 里找不到基址 $_pat（$_want）" }
+# }
+# puts "   hwh=$_md5h（≠baseline）✔ 无 pc_conv_uni ✔ 无 fconv ✔ 基址两段在位 ✔"
+   hwh=5235764602921d03351e121a81e35613（≠baseline）✔ 无 pc_conv_uni ✔ 无 fconv ✔ 基址两段在位 ✔
+# foreach _f [list $_bdv $_bdh] {
+#     puts "   [file tail $_f]  [file size $_f] B  mtime=[clock format [file mtime $_f] -format {%Y-%m-%d %H:%M:%S}]"
+# }
+   design_1.v  72005 B  mtime=2026-11-02 20:10:10
+   design_1.hwh  189748 B  mtime=2026-11-02 20:10:17
+# puts "== 0c) 打包层参数硬门禁（VLANES=16 / FUSE_EN=0 / BAND_ROWS=1 / BAND_HALO=0 / BAND_C_MAX=8）=="
+== 0c) 打包层参数硬门禁（VLANES=16 / FUSE_EN=0 / BAND_ROWS=1 / BAND_HALO=0 / BAND_C_MAX=8）==
+# set _dv [file join $bd synth design_1.v]
+# set _fh [open $_dv r]
+# set _dt [read $_fh]
+# close $_fh
+# if {![regexp {design_1_bin_unit_0_([0-9]+)\s+bin_unit_0} $_dt -> _bn]} {
+#     error "design_1.v 里认不出 bin_unit_0 用的打包层 —— 无法证明是 16-lane，拒绝构建"
+# }
+# set _wp [file join $bd ip design_1_bin_unit_0_${_bn} synth design_1_bin_unit_0_${_bn}.v]
+# if {![file exists $_wp]} { error "缺打包层：$_wp" }
+# set _fh [open $_wp r]
+# set _wt [read $_fh]
+# close $_fh
+# set _want {VLANES 16 FUSE_EN 0 BAND_ROWS 1 BAND_HALO 0 BAND_C_MAX 8}
+# set _bad 0
+# foreach {_pn _pv} $_want {
+#     set _pat [format {\.%s\(%s\)} $_pn $_pv]
+#     if {[regexp $_pat $_wt]} {
+#         puts "   ✓ $_pn = $_pv"
+#     } else {
+#         set _pat2 [format {\.%s\(([0-9]+)\)} $_pn]
+#         set _mv [regexp -inline $_pat2 $_wt]
+#         puts "   ✗ $_pn 期望 $_pv，实际 [expr {[llength $_mv] > 1 ? [lindex $_mv 1] : "未出现"}]"
+#         incr _bad
+#     }
+# }
+   ✓ VLANES = 16
+   ✓ FUSE_EN = 0
+   ✓ BAND_ROWS = 1
+   ✓ BAND_HALO = 0
+   ✓ BAND_C_MAX = 8
+# if {$_bad > 0} { error "打包层参数 $_bad 项不符 —— 会建成错误的位流，拒绝构建" }
+# puts "== 0c) ✓ 打包层 [file tail $_wp] 五个参数全对（真 16-lane、不带融合、保底 band）=="
+== 0c) ✓ 打包层 design_1_bin_unit_0_18.v 五个参数全对（真 16-lane、不带融合、保底 band）==
+# puts "== 1) 读 4 个 Xilinx IP 的 DCP =="
+== 1) 读 4 个 Xilinx IP 的 DCP ==
+# foreach ipn {design_1_ps7_0 design_1_rst_0_0 \
+#              design_1_axi_ctrl_imp_xbar_0 design_1_axi_ctrl_imp_auto_pc_0} {
+#     set dcp [file join $bd ip $ipn "${ipn}.dcp"]
+#     if {![file exists $dcp]} { error "缺 DCP: $dcp" }
+#     puts "   [file tail $dcp]"
+#     read_checkpoint $dcp
+# }
+   design_1_ps7_0.dcp
+Command: read_checkpoint /media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/vivado/proj_v50/proj_engine.gen/sources_1/bd/design_1/ip/design_1_ps7_0/design_1_ps7_0.dcp
+CRITICAL WARNING: [Vivado 12-5469] The design checkpoint file '/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/vivado/proj_v50/proj_engine.gen/sources_1/bd/design_1/ip/design_1_ps7_0/design_1_ps7_0.dcp' was generated for an IP by an out of context synthesis run and should not directly be used as a source in a Vivado flow. It is strongly recommended that that the original IP source file (.xci) be used.
+   design_1_rst_0_0.dcp
+Command: read_checkpoint /media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/vivado/proj_v50/proj_engine.gen/sources_1/bd/design_1/ip/design_1_rst_0_0/design_1_rst_0_0.dcp
+CRITICAL WARNING: [Vivado 12-5469] The design checkpoint file '/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/vivado/proj_v50/proj_engine.gen/sources_1/bd/design_1/ip/design_1_rst_0_0/design_1_rst_0_0.dcp' was generated for an IP by an out of context synthesis run and should not directly be used as a source in a Vivado flow. It is strongly recommended that that the original IP source file (.xci) be used.
+WARNING: [Vivado 12-4167] The checkpoint part 'xc7z015clg485-2' does not match the current project part 'xc7vx485tffg1157-1'.
+   design_1_axi_ctrl_imp_xbar_0.dcp
+Command: read_checkpoint /media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/vivado/proj_v50/proj_engine.gen/sources_1/bd/design_1/ip/design_1_axi_ctrl_imp_xbar_0/design_1_axi_ctrl_imp_xbar_0.dcp
+CRITICAL WARNING: [Vivado 12-5469] The design checkpoint file '/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/vivado/proj_v50/proj_engine.gen/sources_1/bd/design_1/ip/design_1_axi_ctrl_imp_xbar_0/design_1_axi_ctrl_imp_xbar_0.dcp' was generated for an IP by an out of context synthesis run and should not directly be used as a source in a Vivado flow. It is strongly recommended that that the original IP source file (.xci) be used.
+WARNING: [Vivado 12-4167] The checkpoint part 'xc7z015clg485-2' does not match the current project part 'xc7vx485tffg1157-1'.
+   design_1_axi_ctrl_imp_auto_pc_0.dcp
+Command: read_checkpoint /media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/vivado/proj_v50/proj_engine.gen/sources_1/bd/design_1/ip/design_1_axi_ctrl_imp_auto_pc_0/design_1_axi_ctrl_imp_auto_pc_0.dcp
+CRITICAL WARNING: [Vivado 12-5469] The design checkpoint file '/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/vivado/proj_v50/proj_engine.gen/sources_1/bd/design_1/ip/design_1_axi_ctrl_imp_auto_pc_0/design_1_axi_ctrl_imp_auto_pc_0.dcp' was generated for an IP by an out of context synthesis run and should not directly be used as a source in a Vivado flow. It is strongly recommended that that the original IP source file (.xci) be used.
+WARNING: [Vivado 12-4167] The checkpoint part 'xc7z015clg485-2' does not match the current project part 'xc7vx485tffg1157-1'.
+# puts "== 1b) Xilinx IP 的黑盒端口声明（*_stub.v，新增步骤）=="
+== 1b) Xilinx IP 的黑盒端口声明（*_stub.v，新增步骤）==
+# foreach ipn {design_1_ps7_0 design_1_rst_0_0 \
+#              design_1_axi_ctrl_imp_xbar_0 design_1_axi_ctrl_imp_auto_pc_0} {
+#     set stub [file join $bd ip $ipn "${ipn}_stub.v"]
+#     if {![file exists $stub]} { error "缺 stub: $stub" }
+#     read_verilog $stub
+# }
+# puts "== 2) 读我们的 RTL（含两个引擎 IP 的包装层）=="
+== 2) 读我们的 RTL（含两个引擎 IP 的包装层）==
+# set _base12 {conv_uni_axi_wrap_bd.v conv_uni_axi_wrap.v conv_int8_uni.v
+#              bin_unit_axi_wrap_bd.v bin_unit_axi_wrap.v
+#              bin_conv_core.v bin_conv_core8.v bin_e1e2.v bin_catpack.v bin_rprelu.v bin_sam.v bin_interp.v}
+# foreach f $_base12 {
+#     read_verilog -sv [file join $rtl $f]
+# }
+# set _lane16 [lsort [glob -nocomplain [file join $rtl lane16 *.v]]]
+# if {[llength $_lane16] == 0} {
+#     error "lane16/ 下没有任何 .v：T-64 的 16-lane RTL 未到位 ⇒ 拒绝构建（绝不拿 8-lane 冒充 16-lane）"
+# }
+# set _base_mods [dict create]
+# foreach _f $_base12 {
+#     set _fh [open [file join $rtl $_f] r]; set _t [read $_fh]; close $_fh
+#     foreach {_all _m} [regexp -all -inline {\mmodule[ \t]+(\w+)} $_t] {
+#         dict set _base_mods $_m $_f
+#     }
+# }
+# set _lane_mods [dict create]
+# foreach _f $_lane16 {
+#     set _fh [open $_f r]; set _t [read $_fh]; close $_fh
+#     foreach {_all _m} [regexp -all -inline {\mmodule[ \t]+(\w+)} $_t] {
+#         if {[dict exists $_base_mods $_m]} {
+#             error "lane16/[file tail $_f] 重定义了基线模块 '$_m'（已在 [dict get $_base_mods $_m] 里）—— 新 RTL 必须换新模块名"
+#         }
+#         if {[dict exists $_lane_mods $_m]} {
+#             error "lane16/[file tail $_f] 重复定义 '$_m'（已在 [dict get $_lane_mods $_m] 里）"
+#         }
+#         dict set _lane_mods $_m [file tail $_f]
+#     }
+#     read_verilog -sv $_f
+#     puts "   lane16  [file tail $_f]"
+# }
+   lane16  bin_band_buf.v
+   lane16  bin_band_fill_v50.v
+   lane16  bin_catpack_v50.v
+   lane16  bin_conv_core_v50.v
+   lane16  bin_interp_v50.v
+   lane16  bin_rprelu_v50.v
+   lane16  bin_sam_v50.v
+   lane16  bin_segq.v
+   lane16  bin_unit_axi_wrap_bd_v50.v
+   lane16  bin_unit_axi_wrap_v50.v
+# if {![dict exists $_lane_mods bin_unit_axi_wrap_bd_v50]} {
+#     error "lane16/ 里没有模块 bin_unit_axi_wrap_bd_v50 —— bd_v50.tcl 的 module-ref 会找不到它"
+# }
+# puts "   lane16 新 RTL [llength $_lane16] 个 / [dict size $_lane_mods] 个模块（含 bin_unit_axi_wrap_bd_v50），与基线无重名"
+   lane16 新 RTL 10 个 / 10 个模块（含 bin_unit_axi_wrap_bd_v50），与基线无重名
+# foreach stem {design_1_conv_uni_0 design_1_bin_unit_0} {
+#     # 按**数字后缀**取最大（"字符串降序"会错把 _9 排在 _10 前面）
+#     set _best ""; set _bestn -1
+#     foreach _d [glob -nocomplain [file join $bd ip ${stem}_*]] {
+#         set _t [file tail $_d]
+#         if {[regexp {_(\d+)$} $_t -> _n] && $_n > $_bestn} { set _bestn $_n; set _best $_d }
+#     }
+#     if {$_best eq ""} { error "找不到 ${stem}_<N> 的 IP 目录（BD 没生成？）" }
+#     set ipn [file tail $_best]
+#     puts "   $ipn"
+#     if {![file exists [file join $_best synth "${ipn}.v"]]} { error "缺 $_best/synth/${ipn}.v" }
+#     read_verilog [file join $bd ip $ipn synth "${ipn}.v"]
+# }
+   design_1_conv_uni_0_18
+   design_1_bin_unit_0_18
+# puts "   OK"
+   OK
+# puts "== 3) 读 BD 网表 + wrapper =="
+== 3) 读 BD 网表 + wrapper ==
+# read_verilog [file join $bd synth design_1.v]
+# read_verilog [file join $bd hdl design_1_wrapper.v]
+# puts "== 4) 读约束 =="
+== 4) 读约束 ==
+# foreach f [concat {*}[glob -nocomplain [file join $bd *.xdc]]] { catch { read_xdc $f } }
+# puts "   OK"
+   OK
+# puts "== 5) link_design =="
+== 5) link_design ==
+# if {[catch { link_design -top design_1_wrapper -part $part } e]} {
+#     puts "   link 失败: [string range $e 0 160]"
+#     error $e
+# }
+Command: link_design -top design_1_wrapper -part xc7z015clg485-2
+Design is defaulting to srcset: sources_1
+Design is defaulting to constrset: constrs_1
+INFO: [Device 21-403] Loading part xc7z015clg485-2
+Removing all libraries
+analyzing package 'attributes'
+WARNING: [HDL 9-3792] port 'M00_AXI_araddr' remains unconnected for this instance [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/vivado/proj_v50/proj_engine.gen/sources_1/bd/design_1/synth/design_1.v:137]
+WARNING: [HDL 9-3792] port 'S_AXI_HP0_BRESP' remains unconnected for this instance [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/vivado/proj_v50/proj_engine.gen/sources_1/bd/design_1/synth/design_1.v:332]
+WARNING: [HDL 9-3792] port 'mb_reset' remains unconnected for this instance [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/vivado/proj_v50/proj_engine.gen/sources_1/bd/design_1/synth/design_1.v:450]
+WARNING: [HDL 9-1127] Assignment to NLW_xbar_m_axi_arprot_UNCONNECTED ignored, since the identifier is never used [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/vivado/proj_v50/proj_engine.gen/sources_1/bd/design_1/synth/design_1.v:1264]
+WARNING: [HDL 9-1127] Assignment to NLW_xbar_m_axi_awprot_UNCONNECTED ignored, since the identifier is never used [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/vivado/proj_v50/proj_engine.gen/sources_1/bd/design_1/synth/design_1.v:1268]
+WARNING: [HDL 9-2223] Module <bin_unit_axi_wrap_bd_v50> not found while processing module instance <inst> [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/vivado/proj_v50/proj_engine.gen/sources_1/bd/design_1/ip/design_1_bin_unit_0_18/synth/design_1_bin_unit_0_18.v:195]
+WARNING: [HDL 9-2223] Module <conv_uni_axi_wrap_bd> not found while processing module instance <inst> [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/vivado/proj_v50/proj_engine.gen/sources_1/bd/design_1/ip/design_1_conv_uni_0_18/synth/design_1_conv_uni_0_18.v:195]
+CRITICAL WARNING: [Project 1-840] The design checkpoint file '/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/vivado/proj_v50/proj_engine.gen/sources_1/bd/design_1/ip/design_1_ps7_0/design_1_ps7_0.dcp' was generated for an IP by an out of context synthesis run and should not be used directly as a source in a Vivado flow. Constraints and other files related to the IP are only stored in the xci/xcix, not the checkpoint. It is strongly recommended that the original IP source file (.xci/.xcix) be used.
+CRITICAL WARNING: [Project 1-840] The design checkpoint file '/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/vivado/proj_v50/proj_engine.gen/sources_1/bd/design_1/ip/design_1_rst_0_0/design_1_rst_0_0.dcp' was generated for an IP by an out of context synthesis run and should not be used directly as a source in a Vivado flow. Constraints and other files related to the IP are only stored in the xci/xcix, not the checkpoint. It is strongly recommended that the original IP source file (.xci/.xcix) be used.
+CRITICAL WARNING: [Project 1-840] The design checkpoint file '/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/vivado/proj_v50/proj_engine.gen/sources_1/bd/design_1/ip/design_1_axi_ctrl_imp_xbar_0/design_1_axi_ctrl_imp_xbar_0.dcp' was generated for an IP by an out of context synthesis run and should not be used directly as a source in a Vivado flow. Constraints and other files related to the IP are only stored in the xci/xcix, not the checkpoint. It is strongly recommended that the original IP source file (.xci/.xcix) be used.
+CRITICAL WARNING: [Project 1-840] The design checkpoint file '/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/vivado/proj_v50/proj_engine.gen/sources_1/bd/design_1/ip/design_1_axi_ctrl_imp_auto_pc_0/design_1_axi_ctrl_imp_auto_pc_0.dcp' was generated for an IP by an out of context synthesis run and should not be used directly as a source in a Vivado flow. Constraints and other files related to the IP are only stored in the xci/xcix, not the checkpoint. It is strongly recommended that the original IP source file (.xci/.xcix) be used.
+INFO: [Project 1-454] Reading design checkpoint '/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/vivado/proj_v50/proj_engine.gen/sources_1/bd/design_1/ip/design_1_ps7_0/design_1_ps7_0.dcp' for cell 'design_1_i/ps7'
+INFO: [Project 1-454] Reading design checkpoint '/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/vivado/proj_v50/proj_engine.gen/sources_1/bd/design_1/ip/design_1_rst_0_0/design_1_rst_0_0.dcp' for cell 'design_1_i/rst_0'
+INFO: [Project 1-454] Reading design checkpoint '/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/vivado/proj_v50/proj_engine.gen/sources_1/bd/design_1/ip/design_1_axi_ctrl_imp_xbar_0/design_1_axi_ctrl_imp_xbar_0.dcp' for cell 'design_1_i/axi_ctrl/xbar'
+INFO: [Project 1-454] Reading design checkpoint '/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/vivado/proj_v50/proj_engine.gen/sources_1/bd/design_1/ip/design_1_axi_ctrl_imp_auto_pc_0/design_1_axi_ctrl_imp_auto_pc_0.dcp' for cell 'design_1_i/axi_ctrl/s00_couplers/auto_pc'
+Netlist sorting complete. Time (s): cpu = 00:00:00.03 ; elapsed = 00:00:00.03 . Memory (MB): peak = 1797.543 ; gain = 0.000 ; free physical = 1862 ; free virtual = 14603
+INFO: [Netlist 29-17] Analyzing 18 Unisim elements for replacement
+INFO: [Netlist 29-28] Unisim Transformation completed in 0 CPU seconds
+INFO: [Project 1-479] Netlist was created with Vivado 2025.2.1
+INFO: [Project 1-570] Preparing netlist for logic optimization
+Parsing XDC File [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/vivado/proj_v50/proj_engine.gen/sources_1/bd/design_1/design_1_ooc.xdc]
+WARNING: [Vivado 12-508] No pins matched 'ps7/FCLK_CLK0'. [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/vivado/proj_v50/proj_engine.gen/sources_1/bd/design_1/design_1_ooc.xdc:9]
+CRITICAL WARNING: [Vivado 12-4739] create_clock:No valid object(s) found for '-objects [get_pins ps7/FCLK_CLK0]'. [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/vivado/proj_v50/proj_engine.gen/sources_1/bd/design_1/design_1_ooc.xdc:9]
+Resolution: Check if the specified object(s) exists in the current design. If it does, ensure that the correct design hierarchy was specified for the object. If you are working with clocks, make sure create_clock was used to create the clock object before it is referenced.
+Finished Parsing XDC File [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/vivado/proj_v50/proj_engine.gen/sources_1/bd/design_1/design_1_ooc.xdc]
+INFO: [Project 1-1714] 2 XPM XDC files have been applied to the design.
+INFO: [Opt 31-138] Pushed 0 inverter(s) to 0 load pin(s).
+CRITICAL WARNING: [Project 1-486] Could not resolve non-primitive black box cell 'bin_unit_axi_wrap_bd_v50(AXI_ID_W=4,VLANES=16,FUSE_EN=0,BAND_ROWS=1,BAND_HALO=0,BAND_C_MAX=8,BAND_W_MAX=256,BAND_BUDGET_KB=270,V50_REG_BASE=16'b01100000000)' instantiated as 'design_1_i/bin_unit_0/inst' [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/vivado/proj_v50/proj_engine.gen/sources_1/bd/design_1/ip/design_1_bin_unit_0_18/synth/design_1_bin_unit_0_18.v:205]
+CRITICAL WARNING: [Project 1-486] Could not resolve non-primitive black box cell 'conv_uni_axi_wrap_bd(AXI_ID_W=6)' instantiated as 'design_1_i/conv_uni_0/inst' [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/vivado/proj_v50/proj_engine.gen/sources_1/bd/design_1/ip/design_1_conv_uni_0_18/synth/design_1_conv_uni_0_18.v:197]
+Netlist sorting complete. Time (s): cpu = 00:00:00 ; elapsed = 00:00:00 . Memory (MB): peak = 2446.961 ; gain = 0.000 ; free physical = 1357 ; free virtual = 14087
+INFO: [Project 1-111] Unisim Transformation Summary:
+No Unisim elements were transformed.
+
+12 Infos, 8 Warnings, 7 Critical Warnings and 0 Errors encountered.
+link_design completed successfully
+link_design: Time (s): cpu = 00:00:06 ; elapsed = 00:00:06 . Memory (MB): peak = 2446.996 ; gain = 851.047 ; free physical = 1355 ; free virtual = 14085
+# set ncell [llength [get_cells -hier -quiet]]
+# set ndsp  [llength [get_cells -hier -quiet -filter {REF_NAME == DSP48E1}]]
+# puts "   cell=$ncell  DSP=$ndsp"
+   cell=1830  DSP=0
+# if {$ncell < 1000} { error "link 后只有 $ncell 个 cell，设计不完整" }
+# foreach u {design_1_i/ps7 design_1_i/rst_0 design_1_i/axi_ctrl \
+#            design_1_i/bin_unit_0 design_1_i/conv_uni_0} {
+#     if {[llength [get_cells -quiet $u]] == 0} { error "BD 缺单元 $u" }
+# }
+# puts "   5 个 BD 组件齐全（pc_conv_bin / pc_conv_uni 已按 AXI3 直连删除）"
+   5 个 BD 组件齐全（pc_conv_bin / pc_conv_uni 已按 AXI3 直连删除）
+# puts "== 6) 综合 RTL 部分 + 实现 =="
+== 6) 综合 RTL 部分 + 实现 ==
+# synth_design -top design_1_wrapper -part $part \
+#     -directive AreaOptimized_high -control_set_opt_threshold 8
+Command: synth_design -top design_1_wrapper -part xc7z015clg485-2 -directive AreaOptimized_high -control_set_opt_threshold 8
+Starting synth_design
+Attempting to get a license for feature 'Synthesis' and/or device 'xc7z015'
+INFO: [Common 17-349] Got license for feature 'Synthesis' and/or device 'xc7z015'
+The design mode of fileset 'sources_1' was changed to RTL
+INFO: [Synth 8-7079] Multithreading enabled for synth_design using a maximum of 2 processes.
+INFO: [Synth 8-7078] Launching helper process for spawning children vivado processes
+INFO: [Synth 8-7075] Helper process launched with PID 1085913
+---------------------------------------------------------------------------------
+Starting RTL Elaboration : Time (s): cpu = 00:00:03 ; elapsed = 00:00:03 . Memory (MB): peak = 2898.664 ; gain = 419.688 ; free physical = 686 ; free virtual = 13417
+---------------------------------------------------------------------------------
+WARNING: [Synth 8-11259] unmatched synthesis 'translate/synthesis off' pragma found; expected a matching pair with the same keywords [/media/felix/Data/coding/demoir-fpga/runs/timing_v50/rtl_v50/conv_uni_axi_wrap.v:2083]
+WARNING: [Synth 8-6901] identifier 'cw_beat_en' is used before its declaration [/media/felix/Data/coding/demoir-fpga/runs/timing_v50/rtl_v50/lane16/bin_unit_axi_wrap_v50.v:1588]
+WARNING: [Synth 8-6901] identifier 'cw_beat_addr' is used before its declaration [/media/felix/Data/coding/demoir-fpga/runs/timing_v50/rtl_v50/lane16/bin_unit_axi_wrap_v50.v:1589]
+WARNING: [Synth 8-6901] identifier 'cw_beat_data' is used before its declaration [/media/felix/Data/coding/demoir-fpga/runs/timing_v50/rtl_v50/lane16/bin_unit_axi_wrap_v50.v:1590]
+WARNING: [Synth 8-6901] identifier 'cw_beat_sel' is used before its declaration [/media/felix/Data/coding/demoir-fpga/runs/timing_v50/rtl_v50/lane16/bin_unit_axi_wrap_v50.v:1591]
+WARNING: [Synth 8-6901] identifier 'wr_accept_ok' is used before its declaration [/media/felix/Data/coding/demoir-fpga/runs/timing_v50/rtl_v50/lane16/bin_unit_axi_wrap_v50.v:1767]
+CRITICAL WARNING: [Synth 8-9873] overwriting previous definition of module 'design_1_ps7_0' [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/vivado/proj_v50/proj_engine.gen/sources_1/bd/design_1/ip/design_1_ps7_0/design_1_ps7_0_stub.v:207]
+INFO: [Synth 8-13127] previous definition of module 'design_1_ps7_0' is here [./.Xil/Vivado-1085448-2/realtime/design_1_ps7_0_stub.v:191]
+CRITICAL WARNING: [Synth 8-9873] overwriting previous definition of module 'design_1_rst_0_0' [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/vivado/proj_v50/proj_engine.gen/sources_1/bd/design_1/ip/design_1_rst_0_0/design_1_rst_0_0_stub.v:34]
+INFO: [Synth 8-13127] previous definition of module 'design_1_rst_0_0' is here [./.Xil/Vivado-1085448-2/realtime/design_1_rst_0_0_stub.v:21]
+CRITICAL WARNING: [Synth 8-9873] overwriting previous definition of module 'design_1_axi_ctrl_imp_xbar_0' [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/vivado/proj_v50/proj_engine.gen/sources_1/bd/design_1/ip/design_1_axi_ctrl_imp_xbar_0/design_1_axi_ctrl_imp_xbar_0_stub.v:68]
+INFO: [Synth 8-13127] previous definition of module 'design_1_axi_ctrl_imp_xbar_0' is here [./.Xil/Vivado-1085448-2/realtime/design_1_axi_ctrl_imp_xbar_0_stub.v:55]
+CRITICAL WARNING: [Synth 8-9873] overwriting previous definition of module 'design_1_axi_ctrl_imp_auto_pc_0' [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/vivado/proj_v50/proj_engine.gen/sources_1/bd/design_1/ip/design_1_axi_ctrl_imp_auto_pc_0/design_1_axi_ctrl_imp_auto_pc_0_stub.v:90]
+INFO: [Synth 8-13127] previous definition of module 'design_1_axi_ctrl_imp_auto_pc_0' is here [./.Xil/Vivado-1085448-2/realtime/design_1_axi_ctrl_imp_auto_pc_0_stub.v:77]
+INFO: [Synth 8-6157] synthesizing module 'design_1_wrapper' [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/vivado/proj_v50/proj_engine.gen/sources_1/bd/design_1/hdl/design_1_wrapper.v:13]
+INFO: [Synth 8-6157] synthesizing module 'design_1' [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/vivado/proj_v50/proj_engine.gen/sources_1/bd/design_1/synth/design_1.v:13]
+INFO: [Synth 8-6157] synthesizing module 'design_1_axi_ctrl_0' [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/vivado/proj_v50/proj_engine.gen/sources_1/bd/design_1/synth/design_1.v:459]
+INFO: [Synth 8-6157] synthesizing module 'm00_couplers_imp_Z0Q7MR' [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/vivado/proj_v50/proj_engine.gen/sources_1/bd/design_1/synth/design_1.v:1303]
+INFO: [Synth 8-6155] done synthesizing module 'm00_couplers_imp_Z0Q7MR' (0#1) [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/vivado/proj_v50/proj_engine.gen/sources_1/bd/design_1/synth/design_1.v:1303]
+INFO: [Synth 8-6157] synthesizing module 'm01_couplers_imp_14CBW76' [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/vivado/proj_v50/proj_engine.gen/sources_1/bd/design_1/synth/design_1.v:1430]
+INFO: [Synth 8-6155] done synthesizing module 'm01_couplers_imp_14CBW76' (0#1) [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/vivado/proj_v50/proj_engine.gen/sources_1/bd/design_1/synth/design_1.v:1430]
+INFO: [Synth 8-6157] synthesizing module 'm02_couplers_imp_YDHM00' [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/vivado/proj_v50/proj_engine.gen/sources_1/bd/design_1/synth/design_1.v:1557]
+INFO: [Synth 8-6155] done synthesizing module 'm02_couplers_imp_YDHM00' (0#1) [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/vivado/proj_v50/proj_engine.gen/sources_1/bd/design_1/synth/design_1.v:1557]
+INFO: [Synth 8-6157] synthesizing module 'm03_couplers_imp_1599MPT' [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/vivado/proj_v50/proj_engine.gen/sources_1/bd/design_1/synth/design_1.v:1672]
+INFO: [Synth 8-6155] done synthesizing module 'm03_couplers_imp_1599MPT' (0#1) [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/vivado/proj_v50/proj_engine.gen/sources_1/bd/design_1/synth/design_1.v:1672]
+INFO: [Synth 8-6157] synthesizing module 'm04_couplers_imp_WMWWF9' [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/vivado/proj_v50/proj_engine.gen/sources_1/bd/design_1/synth/design_1.v:1787]
+INFO: [Synth 8-6155] done synthesizing module 'm04_couplers_imp_WMWWF9' (0#1) [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/vivado/proj_v50/proj_engine.gen/sources_1/bd/design_1/synth/design_1.v:1787]
+INFO: [Synth 8-6157] synthesizing module 's00_couplers_imp_11GV68X' [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/vivado/proj_v50/proj_engine.gen/sources_1/bd/design_1/synth/design_1.v:1914]
+INFO: [Synth 8-6157] synthesizing module 'design_1_axi_ctrl_imp_auto_pc_0' [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/vivado/proj_v50/proj_engine.gen/sources_1/bd/design_1/ip/design_1_axi_ctrl_imp_auto_pc_0/design_1_axi_ctrl_imp_auto_pc_0_stub.v:17]
+INFO: [Synth 8-6155] done synthesizing module 's00_couplers_imp_11GV68X' (0#1) [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/vivado/proj_v50/proj_engine.gen/sources_1/bd/design_1/synth/design_1.v:1914]
+INFO: [Synth 8-6157] synthesizing module 'design_1_axi_ctrl_imp_xbar_0' [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/vivado/proj_v50/proj_engine.gen/sources_1/bd/design_1/ip/design_1_axi_ctrl_imp_xbar_0/design_1_axi_ctrl_imp_xbar_0_stub.v:17]
+INFO: [Synth 8-6155] done synthesizing module 'design_1_axi_ctrl_0' (0#1) [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/vivado/proj_v50/proj_engine.gen/sources_1/bd/design_1/synth/design_1.v:459]
+WARNING: [Synth 8-7071] port 'M00_AXI_araddr' of module 'design_1_axi_ctrl_0' is unconnected for instance 'axi_ctrl' [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/vivado/proj_v50/proj_engine.gen/sources_1/bd/design_1/synth/design_1.v:137]
+WARNING: [Synth 8-7071] port 'M00_AXI_arprot' of module 'design_1_axi_ctrl_0' is unconnected for instance 'axi_ctrl' [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/vivado/proj_v50/proj_engine.gen/sources_1/bd/design_1/synth/design_1.v:137]
+WARNING: [Synth 8-7071] port 'M00_AXI_arvalid' of module 'design_1_axi_ctrl_0' is unconnected for instance 'axi_ctrl' [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/vivado/proj_v50/proj_engine.gen/sources_1/bd/design_1/synth/design_1.v:137]
+WARNING: [Synth 8-7071] port 'M00_AXI_awaddr' of module 'design_1_axi_ctrl_0' is unconnected for instance 'axi_ctrl' [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/vivado/proj_v50/proj_engine.gen/sources_1/bd/design_1/synth/design_1.v:137]
+WARNING: [Synth 8-7071] port 'M00_AXI_awprot' of module 'design_1_axi_ctrl_0' is unconnected for instance 'axi_ctrl' [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/vivado/proj_v50/proj_engine.gen/sources_1/bd/design_1/synth/design_1.v:137]
+WARNING: [Synth 8-7071] port 'M00_AXI_awvalid' of module 'design_1_axi_ctrl_0' is unconnected for instance 'axi_ctrl' [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/vivado/proj_v50/proj_engine.gen/sources_1/bd/design_1/synth/design_1.v:137]
+WARNING: [Synth 8-7071] port 'M00_AXI_bready' of module 'design_1_axi_ctrl_0' is unconnected for instance 'axi_ctrl' [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/vivado/proj_v50/proj_engine.gen/sources_1/bd/design_1/synth/design_1.v:137]
+WARNING: [Synth 8-7071] port 'M00_AXI_rready' of module 'design_1_axi_ctrl_0' is unconnected for instance 'axi_ctrl' [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/vivado/proj_v50/proj_engine.gen/sources_1/bd/design_1/synth/design_1.v:137]
+WARNING: [Synth 8-7071] port 'M00_AXI_wdata' of module 'design_1_axi_ctrl_0' is unconnected for instance 'axi_ctrl' [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/vivado/proj_v50/proj_engine.gen/sources_1/bd/design_1/synth/design_1.v:137]
+WARNING: [Synth 8-7071] port 'M00_AXI_wstrb' of module 'design_1_axi_ctrl_0' is unconnected for instance 'axi_ctrl' [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/vivado/proj_v50/proj_engine.gen/sources_1/bd/design_1/synth/design_1.v:137]
+WARNING: [Synth 8-7071] port 'M00_AXI_wvalid' of module 'design_1_axi_ctrl_0' is unconnected for instance 'axi_ctrl' [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/vivado/proj_v50/proj_engine.gen/sources_1/bd/design_1/synth/design_1.v:137]
+WARNING: [Synth 8-7071] port 'M01_AXI_araddr' of module 'design_1_axi_ctrl_0' is unconnected for instance 'axi_ctrl' [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/vivado/proj_v50/proj_engine.gen/sources_1/bd/design_1/synth/design_1.v:137]
+WARNING: [Synth 8-7071] port 'M01_AXI_arprot' of module 'design_1_axi_ctrl_0' is unconnected for instance 'axi_ctrl' [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/vivado/proj_v50/proj_engine.gen/sources_1/bd/design_1/synth/design_1.v:137]
+WARNING: [Synth 8-7071] port 'M01_AXI_arvalid' of module 'design_1_axi_ctrl_0' is unconnected for instance 'axi_ctrl' [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/vivado/proj_v50/proj_engine.gen/sources_1/bd/design_1/synth/design_1.v:137]
+WARNING: [Synth 8-7071] port 'M01_AXI_awaddr' of module 'design_1_axi_ctrl_0' is unconnected for instance 'axi_ctrl' [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/vivado/proj_v50/proj_engine.gen/sources_1/bd/design_1/synth/design_1.v:137]
+WARNING: [Synth 8-7071] port 'M01_AXI_awprot' of module 'design_1_axi_ctrl_0' is unconnected for instance 'axi_ctrl' [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/vivado/proj_v50/proj_engine.gen/sources_1/bd/design_1/synth/design_1.v:137]
+WARNING: [Synth 8-7071] port 'M01_AXI_awvalid' of module 'design_1_axi_ctrl_0' is unconnected for instance 'axi_ctrl' [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/vivado/proj_v50/proj_engine.gen/sources_1/bd/design_1/synth/design_1.v:137]
+WARNING: [Synth 8-7071] port 'M01_AXI_bready' of module 'design_1_axi_ctrl_0' is unconnected for instance 'axi_ctrl' [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/vivado/proj_v50/proj_engine.gen/sources_1/bd/design_1/synth/design_1.v:137]
+WARNING: [Synth 8-7071] port 'M01_AXI_rready' of module 'design_1_axi_ctrl_0' is unconnected for instance 'axi_ctrl' [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/vivado/proj_v50/proj_engine.gen/sources_1/bd/design_1/synth/design_1.v:137]
+WARNING: [Synth 8-7071] port 'M01_AXI_wdata' of module 'design_1_axi_ctrl_0' is unconnected for instance 'axi_ctrl' [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/vivado/proj_v50/proj_engine.gen/sources_1/bd/design_1/synth/design_1.v:137]
+WARNING: [Synth 8-7071] port 'M01_AXI_wstrb' of module 'design_1_axi_ctrl_0' is unconnected for instance 'axi_ctrl' [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/vivado/proj_v50/proj_engine.gen/sources_1/bd/design_1/synth/design_1.v:137]
+WARNING: [Synth 8-7071] port 'M01_AXI_wvalid' of module 'design_1_axi_ctrl_0' is unconnected for instance 'axi_ctrl' [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/vivado/proj_v50/proj_engine.gen/sources_1/bd/design_1/synth/design_1.v:137]
+WARNING: [Synth 8-7071] port 'M04_AXI_araddr' of module 'design_1_axi_ctrl_0' is unconnected for instance 'axi_ctrl' [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/vivado/proj_v50/proj_engine.gen/sources_1/bd/design_1/synth/design_1.v:137]
+WARNING: [Synth 8-7071] port 'M04_AXI_arprot' of module 'design_1_axi_ctrl_0' is unconnected for instance 'axi_ctrl' [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/vivado/proj_v50/proj_engine.gen/sources_1/bd/design_1/synth/design_1.v:137]
+WARNING: [Synth 8-7071] port 'M04_AXI_arvalid' of module 'design_1_axi_ctrl_0' is unconnected for instance 'axi_ctrl' [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/vivado/proj_v50/proj_engine.gen/sources_1/bd/design_1/synth/design_1.v:137]
+WARNING: [Synth 8-7071] port 'M04_AXI_awaddr' of module 'design_1_axi_ctrl_0' is unconnected for instance 'axi_ctrl' [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/vivado/proj_v50/proj_engine.gen/sources_1/bd/design_1/synth/design_1.v:137]
+WARNING: [Synth 8-7071] port 'M04_AXI_awprot' of module 'design_1_axi_ctrl_0' is unconnected for instance 'axi_ctrl' [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/vivado/proj_v50/proj_engine.gen/sources_1/bd/design_1/synth/design_1.v:137]
+WARNING: [Synth 8-7071] port 'M04_AXI_awvalid' of module 'design_1_axi_ctrl_0' is unconnected for instance 'axi_ctrl' [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/vivado/proj_v50/proj_engine.gen/sources_1/bd/design_1/synth/design_1.v:137]
+WARNING: [Synth 8-7071] port 'M04_AXI_bready' of module 'design_1_axi_ctrl_0' is unconnected for instance 'axi_ctrl' [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/vivado/proj_v50/proj_engine.gen/sources_1/bd/design_1/synth/design_1.v:137]
+WARNING: [Synth 8-7071] port 'M04_AXI_rready' of module 'design_1_axi_ctrl_0' is unconnected for instance 'axi_ctrl' [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/vivado/proj_v50/proj_engine.gen/sources_1/bd/design_1/synth/design_1.v:137]
+WARNING: [Synth 8-7071] port 'M04_AXI_wdata' of module 'design_1_axi_ctrl_0' is unconnected for instance 'axi_ctrl' [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/vivado/proj_v50/proj_engine.gen/sources_1/bd/design_1/synth/design_1.v:137]
+WARNING: [Synth 8-7071] port 'M04_AXI_wstrb' of module 'design_1_axi_ctrl_0' is unconnected for instance 'axi_ctrl' [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/vivado/proj_v50/proj_engine.gen/sources_1/bd/design_1/synth/design_1.v:137]
+WARNING: [Synth 8-7071] port 'M04_AXI_wvalid' of module 'design_1_axi_ctrl_0' is unconnected for instance 'axi_ctrl' [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/vivado/proj_v50/proj_engine.gen/sources_1/bd/design_1/synth/design_1.v:137]
+WARNING: [Synth 8-7023] instance 'axi_ctrl' of module 'design_1_axi_ctrl_0' has 143 connections declared, but only 110 given [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/vivado/proj_v50/proj_engine.gen/sources_1/bd/design_1/synth/design_1.v:137]
+INFO: [Synth 8-6157] synthesizing module 'design_1_bin_unit_0_18' [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/vivado/proj_v50/proj_engine.gen/sources_1/bd/design_1/ip/design_1_bin_unit_0_18/synth/design_1_bin_unit_0_18.v:53]
+INFO: [Synth 8-6157] synthesizing module 'bin_unit_axi_wrap_bd_v50' [/media/felix/Data/coding/demoir-fpga/runs/timing_v50/rtl_v50/lane16/bin_unit_axi_wrap_bd_v50.v:18]
+	Parameter AXI_ID_W bound to: 4 - type: integer 
+	Parameter VLANES bound to: 32'sb00000000000000000000000000010000 
+	Parameter FUSE_EN bound to: 32'sb00000000000000000000000000000000 
+	Parameter BAND_ROWS bound to: 32'sb00000000000000000000000000000001 
+	Parameter BAND_HALO bound to: 32'sb00000000000000000000000000000000 
+	Parameter BAND_C_MAX bound to: 32'sb00000000000000000000000000001000 
+	Parameter BAND_W_MAX bound to: 32'sb00000000000000000000000100000000 
+	Parameter BAND_BUDGET_KB bound to: 32'sb00000000000000000000000100001110 
+	Parameter V50_REG_BASE bound to: 768 - type: integer 
+INFO: [Synth 8-6157] synthesizing module 'bin_unit_axi_wrap_v50' [/media/felix/Data/coding/demoir-fpga/runs/timing_v50/rtl_v50/lane16/bin_unit_axi_wrap_v50.v:299]
+	Parameter VLANES bound to: 32'sb00000000000000000000000000010000 
+	Parameter FUSE_EN bound to: 32'sb00000000000000000000000000000000 
+	Parameter BAND_ROWS bound to: 32'sb00000000000000000000000000000001 
+	Parameter BAND_HALO bound to: 32'sb00000000000000000000000000000000 
+	Parameter BAND_C_MAX bound to: 32'sb00000000000000000000000000001000 
+	Parameter BAND_W_MAX bound to: 32'sb00000000000000000000000100000000 
+	Parameter BAND_BUDGET_KB bound to: 32'sb00000000000000000000000100001110 
+	Parameter V50_REG_BASE bound to: 768 - type: integer 
+INFO: [Synth 8-6157] synthesizing module 'bin_conv_core_v50' [/media/felix/Data/coding/demoir-fpga/runs/timing_v50/rtl_v50/lane16/bin_conv_core_v50.v:52]
+	Parameter LANES bound to: 32'sb00000000000000000000000001000000 
+	Parameter COUT_MAX bound to: 32'sb00000000000000000000000011000000 
+	Parameter VLANES bound to: 32'sb00000000000000000000000000010000 
+INFO: [Synth 8-6155] done synthesizing module 'bin_conv_core_v50' (0#1) [/media/felix/Data/coding/demoir-fpga/runs/timing_v50/rtl_v50/lane16/bin_conv_core_v50.v:52]
+INFO: [Synth 8-6157] synthesizing module 'bin_e1e2' [/media/felix/Data/coding/demoir-fpga/runs/timing_v50/rtl_v50/bin_e1e2.v:60]
+	Parameter LANES bound to: 32'sb00000000000000000000000001000000 
+	Parameter ACC_AW bound to: 32'sb00000000000000000000000000001000 
+	Parameter C_MAX bound to: 32'sb00000000000000000001000000000000 
+INFO: [Synth 8-6155] done synthesizing module 'bin_e1e2' (0#1) [/media/felix/Data/coding/demoir-fpga/runs/timing_v50/rtl_v50/bin_e1e2.v:60]
+INFO: [Synth 8-6157] synthesizing module 'bin_catpack' [/media/felix/Data/coding/demoir-fpga/runs/timing_v50/rtl_v50/bin_catpack.v:68]
+	Parameter CMAX bound to: 32'sb00000000000000000001000000000000 
+	Parameter TILE bound to: 32'sb00000000000000000000000000010000 
+INFO: [Synth 8-294] found qualifier unique on case statement: implementing as parallel_case [/media/felix/Data/coding/demoir-fpga/runs/timing_v50/rtl_v50/bin_catpack.v:427]
+INFO: [Synth 8-294] found qualifier unique on case statement: implementing as parallel_case [/media/felix/Data/coding/demoir-fpga/runs/timing_v50/rtl_v50/bin_catpack.v:456]
+INFO: [Synth 8-6155] done synthesizing module 'bin_catpack' (0#1) [/media/felix/Data/coding/demoir-fpga/runs/timing_v50/rtl_v50/bin_catpack.v:68]
+INFO: [Synth 8-6157] synthesizing module 'bin_band_buf' [/media/felix/Data/coding/demoir-fpga/runs/timing_v50/rtl_v50/lane16/bin_band_buf.v:57]
+	Parameter BAND_ROWS bound to: 32'sb00000000000000000000000000000001 
+	Parameter HALO_ROWS bound to: 32'sb00000000000000000000000000000000 
+	Parameter C_MAX bound to: 32'sb00000000000000000000000000001000 
+	Parameter W_MAX bound to: 32'sb00000000000000000000000100000000 
+	Parameter BUDGET_KB bound to: 32'sb00000000000000000000000100001110 
+INFO: [Synth 8-6155] done synthesizing module 'bin_band_buf' (0#1) [/media/felix/Data/coding/demoir-fpga/runs/timing_v50/rtl_v50/lane16/bin_band_buf.v:57]
+INFO: [Synth 8-6157] synthesizing module 'bin_segq' [/media/felix/Data/coding/demoir-fpga/runs/timing_v50/rtl_v50/lane16/bin_segq.v:54]
+	Parameter CHK_ALIGN4K bound to: 1'b1 
+	Parameter OP_MASK_SUP bound to: 3 - type: integer 
+INFO: [Synth 8-6155] done synthesizing module 'bin_segq' (0#1) [/media/felix/Data/coding/demoir-fpga/runs/timing_v50/rtl_v50/lane16/bin_segq.v:54]
+INFO: [Synth 8-6157] synthesizing module 'bin_band_fill_v50' [/media/felix/Data/coding/demoir-fpga/runs/timing_v50/rtl_v50/lane16/bin_band_fill_v50.v:51]
+INFO: [Synth 8-6155] done synthesizing module 'bin_band_fill_v50' (0#1) [/media/felix/Data/coding/demoir-fpga/runs/timing_v50/rtl_v50/lane16/bin_band_fill_v50.v:51]
+INFO: [Synth 8-6155] done synthesizing module 'bin_unit_axi_wrap_v50' (0#1) [/media/felix/Data/coding/demoir-fpga/runs/timing_v50/rtl_v50/lane16/bin_unit_axi_wrap_v50.v:299]
+INFO: [Synth 8-6155] done synthesizing module 'bin_unit_axi_wrap_bd_v50' (0#1) [/media/felix/Data/coding/demoir-fpga/runs/timing_v50/rtl_v50/lane16/bin_unit_axi_wrap_bd_v50.v:18]
+INFO: [Synth 8-6155] done synthesizing module 'design_1_bin_unit_0_18' (0#1) [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/vivado/proj_v50/proj_engine.gen/sources_1/bd/design_1/ip/design_1_bin_unit_0_18/synth/design_1_bin_unit_0_18.v:53]
+INFO: [Synth 8-6157] synthesizing module 'design_1_conv_uni_0_18' [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/vivado/proj_v50/proj_engine.gen/sources_1/bd/design_1/ip/design_1_conv_uni_0_18/synth/design_1_conv_uni_0_18.v:53]
+INFO: [Synth 8-6157] synthesizing module 'conv_uni_axi_wrap_bd' [/media/felix/Data/coding/demoir-fpga/runs/timing_v50/rtl_v50/conv_uni_axi_wrap_bd.v:10]
+	Parameter AXI_ID_W bound to: 6 - type: integer 
+INFO: [Synth 8-6157] synthesizing module 'conv_uni_axi_wrap' [/media/felix/Data/coding/demoir-fpga/runs/timing_v50/rtl_v50/conv_uni_axi_wrap.v:236]
+INFO: [Synth 8-6157] synthesizing module 'BUFGCE' [/media/felix/325/xilinx/2025.2/2025.2.1/Vivado/scripts/rt/data/unisim_comp.v:2688]
+INFO: [Synth 8-6155] done synthesizing module 'BUFGCE' (0#1) [/media/felix/325/xilinx/2025.2/2025.2.1/Vivado/scripts/rt/data/unisim_comp.v:2688]
+INFO: [Synth 8-6157] synthesizing module 'conv_int8_uni' [/media/felix/Data/coding/demoir-fpga/runs/timing_v50/rtl_v50/conv_int8_uni.v:216]
+INFO: [Synth 8-6155] done synthesizing module 'conv_int8_uni' (0#1) [/media/felix/Data/coding/demoir-fpga/runs/timing_v50/rtl_v50/conv_int8_uni.v:216]
+INFO: [Synth 8-6155] done synthesizing module 'conv_uni_axi_wrap' (0#1) [/media/felix/Data/coding/demoir-fpga/runs/timing_v50/rtl_v50/conv_uni_axi_wrap.v:236]
+INFO: [Synth 8-6155] done synthesizing module 'conv_uni_axi_wrap_bd' (0#1) [/media/felix/Data/coding/demoir-fpga/runs/timing_v50/rtl_v50/conv_uni_axi_wrap_bd.v:10]
+INFO: [Synth 8-6155] done synthesizing module 'design_1_conv_uni_0_18' (0#1) [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/vivado/proj_v50/proj_engine.gen/sources_1/bd/design_1/ip/design_1_conv_uni_0_18/synth/design_1_conv_uni_0_18.v:53]
+INFO: [Synth 8-6157] synthesizing module 'design_1_ps7_0' [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/vivado/proj_v50/proj_engine.gen/sources_1/bd/design_1/ip/design_1_ps7_0/design_1_ps7_0_stub.v:17]
+WARNING: [Synth 8-7071] port 'S_AXI_HP0_BRESP' of module 'design_1_ps7_0' is unconnected for instance 'ps7' [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/vivado/proj_v50/proj_engine.gen/sources_1/bd/design_1/synth/design_1.v:332]
+WARNING: [Synth 8-7071] port 'S_AXI_HP0_RRESP' of module 'design_1_ps7_0' is unconnected for instance 'ps7' [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/vivado/proj_v50/proj_engine.gen/sources_1/bd/design_1/synth/design_1.v:332]
+WARNING: [Synth 8-7071] port 'S_AXI_HP0_BID' of module 'design_1_ps7_0' is unconnected for instance 'ps7' [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/vivado/proj_v50/proj_engine.gen/sources_1/bd/design_1/synth/design_1.v:332]
+WARNING: [Synth 8-7071] port 'S_AXI_HP0_RCOUNT' of module 'design_1_ps7_0' is unconnected for instance 'ps7' [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/vivado/proj_v50/proj_engine.gen/sources_1/bd/design_1/synth/design_1.v:332]
+WARNING: [Synth 8-7071] port 'S_AXI_HP0_WCOUNT' of module 'design_1_ps7_0' is unconnected for instance 'ps7' [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/vivado/proj_v50/proj_engine.gen/sources_1/bd/design_1/synth/design_1.v:332]
+WARNING: [Synth 8-7071] port 'S_AXI_HP0_RACOUNT' of module 'design_1_ps7_0' is unconnected for instance 'ps7' [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/vivado/proj_v50/proj_engine.gen/sources_1/bd/design_1/synth/design_1.v:332]
+WARNING: [Synth 8-7071] port 'S_AXI_HP0_WACOUNT' of module 'design_1_ps7_0' is unconnected for instance 'ps7' [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/vivado/proj_v50/proj_engine.gen/sources_1/bd/design_1/synth/design_1.v:332]
+WARNING: [Synth 8-7071] port 'S_AXI_HP1_BRESP' of module 'design_1_ps7_0' is unconnected for instance 'ps7' [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/vivado/proj_v50/proj_engine.gen/sources_1/bd/design_1/synth/design_1.v:332]
+WARNING: [Synth 8-7071] port 'S_AXI_HP1_RRESP' of module 'design_1_ps7_0' is unconnected for instance 'ps7' [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/vivado/proj_v50/proj_engine.gen/sources_1/bd/design_1/synth/design_1.v:332]
+WARNING: [Synth 8-7071] port 'S_AXI_HP1_BID' of module 'design_1_ps7_0' is unconnected for instance 'ps7' [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/vivado/proj_v50/proj_engine.gen/sources_1/bd/design_1/synth/design_1.v:332]
+WARNING: [Synth 8-7071] port 'S_AXI_HP1_RCOUNT' of module 'design_1_ps7_0' is unconnected for instance 'ps7' [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/vivado/proj_v50/proj_engine.gen/sources_1/bd/design_1/synth/design_1.v:332]
+WARNING: [Synth 8-7071] port 'S_AXI_HP1_WCOUNT' of module 'design_1_ps7_0' is unconnected for instance 'ps7' [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/vivado/proj_v50/proj_engine.gen/sources_1/bd/design_1/synth/design_1.v:332]
+WARNING: [Synth 8-7071] port 'S_AXI_HP1_RACOUNT' of module 'design_1_ps7_0' is unconnected for instance 'ps7' [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/vivado/proj_v50/proj_engine.gen/sources_1/bd/design_1/synth/design_1.v:332]
+WARNING: [Synth 8-7071] port 'S_AXI_HP1_WACOUNT' of module 'design_1_ps7_0' is unconnected for instance 'ps7' [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/vivado/proj_v50/proj_engine.gen/sources_1/bd/design_1/synth/design_1.v:332]
+WARNING: [Synth 8-7071] port 'MIO' of module 'design_1_ps7_0' is unconnected for instance 'ps7' [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/vivado/proj_v50/proj_engine.gen/sources_1/bd/design_1/synth/design_1.v:332]
+WARNING: [Synth 8-7071] port 'DDR_CAS_n' of module 'design_1_ps7_0' is unconnected for instance 'ps7' [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/vivado/proj_v50/proj_engine.gen/sources_1/bd/design_1/synth/design_1.v:332]
+WARNING: [Synth 8-7071] port 'DDR_CKE' of module 'design_1_ps7_0' is unconnected for instance 'ps7' [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/vivado/proj_v50/proj_engine.gen/sources_1/bd/design_1/synth/design_1.v:332]
+WARNING: [Synth 8-7071] port 'DDR_Clk_n' of module 'design_1_ps7_0' is unconnected for instance 'ps7' [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/vivado/proj_v50/proj_engine.gen/sources_1/bd/design_1/synth/design_1.v:332]
+WARNING: [Synth 8-7071] port 'DDR_Clk' of module 'design_1_ps7_0' is unconnected for instance 'ps7' [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/vivado/proj_v50/proj_engine.gen/sources_1/bd/design_1/synth/design_1.v:332]
+WARNING: [Synth 8-7071] port 'DDR_CS_n' of module 'design_1_ps7_0' is unconnected for instance 'ps7' [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/vivado/proj_v50/proj_engine.gen/sources_1/bd/design_1/synth/design_1.v:332]
+WARNING: [Synth 8-7071] port 'DDR_DRSTB' of module 'design_1_ps7_0' is unconnected for instance 'ps7' [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/vivado/proj_v50/proj_engine.gen/sources_1/bd/design_1/synth/design_1.v:332]
+WARNING: [Synth 8-7071] port 'DDR_ODT' of module 'design_1_ps7_0' is unconnected for instance 'ps7' [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/vivado/proj_v50/proj_engine.gen/sources_1/bd/design_1/synth/design_1.v:332]
+WARNING: [Synth 8-7071] port 'DDR_RAS_n' of module 'design_1_ps7_0' is unconnected for instance 'ps7' [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/vivado/proj_v50/proj_engine.gen/sources_1/bd/design_1/synth/design_1.v:332]
+WARNING: [Synth 8-7071] port 'DDR_WEB' of module 'design_1_ps7_0' is unconnected for instance 'ps7' [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/vivado/proj_v50/proj_engine.gen/sources_1/bd/design_1/synth/design_1.v:332]
+WARNING: [Synth 8-7071] port 'DDR_BankAddr' of module 'design_1_ps7_0' is unconnected for instance 'ps7' [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/vivado/proj_v50/proj_engine.gen/sources_1/bd/design_1/synth/design_1.v:332]
+WARNING: [Synth 8-7071] port 'DDR_Addr' of module 'design_1_ps7_0' is unconnected for instance 'ps7' [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/vivado/proj_v50/proj_engine.gen/sources_1/bd/design_1/synth/design_1.v:332]
+WARNING: [Synth 8-7071] port 'DDR_VRN' of module 'design_1_ps7_0' is unconnected for instance 'ps7' [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/vivado/proj_v50/proj_engine.gen/sources_1/bd/design_1/synth/design_1.v:332]
+WARNING: [Synth 8-7071] port 'DDR_VRP' of module 'design_1_ps7_0' is unconnected for instance 'ps7' [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/vivado/proj_v50/proj_engine.gen/sources_1/bd/design_1/synth/design_1.v:332]
+WARNING: [Synth 8-7071] port 'DDR_DM' of module 'design_1_ps7_0' is unconnected for instance 'ps7' [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/vivado/proj_v50/proj_engine.gen/sources_1/bd/design_1/synth/design_1.v:332]
+WARNING: [Synth 8-7071] port 'DDR_DQ' of module 'design_1_ps7_0' is unconnected for instance 'ps7' [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/vivado/proj_v50/proj_engine.gen/sources_1/bd/design_1/synth/design_1.v:332]
+WARNING: [Synth 8-7071] port 'DDR_DQS_n' of module 'design_1_ps7_0' is unconnected for instance 'ps7' [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/vivado/proj_v50/proj_engine.gen/sources_1/bd/design_1/synth/design_1.v:332]
+WARNING: [Synth 8-7071] port 'DDR_DQS' of module 'design_1_ps7_0' is unconnected for instance 'ps7' [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/vivado/proj_v50/proj_engine.gen/sources_1/bd/design_1/synth/design_1.v:332]
+WARNING: [Synth 8-7071] port 'PS_SRSTB' of module 'design_1_ps7_0' is unconnected for instance 'ps7' [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/vivado/proj_v50/proj_engine.gen/sources_1/bd/design_1/synth/design_1.v:332]
+WARNING: [Synth 8-7071] port 'PS_CLK' of module 'design_1_ps7_0' is unconnected for instance 'ps7' [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/vivado/proj_v50/proj_engine.gen/sources_1/bd/design_1/synth/design_1.v:332]
+WARNING: [Synth 8-7071] port 'PS_PORB' of module 'design_1_ps7_0' is unconnected for instance 'ps7' [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/vivado/proj_v50/proj_engine.gen/sources_1/bd/design_1/synth/design_1.v:332]
+WARNING: [Synth 8-7023] instance 'ps7' of module 'design_1_ps7_0' has 152 connections declared, but only 117 given [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/vivado/proj_v50/proj_engine.gen/sources_1/bd/design_1/synth/design_1.v:332]
+INFO: [Synth 8-6157] synthesizing module 'design_1_rst_0_0' [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/vivado/proj_v50/proj_engine.gen/sources_1/bd/design_1/ip/design_1_rst_0_0/design_1_rst_0_0_stub.v:17]
+WARNING: [Synth 8-7071] port 'mb_reset' of module 'design_1_rst_0_0' is unconnected for instance 'rst_0' [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/vivado/proj_v50/proj_engine.gen/sources_1/bd/design_1/synth/design_1.v:450]
+WARNING: [Synth 8-7071] port 'bus_struct_reset' of module 'design_1_rst_0_0' is unconnected for instance 'rst_0' [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/vivado/proj_v50/proj_engine.gen/sources_1/bd/design_1/synth/design_1.v:450]
+WARNING: [Synth 8-7071] port 'peripheral_reset' of module 'design_1_rst_0_0' is unconnected for instance 'rst_0' [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/vivado/proj_v50/proj_engine.gen/sources_1/bd/design_1/synth/design_1.v:450]
+WARNING: [Synth 8-7071] port 'interconnect_aresetn' of module 'design_1_rst_0_0' is unconnected for instance 'rst_0' [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/vivado/proj_v50/proj_engine.gen/sources_1/bd/design_1/synth/design_1.v:450]
+WARNING: [Synth 8-7023] instance 'rst_0' of module 'design_1_rst_0_0' has 10 connections declared, but only 6 given [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/vivado/proj_v50/proj_engine.gen/sources_1/bd/design_1/synth/design_1.v:450]
+INFO: [Synth 8-6155] done synthesizing module 'design_1' (0#1) [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/vivado/proj_v50/proj_engine.gen/sources_1/bd/design_1/synth/design_1.v:13]
+INFO: [Synth 8-6155] done synthesizing module 'design_1_wrapper' (0#1) [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/vivado/proj_v50/proj_engine.gen/sources_1/bd/design_1/hdl/design_1_wrapper.v:13]
+WARNING: [Synth 8-6014] Unused sequential element r1_b_reg was removed.  [/media/felix/Data/coding/demoir-fpga/runs/timing_v50/rtl_v50/lane16/bin_conv_core_v50.v:383]
+WARNING: [Synth 8-6014] Unused sequential element ash_q_reg was removed.  [/media/felix/Data/coding/demoir-fpga/runs/timing_v50/rtl_v50/lane16/bin_conv_core_v50.v:628]
+WARNING: [Synth 8-6014] Unused sequential element ssh_q_reg was removed.  [/media/felix/Data/coding/demoir-fpga/runs/timing_v50/rtl_v50/lane16/bin_conv_core_v50.v:628]
+WARNING: [Synth 8-6014] Unused sequential element wgt_b_reg was removed.  [/media/felix/Data/coding/demoir-fpga/runs/timing_v50/rtl_v50/lane16/bin_conv_core_v50.v:629]
+WARNING: [Synth 8-6014] Unused sequential element out_b_reg was removed.  [/media/felix/Data/coding/demoir-fpga/runs/timing_v50/rtl_v50/lane16/bin_conv_core_v50.v:631]
+WARNING: [Synth 8-6014] Unused sequential element w8_q_reg was removed.  [/media/felix/Data/coding/demoir-fpga/runs/timing_v50/rtl_v50/lane16/bin_conv_core_v50.v:633]
+WARNING: [Synth 8-6014] Unused sequential element k8_q_reg was removed.  [/media/felix/Data/coding/demoir-fpga/runs/timing_v50/rtl_v50/lane16/bin_conv_core_v50.v:635]
+WARNING: [Synth 8-6014] Unused sequential element ky_q_reg was removed.  [/media/felix/Data/coding/demoir-fpga/runs/timing_v50/rtl_v50/lane16/bin_conv_core_v50.v:830]
+WARNING: [Synth 8-7137] Register s1_pc_q_reg[0] in module bin_conv_core_v50 has both Set and reset with same priority. This may cause simulation mismatches. Consider rewriting code  [/media/felix/Data/coding/demoir-fpga/runs/timing_v50/rtl_v50/lane16/bin_conv_core_v50.v:407]
+WARNING: [Synth 8-7137] Register s1_pc_q_reg[1] in module bin_conv_core_v50 has both Set and reset with same priority. This may cause simulation mismatches. Consider rewriting code  [/media/felix/Data/coding/demoir-fpga/runs/timing_v50/rtl_v50/lane16/bin_conv_core_v50.v:407]
+WARNING: [Synth 8-7137] Register s1_pc_q_reg[2] in module bin_conv_core_v50 has both Set and reset with same priority. This may cause simulation mismatches. Consider rewriting code  [/media/felix/Data/coding/demoir-fpga/runs/timing_v50/rtl_v50/lane16/bin_conv_core_v50.v:407]
+WARNING: [Synth 8-7137] Register s1_pc_q_reg[3] in module bin_conv_core_v50 has both Set and reset with same priority. This may cause simulation mismatches. Consider rewriting code  [/media/felix/Data/coding/demoir-fpga/runs/timing_v50/rtl_v50/lane16/bin_conv_core_v50.v:407]
+WARNING: [Synth 8-7137] Register s1_pc_q_reg[4] in module bin_conv_core_v50 has both Set and reset with same priority. This may cause simulation mismatches. Consider rewriting code  [/media/felix/Data/coding/demoir-fpga/runs/timing_v50/rtl_v50/lane16/bin_conv_core_v50.v:407]
+WARNING: [Synth 8-7137] Register s1_pc_q_reg[5] in module bin_conv_core_v50 has both Set and reset with same priority. This may cause simulation mismatches. Consider rewriting code  [/media/felix/Data/coding/demoir-fpga/runs/timing_v50/rtl_v50/lane16/bin_conv_core_v50.v:407]
+WARNING: [Synth 8-7137] Register s1_pc_q_reg[6] in module bin_conv_core_v50 has both Set and reset with same priority. This may cause simulation mismatches. Consider rewriting code  [/media/felix/Data/coding/demoir-fpga/runs/timing_v50/rtl_v50/lane16/bin_conv_core_v50.v:407]
+WARNING: [Synth 8-7137] Register s1_pc_q_reg[7] in module bin_conv_core_v50 has both Set and reset with same priority. This may cause simulation mismatches. Consider rewriting code  [/media/felix/Data/coding/demoir-fpga/runs/timing_v50/rtl_v50/lane16/bin_conv_core_v50.v:407]
+WARNING: [Synth 8-7137] Register s1_pc_q_reg[8] in module bin_conv_core_v50 has both Set and reset with same priority. This may cause simulation mismatches. Consider rewriting code  [/media/felix/Data/coding/demoir-fpga/runs/timing_v50/rtl_v50/lane16/bin_conv_core_v50.v:407]
+WARNING: [Synth 8-7137] Register s1_pc_q_reg[9] in module bin_conv_core_v50 has both Set and reset with same priority. This may cause simulation mismatches. Consider rewriting code  [/media/felix/Data/coding/demoir-fpga/runs/timing_v50/rtl_v50/lane16/bin_conv_core_v50.v:407]
+WARNING: [Synth 8-7137] Register s1_pc_q_reg[10] in module bin_conv_core_v50 has both Set and reset with same priority. This may cause simulation mismatches. Consider rewriting code  [/media/felix/Data/coding/demoir-fpga/runs/timing_v50/rtl_v50/lane16/bin_conv_core_v50.v:407]
+WARNING: [Synth 8-7137] Register s1_pc_q_reg[11] in module bin_conv_core_v50 has both Set and reset with same priority. This may cause simulation mismatches. Consider rewriting code  [/media/felix/Data/coding/demoir-fpga/runs/timing_v50/rtl_v50/lane16/bin_conv_core_v50.v:407]
+WARNING: [Synth 8-7137] Register s1_pc_q_reg[12] in module bin_conv_core_v50 has both Set and reset with same priority. This may cause simulation mismatches. Consider rewriting code  [/media/felix/Data/coding/demoir-fpga/runs/timing_v50/rtl_v50/lane16/bin_conv_core_v50.v:407]
+WARNING: [Synth 8-7137] Register s1_pc_q_reg[13] in module bin_conv_core_v50 has both Set and reset with same priority. This may cause simulation mismatches. Consider rewriting code  [/media/felix/Data/coding/demoir-fpga/runs/timing_v50/rtl_v50/lane16/bin_conv_core_v50.v:407]
+WARNING: [Synth 8-7137] Register s1_pc_q_reg[14] in module bin_conv_core_v50 has both Set and reset with same priority. This may cause simulation mismatches. Consider rewriting code  [/media/felix/Data/coding/demoir-fpga/runs/timing_v50/rtl_v50/lane16/bin_conv_core_v50.v:407]
+WARNING: [Synth 8-7137] Register s1_pc_q_reg[15] in module bin_conv_core_v50 has both Set and reset with same priority. This may cause simulation mismatches. Consider rewriting code  [/media/felix/Data/coding/demoir-fpga/runs/timing_v50/rtl_v50/lane16/bin_conv_core_v50.v:407]
+WARNING: [Synth 8-7137] Register p_acc_reg[0] in module bin_conv_core_v50 has both Set and reset with same priority. This may cause simulation mismatches. Consider rewriting code  [/media/felix/Data/coding/demoir-fpga/runs/timing_v50/rtl_v50/lane16/bin_conv_core_v50.v:421]
+WARNING: [Synth 8-7137] Register p_acc_reg[1] in module bin_conv_core_v50 has both Set and reset with same priority. This may cause simulation mismatches. Consider rewriting code  [/media/felix/Data/coding/demoir-fpga/runs/timing_v50/rtl_v50/lane16/bin_conv_core_v50.v:421]
+WARNING: [Synth 8-7137] Register p_acc_reg[2] in module bin_conv_core_v50 has both Set and reset with same priority. This may cause simulation mismatches. Consider rewriting code  [/media/felix/Data/coding/demoir-fpga/runs/timing_v50/rtl_v50/lane16/bin_conv_core_v50.v:421]
+WARNING: [Synth 8-7137] Register p_acc_reg[3] in module bin_conv_core_v50 has both Set and reset with same priority. This may cause simulation mismatches. Consider rewriting code  [/media/felix/Data/coding/demoir-fpga/runs/timing_v50/rtl_v50/lane16/bin_conv_core_v50.v:421]
+WARNING: [Synth 8-7137] Register p_acc_reg[4] in module bin_conv_core_v50 has both Set and reset with same priority. This may cause simulation mismatches. Consider rewriting code  [/media/felix/Data/coding/demoir-fpga/runs/timing_v50/rtl_v50/lane16/bin_conv_core_v50.v:421]
+WARNING: [Synth 8-7137] Register p_acc_reg[5] in module bin_conv_core_v50 has both Set and reset with same priority. This may cause simulation mismatches. Consider rewriting code  [/media/felix/Data/coding/demoir-fpga/runs/timing_v50/rtl_v50/lane16/bin_conv_core_v50.v:421]
+WARNING: [Synth 8-7137] Register p_acc_reg[6] in module bin_conv_core_v50 has both Set and reset with same priority. This may cause simulation mismatches. Consider rewriting code  [/media/felix/Data/coding/demoir-fpga/runs/timing_v50/rtl_v50/lane16/bin_conv_core_v50.v:421]
+WARNING: [Synth 8-7137] Register p_acc_reg[7] in module bin_conv_core_v50 has both Set and reset with same priority. This may cause simulation mismatches. Consider rewriting code  [/media/felix/Data/coding/demoir-fpga/runs/timing_v50/rtl_v50/lane16/bin_conv_core_v50.v:421]
+WARNING: [Synth 8-7137] Register p_acc_reg[8] in module bin_conv_core_v50 has both Set and reset with same priority. This may cause simulation mismatches. Consider rewriting code  [/media/felix/Data/coding/demoir-fpga/runs/timing_v50/rtl_v50/lane16/bin_conv_core_v50.v:421]
+WARNING: [Synth 8-7137] Register p_acc_reg[9] in module bin_conv_core_v50 has both Set and reset with same priority. This may cause simulation mismatches. Consider rewriting code  [/media/felix/Data/coding/demoir-fpga/runs/timing_v50/rtl_v50/lane16/bin_conv_core_v50.v:421]
+WARNING: [Synth 8-7137] Register p_acc_reg[10] in module bin_conv_core_v50 has both Set and reset with same priority. This may cause simulation mismatches. Consider rewriting code  [/media/felix/Data/coding/demoir-fpga/runs/timing_v50/rtl_v50/lane16/bin_conv_core_v50.v:421]
+WARNING: [Synth 8-7137] Register p_acc_reg[11] in module bin_conv_core_v50 has both Set and reset with same priority. This may cause simulation mismatches. Consider rewriting code  [/media/felix/Data/coding/demoir-fpga/runs/timing_v50/rtl_v50/lane16/bin_conv_core_v50.v:421]
+WARNING: [Synth 8-7137] Register p_acc_reg[12] in module bin_conv_core_v50 has both Set and reset with same priority. This may cause simulation mismatches. Consider rewriting code  [/media/felix/Data/coding/demoir-fpga/runs/timing_v50/rtl_v50/lane16/bin_conv_core_v50.v:421]
+WARNING: [Synth 8-7137] Register p_acc_reg[13] in module bin_conv_core_v50 has both Set and reset with same priority. This may cause simulation mismatches. Consider rewriting code  [/media/felix/Data/coding/demoir-fpga/runs/timing_v50/rtl_v50/lane16/bin_conv_core_v50.v:421]
+WARNING: [Synth 8-7137] Register p_acc_reg[14] in module bin_conv_core_v50 has both Set and reset with same priority. This may cause simulation mismatches. Consider rewriting code  [/media/felix/Data/coding/demoir-fpga/runs/timing_v50/rtl_v50/lane16/bin_conv_core_v50.v:421]
+WARNING: [Synth 8-7137] Register p_acc_reg[15] in module bin_conv_core_v50 has both Set and reset with same priority. This may cause simulation mismatches. Consider rewriting code  [/media/felix/Data/coding/demoir-fpga/runs/timing_v50/rtl_v50/lane16/bin_conv_core_v50.v:421]
+WARNING: [Synth 8-7137] Register p_snap_reg[0] in module bin_conv_core_v50 has both Set and reset with same priority. This may cause simulation mismatches. Consider rewriting code  [/media/felix/Data/coding/demoir-fpga/runs/timing_v50/rtl_v50/lane16/bin_conv_core_v50.v:422]
+WARNING: [Synth 8-7137] Register p_snap_reg[1] in module bin_conv_core_v50 has both Set and reset with same priority. This may cause simulation mismatches. Consider rewriting code  [/media/felix/Data/coding/demoir-fpga/runs/timing_v50/rtl_v50/lane16/bin_conv_core_v50.v:422]
+WARNING: [Synth 8-7137] Register p_snap_reg[2] in module bin_conv_core_v50 has both Set and reset with same priority. This may cause simulation mismatches. Consider rewriting code  [/media/felix/Data/coding/demoir-fpga/runs/timing_v50/rtl_v50/lane16/bin_conv_core_v50.v:422]
+WARNING: [Synth 8-7137] Register p_snap_reg[3] in module bin_conv_core_v50 has both Set and reset with same priority. This may cause simulation mismatches. Consider rewriting code  [/media/felix/Data/coding/demoir-fpga/runs/timing_v50/rtl_v50/lane16/bin_conv_core_v50.v:422]
+WARNING: [Synth 8-7137] Register p_snap_reg[4] in module bin_conv_core_v50 has both Set and reset with same priority. This may cause simulation mismatches. Consider rewriting code  [/media/felix/Data/coding/demoir-fpga/runs/timing_v50/rtl_v50/lane16/bin_conv_core_v50.v:422]
+WARNING: [Synth 8-7137] Register p_snap_reg[5] in module bin_conv_core_v50 has both Set and reset with same priority. This may cause simulation mismatches. Consider rewriting code  [/media/felix/Data/coding/demoir-fpga/runs/timing_v50/rtl_v50/lane16/bin_conv_core_v50.v:422]
+WARNING: [Synth 8-7137] Register p_snap_reg[6] in module bin_conv_core_v50 has both Set and reset with same priority. This may cause simulation mismatches. Consider rewriting code  [/media/felix/Data/coding/demoir-fpga/runs/timing_v50/rtl_v50/lane16/bin_conv_core_v50.v:422]
+WARNING: [Synth 8-7137] Register p_snap_reg[7] in module bin_conv_core_v50 has both Set and reset with same priority. This may cause simulation mismatches. Consider rewriting code  [/media/felix/Data/coding/demoir-fpga/runs/timing_v50/rtl_v50/lane16/bin_conv_core_v50.v:422]
+WARNING: [Synth 8-7137] Register p_snap_reg[8] in module bin_conv_core_v50 has both Set and reset with same priority. This may cause simulation mismatches. Consider rewriting code  [/media/felix/Data/coding/demoir-fpga/runs/timing_v50/rtl_v50/lane16/bin_conv_core_v50.v:422]
+WARNING: [Synth 8-7137] Register p_snap_reg[9] in module bin_conv_core_v50 has both Set and reset with same priority. This may cause simulation mismatches. Consider rewriting code  [/media/felix/Data/coding/demoir-fpga/runs/timing_v50/rtl_v50/lane16/bin_conv_core_v50.v:422]
+WARNING: [Synth 8-7137] Register p_snap_reg[10] in module bin_conv_core_v50 has both Set and reset with same priority. This may cause simulation mismatches. Consider rewriting code  [/media/felix/Data/coding/demoir-fpga/runs/timing_v50/rtl_v50/lane16/bin_conv_core_v50.v:422]
+WARNING: [Synth 8-7137] Register p_snap_reg[11] in module bin_conv_core_v50 has both Set and reset with same priority. This may cause simulation mismatches. Consider rewriting code  [/media/felix/Data/coding/demoir-fpga/runs/timing_v50/rtl_v50/lane16/bin_conv_core_v50.v:422]
+WARNING: [Synth 8-7137] Register p_snap_reg[12] in module bin_conv_core_v50 has both Set and reset with same priority. This may cause simulation mismatches. Consider rewriting code  [/media/felix/Data/coding/demoir-fpga/runs/timing_v50/rtl_v50/lane16/bin_conv_core_v50.v:422]
+WARNING: [Synth 8-7137] Register p_snap_reg[13] in module bin_conv_core_v50 has both Set and reset with same priority. This may cause simulation mismatches. Consider rewriting code  [/media/felix/Data/coding/demoir-fpga/runs/timing_v50/rtl_v50/lane16/bin_conv_core_v50.v:422]
+WARNING: [Synth 8-7137] Register p_snap_reg[14] in module bin_conv_core_v50 has both Set and reset with same priority. This may cause simulation mismatches. Consider rewriting code  [/media/felix/Data/coding/demoir-fpga/runs/timing_v50/rtl_v50/lane16/bin_conv_core_v50.v:422]
+WARNING: [Synth 8-7137] Register p_snap_reg[15] in module bin_conv_core_v50 has both Set and reset with same priority. This may cause simulation mismatches. Consider rewriting code  [/media/felix/Data/coding/demoir-fpga/runs/timing_v50/rtl_v50/lane16/bin_conv_core_v50.v:422]
+WARNING: [Synth 8-7137] Register e1_prod_q_reg[0] in module bin_conv_core_v50 has both Set and reset with same priority. This may cause simulation mismatches. Consider rewriting code  [/media/felix/Data/coding/demoir-fpga/runs/timing_v50/rtl_v50/lane16/bin_conv_core_v50.v:500]
+WARNING: [Synth 8-7137] Register e1_prod_q_reg[1] in module bin_conv_core_v50 has both Set and reset with same priority. This may cause simulation mismatches. Consider rewriting code  [/media/felix/Data/coding/demoir-fpga/runs/timing_v50/rtl_v50/lane16/bin_conv_core_v50.v:500]
+WARNING: [Synth 8-7137] Register e1_prod_q_reg[2] in module bin_conv_core_v50 has both Set and reset with same priority. This may cause simulation mismatches. Consider rewriting code  [/media/felix/Data/coding/demoir-fpga/runs/timing_v50/rtl_v50/lane16/bin_conv_core_v50.v:500]
+WARNING: [Synth 8-7137] Register e1_prod_q_reg[3] in module bin_conv_core_v50 has both Set and reset with same priority. This may cause simulation mismatches. Consider rewriting code  [/media/felix/Data/coding/demoir-fpga/runs/timing_v50/rtl_v50/lane16/bin_conv_core_v50.v:500]
+WARNING: [Synth 8-7137] Register e1_prod_q_reg[4] in module bin_conv_core_v50 has both Set and reset with same priority. This may cause simulation mismatches. Consider rewriting code  [/media/felix/Data/coding/demoir-fpga/runs/timing_v50/rtl_v50/lane16/bin_conv_core_v50.v:500]
+WARNING: [Synth 8-7137] Register e1_prod_q_reg[5] in module bin_conv_core_v50 has both Set and reset with same priority. This may cause simulation mismatches. Consider rewriting code  [/media/felix/Data/coding/demoir-fpga/runs/timing_v50/rtl_v50/lane16/bin_conv_core_v50.v:500]
+WARNING: [Synth 8-7137] Register e1_prod_q_reg[6] in module bin_conv_core_v50 has both Set and reset with same priority. This may cause simulation mismatches. Consider rewriting code  [/media/felix/Data/coding/demoir-fpga/runs/timing_v50/rtl_v50/lane16/bin_conv_core_v50.v:500]
+WARNING: [Synth 8-7137] Register e1_prod_q_reg[7] in module bin_conv_core_v50 has both Set and reset with same priority. This may cause simulation mismatches. Consider rewriting code  [/media/felix/Data/coding/demoir-fpga/runs/timing_v50/rtl_v50/lane16/bin_conv_core_v50.v:500]
+WARNING: [Synth 8-7137] Register e1_prod_q_reg[8] in module bin_conv_core_v50 has both Set and reset with same priority. This may cause simulation mismatches. Consider rewriting code  [/media/felix/Data/coding/demoir-fpga/runs/timing_v50/rtl_v50/lane16/bin_conv_core_v50.v:500]
+WARNING: [Synth 8-7137] Register e1_prod_q_reg[9] in module bin_conv_core_v50 has both Set and reset with same priority. This may cause simulation mismatches. Consider rewriting code  [/media/felix/Data/coding/demoir-fpga/runs/timing_v50/rtl_v50/lane16/bin_conv_core_v50.v:500]
+WARNING: [Synth 8-7137] Register e1_prod_q_reg[10] in module bin_conv_core_v50 has both Set and reset with same priority. This may cause simulation mismatches. Consider rewriting code  [/media/felix/Data/coding/demoir-fpga/runs/timing_v50/rtl_v50/lane16/bin_conv_core_v50.v:500]
+WARNING: [Synth 8-7137] Register e1_prod_q_reg[11] in module bin_conv_core_v50 has both Set and reset with same priority. This may cause simulation mismatches. Consider rewriting code  [/media/felix/Data/coding/demoir-fpga/runs/timing_v50/rtl_v50/lane16/bin_conv_core_v50.v:500]
+WARNING: [Synth 8-7137] Register e1_prod_q_reg[12] in module bin_conv_core_v50 has both Set and reset with same priority. This may cause simulation mismatches. Consider rewriting code  [/media/felix/Data/coding/demoir-fpga/runs/timing_v50/rtl_v50/lane16/bin_conv_core_v50.v:500]
+WARNING: [Synth 8-7137] Register e1_prod_q_reg[13] in module bin_conv_core_v50 has both Set and reset with same priority. This may cause simulation mismatches. Consider rewriting code  [/media/felix/Data/coding/demoir-fpga/runs/timing_v50/rtl_v50/lane16/bin_conv_core_v50.v:500]
+WARNING: [Synth 8-7137] Register e1_prod_q_reg[14] in module bin_conv_core_v50 has both Set and reset with same priority. This may cause simulation mismatches. Consider rewriting code  [/media/felix/Data/coding/demoir-fpga/runs/timing_v50/rtl_v50/lane16/bin_conv_core_v50.v:500]
+WARNING: [Synth 8-7137] Register e1_prod_q_reg[15] in module bin_conv_core_v50 has both Set and reset with same priority. This may cause simulation mismatches. Consider rewriting code  [/media/felix/Data/coding/demoir-fpga/runs/timing_v50/rtl_v50/lane16/bin_conv_core_v50.v:500]
+WARNING: [Synth 8-7137] Register e1_sh_q_reg[0] in module bin_conv_core_v50 has both Set and reset with same priority. This may cause simulation mismatches. Consider rewriting code  [/media/felix/Data/coding/demoir-fpga/runs/timing_v50/rtl_v50/lane16/bin_conv_core_v50.v:511]
+WARNING: [Synth 8-7137] Register e1_sh_q_reg[1] in module bin_conv_core_v50 has both Set and reset with same priority. This may cause simulation mismatches. Consider rewriting code  [/media/felix/Data/coding/demoir-fpga/runs/timing_v50/rtl_v50/lane16/bin_conv_core_v50.v:511]
+WARNING: [Synth 8-7137] Register e1_sh_q_reg[2] in module bin_conv_core_v50 has both Set and reset with same priority. This may cause simulation mismatches. Consider rewriting code  [/media/felix/Data/coding/demoir-fpga/runs/timing_v50/rtl_v50/lane16/bin_conv_core_v50.v:511]
+WARNING: [Synth 8-7137] Register e1_sh_q_reg[3] in module bin_conv_core_v50 has both Set and reset with same priority. This may cause simulation mismatches. Consider rewriting code  [/media/felix/Data/coding/demoir-fpga/runs/timing_v50/rtl_v50/lane16/bin_conv_core_v50.v:511]
+WARNING: [Synth 8-7137] Register e1_sh_q_reg[4] in module bin_conv_core_v50 has both Set and reset with same priority. This may cause simulation mismatches. Consider rewriting code  [/media/felix/Data/coding/demoir-fpga/runs/timing_v50/rtl_v50/lane16/bin_conv_core_v50.v:511]
+WARNING: [Synth 8-7137] Register e1_sh_q_reg[5] in module bin_conv_core_v50 has both Set and reset with same priority. This may cause simulation mismatches. Consider rewriting code  [/media/felix/Data/coding/demoir-fpga/runs/timing_v50/rtl_v50/lane16/bin_conv_core_v50.v:511]
+WARNING: [Synth 8-7137] Register e1_sh_q_reg[6] in module bin_conv_core_v50 has both Set and reset with same priority. This may cause simulation mismatches. Consider rewriting code  [/media/felix/Data/coding/demoir-fpga/runs/timing_v50/rtl_v50/lane16/bin_conv_core_v50.v:511]
+WARNING: [Synth 8-7137] Register e1_sh_q_reg[7] in module bin_conv_core_v50 has both Set and reset with same priority. This may cause simulation mismatches. Consider rewriting code  [/media/felix/Data/coding/demoir-fpga/runs/timing_v50/rtl_v50/lane16/bin_conv_core_v50.v:511]
+WARNING: [Synth 8-7137] Register e1_sh_q_reg[8] in module bin_conv_core_v50 has both Set and reset with same priority. This may cause simulation mismatches. Consider rewriting code  [/media/felix/Data/coding/demoir-fpga/runs/timing_v50/rtl_v50/lane16/bin_conv_core_v50.v:511]
+WARNING: [Synth 8-7137] Register e1_sh_q_reg[9] in module bin_conv_core_v50 has both Set and reset with same priority. This may cause simulation mismatches. Consider rewriting code  [/media/felix/Data/coding/demoir-fpga/runs/timing_v50/rtl_v50/lane16/bin_conv_core_v50.v:511]
+WARNING: [Synth 8-7137] Register e1_sh_q_reg[10] in module bin_conv_core_v50 has both Set and reset with same priority. This may cause simulation mismatches. Consider rewriting code  [/media/felix/Data/coding/demoir-fpga/runs/timing_v50/rtl_v50/lane16/bin_conv_core_v50.v:511]
+WARNING: [Synth 8-7137] Register e1_sh_q_reg[11] in module bin_conv_core_v50 has both Set and reset with same priority. This may cause simulation mismatches. Consider rewriting code  [/media/felix/Data/coding/demoir-fpga/runs/timing_v50/rtl_v50/lane16/bin_conv_core_v50.v:511]
+WARNING: [Synth 8-7137] Register e1_sh_q_reg[12] in module bin_conv_core_v50 has both Set and reset with same priority. This may cause simulation mismatches. Consider rewriting code  [/media/felix/Data/coding/demoir-fpga/runs/timing_v50/rtl_v50/lane16/bin_conv_core_v50.v:511]
+WARNING: [Synth 8-7137] Register e1_sh_q_reg[13] in module bin_conv_core_v50 has both Set and reset with same priority. This may cause simulation mismatches. Consider rewriting code  [/media/felix/Data/coding/demoir-fpga/runs/timing_v50/rtl_v50/lane16/bin_conv_core_v50.v:511]
+WARNING: [Synth 8-7137] Register e1_sh_q_reg[14] in module bin_conv_core_v50 has both Set and reset with same priority. This may cause simulation mismatches. Consider rewriting code  [/media/felix/Data/coding/demoir-fpga/runs/timing_v50/rtl_v50/lane16/bin_conv_core_v50.v:511]
+WARNING: [Synth 8-7137] Register e1_sh_q_reg[15] in module bin_conv_core_v50 has both Set and reset with same priority. This may cause simulation mismatches. Consider rewriting code  [/media/felix/Data/coding/demoir-fpga/runs/timing_v50/rtl_v50/lane16/bin_conv_core_v50.v:511]
+WARNING: [Synth 8-7137] Register e2_dd_q_reg[0] in module bin_conv_core_v50 has both Set and reset with same priority. This may cause simulation mismatches. Consider rewriting code  [/media/felix/Data/coding/demoir-fpga/runs/timing_v50/rtl_v50/lane16/bin_conv_core_v50.v:523]
+WARNING: [Synth 8-7137] Register e2_dd_q_reg[1] in module bin_conv_core_v50 has both Set and reset with same priority. This may cause simulation mismatches. Consider rewriting code  [/media/felix/Data/coding/demoir-fpga/runs/timing_v50/rtl_v50/lane16/bin_conv_core_v50.v:523]
+WARNING: [Synth 8-7137] Register e2_dd_q_reg[2] in module bin_conv_core_v50 has both Set and reset with same priority. This may cause simulation mismatches. Consider rewriting code  [/media/felix/Data/coding/demoir-fpga/runs/timing_v50/rtl_v50/lane16/bin_conv_core_v50.v:523]
+WARNING: [Synth 8-7137] Register e2_dd_q_reg[3] in module bin_conv_core_v50 has both Set and reset with same priority. This may cause simulation mismatches. Consider rewriting code  [/media/felix/Data/coding/demoir-fpga/runs/timing_v50/rtl_v50/lane16/bin_conv_core_v50.v:523]
+WARNING: [Synth 8-7137] Register e2_dd_q_reg[4] in module bin_conv_core_v50 has both Set and reset with same priority. This may cause simulation mismatches. Consider rewriting code  [/media/felix/Data/coding/demoir-fpga/runs/timing_v50/rtl_v50/lane16/bin_conv_core_v50.v:523]
+WARNING: [Synth 8-7137] Register e2_dd_q_reg[5] in module bin_conv_core_v50 has both Set and reset with same priority. This may cause simulation mismatches. Consider rewriting code  [/media/felix/Data/coding/demoir-fpga/runs/timing_v50/rtl_v50/lane16/bin_conv_core_v50.v:523]
+WARNING: [Synth 8-7137] Register e2_dd_q_reg[6] in module bin_conv_core_v50 has both Set and reset with same priority. This may cause simulation mismatches. Consider rewriting code  [/media/felix/Data/coding/demoir-fpga/runs/timing_v50/rtl_v50/lane16/bin_conv_core_v50.v:523]
+WARNING: [Synth 8-7137] Register e2_dd_q_reg[7] in module bin_conv_core_v50 has both Set and reset with same priority. This may cause simulation mismatches. Consider rewriting code  [/media/felix/Data/coding/demoir-fpga/runs/timing_v50/rtl_v50/lane16/bin_conv_core_v50.v:523]
+WARNING: [Synth 8-7137] Register e2_dd_q_reg[8] in module bin_conv_core_v50 has both Set and reset with same priority. This may cause simulation mismatches. Consider rewriting code  [/media/felix/Data/coding/demoir-fpga/runs/timing_v50/rtl_v50/lane16/bin_conv_core_v50.v:523]
+WARNING: [Synth 8-7137] Register e2_dd_q_reg[9] in module bin_conv_core_v50 has both Set and reset with same priority. This may cause simulation mismatches. Consider rewriting code  [/media/felix/Data/coding/demoir-fpga/runs/timing_v50/rtl_v50/lane16/bin_conv_core_v50.v:523]
+WARNING: [Synth 8-7137] Register e2_dd_q_reg[10] in module bin_conv_core_v50 has both Set and reset with same priority. This may cause simulation mismatches. Consider rewriting code  [/media/felix/Data/coding/demoir-fpga/runs/timing_v50/rtl_v50/lane16/bin_conv_core_v50.v:523]
+WARNING: [Synth 8-7137] Register e2_dd_q_reg[11] in module bin_conv_core_v50 has both Set and reset with same priority. This may cause simulation mismatches. Consider rewriting code  [/media/felix/Data/coding/demoir-fpga/runs/timing_v50/rtl_v50/lane16/bin_conv_core_v50.v:523]
+WARNING: [Synth 8-7137] Register e2_dd_q_reg[12] in module bin_conv_core_v50 has both Set and reset with same priority. This may cause simulation mismatches. Consider rewriting code  [/media/felix/Data/coding/demoir-fpga/runs/timing_v50/rtl_v50/lane16/bin_conv_core_v50.v:523]
+WARNING: [Synth 8-7137] Register e2_dd_q_reg[13] in module bin_conv_core_v50 has both Set and reset with same priority. This may cause simulation mismatches. Consider rewriting code  [/media/felix/Data/coding/demoir-fpga/runs/timing_v50/rtl_v50/lane16/bin_conv_core_v50.v:523]
+WARNING: [Synth 8-7137] Register e2_dd_q_reg[14] in module bin_conv_core_v50 has both Set and reset with same priority. This may cause simulation mismatches. Consider rewriting code  [/media/felix/Data/coding/demoir-fpga/runs/timing_v50/rtl_v50/lane16/bin_conv_core_v50.v:523]
+WARNING: [Synth 8-7137] Register e2_dd_q_reg[15] in module bin_conv_core_v50 has both Set and reset with same priority. This may cause simulation mismatches. Consider rewriting code  [/media/felix/Data/coding/demoir-fpga/runs/timing_v50/rtl_v50/lane16/bin_conv_core_v50.v:523]
+WARNING: [Synth 8-7137] Register e2_rp_q_reg[0] in module bin_conv_core_v50 has both Set and reset with same priority. This may cause simulation mismatches. Consider rewriting code  [/media/felix/Data/coding/demoir-fpga/runs/timing_v50/rtl_v50/lane16/bin_conv_core_v50.v:524]
+WARNING: [Synth 8-7137] Register e2_rp_q_reg[1] in module bin_conv_core_v50 has both Set and reset with same priority. This may cause simulation mismatches. Consider rewriting code  [/media/felix/Data/coding/demoir-fpga/runs/timing_v50/rtl_v50/lane16/bin_conv_core_v50.v:524]
+WARNING: [Synth 8-7137] Register e2_rp_q_reg[2] in module bin_conv_core_v50 has both Set and reset with same priority. This may cause simulation mismatches. Consider rewriting code  [/media/felix/Data/coding/demoir-fpga/runs/timing_v50/rtl_v50/lane16/bin_conv_core_v50.v:524]
+WARNING: [Synth 8-7137] Register e2_rp_q_reg[3] in module bin_conv_core_v50 has both Set and reset with same priority. This may cause simulation mismatches. Consider rewriting code  [/media/felix/Data/coding/demoir-fpga/runs/timing_v50/rtl_v50/lane16/bin_conv_core_v50.v:524]
+INFO: [Common 17-14] Message 'Synth 8-7137' appears 100 times and further instances of the messages will be disabled. Use the Tcl command set_msg_config to change the current settings.
+WARNING: [Synth 8-4767] Trying to implement RAM 'pw_reg' in registers. Block RAM or DRAM implementation is not possible; see log for reasons. [/media/felix/Data/coding/demoir-fpga/runs/timing_v50/rtl_v50/lane16/bin_conv_core_v50.v:700]
+Reason is one or more of the following :
+	1: RAM is sensitive to asynchronous reset signal. this RTL style is not supported. 
+	2: RAM has too many ports (16). Maximum supported = 16. 
+	3: RAM has too many ports (16). Maximum supported = 16. 
+	4: RAM has too many ports (16). Maximum supported = 16. 
+	5: RAM has too many ports (16). Maximum supported = 16. 
+	6: RAM has too many ports (16). Maximum supported = 16. 
+	7: RAM has too many ports (16). Maximum supported = 16. 
+	8: RAM has too many ports (16). Maximum supported = 16. 
+	9: RAM has too many ports (16). Maximum supported = 16. 
+	10: RAM has too many ports (16). Maximum supported = 16. 
+	11: RAM has too many ports (16). Maximum supported = 16. 
+	12: RAM has too many ports (16). Maximum supported = 16. 
+	13: RAM has too many ports (16). Maximum supported = 16. 
+	14: RAM has too many ports (16). Maximum supported = 16. 
+	15: RAM has too many ports (16). Maximum supported = 16. 
+	16: RAM has too many ports (16). Maximum supported = 16. 
+	17: RAM has too many ports (16). Maximum supported = 16. 
+	18: RAM has too many ports (16). Maximum supported = 16. 
+WARNING: [Synth 8-6014] Unused sequential element wv_q_reg was removed.  [/media/felix/Data/coding/demoir-fpga/runs/timing_v50/rtl_v50/bin_e1e2.v:289]
+WARNING: [Synth 8-6014] Unused sequential element src_q_reg was removed.  [/media/felix/Data/coding/demoir-fpga/runs/timing_v50/rtl_v50/bin_catpack.v:330]
+WARNING: [Synth 8-6014] Unused sequential element adj_q_reg was removed.  [/media/felix/Data/coding/demoir-fpga/runs/timing_v50/rtl_v50/bin_catpack.v:330]
+WARNING: [Synth 8-4767] Trying to implement RAM 'g_conv.g_wr_split2.f0_dat_reg' in registers. Block RAM or DRAM implementation is not possible; see log for reasons. [/media/felix/Data/coding/demoir-fpga/runs/timing_v50/rtl_v50/lane16/bin_unit_axi_wrap_v50.v:1837]
+Reason is one or more of the following :
+	1: RAM is sensitive to asynchronous reset signal. this RTL style is not supported. 
+WARNING: [Synth 8-4767] Trying to implement RAM 'g_conv.g_wr_split2.f0_adr_reg' in registers. Block RAM or DRAM implementation is not possible; see log for reasons. [/media/felix/Data/coding/demoir-fpga/runs/timing_v50/rtl_v50/lane16/bin_unit_axi_wrap_v50.v:1838]
+Reason is one or more of the following :
+	1: RAM is sensitive to asynchronous reset signal. this RTL style is not supported. 
+WARNING: [Synth 8-4767] Trying to implement RAM 'g_conv.g_wr_split2.f0_sl_reg' in registers. Block RAM or DRAM implementation is not possible; see log for reasons. [/media/felix/Data/coding/demoir-fpga/runs/timing_v50/rtl_v50/lane16/bin_unit_axi_wrap_v50.v:1839]
+Reason is one or more of the following :
+	1: RAM is sensitive to asynchronous reset signal. this RTL style is not supported. 
+WARNING: [Synth 8-4767] Trying to implement RAM 'g_conv.g_wr_split2.f1_dat_reg' in registers. Block RAM or DRAM implementation is not possible; see log for reasons. [/media/felix/Data/coding/demoir-fpga/runs/timing_v50/rtl_v50/lane16/bin_unit_axi_wrap_v50.v:1843]
+Reason is one or more of the following :
+	1: RAM is sensitive to asynchronous reset signal. this RTL style is not supported. 
+WARNING: [Synth 8-4767] Trying to implement RAM 'g_conv.g_wr_split2.f1_adr_reg' in registers. Block RAM or DRAM implementation is not possible; see log for reasons. [/media/felix/Data/coding/demoir-fpga/runs/timing_v50/rtl_v50/lane16/bin_unit_axi_wrap_v50.v:1844]
+Reason is one or more of the following :
+	1: RAM is sensitive to asynchronous reset signal. this RTL style is not supported. 
+WARNING: [Synth 8-4767] Trying to implement RAM 'g_conv.g_wr_split2.f1_sl_reg' in registers. Block RAM or DRAM implementation is not possible; see log for reasons. [/media/felix/Data/coding/demoir-fpga/runs/timing_v50/rtl_v50/lane16/bin_unit_axi_wrap_v50.v:1845]
+Reason is one or more of the following :
+	1: RAM is sensitive to asynchronous reset signal. this RTL style is not supported. 
+WARNING: [Synth 8-4767] Trying to implement RAM 'pf_tag_reg' in registers. Block RAM or DRAM implementation is not possible; see log for reasons. [/media/felix/Data/coding/demoir-fpga/runs/timing_v50/rtl_v50/lane16/bin_unit_axi_wrap_v50.v:2641]
+Reason is one or more of the following :
+	1: RAM is sensitive to asynchronous reset signal. this RTL style is not supported. 
+WARNING: [Synth 8-4767] Trying to implement RAM 'arq_addr_reg' in registers. Block RAM or DRAM implementation is not possible; see log for reasons. [/media/felix/Data/coding/demoir-fpga/runs/timing_v50/rtl_v50/lane16/bin_unit_axi_wrap_v50.v:2796]
+Reason is one or more of the following :
+	1: RAM is sensitive to asynchronous reset signal. this RTL style is not supported. 
+WARNING: [Synth 8-4767] Trying to implement RAM 'arq_id_reg' in registers. Block RAM or DRAM implementation is not possible; see log for reasons. [/media/felix/Data/coding/demoir-fpga/runs/timing_v50/rtl_v50/lane16/bin_unit_axi_wrap_v50.v:2797]
+Reason is one or more of the following :
+	1: RAM is sensitive to asynchronous reset signal. this RTL style is not supported. 
+WARNING: [Synth 8-6014] Unused sequential element rowy_nxt_q_reg was removed.  [/media/felix/Data/coding/demoir-fpga/runs/timing_v50/rtl_v50/conv_int8_uni.v:1397]
+WARNING: [Synth 8-6014] Unused sequential element wl_rb_reg was removed.  [/media/felix/Data/coding/demoir-fpga/runs/timing_v50/rtl_v50/conv_int8_uni.v:688]
+WARNING: [Synth 8-6014] Unused sequential element k_q_reg was removed.  [/media/felix/Data/coding/demoir-fpga/runs/timing_v50/rtl_v50/conv_int8_uni.v:1659]
+WARNING: [Synth 8-6014] Unused sequential element tap_q_reg was removed.  [/media/felix/Data/coding/demoir-fpga/runs/timing_v50/rtl_v50/conv_int8_uni.v:1659]
+WARNING: [Synth 8-6014] Unused sequential element ncg_q_reg was removed.  [/media/felix/Data/coding/demoir-fpga/runs/timing_v50/rtl_v50/conv_int8_uni.v:1661]
+WARNING: [Synth 8-6014] Unused sequential element w8_q_reg was removed.  [/media/felix/Data/coding/demoir-fpga/runs/timing_v50/rtl_v50/conv_int8_uni.v:1666]
+WARNING: [Synth 8-6014] Unused sequential element wgt_b_reg was removed.  [/media/felix/Data/coding/demoir-fpga/runs/timing_v50/rtl_v50/conv_int8_uni.v:1672]
+WARNING: [Synth 8-6014] Unused sequential element bias_b_reg was removed.  [/media/felix/Data/coding/demoir-fpga/runs/timing_v50/rtl_v50/conv_int8_uni.v:1672]
+WARNING: [Synth 8-6014] Unused sequential element out_b_reg was removed.  [/media/felix/Data/coding/demoir-fpga/runs/timing_v50/rtl_v50/conv_int8_uni.v:1672]
+WARNING: [Synth 8-4767] Trying to implement RAM 'fq_slot_reg' in registers. Block RAM or DRAM implementation is not possible; see log for reasons. [/media/felix/Data/coding/demoir-fpga/runs/timing_v50/rtl_v50/conv_uni_axi_wrap.v:1466]
+Reason is one or more of the following :
+	1: RAM has multiple writes via different ports in same process. If RAM inferencing intended, write to one port per process. 
+	2: Invalid write to RAM. 
+	3: Invalid write to RAM. 
+	4: RAM is sensitive to asynchronous reset signal. this RTL style is not supported. 
+WARNING: [Synth 8-4767] Trying to implement RAM 'fq_rem_reg' in registers. Block RAM or DRAM implementation is not possible; see log for reasons. [/media/felix/Data/coding/demoir-fpga/runs/timing_v50/rtl_v50/conv_uni_axi_wrap.v:1467]
+Reason is one or more of the following :
+	1: RAM has multiple writes via different ports in same process. If RAM inferencing intended, write to one port per process. 
+	2: Invalid write to RAM. 
+	3: Invalid write to RAM. 
+	4: RAM is sensitive to asynchronous reset signal. this RTL style is not supported. 
+WARNING: [Synth 8-4767] Trying to implement RAM 'fq_tag_reg' in registers. Block RAM or DRAM implementation is not possible; see log for reasons. [/media/felix/Data/coding/demoir-fpga/runs/timing_v50/rtl_v50/conv_uni_axi_wrap.v:1265]
+Reason is one or more of the following :
+	1: RAM is sensitive to asynchronous reset signal. this RTL style is not supported. 
+WARNING: [Synth 8-4767] Trying to implement RAM 'fq_ent_reg' in registers. Block RAM or DRAM implementation is not possible; see log for reasons. [/media/felix/Data/coding/demoir-fpga/runs/timing_v50/rtl_v50/conv_uni_axi_wrap.v:1266]
+Reason is one or more of the following :
+	1: RAM is sensitive to asynchronous reset signal. this RTL style is not supported. 
+WARNING: [Synth 8-7129] Port m_axi_rlast in module conv_uni_axi_wrap is either unconnected or has no load
+WARNING: [Synth 8-7129] Port nband[15] in module bin_band_fill_v50 is either unconnected or has no load
+WARNING: [Synth 8-7129] Port nband[14] in module bin_band_fill_v50 is either unconnected or has no load
+WARNING: [Synth 8-7129] Port nband[13] in module bin_band_fill_v50 is either unconnected or has no load
+WARNING: [Synth 8-7129] Port nband[12] in module bin_band_fill_v50 is either unconnected or has no load
+WARNING: [Synth 8-7129] Port nband[11] in module bin_band_fill_v50 is either unconnected or has no load
+WARNING: [Synth 8-7129] Port nband[10] in module bin_band_fill_v50 is either unconnected or has no load
+WARNING: [Synth 8-7129] Port nband[9] in module bin_band_fill_v50 is either unconnected or has no load
+WARNING: [Synth 8-7129] Port nband[8] in module bin_band_fill_v50 is either unconnected or has no load
+WARNING: [Synth 8-7129] Port nband[7] in module bin_band_fill_v50 is either unconnected or has no load
+WARNING: [Synth 8-7129] Port nband[6] in module bin_band_fill_v50 is either unconnected or has no load
+WARNING: [Synth 8-7129] Port nband[5] in module bin_band_fill_v50 is either unconnected or has no load
+WARNING: [Synth 8-7129] Port nband[4] in module bin_band_fill_v50 is either unconnected or has no load
+WARNING: [Synth 8-7129] Port nband[3] in module bin_band_fill_v50 is either unconnected or has no load
+WARNING: [Synth 8-7129] Port nband[2] in module bin_band_fill_v50 is either unconnected or has no load
+WARNING: [Synth 8-7129] Port nband[1] in module bin_band_fill_v50 is either unconnected or has no load
+WARNING: [Synth 8-7129] Port nband[0] in module bin_band_fill_v50 is either unconnected or has no load
+WARNING: [Synth 8-7129] Port cfg_alpha_shift[5] in module bin_conv_core_v50 is either unconnected or has no load
+WARNING: [Synth 8-7129] Port cfg_alpha_shift[4] in module bin_conv_core_v50 is either unconnected or has no load
+WARNING: [Synth 8-7129] Port cfg_alpha_shift[3] in module bin_conv_core_v50 is either unconnected or has no load
+WARNING: [Synth 8-7129] Port cfg_alpha_shift[2] in module bin_conv_core_v50 is either unconnected or has no load
+WARNING: [Synth 8-7129] Port cfg_alpha_shift[1] in module bin_conv_core_v50 is either unconnected or has no load
+WARNING: [Synth 8-7129] Port cfg_alpha_shift[0] in module bin_conv_core_v50 is either unconnected or has no load
+WARNING: [Synth 8-7129] Port cfg_slope_shift[5] in module bin_conv_core_v50 is either unconnected or has no load
+WARNING: [Synth 8-7129] Port cfg_slope_shift[4] in module bin_conv_core_v50 is either unconnected or has no load
+WARNING: [Synth 8-7129] Port cfg_slope_shift[3] in module bin_conv_core_v50 is either unconnected or has no load
+WARNING: [Synth 8-7129] Port cfg_slope_shift[2] in module bin_conv_core_v50 is either unconnected or has no load
+WARNING: [Synth 8-7129] Port cfg_slope_shift[1] in module bin_conv_core_v50 is either unconnected or has no load
+WARNING: [Synth 8-7129] Port cfg_slope_shift[0] in module bin_conv_core_v50 is either unconnected or has no load
+WARNING: [Synth 8-7129] Port m_axi_rlast in module bin_unit_axi_wrap_v50 is either unconnected or has no load
+WARNING: [Synth 8-7129] Port M_ACLK in module s00_couplers_imp_11GV68X is either unconnected or has no load
+WARNING: [Synth 8-7129] Port M_ARESETN in module s00_couplers_imp_11GV68X is either unconnected or has no load
+WARNING: [Synth 8-7129] Port M_ACLK in module m04_couplers_imp_WMWWF9 is either unconnected or has no load
+WARNING: [Synth 8-7129] Port M_ARESETN in module m04_couplers_imp_WMWWF9 is either unconnected or has no load
+WARNING: [Synth 8-7129] Port S_ACLK in module m04_couplers_imp_WMWWF9 is either unconnected or has no load
+WARNING: [Synth 8-7129] Port S_ARESETN in module m04_couplers_imp_WMWWF9 is either unconnected or has no load
+WARNING: [Synth 8-7129] Port M_ACLK in module m03_couplers_imp_1599MPT is either unconnected or has no load
+WARNING: [Synth 8-7129] Port M_ARESETN in module m03_couplers_imp_1599MPT is either unconnected or has no load
+WARNING: [Synth 8-7129] Port S_ACLK in module m03_couplers_imp_1599MPT is either unconnected or has no load
+WARNING: [Synth 8-7129] Port S_ARESETN in module m03_couplers_imp_1599MPT is either unconnected or has no load
+WARNING: [Synth 8-7129] Port M_ACLK in module m02_couplers_imp_YDHM00 is either unconnected or has no load
+WARNING: [Synth 8-7129] Port M_ARESETN in module m02_couplers_imp_YDHM00 is either unconnected or has no load
+WARNING: [Synth 8-7129] Port S_ACLK in module m02_couplers_imp_YDHM00 is either unconnected or has no load
+WARNING: [Synth 8-7129] Port S_ARESETN in module m02_couplers_imp_YDHM00 is either unconnected or has no load
+WARNING: [Synth 8-7129] Port M_ACLK in module m01_couplers_imp_14CBW76 is either unconnected or has no load
+WARNING: [Synth 8-7129] Port M_ARESETN in module m01_couplers_imp_14CBW76 is either unconnected or has no load
+WARNING: [Synth 8-7129] Port S_ACLK in module m01_couplers_imp_14CBW76 is either unconnected or has no load
+WARNING: [Synth 8-7129] Port S_ARESETN in module m01_couplers_imp_14CBW76 is either unconnected or has no load
+WARNING: [Synth 8-7129] Port M_ACLK in module m00_couplers_imp_Z0Q7MR is either unconnected or has no load
+WARNING: [Synth 8-7129] Port M_ARESETN in module m00_couplers_imp_Z0Q7MR is either unconnected or has no load
+WARNING: [Synth 8-7129] Port S_ACLK in module m00_couplers_imp_Z0Q7MR is either unconnected or has no load
+WARNING: [Synth 8-7129] Port S_ARESETN in module m00_couplers_imp_Z0Q7MR is either unconnected or has no load
+WARNING: [Synth 8-7129] Port M00_ACLK in module design_1_axi_ctrl_0 is either unconnected or has no load
+WARNING: [Synth 8-7129] Port M00_ARESETN in module design_1_axi_ctrl_0 is either unconnected or has no load
+WARNING: [Synth 8-7129] Port M01_ACLK in module design_1_axi_ctrl_0 is either unconnected or has no load
+WARNING: [Synth 8-7129] Port M01_ARESETN in module design_1_axi_ctrl_0 is either unconnected or has no load
+WARNING: [Synth 8-7129] Port M02_ACLK in module design_1_axi_ctrl_0 is either unconnected or has no load
+WARNING: [Synth 8-7129] Port M02_ARESETN in module design_1_axi_ctrl_0 is either unconnected or has no load
+WARNING: [Synth 8-7129] Port M03_ACLK in module design_1_axi_ctrl_0 is either unconnected or has no load
+WARNING: [Synth 8-7129] Port M03_ARESETN in module design_1_axi_ctrl_0 is either unconnected or has no load
+WARNING: [Synth 8-7129] Port M04_ACLK in module design_1_axi_ctrl_0 is either unconnected or has no load
+WARNING: [Synth 8-7129] Port M04_ARESETN in module design_1_axi_ctrl_0 is either unconnected or has no load
+WARNING: [Synth 8-7129] Port S00_ACLK in module design_1_axi_ctrl_0 is either unconnected or has no load
+WARNING: [Synth 8-7129] Port S00_ARESETN in module design_1_axi_ctrl_0 is either unconnected or has no load
+---------------------------------------------------------------------------------
+Finished RTL Elaboration : Time (s): cpu = 00:00:08 ; elapsed = 00:00:09 . Memory (MB): peak = 3253.773 ; gain = 774.797 ; free physical = 503 ; free virtual = 13080
+---------------------------------------------------------------------------------
+---------------------------------------------------------------------------------
+Start Handling Custom Attributes
+---------------------------------------------------------------------------------
+---------------------------------------------------------------------------------
+Finished Handling Custom Attributes : Time (s): cpu = 00:00:09 ; elapsed = 00:00:10 . Memory (MB): peak = 3253.773 ; gain = 774.797 ; free physical = 494 ; free virtual = 13071
+---------------------------------------------------------------------------------
+---------------------------------------------------------------------------------
+Finished RTL Optimization Phase 1 : Time (s): cpu = 00:00:09 ; elapsed = 00:00:10 . Memory (MB): peak = 3253.773 ; gain = 774.797 ; free physical = 494 ; free virtual = 13071
+---------------------------------------------------------------------------------
+CRITICAL WARNING: [Project 1-840] The design checkpoint file '/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/vivado/proj_v50/proj_engine.gen/sources_1/bd/design_1/ip/design_1_ps7_0/design_1_ps7_0.dcp' was generated for an IP by an out of context synthesis run and should not be used directly as a source in a Vivado flow. Constraints and other files related to the IP are only stored in the xci/xcix, not the checkpoint. It is strongly recommended that the original IP source file (.xci/.xcix) be used.
+CRITICAL WARNING: [Project 1-840] The design checkpoint file '/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/vivado/proj_v50/proj_engine.gen/sources_1/bd/design_1/ip/design_1_rst_0_0/design_1_rst_0_0.dcp' was generated for an IP by an out of context synthesis run and should not be used directly as a source in a Vivado flow. Constraints and other files related to the IP are only stored in the xci/xcix, not the checkpoint. It is strongly recommended that the original IP source file (.xci/.xcix) be used.
+CRITICAL WARNING: [Project 1-840] The design checkpoint file '/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/vivado/proj_v50/proj_engine.gen/sources_1/bd/design_1/ip/design_1_axi_ctrl_imp_xbar_0/design_1_axi_ctrl_imp_xbar_0.dcp' was generated for an IP by an out of context synthesis run and should not be used directly as a source in a Vivado flow. Constraints and other files related to the IP are only stored in the xci/xcix, not the checkpoint. It is strongly recommended that the original IP source file (.xci/.xcix) be used.
+CRITICAL WARNING: [Project 1-840] The design checkpoint file '/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/vivado/proj_v50/proj_engine.gen/sources_1/bd/design_1/ip/design_1_axi_ctrl_imp_auto_pc_0/design_1_axi_ctrl_imp_auto_pc_0.dcp' was generated for an IP by an out of context synthesis run and should not be used directly as a source in a Vivado flow. Constraints and other files related to the IP are only stored in the xci/xcix, not the checkpoint. It is strongly recommended that the original IP source file (.xci/.xcix) be used.
+Netlist sorting complete. Time (s): cpu = 00:00:00.41 ; elapsed = 00:00:00.4 . Memory (MB): peak = 3253.773 ; gain = 0.000 ; free physical = 406 ; free virtual = 12996
+WARNING: [Netlist 29-345] The value of SIM_DEVICE on instance 'design_1_i/conv_uni_0/inst/u_conv_uni/g_clk_bufgce.u_bufgce' of type 'BUFGCE' is 'ULTRASCALE'; it is being changed to match the current FPGA architecture, '7SERIES'. For functional simulation to match hardware behavior, the value of SIM_DEVICE should be changed in the source netlist. 
+INFO: [Netlist 29-17] Analyzing 1 Unisim elements for replacement
+INFO: [Netlist 29-28] Unisim Transformation completed in 0 CPU seconds
+INFO: [Project 1-570] Preparing netlist for logic optimization
+
+Processing XDC Constraints
+Initializing timing engine
+Parsing XDC File [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/vivado/proj_v50/proj_engine.gen/sources_1/bd/design_1/ip/design_1_ps7_0/design_1_ps7_0/design_1_ps7_0_in_context.xdc] for cell 'design_1_i/ps7'
+Finished Parsing XDC File [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/vivado/proj_v50/proj_engine.gen/sources_1/bd/design_1/ip/design_1_ps7_0/design_1_ps7_0/design_1_ps7_0_in_context.xdc] for cell 'design_1_i/ps7'
+Parsing XDC File [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/vivado/proj_v50/proj_engine.gen/sources_1/bd/design_1/ip/design_1_rst_0_0/design_1_rst_0_0/design_1_rst_0_0_in_context.xdc] for cell 'design_1_i/rst_0'
+Finished Parsing XDC File [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/vivado/proj_v50/proj_engine.gen/sources_1/bd/design_1/ip/design_1_rst_0_0/design_1_rst_0_0/design_1_rst_0_0_in_context.xdc] for cell 'design_1_i/rst_0'
+Parsing XDC File [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/vivado/proj_v50/proj_engine.gen/sources_1/bd/design_1/ip/design_1_axi_ctrl_imp_xbar_0/design_1_axi_ctrl_imp_xbar_0/design_1_axi_ctrl_imp_xbar_0_in_context.xdc] for cell 'design_1_i/axi_ctrl/xbar'
+Finished Parsing XDC File [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/vivado/proj_v50/proj_engine.gen/sources_1/bd/design_1/ip/design_1_axi_ctrl_imp_xbar_0/design_1_axi_ctrl_imp_xbar_0/design_1_axi_ctrl_imp_xbar_0_in_context.xdc] for cell 'design_1_i/axi_ctrl/xbar'
+Parsing XDC File [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/vivado/proj_v50/proj_engine.gen/sources_1/bd/design_1/ip/design_1_axi_ctrl_imp_auto_pc_0/design_1_axi_ctrl_imp_auto_pc_0/design_1_axi_ctrl_imp_auto_pc_0_in_context.xdc] for cell 'design_1_i/axi_ctrl/s00_couplers/auto_pc'
+Finished Parsing XDC File [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/vivado/proj_v50/proj_engine.gen/sources_1/bd/design_1/ip/design_1_axi_ctrl_imp_auto_pc_0/design_1_axi_ctrl_imp_auto_pc_0/design_1_axi_ctrl_imp_auto_pc_0_in_context.xdc] for cell 'design_1_i/axi_ctrl/s00_couplers/auto_pc'
+Parsing XDC File [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/vivado/proj_v50/proj_engine.gen/sources_1/bd/design_1/design_1_ooc.xdc]
+WARNING: [Vivado 12-508] No pins matched 'ps7/FCLK_CLK0'. [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/vivado/proj_v50/proj_engine.gen/sources_1/bd/design_1/design_1_ooc.xdc:9]
+Finished Parsing XDC File [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/vivado/proj_v50/proj_engine.gen/sources_1/bd/design_1/design_1_ooc.xdc]
+WARNING: [Project 1-498] One or more constraints failed evaluation while reading constraint file [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/vivado/proj_v50/proj_engine.gen/sources_1/bd/design_1/design_1_ooc.xdc] and the design contains unresolved black boxes. These constraints will be read post-synthesis (as long as their source constraint file is marked as used_in_implementation) and should be applied correctly then. You should review the constraints listed in the file [.Xil/design_1_wrapper_propImpl.xdc] and check the run log file to verify that these constraints were correctly applied.
+Completed Processing XDC Constraints
+
+Netlist sorting complete. Time (s): cpu = 00:00:00.02 ; elapsed = 00:00:00.01 . Memory (MB): peak = 3343.555 ; gain = 0.000 ; free physical = 385 ; free virtual = 12826
+INFO: [Project 1-111] Unisim Transformation Summary:
+  A total of 1 instances were transformed.
+  BUFGCE => BUFGCTRL: 1 instance 
+
+---------------------------------------------------------------------------------
+Finished Constraint Validation : Time (s): cpu = 00:00:20 ; elapsed = 00:00:20 . Memory (MB): peak = 3347.473 ; gain = 868.496 ; free physical = 355 ; free virtual = 11725
+---------------------------------------------------------------------------------
+---------------------------------------------------------------------------------
+Start Loading Part and Timing Information
+---------------------------------------------------------------------------------
+Loading part: xc7z015clg485-2
+---------------------------------------------------------------------------------
+Finished Loading Part and Timing Information : Time (s): cpu = 00:00:20 ; elapsed = 00:00:20 . Memory (MB): peak = 3347.473 ; gain = 868.496 ; free physical = 355 ; free virtual = 11724
+---------------------------------------------------------------------------------
+---------------------------------------------------------------------------------
+Start Applying 'set_property' XDC Constraints
+---------------------------------------------------------------------------------
+---------------------------------------------------------------------------------
+Finished applying 'set_property' XDC Constraints : Time (s): cpu = 00:00:20 ; elapsed = 00:00:20 . Memory (MB): peak = 3347.473 ; gain = 868.496 ; free physical = 340 ; free virtual = 11710
+---------------------------------------------------------------------------------
+INFO: [Synth 8-802] inferred FSM for state register 'state_reg' in module 'bin_conv_core_v50'
+INFO: [Synth 8-802] inferred FSM for state register 'state_reg' in module 'bin_catpack'
+INFO: [Synth 8-802] inferred FSM for state register 'wst_reg' in module 'bin_unit_axi_wrap_v50'
+INFO: [Synth 8-802] inferred FSM for state register 'state_reg' in module 'conv_int8_uni'
+WARNING: [Synth 8-3936] Found unconnected internal register 'cache_b_q_reg' and it is trimmed from '64' to '32' bits. [/media/felix/Data/coding/demoir-fpga/runs/timing_v50/rtl_v50/conv_uni_axi_wrap.v:1045]
+INFO: [Synth 8-802] inferred FSM for state register 'wst_reg' in module 'conv_uni_axi_wrap'
+---------------------------------------------------------------------------------------------------
+                   State |                     New Encoding |                Previous Encoding 
+---------------------------------------------------------------------------------------------------
+                 ST_IDLE |                           000001 |                              000
+                  ST_PRM |                           001000 |                              001
+                  ST_WLD |                           100000 |                              010
+                  ST_CMP |                           010000 |                              011
+                  ST_DRN |                           000100 |                              100
+                 ST_DONE |                           000010 |                              101
+---------------------------------------------------------------------------------------------------
+INFO: [Synth 8-3354] encoded FSM with state register 'state_reg' using encoding 'one-hot' in module 'bin_conv_core_v50'
+---------------------------------------------------------------------------------------------------
+                   State |                     New Encoding |                Previous Encoding 
+---------------------------------------------------------------------------------------------------
+                 ST_IDLE |                       0000000001 |                             0000
+                  ST_CHK |                       0000000010 |                             0001
+                 ST_TINI |                       0000000100 |                             0010
+                 ST_PASS |                       0000001000 |                             0011
+                   ST_D0 |                       0000010000 |                             0100
+                 ST_DATA |                       0000100000 |                             0101
+                  ST_ROW |                       0001000000 |                             0110
+                ST_FLUSH |                       0010000000 |                             0111
+                 ST_TEND |                       0100000000 |                             1000
+                 ST_DONE |                       1000000000 |                             1001
+---------------------------------------------------------------------------------------------------
+INFO: [Synth 8-3354] encoded FSM with state register 'state_reg' using encoding 'one-hot' in module 'bin_catpack'
+---------------------------------------------------------------------------------------------------
+                   State |                     New Encoding |                Previous Encoding 
+---------------------------------------------------------------------------------------------------
+                  W_IDLE |                              001 |                               00
+                   W_DR1 |                              100 |                               01
+                   W_DR2 |                              010 |                               10
+---------------------------------------------------------------------------------------------------
+INFO: [Synth 8-3354] encoded FSM with state register 'wst_reg' using encoding 'one-hot' in module 'bin_unit_axi_wrap_v50'
+---------------------------------------------------------------------------------------------------
+                   State |                     New Encoding |                Previous Encoding 
+---------------------------------------------------------------------------------------------------
+                 ST_IDLE |                           000001 |                              000
+                  ST_BIA |                           001000 |                              001
+                  ST_WLD |                           100000 |                              010
+                  ST_CMP |                           010000 |                              011
+                  ST_DRN |                           000100 |                              100
+                 ST_DONE |                           000010 |                              101
+---------------------------------------------------------------------------------------------------
+INFO: [Synth 8-3354] encoded FSM with state register 'state_reg' using encoding 'one-hot' in module 'conv_int8_uni'
+---------------------------------------------------------------------------------------------------
+                   State |                     New Encoding |                Previous Encoding 
+---------------------------------------------------------------------------------------------------
+                  W_IDLE |                              001 |                               00
+                   W_DR1 |                              100 |                               01
+                   W_DR2 |                              010 |                               10
+---------------------------------------------------------------------------------------------------
+INFO: [Synth 8-3354] encoded FSM with state register 'wst_reg' using encoding 'one-hot' in module 'conv_uni_axi_wrap'
+---------------------------------------------------------------------------------
+Finished RTL Optimization Phase 2 : Time (s): cpu = 00:00:29 ; elapsed = 00:00:30 . Memory (MB): peak = 3347.473 ; gain = 868.496 ; free physical = 272 ; free virtual = 11441
+---------------------------------------------------------------------------------
+---------------------------------------------------------------------------------
+Start RTL Component Statistics 
+---------------------------------------------------------------------------------
+Detailed RTL Component Info : 
++---Adders : 
+	   2 Input   64 Bit       Adders := 1     
+	   2 Input   36 Bit       Adders := 2     
+	   2 Input   33 Bit       Adders := 2     
+	   3 Input   33 Bit       Adders := 3     
+	   2 Input   32 Bit       Adders := 120   
+	   3 Input   32 Bit       Adders := 7     
+	   4 Input   32 Bit       Adders := 29    
+	   5 Input   32 Bit       Adders := 2     
+	   2 Input   29 Bit       Adders := 2     
+	   2 Input   25 Bit       Adders := 1     
+	   2 Input   21 Bit       Adders := 3     
+	   2 Input   17 Bit       Adders := 10    
+	   3 Input   17 Bit       Adders := 2     
+	   2 Input   16 Bit       Adders := 53    
+	   3 Input   16 Bit       Adders := 18    
+	   2 Input   13 Bit       Adders := 1     
+	   2 Input   12 Bit       Adders := 1     
+	   2 Input   11 Bit       Adders := 2     
+	   2 Input   10 Bit       Adders := 6     
+	   2 Input    9 Bit       Adders := 10    
+	   2 Input    8 Bit       Adders := 1     
+	  16 Input    7 Bit       Adders := 16    
+	   2 Input    7 Bit       Adders := 2     
+	   2 Input    6 Bit       Adders := 2     
+	   3 Input    5 Bit       Adders := 1     
+	   2 Input    5 Bit       Adders := 3     
+	   4 Input    5 Bit       Adders := 5     
+	   2 Input    4 Bit       Adders := 31    
+	   4 Input    4 Bit       Adders := 2     
+	   4 Input    3 Bit       Adders := 256   
+	   2 Input    3 Bit       Adders := 18    
+	   2 Input    2 Bit       Adders := 8     
++---XORs : 
+	   2 Input     64 Bit         XORs := 16    
+	   2 Input     32 Bit         XORs := 2     
+	   6 Input      5 Bit         XORs := 2     
++---Registers : 
+	               64 Bit    Registers := 126   
+	               48 Bit    Registers := 16    
+	               32 Bit    Registers := 444   
+	               29 Bit    Registers := 7     
+	               26 Bit    Registers := 51    
+	               25 Bit    Registers := 6     
+	               17 Bit    Registers := 6     
+	               16 Bit    Registers := 83    
+	               12 Bit    Registers := 1     
+	               11 Bit    Registers := 4     
+	               10 Bit    Registers := 4     
+	                9 Bit    Registers := 60    
+	                8 Bit    Registers := 141   
+	                7 Bit    Registers := 20    
+	                6 Bit    Registers := 5     
+	                5 Bit    Registers := 40    
+	                4 Bit    Registers := 150   
+	                3 Bit    Registers := 19    
+	                2 Bit    Registers := 11    
+	                1 Bit    Registers := 176   
++---Multipliers : 
+	              16x32  Multipliers := 17    
+	              32x32  Multipliers := 4     
+	              19x32  Multipliers := 1     
+	                4x4  Multipliers := 1     
++---RAMs : 
+	             512K Bit	(8192 X 64 bit)          RAMs := 1     
+	              32K Bit	(514 X 64 bit)          RAMs := 1     
+	              32K Bit	(512 X 64 bit)          RAMs := 6     
+	              16K Bit	(256 X 64 bit)          RAMs := 16    
+	               2K Bit	(256 X 8 bit)          RAMs := 8     
+	              512 Bit	(8 X 64 bit)          RAMs := 1     
++---Muxes : 
+	   8 Input 1024 Bit        Muxes := 1     
+	  10 Input 1024 Bit        Muxes := 2     
+	   2 Input 1024 Bit        Muxes := 1     
+	   8 Input  128 Bit        Muxes := 1     
+	  10 Input  128 Bit        Muxes := 2     
+	   2 Input  128 Bit        Muxes := 1     
+	   2 Input   64 Bit        Muxes := 216   
+	   4 Input   64 Bit        Muxes := 1     
+	   3 Input   64 Bit        Muxes := 36    
+	   5 Input   64 Bit        Muxes := 8     
+	   2 Input   32 Bit        Muxes := 369   
+	   6 Input   32 Bit        Muxes := 8     
+	  11 Input   32 Bit        Muxes := 2     
+	   4 Input   32 Bit        Muxes := 4     
+	  10 Input   32 Bit        Muxes := 4     
+	   9 Input   32 Bit        Muxes := 1     
+	   3 Input   32 Bit        Muxes := 1     
+	   2 Input   29 Bit        Muxes := 7     
+	   3 Input   29 Bit        Muxes := 1     
+	   2 Input   26 Bit        Muxes := 1     
+	   2 Input   25 Bit        Muxes := 1     
+	   4 Input   25 Bit        Muxes := 4     
+	   2 Input   23 Bit        Muxes := 1     
+	   2 Input   22 Bit        Muxes := 2     
+	   2 Input   17 Bit        Muxes := 7     
+	   2 Input   16 Bit        Muxes := 66    
+	   6 Input   16 Bit        Muxes := 2     
+	  11 Input   16 Bit        Muxes := 3     
+	  10 Input   16 Bit        Muxes := 1     
+	   2 Input   12 Bit        Muxes := 4     
+	   4 Input   11 Bit        Muxes := 1     
+	  22 Input   10 Bit        Muxes := 1     
+	   2 Input   10 Bit        Muxes := 6     
+	   5 Input   10 Bit        Muxes := 1     
+	   2 Input    9 Bit        Muxes := 20    
+	   4 Input    9 Bit        Muxes := 2     
+	   3 Input    9 Bit        Muxes := 1     
+	   2 Input    8 Bit        Muxes := 210   
+	  11 Input    8 Bit        Muxes := 1     
+	  10 Input    8 Bit        Muxes := 1     
+	   4 Input    8 Bit        Muxes := 2     
+	   3 Input    8 Bit        Muxes := 34    
+	   2 Input    7 Bit        Muxes := 5     
+	   2 Input    6 Bit        Muxes := 7     
+	   6 Input    6 Bit        Muxes := 3     
+	   4 Input    6 Bit        Muxes := 1     
+	   2 Input    5 Bit        Muxes := 59    
+	   4 Input    5 Bit        Muxes := 1     
+	   3 Input    5 Bit        Muxes := 1     
+	   2 Input    4 Bit        Muxes := 320   
+	   6 Input    4 Bit        Muxes := 4     
+	  11 Input    4 Bit        Muxes := 1     
+	  10 Input    4 Bit        Muxes := 1     
+	   4 Input    4 Bit        Muxes := 4     
+	   3 Input    4 Bit        Muxes := 1     
+	   5 Input    4 Bit        Muxes := 1     
+	   6 Input    3 Bit        Muxes := 2     
+	  11 Input    3 Bit        Muxes := 1     
+	   2 Input    3 Bit        Muxes := 29    
+	   5 Input    3 Bit        Muxes := 1     
+	   4 Input    3 Bit        Muxes := 1     
+	  10 Input    3 Bit        Muxes := 3     
+	   9 Input    3 Bit        Muxes := 2     
+	   3 Input    3 Bit        Muxes := 2     
+	   2 Input    2 Bit        Muxes := 16    
+	   3 Input    2 Bit        Muxes := 1     
+	   4 Input    2 Bit        Muxes := 2     
+	   6 Input    2 Bit        Muxes := 1     
+	   2 Input    1 Bit        Muxes := 1253  
+	   6 Input    1 Bit        Muxes := 20    
+	   4 Input    1 Bit        Muxes := 29    
+	  11 Input    1 Bit        Muxes := 11    
+	   5 Input    1 Bit        Muxes := 5     
+	  10 Input    1 Bit        Muxes := 12    
+	   9 Input    1 Bit        Muxes := 14    
+	   3 Input    1 Bit        Muxes := 82    
+---------------------------------------------------------------------------------
+Finished RTL Component Statistics 
+---------------------------------------------------------------------------------
+---------------------------------------------------------------------------------
+Start Part Resource Summary
+---------------------------------------------------------------------------------
+Part Resources:
+DSPs: 160 (col length:60)
+BRAMs: 190 (col length: RAMB18 60 RAMB36 30)
+---------------------------------------------------------------------------------
+Finished Part Resource Summary
+---------------------------------------------------------------------------------
+---------------------------------------------------------------------------------
+Start Cross Boundary and Area Optimization
+---------------------------------------------------------------------------------
+INFO: [Synth 8-12192] Not enough pipeline registers after wide multiplier. Pipeline registers present is 0. Recommended levels of pipeline registers is 2. [/media/felix/Data/coding/demoir-fpga/runs/timing_v50/rtl_v50/lane16/bin_conv_core_v50.v:481]
+INFO: [Synth 8-12192] Not enough pipeline registers after wide multiplier. Pipeline registers present is 0. Recommended levels of pipeline registers is 2. [/media/felix/Data/coding/demoir-fpga/runs/timing_v50/rtl_v50/lane16/bin_conv_core_v50.v:481]
+INFO: [Synth 8-12192] Not enough pipeline registers after wide multiplier. Pipeline registers present is 0. Recommended levels of pipeline registers is 2. [/media/felix/Data/coding/demoir-fpga/runs/timing_v50/rtl_v50/lane16/bin_conv_core_v50.v:481]
+INFO: [Synth 8-12192] Not enough pipeline registers after wide multiplier. Pipeline registers present is 0. Recommended levels of pipeline registers is 2. [/media/felix/Data/coding/demoir-fpga/runs/timing_v50/rtl_v50/lane16/bin_conv_core_v50.v:481]
+INFO: [Synth 8-12192] Not enough pipeline registers after wide multiplier. Pipeline registers present is 0. Recommended levels of pipeline registers is 2. [/media/felix/Data/coding/demoir-fpga/runs/timing_v50/rtl_v50/lane16/bin_conv_core_v50.v:481]
+INFO: [Synth 8-12192] Not enough pipeline registers after wide multiplier. Pipeline registers present is 0. Recommended levels of pipeline registers is 2. [/media/felix/Data/coding/demoir-fpga/runs/timing_v50/rtl_v50/lane16/bin_conv_core_v50.v:481]
+INFO: [Synth 8-12192] Not enough pipeline registers after wide multiplier. Pipeline registers present is 0. Recommended levels of pipeline registers is 2. [/media/felix/Data/coding/demoir-fpga/runs/timing_v50/rtl_v50/lane16/bin_conv_core_v50.v:481]
+INFO: [Synth 8-12192] Not enough pipeline registers after wide multiplier. Pipeline registers present is 0. Recommended levels of pipeline registers is 2. [/media/felix/Data/coding/demoir-fpga/runs/timing_v50/rtl_v50/lane16/bin_conv_core_v50.v:481]
+INFO: [Synth 8-12192] Not enough pipeline registers after wide multiplier. Pipeline registers present is 0. Recommended levels of pipeline registers is 2. [/media/felix/Data/coding/demoir-fpga/runs/timing_v50/rtl_v50/lane16/bin_conv_core_v50.v:481]
+INFO: [Synth 8-12192] Not enough pipeline registers after wide multiplier. Pipeline registers present is 0. Recommended levels of pipeline registers is 2. [/media/felix/Data/coding/demoir-fpga/runs/timing_v50/rtl_v50/lane16/bin_conv_core_v50.v:481]
+INFO: [Synth 8-12192] Not enough pipeline registers after wide multiplier. Pipeline registers present is 0. Recommended levels of pipeline registers is 2. [/media/felix/Data/coding/demoir-fpga/runs/timing_v50/rtl_v50/lane16/bin_conv_core_v50.v:481]
+INFO: [Synth 8-12192] Not enough pipeline registers after wide multiplier. Pipeline registers present is 0. Recommended levels of pipeline registers is 2. [/media/felix/Data/coding/demoir-fpga/runs/timing_v50/rtl_v50/lane16/bin_conv_core_v50.v:481]
+INFO: [Synth 8-12192] Not enough pipeline registers after wide multiplier. Pipeline registers present is 0. Recommended levels of pipeline registers is 2. [/media/felix/Data/coding/demoir-fpga/runs/timing_v50/rtl_v50/lane16/bin_conv_core_v50.v:481]
+INFO: [Synth 8-12192] Not enough pipeline registers after wide multiplier. Pipeline registers present is 0. Recommended levels of pipeline registers is 2. [/media/felix/Data/coding/demoir-fpga/runs/timing_v50/rtl_v50/lane16/bin_conv_core_v50.v:481]
+DSP Report: Generating DSP ckk_c, operation Mode is: A*B.
+DSP Report: operator ckk_c is absorbed into DSP ckk_c.
+DSP Report: Generating DSP K_lc, operation Mode is: A*B.
+DSP Report: operator K_lc is absorbed into DSP K_lc.
+DSP Report: operator K_lc is absorbed into DSP K_lc.
+DSP Report: Generating DSP K_lc, operation Mode is: (PCIN>>17)+A*B.
+DSP Report: operator K_lc is absorbed into DSP K_lc.
+DSP Report: operator K_lc is absorbed into DSP K_lc.
+DSP Report: Generating DSP p_0_out, operation Mode is: A*B.
+DSP Report: operator p_0_out is absorbed into DSP p_0_out.
+DSP Report: operator p_0_out is absorbed into DSP p_0_out.
+DSP Report: Generating DSP p_0_out, operation Mode is: (PCIN>>17)+A*B.
+DSP Report: operator p_0_out is absorbed into DSP p_0_out.
+DSP Report: operator p_0_out is absorbed into DSP p_0_out.
+DSP Report: Generating DSP p_0_out, operation Mode is: A*B.
+DSP Report: operator p_0_out is absorbed into DSP p_0_out.
+DSP Report: operator p_0_out is absorbed into DSP p_0_out.
+DSP Report: Generating DSP p_0_out, operation Mode is: (PCIN>>17)+A*B.
+DSP Report: operator p_0_out is absorbed into DSP p_0_out.
+DSP Report: operator p_0_out is absorbed into DSP p_0_out.
+DSP Report: Generating DSP p_0_out, operation Mode is: A*B.
+DSP Report: operator p_0_out is absorbed into DSP p_0_out.
+DSP Report: Generating DSP p_0_out, operation Mode is: A*B.
+DSP Report: operator p_0_out is absorbed into DSP p_0_out.
+DSP Report: operator p_0_out is absorbed into DSP p_0_out.
+DSP Report: Generating DSP p_0_out, operation Mode is: (PCIN>>17)+A*B.
+DSP Report: operator p_0_out is absorbed into DSP p_0_out.
+DSP Report: operator p_0_out is absorbed into DSP p_0_out.
+DSP Report: Generating DSP p_0_out, operation Mode is: A*B.
+DSP Report: operator p_0_out is absorbed into DSP p_0_out.
+DSP Report: Generating DSP p_0_out, operation Mode is: A*B.
+DSP Report: operator p_0_out is absorbed into DSP p_0_out.
+DSP Report: operator p_0_out is absorbed into DSP p_0_out.
+DSP Report: Generating DSP p_0_out, operation Mode is: (PCIN>>17)+A*B.
+DSP Report: operator p_0_out is absorbed into DSP p_0_out.
+DSP Report: operator p_0_out is absorbed into DSP p_0_out.
+DSP Report: Generating DSP p_0_out, operation Mode is: A*B.
+DSP Report: operator p_0_out is absorbed into DSP p_0_out.
+DSP Report: operator p_0_out is absorbed into DSP p_0_out.
+DSP Report: Generating DSP p_0_out, operation Mode is: (PCIN>>17)+A*B.
+DSP Report: operator p_0_out is absorbed into DSP p_0_out.
+DSP Report: operator p_0_out is absorbed into DSP p_0_out.
+DSP Report: Generating DSP plane_stride_q1, operation Mode is: A*B.
+DSP Report: operator plane_stride_q1 is absorbed into DSP plane_stride_q1.
+DSP Report: Generating DSP p_0_out, operation Mode is: A*B.
+DSP Report: operator p_0_out is absorbed into DSP p_0_out.
+DSP Report: Generating DSP p_0_out, operation Mode is: A*B.
+DSP Report: operator p_0_out is absorbed into DSP p_0_out.
+DSP Report: operator p_0_out is absorbed into DSP p_0_out.
+DSP Report: Generating DSP p_0_out, operation Mode is: (PCIN>>17)+A*B.
+DSP Report: operator p_0_out is absorbed into DSP p_0_out.
+DSP Report: operator p_0_out is absorbed into DSP p_0_out.
+DSP Report: Generating DSP p_0_out, operation Mode is: A*B.
+DSP Report: operator p_0_out is absorbed into DSP p_0_out.
+DSP Report: operator p_0_out is absorbed into DSP p_0_out.
+DSP Report: Generating DSP p_0_out, operation Mode is: (PCIN>>17)+A*B.
+DSP Report: operator p_0_out is absorbed into DSP p_0_out.
+DSP Report: operator p_0_out is absorbed into DSP p_0_out.
+DSP Report: Generating DSP p_0_out, operation Mode is: A*B.
+DSP Report: operator p_0_out is absorbed into DSP p_0_out.
+DSP Report: Generating DSP p_0_out, operation Mode is: A*B.
+DSP Report: operator p_0_out is absorbed into DSP p_0_out.
+DSP Report: operator p_0_out is absorbed into DSP p_0_out.
+DSP Report: Generating DSP p_0_out, operation Mode is: (PCIN>>17)+A*B.
+DSP Report: operator p_0_out is absorbed into DSP p_0_out.
+DSP Report: operator p_0_out is absorbed into DSP p_0_out.
+DSP Report: Generating DSP p_0_out, operation Mode is: A*B.
+DSP Report: operator p_0_out is absorbed into DSP p_0_out.
+DSP Report: Generating DSP p_0_out, operation Mode is: A*B.
+DSP Report: operator p_0_out is absorbed into DSP p_0_out.
+DSP Report: operator p_0_out is absorbed into DSP p_0_out.
+DSP Report: Generating DSP p_0_out, operation Mode is: (PCIN>>17)+A*B.
+DSP Report: operator p_0_out is absorbed into DSP p_0_out.
+DSP Report: operator p_0_out is absorbed into DSP p_0_out.
+DSP Report: Generating DSP p_0_out, operation Mode is: A*B.
+DSP Report: operator p_0_out is absorbed into DSP p_0_out.
+DSP Report: operator p_0_out is absorbed into DSP p_0_out.
+DSP Report: Generating DSP p_0_out, operation Mode is: (PCIN>>17)+A*B.
+DSP Report: operator p_0_out is absorbed into DSP p_0_out.
+DSP Report: operator p_0_out is absorbed into DSP p_0_out.
+DSP Report: Generating DSP p_0_out, operation Mode is: A*B.
+DSP Report: operator p_0_out is absorbed into DSP p_0_out.
+DSP Report: Generating DSP p_0_out, operation Mode is: A*B.
+DSP Report: operator p_0_out is absorbed into DSP p_0_out.
+DSP Report: operator p_0_out is absorbed into DSP p_0_out.
+DSP Report: Generating DSP p_0_out, operation Mode is: (PCIN>>17)+A*B.
+DSP Report: operator p_0_out is absorbed into DSP p_0_out.
+DSP Report: operator p_0_out is absorbed into DSP p_0_out.
+DSP Report: Generating DSP p_0_out, operation Mode is: A*B.
+DSP Report: operator p_0_out is absorbed into DSP p_0_out.
+DSP Report: Generating DSP p_0_out, operation Mode is: A*B.
+DSP Report: operator p_0_out is absorbed into DSP p_0_out.
+DSP Report: operator p_0_out is absorbed into DSP p_0_out.
+DSP Report: Generating DSP p_0_out, operation Mode is: (PCIN>>17)+A*B.
+DSP Report: operator p_0_out is absorbed into DSP p_0_out.
+DSP Report: operator p_0_out is absorbed into DSP p_0_out.
+DSP Report: Generating DSP p_0_out, operation Mode is: A*B.
+DSP Report: operator p_0_out is absorbed into DSP p_0_out.
+DSP Report: Generating DSP p_0_out, operation Mode is: A*B.
+DSP Report: operator p_0_out is absorbed into DSP p_0_out.
+DSP Report: operator p_0_out is absorbed into DSP p_0_out.
+DSP Report: Generating DSP p_0_out, operation Mode is: (PCIN>>17)+A*B.
+DSP Report: operator p_0_out is absorbed into DSP p_0_out.
+DSP Report: operator p_0_out is absorbed into DSP p_0_out.
+DSP Report: Generating DSP p_0_out, operation Mode is: A*B.
+DSP Report: operator p_0_out is absorbed into DSP p_0_out.
+DSP Report: Generating DSP p_0_out, operation Mode is: A*B.
+DSP Report: operator p_0_out is absorbed into DSP p_0_out.
+DSP Report: operator p_0_out is absorbed into DSP p_0_out.
+DSP Report: Generating DSP p_0_out, operation Mode is: (PCIN>>17)+A*B.
+DSP Report: operator p_0_out is absorbed into DSP p_0_out.
+DSP Report: operator p_0_out is absorbed into DSP p_0_out.
+INFO: [Synth 8-12192] Not enough pipeline registers after wide multiplier. Pipeline registers present is 0. Recommended levels of pipeline registers is 2. [/media/felix/Data/coding/demoir-fpga/runs/timing_v50/rtl_v50/lane16/bin_conv_core_v50.v:481]
+INFO: [Synth 8-12192] Not enough pipeline registers after wide multiplier. Pipeline registers present is 0. Recommended levels of pipeline registers is 2. [/media/felix/Data/coding/demoir-fpga/runs/timing_v50/rtl_v50/lane16/bin_conv_core_v50.v:481]
+INFO: [Synth 8-12192] Not enough pipeline registers after wide multiplier. Pipeline registers present is 1. Recommended levels of pipeline registers is 4. [/media/felix/Data/coding/demoir-fpga/runs/timing_v50/rtl_v50/lane16/bin_conv_core_v50.v:805]
+INFO: [Synth 8-12192] Not enough pipeline registers after wide multiplier. Pipeline registers present is 1. Recommended levels of pipeline registers is 4. [/media/felix/Data/coding/demoir-fpga/runs/timing_v50/rtl_v50/lane16/bin_conv_core_v50.v:807]
+INFO: [Synth 8-12192] Not enough pipeline registers after wide multiplier. Pipeline registers present is 1. Recommended levels of pipeline registers is 4. [/media/felix/Data/coding/demoir-fpga/runs/timing_v50/rtl_v50/lane16/bin_conv_core_v50.v:806]
+INFO: [Synth 8-12192] Not enough pipeline registers after wide multiplier. Pipeline registers present is 1. Recommended levels of pipeline registers is 4. [/media/felix/Data/coding/demoir-fpga/runs/timing_v50/rtl_v50/lane16/bin_conv_core_v50.v:808]
+DSP Report: Generating DSP p_0_out, operation Mode is: A*B.
+DSP Report: operator p_0_out is absorbed into DSP p_0_out.
+DSP Report: Generating DSP p_0_out, operation Mode is: A*B.
+DSP Report: operator p_0_out is absorbed into DSP p_0_out.
+DSP Report: operator p_0_out is absorbed into DSP p_0_out.
+DSP Report: Generating DSP p_0_out, operation Mode is: (PCIN>>17)+A*B.
+DSP Report: operator p_0_out is absorbed into DSP p_0_out.
+DSP Report: operator p_0_out is absorbed into DSP p_0_out.
+DSP Report: Generating DSP p_0_out, operation Mode is: A*B.
+DSP Report: operator p_0_out is absorbed into DSP p_0_out.
+DSP Report: Generating DSP p_0_out, operation Mode is: A*B.
+DSP Report: operator p_0_out is absorbed into DSP p_0_out.
+DSP Report: operator p_0_out is absorbed into DSP p_0_out.
+DSP Report: Generating DSP p_0_out, operation Mode is: (PCIN>>17)+A*B.
+DSP Report: operator p_0_out is absorbed into DSP p_0_out.
+DSP Report: operator p_0_out is absorbed into DSP p_0_out.
+DSP Report: Generating DSP p_0_out, operation Mode is: A*B.
+DSP Report: operator p_0_out is absorbed into DSP p_0_out.
+DSP Report: Generating DSP p_0_out, operation Mode is: A*B.
+DSP Report: operator p_0_out is absorbed into DSP p_0_out.
+DSP Report: Generating DSP padw8_c, operation Mode is: A*B.
+DSP Report: operator padw8_c is absorbed into DSP padw8_c.
+DSP Report: Generating DSP hw8_c0, operation Mode is: A*B.
+DSP Report: operator hw8_c0 is absorbed into DSP hw8_c0.
+DSP Report: Generating DSP cp1_q0, operation Mode is: A*B.
+DSP Report: operator cp1_q0 is absorbed into DSP cp1_q0.
+DSP Report: operator cp1_q0 is absorbed into DSP cp1_q0.
+DSP Report: Generating DSP cp1_q0, operation Mode is: (PCIN>>17)+A*B.
+DSP Report: operator cp1_q0 is absorbed into DSP cp1_q0.
+DSP Report: operator cp1_q0 is absorbed into DSP cp1_q0.
+DSP Report: Generating DSP cp1_q0, operation Mode is: A*B.
+DSP Report: operator cp1_q0 is absorbed into DSP cp1_q0.
+DSP Report: operator cp1_q0 is absorbed into DSP cp1_q0.
+DSP Report: Generating DSP cp1_q0, operation Mode is: (PCIN>>17)+A*B.
+DSP Report: operator cp1_q0 is absorbed into DSP cp1_q0.
+DSP Report: operator cp1_q0 is absorbed into DSP cp1_q0.
+DSP Report: Generating DSP cp3_q0, operation Mode is: A*B.
+DSP Report: operator cp3_q0 is absorbed into DSP cp3_q0.
+DSP Report: operator cp3_q0 is absorbed into DSP cp3_q0.
+DSP Report: Generating DSP cp3_q0, operation Mode is: (PCIN>>17)+A*B.
+DSP Report: operator cp3_q0 is absorbed into DSP cp3_q0.
+DSP Report: operator cp3_q0 is absorbed into DSP cp3_q0.
+DSP Report: Generating DSP cp3_q0, operation Mode is: A*B.
+DSP Report: operator cp3_q0 is absorbed into DSP cp3_q0.
+DSP Report: operator cp3_q0 is absorbed into DSP cp3_q0.
+DSP Report: Generating DSP cp3_q0, operation Mode is: (PCIN>>17)+A*B.
+DSP Report: operator cp3_q0 is absorbed into DSP cp3_q0.
+DSP Report: operator cp3_q0 is absorbed into DSP cp3_q0.
+DSP Report: Generating DSP dw8_c, operation Mode is: A*B.
+DSP Report: operator dw8_c is absorbed into DSP dw8_c.
+DSP Report: Generating DSP cp2_q0, operation Mode is: A*B.
+DSP Report: operator cp2_q0 is absorbed into DSP cp2_q0.
+DSP Report: operator cp2_q0 is absorbed into DSP cp2_q0.
+DSP Report: Generating DSP cp2_q0, operation Mode is: (PCIN>>17)+A*B.
+DSP Report: operator cp2_q0 is absorbed into DSP cp2_q0.
+DSP Report: operator cp2_q0 is absorbed into DSP cp2_q0.
+DSP Report: Generating DSP cp2_q0, operation Mode is: A*B.
+DSP Report: operator cp2_q0 is absorbed into DSP cp2_q0.
+DSP Report: operator cp2_q0 is absorbed into DSP cp2_q0.
+DSP Report: Generating DSP cp2_q0, operation Mode is: (PCIN>>17)+A*B.
+DSP Report: operator cp2_q0 is absorbed into DSP cp2_q0.
+DSP Report: operator cp2_q0 is absorbed into DSP cp2_q0.
+DSP Report: Generating DSP cp4_q0, operation Mode is: A*B.
+DSP Report: operator cp4_q0 is absorbed into DSP cp4_q0.
+DSP Report: operator cp4_q0 is absorbed into DSP cp4_q0.
+DSP Report: Generating DSP cp4_q0, operation Mode is: (PCIN>>17)+A*B.
+DSP Report: operator cp4_q0 is absorbed into DSP cp4_q0.
+DSP Report: operator cp4_q0 is absorbed into DSP cp4_q0.
+DSP Report: Generating DSP cp4_q0, operation Mode is: A*B.
+DSP Report: operator cp4_q0 is absorbed into DSP cp4_q0.
+DSP Report: operator cp4_q0 is absorbed into DSP cp4_q0.
+DSP Report: Generating DSP cp4_q0, operation Mode is: (PCIN>>17)+A*B.
+DSP Report: operator cp4_q0 is absorbed into DSP cp4_q0.
+DSP Report: operator cp4_q0 is absorbed into DSP cp4_q0.
+DSP Report: Generating DSP sw8_c, operation Mode is: A*B.
+DSP Report: operator sw8_c is absorbed into DSP sw8_c.
+DSP Report: Generating DSP p_0_out, operation Mode is: A*B.
+DSP Report: operator p_0_out is absorbed into DSP p_0_out.
+DSP Report: Generating DSP p_0_out, operation Mode is: A*B.
+DSP Report: operator p_0_out is absorbed into DSP p_0_out.
+DSP Report: Generating DSP p_0_out, operation Mode is: A*B.
+DSP Report: operator p_0_out is absorbed into DSP p_0_out.
+DSP Report: Generating DSP hw_q0, operation Mode is: A*B.
+DSP Report: operator hw_q0 is absorbed into DSP hw_q0.
+INFO: [Synth 8-5544] ROM "mat" won't be mapped to Block RAM because address size (3) smaller than threshold (5)
+INFO: [Synth 8-5544] ROM "stage" won't be mapped to Block RAM because address size (3) smaller than threshold (5)
+DSP Report: Generating DSP hw_q0, operation Mode is: A*B.
+DSP Report: operator hw_q0 is absorbed into DSP hw_q0.
+INFO: [Synth 8-12192] Not enough pipeline registers after wide multiplier. Pipeline registers present is 0. Recommended levels of pipeline registers is 2. [/media/felix/Data/coding/demoir-fpga/runs/timing_v50/rtl_v50/lane16/bin_band_fill_v50.v:101]
+INFO: [Synth 8-12192] Not enough pipeline registers after wide multiplier. Pipeline registers present is 0. Recommended levels of pipeline registers is 2. [/media/felix/Data/coding/demoir-fpga/runs/timing_v50/rtl_v50/lane16/bin_band_fill_v50.v:102]
+DSP Report: Generating DSP blk_stride0, operation Mode is: A*B.
+DSP Report: operator blk_stride0 is absorbed into DSP blk_stride0.
+DSP Report: Generating DSP ddr_addr642, operation Mode is: A*B.
+DSP Report: operator ddr_addr642 is absorbed into DSP ddr_addr642.
+DSP Report: operator ddr_addr642 is absorbed into DSP ddr_addr642.
+DSP Report: Generating DSP ddr_addr642, operation Mode is: (PCIN>>17)+A*B.
+DSP Report: operator ddr_addr642 is absorbed into DSP ddr_addr642.
+DSP Report: operator ddr_addr642 is absorbed into DSP ddr_addr642.
+DSP Report: Generating DSP ddr_addr641, operation Mode is: A*B.
+DSP Report: operator ddr_addr641 is absorbed into DSP ddr_addr641.
+DSP Report: operator ddr_addr641 is absorbed into DSP ddr_addr641.
+DSP Report: Generating DSP ddr_addr641, operation Mode is: (PCIN>>17)+A*B.
+DSP Report: operator ddr_addr641 is absorbed into DSP ddr_addr641.
+DSP Report: operator ddr_addr641 is absorbed into DSP ddr_addr641.
+DSP Report: Generating DSP g_conv.g_wr_split2.npix, operation Mode is: A*B.
+DSP Report: operator g_conv.g_wr_split2.npix is absorbed into DSP g_conv.g_wr_split2.npix.
+DSP Report: Generating DSP g_conv.geo_drnw0, operation Mode is: A*B.
+DSP Report: operator g_conv.geo_drnw0 is absorbed into DSP g_conv.geo_drnw0.
+DSP Report: Generating DSP g_conv.geo_drnw, operation Mode is: A*B.
+DSP Report: operator g_conv.geo_drnw is absorbed into DSP g_conv.geo_drnw.
+DSP Report: operator g_conv.geo_drnw is absorbed into DSP g_conv.geo_drnw.
+DSP Report: Generating DSP g_conv.geo_drnw, operation Mode is: (PCIN>>17)+A*B.
+DSP Report: operator g_conv.geo_drnw is absorbed into DSP g_conv.geo_drnw.
+DSP Report: operator g_conv.geo_drnw is absorbed into DSP g_conv.geo_drnw.
+DSP Report: Generating DSP g_conv.geo_loadw0, operation Mode is: A*B.
+DSP Report: operator g_conv.geo_loadw0 is absorbed into DSP g_conv.geo_loadw0.
+DSP Report: Generating DSP g_conv.geo_loadw, operation Mode is: A*B.
+DSP Report: operator g_conv.geo_loadw is absorbed into DSP g_conv.geo_loadw.
+DSP Report: operator g_conv.geo_loadw is absorbed into DSP g_conv.geo_loadw.
+DSP Report: Generating DSP g_conv.geo_loadw, operation Mode is: (PCIN>>17)+A*B.
+DSP Report: operator g_conv.geo_loadw is absorbed into DSP g_conv.geo_loadw.
+DSP Report: operator g_conv.geo_loadw is absorbed into DSP g_conv.geo_loadw.
+WARNING: [Synth 8-7129] Port nband[15] in module bin_band_fill_v50 is either unconnected or has no load
+WARNING: [Synth 8-7129] Port nband[14] in module bin_band_fill_v50 is either unconnected or has no load
+WARNING: [Synth 8-7129] Port nband[13] in module bin_band_fill_v50 is either unconnected or has no load
+WARNING: [Synth 8-7129] Port nband[12] in module bin_band_fill_v50 is either unconnected or has no load
+WARNING: [Synth 8-7129] Port nband[11] in module bin_band_fill_v50 is either unconnected or has no load
+WARNING: [Synth 8-7129] Port nband[10] in module bin_band_fill_v50 is either unconnected or has no load
+WARNING: [Synth 8-7129] Port nband[9] in module bin_band_fill_v50 is either unconnected or has no load
+WARNING: [Synth 8-7129] Port nband[8] in module bin_band_fill_v50 is either unconnected or has no load
+WARNING: [Synth 8-7129] Port nband[7] in module bin_band_fill_v50 is either unconnected or has no load
+WARNING: [Synth 8-7129] Port nband[6] in module bin_band_fill_v50 is either unconnected or has no load
+WARNING: [Synth 8-7129] Port nband[5] in module bin_band_fill_v50 is either unconnected or has no load
+WARNING: [Synth 8-7129] Port nband[4] in module bin_band_fill_v50 is either unconnected or has no load
+WARNING: [Synth 8-7129] Port nband[3] in module bin_band_fill_v50 is either unconnected or has no load
+WARNING: [Synth 8-7129] Port nband[2] in module bin_band_fill_v50 is either unconnected or has no load
+WARNING: [Synth 8-7129] Port nband[1] in module bin_band_fill_v50 is either unconnected or has no load
+WARNING: [Synth 8-7129] Port nband[0] in module bin_band_fill_v50 is either unconnected or has no load
+WARNING: [Synth 8-7129] Port a_rd_addr[31] in module bin_band_buf is either unconnected or has no load
+WARNING: [Synth 8-7129] Port a_rd_addr[30] in module bin_band_buf is either unconnected or has no load
+WARNING: [Synth 8-7129] Port a_rd_addr[29] in module bin_band_buf is either unconnected or has no load
+WARNING: [Synth 8-7129] Port a_rd_addr[28] in module bin_band_buf is either unconnected or has no load
+WARNING: [Synth 8-7129] Port a_rd_addr[27] in module bin_band_buf is either unconnected or has no load
+WARNING: [Synth 8-7129] Port a_rd_addr[26] in module bin_band_buf is either unconnected or has no load
+WARNING: [Synth 8-7129] Port a_rd_addr[25] in module bin_band_buf is either unconnected or has no load
+WARNING: [Synth 8-7129] Port a_rd_addr[24] in module bin_band_buf is either unconnected or has no load
+WARNING: [Synth 8-7129] Port a_rd_addr[23] in module bin_band_buf is either unconnected or has no load
+WARNING: [Synth 8-7129] Port a_rd_addr[22] in module bin_band_buf is either unconnected or has no load
+WARNING: [Synth 8-7129] Port a_rd_addr[21] in module bin_band_buf is either unconnected or has no load
+WARNING: [Synth 8-7129] Port a_rd_addr[20] in module bin_band_buf is either unconnected or has no load
+WARNING: [Synth 8-7129] Port a_rd_addr[19] in module bin_band_buf is either unconnected or has no load
+WARNING: [Synth 8-7129] Port a_rd_addr[18] in module bin_band_buf is either unconnected or has no load
+WARNING: [Synth 8-7129] Port a_rd_addr[17] in module bin_band_buf is either unconnected or has no load
+WARNING: [Synth 8-7129] Port a_rd_addr[16] in module bin_band_buf is either unconnected or has no load
+WARNING: [Synth 8-7129] Port a_rd_addr[15] in module bin_band_buf is either unconnected or has no load
+WARNING: [Synth 8-7129] Port a_rd_addr[14] in module bin_band_buf is either unconnected or has no load
+WARNING: [Synth 8-7129] Port a_rd_addr[13] in module bin_band_buf is either unconnected or has no load
+WARNING: [Synth 8-7129] Port a_rd_addr[12] in module bin_band_buf is either unconnected or has no load
+INFO: [Common 17-14] Message 'Synth 8-7129' appears 100 times and further instances of the messages will be disabled. Use the Tcl command set_msg_config to change the current settings.
+INFO: [Common 17-14] Message 'Synth 8-7129' appears 100 times and further instances of the messages will be disabled. Use the Tcl command set_msg_config to change the current settings.
+WARNING: [Synth 8-6849] Infeasible attribute ram_style = "block" set for RAM "\g_conv.u_band/mem_reg ",trying to implement using LUTRAM
+WARNING: [Synth 8-6849] Infeasible attribute ram_style = "block" set for RAM "\g_conv.u_band/mem_reg ",trying to implement using LUTRAM
+WARNING: [Synth 8-6849] Infeasible attribute ram_style = "block" set for RAM "\g_conv.u_band/mem_reg ",trying to implement using LUTRAM
+WARNING: [Synth 8-6849] Infeasible attribute ram_style = "block" set for RAM "\g_conv.u_band/mem_reg ",trying to implement using LUTRAM
+WARNING: [Synth 8-6849] Infeasible attribute ram_style = "block" set for RAM "\g_conv.u_band/mem_reg ",trying to implement using LUTRAM
+WARNING: [Synth 8-6849] Infeasible attribute ram_style = "block" set for RAM "\g_conv.u_band/mem_reg ",trying to implement using LUTRAM
+WARNING: [Synth 8-6849] Infeasible attribute ram_style = "block" set for RAM "\g_conv.u_band/mem_reg ",trying to implement using LUTRAM
+WARNING: [Synth 8-6849] Infeasible attribute ram_style = "block" set for RAM "\g_conv.u_band/mem_reg ",trying to implement using LUTRAM
+WARNING: [Synth 8-6849] Infeasible attribute ram_style = "block" set for RAM "\g_conv.u_band/mem_reg ",trying to implement using LUTRAM
+WARNING: [Synth 8-6849] Infeasible attribute ram_style = "block" set for RAM "\g_conv.u_band/mem_reg ",trying to implement using LUTRAM
+INFO: [Synth 8-5546] ROM "hi_bit_of" won't be mapped to RAM because it is too sparse
+INFO: [Synth 8-5546] ROM "hi_bit_of" won't be mapped to RAM because it is too sparse
+DSP Report: Generating DSP kk_c, operation Mode is: A*B.
+DSP Report: operator kk_c is absorbed into DSP kk_c.
+DSP Report: Generating DSP ktot_c, operation Mode is: A*B.
+DSP Report: operator ktot_c is absorbed into DSP ktot_c.
+DSP Report: Generating DSP hw8_q1, operation Mode is: A*B.
+DSP Report: operator hw8_q1 is absorbed into DSP hw8_q1.
+DSP Report: Generating DSP p8_q1, operation Mode is: A*B.
+DSP Report: operator p8_q1 is absorbed into DSP p8_q1.
+DSP Report: Generating DSP G_BANK[3].G_CH[7].acc_reg[31], operation Mode is: (P+A*B)'.
+DSP Report: register G_BANK[3].G_CH[7].acc_reg[31] is absorbed into DSP G_BANK[3].G_CH[7].acc_reg[31].
+DSP Report: operator p_1_out is absorbed into DSP G_BANK[3].G_CH[7].acc_reg[31].
+DSP Report: operator p_0_out is absorbed into DSP G_BANK[3].G_CH[7].acc_reg[31].
+DSP Report: Generating DSP G_BANK[3].G_CH[6].acc_reg[30], operation Mode is: (P+A*B)'.
+DSP Report: register G_BANK[3].G_CH[6].acc_reg[30] is absorbed into DSP G_BANK[3].G_CH[6].acc_reg[30].
+DSP Report: operator p_1_out is absorbed into DSP G_BANK[3].G_CH[6].acc_reg[30].
+DSP Report: operator p_0_out is absorbed into DSP G_BANK[3].G_CH[6].acc_reg[30].
+DSP Report: Generating DSP G_BANK[3].G_CH[4].acc_reg[28], operation Mode is: (P+A*B)'.
+DSP Report: register G_BANK[3].G_CH[4].acc_reg[28] is absorbed into DSP G_BANK[3].G_CH[4].acc_reg[28].
+DSP Report: operator p_1_out is absorbed into DSP G_BANK[3].G_CH[4].acc_reg[28].
+DSP Report: operator p_0_out is absorbed into DSP G_BANK[3].G_CH[4].acc_reg[28].
+DSP Report: Generating DSP G_BANK[3].G_CH[5].acc_reg[29], operation Mode is: (P+A*B)'.
+DSP Report: register G_BANK[3].G_CH[5].acc_reg[29] is absorbed into DSP G_BANK[3].G_CH[5].acc_reg[29].
+DSP Report: operator p_1_out is absorbed into DSP G_BANK[3].G_CH[5].acc_reg[29].
+DSP Report: operator p_0_out is absorbed into DSP G_BANK[3].G_CH[5].acc_reg[29].
+DSP Report: Generating DSP p_1_out, operation Mode is: PCIN+A:B+C.
+DSP Report: operator p_1_out is absorbed into DSP p_1_out.
+DSP Report: Generating DSP p_0_out, operation Mode is: (0 or PCIN)+(0 or A:B).
+DSP Report: operator p_0_out is absorbed into DSP p_0_out.
+DSP Report: Generating DSP G_BANK[3].G_CH[3].acc_reg[27], operation Mode is: (P+A*B)'.
+DSP Report: register G_BANK[3].G_CH[3].acc_reg[27] is absorbed into DSP G_BANK[3].G_CH[3].acc_reg[27].
+DSP Report: operator p_1_out is absorbed into DSP G_BANK[3].G_CH[3].acc_reg[27].
+DSP Report: operator p_0_out is absorbed into DSP G_BANK[3].G_CH[3].acc_reg[27].
+DSP Report: Generating DSP G_BANK[3].G_CH[2].acc_reg[26], operation Mode is: (P+A*B)'.
+DSP Report: register G_BANK[3].G_CH[2].acc_reg[26] is absorbed into DSP G_BANK[3].G_CH[2].acc_reg[26].
+DSP Report: operator p_1_out is absorbed into DSP G_BANK[3].G_CH[2].acc_reg[26].
+DSP Report: operator p_0_out is absorbed into DSP G_BANK[3].G_CH[2].acc_reg[26].
+DSP Report: Generating DSP G_BANK[3].G_CH[0].acc_reg[24], operation Mode is: (P+A*B)'.
+DSP Report: register G_BANK[3].G_CH[0].acc_reg[24] is absorbed into DSP G_BANK[3].G_CH[0].acc_reg[24].
+DSP Report: operator p_1_out is absorbed into DSP G_BANK[3].G_CH[0].acc_reg[24].
+DSP Report: operator p_0_out is absorbed into DSP G_BANK[3].G_CH[0].acc_reg[24].
+DSP Report: Generating DSP G_BANK[3].G_CH[1].acc_reg[25], operation Mode is: (P+A*B)'.
+DSP Report: register G_BANK[3].G_CH[1].acc_reg[25] is absorbed into DSP G_BANK[3].G_CH[1].acc_reg[25].
+DSP Report: operator p_1_out is absorbed into DSP G_BANK[3].G_CH[1].acc_reg[25].
+DSP Report: operator p_0_out is absorbed into DSP G_BANK[3].G_CH[1].acc_reg[25].
+DSP Report: Generating DSP p_1_out, operation Mode is: PCIN+A:B+C.
+DSP Report: operator p_1_out is absorbed into DSP p_1_out.
+DSP Report: Generating DSP p_0_out, operation Mode is: (0 or PCIN)+(0 or A:B).
+DSP Report: operator p_0_out is absorbed into DSP p_0_out.
+DSP Report: Generating DSP G_BANK[2].G_CH[7].acc_reg[23], operation Mode is: (P+A*B)'.
+DSP Report: register G_BANK[2].G_CH[7].acc_reg[23] is absorbed into DSP G_BANK[2].G_CH[7].acc_reg[23].
+DSP Report: operator p_1_out is absorbed into DSP G_BANK[2].G_CH[7].acc_reg[23].
+DSP Report: operator p_0_out is absorbed into DSP G_BANK[2].G_CH[7].acc_reg[23].
+DSP Report: Generating DSP G_BANK[2].G_CH[6].acc_reg[22], operation Mode is: (P+A*B)'.
+DSP Report: register G_BANK[2].G_CH[6].acc_reg[22] is absorbed into DSP G_BANK[2].G_CH[6].acc_reg[22].
+DSP Report: operator p_1_out is absorbed into DSP G_BANK[2].G_CH[6].acc_reg[22].
+DSP Report: operator p_0_out is absorbed into DSP G_BANK[2].G_CH[6].acc_reg[22].
+DSP Report: Generating DSP G_BANK[2].G_CH[4].acc_reg[20], operation Mode is: (P+A*B)'.
+DSP Report: register G_BANK[2].G_CH[4].acc_reg[20] is absorbed into DSP G_BANK[2].G_CH[4].acc_reg[20].
+DSP Report: operator p_1_out is absorbed into DSP G_BANK[2].G_CH[4].acc_reg[20].
+DSP Report: operator p_0_out is absorbed into DSP G_BANK[2].G_CH[4].acc_reg[20].
+DSP Report: Generating DSP G_BANK[2].G_CH[5].acc_reg[21], operation Mode is: (P+A*B)'.
+DSP Report: register G_BANK[2].G_CH[5].acc_reg[21] is absorbed into DSP G_BANK[2].G_CH[5].acc_reg[21].
+DSP Report: operator p_1_out is absorbed into DSP G_BANK[2].G_CH[5].acc_reg[21].
+DSP Report: operator p_0_out is absorbed into DSP G_BANK[2].G_CH[5].acc_reg[21].
+DSP Report: Generating DSP p_1_out, operation Mode is: PCIN+A:B+C.
+DSP Report: operator p_1_out is absorbed into DSP p_1_out.
+DSP Report: Generating DSP p_0_out, operation Mode is: (0 or PCIN)+(0 or A:B).
+DSP Report: operator p_0_out is absorbed into DSP p_0_out.
+DSP Report: Generating DSP G_BANK[2].G_CH[3].acc_reg[19], operation Mode is: (P+A*B)'.
+DSP Report: register G_BANK[2].G_CH[3].acc_reg[19] is absorbed into DSP G_BANK[2].G_CH[3].acc_reg[19].
+DSP Report: operator p_1_out is absorbed into DSP G_BANK[2].G_CH[3].acc_reg[19].
+DSP Report: operator p_0_out is absorbed into DSP G_BANK[2].G_CH[3].acc_reg[19].
+DSP Report: Generating DSP G_BANK[2].G_CH[2].acc_reg[18], operation Mode is: (P+A*B)'.
+DSP Report: register G_BANK[2].G_CH[2].acc_reg[18] is absorbed into DSP G_BANK[2].G_CH[2].acc_reg[18].
+DSP Report: operator p_1_out is absorbed into DSP G_BANK[2].G_CH[2].acc_reg[18].
+DSP Report: operator p_0_out is absorbed into DSP G_BANK[2].G_CH[2].acc_reg[18].
+DSP Report: Generating DSP G_BANK[2].G_CH[0].acc_reg[16], operation Mode is: (P+A*B)'.
+DSP Report: register G_BANK[2].G_CH[0].acc_reg[16] is absorbed into DSP G_BANK[2].G_CH[0].acc_reg[16].
+DSP Report: operator p_1_out is absorbed into DSP G_BANK[2].G_CH[0].acc_reg[16].
+DSP Report: operator p_0_out is absorbed into DSP G_BANK[2].G_CH[0].acc_reg[16].
+DSP Report: Generating DSP G_BANK[2].G_CH[1].acc_reg[17], operation Mode is: (P+A*B)'.
+DSP Report: register G_BANK[2].G_CH[1].acc_reg[17] is absorbed into DSP G_BANK[2].G_CH[1].acc_reg[17].
+DSP Report: operator p_1_out is absorbed into DSP G_BANK[2].G_CH[1].acc_reg[17].
+DSP Report: operator p_0_out is absorbed into DSP G_BANK[2].G_CH[1].acc_reg[17].
+DSP Report: Generating DSP p_1_out, operation Mode is: PCIN+A:B+C.
+DSP Report: operator p_1_out is absorbed into DSP p_1_out.
+DSP Report: Generating DSP p_0_out, operation Mode is: (0 or PCIN)+(0 or A:B).
+DSP Report: operator p_0_out is absorbed into DSP p_0_out.
+DSP Report: Generating DSP G_BANK[1].G_CH[7].acc_reg[15], operation Mode is: (P+A*B)'.
+DSP Report: register G_BANK[1].G_CH[7].acc_reg[15] is absorbed into DSP G_BANK[1].G_CH[7].acc_reg[15].
+DSP Report: operator p_1_out is absorbed into DSP G_BANK[1].G_CH[7].acc_reg[15].
+DSP Report: operator p_0_out is absorbed into DSP G_BANK[1].G_CH[7].acc_reg[15].
+DSP Report: Generating DSP G_BANK[1].G_CH[6].acc_reg[14], operation Mode is: (P+A*B)'.
+DSP Report: register G_BANK[1].G_CH[6].acc_reg[14] is absorbed into DSP G_BANK[1].G_CH[6].acc_reg[14].
+DSP Report: operator p_1_out is absorbed into DSP G_BANK[1].G_CH[6].acc_reg[14].
+DSP Report: operator p_0_out is absorbed into DSP G_BANK[1].G_CH[6].acc_reg[14].
+DSP Report: Generating DSP G_BANK[1].G_CH[4].acc_reg[12], operation Mode is: (P+A*B)'.
+DSP Report: register G_BANK[1].G_CH[4].acc_reg[12] is absorbed into DSP G_BANK[1].G_CH[4].acc_reg[12].
+DSP Report: operator p_1_out is absorbed into DSP G_BANK[1].G_CH[4].acc_reg[12].
+DSP Report: operator p_0_out is absorbed into DSP G_BANK[1].G_CH[4].acc_reg[12].
+DSP Report: Generating DSP G_BANK[1].G_CH[5].acc_reg[13], operation Mode is: (P+A*B)'.
+DSP Report: register G_BANK[1].G_CH[5].acc_reg[13] is absorbed into DSP G_BANK[1].G_CH[5].acc_reg[13].
+DSP Report: operator p_1_out is absorbed into DSP G_BANK[1].G_CH[5].acc_reg[13].
+DSP Report: operator p_0_out is absorbed into DSP G_BANK[1].G_CH[5].acc_reg[13].
+DSP Report: Generating DSP p_1_out, operation Mode is: PCIN+A:B+C.
+DSP Report: operator p_1_out is absorbed into DSP p_1_out.
+DSP Report: Generating DSP p_0_out, operation Mode is: (0 or PCIN)+(0 or A:B).
+DSP Report: operator p_0_out is absorbed into DSP p_0_out.
+DSP Report: Generating DSP G_BANK[1].G_CH[3].acc_reg[11], operation Mode is: (P+A*B)'.
+DSP Report: register G_BANK[1].G_CH[3].acc_reg[11] is absorbed into DSP G_BANK[1].G_CH[3].acc_reg[11].
+DSP Report: operator p_1_out is absorbed into DSP G_BANK[1].G_CH[3].acc_reg[11].
+DSP Report: operator p_0_out is absorbed into DSP G_BANK[1].G_CH[3].acc_reg[11].
+DSP Report: Generating DSP G_BANK[1].G_CH[2].acc_reg[10], operation Mode is: (P+A*B)'.
+DSP Report: register G_BANK[1].G_CH[2].acc_reg[10] is absorbed into DSP G_BANK[1].G_CH[2].acc_reg[10].
+DSP Report: operator p_1_out is absorbed into DSP G_BANK[1].G_CH[2].acc_reg[10].
+DSP Report: operator p_0_out is absorbed into DSP G_BANK[1].G_CH[2].acc_reg[10].
+DSP Report: Generating DSP G_BANK[1].G_CH[0].acc_reg[8], operation Mode is: (P+A*B)'.
+DSP Report: register G_BANK[1].G_CH[0].acc_reg[8] is absorbed into DSP G_BANK[1].G_CH[0].acc_reg[8].
+DSP Report: operator p_1_out is absorbed into DSP G_BANK[1].G_CH[0].acc_reg[8].
+DSP Report: operator p_0_out is absorbed into DSP G_BANK[1].G_CH[0].acc_reg[8].
+DSP Report: Generating DSP G_BANK[1].G_CH[1].acc_reg[9], operation Mode is: (P+A*B)'.
+DSP Report: register G_BANK[1].G_CH[1].acc_reg[9] is absorbed into DSP G_BANK[1].G_CH[1].acc_reg[9].
+DSP Report: operator p_1_out is absorbed into DSP G_BANK[1].G_CH[1].acc_reg[9].
+DSP Report: operator p_0_out is absorbed into DSP G_BANK[1].G_CH[1].acc_reg[9].
+DSP Report: Generating DSP p_1_out, operation Mode is: PCIN+A:B+C.
+DSP Report: operator p_1_out is absorbed into DSP p_1_out.
+DSP Report: Generating DSP p_0_out, operation Mode is: (0 or PCIN)+(0 or A:B).
+DSP Report: operator p_0_out is absorbed into DSP p_0_out.
+DSP Report: Generating DSP G_BANK[0].G_CH[7].acc_reg[7], operation Mode is: (P+A*B)'.
+DSP Report: register G_BANK[0].G_CH[7].acc_reg[7] is absorbed into DSP G_BANK[0].G_CH[7].acc_reg[7].
+DSP Report: operator p_1_out is absorbed into DSP G_BANK[0].G_CH[7].acc_reg[7].
+DSP Report: operator p_0_out is absorbed into DSP G_BANK[0].G_CH[7].acc_reg[7].
+DSP Report: Generating DSP G_BANK[0].G_CH[6].acc_reg[6], operation Mode is: (P+A*B)'.
+DSP Report: register G_BANK[0].G_CH[6].acc_reg[6] is absorbed into DSP G_BANK[0].G_CH[6].acc_reg[6].
+DSP Report: operator p_1_out is absorbed into DSP G_BANK[0].G_CH[6].acc_reg[6].
+DSP Report: operator p_0_out is absorbed into DSP G_BANK[0].G_CH[6].acc_reg[6].
+DSP Report: Generating DSP G_BANK[0].G_CH[4].acc_reg[4], operation Mode is: (P+A*B)'.
+DSP Report: register G_BANK[0].G_CH[4].acc_reg[4] is absorbed into DSP G_BANK[0].G_CH[4].acc_reg[4].
+DSP Report: operator p_1_out is absorbed into DSP G_BANK[0].G_CH[4].acc_reg[4].
+DSP Report: operator p_0_out is absorbed into DSP G_BANK[0].G_CH[4].acc_reg[4].
+DSP Report: Generating DSP G_BANK[0].G_CH[5].acc_reg[5], operation Mode is: (P+A*B)'.
+DSP Report: register G_BANK[0].G_CH[5].acc_reg[5] is absorbed into DSP G_BANK[0].G_CH[5].acc_reg[5].
+DSP Report: operator p_1_out is absorbed into DSP G_BANK[0].G_CH[5].acc_reg[5].
+DSP Report: operator p_0_out is absorbed into DSP G_BANK[0].G_CH[5].acc_reg[5].
+DSP Report: Generating DSP p_1_out, operation Mode is: PCIN+A:B+C.
+DSP Report: operator p_1_out is absorbed into DSP p_1_out.
+DSP Report: Generating DSP p_0_out, operation Mode is: (0 or PCIN)+(0 or A:B).
+DSP Report: operator p_0_out is absorbed into DSP p_0_out.
+DSP Report: Generating DSP G_BANK[0].G_CH[3].acc_reg[3], operation Mode is: (P+A*B)'.
+DSP Report: register G_BANK[0].G_CH[3].acc_reg[3] is absorbed into DSP G_BANK[0].G_CH[3].acc_reg[3].
+DSP Report: operator p_1_out is absorbed into DSP G_BANK[0].G_CH[3].acc_reg[3].
+DSP Report: operator p_0_out is absorbed into DSP G_BANK[0].G_CH[3].acc_reg[3].
+DSP Report: Generating DSP G_BANK[0].G_CH[2].acc_reg[2], operation Mode is: (P+A*B)'.
+DSP Report: register G_BANK[0].G_CH[2].acc_reg[2] is absorbed into DSP G_BANK[0].G_CH[2].acc_reg[2].
+DSP Report: operator p_1_out is absorbed into DSP G_BANK[0].G_CH[2].acc_reg[2].
+DSP Report: operator p_0_out is absorbed into DSP G_BANK[0].G_CH[2].acc_reg[2].
+DSP Report: Generating DSP G_BANK[0].G_CH[0].acc_reg[0], operation Mode is: (P+A*B)'.
+DSP Report: register G_BANK[0].G_CH[0].acc_reg[0] is absorbed into DSP G_BANK[0].G_CH[0].acc_reg[0].
+DSP Report: operator p_1_out is absorbed into DSP G_BANK[0].G_CH[0].acc_reg[0].
+DSP Report: operator p_0_out is absorbed into DSP G_BANK[0].G_CH[0].acc_reg[0].
+DSP Report: Generating DSP G_BANK[0].G_CH[1].acc_reg[1], operation Mode is: (P+A*B)'.
+DSP Report: register G_BANK[0].G_CH[1].acc_reg[1] is absorbed into DSP G_BANK[0].G_CH[1].acc_reg[1].
+DSP Report: operator p_1_out is absorbed into DSP G_BANK[0].G_CH[1].acc_reg[1].
+DSP Report: operator p_0_out is absorbed into DSP G_BANK[0].G_CH[1].acc_reg[1].
+DSP Report: Generating DSP p_1_out, operation Mode is: PCIN+A:B+C.
+DSP Report: operator p_1_out is absorbed into DSP p_1_out.
+DSP Report: Generating DSP p_0_out, operation Mode is: (0 or PCIN)+(0 or A:B).
+DSP Report: operator p_0_out is absorbed into DSP p_0_out.
+INFO: [Synth 8-5544] ROM "p_1_out0" won't be mapped to Block RAM because address size (3) smaller than threshold (5)
+INFO: [Synth 8-5546] ROM "clr_cnt_rd" won't be mapped to RAM because it is too sparse
+INFO: [Synth 8-5546] ROM "clr_cnt_wr" won't be mapped to RAM because it is too sparse
+INFO: [Synth 8-5544] ROM "p_1_out0" won't be mapped to Block RAM because address size (3) smaller than threshold (5)
+INFO: [Synth 8-5546] ROM "clr_cnt_rd" won't be mapped to RAM because it is too sparse
+INFO: [Synth 8-5546] ROM "clr_cnt_wr" won't be mapped to RAM because it is too sparse
+DSP Report: Generating DSP hw_q_reg, operation Mode is: (A*B)'.
+DSP Report: register hw_q_reg is absorbed into DSP hw_q_reg.
+DSP Report: operator hw_q0 is absorbed into DSP hw_q_reg.
+DSP Report: Generating DSP wcap_c, operation Mode is: A*B.
+DSP Report: operator wcap_c is absorbed into DSP wcap_c.
+DSP Report: Generating DSP inb_q_reg, operation Mode is: (A*B)'.
+DSP Report: register inb_q_reg is absorbed into DSP inb_q_reg.
+DSP Report: operator inb_q0 is absorbed into DSP inb_q_reg.
+---------------------------------------------------------------------------------
+Start Pre Area Optimization
+---------------------------------------------------------------------------------
+---------------------------------------------------------------------------------
+Start Iterative Area Optimization
+---------------------------------------------------------------------------------
+已终止

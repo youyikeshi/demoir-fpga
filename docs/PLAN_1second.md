@@ -6017,3 +6017,25 @@ $$\Rightarrow\ \text{@75 MHz 反而 } -10\% \Rightarrow \textbf{75 MHz 只是"�
 $$\Rightarrow\ \text{融合 } \mathtt{FUSE=1}\ \text{（4 个阻断未清，}\text{band 通路的写合并/带偏移/级联序列器/}k\ge3\text{）}$$
 $$\Rightarrow\ \text{写合并器（提速用，非正确性）} \Rightarrow \text{做完等价验证}\textbf{ 先不构建}$$
 $$\Rightarrow\ \text{时序战役冲 150 MHz}、\text{band 缓冲扩容}、\mathtt{SAM}\ \text{垂直抽头}$$
+
+### 70.68 写合并器**存档未启用**（T-99 收尾，2026-11-02 21:43）
+
+$$\Rightarrow\ \textbf{已回退主线}：\mathtt{lane16/bin\_unit\_axi\_wrap\_v50.v}\ \text{md5 回到 } \mathbf{\mathtt{f1ff43a5}}（\text{T-94 已验证版）$$
+$$\Rightarrow\ \text{其余 9 个 } \mathtt{lane16}\ \text{文件未动};\ \mathtt{verify\_rtl\_root}\ \mathbf{MATCH=35\ DIFF=0\ PASS};\ \mathtt{git\ status}\ \text{为空}$$
+
+**存档的实测收益（以后启用时的依据）**
+$$\Rightarrow\ \mathtt{beat/AW}\ (V16)：\mathbf{1.01}（11169\ \text{笔}/11328\ \text{拍）}\to \mathbf{7.93}（1429\ \text{笔，10 形状 }7.68\text{-}8.00）$$
+$$\Rightarrow\ \text{每 8B beat 拍数：}\mathbf{21.36}\to\mathbf{3.75}（\mathbf{5.69\times}）$$
+$$\quad\ \text{口径：TB 从机侧加"每笔 AW 固定开销"+AWLAT=16 模型（\text{不改 RTL}），改前标定到 }21.36\ \text{拍/beat} \approx \text{板上 }20.03\text{-}22.13$$
+$$\Rightarrow\ \text{V8：10/10 形状逐笔 } (\text{idx},\text{addr},\text{data},\text{sel})\ \textbf{cmp 逐字节相同}，\text{AW/拍数也相同}$$
+$$\Rightarrow\ \text{V16：}\mathbf{11328/11328\ \text{字节 0 差异}}，0\ \text{越界}，\text{同址重复写}=0$$
+$$\Rightarrow\ \text{改动只在 } \mathtt{g\_wr\_split2}（\text{每平面 }8\ \text{深}\times104\ \text{bit FIFO，AWLEN}=7，\text{末块短 burst）};\ \mathtt{g\_wr\_direct}\ \text{一行未动}$$
+
+**未完成（所以不能进主线，这个判断是对的）**
+$$\Rightarrow\ \text{C5 时序未测（综合跑到 Timing Optimization 被叫停）} \Rightarrow \textbf{没有 WNS}，\text{不能出位流}$$
+$$\Rightarrow\ \text{而且它动的正是刚出过 } \pm1/\text{越界两个 bug 的写通路}$$
+
+**存档位置**：`runs/v99_coalesce/`
+$$\Rightarrow\ \mathtt{after\_rtl\_coalescer/bin\_unit\_axi\_wrap\_v50.v}（= \mathtt{26d58123}）$$
+$$\Rightarrow\ \mathtt{rtl\_t99.diff}（312\ \text{行}，\textbf{实测 } \mathtt{patch -p0}\ \text{能逐字节复原）$$
+$$\Rightarrow\ \mathtt{before\_rtl/}（\text{T-94 快照}）、\mathtt{MATRIX\_v99.txt}、\text{报告（含"复活步骤"）}、60\ \text{份 } \mathtt{xsim}\ \text{日志（种子 } \mathtt{0x12345678}）$$

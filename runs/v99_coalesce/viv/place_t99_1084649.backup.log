@@ -1,0 +1,106 @@
+#-----------------------------------------------------------
+# Vivado v2025.2.1 (64-bit)
+# SW Build 6403652 on Thu Mar 19 13:47:00 MDT 2026
+# IP Build 6403511 on Thu Mar 19 12:41:45 MDT 2026
+# SharedData Build 6403650 on Thu Mar 19 14:02:13 MDT 2026
+# Start of session at: Mon Nov  2 21:30:15 2026
+# Process ID         : 1084649
+# Current directory  : /media/felix/Data/coding/demoir-fpga
+# Command line       : vivado -mode batch -source runs/v99_coalesce/build_t99_place.tcl -log runs/v99_coalesce/viv/place_t99.log -journal runs/v99_coalesce/viv/place_t99.jou
+# Log file           : /media/felix/Data/coding/demoir-fpga/runs/v99_coalesce/viv/place_t99.log
+# Journal file       : /media/felix/Data/coding/demoir-fpga/runs/v99_coalesce/viv/place_t99.jou
+# Running On         : 2
+# Platform           : Ubuntu
+# Operating System   : Ubuntu 22.04.5 LTS
+# Processor Detail   : Intel(R) Core(TM) Ultra 7 155H
+# CPU Frequency      : 2093.784 MHz
+# CPU Physical cores : 16
+# CPU Logical cores  : 22
+# Host memory        : 33236 MB
+# Swap memory        : 0 MB
+# Total Virtual      : 33236 MB
+# Available Virtual  : 15967 MB
+#-----------------------------------------------------------
+source runs/v99_coalesce/build_t99_place.tcl
+# source /media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/scripts/_guard_build.tcl
+## set _guard_root [file normalize [file join [file dirname [file normalize [info script]]] ../../..]]
+## set _owner_file [expr {[info exists ::env(DSH_BUILD_OWNER_FILE)] \
+##                         ? $::env(DSH_BUILD_OWNER_FILE) \
+##                         : [file join $_guard_root runs resguard BUILD_OWNER]}]
+## set _ttl [expr {[info exists ::env(BUILD_OWNER_TTL)] ? $::env(BUILD_OWNER_TTL) : 21600}]
+## proc _guard_fail {msg} {
+##     puts stderr "\n==========================================================================="
+##     puts stderr "  ⛔ 构建被资源闸门拒绝：$msg"
+##     puts stderr "==========================================================================="
+##     puts stderr "  本机 SwapTotal=0，必须串行构建。请改用它启动："
+##     puts stderr ""
+##     puts stderr "    cd /media/felix/Data/coding/demoir-fpga/pynq_specialized_code"
+##     puts stderr "    tools/memgate.sh <预估峰值GB> -- \\"
+##     puts stderr "        pl/scripts/vrun.sh scripts/build_final_150v39.tcl runs/xxx.log"
+##     puts stderr ""
+##     puts stderr "  预估峰值：综合约 4 GB，中小实现约 8 GB，大实现 16 GB。"
+##     puts stderr "  说明见 runs/resguard/RESOURCE.md"
+##     puts stderr "===========================================================================\n"
+##     error "_GUARD_REJECTED: $msg"
+## }
+## if {![info exists ::env(DSH_BUILD_TOKEN)]} {
+##     _guard_fail "缺少 DSH_BUILD_TOKEN 环境变量（不是通过 memgate.sh 启动的）"
+## }
+## if {![file readable $_owner_file]} {
+##     _guard_fail "找不到 BUILD_OWNER（$_owner_file）—— 没有构建正在进行，或已过期被清理"
+## }
+## set _fh [open $_owner_file r]
+## set _raw [read $_fh]
+## close $_fh
+## array set _own {token "" pid "" ts "" lock "" cmd ""}
+## foreach _line [split $_raw "\n"] {
+##     if {[regexp {^([a-zA-Z_]+)=(.*)$} $_line -> _k _v]} {
+##         set _own($_k) $_v
+##     }
+## }
+## if {$_own(token) eq ""} {
+##     _guard_fail "BUILD_OWNER 内容不合法（缺 token）"
+## }
+## if {$_own(token) ne $::env(DSH_BUILD_TOKEN)} {
+##     _guard_fail "令牌不匹配：env=$::env(DSH_BUILD_TOKEN) owner=$_own(token)（另有构建在跑，抢锁失败）"
+## }
+## set _age [expr {[clock seconds] - int($_own(ts))}]
+## if {$_age > $_ttl} {
+##     _guard_fail "BUILD_OWNER 已过期 ${_age}s > TTL ${_ttl}s（多半是上次构建异常中断留下的）"
+## }
+## if {$_age < 0} {
+##     _guard_fail "BUILD_OWNER 时间戳在未来（时钟异常）"
+## }
+## if {$_own(lock) ne "bypassed"} {
+##     set _lk [expr {[info exists _own(lockfile)] && $_own(lockfile) ne "" ? $_own(lockfile) : "/tmp/dsh_vivado.lock"}]
+##     if {[file readable $_lk]} {
+##         # 锁空闲 ⇒ flock 能拿到 ⇒ 说明没人持锁，本进程不是受控启动
+##         if {![catch {exec flock -n $_lk -c true} _out]} {
+##             _guard_fail "单实例锁 $_lk 处于空闲状态（预期被 memgate 持有）"
+##         }
+##     }
+## }
+## puts "\[guard\] ✅ 构建闸门通过  owner_pid=$_own(pid)  age=${_age}s  lock=$_own(lock)"
+[guard] ✅ 构建闸门通过  owner_pid=1084550  age=3s  lock=held
+## puts "\[guard\]    token=$_own(token)"
+[guard]    token=1793626214-1084550-83676012
+## puts "\[guard\]    cmd=$_own(cmd)"
+[guard]    cmd=/media/felix/325/xilinx/2025.2/2025.2.1/Vivado/bin/vivado -mode batch -source runs/v99_coalesce/build_t99_place.tcl -log runs/v99_coalesce/viv/place_t99.log -journal runs/v99_coalesce/viv/place_t99.jou
+# set_param general.maxThreads 2
+# set pl   /media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl
+# set bd   $pl/vivado/proj_v50/proj_engine.gen/sources_1/bd/design_1
+# set rtl  /media/felix/Data/coding/demoir-fpga/runs/timing_v50/rtl_v50
+# set out  [file normalize /media/felix/Data/coding/demoir-fpga/runs/v99_coalesce/viv]
+# set part xc7z015clg485-2
+# file mkdir $out
+# puts "== 0a) RTL 根硬断言（verify_rtl_root.sh；位流 manifest + 冻结副本 manifest）=="
+== 0a) RTL 根硬断言（verify_rtl_root.sh；位流 manifest + 冻结副本 manifest）==
+# set _VR [file join [file dirname [info script]] verify_rtl_root.sh]
+# if {![file exists $_VR]} { error "缺 verify_rtl_root.sh：$_VR（判据工具不可得 ⇒ 拒绝构建）" }
+缺 verify_rtl_root.sh：runs/v99_coalesce/verify_rtl_root.sh（判据工具不可得 ⇒ 拒绝构建）
+    while executing
+"error "缺 verify_rtl_root.sh：$_VR（判据工具不可得 ⇒ 拒绝构建）" "
+    invoked from within
+"if {![file exists $_VR]} { error "缺 verify_rtl_root.sh：$_VR（判据工具不可得 ⇒ 拒绝构建）" }"
+    (file "runs/v99_coalesce/build_t99_place.tcl" line 78)
+INFO: [Common 17-206] Exiting Vivado at Mon Nov  2 21:30:17 2026...

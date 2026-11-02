@@ -1,0 +1,312 @@
+--- runs/v99_coalesce/before_rtl/lane16/bin_unit_axi_wrap_v50.v	2026-11-02 20:03:23.362630900 +0800
++++ runs/timing_v50/rtl_v50/lane16/bin_unit_axi_wrap_v50.v	2026-11-02 21:33:56.426744000 +0800
+@@ -356,6 +356,18 @@
+     //   想换更大的 burst：必须同时把 WR_BUF_BEATS 提到 >= 2*WR_BURST_MAX
+     //   （例：BURST_MAX=16 需要 BUF_BEATS=32 → 峰值 30 >= 16），别只改一个。
+     parameter int  WR_BURST_MAX = 8,      // 单笔写 burst 拍数上限（1..256，AXI3 上限 16）
++    // ---- ★ T-99（2026-11-02）：16-lane 写合并缓冲（每平面攒块）----
++    //   背景（T-97 铁证）：VLANES=16 时 beat0/beat1 交替落在相隔 Hout*Wout*8 字节的
++    //   两个平面 ⇒ burst 记账的"地址连续"判据**每拍断链** ⇒ 恒 1.00 beat/AW
++    //   ⇒ 板上恒定 20 拍/8B-beat 的吞吐墙（与 cin/cout/k 无关）。
++    //   本轮在 g_wr_split2 之后插一级"每平面 8 拍块"合并器：把同一平面的 8 个
++    //   连续 beat **成块**喂给写引擎 ⇒ 既有 burst 记账（bu_base/bu_len/BU_MAX）
++    //   自动发 AWLEN=7；末块/不满 8 拍由 unit_done_q 触发发短 burst（AWLEN=n-1）。
++    //   WR_COAL_BLK   = 一块多少拍（= AWLEN+1）。必须 ≤ WR_BURST_MAX。
++    //   WR_COAL_DEPTH = 每个平面 FIFO 深度（≥ WR_COAL_BLK 才能"排一块/填一块"
++    //                   完全重叠；8 = 刚好，见 §10.1a 的逐拍核算）。
++    parameter int  WR_COAL_BLK   = 8,     // 每平面成块拍数（1..WR_BURST_MAX）
++    parameter int  WR_COAL_DEPTH = 8,     // 每平面合并 FIFO 深度（≥ WR_COAL_BLK）
+     // ========================================================================
+     // ★ v50（IMP-B）：数据流参数。全部**带默认值** ⇒ 只实例化不传参时行为
+     //   = v39（VLANES=8、FUSE_EN=1 但 FUSE_MODE 复位 0 ⇒ 融合通路全静默）。
+@@ -1652,8 +1664,12 @@
+             //   同时把"捕获"从**无条件**改成 `u_ce` 门控：核被冻结（写 FIFO 压力 /
+             //   合并引擎忙）时 c_wr_en 会保持多拍，无条件捕获会把同一笔重复吞下。
+             // ================================================================
+-            logic        p1_v;
+-            logic [31:0] p1_addr;
++            logic        p0_v;                  // ★ T-99：beat0（plane0）待进合并器
++            logic [31:0] p0_addr;
++            logic [63:0] p0_data;
++            logic [7:0]  p0_sel;
++            logic        p1_v;                  // beat1（plane1）待进合并器（TB 探针名）
++            logic [31:0] p1_addr;               //   存"还没加 plane_delta"的 beat0 地址
+             logic [63:0] p1_data;
+             logic [7:0]  p1_sel;
+             wire  [31:0] npix        = {16'd0, c_cfg_h} * {16'd0, c_cfg_w};
+@@ -1665,61 +1681,214 @@
+             wire  [31:0] beat_addr   = (pix_q == 32'd0) ? c_wr_addr
+                                                         : (pbase_q + pix8);
+ 
+-            // ★ T-94：两级"保持到被吞"（hold-until-accepted）
+-            //   状态：(cw_beat_en,p1_v) ∈ {(0,0) 空, (1,1) beat0 摆着+beat1 排队,
+-            //                              (1,0) beat0 摆着}
+-            //   · 只有 (0,0) 才让核推进（beat_go）⇒ 缓冲永不超过 2 拍；
+-            //   · 写引擎这一拍**吃不下**（wr_accept_ok=0：FIFO 压力 / 排空忙）时
+-            //     一拍都不动，等下拍 —— 这就是"不丢拍"的关键；
+-            //   · beat0 被吞下的那一拍，若 beat1 在排队就把它抬上来（保序）。
+-            //   ⚠ 不要退回"每拍强制 cw_beat_en<=0"的写法：那样被挡的拍直接消失
+-            //     （T-94 实测：压力线上丢 69/512 拍）。
++            // ================================================================
++            // ★★ T-99（2026-11-02 T-97 铁证之后）：每平面 8 拍块写合并缓冲
++            // ----------------------------------------------------------------
++            // 病（不再论证）：V16 的 beat 流是 p0,q0,p1,q1,…（p=plane0、q=plane1，
++            //   两平面相隔 plane_delta = Hout*Wout*8 B）⇒ 写引擎 burst 记账的
++            //   "地址连续"判据（be_word == bu_base+bu_len）**每拍断链** ⇒ 每拍收
++            //   一笔描述符 ⇒ 恒 1.00 beat/AW ⇒ 板上恒定 20 拍/8B-beat 的吞吐墙
++            //   （5/5 层 = 20.03/20.28/22.13/20.43/20.03，与 cin/cout/k 无关）。
++            //   FIFO 加深无效（16→64 只 −0.8%）。
++            //
++            // 药：beat 流按平面分进两条 FIFO，**成块（WR_COAL_BLK=8 拍）交替**
++            //   喂给写引擎 ⇒ FIFO 里连续 8 拍地址连续 ⇒ 既有 burst 记账自动发
++            //   AWLEN=7；末块/不满 8 拍由 unit_done_q 触发发短 burst（AWLEN=n-1）。
++            //
++            // 为什么放在"拆分级之后 / 写引擎入口之前"（而不是改 burst 记账）：
++            //   · 一笔 AW 只能带一个基址 + 一段**连续**地址 ⇒ 跨平面根本合不成
++            //     合法 burst；而改记账等于改 AXI 语义（不许）。
++            //   · 放在入口前，写引擎（§7.0/§7.1/§7.6）一行都不用动 ⇒ 8-lane 路径
++            //     （g_wr_direct）**逐字节不变**，v39 等价性不受影响。
++            //
++            // 顺序语义（硬约束）：两平面地址集合**不相交**
++            //   （plane_delta = P*8；组 g 占 [g*2P*8, (g+1)*2P*8)，
++            //     组内 plane0 = pbase + p*8、plane1 = pbase + P*8 + p*8）。
++            //   合并器只做"平面间重排"，**同一平面内严格 FIFO** ⇒ 同一地址的
++            //   先后顺序不变。不跨平面合并：每块只取自一个平面。
++            //
++            // 不丢拍：p0_v/p1_v 是"保持到被接受"的槽；目标平面 FIFO 满时
++            //   sp_go=0 ⇒ u_ce=0 ⇒ 核停在那拍（c_wr_en 保持，下拍重试）。
++            // ================================================================
++            localparam int  CBLK = WR_COAL_BLK;      // 一块拍数（= AWLEN+1）
++            localparam int  CDEP = WR_COAL_DEPTH;    // 每平面 FIFO 深度
++            //   ⚠ 位宽**从 CDEP 推导**（别写死）：CDEP=8 ⇒ CDW=3 / CDCW=4（与原写死值相同）。
++            localparam int  CDW  = $clog2(CDEP);        // 指针位宽（CDEP=8 ⇒ 3）
++            localparam int  CDCW = $clog2(CDEP + 1);    // 计数位宽（CDEP=8 ⇒ 4，装 0..8）
++            localparam [CDW-1:0]  CD_LAST = CDEP - 1;
++            localparam [CDCW-1:0] CD_FULL = CDEP;
++            localparam [CDCW-1:0] CD_ZERO = {CDCW{1'b0}};
++            localparam [CDCW-1:0] CD_ONE  = {{(CDCW-1){1'b0}}, 1'b1};
++            localparam [CDCW-1:0] CB_N    = CBLK;
++
++            logic [63:0] f0_dat [0:CDEP-1];
++            logic [31:0] f0_adr [0:CDEP-1];
++            logic [7:0]  f0_sl  [0:CDEP-1];
++            logic [63:0] f1_dat [0:CDEP-1];
++            logic [31:0] f1_adr [0:CDEP-1];
++            logic [7:0]  f1_sl  [0:CDEP-1];
++            logic [CDW-1:0]  f0_wp, f0_rp, f1_wp, f1_rp;
++            logic [CDCW-1:0] f0_cnt, f1_cnt;
++            logic            em_v;                   // 本拍向写引擎摆一拍
++            logic            em_pl;                  // 0 = plane0，1 = plane1
++            logic [CDCW-1:0] em_rem;                 // 本块还剩几拍（含当前拍）
++            logic            em_rr;                  // 轮转：上一次服务的平面
++
++            wire f0_room = (f0_cnt != CD_FULL);
++            wire f1_room = (f1_cnt != CD_FULL);
++            wire p0_push = p0_v && f0_room;
++            wire p1_push = p1_v && f1_room;
++            // 核能不能推进：两个槽都要在本拍被收走（或本来就空）
++            wire sp_go   = (!p0_v || f0_room) && (!p1_v || f1_room);
++
++            // ---- 出口节流（★ T-99 第 2 刀）：一块要么整块进去，要么一拍都不进 ----
++            //   为什么必须节流（实测，v99 第 1 版 3.1–6.4 beat/AW 而不是 8）：
++            //   写引擎的"有 beat 必有描述符"通道 ① 会在 bf_cnt ≥ BF_PRESS 时**强制
++            //   收笔**（drain_cond）。合并器一拍 1 个 beat 连发，而引擎一笔 8 拍要
++            //   ~11 拍（AW→8×W→B→IDLE，单笔在飞）⇒ 供 > 耗 ⇒ bf_cnt 摸到 12
++            //   ⇒ 正在攒的那一块被从中间切断（实测出现 3+5、5+3、6+2、7+1 的配对标），
++            //   64 个整块被切成 89 笔。节流后 bf_cnt 永远到不了 BF_PRESS
++            //   ⇒ 每块都是干净的 8 拍 ⇒ 8.00 beat/AW（实测见 REPORT）。
++            //   · room_ok：整块（含本块剩余拍数）都塞得进 BF-2，才允许摆拍；
++            //     块内 bf_cnt 与 em_rem 同增同减 ⇒ (bf_cnt+em_rem) 在块内恒定，
++            //     所以这条判据在块首判一次就够，不会中途翻脸。
++            //   · starve ：引擎手上没描述符且在 IDLE（= 上一块 8 拍已满、缺"第 9 拍"
++            //     来收笔）⇒ 必须放 1 拍进去收笔，否则等 WR_GAP_TMO(4095 拍) 才动。
++            //     放 1 拍后 desc 立刻非空 ⇒ starve 下一拍自动失效（只漏 1 拍）。
++            //   ⚠ 两者都不能省：去掉 room_ok = 回到被切碎；去掉 starve = 可能饿死。
++            //   room_sum 固定 8 位：bf_cnt 与 em_rem 都零扩展进来 ⇒ CDEP 改大也不会
++            //   出现"零宽复制"这种非法写法（CDEP=8 时高 2 位恒 0，综合自动裁掉）。
++            wire [7:0] room_sum = {{(8-BF_CW){1'b0}}, bf_cnt} + {{(8-CDCW){1'b0}}, em_rem};
++            wire room_ok = (room_sum <= (BF - 2));
++            wire starve  = (df_cnt == DF_Z) && (axst == AX_IDLE) && (bf_cnt < BF);
++            wire em_ok   = room_ok || starve;
++            // ---- 出口：把 FIFO 头一拍摆给写引擎（wr_accept_ok 那拍才算被吞）----
++            assign cw_beat_en   = em_v && em_ok;
++            assign cw_beat_addr = em_pl ? f1_adr[f1_rp] : f0_adr[f0_rp];
++            assign cw_beat_data = em_pl ? f1_dat[f1_rp] : f0_dat[f0_rp];
++            assign cw_beat_sel  = em_pl ? f1_sl [f1_rp] : f0_sl [f0_rp];
++            wire em_pop     = cw_beat_en && wr_accept_ok;
++            wire em_blk_end = em_pop && (em_rem == CD_ONE);
++
++            // 本拍结束后的两个 FIFO 计数（同拍 push / pop 都要算进来）
++            wire [CDCW-1:0] f0_nx = f0_cnt
++                - ((em_pop && !em_pl) ? CD_ONE : CD_ZERO)
++                + (p0_push ? CD_ONE : CD_ZERO);
++            wire [CDCW-1:0] f1_nx = f1_cnt
++                - ((em_pop &&  em_pl) ? CD_ONE : CD_ZERO)
++                + (p1_push ? CD_ONE : CD_ZERO);
++
++            // 能否开新块：上一块已发完（或本来就空）
++            wire need_blk = !em_v || em_blk_end;
++            wire cb0 = (f0_nx >= CB_N);              // plane0 攒够一块
++            wire cb1 = (f1_nx >= CB_N);
++            // 轮转：两边都够就交替，避免一路饿死
++            //   em_rr = 上一次服务的平面（0=plane0，1=plane1）⇒ 优先另一边。
++            wire pick0 = need_blk && cb0 && (!cb1 || em_rr);
++            wire pick1 = need_blk && cb1 && (!cb0 || !em_rr) && !pick0;
++            // 收尾：核已 done ⇒ 不满一块的尾巴也发成短 burst（AWLEN = n-1）
++            wire cd0 = need_blk && unit_done_q && (f0_nx != CD_ZERO);
++            wire cd1 = need_blk && unit_done_q && (f1_nx != CD_ZERO);
++            wire pickd0 = cd0 && !pick0 && !pick1;
++            wire pickd1 = cd1 && !pick0 && !pick1 && !pickd0;
++
++            // ---- 拆分级：核一拍 → 两个"保持到被接受"的槽（T-94 原语义）----
+             always_ff @(posedge s_axi_aclk or negedge s_axi_aresetn) begin
+                 if (!s_axi_aresetn) begin
++                    p0_v <= 1'b0; p0_addr <= 32'd0; p0_data <= 64'd0; p0_sel <= 8'd0;
+                     p1_v <= 1'b0; p1_addr <= 32'd0; p1_data <= 64'd0; p1_sel <= 8'd0;
+-                    cw_beat_en <= 1'b0; cw_beat_addr <= 32'd0;
+-                    cw_beat_data <= 64'd0; cw_beat_sel <= 8'd0;
+                     pix_q <= 32'd0; pbase_q <= 32'd0;
+                 end else if (beat_go) begin
+-                    // 缓冲空（由 u_ce 门控保证）⇒ 装 beat0；若高位使能非 0 再排 beat1
+-                    cw_beat_en   <= 1'b1;
+-                    cw_beat_addr <= beat_addr;
+-                    cw_beat_data <= c_wr_data[63:0];
+-                    cw_beat_sel  <= c_wr_sel[7:0];
++                    p0_v    <= 1'b1;
++                    p0_addr <= beat_addr;
++                    p0_data <= c_wr_data[63:0];
++                    p0_sel  <= c_wr_sel[7:0];
+                     if (pix_q == 32'd0) pbase_q <= c_wr_addr;   // 组的 C8 首地址
+                     // 像素号推进（P 可 > 4096 ⇒ 32 位比较）
+                     pix_q <= (npix == 32'd0 || (pix_q + 32'd1 >= npix))
+                              ? 32'd0 : (pix_q + 32'd1);
+                     if (c_wr_sel[VLANES-1:8] != 8'd0) begin
+                         p1_v    <= 1'b1;
+-                        p1_addr <= beat_addr;
++                        p1_addr <= beat_addr;               // plane_delta 入 FIFO 时加
+                         p1_data <= c_wr_data[VLANES*8-1:64];
+                         p1_sel  <= c_wr_sel[VLANES-1:8];
+                     end else begin
+                         p1_v    <= 1'b0;
+                     end
+-                end else if (cw_beat_en && wr_accept_ok) begin
+-                    // beat0 已被写引擎吞下 ⇒ 抬 beat1（若有），否则清空
+-                    if (p1_v) begin
+-                        cw_beat_en   <= 1'b1;
+-                        cw_beat_addr <= p1_addr + plane_delta;
+-                        cw_beat_data <= p1_data;
+-                        cw_beat_sel  <= p1_sel;
+-                        p1_v         <= 1'b0;
+-                    end else begin
+-                        cw_beat_en   <= 1'b0;
+-                    end
+-                end else if (c_start) begin
++                end else begin
++                    if (p0_push) p0_v <= 1'b0;
++                    if (p1_push) p1_v <= 1'b0;
+                     // 新的一跑 / 新的一带：像素计数从头（防御性；正常时序上
+                     // c_start 远早于第一拍，pix_q 届时本来也是 0）
+-                    pix_q <= 32'd0;
++                    if (c_start) pix_q <= 32'd0;
+                 end
+             end
+-            // 停核条件：缓冲里还有 beat1 没发（2 拍缓冲只剩 1 拍余量）。
+-            //   beat0 挂着但 beat1 没排队时**不停核**：那一拍核推进的同时 beat0
+-            //   必被吞下（wr_accept_ok=u_ce_ns=1 才允许 u_ce=1）⇒ 不会覆盖。
+-            assign wr_split_busy_i = p1_v;
+-            assign wr_split_pend_i = p1_v || cw_beat_en;   // 缓冲非空（T-94 hold）
++
++            // ---- 合并 FIFO：每平面一条，独立读写口（同拍一推一弹合法）----
++            //   ⚠ f0_room/f1_room 用**弹之前**的计数判：满 8 那一拍即使有弹出也不推。
++            //     只是少用一格，换来"读口与写口永不同槽"（无读写同址冒险）。
++            always_ff @(posedge s_axi_aclk or negedge s_axi_aresetn) begin
++                if (!s_axi_aresetn) begin
++                    f0_wp <= {CDW{1'b0}}; f0_rp <= {CDW{1'b0}}; f0_cnt <= CD_ZERO;
++                    f1_wp <= {CDW{1'b0}}; f1_rp <= {CDW{1'b0}}; f1_cnt <= CD_ZERO;
++                end else if (start_fire) begin
++                    // 新一跑（含 abort 后重来）：两条 FIFO 一并丢弃（正常收尾时本就为空）
++                    f0_wp <= {CDW{1'b0}}; f0_rp <= {CDW{1'b0}}; f0_cnt <= CD_ZERO;
++                    f1_wp <= {CDW{1'b0}}; f1_rp <= {CDW{1'b0}}; f1_cnt <= CD_ZERO;
++                end else begin
++                    if (p0_push) begin
++                        f0_dat[f0_wp] <= p0_data;
++                        f0_adr[f0_wp] <= p0_addr;
++                        f0_sl [f0_wp] <= p0_sel;
++                        f0_wp <= (f0_wp == CD_LAST) ? {CDW{1'b0}} : (f0_wp + 1'b1);
++                    end
++                    if (p1_push) begin
++                        f1_dat[f1_wp] <= p1_data;
++                        f1_adr[f1_wp] <= p1_addr + plane_delta;   // ★ 平面 1 的地址
++                        f1_sl [f1_wp] <= p1_sel;
++                        f1_wp <= (f1_wp == CD_LAST) ? {CDW{1'b0}} : (f1_wp + 1'b1);
++                    end
++                    if (em_pop && !em_pl)
++                        f0_rp <= (f0_rp == CD_LAST) ? {CDW{1'b0}} : (f0_rp + 1'b1);
++                    if (em_pop &&  em_pl)
++                        f1_rp <= (f1_rp == CD_LAST) ? {CDW{1'b0}} : (f1_rp + 1'b1);
++                    f0_cnt <= f0_nx;
++                    f1_cnt <= f1_nx;
++                end
++            end
++
++            // ---- 成块出口调度（一块只取自一个平面 ⇒ 块内地址必连续）----
++            always_ff @(posedge s_axi_aclk or negedge s_axi_aresetn) begin
++                if (!s_axi_aresetn) begin
++                    em_v <= 1'b0; em_pl <= 1'b0; em_rem <= CD_ZERO; em_rr <= 1'b0;
++                end else if (start_fire) begin
++                    em_v <= 1'b0; em_pl <= 1'b0; em_rem <= CD_ZERO; em_rr <= 1'b0;
++                end else if (need_blk) begin
++                    if (pick0 || pick1) begin
++                        em_v   <= 1'b1;
++                        em_pl  <= pick0 ? 1'b0 : 1'b1;
++                        em_rem <= CB_N;
++                        em_rr  <= pick0 ? 1'b0 : 1'b1;     // 记"刚服务过谁"
++                    end else if (pickd0 || pickd1) begin
++                        em_v   <= 1'b1;
++                        em_pl  <= pickd0 ? 1'b0 : 1'b1;
++                        em_rem <= pickd0 ? f0_nx : f1_nx;
++                        em_rr  <= pickd0 ? 1'b0 : 1'b1;
++                    end else begin
++                        em_v   <= 1'b0;
++                    end
++                end else if (em_pop) begin
++                    em_rem <= em_rem - CD_ONE;
++                end
++            end
++
++            // 停核条件：拆分级有槽收不走（= 目标平面 FIFO 满）⇒ 核停这一拍。
++            //   ⚠ 必须与写引擎的 wr_accept_ok 解耦：wr_accept_ok 只决定"合并器能
++            //     不能吐"，停核只由"合并器能不能吃"决定，否则互等死锁。
++            assign wr_split_busy_i = !sp_go;
++            // 缓冲非空：还有拍没进写引擎（done / band 收尾必须等它）
++            assign wr_split_pend_i = p0_v || p1_v || (f0_cnt != CD_ZERO)
++                                     || (f1_cnt != CD_ZERO);
+         end
+ 
+         // ---- §10.5 融合 mux 的中间线（**先声明、后使用**）----
+@@ -3065,7 +3234,7 @@
+     //   done"之后才落进 FIFO ⇒ PS 提前读内存 ⇒ 静默错数据（只在"最后一个字节
+     //   正好落在 done 前 1 拍"的形状上偶发，很难在随机激励里撞到）。
+     assign wr_all_idle = (wst == W_IDLE) && !be_open && (bu_len == 9'd0) &&
+-                         !p_valid && !pw_valid &&
++                         !p_valid && !pw_valid && !wr_split_pend_i &&
+                          (bf_cnt == BF_Z) && (df_cnt == DF_Z) && (axst == AX_IDLE);
+ 
+     // ------------------------------------------------------------------------
+@@ -3283,6 +3452,16 @@
+         if ((LC_N < 2 * RD_WIN_WORDS) || ((LC_N & (LC_N - 1)) != 0))
+             $fatal(1, "[BIN-WRAP] LC_N(%0d) 必须是 >= 2*RD_WIN_WORDS(=%0d) 的 2 的幂",
+                    LC_N, 2 * RD_WIN_WORDS);
++        // ★ T-99：写合并器的三条硬约束（配错会静默发非法 burst 或死锁）
++        if ((WR_COAL_BLK < 1) || (WR_COAL_BLK > WR_BURST_MAX))
++            $fatal(1, "[BIN-WRAP] WR_COAL_BLK(%0d) 必须在 1..WR_BURST_MAX(=%0d)",
++                   WR_COAL_BLK, WR_BURST_MAX);
++        if (WR_COAL_DEPTH < WR_COAL_BLK)
++            $fatal(1, "[BIN-WRAP] WR_COAL_DEPTH(%0d) 必须 >= WR_COAL_BLK(=%0d)",
++                   WR_COAL_DEPTH, WR_COAL_BLK);
++        if ((WR_COAL_DEPTH > 128) || (WR_COAL_DEPTH < 2))
++            $fatal(1, "[BIN-WRAP] WR_COAL_DEPTH(%0d) 必须在 2..128（位宽按 $clog2 推导）",
++                   WR_COAL_DEPTH);
+         if ((NSLOT < 2) || ((NSLOT & (NSLOT - 1)) != 0))
+             $fatal(1, "[BIN-WRAP] NSLOT(%0d) 必须是 >=2 的 2 的幂", NSLOT);
+         if (NSLOT > (1 << AXI_ID_W))
