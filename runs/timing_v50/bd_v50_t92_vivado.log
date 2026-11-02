@@ -1,0 +1,456 @@
+#-----------------------------------------------------------
+# Vivado v2025.2.1 (64-bit)
+# SW Build 6403652 on Thu Mar 19 13:47:00 MDT 2026
+# IP Build 6403511 on Thu Mar 19 12:41:45 MDT 2026
+# SharedData Build 6403650 on Thu Mar 19 14:02:13 MDT 2026
+# Start of session at: Mon Nov  2 18:58:38 2026
+# Process ID         : 822634
+# Current directory  : /media/felix/Data/coding/demoir-fpga
+# Command line       : vivado -mode batch -notrace -source pynq_specialized_code/pl/scripts/bd_v50.tcl -log runs/timing_v50/bd_v50_t92_vivado.log -journal runs/timing_v50/bd_v50_t92_vivado.jou
+# Log file           : /media/felix/Data/coding/demoir-fpga/runs/timing_v50/bd_v50_t92_vivado.log
+# Journal file       : /media/felix/Data/coding/demoir-fpga/runs/timing_v50/bd_v50_t92_vivado.jou
+# Running On         : 2
+# Platform           : Ubuntu
+# Operating System   : Ubuntu 22.04.5 LTS
+# Processor Detail   : Intel(R) Core(TM) Ultra 7 155H
+# CPU Frequency      : 1922.933 MHz
+# CPU Physical cores : 16
+# CPU Logical cores  : 22
+# Host memory        : 33236 MB
+# Swap memory        : 0 MB
+# Total Virtual      : 33236 MB
+# Available Virtual  : 16976 MB
+#-----------------------------------------------------------
+source pynq_specialized_code/pl/scripts/bd_v50.tcl -notrace
+
+[01] 记录重登记将要用到的 RTL 外壳声明（钉死证据）
+      conv_uni_axi_wrap_bd.v     md5=a631cccf45abeabb15ecf1fc7f9633ed  FREQ40=0 FREQ150=3
+        s_axi  PROTOCOL=AXI4LITE  ADDR=32 DATA=32
+        m_axi  PROTOCOL=AXI3      ADDR=32 DATA=64
+      bin_unit_axi_wrap_bd_v50.v md5=9303ad6f61289ec6e7b259210a367bb7  FREQ40=0 FREQ150=3
+        s_axi  PROTOCOL=AXI4LITE  ADDR=32 DATA=32
+        m_axi  PROTOCOL=AXI3      ADDR=32 DATA=64
+
+[02] 打开副本工程
+Scanning sources...
+Finished scanning sources
+WARNING: [Board 49-26] cannot add Board Part xilinx.com:emb-plus-vpr-4616:part0:1.0 available at /data/xilinx/2025.2/2025.2.1/data/xhub/boards/XilinxBoardStore/boards/Xilinx/emb-plus-vpr-4616/1.0/board.xml as part xcve2302-sfva784-2mp-e-s specified in board_part file is either invalid or not available
+WARNING: [Board 49-26] cannot add Board Part xilinx.com:emb-plus-vpr-4616:part0:1.1 available at /data/xilinx/2025.2/2025.2.1/data/xhub/boards/XilinxBoardStore/boards/Xilinx/emb-plus-vpr-4616/1.1/board.xml as part xcve2302-sfva784-2mp-e-s specified in board_part file is either invalid or not available
+WARNING: [Board 49-26] cannot add Board Part xilinx.com:k24c:part0:1.0 available at /data/xilinx/2025.2/2025.2.1/data/xhub/boards/XilinxBoardStore/boards/Xilinx/k24c/1.0/board.xml as part xck24-ubva530-2lv-c specified in board_part file is either invalid or not available
+WARNING: [Board 49-26] cannot add Board Part xilinx.com:k24c:part0:1.1 available at /data/xilinx/2025.2/2025.2.1/data/xhub/boards/XilinxBoardStore/boards/Xilinx/k24c/1.1/board.xml as part xck24-ubva530-2lv-c specified in board_part file is either invalid or not available
+WARNING: [Board 49-26] cannot add Board Part xilinx.com:k24i:part0:1.0 available at /data/xilinx/2025.2/2025.2.1/data/xhub/boards/XilinxBoardStore/boards/Xilinx/k24i/1.0/board.xml as part xck24-ubva530-2lvi-i specified in board_part file is either invalid or not available
+WARNING: [Board 49-26] cannot add Board Part xilinx.com:k26c:part0:1.2 available at /data/xilinx/2025.2/2025.2.1/data/xhub/boards/XilinxBoardStore/boards/Xilinx/k26c/1.2/board.xml as part xck26-sfvc784-2lv-c specified in board_part file is either invalid or not available
+WARNING: [Board 49-26] cannot add Board Part xilinx.com:k26c:part0:1.3 available at /data/xilinx/2025.2/2025.2.1/data/xhub/boards/XilinxBoardStore/boards/Xilinx/k26c/1.3/board.xml as part xck26-sfvc784-2lv-c specified in board_part file is either invalid or not available
+WARNING: [Board 49-26] cannot add Board Part xilinx.com:k26c:part0:1.4 available at /data/xilinx/2025.2/2025.2.1/data/xhub/boards/XilinxBoardStore/boards/Xilinx/k26c/1.4/board.xml as part xck26-sfvc784-2lv-c specified in board_part file is either invalid or not available
+WARNING: [Board 49-26] cannot add Board Part xilinx.com:k26i:part0:1.2 available at /data/xilinx/2025.2/2025.2.1/data/xhub/boards/XilinxBoardStore/boards/Xilinx/k26i/1.2/board.xml as part xck26-sfvc784-2lvi-i specified in board_part file is either invalid or not available
+WARNING: [Board 49-26] cannot add Board Part xilinx.com:k26i:part0:1.3 available at /data/xilinx/2025.2/2025.2.1/data/xhub/boards/XilinxBoardStore/boards/Xilinx/k26i/1.3/board.xml as part xck26-sfvc784-2lvi-i specified in board_part file is either invalid or not available
+WARNING: [Board 49-26] cannot add Board Part xilinx.com:k26i:part0:1.4 available at /data/xilinx/2025.2/2025.2.1/data/xhub/boards/XilinxBoardStore/boards/Xilinx/k26i/1.4/board.xml as part xck26-sfvc784-2lvi-i specified in board_part file is either invalid or not available
+WARNING: [Board 49-26] cannot add Board Part xilinx.com:kcu105:part0:1.6 available at /data/xilinx/2025.2/2025.2.1/data/xhub/boards/XilinxBoardStore/boards/Xilinx/kcu105/1.6/board.xml as part xcku040-ffva1156-2-e specified in board_part file is either invalid or not available
+WARNING: [Board 49-26] cannot add Board Part xilinx.com:kcu105:part0:1.7 available at /data/xilinx/2025.2/2025.2.1/data/xhub/boards/XilinxBoardStore/boards/Xilinx/kcu105/1.7/board.xml as part xcku040-ffva1156-2-e specified in board_part file is either invalid or not available
+WARNING: [Board 49-26] cannot add Board Part xilinx.com:kcu116:part0:1.4 available at /data/xilinx/2025.2/2025.2.1/data/xhub/boards/XilinxBoardStore/boards/Xilinx/kcu116/1.4/board.xml as part xcku5p-ffvb676-2-e specified in board_part file is either invalid or not available
+WARNING: [Board 49-26] cannot add Board Part xilinx.com:kcu116:part0:1.5 available at /data/xilinx/2025.2/2025.2.1/data/xhub/boards/XilinxBoardStore/boards/Xilinx/kcu116/1.5/board.xml as part xcku5p-ffvb676-2-e specified in board_part file is either invalid or not available
+WARNING: [Board 49-26] cannot add Board Part xilinx.com:kcu1500:part0:1.2 available at /data/xilinx/2025.2/2025.2.1/data/xhub/boards/XilinxBoardStore/boards/Xilinx/kcu1500/1.2/board.xml as part xcku115-flvb2104-2-e specified in board_part file is either invalid or not available
+WARNING: [Board 49-26] cannot add Board Part xilinx.com:kd240_som:part0:1.0 available at /data/xilinx/2025.2/2025.2.1/data/xhub/boards/XilinxBoardStore/boards/Xilinx/kd240_som/1.0/board.xml as part xck24-ubva530-2lv-c specified in board_part file is either invalid or not available
+WARNING: [Board 49-26] cannot add Board Part xilinx.com:kd240_som:part0:1.1 available at /data/xilinx/2025.2/2025.2.1/data/xhub/boards/XilinxBoardStore/boards/Xilinx/kd240_som/1.1/board.xml as part xck24-ubva530-2lv-c specified in board_part file is either invalid or not available
+WARNING: [Board 49-26] cannot add Board Part xilinx.com:kr260_som:part0:1.0 available at /data/xilinx/2025.2/2025.2.1/data/xhub/boards/XilinxBoardStore/boards/Xilinx/kr260_som/1.0/board.xml as part xck26-sfvc784-2lv-c specified in board_part file is either invalid or not available
+WARNING: [Board 49-26] cannot add Board Part xilinx.com:kr260_som:part0:1.1 available at /data/xilinx/2025.2/2025.2.1/data/xhub/boards/XilinxBoardStore/boards/Xilinx/kr260_som/1.1/board.xml as part xck26-sfvc784-2lv-c specified in board_part file is either invalid or not available
+WARNING: [Board 49-26] cannot add Board Part xilinx.com:kv260_som:part0:1.2 available at /data/xilinx/2025.2/2025.2.1/data/xhub/boards/XilinxBoardStore/boards/Xilinx/kv260_som/1.2/board.xml as part xck26-sfvc784-2lv-c specified in board_part file is either invalid or not available
+WARNING: [Board 49-26] cannot add Board Part xilinx.com:kv260_som:part0:1.3 available at /data/xilinx/2025.2/2025.2.1/data/xhub/boards/XilinxBoardStore/boards/Xilinx/kv260_som/1.3/board.xml as part xck26-sfvc784-2lv-c specified in board_part file is either invalid or not available
+WARNING: [Board 49-26] cannot add Board Part xilinx.com:kv260_som:part0:1.4 available at /data/xilinx/2025.2/2025.2.1/data/xhub/boards/XilinxBoardStore/boards/Xilinx/kv260_som/1.4/board.xml as part xck26-sfvc784-2lv-c specified in board_part file is either invalid or not available
+WARNING: [Board 49-26] cannot add Board Part xilinx.com:scu200:part0:1.0 available at /data/xilinx/2025.2/2025.2.1/data/xhub/boards/XilinxBoardStore/boards/Xilinx/scu200/1.0/board.xml as part xcsu200p-sbva1024-2-e specified in board_part file is either invalid or not available
+WARNING: [Board 49-26] cannot add Board Part xilinx.com:scu35:part0:1.0 available at /data/xilinx/2025.2/2025.2.1/data/xhub/boards/XilinxBoardStore/boards/Xilinx/scu35/1.0/board.xml as part xcsu35p-sbvb625-2-e specified in board_part file is either invalid or not available
+WARNING: [Board 49-26] cannot add Board Part xilinx.com:v80:part0:1.0 available at /data/xilinx/2025.2/2025.2.1/data/xhub/boards/XilinxBoardStore/boards/Xilinx/v80/1.0/board.xml as part xcv80-lsva4737-2mhp-e-s specified in board_part file is either invalid or not available
+WARNING: [Board 49-26] cannot add Board Part xilinx.com:vck190:part0:2.2 available at /data/xilinx/2025.2/2025.2.1/data/xhub/boards/XilinxBoardStore/boards/Xilinx/vck190/production/2.2/board.xml as part xcvc1902-vsva2197-2mp-e-s specified in board_part file is either invalid or not available
+WARNING: [Board 49-26] cannot add Board Part xilinx.com:vck190:part0:3.0 available at /data/xilinx/2025.2/2025.2.1/data/xhub/boards/XilinxBoardStore/boards/Xilinx/vck190/production/3.0/board.xml as part xcvc1902-vsva2197-2mp-e-s specified in board_part file is either invalid or not available
+WARNING: [Board 49-26] cannot add Board Part xilinx.com:vck190:part0:3.1 available at /data/xilinx/2025.2/2025.2.1/data/xhub/boards/XilinxBoardStore/boards/Xilinx/vck190/production/3.1/board.xml as part xcvc1902-vsva2197-2mp-e-s specified in board_part file is either invalid or not available
+WARNING: [Board 49-26] cannot add Board Part xilinx.com:vck190:part0:3.2 available at /data/xilinx/2025.2/2025.2.1/data/xhub/boards/XilinxBoardStore/boards/Xilinx/vck190/production/3.2/board.xml as part xcvc1902-vsva2197-2mp-e-s specified in board_part file is either invalid or not available
+WARNING: [Board 49-26] cannot add Board Part xilinx.com:vck190:part0:3.3 available at /data/xilinx/2025.2/2025.2.1/data/xhub/boards/XilinxBoardStore/boards/Xilinx/vck190/production/3.3/board.xml as part xcvc1902-vsva2197-2mp-e-s specified in board_part file is either invalid or not available
+WARNING: [Board 49-26] cannot add Board Part xilinx.com:vck190:part0:3.4 available at /data/xilinx/2025.2/2025.2.1/data/xhub/boards/XilinxBoardStore/boards/Xilinx/vck190/production/3.4/board.xml as part xcvc1902-vsva2197-2mp-e-s specified in board_part file is either invalid or not available
+WARNING: [Board 49-26] cannot add Board Part xilinx.com:vck190_newl:part0:1.0 available at /data/xilinx/2025.2/2025.2.1/data/xhub/boards/XilinxBoardStore/boards/Xilinx/vck190_newl/production/1.0/board.xml as part xcvc1902-vsva2197-2mp-e-s specified in board_part file is either invalid or not available
+WARNING: [Board 49-26] cannot add Board Part xilinx.com:vck190_newl:part0:1.1 available at /data/xilinx/2025.2/2025.2.1/data/xhub/boards/XilinxBoardStore/boards/Xilinx/vck190_newl/production/1.1/board.xml as part xcvc1902-vsva2197-2mp-e-s specified in board_part file is either invalid or not available
+WARNING: [Board 49-26] cannot add Board Part xilinx.com:vck190_newl:part0:1.2 available at /data/xilinx/2025.2/2025.2.1/data/xhub/boards/XilinxBoardStore/boards/Xilinx/vck190_newl/production/1.2/board.xml as part xcvc1902-vsva2197-2mp-e-s specified in board_part file is either invalid or not available
+WARNING: [Board 49-26] cannot add Board Part xilinx.com:vck190_newl:part0:1.3 available at /data/xilinx/2025.2/2025.2.1/data/xhub/boards/XilinxBoardStore/boards/Xilinx/vck190_newl/production/1.3/board.xml as part xcvc1902-vsva2197-2mp-e-s specified in board_part file is either invalid or not available
+WARNING: [Board 49-26] cannot add Board Part xilinx.com:vcu108:part0:1.6 available at /data/xilinx/2025.2/2025.2.1/data/xhub/boards/XilinxBoardStore/boards/Xilinx/vcu108/1.6/board.xml as part xcvu095-ffva2104-2-e specified in board_part file is either invalid or not available
+WARNING: [Board 49-26] cannot add Board Part xilinx.com:vcu108:part0:1.7 available at /data/xilinx/2025.2/2025.2.1/data/xhub/boards/XilinxBoardStore/boards/Xilinx/vcu108/1.7/board.xml as part xcvu095-ffva2104-2-e specified in board_part file is either invalid or not available
+WARNING: [Board 49-26] cannot add Board Part xilinx.com:vcu110:part0:1.4 available at /data/xilinx/2025.2/2025.2.1/data/xhub/boards/XilinxBoardStore/boards/Xilinx/vcu110/1.4/board.xml as part xcvu190-flgc2104-2-e specified in board_part file is either invalid or not available
+WARNING: [Board 49-26] cannot add Board Part xilinx.com:vcu118:part0:2.0 available at /data/xilinx/2025.2/2025.2.1/data/xhub/boards/XilinxBoardStore/boards/Xilinx/vcu118/2.0/board.xml as part xcvu9p-flga2104-2l-e specified in board_part file is either invalid or not available
+WARNING: [Board 49-26] cannot add Board Part xilinx.com:vcu118:part0:2.3 available at /data/xilinx/2025.2/2025.2.1/data/xhub/boards/XilinxBoardStore/boards/Xilinx/vcu118/2.3/board.xml as part xcvu9p-flga2104-2l-e specified in board_part file is either invalid or not available
+WARNING: [Board 49-26] cannot add Board Part xilinx.com:vcu118:part0:2.4 available at /data/xilinx/2025.2/2025.2.1/data/xhub/boards/XilinxBoardStore/boards/Xilinx/vcu118/2.4/board.xml as part xcvu9p-flga2104-2l-e specified in board_part file is either invalid or not available
+WARNING: [Board 49-26] cannot add Board Part xilinx.com:vcu128:part0:1.0 available at /data/xilinx/2025.2/2025.2.1/data/xhub/boards/XilinxBoardStore/boards/Xilinx/vcu128/production/1.0/board.xml as part xcvu37p-fsvh2892-2l-e specified in board_part file is either invalid or not available
+WARNING: [Board 49-26] cannot add Board Part xilinx.com:vcu129:part0:1.0 available at /data/xilinx/2025.2/2025.2.1/data/xhub/boards/XilinxBoardStore/boards/Xilinx/vcu129/production/1.0/board.xml as part xcvu29p-fsga2577-2l-e specified in board_part file is either invalid or not available
+WARNING: [Board 49-26] cannot add Board Part xilinx.com:vcu1525:part0:1.3 available at /data/xilinx/2025.2/2025.2.1/data/xhub/boards/XilinxBoardStore/boards/Xilinx/vcu1525/1.3/board.xml as part xcvu9p-fsgd2104-2l-e specified in board_part file is either invalid or not available
+WARNING: [Board 49-26] cannot add Board Part xilinx.com:vek280:part0:1.0 available at /data/xilinx/2025.2/2025.2.1/data/xhub/boards/XilinxBoardStore/boards/Xilinx/vek280/production/1.0/board.xml as part xcve2802-vsvh1760-2mp-e-s specified in board_part file is either invalid or not available
+WARNING: [Board 49-26] cannot add Board Part xilinx.com:vek280:part0:1.1 available at /data/xilinx/2025.2/2025.2.1/data/xhub/boards/XilinxBoardStore/boards/Xilinx/vek280/production/1.1/board.xml as part xcve2802-vsvh1760-2mp-e-s specified in board_part file is either invalid or not available
+WARNING: [Board 49-26] cannot add Board Part xilinx.com:vek280:part0:1.2 available at /data/xilinx/2025.2/2025.2.1/data/xhub/boards/XilinxBoardStore/boards/Xilinx/vek280/production/1.2/board.xml as part xcve2802-vsvh1760-2mp-e-s specified in board_part file is either invalid or not available
+WARNING: [Board 49-26] cannot add Board Part xilinx.com:vek385:part0:1.0 available at /data/xilinx/2025.2/2025.2.1/data/xhub/boards/XilinxBoardStore/boards/Xilinx/vek385/1.0/board.xml as part xc2ve3858-ssva2112-2mp-e-s specified in board_part file is either invalid or not available
+WARNING: [Board 49-26] cannot add Board Part xilinx.com:vek385:part0:1.1 available at /data/xilinx/2025.2/2025.2.1/data/xhub/boards/XilinxBoardStore/boards/Xilinx/vek385/1.1/board.xml as part xc2ve3858-ssva2112-2mp-e-s specified in board_part file is either invalid or not available
+WARNING: [Board 49-26] cannot add Board Part xilinx.com:vek385_1:part0:1.0 available at /data/xilinx/2025.2/2025.2.1/data/xhub/boards/XilinxBoardStore/boards/Xilinx/vek385_2/1.0/board.xml as part xc2ve3858-ssva2112-2mp-e-s specified in board_part file is either invalid or not available
+WARNING: [Board 49-26] cannot add Board Part xilinx.com:vermeo_t1_mpsoc:part0:1.0 available at /data/xilinx/2025.2/2025.2.1/data/xhub/boards/XilinxBoardStore/boards/Xilinx/vermeo_t1_mpsoc/1.0/board.xml as part xczu19eg-ffvd1760-2l-e specified in board_part file is either invalid or not available
+WARNING: [Board 49-26] cannot add Board Part xilinx.com:vermeo_t1_rfsoc:part0:1.0 available at /data/xilinx/2025.2/2025.2.1/data/xhub/boards/XilinxBoardStore/boards/Xilinx/vermeo_t1_rfsoc/1.0/board.xml as part xczu21dr-ffvd1156-2l-e specified in board_part file is either invalid or not available
+WARNING: [Board 49-26] cannot add Board Part xilinx.com:vhk158:part0:1.0 available at /data/xilinx/2025.2/2025.2.1/data/xhub/boards/XilinxBoardStore/boards/Xilinx/vhk158/production/1.0/board.xml as part xcvh1582-vsva3697-2mp-e-s specified in board_part file is either invalid or not available
+WARNING: [Board 49-26] cannot add Board Part xilinx.com:vhk158:part0:1.1 available at /data/xilinx/2025.2/2025.2.1/data/xhub/boards/XilinxBoardStore/boards/Xilinx/vhk158/production/1.1/board.xml as part xcvh1582-vsva3697-2mp-e-s specified in board_part file is either invalid or not available
+WARNING: [Board 49-26] cannot add Board Part xilinx.com:vhk158:part0:1.2 available at /data/xilinx/2025.2/2025.2.1/data/xhub/boards/XilinxBoardStore/boards/Xilinx/vhk158/production/1.2/board.xml as part xcvh1582-vsva3697-2mp-e-s specified in board_part file is either invalid or not available
+WARNING: [Board 49-26] cannot add Board Part xilinx.com:vmk180:part0:2.2 available at /data/xilinx/2025.2/2025.2.1/data/xhub/boards/XilinxBoardStore/boards/Xilinx/vmk180/production/2.2/board.xml as part xcvm1802-vsva2197-2mp-e-s specified in board_part file is either invalid or not available
+WARNING: [Board 49-26] cannot add Board Part xilinx.com:vmk180:part0:3.0 available at /data/xilinx/2025.2/2025.2.1/data/xhub/boards/XilinxBoardStore/boards/Xilinx/vmk180/production/3.0/board.xml as part xcvm1802-vsva2197-2mp-e-s specified in board_part file is either invalid or not available
+WARNING: [Board 49-26] cannot add Board Part xilinx.com:vmk180:part0:3.1 available at /data/xilinx/2025.2/2025.2.1/data/xhub/boards/XilinxBoardStore/boards/Xilinx/vmk180/production/3.1/board.xml as part xcvm1802-vsva2197-2mp-e-s specified in board_part file is either invalid or not available
+WARNING: [Board 49-26] cannot add Board Part xilinx.com:vmk180:part0:3.2 available at /data/xilinx/2025.2/2025.2.1/data/xhub/boards/XilinxBoardStore/boards/Xilinx/vmk180/production/3.2/board.xml as part xcvm1802-vsva2197-2mp-e-s specified in board_part file is either invalid or not available
+WARNING: [Board 49-26] cannot add Board Part xilinx.com:vmk180:part0:3.3 available at /data/xilinx/2025.2/2025.2.1/data/xhub/boards/XilinxBoardStore/boards/Xilinx/vmk180/production/3.3/board.xml as part xcvm1802-vsva2197-2mp-e-s specified in board_part file is either invalid or not available
+WARNING: [Board 49-26] cannot add Board Part xilinx.com:vmk180_newl:part0:1.0 available at /data/xilinx/2025.2/2025.2.1/data/xhub/boards/XilinxBoardStore/boards/Xilinx/vmk180_newl/production/1.0/board.xml as part xcvm1802-vsva2197-2mp-e-s specified in board_part file is either invalid or not available
+WARNING: [Board 49-26] cannot add Board Part xilinx.com:vmk180_newl:part0:1.1 available at /data/xilinx/2025.2/2025.2.1/data/xhub/boards/XilinxBoardStore/boards/Xilinx/vmk180_newl/production/1.1/board.xml as part xcvm1802-vsva2197-2mp-e-s specified in board_part file is either invalid or not available
+WARNING: [Board 49-26] cannot add Board Part xilinx.com:vpk120:part0:1.0 available at /data/xilinx/2025.2/2025.2.1/data/xhub/boards/XilinxBoardStore/boards/Xilinx/vpk120/production/1.0/board.xml as part xcvp1202-vsva2785-2mp-e-s specified in board_part file is either invalid or not available
+WARNING: [Board 49-26] cannot add Board Part xilinx.com:vpk120:part0:1.1 available at /data/xilinx/2025.2/2025.2.1/data/xhub/boards/XilinxBoardStore/boards/Xilinx/vpk120/production/1.1/board.xml as part xcvp1202-vsva2785-2mp-e-s specified in board_part file is either invalid or not available
+WARNING: [Board 49-26] cannot add Board Part xilinx.com:vpk120:part0:1.2 available at /data/xilinx/2025.2/2025.2.1/data/xhub/boards/XilinxBoardStore/boards/Xilinx/vpk120/production/1.2/board.xml as part xcvp1202-vsva2785-2mp-e-s specified in board_part file is either invalid or not available
+WARNING: [Board 49-26] cannot add Board Part xilinx.com:vpk180:part0:1.0 available at /data/xilinx/2025.2/2025.2.1/data/xhub/boards/XilinxBoardStore/boards/Xilinx/vpk180/production/1.0/board.xml as part xcvp1802-lsvc4072-2mp-e-s specified in board_part file is either invalid or not available
+WARNING: [Board 49-26] cannot add Board Part xilinx.com:vpk180:part0:1.1 available at /data/xilinx/2025.2/2025.2.1/data/xhub/boards/XilinxBoardStore/boards/Xilinx/vpk180/production/1.1/board.xml as part xcvp1802-lsvc4072-2mp-e-s specified in board_part file is either invalid or not available
+WARNING: [Board 49-26] cannot add Board Part xilinx.com:vpk180:part0:1.2 available at /data/xilinx/2025.2/2025.2.1/data/xhub/boards/XilinxBoardStore/boards/Xilinx/vpk180/production/1.2/board.xml as part xcvp1802-lsvc4072-2mp-e-s specified in board_part file is either invalid or not available
+WARNING: [Board 49-26] cannot add Board Part xilinx.com:vrk160:part0:1.0 available at /data/xilinx/2025.2/2025.2.1/data/xhub/boards/XilinxBoardStore/boards/Xilinx/vrk160/1.0/board.xml as part xcvr1602-vsva2488-2mp-e-s-es1 specified in board_part file is either invalid or not available
+WARNING: [Board 49-26] cannot add Board Part xilinx.com:vrk160:part0:1.1 available at /data/xilinx/2025.2/2025.2.1/data/xhub/boards/XilinxBoardStore/boards/Xilinx/vrk160/1.1/board.xml as part xcvr1602-vsva2488-2mp-e-s-es1 specified in board_part file is either invalid or not available
+WARNING: [Board 49-26] cannot add Board Part xilinx.com:vrk165_es:part0:1.0 available at /data/xilinx/2025.2/2025.2.1/data/xhub/boards/XilinxBoardStore/boards/Xilinx/vrk165/es/1.0/board.xml as part xcvr1652-vsva2488-2mp-e-s-es1 specified in board_part file is either invalid or not available
+WARNING: [Board 49-26] cannot add Board Part xilinx.com:zcu102:part0:3.3 available at /data/xilinx/2025.2/2025.2.1/data/xhub/boards/XilinxBoardStore/boards/Xilinx/zcu102/3.3/board.xml as part xczu9eg-ffvb1156-2-e specified in board_part file is either invalid or not available
+WARNING: [Board 49-26] cannot add Board Part xilinx.com:zcu102:part0:3.4 available at /data/xilinx/2025.2/2025.2.1/data/xhub/boards/XilinxBoardStore/boards/Xilinx/zcu102/3.4/board.xml as part xczu9eg-ffvb1156-2-e specified in board_part file is either invalid or not available
+WARNING: [Board 49-26] cannot add Board Part xilinx.com:zcu104:part0:1.1 available at /data/xilinx/2025.2/2025.2.1/data/xhub/boards/XilinxBoardStore/boards/Xilinx/zcu104/1.1/board.xml as part xczu7ev-ffvc1156-2-e specified in board_part file is either invalid or not available
+WARNING: [Board 49-26] cannot add Board Part xilinx.com:zcu106:part0:2.4 available at /data/xilinx/2025.2/2025.2.1/data/xhub/boards/XilinxBoardStore/boards/Xilinx/zcu106/2.4/board.xml as part xczu7ev-ffvc1156-2-e specified in board_part file is either invalid or not available
+WARNING: [Board 49-26] cannot add Board Part xilinx.com:zcu106:part0:2.5 available at /data/xilinx/2025.2/2025.2.1/data/xhub/boards/XilinxBoardStore/boards/Xilinx/zcu106/2.5/board.xml as part xczu7ev-ffvc1156-2-e specified in board_part file is either invalid or not available
+WARNING: [Board 49-26] cannot add Board Part xilinx.com:zcu106:part0:2.6 available at /data/xilinx/2025.2/2025.2.1/data/xhub/boards/XilinxBoardStore/boards/Xilinx/zcu106/2.6/board.xml as part xczu7ev-ffvc1156-2-e specified in board_part file is either invalid or not available
+WARNING: [Board 49-26] cannot add Board Part xilinx.com:zcu111:part0:1.2 available at /data/xilinx/2025.2/2025.2.1/data/xhub/boards/XilinxBoardStore/boards/Xilinx/zcu111/1.2/board.xml as part xczu28dr-ffvg1517-2-e specified in board_part file is either invalid or not available
+WARNING: [Board 49-26] cannot add Board Part xilinx.com:zcu111:part0:1.3 available at /data/xilinx/2025.2/2025.2.1/data/xhub/boards/XilinxBoardStore/boards/Xilinx/zcu111/1.3/board.xml as part xczu28dr-ffvg1517-2-e specified in board_part file is either invalid or not available
+WARNING: [Board 49-26] cannot add Board Part xilinx.com:zcu111:part0:1.4 available at /data/xilinx/2025.2/2025.2.1/data/xhub/boards/XilinxBoardStore/boards/Xilinx/zcu111/1.4/board.xml as part xczu28dr-ffvg1517-2-e specified in board_part file is either invalid or not available
+WARNING: [Board 49-26] cannot add Board Part xilinx.com:zcu1275:part0:1.0 available at /data/xilinx/2025.2/2025.2.1/data/xhub/boards/XilinxBoardStore/boards/Xilinx/zcu1275/1.0/board.xml as part xczu29dr-ffvf1760-2-e specified in board_part file is either invalid or not available
+WARNING: [Board 49-26] cannot add Board Part xilinx.com:zcu1285:part0:1.0 available at /data/xilinx/2025.2/2025.2.1/data/xhub/boards/XilinxBoardStore/boards/Xilinx/zcu1285/1.0/board.xml as part xczu39dr-ffvf1760-2-i specified in board_part file is either invalid or not available
+WARNING: [Board 49-26] cannot add Board Part xilinx.com:zcu208:part0:2.0 available at /data/xilinx/2025.2/2025.2.1/data/xhub/boards/XilinxBoardStore/boards/Xilinx/zcu208/production/2.0/board.xml as part xczu48dr-fsvg1517-2-e specified in board_part file is either invalid or not available
+WARNING: [Board 49-26] cannot add Board Part xilinx.com:zcu208ld:part0:2.0 available at /data/xilinx/2025.2/2025.2.1/data/xhub/boards/XilinxBoardStore/boards/Xilinx/zcu208ld/production/2.0/board.xml as part xczu58dr-fsvg1517-2-i specified in board_part file is either invalid or not available
+WARNING: [Board 49-26] cannot add Board Part xilinx.com:zcu216:part0:2.0 available at /data/xilinx/2025.2/2025.2.1/data/xhub/boards/XilinxBoardStore/boards/Xilinx/zcu216/production/2.0/board.xml as part xczu49dr-ffvf1760-2-e specified in board_part file is either invalid or not available
+WARNING: [Board 49-26] cannot add Board Part xilinx.com:zcu216ld:part0:2.0 available at /data/xilinx/2025.2/2025.2.1/data/xhub/boards/XilinxBoardStore/boards/Xilinx/zcu216ld/production/2.0/board.xml as part xczu59dr-ffvf1760-2-i specified in board_part file is either invalid or not available
+WARNING: [Board 49-26] cannot add Board Part xilinx.com:zcu670:part0:2.0 available at /data/xilinx/2025.2/2025.2.1/data/xhub/boards/XilinxBoardStore/boards/Xilinx/zcu670/2.0/board.xml as part xczu67dr-fsve1156-2-i specified in board_part file is either invalid or not available
+WARNING: [Board 49-26] cannot add Board Part xilinx.com:zcu670ld:part0:1.0 available at /data/xilinx/2025.2/2025.2.1/data/xhub/boards/XilinxBoardStore/boards/Xilinx/zcu670ld/1.0/board.xml as part xczu57dr-fsve1156-2-i specified in board_part file is either invalid or not available
+WARNING: [Project 1-5713] Board part '' set for the project  is not found. BoardPart property will be unset. Please select board from latest repo build 
+INFO: [IP_Flow 19-234] Refreshing IP repositories
+INFO: [IP_Flow 19-1700] Loaded user IP repository '/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/proj/engine_v1/solution1/impl/ip'.
+INFO: [IP_Flow 19-1700] Loaded user IP repository '/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/ip_repo'.
+INFO: [IP_Flow 19-2313] Loaded Vivado IP repository '/data/xilinx/2025.2/2025.2.1/data/ip'.
+    OK   part=xc7z015clg485-2
+
+[03] 把 T-64 的 16-lane RTL 登记进工程（module-ref 才能解析 bin_unit_axi_wrap_bd_v50）
+    OK   lane16 文件 10 个（本次新登记 0 个）：bin_band_buf.v, bin_band_fill_v50.v, bin_catpack_v50.v, bin_conv_core_v50.v, bin_interp_v50.v, bin_rprelu_v50.v, bin_sam_v50.v, bin_segq.v, bin_unit_axi_wrap_bd_v50.v, bin_unit_axi_wrap_v50.v
+
+[04] 硬断言：不许带 fconv、不许开 HP2
+    OK   design_1.bd 文本里没有 fconv_0（md5=74a2807583ab5d3165fe3e8507698387）
+
+[05] 解 locked + 删 mref 缓存（让 module-ref 按当前 RTL 重新打包）
+    ..   locked IP = 0
+    ..   mref/conv_uni_axi_wrap_bd 不存在
+    ..   mref/bin_unit_axi_wrap_bd_v50 不存在
+
+[06] 打开 BD + 记录改前基线
+Reading block design file </media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/vivado/proj_v50/proj_engine.srcs/sources_1/bd/design_1/design_1.bd>...
+Adding component instance block -- xilinx.com:ip:processing_system7:5.5 - ps7
+Adding component instance block -- xilinx.com:ip:proc_sys_reset:5.0 - rst_0
+Adding component instance block -- xilinx.com:ip:axi_interconnect:2.1 - axi_ctrl
+Adding component instance block -- xilinx.com:ip:axi_crossbar:2.1 - xbar
+Adding component instance block -- xilinx.com:ip:axi_protocol_converter:2.1 - auto_pc
+Adding component instance block -- xilinx.com:module_ref:conv_uni_axi_wrap_bd:1.0 - conv_uni_0
+CRITICAL WARNING: [HDL 9-1206] Syntax error near ''' [/media/felix/Data/coding/demoir-fpga/runs/timing_v50/rtl_v50/lane16/bin_band_buf.v:128]
+CRITICAL WARNING: [HDL 9-1206] Syntax error near ''' [/media/felix/Data/coding/demoir-fpga/runs/timing_v50/rtl_v50/lane16/bin_band_buf.v:132]
+CRITICAL WARNING: [HDL 9-1206] Syntax error near ''' [/media/felix/Data/coding/demoir-fpga/runs/timing_v50/rtl_v50/lane16/bin_band_buf.v:167]
+CRITICAL WARNING: [HDL 9-1206] Syntax error near 'begin' [/media/felix/Data/coding/demoir-fpga/runs/timing_v50/rtl_v50/lane16/bin_band_buf.v:200]
+CRITICAL WARNING: [HDL 9-1206] Syntax error near '=' [/media/felix/Data/coding/demoir-fpga/runs/timing_v50/rtl_v50/lane16/bin_band_buf.v:204]
+CRITICAL WARNING: [HDL 9-1206] Syntax error near '=' [/media/felix/Data/coding/demoir-fpga/runs/timing_v50/rtl_v50/lane16/bin_band_buf.v:205]
+CRITICAL WARNING: [HDL 9-1206] Syntax error near '=' [/media/felix/Data/coding/demoir-fpga/runs/timing_v50/rtl_v50/lane16/bin_band_buf.v:206]
+CRITICAL WARNING: [HDL 9-1206] Syntax error near '=' [/media/felix/Data/coding/demoir-fpga/runs/timing_v50/rtl_v50/lane16/bin_band_buf.v:207]
+CRITICAL WARNING: [HDL 9-1206] Syntax error near '=' [/media/felix/Data/coding/demoir-fpga/runs/timing_v50/rtl_v50/lane16/bin_band_buf.v:208]
+CRITICAL WARNING: [HDL 9-1206] Syntax error near '@' [/media/felix/Data/coding/demoir-fpga/runs/timing_v50/rtl_v50/lane16/bin_band_buf.v:223]
+CRITICAL WARNING: [HDL 9-1206] Syntax error near '<=' [/media/felix/Data/coding/demoir-fpga/runs/timing_v50/rtl_v50/lane16/bin_band_buf.v:231]
+CRITICAL WARNING: [HDL 9-1206] Syntax error near 'begin' [/media/felix/Data/coding/demoir-fpga/runs/timing_v50/rtl_v50/lane16/bin_band_buf.v:255]
+CRITICAL WARNING: [HDL 9-1206] Syntax error near '=' [/media/felix/Data/coding/demoir-fpga/runs/timing_v50/rtl_v50/lane16/bin_band_buf.v:260]
+CRITICAL WARNING: [HDL 9-1206] Syntax error near '=' [/media/felix/Data/coding/demoir-fpga/runs/timing_v50/rtl_v50/lane16/bin_band_buf.v:261]
+CRITICAL WARNING: [HDL 9-1206] Syntax error near '=' [/media/felix/Data/coding/demoir-fpga/runs/timing_v50/rtl_v50/lane16/bin_band_buf.v:262]
+CRITICAL WARNING: [HDL 9-1206] Syntax error near '=' [/media/felix/Data/coding/demoir-fpga/runs/timing_v50/rtl_v50/lane16/bin_band_buf.v:263]
+CRITICAL WARNING: [HDL 9-1206] Syntax error near '@' [/media/felix/Data/coding/demoir-fpga/runs/timing_v50/rtl_v50/lane16/bin_band_buf.v:277]
+CRITICAL WARNING: [HDL 9-1206] Syntax error near '<=' [/media/felix/Data/coding/demoir-fpga/runs/timing_v50/rtl_v50/lane16/bin_band_buf.v:279]
+CRITICAL WARNING: [HDL 9-1206] Syntax error near '<=' [/media/felix/Data/coding/demoir-fpga/runs/timing_v50/rtl_v50/lane16/bin_band_buf.v:280]
+CRITICAL WARNING: [HDL 9-1206] Syntax error near '@' [/media/felix/Data/coding/demoir-fpga/runs/timing_v50/rtl_v50/lane16/bin_band_buf.v:286]
+CRITICAL WARNING: [HDL 9-1206] Syntax error near 'i' [/media/felix/Data/coding/demoir-fpga/runs/timing_v50/rtl_v50/lane16/bin_band_buf.v:290]
+CRITICAL WARNING: [HDL 9-1206] Syntax error near '<=' [/media/felix/Data/coding/demoir-fpga/runs/timing_v50/rtl_v50/lane16/bin_band_buf.v:302]
+CRITICAL WARNING: [HDL 9-1206] Syntax error near '<=' [/media/felix/Data/coding/demoir-fpga/runs/timing_v50/rtl_v50/lane16/bin_band_buf.v:303]
+CRITICAL WARNING: [HDL 9-1206] Syntax error near '@' [/media/felix/Data/coding/demoir-fpga/runs/timing_v50/rtl_v50/lane16/bin_band_buf.v:315]
+CRITICAL WARNING: [HDL 9-1206] Syntax error near '<=' [/media/felix/Data/coding/demoir-fpga/runs/timing_v50/rtl_v50/lane16/bin_band_buf.v:319]
+CRITICAL WARNING: [HDL 9-1206] Syntax error near '<=' [/media/felix/Data/coding/demoir-fpga/runs/timing_v50/rtl_v50/lane16/bin_band_buf.v:321]
+CRITICAL WARNING: [HDL 9-1206] Syntax error near '@' [/media/felix/Data/coding/demoir-fpga/runs/timing_v50/rtl_v50/lane16/bin_band_buf.v:330]
+CRITICAL WARNING: [HDL 9-1206] Syntax error near '<=' [/media/felix/Data/coding/demoir-fpga/runs/timing_v50/rtl_v50/lane16/bin_band_buf.v:334]
+CRITICAL WARNING: [HDL 9-1206] Syntax error near '<=' [/media/felix/Data/coding/demoir-fpga/runs/timing_v50/rtl_v50/lane16/bin_band_buf.v:339]
+CRITICAL WARNING: [HDL 9-1206] Syntax error near '<=' [/media/felix/Data/coding/demoir-fpga/runs/timing_v50/rtl_v50/lane16/bin_band_buf.v:340]
+CRITICAL WARNING: [HDL 9-1206] Syntax error near '<=' [/media/felix/Data/coding/demoir-fpga/runs/timing_v50/rtl_v50/lane16/bin_band_buf.v:341]
+CRITICAL WARNING: [HDL 9-1206] Syntax error near '@' [/media/felix/Data/coding/demoir-fpga/runs/timing_v50/rtl_v50/lane16/bin_band_fill_v50.v:116]
+CRITICAL WARNING: [HDL 9-1206] Syntax error near '<=' [/media/felix/Data/coding/demoir-fpga/runs/timing_v50/rtl_v50/lane16/bin_band_fill_v50.v:122]
+CRITICAL WARNING: [HDL 9-1206] Syntax error near '<=' [/media/felix/Data/coding/demoir-fpga/runs/timing_v50/rtl_v50/lane16/bin_band_fill_v50.v:125]
+CRITICAL WARNING: [HDL 9-1206] Syntax error near '<=' [/media/felix/Data/coding/demoir-fpga/runs/timing_v50/rtl_v50/lane16/bin_band_fill_v50.v:127]
+CRITICAL WARNING: [HDL 9-1206] Syntax error near '<=' [/media/felix/Data/coding/demoir-fpga/runs/timing_v50/rtl_v50/lane16/bin_band_fill_v50.v:129]
+CRITICAL WARNING: [HDL 9-1206] Syntax error near '<=' [/media/felix/Data/coding/demoir-fpga/runs/timing_v50/rtl_v50/lane16/bin_band_fill_v50.v:132]
+CRITICAL WARNING: [HDL 9-1206] Syntax error near '<=' [/media/felix/Data/coding/demoir-fpga/runs/timing_v50/rtl_v50/lane16/bin_band_fill_v50.v:135]
+CRITICAL WARNING: [HDL 9-1206] Syntax error near 'end' [/media/felix/Data/coding/demoir-fpga/runs/timing_v50/rtl_v50/lane16/bin_band_fill_v50.v:139]
+CRITICAL WARNING: [HDL 9-1206] Syntax error near 'signed' [/media/felix/Data/coding/demoir-fpga/runs/timing_v50/rtl_v50/lane16/bin_conv_core_v50.v:137]
+CRITICAL WARNING: [HDL 9-1206] Syntax error near 'signed' [/media/felix/Data/coding/demoir-fpga/runs/timing_v50/rtl_v50/lane16/bin_conv_core_v50.v:190]
+CRITICAL WARNING: [HDL 9-1206] Syntax error near 'signed' [/media/felix/Data/coding/demoir-fpga/runs/timing_v50/rtl_v50/lane16/bin_conv_core_v50.v:222]
+CRITICAL WARNING: [HDL 9-1206] Syntax error near '@' [/media/felix/Data/coding/demoir-fpga/runs/timing_v50/rtl_v50/lane16/bin_conv_core_v50.v:265]
+CRITICAL WARNING: [HDL 9-1206] Syntax error near '@' [/media/felix/Data/coding/demoir-fpga/runs/timing_v50/rtl_v50/lane16/bin_conv_core_v50.v:270]
+CRITICAL WARNING: [HDL 9-1206] Syntax error near 'signed' [/media/felix/Data/coding/demoir-fpga/runs/timing_v50/rtl_v50/lane16/bin_conv_core_v50.v:311]
+CRITICAL WARNING: [HDL 9-1206] Syntax error near '=' [/media/felix/Data/coding/demoir-fpga/runs/timing_v50/rtl_v50/lane16/bin_conv_core_v50.v:322]
+CRITICAL WARNING: [HDL 9-1206] Syntax error near '=' [/media/felix/Data/coding/demoir-fpga/runs/timing_v50/rtl_v50/lane16/bin_conv_core_v50.v:323]
+CRITICAL WARNING: [HDL 9-1206] Syntax error near '=' [/media/felix/Data/coding/demoir-fpga/runs/timing_v50/rtl_v50/lane16/bin_conv_core_v50.v:324]
+CRITICAL WARNING: [HDL 9-1206] Syntax error near '=' [/media/felix/Data/coding/demoir-fpga/runs/timing_v50/rtl_v50/lane16/bin_conv_core_v50.v:325]
+CRITICAL WARNING: [HDL 9-1206] Syntax error near '=' [/media/felix/Data/coding/demoir-fpga/runs/timing_v50/rtl_v50/lane16/bin_conv_core_v50.v:326]
+CRITICAL WARNING: [HDL 9-1206] Syntax error near '=' [/media/felix/Data/coding/demoir-fpga/runs/timing_v50/rtl_v50/lane16/bin_conv_core_v50.v:327]
+CRITICAL WARNING: [HDL 9-1206] Syntax error near '@' [/media/felix/Data/coding/demoir-fpga/runs/timing_v50/rtl_v50/lane16/bin_conv_core_v50.v:344]
+CRITICAL WARNING: [HDL 9-1206] Syntax error near '<=' [/media/felix/Data/coding/demoir-fpga/runs/timing_v50/rtl_v50/lane16/bin_conv_core_v50.v:346]
+CRITICAL WARNING: [HDL 9-1206] Syntax error near 'begin' [/media/felix/Data/coding/demoir-fpga/runs/timing_v50/rtl_v50/lane16/bin_conv_core_v50.v:365]
+CRITICAL WARNING: [HDL 9-1206] Syntax error near '=' [/media/felix/Data/coding/demoir-fpga/runs/timing_v50/rtl_v50/lane16/bin_conv_core_v50.v:368]
+CRITICAL WARNING: [HDL 9-1206] Syntax error near 'begin' [/media/felix/Data/coding/demoir-fpga/runs/timing_v50/rtl_v50/lane16/bin_conv_core_v50.v:373]
+CRITICAL WARNING: [HDL 9-1206] Syntax error near '}' [/media/felix/Data/coding/demoir-fpga/runs/timing_v50/rtl_v50/lane16/bin_conv_core_v50.v:375]
+CRITICAL WARNING: [HDL 9-1206] Syntax error near '<=' [/media/felix/Data/coding/demoir-fpga/runs/timing_v50/rtl_v50/lane16/bin_conv_core_v50.v:385]
+CRITICAL WARNING: [HDL 9-1206] Syntax error near '<=' [/media/felix/Data/coding/demoir-fpga/runs/timing_v50/rtl_v50/lane16/bin_conv_core_v50.v:393]
+CRITICAL WARNING: [HDL 9-1206] Syntax error near '<=' [/media/felix/Data/coding/demoir-fpga/runs/timing_v50/rtl_v50/lane16/bin_conv_core_v50.v:402]
+CRITICAL WARNING: [HDL 9-1206] Syntax error near '<=' [/media/felix/Data/coding/demoir-fpga/runs/timing_v50/rtl_v50/lane16/bin_conv_core_v50.v:405]
+CRITICAL WARNING: [HDL 9-1206] Syntax error near 'k' [/media/felix/Data/coding/demoir-fpga/runs/timing_v50/rtl_v50/lane16/bin_conv_core_v50.v:407]
+CRITICAL WARNING: [HDL 9-1206] Syntax error near 'end' [/media/felix/Data/coding/demoir-fpga/runs/timing_v50/rtl_v50/lane16/bin_conv_core_v50.v:410]
+CRITICAL WARNING: [HDL 9-1206] Syntax error near '<=' [/media/felix/Data/coding/demoir-fpga/runs/timing_v50/rtl_v50/lane16/bin_conv_core_v50.v:417]
+CRITICAL WARNING: [HDL 9-1206] Syntax error near '<=' [/media/felix/Data/coding/demoir-fpga/runs/timing_v50/rtl_v50/lane16/bin_conv_core_v50.v:418]
+CRITICAL WARNING: [HDL 9-1206] Syntax error near 'k' [/media/felix/Data/coding/demoir-fpga/runs/timing_v50/rtl_v50/lane16/bin_conv_core_v50.v:420]
+CRITICAL WARNING: [HDL 9-1206] Syntax error near '<=' [/media/felix/Data/coding/demoir-fpga/runs/timing_v50/rtl_v50/lane16/bin_conv_core_v50.v:422]
+CRITICAL WARNING: [HDL 9-1206] Syntax error near 'end' [/media/felix/Data/coding/demoir-fpga/runs/timing_v50/rtl_v50/lane16/bin_conv_core_v50.v:425]
+CRITICAL WARNING: [HDL 9-1206] Syntax error near 'signed' [/media/felix/Data/coding/demoir-fpga/runs/timing_v50/rtl_v50/lane16/bin_conv_core_v50.v:440]
+CRITICAL WARNING: [HDL 9-1206] Syntax error near 'signed' [/media/felix/Data/coding/demoir-fpga/runs/timing_v50/rtl_v50/lane16/bin_conv_core_v50.v:442]
+CRITICAL WARNING: [HDL 9-1206] Syntax error near 'signed' [/media/felix/Data/coding/demoir-fpga/runs/timing_v50/rtl_v50/lane16/bin_conv_core_v50.v:446]
+CRITICAL WARNING: [HDL 9-1206] Syntax error near 'signed' [/media/felix/Data/coding/demoir-fpga/runs/timing_v50/rtl_v50/lane16/bin_conv_core_v50.v:457]
+CRITICAL WARNING: [HDL 9-1206] Syntax error near 'begin' [/media/felix/Data/coding/demoir-fpga/runs/timing_v50/rtl_v50/lane16/bin_conv_core_v50.v:470]
+CRITICAL WARNING: [HDL 9-1206] Syntax error near '}' [/media/felix/Data/coding/demoir-fpga/runs/timing_v50/rtl_v50/lane16/bin_conv_core_v50.v:472]
+CRITICAL WARNING: [HDL 9-1206] Syntax error near '=' [/media/felix/Data/coding/demoir-fpga/runs/timing_v50/rtl_v50/lane16/bin_conv_core_v50.v:473]
+CRITICAL WARNING: [HDL 9-1206] Syntax error near '=' [/media/felix/Data/coding/demoir-fpga/runs/timing_v50/rtl_v50/lane16/bin_conv_core_v50.v:475]
+CRITICAL WARNING: [HDL 9-1206] Syntax error near '=' [/media/felix/Data/coding/demoir-fpga/runs/timing_v50/rtl_v50/lane16/bin_conv_core_v50.v:476]
+CRITICAL WARNING: [HDL 9-1206] Syntax error near '=' [/media/felix/Data/coding/demoir-fpga/runs/timing_v50/rtl_v50/lane16/bin_conv_core_v50.v:477]
+CRITICAL WARNING: [HDL 9-1206] Syntax error near '=' [/media/felix/Data/coding/demoir-fpga/runs/timing_v50/rtl_v50/lane16/bin_conv_core_v50.v:481]
+CRITICAL WARNING: [HDL 9-1206] Syntax error near '=' [/media/felix/Data/coding/demoir-fpga/runs/timing_v50/rtl_v50/lane16/bin_conv_core_v50.v:482]
+CRITICAL WARNING: [HDL 9-1206] Syntax error near '=' [/media/felix/Data/coding/demoir-fpga/runs/timing_v50/rtl_v50/lane16/bin_conv_core_v50.v:483]
+CRITICAL WARNING: [HDL 9-1206] Syntax error near '=' [/media/felix/Data/coding/demoir-fpga/runs/timing_v50/rtl_v50/lane16/bin_conv_core_v50.v:484]
+CRITICAL WARNING: [HDL 9-1206] Syntax error near '=' [/media/felix/Data/coding/demoir-fpga/runs/timing_v50/rtl_v50/lane16/bin_conv_core_v50.v:486]
+CRITICAL WARNING: [HDL 9-1206] Syntax error near '<=' [/media/felix/Data/coding/demoir-fpga/runs/timing_v50/rtl_v50/lane16/bin_conv_core_v50.v:496]
+CRITICAL WARNING: [HDL 9-1206] Syntax error near '<=' [/media/felix/Data/coding/demoir-fpga/runs/timing_v50/rtl_v50/lane16/bin_conv_core_v50.v:498]
+CRITICAL WARNING: [HDL 9-1206] Syntax error near 'k' [/media/felix/Data/coding/demoir-fpga/runs/timing_v50/rtl_v50/lane16/bin_conv_core_v50.v:500]
+CRITICAL WARNING: [HDL 9-1206] Syntax error near 'end' [/media/felix/Data/coding/demoir-fpga/runs/timing_v50/rtl_v50/lane16/bin_conv_core_v50.v:503]
+CRITICAL WARNING: [HDL 9-1206] Syntax error near '<=' [/media/felix/Data/coding/demoir-fpga/runs/timing_v50/rtl_v50/lane16/bin_conv_core_v50.v:508]
+CRITICAL WARNING: [HDL 9-1206] Syntax error near '<=' [/media/felix/Data/coding/demoir-fpga/runs/timing_v50/rtl_v50/lane16/bin_conv_core_v50.v:510]
+CRITICAL WARNING: [HDL 9-1206] Syntax error near 'k' [/media/felix/Data/coding/demoir-fpga/runs/timing_v50/rtl_v50/lane16/bin_conv_core_v50.v:511]
+CRITICAL WARNING: [HDL 9-1206] Syntax error near 'end' [/media/felix/Data/coding/demoir-fpga/runs/timing_v50/rtl_v50/lane16/bin_conv_core_v50.v:514]
+CRITICAL WARNING: [HDL 9-1206] Syntax error near '<=' [/media/felix/Data/coding/demoir-fpga/runs/timing_v50/rtl_v50/lane16/bin_conv_core_v50.v:519]
+CRITICAL WARNING: [HDL 9-1206] Syntax error near '<=' [/media/felix/Data/coding/demoir-fpga/runs/timing_v50/rtl_v50/lane16/bin_conv_core_v50.v:521]
+CRITICAL WARNING: [HDL 9-1206] Syntax error near 'k' [/media/felix/Data/coding/demoir-fpga/runs/timing_v50/rtl_v50/lane16/bin_conv_core_v50.v:522]
+CRITICAL WARNING: [HDL 9-1206] Syntax error near '<=' [/media/felix/Data/coding/demoir-fpga/runs/timing_v50/rtl_v50/lane16/bin_conv_core_v50.v:524]
+CRITICAL WARNING: [HDL 9-1206] Syntax error near '<=' [/media/felix/Data/coding/demoir-fpga/runs/timing_v50/rtl_v50/lane16/bin_conv_core_v50.v:525]
+CRITICAL WARNING: [HDL 9-1206] Syntax error near 'end' [/media/felix/Data/coding/demoir-fpga/runs/timing_v50/rtl_v50/lane16/bin_conv_core_v50.v:528]
+CRITICAL WARNING: [HDL 9-1206] Syntax error near '<=' [/media/felix/Data/coding/demoir-fpga/runs/timing_v50/rtl_v50/lane16/bin_conv_core_v50.v:534]
+CRITICAL WARNING: [HDL 9-1206] Syntax error near '<=' [/media/felix/Data/coding/demoir-fpga/runs/timing_v50/rtl_v50/lane16/bin_conv_core_v50.v:536]
+CRITICAL WARNING: [HDL 9-1206] Syntax error near 'k' [/media/felix/Data/coding/demoir-fpga/runs/timing_v50/rtl_v50/lane16/bin_conv_core_v50.v:537]
+INFO: [Common 17-14] Message 'HDL 9-1206' appears 100 times and further instances of the messages will be disabled. Use the Tcl command set_msg_config to change the current settings.
+INFO: [IP_Flow 19-5107] Inferred bus interface 's_axi_aclk' of definition 'xilinx.com:signal:clock:1.0' (from X_INTERFACE_INFO parameter from HDL file).
+INFO: [IP_Flow 19-5107] Inferred bus interface 's_axi_aclk' of definition 'xilinx.com:signal:clock:1.0' (from 'X_INTERFACE_INFO' attribute).
+INFO: [IP_Flow 19-5107] Inferred bus interface 's_axi_aresetn' of definition 'xilinx.com:signal:reset:1.0' (from X_INTERFACE_INFO parameter from HDL file).
+INFO: [IP_Flow 19-5107] Inferred bus interface 's_axi_aresetn' of definition 'xilinx.com:signal:reset:1.0' (from 'X_INTERFACE_INFO' attribute).
+INFO: [IP_Flow 19-5107] Inferred bus interface 's_axi' of definition 'xilinx.com:interface:aximm:1.0' (from X_INTERFACE_INFO parameter from HDL file).
+INFO: [IP_Flow 19-5107] Inferred bus interface 's_axi' of definition 'xilinx.com:interface:aximm:1.0' (from 'X_INTERFACE_INFO' attribute).
+INFO: [IP_Flow 19-5107] Inferred bus interface 'm_axi' of definition 'xilinx.com:interface:aximm:1.0' (from X_INTERFACE_INFO parameter from HDL file).
+INFO: [IP_Flow 19-5107] Inferred bus interface 'm_axi' of definition 'xilinx.com:interface:aximm:1.0' (from 'X_INTERFACE_INFO' attribute).
+INFO: [IP_Flow 19-4728] Bus Interface 's_axi_aclk': Added interface parameter 'ASSOCIATED_BUSIF' with value 's_axi'.
+INFO: [IP_Flow 19-4728] Bus Interface 's_axi_aclk': Added interface parameter 'ASSOCIATED_RESET' with value 's_axi_aresetn'.
+INFO: [IP_Flow 19-4728] Bus Interface 's_axi_aclk': Added interface parameter 'FREQ_HZ' with value '150000000'.
+INFO: [IP_Flow 19-4728] Bus Interface 's_axi_aresetn': Added interface parameter 'POLARITY' with value 'ACTIVE_LOW'.
+INFO: [IP_Flow 19-4728] Bus Interface 's_axi': Added interface parameter 'PROTOCOL' with value 'AXI4LITE'.
+INFO: [IP_Flow 19-4728] Bus Interface 's_axi': Added interface parameter 'ADDR_WIDTH' with value '32'.
+INFO: [IP_Flow 19-4728] Bus Interface 's_axi': Added interface parameter 'DATA_WIDTH' with value '32'.
+INFO: [IP_Flow 19-4728] Bus Interface 's_axi': Added interface parameter 'FREQ_HZ' with value '150000000'.
+INFO: [IP_Flow 19-4728] Bus Interface 's_axi': Added interface parameter 'HAS_BURST' with value '0'.
+INFO: [IP_Flow 19-4728] Bus Interface 's_axi': Added interface parameter 'HAS_CACHE' with value '0'.
+INFO: [IP_Flow 19-4728] Bus Interface 's_axi': Added interface parameter 'HAS_QOS' with value '0'.
+INFO: [IP_Flow 19-4728] Bus Interface 's_axi': Added interface parameter 'HAS_REGION' with value '0'.
+INFO: [IP_Flow 19-4728] Bus Interface 's_axi': Added interface parameter 'HAS_LOCK' with value '0'.
+INFO: [IP_Flow 19-4728] Bus Interface 's_axi': Added interface parameter 'HAS_PROT' with value '0'.
+INFO: [IP_Flow 19-4728] Bus Interface 's_axi': Added interface parameter 'HAS_WSTRB' with value '1'.
+INFO: [IP_Flow 19-4728] Bus Interface 's_axi': Added interface parameter 'NUM_READ_OUTSTANDING' with value '1'.
+INFO: [IP_Flow 19-4728] Bus Interface 's_axi': Added interface parameter 'NUM_WRITE_OUTSTANDING' with value '1'.
+INFO: [IP_Flow 19-4728] Bus Interface 'm_axi': Added interface parameter 'PROTOCOL' with value 'AXI3'.
+INFO: [IP_Flow 19-4728] Bus Interface 'm_axi': Added interface parameter 'ADDR_WIDTH' with value '32'.
+INFO: [IP_Flow 19-4728] Bus Interface 'm_axi': Added interface parameter 'DATA_WIDTH' with value '64'.
+INFO: [IP_Flow 19-4728] Bus Interface 'm_axi': Added interface parameter 'FREQ_HZ' with value '150000000'.
+INFO: [IP_Flow 19-4728] Bus Interface 'm_axi': Added interface parameter 'HAS_BURST' with value '1'.
+INFO: [IP_Flow 19-4728] Bus Interface 'm_axi': Added interface parameter 'HAS_CACHE' with value '0'.
+INFO: [IP_Flow 19-4728] Bus Interface 'm_axi': Added interface parameter 'HAS_QOS' with value '0'.
+INFO: [IP_Flow 19-4728] Bus Interface 'm_axi': Added interface parameter 'HAS_REGION' with value '0'.
+INFO: [IP_Flow 19-4728] Bus Interface 'm_axi': Added interface parameter 'HAS_LOCK' with value '0'.
+INFO: [IP_Flow 19-4728] Bus Interface 'm_axi': Added interface parameter 'HAS_PROT' with value '0'.
+INFO: [IP_Flow 19-4728] Bus Interface 'm_axi': Added interface parameter 'HAS_WSTRB' with value '1'.
+INFO: [IP_Flow 19-4728] Bus Interface 'm_axi': Added interface parameter 'MAX_BURST_LENGTH' with value '16'.
+INFO: [IP_Flow 19-4728] Bus Interface 'm_axi': Added interface parameter 'NUM_READ_OUTSTANDING' with value '16'.
+INFO: [IP_Flow 19-4728] Bus Interface 'm_axi': Added interface parameter 'NUM_WRITE_OUTSTANDING' with value '16'.
+INFO: [IP_Flow 19-7067] Note that bus interface 's_axi_aclk' has a fixed FREQ_HZ of '150000000'. This value will be respected whenever this IP is instantiated in IP Integrator.
+INFO: [IP_Flow 19-7067] Note that bus interface 's_axi' has a fixed FREQ_HZ of '150000000'. This value will be respected whenever this IP is instantiated in IP Integrator.
+INFO: [IP_Flow 19-7067] Note that bus interface 'm_axi' has a fixed FREQ_HZ of '150000000'. This value will be respected whenever this IP is instantiated in IP Integrator.
+INFO: [IP_Flow 19-5107] Inferred bus interface 's_axi_aclk' of definition 'xilinx.com:signal:clock:1.0' (from X_INTERFACE_INFO parameter from HDL file).
+INFO: [IP_Flow 19-5107] Inferred bus interface 's_axi_aclk' of definition 'xilinx.com:signal:clock:1.0' (from 'X_INTERFACE_INFO' attribute).
+INFO: [IP_Flow 19-5107] Inferred bus interface 's_axi_aresetn' of definition 'xilinx.com:signal:reset:1.0' (from X_INTERFACE_INFO parameter from HDL file).
+INFO: [IP_Flow 19-5107] Inferred bus interface 's_axi_aresetn' of definition 'xilinx.com:signal:reset:1.0' (from 'X_INTERFACE_INFO' attribute).
+INFO: [IP_Flow 19-5107] Inferred bus interface 's_axi' of definition 'xilinx.com:interface:aximm:1.0' (from X_INTERFACE_INFO parameter from HDL file).
+INFO: [IP_Flow 19-5107] Inferred bus interface 's_axi' of definition 'xilinx.com:interface:aximm:1.0' (from 'X_INTERFACE_INFO' attribute).
+INFO: [IP_Flow 19-5107] Inferred bus interface 'm_axi' of definition 'xilinx.com:interface:aximm:1.0' (from X_INTERFACE_INFO parameter from HDL file).
+INFO: [IP_Flow 19-5107] Inferred bus interface 'm_axi' of definition 'xilinx.com:interface:aximm:1.0' (from 'X_INTERFACE_INFO' attribute).
+INFO: [IP_Flow 19-4728] Bus Interface 's_axi_aclk': Added interface parameter 'ASSOCIATED_BUSIF' with value 's_axi'.
+INFO: [IP_Flow 19-4728] Bus Interface 's_axi_aclk': Added interface parameter 'ASSOCIATED_RESET' with value 's_axi_aresetn'.
+INFO: [IP_Flow 19-4728] Bus Interface 's_axi_aclk': Added interface parameter 'FREQ_HZ' with value '150000000'.
+INFO: [IP_Flow 19-4728] Bus Interface 's_axi_aresetn': Added interface parameter 'POLARITY' with value 'ACTIVE_LOW'.
+INFO: [IP_Flow 19-4728] Bus Interface 's_axi': Added interface parameter 'PROTOCOL' with value 'AXI4LITE'.
+INFO: [IP_Flow 19-4728] Bus Interface 's_axi': Added interface parameter 'ADDR_WIDTH' with value '32'.
+INFO: [IP_Flow 19-4728] Bus Interface 's_axi': Added interface parameter 'DATA_WIDTH' with value '32'.
+INFO: [IP_Flow 19-4728] Bus Interface 's_axi': Added interface parameter 'FREQ_HZ' with value '150000000'.
+INFO: [IP_Flow 19-4728] Bus Interface 's_axi': Added interface parameter 'HAS_BURST' with value '0'.
+INFO: [IP_Flow 19-4728] Bus Interface 's_axi': Added interface parameter 'HAS_CACHE' with value '0'.
+INFO: [IP_Flow 19-4728] Bus Interface 's_axi': Added interface parameter 'HAS_QOS' with value '0'.
+INFO: [IP_Flow 19-4728] Bus Interface 's_axi': Added interface parameter 'HAS_REGION' with value '0'.
+INFO: [IP_Flow 19-4728] Bus Interface 's_axi': Added interface parameter 'HAS_LOCK' with value '0'.
+INFO: [IP_Flow 19-4728] Bus Interface 's_axi': Added interface parameter 'HAS_PROT' with value '0'.
+INFO: [IP_Flow 19-4728] Bus Interface 's_axi': Added interface parameter 'HAS_WSTRB' with value '1'.
+INFO: [IP_Flow 19-4728] Bus Interface 's_axi': Added interface parameter 'NUM_READ_OUTSTANDING' with value '1'.
+INFO: [IP_Flow 19-4728] Bus Interface 's_axi': Added interface parameter 'NUM_WRITE_OUTSTANDING' with value '1'.
+INFO: [IP_Flow 19-4728] Bus Interface 'm_axi': Added interface parameter 'PROTOCOL' with value 'AXI3'.
+INFO: [IP_Flow 19-4728] Bus Interface 'm_axi': Added interface parameter 'ADDR_WIDTH' with value '32'.
+INFO: [IP_Flow 19-4728] Bus Interface 'm_axi': Added interface parameter 'DATA_WIDTH' with value '64'.
+INFO: [IP_Flow 19-4728] Bus Interface 'm_axi': Added interface parameter 'FREQ_HZ' with value '150000000'.
+INFO: [IP_Flow 19-4728] Bus Interface 'm_axi': Added interface parameter 'HAS_BURST' with value '1'.
+INFO: [IP_Flow 19-4728] Bus Interface 'm_axi': Added interface parameter 'HAS_CACHE' with value '0'.
+INFO: [IP_Flow 19-4728] Bus Interface 'm_axi': Added interface parameter 'HAS_QOS' with value '0'.
+INFO: [IP_Flow 19-4728] Bus Interface 'm_axi': Added interface parameter 'HAS_REGION' with value '0'.
+INFO: [IP_Flow 19-4728] Bus Interface 'm_axi': Added interface parameter 'HAS_LOCK' with value '0'.
+INFO: [IP_Flow 19-4728] Bus Interface 'm_axi': Added interface parameter 'HAS_PROT' with value '0'.
+INFO: [IP_Flow 19-4728] Bus Interface 'm_axi': Added interface parameter 'HAS_WSTRB' with value '1'.
+INFO: [IP_Flow 19-4728] Bus Interface 'm_axi': Added interface parameter 'MAX_BURST_LENGTH' with value '16'.
+INFO: [IP_Flow 19-4728] Bus Interface 'm_axi': Added interface parameter 'NUM_READ_OUTSTANDING' with value '16'.
+INFO: [IP_Flow 19-4728] Bus Interface 'm_axi': Added interface parameter 'NUM_WRITE_OUTSTANDING' with value '16'.
+INFO: [IP_Flow 19-7067] Note that bus interface 's_axi_aclk' has a fixed FREQ_HZ of '150000000'. This value will be respected whenever this IP is instantiated in IP Integrator.
+INFO: [IP_Flow 19-7067] Note that bus interface 's_axi' has a fixed FREQ_HZ of '150000000'. This value will be respected whenever this IP is instantiated in IP Integrator.
+INFO: [IP_Flow 19-7067] Note that bus interface 'm_axi' has a fixed FREQ_HZ of '150000000'. This value will be respected whenever this IP is instantiated in IP Integrator.
+Adding component instance block -- xilinx.com:module_ref:bin_unit_axi_wrap_bd_v50:1.0 - bin_unit_0
+Successfully read diagram <design_1> from block design file </media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/vivado/proj_v50/proj_engine.srcs/sources_1/bd/design_1/design_1.bd>
+    改前 FCLK_CLK0 = 150000000
+    改前 PCW_USE_S_AXI_HP0 = 1
+    改前 PCW_USE_S_AXI_HP1 = 1
+    改前 PCW_USE_S_AXI_HP2 = 0
+    改前 PCW_USE_S_AXI_HP3 = 0
+    改前 cells = 5 条：/axi_ctrl /bin_unit_0 /conv_uni_0 /ps7 /rst_0
+    改前 bin_unit_0（8-lane）：s_axi DATA_WIDTH=32  m_axi DATA_WIDTH=64  引脚数=0
+    改前 seg /ps7/Data/SEG_bin_unit_0_reg0 OFFSET=0x40060000 RANGE=0x00020000
+    改前 seg /ps7/Data/SEG_conv_uni_0_reg0 OFFSET=0x40040000 RANGE=0x00020000
+
+[07] 删掉 pc_conv_uni / pc_conv_bin / conv_uni_0 / bin_unit_0
+    ..   pc_conv_uni 不存在
+    ..   pc_conv_bin 不存在
+    OK   删除 conv_uni_0
+    OK   删除 bin_unit_0
+
+[08] 按当前 RTL 外壳重建两个 module-ref 单元
+    OK   conv_uni_0 已建
+    OK   bin_unit_0 已建（module-ref = bin_unit_axi_wrap_bd_v50）
+      bin_unit_0 的 VLANES 默认 = 16 ⇒ 设成 16
+    OK   bin_unit_0 VLANES = 16（16-lane）
+    OK   bin_unit_0 CONFIG.FUSE_EN = 0（要 0）
+    OK   bin_unit_0 CONFIG.BAND_ROWS = 1（要 1）
+    OK   bin_unit_0 CONFIG.BAND_HALO = 0（要 0）
+    OK   bin_unit_0 CONFIG.BAND_C_MAX = 8（要 8）
+      conv_uni_0/s_axi FREQ_HZ=150000000  PROTOCOL=AXI4LITE  DATA_WIDTH=32
+      conv_uni_0/m_axi FREQ_HZ=150000000  PROTOCOL=AXI3      DATA_WIDTH=64
+      bin_unit_0/s_axi FREQ_HZ=150000000  PROTOCOL=AXI4LITE  DATA_WIDTH=32
+      bin_unit_0/m_axi FREQ_HZ=150000000  PROTOCOL=AXI3      DATA_WIDTH=64
+
+[09] ★ v50 新增断言：新 bin_unit 的端口必须宽于/等于旧 8-lane 模块
+      旧 8-lane : s_axi DATA_WIDTH=32   m_axi DATA_WIDTH=64   引脚=0
+      新 16-lane: s_axi DATA_WIDTH=32   m_axi DATA_WIDTH=64   引脚=0
+    OK   端口不窄于旧模块（s_axi 32>=32，m_axi 64>=64，引脚 0>=0）
+
+[10] 恢复全部连线（与 baseline 同名同向；pc_conv 已删，AXI3↔AXI3 直连）
+    OK   4 条 intf：M02→conv_uni_0/s_axi、M03→bin_unit_0/s_axi、conv_uni_0/m_axi→HP1、bin_unit_0/m_axi→HP0
+    OK   时钟/复位：FCLK_CLK0 / rst_0/peripheral_aresetn
+
+[11] 地址：必须回到原值 0x40040000 / 0x40060000（各 128K）
+INFO: [BD 41-3093] Triggering Legacy Auto Assign Algorithm
+WARNING: [BD 41-2102] Conflicting fixed slave segments </conv_uni_0/s_axi/reg0> and </bin_unit_0/s_axi/reg0> from a different ip mapping into address space </ps7/Data> at the same address 0x0_0000_0000 [ 4G ]. If this is not your intent, reconnect or exclude one of these segments.
+CRITICAL WARNING: [BD 41-1359] Failed to assign slave segment '/conv_uni_0/s_axi/reg0' into address space '/ps7/Data'.
+Slave segment '/ps7/S_AXI_HP0/HP0_DDR_LOWOCM' is being assigned into address space '/bin_unit_0/m_axi' at <0x0000_0000 [ 1G ]>.
+Slave segment '/ps7/S_AXI_HP1/HP1_DDR_LOWOCM' is being assigned into address space '/conv_uni_0/m_axi' at <0x0000_0000 [ 1G ]>.
+Slave segment '/bin_unit_0/s_axi/reg0' is being assigned into address space '/ps7/Data' at <0x4000_0000 [ 1G ]>.
+Slave segment '/conv_uni_0/s_axi/reg0' is being assigned into address space '/ps7/Data' at <0x4004_0000 [ 128K ]>.
+Slave segment '/bin_unit_0/s_axi/reg0' is being assigned into address space '/ps7/Data' at <0x4006_0000 [ 128K ]>.
+    OK   conv_uni_0 = 0x40040000 +0x00020000（基线逐字相同，高地址 0x4005FFFF）
+    OK   bin_unit_0 = 0x40060000 +0x00020000（基线逐字相同，高地址 0x4007FFFF）
+    改后 seg /ps7/Data/SEG_bin_unit_0_reg0 OFFSET=0x40060000 RANGE=0x00020000
+    改后 seg /ps7/Data/SEG_conv_uni_0_reg0 OFFSET=0x40040000 RANGE=0x00020000
+
+[12] validate_bd_design
+WARNING: [BD 41-2670] Found an incomplete address path from address space '/ps7/Data' to master interface '/axi_ctrl/M04_AXI'. Please either complete or remove this path to resolve.
+WARNING: [BD 41-2670] Found an incomplete address path from address space '/ps7/Data' to master interface '/axi_ctrl/M00_AXI'. Please either complete or remove this path to resolve.
+WARNING: [BD 41-2670] Found an incomplete address path from address space '/ps7/Data' to master interface '/axi_ctrl/M01_AXI'. Please either complete or remove this path to resolve.
+WARNING: [BD 5-699] No address segments matched 'get_bd_addr_segs -addressables -of_objects /axi_ctrl/xbar/M00_AXI'
+WARNING: [BD 5-699] No address segments matched 'get_bd_addr_segs -addressables -of_objects /axi_ctrl/xbar/M01_AXI'
+WARNING: [BD 5-699] No address segments matched 'get_bd_addr_segs -addressables -of_objects /axi_ctrl/xbar/M04_AXI'
+    OK   validate 通过
+REGEN_VALIDATE: PASS
+
+[13] save + generate_target all
+Wrote  : </media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/vivado/proj_v50/proj_engine.srcs/sources_1/bd/design_1/design_1.bd> 
+    ..   删旧打包层 design_1_bin_unit_0_17
+    ..   删旧打包层 design_1_conv_uni_0_17
+WARNING: [BD 5-699] No address segments matched 'get_bd_addr_segs -addressables -of_objects /axi_ctrl/xbar/M00_AXI'
+WARNING: [BD 5-699] No address segments matched 'get_bd_addr_segs -addressables -of_objects /axi_ctrl/xbar/M01_AXI'
+WARNING: [BD 5-699] No address segments matched 'get_bd_addr_segs -addressables -of_objects /axi_ctrl/xbar/M04_AXI'
+Wrote  : </media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/vivado/proj_v50/proj_engine.srcs/sources_1/bd/design_1/design_1.bd> 
+WARNING: [BD 41-2384] Width mismatch when connecting pin: '/ps7/S_AXI_HP0_ARID'(6) to pin: '/bin_unit_0/m_axi_arid'(4) - Only lower order bits will be connected.
+WARNING: [BD 41-2384] Width mismatch when connecting pin: '/bin_unit_0/m_axi_rid'(4) to pin: '/ps7/S_AXI_HP0_RID'(6) - Only lower order bits will be connected.
+WARNING: [BD 41-2384] Width mismatch when connecting pin: '/ps7/S_AXI_HP0_WID'(6) to pin: '/bin_unit_0/m_axi_wid'(4) - Only lower order bits will be connected.
+Verilog Output written to : /media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/vivado/proj_v50/proj_engine.gen/sources_1/bd/design_1/synth/design_1.v
+WARNING: [BD 41-2384] Width mismatch when connecting pin: '/ps7/S_AXI_HP0_ARID'(6) to pin: '/bin_unit_0/m_axi_arid'(4) - Only lower order bits will be connected.
+WARNING: [BD 41-2384] Width mismatch when connecting pin: '/bin_unit_0/m_axi_rid'(4) to pin: '/ps7/S_AXI_HP0_RID'(6) - Only lower order bits will be connected.
+WARNING: [BD 41-2384] Width mismatch when connecting pin: '/ps7/S_AXI_HP0_WID'(6) to pin: '/bin_unit_0/m_axi_wid'(4) - Only lower order bits will be connected.
+Verilog Output written to : /media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/vivado/proj_v50/proj_engine.gen/sources_1/bd/design_1/sim/design_1.v
+Verilog Output written to : /media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/vivado/proj_v50/proj_engine.gen/sources_1/bd/design_1/hdl/design_1_wrapper.v
+INFO: [IP_Flow 19-5611] Unable to find an associated reset port for the interface 'M_AXI_GP0'. A default connection has been created.
+INFO: [IP_Flow 19-5611] Unable to find an associated reset port for the interface 'S_AXI_HP0'. A default connection has been created.
+INFO: [IP_Flow 19-5611] Unable to find an associated reset port for the interface 'S_AXI_HP1'. A default connection has been created.
+INFO: [BD 41-1029] Generation completed for the IP Integrator block conv_uni_0 .
+INFO: [BD 41-1029] Generation completed for the IP Integrator block bin_unit_0 .
+WARNING: [IP_Flow 19-4994] Overwriting existing constraint file '/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/vivado/proj_v50/proj_engine.gen/sources_1/bd/design_1/ip/design_1_axi_ctrl_imp_auto_pc_0/design_1_axi_ctrl_imp_auto_pc_0_ooc.xdc'
+INFO: [BD 41-1029] Generation completed for the IP Integrator block axi_ctrl/s00_couplers/auto_pc .
+Exporting to file /media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/vivado/proj_v50/proj_engine.gen/sources_1/bd/design_1/hw_handoff/design_1.hwh
+Generated Hardware Definition File /media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/vivado/proj_v50/proj_engine.gen/sources_1/bd/design_1/synth/design_1.hwdef
+INFO: [BD 41-3262] Generated VHDL Instantiation Template file /media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/vivado/proj_v50/proj_engine.gen/sources_1/bd/design_1/design_1.vho
+INFO: [BD 41-3262] Generated Verilog Instantiation Template file /media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/vivado/proj_v50/proj_engine.gen/sources_1/bd/design_1/design_1.veo
+INFO: [BD 41-3262] Generated System Verilog Instantiation Template file /media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/vivado/proj_v50/proj_engine.gen/sources_1/bd/design_1/design_1_sv.sveo
+generate_target: Time (s): cpu = 00:00:10 ; elapsed = 00:00:11 . Memory (MB): peak = 1850.602 ; gain = 0.000 ; free physical = 5526 ; free virtual = 15626
+    OK   generate_target all 完成
+REGEN_GEN: PASS
+
+[14] 产物自检
+    OK   design_1.v  72005 B  md5=652cd9f45a0a30e1af88df8d41f957c4
+    OK   design_1.hwh  189748 B  md5=e284199f82e2620a24d6dae24a00e6e8
+    OK   design_1_wrapper.v  690 B  md5=350dfd9f8eda1c4ddf1b43ea716d120c
+      HP 参数 PCW_USE_S_AXI_HP0 = 1
+      HP 参数 PCW_USE_S_AXI_HP1 = 1
+      HP 参数 PCW_USE_S_AXI_HP2 = 0
+      HP 参数 PCW_USE_S_AXI_HP3 = 0
+      FCLK0 频率 = 150 MHz
+    OK   hwh 自检：无 pc_conv_uni / 无 fconv / HP2 未开
+    ERR  打包层 design_1_bin_unit_0_17.v 的 VLANES = （要 16）
+    ERR  打包层 design_1_bin_unit_0_17.v 的 FUSE_EN = （要 0）
+    ERR  打包层 design_1_bin_unit_0_17.v 的 BAND_ROWS = （要 1）
+    ERR  打包层 design_1_bin_unit_0_17.v 的 BAND_HALO = （要 0）
+    ERR  打包层 design_1_bin_unit_0_17.v 的 BAND_C_MAX = （要 8）
+产物自检 5 项失败
+    while executing
+"error "产物自检 $errs 项失败" "
+    invoked from within
+"if {$errs > 0} { error "产物自检 $errs 项失败" }"
+    (file "pynq_specialized_code/pl/scripts/bd_v50.tcl" line 325)
+INFO: [Common 17-206] Exiting Vivado at Mon Nov  2 18:58:58 2026...

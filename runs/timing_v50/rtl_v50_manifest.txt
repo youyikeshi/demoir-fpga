@@ -28,6 +28,40 @@
 #   重新核对：bash pynq_specialized_code/pl/scripts/verify_rtl_root.sh \
 #               runs/timing_v50/rtl_v50_manifest.txt runs/timing_v50/rtl_v50
 #   期望：MATCH=35 DIFF=0 EXTRA=0 MISSING=0 RESULT: PASS
+#   ★ 2026-11-02 T-92 刷新（lane16/bin_unit_axi_wrap_bd_v50.v **只改 2 行属性**，父代理授权）：
+#     该文件两条 X_INTERFACE_PARAMETER 与它自己的端口事实矛盾，导致 BD 重建必然失败
+#       ERROR [BD 41-237] PROTOCOL does not match between /bin_unit_0/s_axi(AXI3)
+#              and /axi_ctrl/xbar/M03_AXI(AXI4)
+#     ① 第 37 行 s_axi：AXI3 / DATA_WIDTH 64 / HAS_BURST 1 / HAS_PROT 1 /
+#        MAX_BURST_LENGTH 16 / NUM_*_OUTSTANDING 16
+#        → AXI4LITE / DATA_WIDTH 32 / HAS_BURST 0 / HAS_PROT 0 / NUM_*_OUTSTANDING 1
+#        （该行显然是从 m_axi 行误抄；本文件端口与 v39 外壳**逐字相同**：
+#          AWADDR 32 / WDATA 32 / WSTRB 4，无 AWID·WID·BID·RID、无 AWLEN·AWBURST、无 AWLOCK·AWPROT）
+#     ② 第 72 行 m_axi：只有 HAS_PROT 1 → 0（同样没有 awprot/arprot 端口）
+#     ⇒ 除这 2 行外**一个字节未动**（diff 恰好 2 行，见 runs/timing_v50/rtl_wrap_bd_v50_diff_t92.txt）
+#   ★ 2026-11-02 T-92 第 2 次刷新（父代理 18:35 批准决策树第 1 步 / 红线"只改属性行与参数默认值"）：
+#     ① lane16/bin_band_buf.v:145 加 `(* ram_style = "block" *)`——
+#        原数组没属性 ⇒ Vivado 推断成**分布式 RAM**，DRC UTLZ-1：
+#        LUT as Memory 需要 83,690 / 器件只有 14,400（581%），place 前就死。
+#        只加属性，**不动端口/逻辑**。
+#     ② lane16/bin_unit_axi_wrap_bd_v50.v:22 的 `parameter int VLANES = 8` → **16**——
+#        实测：BD 里 set_property CONFIG.VLANES 16 **不会**传进 module-ref 打包层
+#        （生成物 design_1_bin_unit_0_12.v 里仍写死 `.VLANES(8)`，而 .bd 里已是 16），
+#        ⇒ 默认值 8 会让"16-lane 位流"静默变成 8-lane。改默认值是唯一可靠手段；
+#        bd_v50.tcl 另加硬断言：打包层必须出现 `.VLANES(16)`。
+#   ★ 2026-11-02 T-92 第 3 次刷新（父代理决策树第 3 步：**保底配置**）：
+#     lane16/bin_unit_axi_wrap_bd_v50.v 三个 band 参数默认值：
+#       BAND_ROWS 8 -> 1、BAND_HALO 1 -> 0、BAND_C_MAX 48 -> 8
+#     目的：量"16-lane + 几乎不占 LUTRAM/BRAM"的真实资源数。
+#     背景（实测）：band 缓冲 30,722 words x 64 bit 被推断成**分布式 RAM**
+#     （`(* ram_style="block" *)` 被判 infeasible —— 金丝雀校验 `mem[canary_idx]`
+#      是**组合读**，且带字节使能写，Vivado 无法映到 BRAM），
+#     单这一个 u_band 就吃 121,564 LUT（占全设计 86%，LUTRAM 82,904/14,400）。
+#   ★ 2026-11-02 T-92 第 4 次刷新（父代理 19:05：本轮交付 **16-lane、不带融合**）：
+#     lane16/bin_unit_axi_wrap_bd_v50.v 的 `parameter int FUSE_EN = 1` -> **0**。
+#     依据：RTL 头注 §361 写明"FUSE_EN=1 但 FUSE_MODE 复位 0 ⇒ 融合通路全静默"，
+#     即本轮运行期本来就不会走融合；置 0 只是把这条通路从硬件里摘掉，
+#     `fuse_cfg_bad` 会对"软件仍设 fuse_mode=1"报错（安全失败，不会静默算错）。
 #   ----------------------------------------------------------------------------
 # ============================================================================
 cfa8132264cb22256379d5fc4bff80bd  bin_catpack.v
@@ -55,7 +89,7 @@ fd8ac087100300c80dc01cb1584d0f84  k3_cfg_check.v
 21ae24b3f3c7c27ad5e0734881308014  k5_cfg_check.v
 fcc96728b5c8334ea594063ff0629703  _selftest_bad.v
 fcc96728b5c8334ea594063ff0629703  _selftest_ok.v
-5b0cacc5d209261e44786fb337a060c9  lane16/bin_band_buf.v
+f966667d52c0c48f9d1e1a29b5602c06  lane16/bin_band_buf.v
 1b0407bd83056739ebfb8d6b01b60c68  lane16/bin_band_fill_v50.v
 e5d7b3b7b4c5791e5a85815d15620c1f  lane16/bin_catpack_v50.v
 61568f39a5206e9f1e1c9f3b620dadb3  lane16/bin_conv_core_v50.v
@@ -63,5 +97,5 @@ e5d7b3b7b4c5791e5a85815d15620c1f  lane16/bin_catpack_v50.v
 dba8b606acdd9cdd8109a59599ebae71  lane16/bin_rprelu_v50.v
 8f242a2758dc715bc6d78a8e198a5a46  lane16/bin_sam_v50.v
 266454b87d8b7e4124d1fb1323d78178  lane16/bin_segq.v
-0ba1aae3249c4aca59b859ce50028804  lane16/bin_unit_axi_wrap_bd_v50.v
+9303ad6f61289ec6e7b259210a367bb7  lane16/bin_unit_axi_wrap_bd_v50.v
 0f7dd0ae908eebc8c360c0a6f00a4b8e  lane16/bin_unit_axi_wrap_v50.v

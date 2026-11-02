@@ -5739,3 +5739,33 @@ $$\Rightarrow\ \mathtt{translate\_off}\ \text{断言在 fuse 启动后、首条�
 
 $$\Rightarrow\ \Rightarrow\ \mathtt{FUSE=1}\ \text{现在有 }\mathbf{4\ \text{个阻断}}\text{：①带偏移 ②带内级联序列器 ③带级联集成 TB ④}k\ge3\ \text{的 } \mathtt{cfg\_h}$$
 $$\Rightarrow\ \text{本轮实际增量因此}\textbf{主要是 16-lane 的 } -0.56 \Rightarrow 5.83\to\mathbf{\approx5.3}$$
+
+### 70.59 ★★★★★ v50 位流产出：**真 16-lane，时序收敛**（T-92，2026-11-02 19:15）
+
+**硬证据（routed DCP）**
+$$\Rightarrow\ \mathtt{bin\_conv\_core\_v50}\ \text{实例} = \mathbf{1};\quad \text{8-lane } \mathtt{bin\_conv\_core}\ \text{实例} = \mathbf{0}$$
+$$\Rightarrow\ \mathtt{g\_wram[*]}\ \text{不同索引} = \mathbf{16}\ (0..15\ \text{一个不少}) \Rightarrow \textbf{16 个 lane 的权重 RAM 都在}$$
+$$\Rightarrow\ \textbf{纠正我的错}：\mathtt{g\_lane}\ \text{这个标签在 v50 里}\textbf{不存在};\ \text{lane 循环叫 } \mathtt{g\_wram}$$
+$$\quad\ \Rightarrow\ \text{我的任务书又写了一个不存在的判据（第 2 次同类：前有 } \mathtt{M04\_AXI\_AWADDR}）$$
+$$\quad\ \Rightarrow\ \textbf{第 114 条：判据里的层次名/端口名必须先从代码里 grep 出来，不能凭印象写}$$
+
+**资源与时序（10 ns 约束，routed）**
+$$\Rightarrow\ \text{Slice LUTs } \mathbf{23{,}143/46{,}200\ (50.1\%)};\ \text{LUT-as-Memory } 782/14{,}400\ (5.4\%)\ \Rightarrow \text{band 改 BRAM 生效}$$
+$$\Rightarrow\ \text{BRAM } 43/95\ (45.3\%);\ \text{DSP } 126/160\ (78.8\%);\ \text{Registers } 21{,}729\ (23.5\%)$$
+$$\Rightarrow\ \mathbf{WNS\ +\ 0.120\ ns}，\text{TNS } 0，\text{失败端点 } 0，\text{WHS } +0.047$$
+$$\Rightarrow\ \text{最差路径 } \mathtt{win\_q\_reg\_4 \to g\_conv.u\_core/s1\_pc\_q\_reg[1][5]/D}，\text{data path } 9.673\ \text{ns} / 9\ \text{级}$$
+$$\Rightarrow\ \Rightarrow\ \textbf{建议功能时钟 } 100\ \text{MHz}（\text{理论 } \sim101）；\text{没有余量上 } 125$$
+
+**层次账（这一轮最有价值的诊断）**
+$$\Rightarrow\ \mathtt{g\_conv.u\_core}\ 8{,}162\ \text{LUT} / 68\ \text{DSP} \Rightarrow \textbf{16-lane 核只占 } 17.6\%$$
+$$\Rightarrow\ \mathtt{g\_conv.u\_band}\ 2{,}180\ \text{LUT}（\text{原参数下 } \mathbf{121{,}564}，\text{占全设计 86\%}）$$
+$$\Rightarrow\ \mathtt{bin\_unit\_0}\ 16{,}356\ \text{LUT} / 33\ \mathtt{RAMB36}+8\ \mathtt{RAMB18} / 73\ \text{DSP}$$
+
+**上板边界（必须写进板端脚本）**
+$$\Rightarrow\ \text{① 融合通路}\textbf{已编译掉}（\mathtt{FUSE\_EN=0}）；\text{软件设 } \mathtt{fuse\_mode=1}\ \text{会按 } \mathtt{fuse\_cfg\_bad}\ \textbf{报错退出}$$
+$$\quad\ \Rightarrow\ \textbf{安全失败，不会静默算错} \Rightarrow \text{这是设计对的地方}$$
+$$\Rightarrow\ \text{② band 是保底配置（}C_{\max}=8/\text{ROWS}=1/\text{HALO}=0），\textbf{不是给真实负载用的}$$
+$$\Rightarrow\ \text{③ 运行点 } 100\ \text{MHz}、\text{非融合路径}$$
+
+**产物**：\mathtt{runs/v50\_archive/}（27 项 + MD5SUMS 94 条）；bit \mathtt{b300e598}；hwh \mathtt{e284199f}
+**门禁**：\mathtt{verify\_rtl\_root}\ \mathtt{MATCH=35\ DIFF=0}；\text{25 条 v39 基线一条未动}；\mathtt{proj\_engine}/\mathtt{proj\_v43base2}\ \text{零改动}

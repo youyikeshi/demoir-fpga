@@ -1,0 +1,68 @@
+
+****** Vivado v2025.2.1 (64-bit)
+  **** SW Build 6403652 on Thu Mar 19 13:47:00 MDT 2026
+  **** IP Build 6403511 on Thu Mar 19 12:41:45 MDT 2026
+  **** SharedData Build 6403650 on Thu Mar 19 14:02:13 MDT 2026
+  **** Start of session at: Mon Nov  2 17:38:45 2026
+    ** Copyright 1986-2022 Xilinx, Inc. All Rights Reserved.
+    ** Copyright 2022-2026 Advanced Micro Devices, Inc. All Rights Reserved.
+
+source pl/scripts/bd_v50.tcl
+# set ::STEP 0
+# proc step {m} { incr ::STEP; puts ""; puts "\[[format %02d $::STEP]\] $m" }
+# proc ok   {m} { puts "    OK   $m" }
+# proc note {m} { puts "    ..   $m" }
+# proc bad  {m} { puts "    ERR  $m" }
+# proc md5  {f} { return [lindex [exec md5sum $f] 0] }
+# set proj /media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/vivado/proj_v50
+# set xpr  [file join $proj proj_engine.xpr]
+# set gen  [file join $proj proj_engine.gen/sources_1/bd/design_1]
+# set mods /media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/rtl_hand/modules
+# set lane16 /media/felix/Data/coding/demoir-fpga/runs/timing_v50/rtl_v50/lane16
+# if {![file exists $xpr]} { error "缺工程：$xpr（副本没建好）" }
+# if {![file isdirectory $lane16]} { error "缺 lane16 目录：$lane16（T-64 的 16-lane RTL 未到位）" }
+# set _shell [file join $lane16 bin_unit_axi_wrap_bd_v50.v]
+# if {![file exists $_shell]} {
+#     set _shell ""
+#     foreach _f [lsort [glob -nocomplain [file join $lane16 *.v]]] {
+#         set _fh [open $_f r]; set _t [read $_fh]; close $_fh
+#         if {[regexp {\mmodule[ \t]+bin_unit_axi_wrap_bd_v50[ \t(\r\n]} $_t]} { set _shell $_f; break }
+#     }
+#     if {$_shell eq ""} { error "lane16/ 里找不到定义模块 bin_unit_axi_wrap_bd_v50 的 .v（T-64 未交付 / 模块名不符），停止" }
+# }
+# step "记录重登记将要用到的 RTL 外壳声明（钉死证据）"
+
+[01] 记录重登记将要用到的 RTL 外壳声明（钉死证据）
+# foreach p [list [file join $mods conv_uni_axi_wrap_bd.v] $_shell] {
+#     set f [file tail $p]
+#     set fh [open $p r]; set t [read $fh]; close $fh
+#     set n400 [regexp -all {FREQ_HZ 40000000} $t]
+#     set n150 [regexp -all {FREQ_HZ 150000000} $t]
+#     set proto {}
+#     foreach m [regexp -all -inline {X_INTERFACENAME (s_axi|m_axi), PROTOCOL (AXI4LITE|AXI4|AXI3)} $t] {}
+#     regexp -all -inline {XIL_INTERFACENAME (s_axi|m_axi), PROTOCOL (AXI4LITE|AXI4|AXI3), ADDR_WIDTH (\d+), DATA_WIDTH (\d+)} $t
+#     puts [format "      %-26s md5=%s  FREQ40=%d FREQ150=%d" $f [md5 $p] $n400 $n150]
+#     foreach {_all bus pr aw dw} [regexp -all -inline {XIL_INTERFACENAME (s_axi|m_axi), PROTOCOL (AXI4LITE|AXI4|AXI3), ADDR_WIDTH (\d+), DATA_WIDTH (\d+)} $t] {
+#         puts [format "        %-6s PROTOCOL=%-9s ADDR=%-2s DATA=%s" $bus $pr $aw $dw]
+#     }
+#     if {$n400 > 0} { error "$f 里还有 FREQ_HZ 40000000（$n400 处）—— 重登记后必然与 FCLK_CLK0(150 MHz) 冲突，停止" }
+# }
+      conv_uni_axi_wrap_bd.v     md5=a631cccf45abeabb15ecf1fc7f9633ed  FREQ40=0 FREQ150=3
+        s_axi  PROTOCOL=AXI4LITE  ADDR=32 DATA=32
+        m_axi  PROTOCOL=AXI3      ADDR=32 DATA=64
+      bin_unit_axi_wrap_bd_v50.v md5=0ba1aae3249c4aca59b859ce50028804  FREQ40=1 FREQ150=3
+        s_axi  PROTOCOL=AXI3      ADDR=32 DATA=64
+        m_axi  PROTOCOL=AXI3      ADDR=32 DATA=64
+bin_unit_axi_wrap_bd_v50.v 里还有 FREQ_HZ 40000000（1 处）—— 重登记后必然与 FCLK_CLK0(150 MHz) 冲突，停止
+    while executing
+"error "$f 里还有 FREQ_HZ 40000000（$n400 处）—— 重登记后必然与 FCLK_CLK0(150 MHz) 冲突，停止" "
+    invoked from within
+"if {$n400 > 0} { error "$f 里还有 FREQ_HZ 40000000（$n400 处）—— 重登记后必然与 FCLK_CLK0(150 MHz) 冲突，停止" }"
+    ("foreach" body line 13)
+    invoked from within
+"foreach p [list [file join $mods conv_uni_axi_wrap_bd.v] $_shell] {
+    set f [file tail $p]
+    set fh [open $p r]; set t [read $fh]; close $fh
+    s..."
+    (file "pl/scripts/bd_v50.tcl" line 50)
+INFO: [Common 17-206] Exiting Vivado at Mon Nov  2 17:38:47 2026...

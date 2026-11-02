@@ -1,0 +1,49 @@
+===== 从 bd_v50.tcl 抽出的门禁块（第 50..70 行，原文未改）=====
+foreach p [list [file join $mods conv_uni_axi_wrap_bd.v] $_shell] {
+    set f [file tail $p]
+    set fh [open $p r]; set t [read $fh]; close $fh
+    # ★ T-92（2026-11-02）：假阳性修正 —— 只剥 `//...` 行注释再数 FREQ_HZ。
+    #   原写法用裸正则扫全文，把 v50 外壳**注释**里的
+    #     "③ FREQ_HZ 40000000 → **150000000**（R8：功能期 10 ns；…）"
+    #   算成"还有 40 MHz 声明"⇒ 误报 FREQ40=1（T-91 报的阻塞 B）。
+    #   匹配语义未放宽：X_INTERFACE_PARAMETER 里真写 40 MHz 仍然会炸（负对照见
+    #   runs/timing_v50/gate_negctrl_*.log）。除本行外本脚本语义一位未动。
+    set tc [regsub -all {//[^\n]*} $t ""]
+    set n400 [regexp -all {FREQ_HZ 40000000} $tc]
+    set n150 [regexp -all {FREQ_HZ 150000000} $tc]
+    set proto {}
+    foreach m [regexp -all -inline {X_INTERFACENAME (s_axi|m_axi), PROTOCOL (AXI4LITE|AXI4|AXI3)} $t] {}
+    regexp -all -inline {XIL_INTERFACENAME (s_axi|m_axi), PROTOCOL (AXI4LITE|AXI4|AXI3), ADDR_WIDTH (\d+), DATA_WIDTH (\d+)} $t
+    puts [format "      %-26s md5=%s  FREQ40=%d FREQ150=%d" $f [md5 $p] $n400 $n150]
+    foreach {_all bus pr aw dw} [regexp -all -inline {XIL_INTERFACENAME (s_axi|m_axi), PROTOCOL (AXI4LITE|AXI4|AXI3), ADDR_WIDTH (\d+), DATA_WIDTH (\d+)} $t] {
+        puts [format "        %-6s PROTOCOL=%-9s ADDR=%-2s DATA=%s" $bus $pr $aw $dw]
+    }
+    if {$n400 > 0} { error "$f 里还有 FREQ_HZ 40000000（$n400 处）—— 重登记后必然与 FCLK_CLK0(150 MHz) 冲突，停止" }
+}
+==========================================================================
+
+########## 场景 A0：旧门禁 = 裸正则扫全文（修之前的写法）##########
+  裸正则 FREQ40=1  FREQ150=3  （注释里的那 1 处被算成真声明）
+  => 旧门禁会在这里 error（这就是假阳性，T-91 报的阻塞 B）
+
+########## 场景 A：修复后 + lane16/bin_unit_axi_wrap_bd_v50.v（只有注释含 40M）##########
+      conv_uni_axi_wrap_bd.v     md5=a631cccf45abeabb15ecf1fc7f9633ed  FREQ40=0 FREQ150=3
+        s_axi  PROTOCOL=AXI4LITE  ADDR=32 DATA=32
+        m_axi  PROTOCOL=AXI3      ADDR=32 DATA=64
+      bin_unit_axi_wrap_bd_v50.v md5=0ba1aae3249c4aca59b859ce50028804  FREQ40=0 FREQ150=3
+        s_axi  PROTOCOL=AXI3      ADDR=32 DATA=64
+        m_axi  PROTOCOL=AXI3      ADDR=32 DATA=64
+RESULT  A  真实文件  ==> PASS（门禁放行）
+
+########## 场景 B（负对照）：临时副本，X_INTERFACE_PARAMETER 里塞真 FREQ_HZ 40000000 ##########
+  注入点：2 处 X_INTERFACE_PARAMETER（s_axi 与 m_axi 的 FREQ_HZ 150000000 -> 40000000）
+  副本：/tmp/probe_t92/bin_unit_axi_wrap_bd_v50_negctrl.v  md5=4d3b8835474a9bbb12aba57d7933935e
+      conv_uni_axi_wrap_bd.v     md5=a631cccf45abeabb15ecf1fc7f9633ed  FREQ40=0 FREQ150=3
+        s_axi  PROTOCOL=AXI4LITE  ADDR=32 DATA=32
+        m_axi  PROTOCOL=AXI3      ADDR=32 DATA=64
+      bin_unit_axi_wrap_bd_v50_negctrl.v md5=4d3b8835474a9bbb12aba57d7933935e  FREQ40=2 FREQ150=1
+        s_axi  PROTOCOL=AXI3      ADDR=32 DATA=64
+        m_axi  PROTOCOL=AXI3      ADDR=32 DATA=64
+RESULT  B  负对照（属性里真 40M）  ==> ERROR（门禁炸）:  bin_unit_axi_wrap_bd_v50_negctrl.v 里还有 FREQ_HZ 40000000（2 处）—— 重登记后必然与 FCLK_CLK0(150 MHz) 冲突，停止
+
+GATE_SELFTEST: PASS  （A0 假阳性已复现 / A 放行 / B 仍炸）

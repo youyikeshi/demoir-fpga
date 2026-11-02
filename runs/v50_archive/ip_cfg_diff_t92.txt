@@ -1,0 +1,77 @@
+# IP 配置实质变化（重建前 vs 重建后，T-92 2026-11-02 17:55:53）
+
+## design_1_axi_ctrl_imp_xbar_0
+```
+27310,27327d27309
+<             <spirit:value>9:21adf758</spirit:value>
+<           </spirit:parameter>
+<         </spirit:parameters>
+<       </spirit:view>
+<       <spirit:view>
+<         <spirit:name>xilinx_externalfiles</spirit:name>
+<         <spirit:displayName>External Files</spirit:displayName>
+<         <spirit:envIdentifier>:vivado.xilinx.com:external.files</spirit:envIdentifier>
+<         <spirit:fileSetRef>
+<           <spirit:localName>xilinx_externalfiles_view_fileset</spirit:localName>
+<         </spirit:fileSetRef>
+<         <spirit:parameters>
+<           <spirit:parameter>
+<             <spirit:name>GENtimestamp</spirit:name>
+<             <spirit:value>Fri Oct 30 01:49:34 UTC 2026</spirit:value>
+<           </spirit:parameter>
+<           <spirit:parameter>
+<             <spirit:name>outputProductCRC</spirit:name>
+27342c27324
+diff: 标准输出: 断开的管道
+```
+
+## design_1_axi_ctrl_imp_auto_pc_0
+```
+1456c1456
+<             <spirit:value>Mon Nov 02 05:17:22 UTC 2026</spirit:value>
+---
+>             <spirit:value>Mon Nov 02 09:55:00 UTC 2026</spirit:value>
+1465,1519d1464
+<         <spirit:name>xilinx_verilogbehavioralsimulation</spirit:name>
+<         <spirit:displayName>Verilog Simulation</spirit:displayName>
+<         <spirit:envIdentifier>verilogSource:vivado.xilinx.com:simulation</spirit:envIdentifier>
+<         <spirit:language>verilog</spirit:language>
+<         <spirit:modelName>axi_protocol_converter_v2_1_37_axi_protocol_converter</spirit:modelName>
+<         <spirit:fileSetRef>
+<           <spirit:localName>xilinx_verilogbehavioralsimulation_xilinx_com_ip_generic_baseblocks_2_1__ref_view_fileset</spirit:localName>
+<         </spirit:fileSetRef>
+<         <spirit:fileSetRef>
+<           <spirit:localName>xilinx_verilogbehavioralsimulation_xilinx_com_ip_fifo_generator_13_2__ref_view_fileset</spirit:localName>
+<         </spirit:fileSetRef>
+<         <spirit:fileSetRef>
+<           <spirit:localName>xilinx_verilogbehavioralsimulation_xilinx_com_ip_axi_data_fifo_2_1__ref_view_fileset</spirit:localName>
+<         </spirit:fileSetRef>
+<         <spirit:fileSetRef>
+diff: 标准输出: 断开的管道
+```
+
+## design_1_ps7_0
+```
+2153c2153
+<             <xilinx:isEnabled xilinx:resolve="dependent" xilinx:id="BUSIF_ENABLEMENT.S_AXI_HP2_FIFO_CTRL" xilinx:dependency="(spirit:decode(id(PARAM_VALUE.PCW_USE_S_AXI_HP2)) = 1)">true</xilinx:isEnabled>
+---
+>             <xilinx:isEnabled xilinx:resolve="dependent" xilinx:id="BUSIF_ENABLEMENT.S_AXI_HP2_FIFO_CTRL" xilinx:dependency="(spirit:decode(id(PARAM_VALUE.PCW_USE_S_AXI_HP2)) = 1)">false</xilinx:isEnabled>
+8493c8493
+<             <xilinx:isEnabled xilinx:resolve="dependent" xilinx:id="BUSIF_ENABLEMENT.S_AXI_HP2" xilinx:dependency="(spirit:decode(id(PARAM_VALUE.PCW_USE_S_AXI_HP2)) = 1)">true</xilinx:isEnabled>
+---
+>             <xilinx:isEnabled xilinx:resolve="dependent" xilinx:id="BUSIF_ENABLEMENT.S_AXI_HP2" xilinx:dependency="(spirit:decode(id(PARAM_VALUE.PCW_USE_S_AXI_HP2)) = 1)">false</xilinx:isEnabled>
+11680c11680
+<             <xilinx:isEnabled xilinx:resolve="dependent" xilinx:id="BUSIF_ENABLEMENT.S_AXI_HP2_ACLK" xilinx:dependency="(spirit:decode(id(PARAM_VALUE.PCW_USE_S_AXI_HP2)) = 1)">true</xilinx:isEnabled>
+---
+>             <xilinx:isEnabled xilinx:resolve="dependent" xilinx:id="BUSIF_ENABLEMENT.S_AXI_HP2_ACLK" xilinx:dependency="(spirit:decode(id(PARAM_VALUE.PCW_USE_S_AXI_HP2)) = 1)">false</xilinx:isEnabled>
+12999c12999
+<             <xilinx:isEnabled xilinx:resolve="dependent" xilinx:id="MEMMAP_ENABLEMENT.S_AXI_HP2" xilinx:dependency="(spirit:decode(id(PARAM_VALUE.PCW_USE_S_AXI_HP2)) = 1) ">true</xilinx:isEnabled>
+---
+>             <xilinx:isEnabled xilinx:resolve="dependent" xilinx:id="MEMMAP_ENABLEMENT.S_AXI_HP2" xilinx:dependency="(spirit:decode(id(PARAM_VALUE.PCW_USE_S_AXI_HP2)) = 1) ">false</xilinx:isEnabled>
+14999c14999
+<             <spirit:value>9:99253b16</spirit:value>
+---
+>             <spirit:value>9:dda2e6c0</spirit:value>
+diff: 标准输出: 断开的管道
+```
+

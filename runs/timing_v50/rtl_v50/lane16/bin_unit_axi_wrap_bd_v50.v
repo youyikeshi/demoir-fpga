@@ -19,11 +19,11 @@ module bin_unit_axi_wrap_bd_v50 #(
     parameter AXI_ID_W = 4,
     // ★ v50：把单元的参数透传出来，bd_v50.tcl 才能用 set_property CONFIG.* 选
     //   16 lane / 带高 / 预算。**端口一个没加没减**（与 v39 外壳逐字相同）。
-    parameter int VLANES         = 8,
-    parameter int FUSE_EN        = 1,
-    parameter int BAND_ROWS      = 8,
-    parameter int BAND_HALO      = 1,
-    parameter int BAND_C_MAX     = 48,
+    parameter int VLANES         = 16,   // T-92：v50 就是 16-lane；默认 8 会让 BD 打包层静默退回 8
+    parameter int FUSE_EN        = 0,   // T-92：本轮只交付 16-lane，不带融合（父代理 19:05 定）
+    parameter int BAND_ROWS      = 1,
+    parameter int BAND_HALO      = 0,
+    parameter int BAND_C_MAX     = 8,
     parameter int BAND_W_MAX     = 256,
     parameter int BAND_BUDGET_KB = 270,
     parameter int V50_REG_BASE   = 16'h0300
@@ -34,7 +34,7 @@ module bin_unit_axi_wrap_bd_v50 #(
     (* X_INTERFACE_PARAMETER = "XIL_INTERFACENAME s_axi_aresetn, POLARITY ACTIVE_LOW" *)
     (* X_INTERFACE_INFO = "xilinx.com:signal:reset:1.0 s_axi_aresetn RST" *)
     input        s_axi_aresetn,
-    (* X_INTERFACE_PARAMETER = "XIL_INTERFACENAME s_axi, PROTOCOL AXI3, ADDR_WIDTH 32, DATA_WIDTH 64, FREQ_HZ 150000000, HAS_BURST 1, HAS_CACHE 0, HAS_QOS 0, HAS_REGION 0, HAS_LOCK 0, HAS_PROT 1, HAS_WSTRB 1, MAX_BURST_LENGTH 16, NUM_READ_OUTSTANDING 16, NUM_WRITE_OUTSTANDING 16" *)
+    (* X_INTERFACE_PARAMETER = "XIL_INTERFACENAME s_axi, PROTOCOL AXI4LITE, ADDR_WIDTH 32, DATA_WIDTH 32, FREQ_HZ 150000000, HAS_BURST 0, HAS_CACHE 0, HAS_QOS 0, HAS_REGION 0, HAS_LOCK 0, HAS_PROT 0, HAS_WSTRB 1, NUM_READ_OUTSTANDING 1, NUM_WRITE_OUTSTANDING 1" *)
     (* X_INTERFACE_INFO = "xilinx.com:interface:aximm:1.0 s_axi AWADDR" *)
     input  [31:0] s_axi_awaddr,
     (* X_INTERFACE_INFO = "xilinx.com:interface:aximm:1.0 s_axi AWVALID" *)
@@ -69,7 +69,7 @@ module bin_unit_axi_wrap_bd_v50 #(
     output       s_axi_rvalid,
     (* X_INTERFACE_INFO = "xilinx.com:interface:aximm:1.0 s_axi RREADY" *)
     input        s_axi_rready,
-    (* X_INTERFACE_PARAMETER = "XIL_INTERFACENAME m_axi, PROTOCOL AXI3, ADDR_WIDTH 32, DATA_WIDTH 64, FREQ_HZ 150000000, HAS_BURST 1, HAS_CACHE 0, HAS_QOS 0, HAS_REGION 0, HAS_LOCK 0, HAS_PROT 1, HAS_WSTRB 1, MAX_BURST_LENGTH 16, NUM_READ_OUTSTANDING 16, NUM_WRITE_OUTSTANDING 16" *)
+    (* X_INTERFACE_PARAMETER = "XIL_INTERFACENAME m_axi, PROTOCOL AXI3, ADDR_WIDTH 32, DATA_WIDTH 64, FREQ_HZ 150000000, HAS_BURST 1, HAS_CACHE 0, HAS_QOS 0, HAS_REGION 0, HAS_LOCK 0, HAS_PROT 0, HAS_WSTRB 1, MAX_BURST_LENGTH 16, NUM_READ_OUTSTANDING 16, NUM_WRITE_OUTSTANDING 16" *)
     (* X_INTERFACE_INFO = "xilinx.com:interface:aximm:1.0 m_axi ARVALID" *)
     output       m_axi_arvalid,
     (* X_INTERFACE_INFO = "xilinx.com:interface:aximm:1.0 m_axi ARREADY" *)
