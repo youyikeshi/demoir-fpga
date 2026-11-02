@@ -13,7 +13,10 @@
 //      C-B 把像素时钟停掉后，0x30[0] 必须冻结，且 0x00/0x04/0x08 仍可正常读写
 //          （这条是本改动的核心：像素域死 != 总线死）
 //      C-C mmcm_locked=0 -> 0x30[1]=0；置 1 后（>=2 aclk）-> 0x30[1]=1
-//      C-D 0x30 只读：写 0xFFFFFFFF / 0x00000000 后回读值不被破坏
+//      C-D 0x30 只读：写 0xFFFFFFFF / 0x00000000 后回读值不被破坏（[0] 仍按原节奏翻转）
+//      C-E enable=0 -> DE 落低的像素时钟拍数 de_settle <= 8（四种模式各测一次）；
+//          de_bad 的 2 帧统计从 DE 真的落低之后才开始 ⇒ 既有覆盖、也没有盲区
+//      C-F soft_reset 后 hb_cnt 不被清零（直接监视像素域计数器：每拍必须恰好 +1）
 //
 // 定格手段：pix_stop=1 时两路像素时钟都停止翻转（BUFG/BUFGMUX 输入不变 ⇒ pix_clk
 // 恒电平），这正是"MMCM 没锁 / 像素时钟没跑"在位流里的样子。
@@ -241,6 +244,53 @@ module tb_hdmi_top_cfg;
     time       t_1, t_2;
     reg [31:0] ctrl_bak;
 
+    // -------- C-E：enable=0 -> DE 落低的像素时钟拍数（门禁 <= 8，四种模式都测）--------
+    // 参考点 = DUT 内部 wr_commit（写真的提交的那一拍，aclk 域）；
+    // 终点   = hdmi_de 首次为 0；计数 = 自由运行的像素时钟沿计数器。
+    // 两端都在 aclk 域采样 ⇒ 量化误差 ±1 拍（判据 8 拍、实测 2~3 拍，余量足够）。
+    // 为什么要有这条：de_bad 的统计必须从 DE 真的落低之后才开始（否则把 2FF 固有延迟
+    // 算成缺陷，结果取决于写落点在哪一拍）；但"移出统计"必须同时把这段变成**被测量的量**，
+    // 否则等于制造盲区。de_settle > 8 ⇒ 使能/CDC 通路真有问题。
+    integer pix_edge_n = 0;
+    always @(posedge pix_clk) pix_edge_n = pix_edge_n + 1;
+
+    reg     settle_armed = 1'b0;
+    reg     settle_done  = 1'b1;
+    integer settle_t0    = 0;
+    integer de_settle    = 0;
+    integer settle_max   = 0;
+    integer lk_n         = 0;
+
+    always @(posedge aclk) begin
+        if (!settle_armed &&
+            dut.wr_commit && (dut.awaddr_r[7:2] == 6'h00) &&
+            dut.wstrb_r[0] && (dut.wdata_r[0] === 1'b0)) begin   // 写 CTRL.enable=0
+            settle_armed = 1'b1;
+            settle_done  = 1'b0;
+            settle_t0    = pix_edge_n;
+            de_settle    = 0;
+        end
+        if (settle_armed && !settle_done && (hdmi_de === 1'b0)) begin
+            de_settle   = pix_edge_n - settle_t0;
+            settle_done = 1'b1;
+        end
+    end
+
+    // -------- C-F：soft_reset 期间 hb_cnt 不许被清零 ----------
+    // 只看 0x30[0] "还在跳" 不足以证明没被清：清空后照样会继续跳，只是相位跳了一下。
+    // 所以直接监视像素域计数器本身：每一拍必须恰好 +1，出现任何非 +1 跳变即判失败。
+    reg        hb_mon   = 1'b0;
+    integer    hb_jumps = 0;
+    reg [16:0] hb_prev  = 17'd0;
+
+    // 注意：监视器是在像素沿上比"上一沿之后的值 +1"，所以武装时必须把基准设成
+    // hb_cnt-1（此刻 hb_cnt 还没有被下一个沿推进），否则第一个沿会误报一次跳变。
+    // 17 bit 加法天然按 17 位截断 ⇒ 0x1FFFF->0x00000 的回绕不会被误判。
+    always @(posedge pix_clk) begin
+        if (hb_mon && (dut.hb_cnt !== (hb_prev + 17'd1))) hb_jumps = hb_jumps + 1;
+        hb_prev = dut.hb_cnt;
+    end
+
     // C-A：两次连续读 0x30[0]，间隔取 hb 半周期的**奇数倍**（5×2^16 个像素时钟）
     //   —— 为什么必须是奇数倍：pix_hb = hb_cnt[16] 的半周期 = 2^16 个像素时钟。
     //      间隔 Δ 内跨过的沿数 k 在 {floor(Δ/h), ceil(Δ/h)} 之间；只有 k 严格为奇数
@@ -380,12 +430,31 @@ module tb_hdmi_top_cfg;
         begin
             de_bad  = 0;
             guard_en = 0;
+            // C-E 要从 enable=1 出发（④ 段结束时是 0），而且让 enable=0 落在**有效行内**
+            // （DE 为高的最坏情况）才测得到 2FF 的真实传播拍数；落在消隐期会量到 0 拍、
+            // 等于没测。所以先保证 enable=1，再等 DE 起来。
+            if (!dut.ctrl_enable) axi_write(32'h00, 32'h0000_0015);
+            @(posedge pix_clk);
+            wait (hdmi_de === 1'b1);
+            settle_armed = 1'b0;                  // 重新武装 C-E 测量
+            settle_done  = 1'b1;
+            de_settle    = 0;
             axi_write(32'h00, 32'h0000_0014);     // enable=0
-            // enable=0 经 2FF 进像素域需要 ≤3 个像素时钟。若这条写落在有效行内，
-            // 这几拍 DE 仍为高是**文档化的固有延迟**，不是缺陷；从生效之后才开始
-            // 计数（否则判据结果取决于写落点在哪一拍，等于靠相位运气）。
-            // de_bad 真正要看的是"整个时钟切换 + 之后 2 帧内 DE 恒 0"。
-            repeat (8) @(posedge pix_clk);
+            // C-E：enable=0 经 2FF 进像素域要几拍？把这段时间**量出来**（不是移出统计）。
+            // 等最多 64 个像素时钟让 DE 落低；落不下来或 > 8 拍 ⇒ 判 FAIL。
+            repeat (64) @(posedge pix_clk);
+            if (!settle_done) begin
+                fails = fails + 1;
+                $display("  FAIL C-E mode %0d: enable=0 后 64 个像素时钟内 DE 仍为高", mode);
+            end else begin
+                if (de_settle > settle_max) settle_max = de_settle;
+                $display("  C-E mode %0d: de_settle = %0d pix clk (门禁 <= 8)", mode, de_settle);
+                if (de_settle > 8) begin
+                    fails = fails + 1;
+                    $display("  FAIL C-E mode %0d: de_settle=%0d > 8 拍", mode, de_settle);
+                end
+            end
+            // 从这里开始 2 帧的 de_bad 统计（DE 已经落低 ⇒ 无盲区、无相位运气）
             de_bad   = 0;
             guard_en = 1;
             axi_write(32'h08, {30'd0, mode});
@@ -517,8 +586,10 @@ module tb_hdmi_top_cfg;
         if (zero_d_errs  != 0) begin fails=fails+1; $display("  FAIL d when enable=0"); end
 
         // ---------------------------------------------------------- ⑤ 双时钟切换
+        // C-E 的 de_settle 也在这 4 次切换里各测一次（mode 1/3 走 pix_clk_a，mode 2/0 走 pix_clk_b）
         switch_and_measure(2'd1, 1920, 2200, 148.4375);
         hb_check_alive("pix_a");          // C-A @148.44 MHz（mode 1 刚切好，enable=1）
+        switch_and_measure(2'd3, 1920, 2200, 148.4375);   // mode 3 = 1080p60 等价（双时钟位流）
         switch_and_measure(2'd2, 1920, 2200, 74.21875);
         switch_and_measure(2'd0, 1280, 1650, 74.21875);
         hb_check_alive("pix_b");          // C-A @74.22 MHz（mode 0）
@@ -628,7 +699,90 @@ module tb_hdmi_top_cfg;
             fails=fails+1; $display("  FAIL C-B 恢复像素时钟后 0x30[0] 不翻转");
         end
 
+        // ------------------------------------------------ C-C：mmcm_locked 的 2FF 传播
+        mmcm_locked = 0;
+        repeat (4) @(posedge aclk);
+        axi_read(32'h30, rd);
+        $display("  C-C mmcm_locked=0 -> 0x30 = 0x%08h (bit1=%b)", rd, rd[1]);
+        if (rd[1] !== 1'b0) begin
+            fails=fails+1; $display("  FAIL C-C mmcm_locked=0 时 0x30[1] 不为 0");
+        end
+        if (rd[31:2] != 0) begin
+            fails=fails+1; $display("  FAIL C-C 保留位非 0: 0x%08h", rd);
+        end
+
+        mmcm_locked = 1;
+        lk_n = 0;
+        while ((dut.lk_sync !== 1'b1) && (lk_n < 8)) begin
+            @(posedge aclk); #1;          // #1 让 NBA 结算后再读
+            lk_n = lk_n + 1;
+        end
+        $display("  C-C mmcm_locked 0->1 : lk_sync 经 %0d 个 aclk 变 1 (要求 <= 2)", lk_n);
+        if (lk_n > 2) begin
+            fails=fails+1; $display("  FAIL C-C 2FF 传播用了 %0d 个 aclk（应 <= 2）", lk_n);
+        end
+        repeat (2) @(posedge aclk);
+        axi_read(32'h30, rd);
+        $display("  C-C 置 1 后 0x30 = 0x%08h (bit1=%b)", rd, rd[1]);
+        if (rd[1] !== 1'b1) begin
+            fails=fails+1; $display("  FAIL C-C mmcm_locked=1 后 0x30[1] 不为 1");
+        end
+
+        // ------------------------------------------------ C-D：0x30 只读
+        axi_write(32'h30, 32'hFFFF_FFFF);
+        axi_read (32'h30, rd);
+        $display("  C-D write 0xFFFFFFFF -> read 0x%08h (bit1=%b 保留位=%b)",
+                 rd, rd[1], rd[31:2]);
+        if (rd[31:2] != 0) begin
+            fails=fails+1; $display("  FAIL C-D 保留位被写坏: 0x%08h", rd);
+        end
+        if (rd[1] !== 1'b1) begin
+            fails=fails+1; $display("  FAIL C-D 写全 1 把 0x30[1] 覆盖了");
+        end
+        // [0] 是活的：写全 1 之后它仍须按原节奏翻转（不是被强制成 1）
+        hb_1 = rd[0];
+        repeat (5*65536) @(posedge pix_clk);
+        axi_read (32'h30, rd); hb_2 = rd[0];
+        $display("  C-D write 0xFFFFFFFF 后 0x30[0]: %b -> %b（仍按原节奏翻转）", hb_1, hb_2);
+        if (hb_1 === hb_2) begin
+            fails=fails+1; $display("  FAIL C-D 写全 1 后 0x30[0] 被冻住了");
+        end
+        // 再写全 0：[1] 必须仍为 1（没被写 0 覆盖）
+        axi_write(32'h30, 32'h0000_0000);
+        axi_read (32'h30, rd);
+        $display("  C-D write 0x00000000 -> read 0x%08h (bit1=%b)", rd, rd[1]);
+        if (rd[1] !== 1'b1 || rd[31:2] != 0) begin
+            fails=fails+1; $display("  FAIL C-D 写全 0 破坏了 0x30: 0x%08h", rd);
+        end
+
+        // ------------------------------------------------ C-F：soft_reset 不清 hb_cnt
+        // 只看"0x30[0] 还在跳"不够：计数器被清零后照样跳，只是相位跳一下。
+        // 所以同时监视像素域计数器本身（每一拍必须恰好 +1）。
+        hb_jumps = 0;
+        hb_prev  = dut.hb_cnt - 17'd1;
+        hb_mon   = 1'b1;
+        axi_read(32'h30, rd); hb_1 = rd[0];
+        $display("  C-F before soft_reset: 0x30[0]=%b  hb_cnt=0x%05h", hb_1, dut.hb_cnt);
+        axi_write(32'h00, 32'h0000_0017);     // enable=1 + soft_reset=1
+        repeat (8) @(posedge aclk);           // soft_reset 在 aclk 域生效（soft_cnt=64）
+        axi_read(32'h30, rd); hb_2 = rd[0];   // 复位后"立刻"读
+        $display("  C-F right after soft_reset: 0x30[0]=%b  hb_cnt=0x%05h", hb_2, dut.hb_cnt);
+        repeat (5*65536) @(posedge pix_clk);
+        axi_read(32'h30, rd); hb_3 = rd[0];
+        $display("  C-F after 5*2^16 pix clk:  0x30[0]=%b  hb_cnt=0x%05h  (hb_cnt 非 +1 跳变 = %0d 次)",
+                 hb_3, dut.hb_cnt, hb_jumps);
+        hb_mon = 1'b0;
+        if (hb_jumps != 0) begin
+            fails=fails+1;
+            $display("  FAIL C-F soft_reset 期间 hb_cnt 被改动了 %0d 次（计数器被清）", hb_jumps);
+        end
+        if (hb_2 === hb_3) begin
+            fails=fails+1; $display("  FAIL C-F soft_reset 后 0x30[0] 不翻转（心跳假死）");
+        end
+
         $display("--------------------------------------------------------------");
+        $display("  C-E 汇总：4 次模式切换 de_settle 最大值 = %0d pix clk (门禁 <= 8)",
+                 settle_max);
         $display("  sim end at %0.3f ms", $itor($time)/1000000.0);
         if (fails == 0) $display("RESULT: PASS  (all top-level criteria met, errors = 0)");
         else            $display("RESULT: FAIL  (errors = %0d)", fails);
