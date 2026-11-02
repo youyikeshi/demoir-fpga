@@ -1,0 +1,30 @@
+[t128] python=3.10.4 numpy=1.21.5 mach=armv7l
+[t128] 日志 = /home/xilinx/demoir/t128_out/t128_065232.log
+[t128] 运行点 = {"BIN_PACK": "e1e2", "BIN_LAZY_DEQ": "0", "BIN_LAZY_SLOTS": "24", "BIN_CAT_FUSION": "1", "BIN_BILINEAR_C": "1", "BIN_PRECOMP": "1", "Q8CACHE": "1", "BIN_F32DIRECT": "1", "BIN_CAT_ECA_FUSE": "1", "BIN_EPI_NOINV": "1", "BIN_PROFILE": "1", "BIN_V50_FUSE": "", "BIN_VLANES": ""}
+
+==============================================================================
+  第 1 步：load overlay + 指纹（本进程唯一一次 download=True）
+==============================================================================
+  Overlay(design_1_150v53.bit) 用时 2.497 s
+  IP 清单：['bin_unit_0', 'conv_uni_0', 'ps7']
+  conv_uni_0  base=0x40040000 length=0x20000 （期望 0x40040000）✓
+  bin_unit_0  base=0x40060000 length=0x20000 （期望 0x40060000）✓
+  0x40070314 = 0x50300001   (CFG+0x314)
+  0x40060310 = 0x00000000   (0x310 CHAIN_STATUS)
+  **magic(0x314) = 0x50300001 期望 0x50300001 ⇒ 寄存器块在位 ✓**
+  load 后 fclk0 读回 = 125 MHz
+  权重容器：227 层，blob=1.13 MB
+  权重已上板：pa=0x30100000（1.13 MB）
+
+==============================================================================
+  第 1 步（续）：fclk + 指纹 + 挂 E1E2
+==============================================================================
+  目标 50 MHz → **fclk0 读回 50 MHz**；magic=0x50300001 0x310=0x00000000（第 119 条）
+  vlanes_now=8 prm_layout={'VLANES': 8, 'PRM_W': 16, 'PB_S': 0, 'PB_B': 2, 'PB_Z': 6, 'PB_G': 10, 'PB_SL': 14, 'seg': {'alpha': (0, 2), 'bias': (2, 6), 'zeta': (6, 10), 'gamma': (10, 14), 'slope': (14, 16)}, 'words': {'alpha': 2, 'bias': 4, 'zeta': 4, 'gamma': 4, 'slope': 2}}
+  [DEPS] q8=fast c8deq=fast bpack=fast e1e2=fast catpack=fast safe=fast  ⇒ deps_closure_ok=True
+  E1E2 已挂上（R_RUN_UNIT=4，probe 通过；clk=50 MHz）
+  arena 8 MB @0x30300000
+
+  消费者（= 整网 op15）= encoder.encoder_1.sam_blocks.0.b0.ghost_layers.1.primary_conv.conv
+    cin=112 cout=32 k=1 s=1 pad=0 shift=4 fs_in=4 fs_out=4
+[json] 已落盘 /home/xilinx/demoir/t128_out/t128_065232.json

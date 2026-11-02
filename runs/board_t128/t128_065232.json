@@ -1,0 +1,98 @@
+{
+ "env_at_start": {
+  "BIN_PACK": "e1e2",
+  "BIN_LAZY_DEQ": "0",
+  "BIN_LAZY_SLOTS": "24",
+  "BIN_CAT_FUSION": "1",
+  "BIN_BILINEAR_C": "1",
+  "BIN_PRECOMP": "1",
+  "Q8CACHE": "1",
+  "BIN_F32DIRECT": "1",
+  "BIN_CAT_ECA_FUSE": "1",
+  "BIN_EPI_NOINV": "1",
+  "BIN_PROFILE": "1",
+  "BIN_V50_FUSE": "",
+  "BIN_VLANES": ""
+ },
+ "steps": {
+  "load": {
+   "bit": "/home/xilinx/demoir/design_1_150v53.bit",
+   "seconds": 2.4967,
+   "ips": [
+    "bin_unit_0",
+    "conv_uni_0",
+    "ps7"
+   ],
+   "has_fconv": false,
+   "addr": {
+    "conv_uni_0": {
+     "base": "0x40040000",
+     "length": 131072,
+     "ok": true
+    },
+    "bin_unit_0": {
+     "base": "0x40060000",
+     "length": 131072,
+     "ok": true
+    }
+   },
+   "magic": {
+    "CFG+0x314": {
+     "abs_addr": "0x40070314",
+     "hex": "0x50300001"
+    },
+    "0x310 CHAIN_STATUS": {
+     "abs_addr": "0x40060310",
+     "hex": "0x00000000"
+    }
+   },
+   "magic_ok": true,
+   "fclk0_at_load": 125.0,
+   "downloads": 1,
+   "fp_ok": true
+  },
+  "deps": {
+   "line": "[DEPS] q8=fast c8deq=fast bpack=fast e1e2=fast catpack=fast safe=fast  ⇒ deps_closure_ok=True",
+   "closure_ok": true
+  },
+  "e1e2": {
+   "ok": true
+  }
+ },
+ "levels": [],
+ "args": {
+  "bit": "/home/xilinx/demoir/design_1_150v53.bit",
+  "pack": "/home/xilinx/demoir/deploy/bin_weights_new",
+  "timeout": 6.0,
+  "outdir": "/home/xilinx/demoir/t128_out",
+  "freq": 50.0,
+  "magic_required": 1,
+  "side": 64,
+  "tag": "t128"
+ },
+ "runpoint": {
+  "BIN_PACK": "e1e2",
+  "BIN_LAZY_DEQ": "0",
+  "BIN_LAZY_SLOTS": "24",
+  "BIN_CAT_FUSION": "1",
+  "BIN_BILINEAR_C": "1",
+  "BIN_PRECOMP": "1",
+  "Q8CACHE": "1",
+  "BIN_F32DIRECT": "1",
+  "BIN_CAT_ECA_FUSE": "1",
+  "BIN_EPI_NOINV": "1",
+  "BIN_PROFILE": "1",
+  "BIN_V50_FUSE": "",
+  "BIN_VLANES": ""
+ },
+ "fclk": {
+  "target": 50.0,
+  "readback": 50.0,
+  "base": "0x40060000",
+  "magic": "0x50300001",
+  "magic_ok": true,
+  "st310": "0x00000000",
+  "fclk": 50.0
+ },
+ "fatal": "Traceback (most recent call last):\n  File \"/tmp/probe_T128/probe_t128.py\", line 738, in <module>\n    sys.exit(main())\n  File \"/tmp/probe_T128/probe_t128.py\", line 511, in main\n    log(\"    H=W=%d  cb=%d  act=%d B  out=%d B  t_q∈[%d,%d]\"\nTypeError: not all arguments converted during string formatting\n"
+}

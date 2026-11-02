@@ -6635,3 +6635,26 @@ $$\Rightarrow\ \Rightarrow\ \text{段 0 的 } d = 4-5 = \mathbf{-1} \Rightarrow 
 $$\Rightarrow\ \Rightarrow\ \textbf{而本轮只打了"单段 + } d{=}0\text{"} \Rightarrow \textbf{neg 分支从未上过板}$$
 $$\Rightarrow\ \textbf{这条完美解释"为什么从 } \mathtt{op13/op15}\ \text{起错"}：\text{那正是整网里}\textbf{第一个多段混尺度输入}$$
 $$\quad\ \Rightarrow\ \text{op1 convfp、rdb 链的输入都是单段} \Rightarrow \text{所以前 12 个 op 全对}$$
+
+### 70.93 ★★★ T-128：三段混尺度打包也全对 ⇒ 只剩"流水线重叠"一维（2026-11-03 04:2x）
+
+**四档全对（5 个 conv op，一次 load）**
+| 档 | 打包内容 | act | out | 越界 |
+|---|---|---|---|---|
+| L0 | 单段 112, $d{=}0$ | 0/65536 | 0/131072 | 0 B |
+| L1 | 两段 56+56, 均 $d{=}0$ | 0/65536 | 0/131072 | 0 B |
+| **L2** | 两段 32+80, **段 0 $d{=}{-}1$** | **0/65536** | **0/131072** | 0 B |
+| **L3** | **三段 32+32+48**（i8@fs5 $d{=}{-}1$ ‖ i8@fs4 ‖ f32） | **0/65536** | **0/131072** | 0 B |
+$$\Rightarrow\ \text{另加 } 3\ \text{个变体也全 0：}\text{段 0 全幅饱和端}、\textbf{整网真实构建期 lane 计划}（\text{两条路描述符逐位相同）}、\mathtt{q8}\ \text{缓存 i8 段路径}$$
+$$\Rightarrow\ \Rightarrow\ \textbf{证伪}：\text{① } d{=}{-}1\ \text{的 } neg\ \text{分支 ② 多段 } + f32\ \text{混合 ③ 描述符构建期 lane 计划}$$
+$$\Rightarrow\ \text{L3 重跑一次 act/out 同 sha1} \Rightarrow \text{打包确定}$$
+
+$$\Rightarrow\ \textbf{至此"层内 + 层间交接"的所有可分离口径全部测干净了}：$$
+$$\quad\ \text{单层（npix 1024→65536）、链式两 op（两种交接）、三段混尺度 } d{=}{-}1、\text{输出槽读后不变}$$
+$$\quad\ \Rightarrow\ \text{全部}\textbf{逐字节全对}$$
+
+**唯一剩下的结构差别：流水线**
+$$\Rightarrow\ \text{整网会}\textbf{提前 } \mathtt{prepare}(N{+}1) \text{、}\text{而 } \mathtt{op}\ N\ \text{还在 PL 上跑};\ \text{我所有测试都是}\textbf{严格串行}（\text{跑完 } N\ \text{才准备 } N{+}1）$$
+$$\Rightarrow\ \Rightarrow\ \text{若 } \mathtt{prepare}(N{+}1)\ \text{的目标缓冲与 } \mathtt{op}\ N\ \text{正在读/写的缓冲有交集} \Rightarrow \textbf{稳定覆盖}（\text{与"稳定错"吻合）}$$
+$$\Rightarrow\ \text{且能解释尺寸依赖}：\text{尺寸越大} \Rightarrow \text{PL 每个 op 跑得越久} \Rightarrow \textbf{重叠窗口越大} \Rightarrow \text{从某个尺寸起必错}$$
+$$\Rightarrow\ \text{已派 T-129 做}\textbf{3 op 的真实流水排程}（\mathtt{prepare}\ \text{提前 + } \mathtt{kick}\ \text{推迟，128}^2）$$
