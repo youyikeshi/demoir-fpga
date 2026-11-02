@@ -5289,3 +5289,48 @@ $$\Rightarrow\ \textbf{AWID 常量 0 的写通路嫌疑本轮未被触发}：\te
 $$\Rightarrow\ \Rightarrow\ \textbf{BD 重建中性 = 静态 + 动态双证} \Rightarrow \textbf{阶段 3（convfp 搬 PL）与阶段 4（全融合）第一次有了可执行前提}$$
 $$\Rightarrow\ \text{这是今晚唯一"打通一扇门"的成果；其余都是关掉门或修地板}$$
 
+
+### 70.43 ★★★★ 16-lane 的可行性被算清（T-66）：**不需要 2× 带宽，而且是延迟受限**（2026-11-02 15:20）
+
+**核心结论一：lane = 共享读，16-lane 不加带宽（反而减半）**
+$$\Rightarrow\ \text{一个 64-bit 激活字同时喂 8 个 XNOR+popcount（}\texttt{act\_c}\ \text{无 lane 下标，core8:336-345）}$$
+$$\Rightarrow\ \text{lane } k = \text{连续输出通道 } o_0+k;\ \text{C8 布局下 lane 0-7 正好填满同一 64-bit 字的 8 字节}$$
+$$\Rightarrow\ \Rightarrow\ \text{每拍需求}\textbf{恒为 1 字/term，与 lane 数无关}$$
+$$\Rightarrow\ \text{总时间} \propto \text{像素} \times K \times \lceil \text{cout}/\text{VLANES} \rceil \Rightarrow \textbf{翻倍 lane ⇒ 总激活读流量减半}$$
+$$\Rightarrow\ \textbf{实测 54.3 cyc/term 是}\textbf{延迟受限}\text{（理想 24），不是带宽受限}$$
+
+$$\Rightarrow\ \Rightarrow\ \textbf{这修正了我的算术}：\text{conv } 1.12\ \text{s 里，}\lceil \text{cout}/8 \rceil \ \text{次组遍历占了大部分}$$
+$$\quad\ \text{16-lane 直接砍一半组遍历} \Rightarrow \text{conv } \mathbf{1.12 \to \sim 0.56}\ (\text{而非我原估的 } 0.19)$$
+$$\quad\ \Rightarrow\ \text{收益 } \mathbf{-0.56\ s}\ \text{，比我原估的 } -0.19\ \text{大三倍}$$
+
+**核心结论二：累加器深度与 lane 数无关 ⇒ 字节一致性天然保住**
+$$\Rightarrow\ \text{每 lane } \texttt{p\_acc[15{:}0]}，\text{深度 } K = C_B \cdot k^2，\textbf{与 cout/VLANES 无关}$$
+$$\Rightarrow\ N_{\text{tot}} = 64K \le 16384 < 2^{15} \Rightarrow \textbf{16-lane 不改每 lane 的深度/位宽}$$
+$$\Rightarrow\ \textbf{红线：不许收窄 } \texttt{p\_acc}/\texttt{d16}$$
+
+**核心结论三：权重不是 AXI-Lite 寄存器堆（我之前的前提错了）**
+$$\Rightarrow\ \text{核在 } \texttt{ST\_WLD}\ \text{期}\textbf{自 DDR 拉进 8 块独立 256×64 BRAM}，\text{每拍每 lane 1 个 64-bit 字}$$
+$$\Rightarrow\ \texttt{pw[0..15]}\ \text{是}\textbf{per-group 的 alpha/bias/zeta/gamma/slope 参数}（\text{常量位切片，0 LUT}）$$
+$$\Rightarrow\ \texttt{pw\_valid/pw\_word}\ \text{是写口入口寄存器，与上者}\textbf{同名不同物}$$
+
+**资源增量（按"复制/不复制"分类）**
+
+| 类 | 内容 | 增量 |
+|---|---|---|
+| **复制** | XNOR+pop 树 | ~130 LUT/lane × 8 = +1,040 |
+| | `p_acc`/收尾流水 | ~272 FF/lane × 8 |
+| | 权重 BRAM（256×64）| **+8 RAMB36** |
+| | 乘法/累加 DSP | **+24 DSP** |
+| **不复制** | 地址链、`win_q`（512×16 ≈14-16 BRAM）、AR/预取、写引擎、AXI-Lite | 0 |
+
+$$\Rightarrow\ \text{估 } 20.5\text{k} \to \mathbf{\sim 34\text{-}35k\ LUT} / {\sim}26\text{-}27\text{k\ FF} / 43\ \text{BRAM} / {\sim}125\ \text{DSP}$$
+$$\Rightarrow\ \text{⚠ T-66 把器件写成 } \texttt{xc7z020}——\textbf{错}，\text{本项目是 } \textbf{\texttt{xc7z015}}\ (46{,}200\ \text{LUT})$$
+$$\quad\ 34\sim35\text{k}/46.2\text{k} = \mathbf{74\sim76\%} \Rightarrow \text{装得下但紧；真风险是 16 份 pop 树的}\textbf{时序拥塞}$$
+
+**字节一致性风险清单（6 条，必须逐个守住）**
+$$\Rightarrow\ \text{① C16 交错布局};\quad \text{② } \texttt{cout}\%\ 8\ \text{被收紧成 } \%\ 16;\quad \text{③ 末块补零}\textbf{双侧消隐只做一侧}$$
+$$\Rightarrow\ \text{④ lane 8-15 复用 lane 0-7 的参数切片};\quad \text{⑤ } \texttt{done}\ \text{不等 } \texttt{wr\_all\_idle};\quad \text{⑥ } \texttt{nvalid}\ \text{掩码按 16 位算}$$
+
+**另外两条纠正**
+$$\Rightarrow\ \texttt{RD\_WIN\_WORDS}\ \text{当前已是 } \mathbf{16}\ (\text{不是任务书写的 8})，\ \texttt{ARLEN}=15$$
+$$\Rightarrow\ \texttt{bin\_e1e2.v}\ \text{的 8 lane 是"64 位输出字的 8 个子字"，与 conv 的 oc-lane \textbf{正交}} \Rightarrow \textbf{16-lane 不该动它}$$
