@@ -5026,3 +5026,27 @@ $$\Rightarrow\ \text{其余（} \texttt{BIN\_PACK/BIN\_LAZY\_*/BIN\_CAT\_FUSION/
 $\quad\ \text{都是实例/调用时读} \Rightarrow \texttt{set\_env()}\ \text{后重建 engine 即生效}$$
 
 $$\Rightarrow\ \textbf{机制化}：\text{import 前落环境 + import 后 } \texttt{assert BE.\_PROF}\ \text{这类硬断言} \Rightarrow \text{别再让一次上板白跑（本轮 rc=6）}$$
+
+### 70.33 ★ 平台级约束浮出水面：**HP 口只有 2 个**（`convfp` 搬 PL 的真实门槛）（2026-11-02 10:45）
+
+T-55 静态核对（`runs/t55_fconv/DESIGN_INTEGRATION.md`）查出两件必须先解决的事：
+
+**① 收益要打折：4-lane 是 −0.34 s，不是 −0.75 s**
+$$\Rightarrow\ \text{4-lane 4 层} = 807.5\ \text{ms};\quad \text{PS 现 } 1.155\ \text{s} \Rightarrow \text{净省 } \mathbf{0.34\ s}$$
+$$\Rightarrow\ \text{0.69 s 只有 8-lane（456.7 ms）才有，但它要 } 40{,}418\ \text{LUT（87.5\%）} + \text{DSP } 128/160$$
+$$\Rightarrow\ \textbf{决策：先做 4-lane}（\text{把"HP2 + 集成 + 数据"整条路走通），\text{8-lane 留作 } \texttt{v44}\ \text{候选}$$
+$$\quad\ \text{理由：}87.5\%\ \text{布线密度与"首次启用 HP2"两颗不稳定性叠加} \Rightarrow \text{失败时}\textbf{归因不了}$$
+
+**② 阻断项：共享 HP0/HP1 算术不可行**
+$$\Rightarrow\ \text{ps7 只使能 } \texttt{HP0}\to\text{bin}\ \text{与 } \texttt{HP1}\to\text{conv\_uni};\ \texttt{HP2/HP3}\ \text{的引脚在 ps7 stub/DCP 里}\textbf{根本不存在}$$
+$$\Rightarrow\ \text{共享既有口的 MI ID 宽度} = \lceil \log_2(2^6+2^6) \rceil = \mathbf{7} > \text{HP 口的 } 6\ \text{bit} \Rightarrow \textbf{算术不可行}$$
+$$\Rightarrow\ \text{唯一干净路径} = \textbf{启用 } \texttt{ps7/S\_AXI\_HP2} \Rightarrow \text{这是平台级决定，不是 RTL 决定}$$
+
+$$\Rightarrow\ \textbf{授权条件（已下发给 T-56）}：\text{既有 7 条连接 / 2 个地址段 / FCLK / 既有 IP 参数}\textbf{零变化}$$
+$$\quad\ \text{新址 } \texttt{fconv\_0 = 0x4008\_0000}（128K）;\ \texttt{CONFIG.N} = 4;\ \texttt{FREQ\_HZ} = 150\ \text{MHz};\ \text{.hwh 地址图 diff 逐项贴表}$$
+
+**第 97 条纪律：新增数据通路之前，先数"主口"够不够**
+$$\Rightarrow\ \text{本项目所有"搬进 PL"的计划都假设"再挂一条 AXI 主口"是免费的}$$
+$$\quad\ \text{而 Zynq-7015 的 HP 口只有 4 条、本设计已用 2 条、且}\textbf{ID 位宽决定能不能共享}$$
+$$\Rightarrow\ \textbf{判据}：\text{任何"把某算子搬 PL"的方案，第一步先算 } \lceil\log_2(\Sigma \text{ID})\rceil \le \text{端口位宽}$$
+$$\quad\ \text{过不了就只能}\textbf{新增从口}（\text{要动 ps7}）\text{或}\textbf{时分复用}（\text{要调度器配合}）$$
