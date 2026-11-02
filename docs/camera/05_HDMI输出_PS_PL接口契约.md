@@ -325,10 +325,10 @@ $$\Rightarrow\ 100\ \text{MHz} \Rightarrow 300\ \text{MB/s};\quad 150\ \text{MHz
 | 1080p60（`VIDEO_MODE=1`） | 148.4568 MHz | ✅ 彩条 | 1 |
 | 720p60（`VIDEO_MODE=0`） | 74.2319 MHz | ✅ **彩条** | 1（切换期间未掉） |
 
-$$\Rightarrow\ 	ext{厂商那 2 条 I2C 寄存器写}	extbf{不锁死输出模式} \Rightarrow 	ext{芯片随输入像素时钟自适应}$$
-$$\Rightarrow\ 	extbf{因此 P2（真画面）用 720p60} \Rightarrow 	ext{行内瞬时 } 223\ 	ext{MB/s} \Rightarrow 100\ 	ext{MHz AXI 余量 } 26\%$$
-$$\Rightarrow\ 	ext{不必把 } 	exttt{s\_axi\_aclk}\ 	ext{提到 } 150\ 	ext{MHz}（	ext{那条路只剩 } 1\%\ 	ext{余量）}$$
-$$\Rightarrow\ 	ext{1080p60 保留给"要看更大画面"的场合} \Rightarrow 	ext{需 AXI } \ge 150\ 	ext{MHz}$$
+- ext厂商那 2 条 I2C 寄存器写 extbf不锁死输出模式 ⇒ ext芯片随输入像素时钟自适应
+- extbf因此 P2（真画面）用 720p60 ⇒ ext行内瞬时 223 extMB/s ⇒ 100 extMHz AXI 余量 26%
+- ext不必把 exttts\_axi\_aclk ext提到 150 extMHz（ ext那条路只剩 1% ext余量）
+- ext1080p60 保留给"要看更大画面"的场合 ⇒ ext需 AXI ≥ 150 extMHz
 
 ### 8.9 心跳判据的最终写法（对 §8.2 的修订）
 - 不用"两次读必须不同"。
