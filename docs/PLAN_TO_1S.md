@@ -128,9 +128,7 @@ $$\Rightarrow\ \text{新块（fconv）的最差路径} = \mathbf{15.545\ ns}\ (\
 $$\Rightarrow\ \text{真实最差} \approx 16.1\ \text{ns} \Rightarrow \text{10 ns 约束下 } \texttt{WNS } -6.076 \Rightarrow \textbf{只支持 62 MHz}$$
 $$\Rightarrow\ \Rightarrow\ \text{若在 } 100\ \text{MHz 验功能，这条路径}\textbf{仍然错拍} \Rightarrow \text{错分不清逻辑还是时序} \Rightarrow \textbf{R8 的分离失效}$$
 
-$$\Rightarrow\ \textbf{规则}：\text{功能验证时钟} = \left\lfloor \dfrac{1}{1.3 \times T_{\text{worst}}} 
-ight
-floor_{5\,\text{MHz}}$$
+$$\Rightarrow\ \textbf{规则}：\text{功能验证时钟} = \left\lfloor \dfrac{1}{1.3 \times T_{\text{worst}}} \right\rfloor_{5\,\text{MHz}}$$
 $$\quad\ \text{本次} \Rightarrow 1/(1.3 \times 16.1\ \text{ns}) \approx 47.8 \Rightarrow \mathbf{45\ MHz}\ (\text{整网 } 15\sim22\ \text{s})$$
 $$\Rightarrow\ \text{分两阶段验更稳}：\text{先验"不含 fconv 的老功能"在 } 100\ \text{MHz 是否正常} \Rightarrow \text{再验 fconv 在 } 45\ \text{MHz}$$
 
