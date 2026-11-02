@@ -1,0 +1,25 @@
+[memgate] ===== 构建前预检 =====
+[memgate]   内存  MemAvailable  20.77 GB / 总  30.95 GB   (SwapTotal 0.0 GB)
+[memgate]   闸门  需 峰值 4 GB + 保留 2.5 GB = 6.50 GB   余量 14.27 GB
+[memgate]   根分区 /   30.23 GB 可用 / 98 GB    /tmp 当前占 4538 MB
+[memgate]   大分区 /media/felix/Data/tmp   81.50 GB 可用
+[memgate]   放行  TMPDIR=/media/felix/Data/tmp  (波形库/临时目录落这里)
+[memgate]   已持锁 /tmp/dsh_vivado.lock  2026-11-03 03:59:48  tag=felix
+[memgate]   复测 MemAvailable 20.76 GB >= 6.50 GB  ✔
+[memgate] ===== 放行 2026-11-03 03:59:48 =====
+[memgate]   令牌 DSH_BUILD_TOKEN=1793649588-458623-60772612  BUILD_OWNER=/media/felix/Data/coding/demoir-fpga/runs/resguard/BUILD_OWNER
+==== 编译两份 RTL（只有 RTL 根不同）====
+[v53] xvlog rc=0 ERROR=0
+[v53] xelab rc=0
+[v54] xvlog rc=0 ERROR=0
+[v54] xelab rc=0
+==== 逐形状跑 + 逐笔比对 ====
+[v53] v94_c48_o64_32x32 rc=0 beats=8192
+[v54] v94_c48_o64_32x32 rc=0 beats=8192
+[v94_c48_o64_32x32] ✓ 逐笔完全一致（8192 笔）
+[v53] v94_c96_o96_8x8 rc=0 beats=768
+[v54] v94_c96_o96_8x8 rc=0 beats=768
+[v94_c96_o96_8x8] ✓ 逐笔完全一致（768 笔）
+==== 结论：差异形状数 = 0 ====
+RESULT: PASS（T-123 改动逐笔等价）
+[memgate] 命令结束 rc=0  2026-11-03 04:00:15

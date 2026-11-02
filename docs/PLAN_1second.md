@@ -6592,3 +6592,26 @@ $$\Rightarrow\ \textbf{关键遗漏}：\text{所有单层测试的输入都是}\
 $$\Rightarrow\ \Rightarrow\ \textbf{"写出的布局" \neq "读入的期望"} \text{这一类错，单层测试}\textbf{结构上测不到}$$
 $$\quad\ \Rightarrow\ \text{而 T-122 的"双 op 交替"是}\textbf{两个独立 op}（\text{各自用 PS 准备的输入）}，\textbf{不是链式}$$
 $$\Rightarrow\ \text{已派 T-127 做}\textbf{链式两 op}（\text{消费者读生产者的输出），128^2 + 64^2 对照}$$
+
+### 70.91 ★ v54 时序达标：WNS **+0.103**、0 违例（T-123，2026-11-03 04:1x）
+
+**改动（仅 } \mathtt{bin\_unit\_axi\_wrap\_v50.v}，\mathtt{17164dfc}\to\mathbf{\mathtt{5646a9f6}}，其余 34/34 逐字节同）**
+$$\Rightarrow\ \mathtt{pix\_q}\ \mathbf{32\to17}\ \text{位}，\text{由 } \mathtt{NPIX\_MAX=102400}\ \text{经 } \mathtt{\$clog2}\ \text{推导（}\textbf{不写死）}$$
+$$\Rightarrow\ \mathtt{npix\_q}(17b)/\mathtt{plane\_delta\_q}(29b)\ \textbf{寄存器化}，\text{只在 } \mathtt{c\_start}\ \text{采样}，\text{回绕判据改用 } \mathtt{npix\_q}$$
+$$\Rightarrow\ \mathtt{npix\_ovf}\ \text{越界 } \Rightarrow \mathtt{AP\_RETURN[15:8]=ERR\_SIZE}，\mathtt{npix}\ \text{饱和}，\textbf{不静默截断}$$
+
+**★ 它纠正了我的位宽推算**
+$$\Rightarrow\ \text{我给它的 brief 说"128}\times128\Rightarrow15\ \text{位"}\ \textbf{是错的}$$
+$$\Rightarrow\ \text{真实上界来自 } \mathtt{ps/manifest\_640.json}：\mathbf{\max H_{out}W_{out} = 320\times320 = 102400}$$
+$$\quad\ \text{另 } 256^2=65536、208\times304=63232 \Rightarrow \textbf{必须 17 位}，15\ \text{位会算错这两档}$$
+$$\Rightarrow\ \textbf{第 126 条：位宽必须从所有 manifest 取 max，不许从"我以为的最大尺寸"推}$$
+
+**判据**
+$$\Rightarrow\ \textbf{P1 达标}：\text{routed } \mathbf{WNS\ +0.103 / TNS\ 0.000 / 0\ \text{违例端点}}（\text{v53 同配方 }+0.041）$$
+$$\Rightarrow\ \text{最差 20 条}\textbf{全部}是核旧锥 \mathtt{win\_q\_reg\_11}\to\mathtt{s1\_pc\_q\_reg[7][5]/D}，\text{写通路命中 } \mathbf{0}$$
+$$\quad\ \Rightarrow\ \text{v118 那条共同临界路径 } \mathtt{r\_s}\to\mathtt{pix\_q[22]}\ \textbf{消失}$$
+$$\Rightarrow\ \textbf{零代价已证}：\text{逐笔仿真 8192/768 笔 } (\mathtt{addr},\mathtt{data},\mathtt{sel})\ \textbf{完全一致}，\text{拍数完全相同}$$
+$$\Rightarrow\ \text{网表证据：}\mathtt{pix\_q}\ \text{FD 位数 } 32\to\mathbf{17}，\text{高 15 位在网表里}\textbf{不存在}，\mathtt{CARRY4}\ 2189\to2185$$
+$$\Rightarrow\ \text{LUT } \mathbf{23130(+1634)}：\text{全在}\textbf{综合}阶段，\text{落点 } \mathtt{g\_conv.u\_catpack}\ (+1666)，\text{活数据通路只 }+48$$
+$$\quad\ \Rightarrow\ \mathtt{u\_catpack}\ \text{是已功能性否决 + } \mathtt{false\_path}\ \text{的模块，不影响 WNS} \Rightarrow \textbf{我裁决接受}$$
+$$\Rightarrow\ \text{bit } \mathtt{15a37de5}，\mathtt{.hwh}\ \text{与 v53 同一份}$$

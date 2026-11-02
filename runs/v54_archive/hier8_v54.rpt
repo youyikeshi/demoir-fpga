@@ -1,0 +1,62 @@
+Copyright 1986-2022 Xilinx, Inc. All Rights Reserved. Copyright 2022-2026 Advanced Micro Devices, Inc. All Rights Reserved.
+-------------------------------------------------------------------------------------------------------------------------------------------------------------------
+| Tool Version : Vivado v.2025.2.1 (lin64) Build 6403652 Thu Mar 19 13:47:00 MDT 2026
+| Date         : Tue Nov  3 03:41:28 2026
+| Host         : 2 running 64-bit Ubuntu 22.04.5 LTS
+| Command      : report_utilization -hierarchical -hierarchical_depth 8 -file /media/felix/Data/coding/demoir-fpga/worktrees/T-123-timing/out_150v54/hier8_v54.rpt
+| Design       : design_1_wrapper
+| Device       : xc7z015clg485-2
+| Speed File   : -2
+| Design State : Physopt postRoute
+-------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+Utilization Design Information
+
+Table of Contents
+-----------------
+1. Utilization by Hierarchy
+
+1. Utilization by Hierarchy
+---------------------------
+
++--------------------------------------------------+------------------------------------------------------------------------------------------------+------------+------------+---------+------+-------+--------+--------+------------+
+|                     Instance                     |                                             Module                                             | Total LUTs | Logic LUTs | LUTRAMs | SRLs |  FFs  | RAMB36 | RAMB18 | DSP Blocks |
++--------------------------------------------------+------------------------------------------------------------------------------------------------+------------+------------+---------+------+-------+--------+--------+------------+
+| design_1_wrapper                                 |                                                                                          (top) |      23130 |      22348 |     720 |   62 | 21828 |     39 |      8 |        126 |
+|   (design_1_wrapper)                             |                                                                                          (top) |          0 |          0 |       0 |    0 |    19 |      0 |      0 |          0 |
+|   design_1_i                                     |                                                                                       design_1 |      23130 |      22348 |     720 |   62 | 21809 |     39 |      8 |        126 |
+|     conv_uni_0                                   |                                                                         design_1_conv_uni_0_18 |       6193 |       6193 |       0 |    0 |  6842 |      6 |      0 |         53 |
+|       inst                                       |                                                                           conv_uni_axi_wrap_bd |       6193 |       6193 |       0 |    0 |  6842 |      6 |      0 |         53 |
+|         u_conv_uni                               |                                                                              conv_uni_axi_wrap |       6193 |       6193 |       0 |    0 |  6842 |      6 |      0 |         53 |
+|           (u_conv_uni)                           |                                                                              conv_uni_axi_wrap |       2961 |       2961 |       0 |    0 |  4825 |      2 |      0 |          3 |
+|           u_unit                                 |                                                                                  conv_int8_uni |       3234 |       3234 |       0 |    0 |  2017 |      4 |      0 |         50 |
+|     axi_ctrl                                     |                                                                            design_1_axi_ctrl_0 |        586 |        525 |       0 |   61 |   656 |      0 |      0 |          0 |
+|       xbar                                       |                                                                   design_1_axi_ctrl_imp_xbar_0 |        180 |        180 |       0 |    0 |   122 |      0 |      0 |          0 |
+|         inst                                     |                                 design_1_axi_ctrl_imp_xbar_0_axi_crossbar_v2_1_38_axi_crossbar |        180 |        180 |       0 |    0 |   122 |      0 |      0 |          0 |
+|           gen_sasd.crossbar_sasd_0               |                                design_1_axi_ctrl_imp_xbar_0_axi_crossbar_v2_1_38_crossbar_sasd |        180 |        180 |       0 |    0 |   122 |      0 |      0 |          0 |
+|             reg_slice_r                          |                    design_1_axi_ctrl_imp_xbar_0_axi_register_slice_v2_1_36_axic_register_slice |        103 |        103 |       0 |    0 |    74 |      0 |      0 |          0 |
+|             addr_arbiter_inst                    |                            design_1_axi_ctrl_imp_xbar_0_axi_crossbar_v2_1_38_addr_arbiter_sasd |         61 |         61 |       0 |    0 |    32 |      0 |      0 |          0 |
+|       s00_couplers                               |                                                                       s00_couplers_imp_11GV68X |        404 |        343 |       0 |   61 |   534 |      0 |      0 |          0 |
+|         auto_pc                                  |                                                                design_1_axi_ctrl_imp_auto_pc_0 |        404 |        343 |       0 |   61 |   534 |      0 |      0 |          0 |
+|           inst                                   |          design_1_axi_ctrl_imp_auto_pc_0_axi_protocol_converter_v2_1_37_axi_protocol_converter |        404 |        343 |       0 |   61 |   534 |      0 |      0 |          0 |
+|             gen_axilite.gen_b2s_conv.axilite_b2s |                             design_1_axi_ctrl_imp_auto_pc_0_axi_protocol_converter_v2_1_37_b2s |        404 |        343 |       0 |   61 |   534 |      0 |      0 |          0 |
+|               WR.aw_channel_0                    |                  design_1_axi_ctrl_imp_auto_pc_0_axi_protocol_converter_v2_1_37_b2s_aw_channel |         77 |         77 |       0 |    0 |    86 |      0 |      0 |          0 |
+|                 cmd_translator_0                 |              design_1_axi_ctrl_imp_auto_pc_0_axi_protocol_converter_v2_1_37_b2s_cmd_translator |         33 |         33 |       0 |    0 |    68 |      0 |      0 |          0 |
+|               RD.ar_channel_0                    |                  design_1_axi_ctrl_imp_auto_pc_0_axi_protocol_converter_v2_1_37_b2s_ar_channel |         68 |         68 |       0 |    0 |    82 |      0 |      0 |          0 |
+|                 cmd_translator_0                 |            design_1_axi_ctrl_imp_auto_pc_0_axi_protocol_converter_v2_1_37_b2s_cmd_translator_1 |         32 |         32 |       0 |    0 |    68 |      0 |      0 |          0 |
+|               RD.r_channel_0                     |                   design_1_axi_ctrl_imp_auto_pc_0_axi_protocol_converter_v2_1_37_b2s_r_channel |         61 |         14 |       0 |   47 |    24 |      0 |      0 |          0 |
+|               SI_REG                             |                  design_1_axi_ctrl_imp_auto_pc_0_axi_register_slice_v2_1_36_axi_register_slice |        167 |        167 |       0 |    0 |   324 |      0 |      0 |          0 |
+|                 ar.ar_pipe                       |                 design_1_axi_ctrl_imp_auto_pc_0_axi_register_slice_v2_1_36_axic_register_slice |         62 |         62 |       0 |    0 |    98 |      0 |      0 |          0 |
+|                 aw.aw_pipe                       |               design_1_axi_ctrl_imp_auto_pc_0_axi_register_slice_v2_1_36_axic_register_slice_0 |         68 |         68 |       0 |    0 |   100 |      0 |      0 |          0 |
+|                 r.r_pipe                         | design_1_axi_ctrl_imp_auto_pc_0_axi_register_slice_v2_1_36_axic_register_slice__parameterized2 |         27 |         27 |       0 |    0 |    96 |      0 |      0 |          0 |
+|     bin_unit_0                                   |                                                                         design_1_bin_unit_0_18 |      16334 |      15614 |     720 |    0 | 14278 |     33 |      8 |         73 |
+|       inst                                       |                                                                       bin_unit_axi_wrap_bd_v50 |      16334 |      15614 |     720 |    0 | 14278 |     33 |      8 |         73 |
+|         u_bin_unit                               |                                                                          bin_unit_axi_wrap_v50 |      16334 |      15614 |     720 |    0 | 14278 |     33 |      8 |         73 |
+|           (u_bin_unit)                           |                                                                          bin_unit_axi_wrap_v50 |       3591 |       2871 |     720 |    0 |  4517 |     16 |      0 |          3 |
+|           g_conv.u_catpack                       |                                                                                    bin_catpack |       4003 |       4003 |       0 |    0 |  1621 |      0 |      0 |          1 |
+|           g_conv.u_core                          |                                                                              bin_conv_core_v50 |       7980 |       7980 |       0 |    0 |  7472 |     16 |      0 |         68 |
+|           g_conv.u_pack                          |                                                                                       bin_e1e2 |        766 |        766 |       0 |    0 |   659 |      1 |      8 |          1 |
++--------------------------------------------------+------------------------------------------------------------------------------------------------+------------+------------+---------+------+-------+--------+--------+------------+
+* Note: The sum of lower-level cells may be larger than their parent cells total, due to cross-hierarchy LUT combining
+
+
