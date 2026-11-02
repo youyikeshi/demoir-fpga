@@ -1,0 +1,25 @@
+[boardlock] 取得板级独占 01:19:12  使用者=hdmi-p1-restore
+== [D1] 恢复：按 PYNQ 报数口径设回 150（= 真实 100 MHz）==
+OVERLAY_CTX_OK download=False ips=['hdmi_p1_top_0', 'ps7']
+FCLK0_BEFORE=100.0 MHz
+FCLK0_AFTER=150.0 MHz
+FCLK_DONE
+fclk_rc=0
+== [D2] wait 250 ms ==
+== [D3] POLL 0x30 (span 估计, 0.5 s) ==
+POLL dur=0.500 s samples=31572 distinct_vals=['0x2', '0x3'] last_bit1=1 bit0=0 bit1=1
+POLL edges=1132
+POLL[median] half_period_ms=0.441630 implied_pix_clk_MHz=148.3957
+POLL[span] half_period_ms=0.441440 implied_pix_clk_MHz=148.4597
+POLL half_period_ms med=0.441630 min=0.356202 max=0.484788 span_ms=499.268 edges=1132
+poll_rc=0
+== [D4] READ 0x30 #5 (独立短进程) ==
+RD off=0x30 val=0x00000002  bin=00000000000000000000000000000010  elapsed=0.000 s
+rd5_rc=0
+== [D5] READ 0x30 #6 (>=10 ms 后) ==
+RD off=0x30 val=0x00000002  bin=00000000000000000000000000000010  elapsed=0.000 s
+rd6_rc=0
+== [D6] fpga0 state ==
+operating
+== [D7] STAGE_D_END ==
+[boardlock] 释放板级锁 01:19:27  rc=0

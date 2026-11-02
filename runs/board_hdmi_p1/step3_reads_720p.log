@@ -1,0 +1,77 @@
+[boardlock] 取得板级独占 01:19:52  使用者=hdmi-p1-mode720
+9fffbba367f41961a8b02c0f6a104df5  /tmp/wr.py
+== [E0] fpga0 state ==
+operating
+
+===== ① 1080p60 成功状态固化（用户已肉眼确认彩条）=====
+-- [E1] RD 0x00 CTRL (期望 0x15) --
+RD off=0x00 val=0x00000015  bin=00000000000000000000000000010101  elapsed=0.000 s
+rc=0
+-- [E2] RD 0x04 STATUS (期望 0x03；bit0=init_done bit1=vsync 读清) --
+RD off=0x04 val=0x00000003  bin=00000000000000000000000000000011  elapsed=0.000 s
+rc=0
+-- [E3] RD 0x04 STATUS 立刻第二次（验证 vsync 是读清的）--
+RD off=0x04 val=0x00000003  bin=00000000000000000000000000000011  elapsed=0.000 s
+rc=0
+-- [E4] RD 0x08 VIDEO_MODE (期望 1) --
+RD off=0x08 val=0x00000001  bin=00000000000000000000000000000001  elapsed=0.000 s
+rc=0
+-- [E5] RD 0x2C UNDERFLOW_CNT (P1 期望 0) --
+RD off=0x2C val=0x00000000  bin=00000000000000000000000000000000  elapsed=0.000 s
+rc=0
+-- [E6] RD 0x30 #1 --
+RD off=0x30 val=0x00000002  bin=00000000000000000000000000000010  elapsed=0.000 s
+rc=0
+-- [E7] RD 0x30 #2 --
+RD off=0x30 val=0x00000002  bin=00000000000000000000000000000010  elapsed=0.000 s
+rc=0
+-- [E8] POLL 0x30 0.5 s（心跳周期 = 像素时钟的直接证据）--
+POLL dur=0.500 s samples=32655 distinct_vals=['0x2', '0x3'] last_bit1=1 bit0=1 bit1=1
+POLL edges=1133
+POLL[median] half_period_ms=0.441969 implied_pix_clk_MHz=148.2819
+POLL[span] half_period_ms=0.441448 implied_pix_clk_MHz=148.4568
+POLL half_period_ms med=0.441969 min=0.341244 max=0.533184 span_ms=499.719 edges=1133
+rc=0
+
+===== ② 切 720p60（VIDEO_MODE=0）：先 enable=0 → 写模式 → 等2帧 → enable=1 =====
+-- [E9] WR 0x00 = 0x11 (enable=0, test_pattern=1, motion=1) --
+WR off=0x00 write=0x00000011  before=0x00000015 readback=0x00000011 OK
+rc=0
+-- [E10] WR 0x08 = 0x00000000 (720p60) --
+WR off=0x08 write=0x00000000  before=0x00000001 readback=0x00000000 OK
+rc=0
+-- [E11] wait 50 ms (>=2 帧) --
+-- [E12] WR 0x00 = 0x15 (enable=1 恢复) --
+WR off=0x00 write=0x00000015  before=0x00000011 readback=0x00000015 OK
+rc=0
+-- [E13] wait 100 ms --
+-- [E14] RD 0x30 #1 (720p) --
+RD off=0x30 val=0x00000002  bin=00000000000000000000000000000010  elapsed=0.000 s
+rc=0
+-- [E15] RD 0x30 #2 (720p) --
+RD off=0x30 val=0x00000002  bin=00000000000000000000000000000010  elapsed=0.000 s
+rc=0
+-- [E16] POLL 0x30 0.5 s (720p：期望半周期翻倍 ~0.883 ms ⇒ 74.2 MHz) --
+POLL dur=0.500 s samples=32631 distinct_vals=['0x2', '0x3'] last_bit1=1 bit0=1 bit1=1
+POLL edges=566
+POLL[median] half_period_ms=0.883308 implied_pix_clk_MHz=74.1938
+POLL[span] half_period_ms=0.882855 implied_pix_clk_MHz=74.2319
+POLL half_period_ms med=0.883308 min=0.768516 max=0.997056 span_ms=498.813 edges=566
+rc=0
+-- [E17] RD 0x04 STATUS (init_done 应仍为 1) --
+RD off=0x04 val=0x00000003  bin=00000000000000000000000000000011  elapsed=0.000 s
+rc=0
+-- [E18] RD 0x08 VIDEO_MODE (期望 0) --
+RD off=0x08 val=0x00000000  bin=00000000000000000000000000000000  elapsed=0.000 s
+rc=0
+-- [E19] RD 0x00 CTRL (期望 0x15) --
+RD off=0x00 val=0x00000015  bin=00000000000000000000000000010101  elapsed=0.000 s
+rc=0
+-- [E20] sync --
+sync_rc=0
+== [E21] fpga0 state ==
+operating
+
+== [E22] ★ 板子现在停在 720p60（VIDEO_MODE=0），等用户看屏幕，不切回 ==
+== [E23] STAGE_E_END ==
+[boardlock] 释放板级锁 01:20:02  rc=0

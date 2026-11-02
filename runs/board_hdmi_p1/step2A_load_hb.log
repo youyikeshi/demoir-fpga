@@ -1,0 +1,31 @@
+[boardlock] 取得板级独占 01:14:56  使用者=hdmi-p1-load
+[boardlock] 已签发唯一 load 令牌
+== [A1] pynq version ==
+pynq 3.1.0 py 3.10.4
+== [A2] pynq global pl state files ==
+/usr/local/share/pynq-venv/lib/python3.10/site-packages/pynq/pl_server/_current_metadata.pkl
+/usr/local/share/pynq-venv/lib/python3.10/site-packages/pynq/pl_server/global_pl_state_.json
+== [A3] clear residual pl state ==
+rm /usr/local/share/pynq-venv/lib/python3.10/site-packages/pynq/pl_server/_current_metadata.pkl
+rm /usr/local/share/pynq-venv/lib/python3.10/site-packages/pynq/pl_server/global_pl_state_.json
+cleared
+== [A4] fpga0 state before load ==
+unknown
+== [A5] deploy /tmp/rd.py /tmp/load.py ==
+404703b098d779b1783b841da89b50d9  /tmp/rd.py
+114ebf186b3278c0c8e3e0ad86b6a513  /tmp/load.py
+== [A6] LOAD (single download, timeout 90) ==
+OVERLAY_OK download=True ips=['hdmi_p1_top_0', 'ps7']
+FCLK0 前 = 150.0 MHz
+LOAD_PROC_DONE
+load_rc=0
+== [A7] fpga0 state after load ==
+operating
+== [A8] READ 0x30 #1 (independent proc, timeout 20) ==
+RD off=0x30 val=0x00000002  bin=00000000000000000000000000000010  elapsed=0.000 s
+rd1_rc=0
+== [A9] READ 0x30 #2 (>=10 ms later) ==
+RD off=0x30 val=0x00000003  bin=00000000000000000000000000000011  elapsed=0.000 s
+rd2_rc=0
+== [A10] STAGE_A_END ==
+[boardlock] 释放板级锁 01:15:24  rc=0

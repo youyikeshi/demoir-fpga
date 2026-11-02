@@ -1,0 +1,39 @@
+[boardlock] 取得板级独占 01:16:19  使用者=hdmi-p1-fclk
+== [B0] deploy poll.py fclk.py ==
+17cbc518c58397a6cb8afc618e2de4b0  /tmp/poll.py
+e1042c4b93b4613352e853d3dfdd4fba  /tmp/fclk.py
+== [B1] POLL 0x30 @ FCLK0=150MHz (before) ==
+POLL dur=0.300 s samples=19848 distinct_vals=['0x2', '0x3'] last_bit1=1 bit0=0 bit1=1
+POLL edges=679
+POLL half_period_ms med=0.438204 min=0.370614 max=0.514812
+POLL implied_pix_clk_MHz=149.5559  (=2^16 / half_period)
+poll_before_rc=0
+== [B2] set FCLK0=100MHz (write clock only, no register access) ==
+OVERLAY_CTX_OK download=False ips=['hdmi_p1_top_0', 'ps7']
+FCLK0_BEFORE=150.0 MHz
+FCLK0_AFTER=100.0 MHz
+FCLK_DONE
+fclk_rc=0
+== [B3] wait 200 ms ==
+== [B4] POLL 0x30 @ FCLK0=100MHz (after) ==
+POLL dur=0.300 s samples=19837 distinct_vals=['0x2', '0x3'] last_bit1=1 bit0=0 bit1=1
+POLL edges=453
+POLL half_period_ms med=0.662448 min=0.583692 max=0.694872
+POLL implied_pix_clk_MHz=98.9300  (=2^16 / half_period)
+poll_after_rc=0
+== [B5] READ 0x30 #3 (independent proc) ==
+Traceback (most recent call last):
+  File "/tmp/rd.py", line 10, in <module>
+    off = int(sys.argv[1], 0)
+IndexError: list index out of range
+rd3_rc=1
+== [B6] READ 0x30 #4 (independent proc, >=10ms later) ==
+Traceback (most recent call last):
+  File "/tmp/rd.py", line 10, in <module>
+    off = int(sys.argv[1], 0)
+IndexError: list index out of range
+rd4_rc=1
+== [B7] fpga0 state ==
+operating
+== [B8] STAGE_B_END ==
+[boardlock] 释放板级锁 01:16:36  rc=0
