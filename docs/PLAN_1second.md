@@ -5618,3 +5618,27 @@ $$\quad\ \text{本轮：}\textbf{端口宽度 } \mathtt{A2}\ \text{在旧产物�
 $$\quad\ \textbf{有效判据 = 译码表地址段数 + 每个 BD 从设备的基址都必须在里面}$$
 $$\quad\ \Rightarrow\ \text{做法：}\textbf{对每条断言都跑"真旧产物"负对照}，\text{不过就不是判据}$$
 $$\quad\ \quad\ \text{T-80 已做两条负对照：}\text{真旧 stub} \to \text{A 炸（只有 2 段）};\ \text{人为截成 } [31{:}0]\to \text{A2 炸}$$
+
+### 70.54 ★★★★ v45：M04 通路修好了（fconv 从口真接上），代价是暴露 fconv 的 35 级长路径（2026-11-02 16:43）
+
+**修好的证据（不是"看起来对"，是端点级）**
+$$\Rightarrow\ \mathtt{M04\_AXI}\ \text{的 net } \mathbf{5\to108}（\mathtt{AWADDR}\ 0\to17、\mathtt{WDATA}\ 32、\text{握手各 }1）$$
+$$\Rightarrow\ \text{编号主口 } \mathbf{0\to5}\ \text{路}（\mathtt{M00}\ 213 / \mathtt{M02}\ 96 / \mathtt{M03}\ 100 / \mathtt{M04}\ 108 / \mathtt{M01}\ 0）$$
+$$\Rightarrow\ \textbf{fconv 的 } \mathtt{s\_axi}\ \text{按 net 端点确认接上}：$$
+$$\quad\ \mathtt{M04\_AXI\_AWADDR[0..16]}\ \text{负载} = \mathtt{fconv\_0/aw\_addr\_reg[16]\_0[*]};\ \text{驱动} = \mathtt{axi\_ctrl/m\_axi\_awaddr[20..36]}$$
+$$\quad\ \mathtt{M04\_AXI\_WDATA}\ \text{负载} = \mathtt{fconv\_0/w\_dat\_reg[31][*]}$$
+$$\Rightarrow\ \text{对照 } \mathtt{M02}=96、\mathtt{M03}=100\ \textbf{不变} \Rightarrow \text{老通路未被波及}$$
+$$\Rightarrow\ \text{bit } \mathtt{4e9853fb};\ \text{DRC 0 Errors};\ \text{Latch 0 双查};\ \text{LUT } 34{,}050 \le 38{,}000;\ \text{DSP } 125;\ \text{BRAM } 57$$
+$$\Rightarrow\ \text{主工程与 } \mathtt{proj\_v43base2}\ \textbf{零改动} \ (mtime>15{:}38\ \text{的文件 0 个）$$
+
+**真正的机制（T-80 查到 IP run 的 STATUS）**
+$$\Rightarrow\ \text{陈旧产物永不更新的原因是 OOC run 的 } \mathtt{STATUS = "Using\ cached\ IP\ results"}$$
+$$\Rightarrow\ \text{必须 } \mathtt{reset\_run} + \mathtt{launch\_runs}\ \text{才会重综合（}71\ \text{s）；}\mathtt{synth\_ip}\ \text{对嵌套 BD 里的 IP 不适用（}\mathtt{get\_ips}\ n=0）$$
+
+**代价：时序恶化，但**这是修复生效的反证**
+$$\Rightarrow\ \text{10 ns WNS } -6.076 \to \mathbf{-15.745};\ \text{TNS } -10{,}756 \to -30{,}578$$
+$$\Rightarrow\ \text{最差路径 } \mathtt{fconv/u\_tl/ic\_reg[2]/C \to g\_lane[0].u\_lane/acc\_arr\_reg[7][28]/R}，\textbf{35 级真实数据通路}$$
+$$\Rightarrow\ \textbf{这是 fconv 自己的 tag}\to\textbf{lane 路径}（\text{T-63 早就量到 } 15.545\ \text{ns}）\Rightarrow \textbf{v44 的"好时序"来自从口被剪}$$
+$$\Rightarrow\ \Rightarrow\ \text{真实最差周期 } \approx 25.745\ \text{ns} \Rightarrow \text{按 R8 的 } 1.3\times\ \text{余量} \Rightarrow \textbf{功能验证时钟 } = 25\ \text{MHz}$$
+
+$$\Rightarrow\ \textbf{结论}：\text{按 R8，这不阻塞功能验证};\ \text{但 fconv 要上正常频率必须}\textbf{加流水}（\text{把 } \mathtt{ic}\to\mathtt{acc\_arr}\ \text{打断）}$$

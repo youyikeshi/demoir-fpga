@@ -1,0 +1,99 @@
+
+****** Vivado v2025.2.1 (64-bit)
+  **** SW Build 6403652 on Thu Mar 19 13:47:00 MDT 2026
+  **** IP Build 6403511 on Thu Mar 19 12:41:45 MDT 2026
+  **** SharedData Build 6403650 on Thu Mar 19 14:02:13 MDT 2026
+  **** Start of session at: Mon Nov  2 16:38:54 2026
+    ** Copyright 1986-2022 Xilinx, Inc. All Rights Reserved.
+    ** Copyright 2022-2026 Advanced Micro Devices, Inc. All Rights Reserved.
+
+source ../runs/timing_v45/dcp_check_v45b.tcl
+# set_param general.maxThreads 2
+# set R   /media/felix/Data/coding/demoir-fpga
+# set dcp $R/runs/v45_out/design_1_150v45_routed.dcp
+# puts "== 0) open_checkpoint"
+== 0) open_checkpoint
+# open_checkpoint $dcp
+Command: open_checkpoint /media/felix/Data/coding/demoir-fpga/runs/v45_out/design_1_150v45_routed.dcp
+
+Starting open_checkpoint Task
+
+Time (s): cpu = 00:00:00.04 ; elapsed = 00:00:00.03 . Memory (MB): peak = 1581.945 ; gain = 0.000 ; free physical = 7852 ; free virtual = 15760
+INFO: [Device 21-403] Loading part xc7z015clg485-2
+Netlist sorting complete. Time (s): cpu = 00:00:00.19 ; elapsed = 00:00:00.19 . Memory (MB): peak = 1831.500 ; gain = 0.000 ; free physical = 7608 ; free virtual = 15535
+INFO: [Netlist 29-17] Analyzing 5156 Unisim elements for replacement
+INFO: [Netlist 29-28] Unisim Transformation completed in 0 CPU seconds
+INFO: [Project 1-479] Netlist was created with Vivado 2025.2.1
+INFO: [Project 1-570] Preparing netlist for logic optimization
+Read ShapeDB Complete: Time (s): cpu = 00:00:00.06 ; elapsed = 00:00:00.06 . Memory (MB): peak = 1953.188 ; gain = 5.250 ; free physical = 7520 ; free virtual = 15463
+INFO: [Timing 38-478] Restoring timing data from binary archive.
+INFO: [Timing 38-479] Binary timing data restore complete.
+INFO: [Project 1-856] Restoring constraints from binary archive.
+INFO: [Project 1-853] Binary constraint restore complete.
+INFO: [Designutils 20-5722] Start Reading Physical Databases.
+Reading placement.
+Read Netlist Cache: Time (s): cpu = 00:00:00.05 ; elapsed = 00:00:00.05 . Memory (MB): peak = 2615.977 ; gain = 2.688 ; free physical = 6702 ; free virtual = 14634
+Reading placer database...
+Read Device Cache: Time (s): cpu = 00:00:00.02 ; elapsed = 00:00:00.01 . Memory (MB): peak = 2618.977 ; gain = 3.000 ; free physical = 6738 ; free virtual = 14650
+Read PlaceDB: Time (s): cpu = 00:00:00 ; elapsed = 00:00:00 . Memory (MB): peak = 2618.977 ; gain = 0.000 ; free physical = 6736 ; free virtual = 14648
+Read placeStorage: Time (s): cpu = 00:00:01 ; elapsed = 00:00:01 . Memory (MB): peak = 2652.977 ; gain = 34.000 ; free physical = 6663 ; free virtual = 14607
+Read PulsedLatchDB: Time (s): cpu = 00:00:00 ; elapsed = 00:00:00 . Memory (MB): peak = 2652.977 ; gain = 0.000 ; free physical = 6663 ; free virtual = 14607
+Reading routing.
+Read RouteStorage: Time (s): cpu = 00:00:00.99 ; elapsed = 00:00:00.62 . Memory (MB): peak = 2689.109 ; gain = 36.133 ; free physical = 6805 ; free virtual = 14730
+Read Physdb Files: Time (s): cpu = 00:00:02 ; elapsed = 00:00:02 . Memory (MB): peak = 2689.109 ; gain = 75.820 ; free physical = 6815 ; free virtual = 14725
+Restored from archive | CPU: 2.140000 secs | Memory: 58.128143 MB |
+Finished XDEF File Restore: Time (s): cpu = 00:00:02 ; elapsed = 00:00:02 . Memory (MB): peak = 2689.109 ; gain = 75.820 ; free physical = 6822 ; free virtual = 14732
+Netlist sorting complete. Time (s): cpu = 00:00:00.01 ; elapsed = 00:00:00.01 . Memory (MB): peak = 2713.250 ; gain = 0.000 ; free physical = 6817 ; free virtual = 14727
+INFO: [Project 1-111] Unisim Transformation Summary:
+  A total of 268 instances were transformed.
+  RAM32M => RAM32M (RAMD32(x6), RAMS32(x2)): 26 instances
+  RAM32X1D => RAM32X1D (RAMD32(x2)): 6 instances
+  RAM64M => RAM64M (RAMD64E(x4)): 212 instances
+  RAM64X1D => RAM64X1D (RAMD64E(x2)): 24 instances
+
+INFO: [Project 1-604] Checkpoint was created with Vivado v2025.2.1 (64-bit) build 6403652
+open_checkpoint: Time (s): cpu = 00:00:18 ; elapsed = 00:00:15 . Memory (MB): peak = 2721.285 ; gain = 1139.340 ; free physical = 6813 ; free virtual = 14723
+# puts "   cells=[llength [get_cells -hier -quiet]]  nets=[llength [get_nets -hier -quiet]]"
+   cells=75850  nets=146674
+# puts ""
+
+# puts "== 1) M04_AXI_AWADDR 的 net 名字（17 条，看命名形态）"
+== 1) M04_AXI_AWADDR 的 net 名字（17 条，看命名形态）
+# set a [get_nets -hier -quiet -filter {NAME =~ *M04_AXI_AWADDR*}]
+# puts "   总数 = [llength $a]"
+   总数 = 17
+# foreach n $a { puts "      [get_property NAME $n]" }
+      design_1_i/axi_ctrl_M04_AXI_AWADDR[0]
+      design_1_i/axi_ctrl_M04_AXI_AWADDR[10]
+      design_1_i/axi_ctrl_M04_AXI_AWADDR[11]
+      design_1_i/axi_ctrl_M04_AXI_AWADDR[12]
+      design_1_i/axi_ctrl_M04_AXI_AWADDR[13]
+      design_1_i/axi_ctrl_M04_AXI_AWADDR[14]
+      design_1_i/axi_ctrl_M04_AXI_AWADDR[15]
+      design_1_i/axi_ctrl_M04_AXI_AWADDR[16]
+      design_1_i/axi_ctrl_M04_AXI_AWADDR[1]
+      design_1_i/axi_ctrl_M04_AXI_AWADDR[2]
+      design_1_i/axi_ctrl_M04_AXI_AWADDR[3]
+      design_1_i/axi_ctrl_M04_AXI_AWADDR[4]
+      design_1_i/axi_ctrl_M04_AXI_AWADDR[5]
+      design_1_i/axi_ctrl_M04_AXI_AWADDR[6]
+      design_1_i/axi_ctrl_M04_AXI_AWADDR[7]
+      design_1_i/axi_ctrl_M04_AXI_AWADDR[8]
+      design_1_i/axi_ctrl_M04_AXI_AWADDR[9]
+# puts ""
+
+# puts "== 2) M04 的 AXI 通道细分（v44: 只有 5 条标量）"
+== 2) M04 的 AXI 通道细分（v44: 只有 5 条标量）
+# foreach ch {AWADDR AWVALID AWREADY WDATA WSTRB WVALID WREADY BRESP BVALID BREADY ARADDR ARVALID ARREADY RDATA RRESP RVALID RREADY} {
+#     set c [llength [get_nets -hier -quiet -filter "NAME =~ *M04_AXI_${ch}*"]]
+#     puts "   M04_AXI_${ch,-12} = $c"
+# }
+can't read "ch,-12": no such variable
+    while executing
+"puts "   M04_AXI_${ch,-12} = $c""
+    ("foreach" body line 3)
+    invoked from within
+"foreach ch {AWADDR AWVALID AWREADY WDATA WSTRB WVALID WREADY BRESP BVALID BREADY ARADDR ARVALID ARREADY RDATA RRESP RVALID RREADY} {
+    set c [llengt..."
+    (file "../runs/timing_v45/dcp_check_v45b.tcl" line 20)
+INFO: [Common 17-206] Exiting Vivado at Mon Nov  2 16:39:12 2026...

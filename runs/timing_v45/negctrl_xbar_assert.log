@@ -1,0 +1,21 @@
+== NEGCTRL-1: 10-30 09:49 的旧 stub/.dcp（真·旧产物）
+   [A] stub 地址段数 = 2（期望 ≥3）
+       slot1 base=0x40060000
+       slot2 base=0x40040000
+== NEGCTRL-1 ✓✓ 断言 A 按预期失败 ⇒ 地址段断言有效
+   错误信息: 断言 A 失败：xbar stub 只有 2 个地址段（期望 ≥3：0x40080000/0x40060000/0x40040000）—— 拿到的不是与新 BD 一致的产物
+
+== NEGCTRL-2: 新 stub 但 m_axi_awaddr 人为截成 [31:0]（其余全合格）
+   [A] stub 地址段数 = 3（期望 ≥3）
+       slot0 base=0x40080000
+       slot1 base=0x40060000
+       slot2 base=0x40040000
+   [A] ✓ 地址段 3 个，含 0x40080000（fconv 窗口）
+   [A2] NUM_MI=5  ADDR_WIDTH=32  DATA_WIDTH=32
+        m_axi_awaddr=32 (期望 160)  m_axi_araddr=160 (期望 160)
+        m_axi_wdata =160 (期望 160)  m_axi_rdata =160 (期望 160)
+        m_axi_wstrb =20 (期望 20)
+== NEGCTRL-2 ✓✓ 宽度断言 A2 按预期失败 ⇒ A2 有效
+   错误信息: 断言 A2 失败：m_axi_awaddr 位宽 32 != NUM_MI×ADDR_WIDTH = 160 —— 主口被截断，向量通道会整段丢失
+
+== NEGCTRL 总结：✓✓ 两例都被抓住（A 抓旧产物、A2 抓宽度截断）

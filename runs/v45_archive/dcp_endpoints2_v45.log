@@ -1,0 +1,189 @@
+
+****** Vivado v2025.2.1 (64-bit)
+  **** SW Build 6403652 on Thu Mar 19 13:47:00 MDT 2026
+  **** IP Build 6403511 on Thu Mar 19 12:41:45 MDT 2026
+  **** SharedData Build 6403650 on Thu Mar 19 14:02:13 MDT 2026
+  **** Start of session at: Mon Nov  2 16:40:59 2026
+    ** Copyright 1986-2022 Xilinx, Inc. All Rights Reserved.
+    ** Copyright 2022-2026 Advanced Micro Devices, Inc. All Rights Reserved.
+
+source ../runs/timing_v45/dcp_endpoints2_v45.tcl
+# set_param general.maxThreads 2
+# set R /media/felix/Data/coding/demoir-fpga
+# open_checkpoint $R/runs/v45_out/design_1_150v45_routed.dcp
+Command: open_checkpoint /media/felix/Data/coding/demoir-fpga/runs/v45_out/design_1_150v45_routed.dcp
+
+Starting open_checkpoint Task
+
+Time (s): cpu = 00:00:00.05 ; elapsed = 00:00:00.02 . Memory (MB): peak = 1581.078 ; gain = 0.000 ; free physical = 7897 ; free virtual = 15823
+INFO: [Device 21-403] Loading part xc7z015clg485-2
+Netlist sorting complete. Time (s): cpu = 00:00:00.19 ; elapsed = 00:00:00.18 . Memory (MB): peak = 1831.633 ; gain = 0.000 ; free physical = 7555 ; free virtual = 15520
+INFO: [Netlist 29-17] Analyzing 5156 Unisim elements for replacement
+INFO: [Netlist 29-28] Unisim Transformation completed in 0 CPU seconds
+INFO: [Project 1-479] Netlist was created with Vivado 2025.2.1
+INFO: [Project 1-570] Preparing netlist for logic optimization
+Read ShapeDB Complete: Time (s): cpu = 00:00:00.06 ; elapsed = 00:00:00.06 . Memory (MB): peak = 1953.352 ; gain = 5.250 ; free physical = 7424 ; free virtual = 15356
+INFO: [Timing 38-478] Restoring timing data from binary archive.
+INFO: [Timing 38-479] Binary timing data restore complete.
+INFO: [Project 1-856] Restoring constraints from binary archive.
+INFO: [Project 1-853] Binary constraint restore complete.
+INFO: [Designutils 20-5722] Start Reading Physical Databases.
+Reading placement.
+Read Netlist Cache: Time (s): cpu = 00:00:00.05 ; elapsed = 00:00:00.06 . Memory (MB): peak = 2615.391 ; gain = 0.000 ; free physical = 6919 ; free virtual = 14854
+Reading placer database...
+Read Device Cache: Time (s): cpu = 00:00:00.01 ; elapsed = 00:00:00.01 . Memory (MB): peak = 2619.391 ; gain = 4.000 ; free physical = 6924 ; free virtual = 14856
+Read PlaceDB: Time (s): cpu = 00:00:00 ; elapsed = 00:00:00 . Memory (MB): peak = 2619.391 ; gain = 0.000 ; free physical = 6924 ; free virtual = 14856
+Read placeStorage: Time (s): cpu = 00:00:00.97 ; elapsed = 00:00:00.97 . Memory (MB): peak = 2653.391 ; gain = 34.000 ; free physical = 6880 ; free virtual = 14819
+Read PulsedLatchDB: Time (s): cpu = 00:00:00 ; elapsed = 00:00:00 . Memory (MB): peak = 2653.391 ; gain = 0.000 ; free physical = 6860 ; free virtual = 14816
+Reading routing.
+Read RouteStorage: Time (s): cpu = 00:00:00.92 ; elapsed = 00:00:00.59 . Memory (MB): peak = 2688.523 ; gain = 35.133 ; free physical = 6885 ; free virtual = 14818
+Read Physdb Files: Time (s): cpu = 00:00:02 ; elapsed = 00:00:02 . Memory (MB): peak = 2688.523 ; gain = 73.133 ; free physical = 6889 ; free virtual = 14822
+Restored from archive | CPU: 2.020000 secs | Memory: 58.128143 MB |
+Finished XDEF File Restore: Time (s): cpu = 00:00:02 ; elapsed = 00:00:02 . Memory (MB): peak = 2688.523 ; gain = 76.102 ; free physical = 6889 ; free virtual = 14822
+Netlist sorting complete. Time (s): cpu = 00:00:00.01 ; elapsed = 00:00:00.01 . Memory (MB): peak = 2712.664 ; gain = 0.000 ; free physical = 6870 ; free virtual = 14803
+INFO: [Project 1-111] Unisim Transformation Summary:
+  A total of 268 instances were transformed.
+  RAM32M => RAM32M (RAMD32(x6), RAMS32(x2)): 26 instances
+  RAM32X1D => RAM32X1D (RAMD32(x2)): 6 instances
+  RAM64M => RAM64M (RAMD64E(x4)): 212 instances
+  RAM64X1D => RAM64X1D (RAMD64E(x2)): 24 instances
+
+INFO: [Project 1-604] Checkpoint was created with Vivado v2025.2.1 (64-bit) build 6403652
+open_checkpoint: Time (s): cpu = 00:00:17 ; elapsed = 00:00:15 . Memory (MB): peak = 2720.699 ; gain = 1139.621 ; free physical = 6864 ; free virtual = 14797
+# puts "== A) M04_AXI_AWADDR 的 17 条 net：逐条报端点（每条最多 4 个）"
+== A) M04_AXI_AWADDR 的 17 条 net：逐条报端点（每条最多 4 个）
+# set all [get_nets -hier -quiet -filter {NAME =~ *M04_AXI_AWADDR*}]
+# foreach n $all {
+#     set nm [get_property NAME $n]
+#     set ps [get_pins -quiet -of_objects $n]
+#     puts "   $nm  -> [llength $ps] pin(s)"
+#     set i 0
+#     foreach p $ps { puts "        [get_property NAME $p]  DIR=[get_property DIRECTION $p]"; incr i; if {$i >= 4} break }
+# }
+   design_1_i/axi_ctrl_M04_AXI_AWADDR[0]  -> 2 pin(s)
+        design_1_i/fconv_0/aw_addr_reg[16]_0[0]  DIR=IN
+        design_1_i/axi_ctrl/m_axi_awaddr[20]  DIR=OUT
+   design_1_i/axi_ctrl_M04_AXI_AWADDR[10]  -> 2 pin(s)
+        design_1_i/fconv_0/aw_addr_reg[16]_0[10]  DIR=IN
+        design_1_i/axi_ctrl/m_axi_awaddr[30]  DIR=OUT
+   design_1_i/axi_ctrl_M04_AXI_AWADDR[11]  -> 2 pin(s)
+        design_1_i/fconv_0/aw_addr_reg[16]_0[11]  DIR=IN
+        design_1_i/axi_ctrl/m_axi_awaddr[31]  DIR=OUT
+   design_1_i/axi_ctrl_M04_AXI_AWADDR[12]  -> 2 pin(s)
+        design_1_i/fconv_0/aw_addr_reg[16]_0[12]  DIR=IN
+        design_1_i/axi_ctrl/m_axi_awaddr[32]  DIR=OUT
+   design_1_i/axi_ctrl_M04_AXI_AWADDR[13]  -> 2 pin(s)
+        design_1_i/fconv_0/aw_addr_reg[16]_0[13]  DIR=IN
+        design_1_i/axi_ctrl/m_axi_awaddr[33]  DIR=OUT
+   design_1_i/axi_ctrl_M04_AXI_AWADDR[14]  -> 2 pin(s)
+        design_1_i/fconv_0/aw_addr_reg[16]_0[14]  DIR=IN
+        design_1_i/axi_ctrl/m_axi_awaddr[34]  DIR=OUT
+   design_1_i/axi_ctrl_M04_AXI_AWADDR[15]  -> 2 pin(s)
+        design_1_i/fconv_0/aw_addr_reg[16]_0[15]  DIR=IN
+        design_1_i/axi_ctrl/m_axi_awaddr[35]  DIR=OUT
+   design_1_i/axi_ctrl_M04_AXI_AWADDR[16]  -> 2 pin(s)
+        design_1_i/fconv_0/aw_addr_reg[16]_0[16]  DIR=IN
+        design_1_i/axi_ctrl/m_axi_awaddr[36]  DIR=OUT
+   design_1_i/axi_ctrl_M04_AXI_AWADDR[1]  -> 2 pin(s)
+        design_1_i/fconv_0/aw_addr_reg[16]_0[1]  DIR=IN
+        design_1_i/axi_ctrl/m_axi_awaddr[21]  DIR=OUT
+   design_1_i/axi_ctrl_M04_AXI_AWADDR[2]  -> 2 pin(s)
+        design_1_i/fconv_0/aw_addr_reg[16]_0[2]  DIR=IN
+        design_1_i/axi_ctrl/m_axi_awaddr[22]  DIR=OUT
+   design_1_i/axi_ctrl_M04_AXI_AWADDR[3]  -> 2 pin(s)
+        design_1_i/fconv_0/aw_addr_reg[16]_0[3]  DIR=IN
+        design_1_i/axi_ctrl/m_axi_awaddr[23]  DIR=OUT
+   design_1_i/axi_ctrl_M04_AXI_AWADDR[4]  -> 2 pin(s)
+        design_1_i/fconv_0/aw_addr_reg[16]_0[4]  DIR=IN
+        design_1_i/axi_ctrl/m_axi_awaddr[24]  DIR=OUT
+   design_1_i/axi_ctrl_M04_AXI_AWADDR[5]  -> 2 pin(s)
+        design_1_i/fconv_0/aw_addr_reg[16]_0[5]  DIR=IN
+        design_1_i/axi_ctrl/m_axi_awaddr[25]  DIR=OUT
+   design_1_i/axi_ctrl_M04_AXI_AWADDR[6]  -> 2 pin(s)
+        design_1_i/fconv_0/aw_addr_reg[16]_0[6]  DIR=IN
+        design_1_i/axi_ctrl/m_axi_awaddr[26]  DIR=OUT
+   design_1_i/axi_ctrl_M04_AXI_AWADDR[7]  -> 2 pin(s)
+        design_1_i/fconv_0/aw_addr_reg[16]_0[7]  DIR=IN
+        design_1_i/axi_ctrl/m_axi_awaddr[27]  DIR=OUT
+   design_1_i/axi_ctrl_M04_AXI_AWADDR[8]  -> 2 pin(s)
+        design_1_i/fconv_0/aw_addr_reg[16]_0[8]  DIR=IN
+        design_1_i/axi_ctrl/m_axi_awaddr[28]  DIR=OUT
+   design_1_i/axi_ctrl_M04_AXI_AWADDR[9]  -> 2 pin(s)
+        design_1_i/fconv_0/aw_addr_reg[16]_0[9]  DIR=IN
+        design_1_i/axi_ctrl/m_axi_awaddr[29]  DIR=OUT
+# puts ""
+
+# puts "== B) M04_AXI_WDATA 的 32 条 net：只报第一条端点"
+== B) M04_AXI_WDATA 的 32 条 net：只报第一条端点
+# set w [get_nets -hier -quiet -filter {NAME =~ *M04_AXI_WDATA*}]
+# puts "   WDATA nets = [llength $w]"
+   WDATA nets = 32
+# if {[llength $w] > 0} {
+#     set n [lindex $w 0]
+#     puts "   $n -> pins:"
+#     foreach p [get_pins -quiet -of_objects $n] { puts "        [get_property NAME $p]  DIR=[get_property DIRECTION $p]" }
+# }
+   design_1_i/axi_ctrl_M04_AXI_WDATA[0] -> pins:
+        design_1_i/axi_ctrl/m_axi_wdata[64]  DIR=OUT
+        design_1_i/fconv_0/w_dat_reg[31][0]  DIR=IN
+# puts ""
+
+# puts "== C) fconv_0 边界上有没有 awaddr/rdata/aclk 类引脚"
+== C) fconv_0 边界上有没有 awaddr/rdata/aclk 类引脚
+# set ps [get_pins -quiet -of_objects [get_cells -quiet design_1_i/fconv_0]]
+# puts "   fconv_0 pins = [llength $ps]"
+   fconv_0 pins = 904
+# foreach pat {awaddr araddr wdata rdata aclk aresetn} {
+#     set c 0
+#     foreach p $ps { if {[string match *$pat* [get_property NAME $p]]} { incr c } }
+#     puts "   名字含 '$pat' 的边界引脚 = $c"
+# }
+   名字含 'awaddr' 的边界引脚 = 0
+   名字含 'araddr' 的边界引脚 = 0
+   名字含 'wdata' 的边界引脚 = 64
+   名字含 'rdata' 的边界引脚 = 64
+   名字含 'aclk' 的边界引脚 = 0
+   名字含 'aresetn' 的边界引脚 = 2
+# puts ""
+
+# puts "== D) 全设计里 pin 名字含 awaddr 的，按层次归类（前 20）"
+== D) 全设计里 pin 名字含 awaddr 的，按层次归类（前 20）
+# set ap [get_pins -hier -quiet -filter {NAME =~ *awaddr*}]
+# puts "   *awaddr* 引脚总数 = [llength $ap]"
+   *awaddr* 引脚总数 = 1121
+# set i 0
+# foreach p $ap { puts "        [get_property NAME $p]"; incr i; if {$i >= 20} break }
+        design_1_i/axi_ctrl/S00_AXI_awaddr[0]
+        design_1_i/axi_ctrl/S00_AXI_awaddr[10]
+        design_1_i/axi_ctrl/S00_AXI_awaddr[11]
+        design_1_i/axi_ctrl/S00_AXI_awaddr[12]
+        design_1_i/axi_ctrl/S00_AXI_awaddr[13]
+        design_1_i/axi_ctrl/S00_AXI_awaddr[14]
+        design_1_i/axi_ctrl/S00_AXI_awaddr[15]
+        design_1_i/axi_ctrl/S00_AXI_awaddr[16]
+        design_1_i/axi_ctrl/S00_AXI_awaddr[17]
+        design_1_i/axi_ctrl/S00_AXI_awaddr[18]
+        design_1_i/axi_ctrl/S00_AXI_awaddr[19]
+        design_1_i/axi_ctrl/S00_AXI_awaddr[1]
+        design_1_i/axi_ctrl/S00_AXI_awaddr[20]
+        design_1_i/axi_ctrl/S00_AXI_awaddr[21]
+        design_1_i/axi_ctrl/S00_AXI_awaddr[22]
+        design_1_i/axi_ctrl/S00_AXI_awaddr[23]
+        design_1_i/axi_ctrl/S00_AXI_awaddr[24]
+        design_1_i/axi_ctrl/S00_AXI_awaddr[25]
+        design_1_i/axi_ctrl/S00_AXI_awaddr[26]
+        design_1_i/axi_ctrl/S00_AXI_awaddr[27]
+# puts ""
+
+# puts "== E) fconv_0 子树里 cell 数 + 顶层子 cell（看 inst 下面是什么）"
+== E) fconv_0 子树里 cell 数 + 顶层子 cell（看 inst 下面是什么）
+# puts "   fconv_0 子 cell 数 = [llength [get_cells -hier -quiet design_1_i/fconv_0/*]]"
+   fconv_0 子 cell 数 = 0
+# set i 0
+# foreach c [get_cells -quiet design_1_i/fconv_0/*] { puts "        [get_property NAME $c]  REF=[get_property REF_NAME $c]"; incr i; if {$i >= 10} break }
+        design_1_i/fconv_0/inst  REF=fconv_axi_wrap_bd
+# puts ""
+
+# puts "== DONE endpoints2"
+== DONE endpoints2
+INFO: [Common 17-206] Exiting Vivado at Mon Nov  2 16:41:16 2026...
