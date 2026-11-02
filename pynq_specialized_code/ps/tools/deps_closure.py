@@ -112,6 +112,22 @@ DECL = {
     #   板端 `cc -O3 ... -o convpf_c_armv7l.so convpf_c.c` 只喂一个 .c ⇒ 头文件不在
     #   编译输入里；把它列进 md5 清单只会让"冻结点少拷一个测试头"变成假 FAIL
     #   （判据只该管**板端跑得起来**所需的文件，见本文件 §2 的定位）。
+    # ★ 2026-11-02（T-44）：T-43 把 T-23 的改动合进 main（`b2cfd23`），带进了
+    #   C 驱动 `mmio_batch`（`bin_engine.py:878` `try: import mmio_batch`，静默回落），
+    #   但没同步 DECL、也没重生成清单 ⇒ `md5sum -c` 与 `--check` **两条判据同时挂**。
+    #   与 T-41 补 `convpf_c` 是**同一个坑**：合并不代入"重生成闭包清单"这一步
+    #   ⇒ 判据坏掉。已由 `ps/tools/merge_gate.sh` 变成机械检查（见 PLAN_1second 第 82 条）。
+    "mmio_batch": dict(
+        kind="热/opt-in（`BIN_MMIO_C=1` 才启用；**默认关**。缺 ⇒ 静默回落 Python "
+             "MMIO 直写路径，结果逐字节等价，只是每次写多一次 struct.pack）",
+        role="一批 MMIO 写 + start + 等 done 收进**一次 C 调用**（T-23 第 2 级；"
+             "首次使用时 `cc -O2` 现场编译成 mmio_batch_<arch>.so）",
+        src="mmio_batch.c"),
+    # ⚠ `mmio_batch.c` **没有本地头文件**：`#include` 只有 `<stdint.h>` 与 `<time.h>`
+    #   （系统头，不随包）。板端/主机每次都是 `cc -O2 ... -o mmio_batch_<arch>.so
+    #   mmio_batch.c` **单文件编译** ⇒ 编译输入只有这一个 .c，清单里就只列它。
+    #   判断标准同 T-41 的 `convpf_neon_shim.h`：**只有参与编译输入的文件才进清单**，
+    #   把只用于测试的 .h 列进来只会制造"冻结点少拷一个头"的假 FAIL。
     "qcache": dict(
         kind="冷/可选（`Q8CACHE=1`，默认关）",
         role="f32 叶子量化缓存（按 C8 字节常驻，省重复量化）",

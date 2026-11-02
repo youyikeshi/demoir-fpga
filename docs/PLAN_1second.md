@@ -4644,3 +4644,48 @@ $$\Rightarrow\ \textbf{G3}：\texttt{Register as Latch = 0}\ \text{双查} + \te
 $$\Rightarrow\ \textbf{纪律（第 83 条）}：\text{门槛必须先用}\textbf{已知能跑的位流}\text{回代验证；}$$
 $$\quad\ \text{若一条门槛判"唯一可用位流"不合格，那}\textbf{门槛错了，不是位流错了}$$
 $$\quad\ \Rightarrow\ \text{本项目为此浪费了 v40/v41 两轮（都在追"违例数量"，而 v39 用 15,556 条违例跑得好好的）}$$
+
+---
+
+### 70.19 ★★★ 第 82 条纪律：**"新增模块必须同步 DECL + 重生成清单"不是记性问题，是流程缺环**（2026-11-02 08:20，T-44）
+
+**同一个坑的完整时间线（两次，全部发生在"合并"这个动作上）**
+
+| 次序 | 合并 commit | 带进来的新模块 | 谁补的 DECL | 当时症状 |
+|---|---|---|---|---|
+| 1 | `613a117` | `convpf_c`（`.c` + `.py`，T-17） | T-41（事后） | main 上 `--check` **物理上不可能** rc=0 |
+| 2 | `b2cfd23` | `mmio_batch`（`.c` + `.py`，T-23） | T-44（事后） | `md5sum -c` 报 1 个不匹配 **且** `--check` 报「DECL 未声明 `mmio_batch`」 |
+
+$$\Rightarrow\ \textbf{两次都是"合并带了新模块、DECL 没同步"} \Rightarrow \text{两条判据同时挂}$$
+$$\Rightarrow\ \text{共同点不在"谁忘了"，在}\textbf{流程里根本没有"合并后重生成闭包"这一步}$$
+$$\quad\ \text{每一次合并都会带进新模块（这正是合并的意义）} \Rightarrow \textbf{这个遗漏的概率不是小概率，是 } 1$$
+$$\Rightarrow\ \textbf{结论：靠纪律修不好，必须靠机械门禁}$$
+
+**机制（已落地，一条命令）**
+```bash
+bash pynq_specialized_code/ps/tools/merge_gate.sh      # ①--gen ②md5sum -c ③--check，rc 汇总
+```
+$$\Rightarrow\ \textbf{合并动作的定义改写成 4 步}：\texttt{merge} \to \textbf{\texttt{merge\_gate.sh 三条全绿}} \to \texttt{add} \to \texttt{commit}$$
+$$\Rightarrow\ \textbf{顺序不可换}：\text{先 commit 再补门禁} \Rightarrow \text{历史里永久留下一个"main 上判据不可达"的 commit（已有两个）}$$
+
+**★ 为什么门禁必须是三条（这条比纪律本身更重要）**
+
+$$\text{负例实测（T-44）}：\text{把 } \texttt{mmio\_batch}\ \text{两行从清单删掉之后}$$
+$$\texttt{md5sum -c} \Rightarrow \textbf{rc=0}\qquad \texttt{--check} \Rightarrow \textbf{rc=1}\ (\text{"清单只有 17 行，闭包应有 19 个文件"})$$
+
+$$\Rightarrow\ \texttt{md5sum -c}\ \text{只对}\textbf{清单里已经列到的} \text{文件负责 —— 它}\textbf{结构上无法发现"漏列"}$$
+$$\Rightarrow\ \text{而 2026-11-02 事故形态正是"漏列"}：\text{手挑 } 7\ \text{个 } \texttt{.py}\text{，漏 } \texttt{q8/c8deq/bpack}$$
+$$\quad\ \Rightarrow \text{md5 全过} \Rightarrow \text{静默回落 numpy} \Rightarrow \text{prologue } \times 3.69\text{、total } 11.752 \to 6.497\ \text{s} \Rightarrow \textbf{两天假数}$$
+$$\Rightarrow\ \textbf{只跑 \texttt{md5sum -c} 的门禁 = 摆设}：\text{它恰好对最危险的那类缺口沉默}$$
+
+**DECL 的"进不进清单"判断标准（沿用 T-41，不许放宽）**
+$$\Rightarrow\ \textbf{只有参与编译输入的文件才进清单}$$
+$$\quad\ \texttt{convpf\_neon\_shim.h}：\text{只在 } \texttt{-DCPF\_FAKE\_NEON}\ \text{主机测试构建里 include} \Rightarrow \textbf{不进}$$
+$$\quad\ \texttt{mmio\_batch.c}：\texttt{\#include} \text{只有 } \texttt{<stdint.h>}/\texttt{<time.h>}\text{（系统头）} \Rightarrow \text{无本地头} \Rightarrow \textbf{只列 .c}$$
+$$\Rightarrow\ \text{把"只用于测试的 } \texttt{.h}\text{"列进 md5 清单，只会制造"冻结点少拷一个测试头"的}\textbf{假 FAIL}$$
+$$\Rightarrow\ \text{反之}\textbf{绝不许} \text{为了让 } \texttt{--check}\ \text{过而把模块从扫描里排除 —— 那是把门禁改成摆设}$$
+
+**判据（合并后，可复算）**
+$$\Rightarrow\ \texttt{merge\_gate.sh}\ \text{rc=0，且 \textbf{13 模块 / 19 文件}（13 } \texttt{.py} + 6\ \texttt{.c}\text{）}$$
+$$\Rightarrow\ \textbf{故意弄坏一次必须报 FAIL}：\text{改坏一个期望 md5} \Rightarrow \texttt{②③}\ \text{均 rc=1；}$$
+$$\quad\ \text{在副本里加一个未声明的 } \texttt{zz\_newmod.py} \Rightarrow \texttt{①}\ \text{rc=1 且报名字 ⇒ 证明门禁不是假绿}$$
