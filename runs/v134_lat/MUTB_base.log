@@ -1,0 +1,32 @@
+
+****** xsim v2025.2.1 (64-bit)
+  **** SW Build 6403652 on Thu Mar 19 13:47:00 MDT 2026
+  **** IP Build 6403511 on Thu Mar 19 12:41:45 MDT 2026
+  **** SharedData Build 6403650 on Thu Mar 19 14:02:13 MDT 2026
+  **** Start of session at: Tue Nov  3 06:03:07 2026
+    ** Copyright 1986-2022 Xilinx, Inc. All Rights Reserved.
+    ** Copyright 2022-2026 Advanced Micro Devices, Inc. All Rights Reserved.
+
+source xsim.dir/snap/xsim_script.tcl
+# xsim {snap} -testplusarg GOLDEN=/media/felix/Data/coding/demoir-fpga/worktrees/T-134-lat/mutB_v16/../../golden/v134_c48_o32_128x128 -testplusarg SHAPE_NAME=v134_c48_o32_128x128 -testplusarg NOSTOP=1 -testplusarg T94FILL=1 -testplusarg CIN=48 -testplusarg COUT=32 -testplusarg K=3 -testplusarg S=1 -testplusarg D=1 -testplusarg PAD=1 -testplusarg H=128 -testplusarg W=128 -testplusarg SHIFT=7 -testplusarg RLMIN=1 -testplusarg RLMAX=20 -autoloadwcfg -runall
+Time resolution is 1 ps
+run -all
+bin_band_buf: CAP=245776 B (240 KB) <= BUDGET=270 KB  [NGRP=6 ROWS_ALLOC=10 SLOT_WORDS=15360]
+[BIN-WRAP] 步骤④ 直接映射线缓存：LC_N=512（64 KB, 9 位散列, 槽=16）
+[TB] NOTE: 形状 v134_c48_o32_128x128 不在内置表里，参数将全部取自 plusarg
+[TB] =========================================================
+[TB] unit=0 shape=v134_c48_o32_128x128 C=48 COUT=32 K=3 S=1 D=1 PAD=1 H=128 W=128 SHIFT=7
+[TB] 输出: NCH=32 HOUT=128 WOUT=128  => 524288 字节（C8 交错布局）
+[TB] conv: C_B=1 每像素 term 数 K=C_B*k^2=9，写口是 1 字节/term 的模式(b)
+[TB] 读侧预取 R_PF_EN=0（0xF8；旧实现忽略该寄存器）
+[TB] AXI3 从模型: 读延迟 1..20 拍、burst 额外 0 拍、BURST 内拍间 EP 0 拍、在飞上限 16、arready 反压=1、写反压=1、乱序=1、seed=0x12345678
+[TB] DUT 参数: RD_WIN_WORDS=16 AXI_ID_W=4 WR_BUF_BEATS=16 WR_BURST_MAX=8
+[TB] =========================================================
+[TB] ---- 装载黄金向量（/media/felix/Data/coding/demoir-fpga/worktrees/T-134-lat/mutB_v16/../../golden/v134_c48_o32_128x128）
+WARNING: file /media/felix/Data/coding/demoir-fpga/worktrees/T-134-lat/mutB_v16/../../golden/v134_c48_o32_128x128/act_pack.bin could not be opened
+Fatal: [TB] FAIL: 打不开 /media/felix/Data/coding/demoir-fpga/worktrees/T-134-lat/mutB_v16/../../golden/v134_c48_o32_128x128/act_pack.bin（先跑 tools/gen_bin_golden.py --all）
+Time: 0 ps  Iteration: 0  Process: /tb_bin_unit_axi_wrap/load_file  Scope: tb_bin_unit_axi_wrap.load_file  File: /media/felix/Data/coding/demoir-fpga/worktrees/T-134-lat/tb_v94_wrap.v Line: 937
+$finish called at time : 0 fs
+exit
+INFO: xsimkernel Simulation Memory Usage: 298772 KB (Peak: 343040 KB), Simulation CPU Usage: 830 ms
+INFO: [Common 17-206] Exiting xsim at Tue Nov  3 06:03:09 2026...

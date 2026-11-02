@@ -6798,3 +6798,32 @@ $$\Rightarrow\ \text{只给 }294912\ \text{B}\ \text{那组的 227 次加 sleep}
 $$\Rightarrow\ \textbf{第 129 条：}\text{"加延时就好"}\ \textbf{不是修法}\ \text{——它是指向"某处不能容忍晚到"的}\textbf{证据}$$
 $$\quad\ \Rightarrow\ \text{正确做法：}\text{在 } \mathtt{xsim}\ \text{里注入读延迟/乱序响应，}\text{把那个地方找出来}$$
 $$\quad\ \Rightarrow\ \text{MEMORY 里早有一条同族教训：}\text{v42e 改 } \mathtt{PF\_AHEAD}\ \text{判死，}\text{当时结论就是"预取需回炉（}\textbf{先做乱序 AXI 响应的 xsim 门禁}\text{"}）$$
+
+### 70.99 ★★★★★ T-134 强 negative + 机制的量化解释（2026-11-03 06:1x）
+
+**xsim 把读路径彻底洗清**
+$$\Rightarrow\ \text{注入：} \mathtt{R}\ \text{固定延迟 } 0/1/4/16/64/256/\mathbf{1024}\ \text{拍、随机 }0\sim1024、\text{跨 16 ID 乱序、burst 内拍间空 }0\sim7、\text{在飞压到 }1\sim2$$
+$$\Rightarrow\ \Rightarrow\ \mathbf{64^2\ \text{与 } 128^2\ \text{全部 } 524288/524288\ \text{逐字节对}}，\text{越界 } 0\ \text{B}$$
+$$\Rightarrow\ \text{延迟确实生效：拍数 } 432143\to2156521，\mathtt{max\_rq}\ 4\to8$$
+$$\Rightarrow\ \textbf{门禁不瞎（变异体标定）}：\text{把 } \mathtt{rd\_hit}\ \text{的 } \mathtt{!fill\_rd}\ \text{删掉} \Rightarrow 16^2\ 4096/8192、32^2\ 16384/32768\ \text{FAIL}，\textbf{且错数随延迟单调放大}$$
+$$\Rightarrow\ \text{四条嫌疑都有硬闸门：}\mathtt{rd\_hit}\ \text{带 } \mathtt{!fill\_rd}（:2432\text{-}2434）;\ \mathtt{rready}\ \text{按槽计数}（:2572）;\ \mathtt{ARID}= \text{槽号}（:2555/:2562）;\ \text{读侧}\textbf{无超时兜底}$$
+$$\Rightarrow\ \Rightarrow\ \textbf{T-134 的推论很硬}：\text{TB 内存模型}\textbf{无论多晚都返回该地址的正确数据}$$
+$$\quad\ \Rightarrow\ \text{"读到旧数据"只能由 RTL 自己造（半条线/失效缓存/错槽），\text{这三条已分别堵死}}$$
+$$\quad\ \Rightarrow\ \Rightarrow\ \textbf{xsim 加延迟}\textbf{原理上不可能复现板上那条签名}$$
+
+**★ 于是机制只剩一个，而且能算出数**
+$$\Rightarrow\ \text{"只有时间有效、读无效、连 device 映射也无效"} \Rightarrow \text{唯一能解释的是：}$$
+$$\quad\ \mathbf{\text{PS 把输入写进 DDR 的}\textbf{写回本身还在飞}，\text{PL 已经开始读}}$$
+$$\Rightarrow\ \text{量化：}128^2\ \text{每 op 输入缓冲} = \mathbf{294912\ \text{B}};\ \text{实测需要 } \mathbf{\sim3\ \text{ms}}$$
+$$\quad\ \Rightarrow\ \text{若写回带宽 }\sim 100\ \text{MB/s}：294912\ \text{B} / 100\ \text{MB/s} = \mathbf{2.95\ \text{ms}} \Rightarrow \textbf{与实测 3 ms 严丝合缝}$$
+$$\Rightarrow\ \text{这解释全部细节}：$$
+$$\quad\ \text{① }\textbf{尾部形状}：\text{写回按地址顺序推进，PL 读在前面} \Rightarrow \text{读到的是还没被覆盖的旧尾部}$$
+$$\quad\ \text{② }\textbf{剂量单调}：\text{等得越久写回越靠后} \Rightarrow 0.2\ \text{ms 不中、}1\ \text{ms }2/3、3\ \text{ms 全中}$$
+$$\quad\ \text{③ }\textbf{回读尾/头 64 B 无效}：\text{只等到那 64 B，没等到整段}$$
+$$\quad\ \text{④ }\textbf{回读整区有效但慢}：\text{它等价于把整段写回走完（}2.47\ \text{GB/run，}+2.2\ \text{s）}$$
+$$\quad\ \text{⑤ }\textbf{device 映射无效}：\text{非缓存写也要经过写合并缓冲，仍是异步突发}$$
+$$\quad\ \text{⑥ }\textbf{单层测不到}：\text{单层缓冲只写一次、且测试在写完后有充足间隔}$$
+$$\quad\ \text{⑦ }\textbf{256}^2\ \text{在 }3\ \text{ms 下仍错}：\text{输入缓冲 }4\times（1179648\ \text{B）} \Rightarrow \text{需要 }\sim12\ \text{ms} \Rightarrow \textbf{可预测}$$
+
+$$\Rightarrow\ \textbf{第 130 条：}\text{"加延时就好"}+\text{"fence 无效"}+\text{"读侧 xsim 干净"}\ \Rightarrow\ \textbf{写回还在飞}$$
+$$\quad\ \Rightarrow\ \text{判据：}\textbf{所需延时是否} \propto \text{缓冲大小} \Rightarrow \text{已派 T-135 验（128}^2\ 294912\ \text{B vs }256^2\ 1179648\ \text{B）}$$
