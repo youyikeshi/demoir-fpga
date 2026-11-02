@@ -1,0 +1,46 @@
+================================================================================
+ W3 —— FUSE_MODE=0 路径结构未变（改动前后逐行分类）
+================================================================================
+文件：lane16/bin_unit_axi_wrap_v50.v
+  before md5 = 3fee7951600b90687e65a554127ba5cc
+  after  md5 = 0229c186e1e6a46dac0f7c4b3fe95778
+  diff 221 行 / changed 172 行（runs/v88_wiring/wrap.diff）
+    - 注释/空行      : 111
+    - fuse 相关行    : 46（fuse_m / fill_ / seg_w4 / c_cfg_h / c_cfg_w）
+    - **其余 15 行**  : 全部是填充器例化端口 + 断言块（新增），0 行 v39 逻辑被替换
+
+  ★ 10 根 sel_fuse_q mux（u_done/u_busy/u_rd_en/u_rd_addr/u_wr_en/u_wr_addr/
+    u_wr_data/u_wr_sel/u_wr_64/u_err）改动前后**逐字相同**（多重集相等）。
+  ★ 4 根改源的 c_*/words 线，v39 右支一字未动：
+       c_cfg_h   : fuse_m ? seg_nband : r_h[15:0]      ← 右支不变
+       c_cfg_w   : fuse_m ? seg_w4    : r_w[15:0]      ← 右支不变
+       c_cfg_cout: fuse_m ? seg_cout  : r_cout[15:0]   ← 未改（只加注释）
+       .ld_q     : fuse_m ? fill_ld_q : u_rd_data      ← 右支不变
+       band_words: fuse_m && ... ? <填充几何> : 32'd0   ← fuse_m=0 时仍 0
+       seg_axi_rd_en : fuse_m && (seg_hdr_req || fill_dma_en) ← fuse_m=0 时仍 0
+
+================================================================================
+ W4 —— 静态追踪三条
+================================================================================
+① conv 的 c_cfg_h 现在接什么（= w9 低 16 = nband）
+  runs/timing_v50/rtl_v50/lane16/bin_unit_axi_wrap_v50.v:1376:  wire [15:0]  c_cfg_h     = fuse_m ? seg_nband : r_h[15:0];
+  runs/timing_v50/rtl_v50/lane16/bin_unit_axi_wrap_v50.v:1422:  .cfg_h           (c_cfg_h),
+  runs/timing_v50/rtl_v50/lane16/bin_unit_axi_wrap_v50.v:1773:  .d_nband         (seg_nband),
+  runs/timing_v50/rtl_v50/lane16/bin_segq.v:199:                assign d_nband      = f_nband;
+  runs/timing_v50/rtl_v50/lane16/bin_segq.v:337:                f_nband  <= dw[4][47:32];      // w9 低 16
+
+② 填充器三条几何来源
+  W      : wrap:1368 seg_w4 = seg_cout; wrap:1810 .w_row(seg_w4);
+           segq:191 d_cout=f_cout; segq:329 f_cout <= dw[2][15:0]  // w4 低 16
+  H_in   : wrap:1367 seg_h_in = seg_h; wrap:1809 .h_in(seg_h_in);
+           segq:192 d_h=f_h; segq:327 f_h <= dw[1][63:48]        // w3 高 16
+  nband  : wrap:1773 .d_nband(seg_nband); wrap:1811 .nband(seg_nband);
+           segq:337 f_nband <= dw[4][47:32]                      // w9 低 16
+  cfg_h（填充器的有效行数）: wrap:1808 .cfg_h(seg_w); => segq:328 f_w <= dw[1][47:32] // w3 低 16
+
+③ band 写口是否被 fuse_m==0 门控
+  wrap:1708  .e_wr_en        (fuse_m && seg_ld_we),        // band_buf 的 E 写口
+  wrap:1614  assign u_wr_en   = sel_fuse_q ? fuse_wr_en : u_wr_en_i;  // DDR 写口
+  wrap:1722  .kick           (start_fire && fuse_m),       // segq 不融合不启动
+  wrap:1803-1805  .en(u_ce && fuse_m) .sop(fuse_m && S_CHK) .ld_req(fuse_m && seg_ld_req)
+  segq:456   ld_we <= 1'b1;   // 只在 (st==S_LOAD) && req_pend && ld_data 分支里

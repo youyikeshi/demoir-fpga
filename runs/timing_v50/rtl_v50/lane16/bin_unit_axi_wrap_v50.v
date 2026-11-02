@@ -1336,30 +1336,113 @@ module bin_unit_axi_wrap_v50 #(
         //                H 取带内行数（含 halo），这样核的地址公式直接落到 band 上
         // ------------------------------------------------------------------
         wire         fuse_m = sel_fuse_q && !sel_e1e2_q && !sel_cp_q;
+        // ====================================================================
+        // ★ T-89 ⑤（主代理加的第 5 条）：**arena 窗口必须是真的**
+        //   复位值 0/0xFFFF_FFFF ⇒ `in_arena` 恒真 ⇒ 越界不报、静默写坏内存。
+        //   ① PS 必须在提交链之前写 0x318/0x31C（bin_engine.v50_submit_chain）；
+        //   ② RTL 侧兜底：还是默认值 ⇒ **拒绝启动**（kick 被门控掉，
+        //      u_err 报 E_RANGE=2），不再 fallback 到"安全区"。
+        //   （读回 0x318/0x31C 仍是原始寄存器值，PS 能看出自己没写。）
+        // ====================================================================
+        wire         arena_is_default = (r_arena_lo == 32'd0)
+                                     && (r_arena_hi == 32'hFFFF_FFFF);
+        wire [31:0]  arena_lo_eff = r_arena_lo;
+        wire [31:0]  arena_hi_eff = r_arena_hi;
+        wire         arena_ready  = !arena_is_default;
+        wire [7:0]   arena_err    = arena_ready ? 8'd0 : 8'd2;   // 2 = E_RANGE
+
+
+        // ---- ★ T-88：band 填充路径（E 口）的几何与中间线 ----
+        //   契约 B §13：字 0 = 段输入 DDR 源基址、字 3 = cfg_h(低)‖H_in(高)、
+        //              字 4 = W、字 6 = band_y0、字 9 低 = nband。
+        //   R2 §11.2/§11.5：band 里装 [y0-HALO, y0+nband+HALO) ⇒ 行数 = nband+2*HALO，
+        //                  且**由硬件算**（PS 不传）；没有 conv 级时不需要 halo 行。
+        //   halo 取 bin_band_buf 的参数 BAND_HALO（两处必须同一个数）。
+        localparam [15:0] FILL_HALO   = 16'(BAND_HALO);
+        // ==================================================================
+        // ★ T-89 ③：**描述符影子副本**（S_HDR 的 5 个 64-bit 拍，包装层自己存一份）
+        //   为什么必须另存：segq 的 `d_*` 字段是在 **S_CHK 的时钟沿上**才锁存的，
+        //   而它的 `chk_ok`/`band_words` 判据在 **S_CHK 当拍组合**就要用几何
+        //   ⇒ 直接用 `d_*` 会读到**上一条描述符**（第一条时全 0 ⇒ band_words=0
+        //   ⇒ 假 E_SIZE=5）。影子在 S_HDR 的 5 拍里就位，S_CHK 当拍已可用。
+        //   拍序与 segq 的 `dw[hdr_beat] <= hdr_q` 逐拍同构（同为 0..4）。
+        // ==================================================================
+        logic [63:0] sh_dw [0:4];
+        logic [2:0]  sh_beat;
+        always_ff @(posedge s_axi_aclk or negedge s_axi_aresetn) begin
+            if (!s_axi_aresetn) begin
+                sh_beat <= 3'd0;
+                for (int i = 0; i < 5; i++) sh_dw[i] <= 64'd0;
+            end else if (u_ce) begin
+                if (seg_state == 4'd1) begin                 // S_HDR：5 拍取 10 字
+                    if (seg_hdr_data) begin
+                        sh_dw[sh_beat[2:0]] <= u_rd_data;
+                        sh_beat <= (sh_beat == 3'd4) ? 3'd0 : (sh_beat + 3'd1);
+                    end
+                end else begin
+                    sh_beat <= 3'd0;
+                end
+            end
+        end
+        // ---- §14 权威表的逐字解包（dw[i] 是 64-bit **拍**，不是"字"）----
+        wire [31:0]  sh_in_pa  = sh_dw[0][31:0];     // 字0  in_pa（装载源）
+        wire [31:0]  sh_out_pa = sh_dw[0][63:32];    // 字1  out_pa（排空基址）★ T-89 修的就是这一处
+        wire [15:0]  sh_cin    = sh_dw[1][15:0];     // 字2 低 = cin / cfg_c
+        wire [15:0]  sh_cfg_h  = sh_dw[1][47:32];    // 字3 低 = cfg_h（本带有效输出行数）
+        wire [15:0]  sh_h_in   = sh_dw[1][63:48];    // 字3 高 = H_in（pad 判据）
+        wire [15:0]  sh_w_row  = sh_dw[2][15:0];     // 字4 低 = W（行宽）
+        wire [15:0]  sh_y0     = sh_dw[3][15:0];     // 字6 低 = band_y0
+        wire [31:0]  sh_flags  = sh_dw[3][63:32];    // 字7    = flags（未定义位忽略）
+        wire [31:0]  sh_next   = sh_dw[4][31:0];     // 字8    = next_pa
+        wire [15:0]  sh_nband  = sh_dw[4][47:32];    // 字9 低 = nband
+        wire [15:0]  sh_omask  = sh_dw[4][63:48];    // 字9 高 = op_mask
+
+        // ★ T-89：本阶段**锁 k=1**（主代理批准）。理由：conv 核的 cfg_h 是双用途
+        //   （conv:156 hout_c 与 conv:163 hw8_c），halo≠0 时"输出行数=nband"与
+        //   "通道块步长=rows_fill"不可兼得 ⇒ k=3/5 继续走 v39 逐 op 路径。
+        //   k=1 ⇒ halo=0 ⇒ rows_fill = nband，双用途自洽。
+        localparam [15:0] FILL_HALO_LOCK = 16'd0;
+        wire         fill_conv_en = fuse_m && sh_omask[0];          // op_mask bit0 = conv
+        wire [15:0]  fill_halo    = FILL_HALO_LOCK;
+        wire [15:0]  fill_rows    = sh_cfg_h + {fill_halo[14:0], 1'b0};   // cfg_h + 2*halo
+        //   ★ fill_rows 与填充器内部的 `rows_fill` 用**同一个源**（影子 w3 低 16 = cfg_h），
+        //     这样 band_words 与填充器要写的字数逐字一致（w9 低 16 必须同值，
+        //     由下面断言看着：sh_cfg_h==sh_nband）。
+        logic        fill_dma_en, fill_ld_pad;
+        logic [31:0] fill_dma_addr;
+        logic [63:0] fill_ld_q;
         // ------------------------------------------------------------------
-        // ★ 契约 R3 §12.3 核对（2026-11-02）：**字 3 = cfg_h(低16) ‖ H_in(高16)**
-        //   接线实测（静态追踪，非假设）：
-        //     bin_segq.v:324 `f_h <= dw[1][63:48]`   ← w3 的**高 16**
-        //     bin_segq.v:325 `f_w <= dw[1][47:32]`   ← w3 的**低 16**
-        //     bin_segq.v:190 `assign d_h = f_h;`  ⇒ 本文件 seg_h = **H_in**
-        //   ⇒ 高 16 的 H_in 通路**已经在位且正确**（PS 侧 `v50_desc` 填高 16）。
-        //   ⚠ 本树（lane16）里 band 填充器 `bin_band_fill_v50` **尚未例化**，
-        //     所以 H_in 暂时没有真正的消费者；下面的 `seg_h_in` 就是给端口
-        //     预留下的命名点（T-88 移植时必须接 filler 的 `h_img`，
-        //     而不是把 H_in 当 conv 的 cfg_h）。
-        //   ⚠ 未决项（已上报，不擅自改）：IMP-B2 的 filler 把 w3 **低 16** 当
-        //     `W`（行步长），而契约 R3 §12.3 + PS 把低 16 当 `cfg_h`/nband。
-        //     两者冲突 ⇒ 移植时二选一（改 filler 读 w4 当 W，或改契约）。
+        // ★ 契约 B **最终定稿**（docs/V50_ARCHITECTURE.md §13，2026-11-02 17:05）
+        //   T-88 在此把 T-87 报的两处冲突一次接对（静态追踪，非假设）：
+        //     bin_segq.v:327 `f_h <= dw[1][63:48]`   ← w3 的**高 16** ⇒ seg_h = H_in
+        //     bin_segq.v:328 `f_w <= dw[1][47:32]`   ← w3 的**低 16** ⇒ seg_w = cfg_h
+        //     bin_segq.v:331 `f_nband <= dw[4][47:32]` ← w9 低 16 ⇒ seg_nband
+        //     bin_segq.v:330 `f_cout <= dw[2][15:0]`   ← **w4 低 16** ⇒ seg_cout
+        //   §13 字段表：w3 = cfg_h(低)‖H_in(高)，**w4 = cfg_w = 行宽 W**，w9 低 = nband。
+        //   ① `cfg_h`（带内有效行数，不含 halo，R2 §11.5）只可能来自 **w9 低 16**
+        //      （= nband）；**不是** seg_h（那是 H_in）。旧接线把 H_in 喂给 conv，
+        //      会让 conv 按整图高算，必须改。
+        //   ② 行宽 W 在 **w4**：本树 segq 仍沿用 v39 把 w4 解成 `d_cout`（同名端口，
+        //      bin_segq.v 不在本轮改动范围）⇒ `seg_w4` 就是 w4 这根线，语义按 §13 = W。
+        //   ③ `seg_h`（= H_in）从此**只**送给填充器，不再送给 conv。
         // ------------------------------------------------------------------
-        wire [15:0]  seg_h_in    = seg_h;        // w3[31:16] = H_in（R3 §12.3）
-        wire [15:0]  c_cfg_cin   = fuse_m ? seg_cin  : r_c[15:0];
-        wire [15:0]  c_cfg_cout  = fuse_m ? seg_cout : r_cout[15:0];
-        wire [15:0]  c_cfg_k     = fuse_m ? {8'd0, seg_k}   : r_k[15:0];
-        wire [15:0]  c_cfg_s     = fuse_m ? {8'd0, seg_s}   : r_s[15:0];
-        wire [15:0]  c_cfg_d     = fuse_m ? {8'd0, seg_dd}  : r_d[15:0];
-        wire [15:0]  c_cfg_pad   = fuse_m ? {8'd0, seg_pad} : r_pad[15:0];
-        wire [15:0]  c_cfg_h     = fuse_m ? seg_h  : r_h[15:0];
-        wire [15:0]  c_cfg_w     = fuse_m ? seg_w  : r_w[15:0];
+        // ---- ★ T-89 ⑥：所有融合几何一律取**影子**（不再取 segq 的 d_*）----
+        wire [15:0]  seg_h_in    = sh_h_in;      // 字3 高 = H_in → 只给 filler（pad 判据）
+        wire [15:0]  seg_w4      = sh_w_row;     // 字4     = W（行宽 / 行步长）
+        // ---- ★ T-89 ①：cout / k / s / d / pad **不在描述符里**（§14.5 结构性缺口）
+        //   改为**段边界寄存器**（与 §11.6 的权重/PRM 基址同款）：PS 在每次
+        //   `CHAIN_HEAD` **之前**写一次（链是逐段提交的 ⇒ 段边界天然可达）。
+        //   FUSE=0 时与 v39 逐位相同（本来就是 r_*）。
+        wire [15:0]  c_cfg_cin   = fuse_m ? sh_cin    : r_c[15:0];
+        wire [15:0]  c_cfg_cout  = r_cout[15:0];       // 段边界寄存器（PS 写 0x70）
+        wire [15:0]  c_cfg_k     = r_k[15:0];          // 0x40
+        wire [15:0]  c_cfg_s     = r_s[15:0];          // 0x48
+        wire [15:0]  c_cfg_d     = r_d[15:0];          // 0x50
+        wire [15:0]  c_cfg_pad   = r_pad[15:0];        // 0x58
+        // ★ T-89：c_cfg_h ← 字9 低 16（nband，本带有效输出行数，k=1 时 = rows_fill）
+        wire [15:0]  c_cfg_h     = fuse_m ? sh_nband : r_h[15:0];
+        // ★ T-89：c_cfg_w ← 字4（行宽 W）
+        wire [15:0]  c_cfg_w     = fuse_m ? sh_w_row : r_w[15:0];
         // ★ R1：描述符字 6/7 已定死成 band_y0/flags ⇒ shift 组与权重/PRM 基址
         //   不在描述符里，融合模式下**仍用寄存器**（PS 在段边界写一次）。
         //   （这也是 P4"段内 op 不再逐个驱动、只处理段边界"的自然结果。）
@@ -1578,8 +1661,13 @@ module bin_unit_axi_wrap_v50 #(
         end
 
         // ---- §10.5 融合 mux 的中间线（**先声明、后使用**）----
-        wire         seg_axi_rd_en   = fuse_m && (seg_hdr_req || seg_ld_req);
-        wire [31:0]  seg_axi_rd_addr = seg_hdr_req ? seg_hdr_addr : seg_ld_addr;
+        // ★ T-88（契约 B §13 / R2 §11.3）：装载的读地址**不再用 segq 的 ld_addr**
+        //   （那是"第几个字"的带内线性地址）。band 模式下要按
+        //       in_pa + grp*(H_in*W*8) + yr*(W*8) + x*8   （yr = y0 + r − HALO）
+        //   逐行算，且 **pad 行压根不发 DMA** ⇒ 必须由 bin_band_fill_v50 出地址。
+        //   描述符取指（hdr）仍走 segq；两者相位互斥（S_HDR / S_LOAD）。
+        wire         seg_axi_rd_en   = fuse_m && (seg_hdr_req || fill_dma_en);
+        wire [31:0]  seg_axi_rd_addr = seg_hdr_req ? seg_hdr_addr : fill_dma_addr;
         wire         fuse_wr_en   = seg_st_we | (sel_e1e2_q && e_wr_en);
         wire [31:0]  fuse_wr_addr = seg_st_we ? seg_st_wa : e_wr_addr;
         wire [63:0]  fuse_wr_data = seg_st_we ? seg_st_wd : e_wr_data;
@@ -1595,7 +1683,7 @@ module bin_unit_axi_wrap_v50 #(
         assign u_wr_data = sel_fuse_q ? fuse_wr_data    : u_wr_data_i;
         assign u_wr_sel  = sel_fuse_q ? fuse_wr_sel     : u_wr_sel_i;
         assign u_wr_64   = sel_fuse_q ? 1'b1            : u_wr_64_i;
-        assign u_err     = sel_fuse_q ? seg_err_code    : u_err_i;
+        assign u_err     = sel_fuse_q ? (seg_err_code | arena_err) : u_err_i;
 
         // 请求 → 数据的一拍延迟（与单元 mem_* 的 BRAM 语义同一时间轴）
         always_ff @(posedge s_axi_aclk or negedge s_axi_aresetn) begin
@@ -1620,9 +1708,42 @@ module bin_unit_axi_wrap_v50 #(
         wire bank_wr_sel  = (seg_state == 4'd4);          // RUN 写 bank1
 
         // 一个带 = ceil(cin/8) × 带内行数 × 宽 个 64-bit 字
-        assign band_words = (fuse_m && (seg_cin != 16'd0) && (c_cfg_h != 16'd0) && (c_cfg_w != 16'd0))
-                          ? ((({16'd0, seg_cin} + 32'd7) >> 3) * {16'd0, c_cfg_h} * {16'd0, c_cfg_w})
-                          : 32'd0;
+        // ★ T-88：装带字数必须**逐字等于填充器要写的字数**，否则填充器写不满
+        //   整带（尾部行保持陈旧值），band 通路必然错。
+        //   填充器的行进方式（bin_band_fill_v50 的 (gq,rq,xq) 游标）=
+        //       grp 主序 × (nband + 2*halo) 行 × W 列
+        //   → grp 数 = ceil(cin/64)（act 是 64 通道/64-bit 字；
+        //     bin_conv_core_v50.v:158 `cb_c = (cin+63)>>6` 同一口径），
+        //     行数 = fill_rows = cfg_h + 2*halo（§11.2/§11.5，硬件算；本阶段 halo=0），
+        //     列数 = 字4 = W（§14 权威表）。
+        //   ⚠ T-88 当时这里装排共用一个数，T-89 按相位拆成三个（见下）。
+        // ★ T-89 ②：**装 / 排 / 校验 三个不同的字数**（原来装排共用一个数）
+        //   装（S_LOAD）：ceil(cin/64) 个 64-通道块 × rows_fill 行 × W 列
+        //                 （act 是"64 通道/64-bit 字"，与 conv:158 `cb_c` 同口径；
+        //                  填充器的 (gq,rq,xq) 游标正好写这么多个字）
+        //   排（S_DRAIN）：ceil(cout/8) 个字/像素 × nband 行 × W 列
+        //                 （只搬有效行，不含 halo）
+        //   校验（S_CHK）：两者取大 —— arena 包含性要同时覆盖装/排两条 DDR 区间
+        //
+        //   ★ T-89 更正（T-90 指出 + 主代理核算）：**一个 64-bit 字 =
+        //     8 个 int8 通道**（C8 布局）⇒ 排空字数 = ceil(cout/8)，
+        //     **与 VLANES 无关**。写成 ceil(cout/VLANES) 在 VLANES=16 时
+        //     会少一半（cout=48：8-lane 得 6，16-lane 只得 3 ⇒ 少写一半输出）。
+        //   两个"每字多少通道"是不同的数据类型，别混：
+        //     装 = ceil(cin/64)    ← act 是**二值位流**，1 bit/通道 ⇒ 64 通道/字（与 conv:158 的 cb_c 同口径）
+        //     排 = ceil(cout/8)    ← 输出是 **int8**，8 bit/通道 ⇒ 8 通道/字
+        //   两者都与 lane 数无关；lane 数只决定 PRM 帧宽（2×VLANES 字）。
+        wire [31:0] geo_gin   = ({16'd0, sh_cin}  + 32'd63) >> 6;
+        wire [31:0] geo_goutw = ({16'd0, c_cfg_cout} + 32'd7)  >> 3;
+        wire [31:0] geo_loadw = geo_gin   * {16'd0, fill_rows} * {16'd0, sh_w_row};
+        wire [31:0] geo_drnw  = geo_goutw * {16'd0, sh_nband}  * {16'd0, sh_w_row};
+        wire [31:0] geo_chkw  = (geo_loadw > geo_drnw) ? geo_loadw : geo_drnw;
+        wire   geo_ok     = fuse_m && (sh_cin != 16'd0) && (sh_w_row != 16'd0)
+                            && (sh_nband != 16'd0) && (c_cfg_cout != 16'd0);
+        assign band_words = !geo_ok ? 32'd0 :
+                            (seg_state == 4'd5) ? geo_drnw :      // DRAIN
+                            (seg_state == 4'd3) ? geo_loadw :     // LOAD
+                                                  geo_chkw;       // S_CHK 等
         // 带写完（含串行化那一拍落地）才允许 DRAIN（契约 ⑩ / ⑤）
         assign seg_band_done = c_done && band_wr_idle && !wr_split_busy_i;
         wire   band_bad      = band_cap_err | band_canary_err | band_arb_conf;
@@ -1680,15 +1801,18 @@ module bin_unit_axi_wrap_v50 #(
         // ---- §10.3 描述符链 ----
         bin_segq #(
             .CHK_ALIGN4K (1'b1),
-            .OP_MASK_SUP (16'h0001)          // 本版只实现 op_mask bit0 = conv
+            // ★ T-89：0x0001 会把 `conv→cat` 段（PS 的 V50_OP_BITS: cat=bit1 ⇒ op_mask=0x3）
+            //   判成 E_OPMASK=6 ⇒ 45 条融合段**第一条描述符就被拒**。cat 走 band C 口，
+            //   本版支持 conv|cat 两级 ⇒ 掩码放到 0x0003。
+            .OP_MASK_SUP (16'h0003)          // op_mask bit0=conv / bit1=cat
         ) u_segq (
             .clk            (s_axi_aclk),
             .rst_n          (s_axi_aresetn),
             .en             (u_ce),
-            .kick           (start_fire && fuse_m),
+            .kick           (start_fire && fuse_m && arena_ready),
             .chain_head     (r_chain_head),
-            .arena_lo       (r_arena_lo),
-            .arena_hi       (r_arena_hi),
+            .arena_lo       (arena_lo_eff),
+            .arena_hi       (arena_hi_eff),
             .band_words     (band_words),
             .canary_bad     (band_bad),
             .hdr_req        (seg_hdr_req),
@@ -1698,7 +1822,9 @@ module bin_unit_axi_wrap_v50 #(
             .ld_req         (seg_ld_req),
             .ld_addr        (seg_ld_addr),
             .ld_data        (seg_ld_data),
-            .ld_q           (u_rd_data),
+            // ★ T-88：装载字由**填充器**给（pad 行 = 整字 0，不发 DMA ⇒ 不能用
+            //   u_rd_data，那是上次留下的旧值）。FUSE=0 时逐位等于 v39 的 u_rd_data。
+            .ld_q           (fuse_m ? fill_ld_q : u_rd_data),
             .ld_we          (seg_ld_we),
             .ld_wa          (seg_ld_wa),
             .ld_wd          (seg_ld_wd),
@@ -1737,6 +1863,89 @@ module bin_unit_axi_wrap_v50 #(
             .d_nband        (seg_nband),
             .d_op_mask      (seg_op_mask)
         );
+
+        // ====================================================================
+        // ★ T-88：E 口填充路径（契约 B §13 的字段来源 + R2 §11.3 的 pad 语义）
+        // --------------------------------------------------------------------
+        //   为什么 pad 归填充路径：conv 读侧**零边界分支**（k∈{1,3,5} 共用同一
+        //   填充器）。填充器按行号 yr = y0 + r − HALO 判：
+        //       yr < 0 或 yr >= H_in  ⇒ 整行写 0、**不发起 DMA**
+        //   所以 conv 读到的 pad 行已经是 0。
+        //
+        //   ★ FUSE_MODE=0 必须**完全静默**（契约 ⑧ / B1）：
+        //       · en    = u_ce && fuse_m   ⇒ 不融合时整模块冻结（游标/pad_q 不动）
+        //       · sop   = fuse_m && (S_CHK) ⇒ 不融合时不清游标
+        //       · ld_req= fuse_m && seg_ld_req ⇒ dma_en 恒 0（不失发起读）
+        //       · 输出只进 seg_axi_rd_* / segq.ld_q 这两条**本来就被 sel_fuse_q
+        //         门控**的 mux ⇒ FUSE=0 时 u_rd_en/u_rd_addr/u_wr_data 仍是 v39 原值。
+        //   字段来源（§13 定稿，逐条对应）：
+        //       in_pa ← w0 = seg_in_pa        （段输入 DDR 源基址）
+        //       y0    ← w6 = seg_band_y0      （绝对行号）
+        //       cfg_h ← w3[15:0] = seg_w      （本带有效输出行数，不含 halo）
+        //       h_in  ← w3[31:16] = seg_h     （H_in，pad 判据）★ 只送填充器
+        //       w_row ← w4 = seg_w4           （行宽 W）★ 不再用 w3 低 16
+        //       nband ← w9[15:0] = seg_nband
+        //       halo / rows_fill ← 硬件按 nband+2*HALO 算（PS 不传）
+        // ====================================================================
+        bin_band_fill_v50 u_fill (
+            .clk            (s_axi_aclk),
+            .rst_n          (s_axi_aresetn),
+            .en             (u_ce && fuse_m),
+            .sop            (fuse_m && (seg_state == 4'd2)),   // S_CHK：新描述符
+            .ld_req         (fuse_m && seg_ld_req),
+            .in_pa          (sh_in_pa),                        // 字0
+            .y0             (sh_y0),                           // 字6
+            .cfg_h          (sh_cfg_h),                        // 字3[15:0]
+            .h_in           (sh_h_in),                         // 字3[31:16]
+            .w_row          (sh_w_row),                        // 字4 = W
+            .nband          (sh_nband),                        // 字9[15:0]
+            .halo           (fill_halo),                       // 硬件算
+            .dma_en         (fill_dma_en),
+            .dma_addr       (fill_dma_addr),
+            .dma_data       (u_rd_data),
+            .ld_q           (fill_ld_q),
+            .ld_pad         (fill_ld_pad)
+        );
+
+        // synthesis translate_off
+        // ★ T-89 静态不变量（仿真期；不综合）：接线错了立刻响
+        //   每一条都对应 §14 权威表的一行，改接线时它先叫。
+        logic arena_warned = 1'b0;
+        always @(posedge s_axi_aclk) begin
+            if (s_axi_aresetn && u_ce && fuse_m) begin
+                // ① §14：字3 低 16（cfg_h）必须 = 字9 低 16（nband）
+                if (sh_cfg_h != sh_nband)
+                    $error("T-89: w3[15:0](cfg_h=%0d) != w9[15:0](nband=%0d)",
+                           sh_cfg_h, sh_nband);
+                // ② H_in 只给填充器；conv 的 cfg_h 必须是 nband（k=1 时 = rows_fill）
+                if (c_cfg_h != sh_nband)
+                    $error("T-89: conv.cfg_h(%0d) != nband(%0d)", c_cfg_h, sh_nband);
+                // ③ 行宽只从字4 来，且不许是 0
+                if (sh_w_row == 16'd0)
+                    $error("T-89: w4(cfg_w)=0");
+                // ④ ★ k=1 锁：本阶段融合段只许 k=1（halo=0，cfg_h 双用途才自洽）
+                if (fill_conv_en && (r_k[15:0] != 16'd1))
+                    $error("T-89: 融合段必须 k=1，实测 r_k=%0d（k>1 请回落 v39）",
+                           r_k[15:0]);
+                // ⑤ 段边界寄存器：cout 必须非 0 且是 VLANES 的整数倍
+                if (c_cfg_cout == 16'd0)
+                    $error("T-89: r_cout=0（PS 必须在 CHAIN_HEAD 之前写 0x70）");
+                if ((c_cfg_cout % 16'(VLANES)) != 16'd0)
+                    $error("T-89: cout=%0d 不是 VLANES=%0d 的整数倍", c_cfg_cout, VLANES);
+                // ⑥ 必需基址（字0/字1）非 0 —— 否则 segq 会 E_NULL
+                if ((sh_in_pa == 32'd0) || (sh_out_pa == 32'd0))
+                    $error("T-89: 字0/字1 基址为 0 (in=%08x out=%08x)", sh_in_pa, sh_out_pa);
+                // ⑦ arena：仍在复位默认值 ⇒ kick 被拒（err=E_RANGE），这里叫一次
+                if (arena_is_default && !arena_warned) begin
+                    arena_warned <= 1'b1;
+                    $error("[T-89] ARENA_LO/HI 仍是复位默认值 ⇒ **拒绝启动**（err=E_RANGE=2）。PS 必须在 CHAIN_HEAD 之前写 0x318/0x31C");
+                end
+            end
+            // ⑧ FUSE_MODE=0 时填充器必须静默（不发 DMA）
+            if (s_axi_aresetn && !fuse_m && fill_dma_en)
+                $error("T-89: FUSE_MODE=0 时填充器发起了 DMA");
+        end
+        // synthesis translate_on
 
     end else if (UNIT == 5) begin : g_catpack
         // 独立的纯 catpack 实例（BD 里想要单独地址段/单独 cell 时用这个分支）
@@ -3187,5 +3396,28 @@ module bin_unit_axi_wrap_v50 #(
         end
     end
     // synopsys translate_on
+
+    // ========================================================================
+    // ★ T-88 未决项（本轮只做"接线对 + elaborates + FUSE=0 不变"，以下**没做**）
+    // ------------------------------------------------------------------------
+    //   ① `bin_segq.v` 仍按 **v39 的 10 字表**解码：`w4 → d_cout`、`w5 → k/s/d/pad`。
+    //      而 §13 定稿是 `w4 = cfg_w`、`w5 = cfg_group`（PS 的 `v50_desc` 就是这么填的）
+    //      ⇒ conv 的 `c_cfg_cout / c_cfg_k / c_cfg_s / c_cfg_d / c_cfg_pad` 在融合
+    //      模式下取到的是 **w4/w5 的字段**（= W / cfg_group），不是 k/s/d/pad/cout。
+    //      本轮只把 **cfg_h / cfg_w** 换到 §13 的源（这两条是 band 通路必需的），
+    //      其余四根**留给下一步**：要么改 segq 的解码（本任务禁改），要么由契约
+    //      裁定"k/s/d/pad/cout 在融合模式下走段边界寄存器"（与 §10.2 的权重同款）。
+    //   ② `band_words`（装/排共用一个数）现在按"装带"算。排空字数必须按 **cout** 算
+    //      （面数 = ceil(cout/8)），而 §13 的描述符里没有 cout ⇒ 要等 ① 定下来，
+    //      再把 `band_words` 按相位拆成 load/drain 两个数（IMP-B2 的 `geo_loadw/
+    //      geo_drnw` 就是这个做法，但那要用包装层自己的描述符影子寄存器）。
+    //   ③ `band_words` 在 **S_CHK 当拍**用的是 segq 的 `d_*`，而那些字段要等 S_CHK
+    //      的时钟沿之后才更新 ⇒ 第一条描述符会看到全 0（`band_words==0` ⇒ E_SIZE）。
+    //      IMP-B2 用"包装层另存 5 个 64-bit 拍"（`sh_dw`）解决；本任务不动 segq，
+    //      下一轮要么加影子寄存器，要么让 segq 在 S_HDR 收齐时组合判据。
+    //   ④ conv 读 band 的**行偏移**：填充器把输入行 `y0-HALO` 放在带内第 0 行，
+    //      而 conv 从 `base_act = 0` 起读 ⇒ k=3/5 需要 `base_act = HALO*W*8`（或让核
+    //      吃 pad）。本任务不改 conv 核，登记为下一轮的第一件事。
+    // ========================================================================
 
 endmodule

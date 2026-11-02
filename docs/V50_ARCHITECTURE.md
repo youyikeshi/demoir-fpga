@@ -426,7 +426,7 @@ $$\Rightarrow\ \text{另有 }1\ \text{处校验误伤（}\mathtt{flags}=0\Righta
 $$\Rightarrow\ \textbf{结构性缺口}：\mathtt{cout}\ \text{在 10 个字里}\textbf{没有位置}（\text{w4 被 } W \text{ 占、w5 被 } \mathtt{cfg\_group}\ \text{占}）$$
 $$\Rightarrow\ \text{现在融合模式下 conv 的 } \mathtt{cfg\_cout} = \mathtt{w4} = W（\text{行宽，例如 224}），\textbf{不是通道数}$$
 
-### 14.6 必须改 `bin_segq.v` 的 4 行（T-89 提案，**未改**，等裁定）
+### 14.6 必须改 `bin_segq.v` 的 4 行（T-89 提案 —— **已批准并已应用**，见 §14.10）
 
 ```diff
 - 240: (dw[0][31:0]==0) || (dw[1][31:0]==0) || (dw[3][63:32]==0)
@@ -461,3 +461,70 @@ $$\Rightarrow\ \mathtt{d\_out\_pa}、\mathtt{d\_flags}\ \text{在包装层}\text
 $$\Rightarrow\ \text{包装层传 } \mathtt{.OP\_MASK\_SUP(16'h0001)}\ (\text{segq 默认 } \mathtt{32'h00FF})，\text{而 PS 的 } \mathtt{V50\_OP\_BITS}=\{\mathtt{conv}{:}0,\mathtt{cat}{:}1,\dots\}$$
 $$\Rightarrow\ \text{融合段 } \mathtt{op\_mask}=0x3\Rightarrow \mathtt{segq:238}\ \text{判 } \mathtt{E\_OPMASK}=6\Rightarrow \textbf{第一条描述符就被拒}$$
 $$\Rightarrow\ \text{修法：} \mathtt{.OP\_MASK\_SUP(16'h0003)}，\text{并核 cat 在带模式下的读口（E1E2 已接 band C 口）}$$
+
+### 14.10 状态（2026-11-02 17:5x，T-89 第二阶段已落地）
+
+$$\Rightarrow\ \text{§14.6 的 4 行补丁}\textbf{已应用}\text{（segq md5 } \mathtt{266454b8\dots}\text{），四条 FSM 路径 + 3 条新判据仿真 }\mathbf{28/0}$$
+$$\Rightarrow\ \mathtt{.OP\_MASK\_SUP}\ \textbf{已改 } \mathtt{16'h0003}\text{；但带内没有级联序列器 ⇒ PS 只融合单级 conv 段（见 §15）}$$
+
+---
+
+## 15. T-89 第二阶段实施记录（2026-11-02，四缺口 + arena 窗口 + 门禁）
+
+> 本节记录"§14 权威表落到代码"的那一步：改了什么、判据是什么、还剩几条阻断。
+> 逐条判据的原始日志在 `runs/v89_desc/`。
+
+### 15.1 代价最高的一个更正：排空字数 = `ceil(cout/8)`，**与 lane 数无关**
+
+$$\Rightarrow\ \text{band 存 int8，}\textbf{一个 64-bit 字 = 8 个通道}（\text{C8 布局}）\Rightarrow \text{排空字数/像素} = \lceil \mathtt{cout}/8 \rceil$$
+$$\Rightarrow\ \text{曾写成 } \lceil \mathtt{cout}/\mathtt{VLANES} \rceil \Rightarrow \mathtt{VLANES}=16\ \text{时}\textbf{只搬一半}（\text{8-lane 恰好等价，只在 16-lane 暴露}）$$
+$$\Rightarrow\ \text{两个"每字多少通道"是不同的数据类型，不许混：}$$
+$$\quad \text{装} = \lceil \mathtt{cin}/64 \rceil\ (\text{act 是二值位流，1 bit/通道 ⇒ }64\text{ 通道/字，与 conv:158 的 }\mathtt{cb\_c}\text{ 同口径})$$
+$$\quad \text{排} = \lceil \mathtt{cout}/8 \rceil\ (\text{输出是 int8，8 bit/通道 ⇒ }8\text{ 通道/字})$$
+$$\Rightarrow\ \text{两者都与 } \mathtt{VLANES}\ \text{无关；lane 数只决定 PRM 帧宽（}2\times\mathtt{VLANES}\text{ 字）}$$
+$$\Rightarrow\ \text{本项目 } \mathtt{cout}\in\{32,48,64,96,192\}\ (\text{全是 }16\text{ 的倍数}) \Rightarrow \text{旧口径在 8-lane 下数值恰好相同，}\textbf{只有 16-lane 会错一半}$$
+
+### 15.2 arena 窗口：默认值 ⇒ **拒绝启动**（不再 fallback）
+
+$$\Rightarrow\ \text{PS 侧：} \mathtt{v50\_submit\_chain(..., arena=(lo,hi))}\ \text{是}\textbf{必填}，\text{不给直接 } \mathtt{ValueError}$$
+$$\quad \text{写序：} \mathtt{0x318/0x31C}\to\mathtt{0x308}\to\mathtt{0x30C}\to\mathtt{0x300}\ (\text{全部在 } \mathtt{CHAIN\_HEAD}\ \text{之前})$$
+$$\Rightarrow\ \text{RTL 侧：} \mathtt{ARENA\_LO}{=}0\ \&\&\ \mathtt{ARENA\_HI}{=}\mathtt{0xFFFF\_FFFF}\Rightarrow \mathtt{kick}\ \text{被门控掉}，\mathtt{u\_err}\ \text{报 } \mathtt{E\_RANGE}{=}2$$
+$$\Rightarrow\ \textbf{判据（已实测）}：\text{越界 } \mathtt{out\_pa}{=}\mathtt{0x8000}\Rightarrow \text{segq 报 } \mathtt{E\_RANGE}(2)；\text{旧 RTL 上这条}\textbf{必须失败}（\text{它连字1 都没读}）$$
+
+### 15.3 四条缺口落地情况
+
+| # | 缺口 | 修法 | 状态 |
+|---|---|---|---|
+| ① | `cout/k/s/d/pad` 取 segq 的 v39 解码 | 描述符里**没有这些位** ⇒ 走**段边界寄存器** `0x70/0x40/0x48/0x50/0x58`，PS 在 `CHAIN_HEAD` 之前写 | ✅ |
+| ② | `band_words` 装/排共用一个数 | 相位化：`LOAD=⌈cin/64⌉·rows·W`、`DRAIN=⌈cout/8⌉·nband·W`、`S_CHK=max(两者)` | ✅ |
+| ③ | `S_CHK` 当拍读到上一条描述符 | 包装层 `sh_dw[0:4]+sh_beat`（S_HDR 5 拍自存一份，同 IMP-B2）；`band_words`/填充器/conv 几何全吃影子 | ✅ |
+| ④ | conv 读带行偏移 `base_act=0` | **不接 HALO 偏移**：`k=1 ⇒ halo=0`，`base_act=0` 本来就对 | ✅（靠 k=1 锁） |
+
+### 15.4 本阶段**只有单级 conv 段能融合**（这条必须记住）
+
+$$\Rightarrow\ \text{lane16 的包装层}\textbf{没有带内级联序列器}（\text{对比 IMP-B2 的 } \mathtt{seq\_stage}/\mathtt{bin\_band\_seq.v}）$$
+$$\Rightarrow\ \mathtt{c\_start}=\mathtt{seg\_band\_start}\ \text{只起 conv}；\mathtt{e\_start}/\mathtt{k\_start}\ \text{仍只走 v39 的地址选择}$$
+$$\Rightarrow\ \text{含 }\ge2\ \text{级算子的段若判成融合} \Rightarrow \textbf{后面的级被静默跳过}（\text{错数，不报错}）$$
+$$\Rightarrow\ \textbf{PS 侧加门禁}：\mathtt{len(ops)}{=}{=}1\ \wedge\ \mathtt{ops[0].kind}{=}{=}\mathtt{conv}\ \text{才融合}$$
+$$\Rightarrow\ \text{实测（FakePL 整网 223 段）}：\textbf{融合 90 段 / 140 条描述符}，\text{其余 133 段走 v39 逐 op}$$
+
+### 15.5 门禁实测（全部通过，日志在 `runs/v89_desc/`）
+
+| 判据 | 结果 |
+|---|---|
+| `bin_segq` 四条 FSM 路径 + 3 条新判据（out_pa 落地 / flags=0 不误判 / 越界报 E_RANGE） | **28 ok / 0 fail**（旧 RTL 对照：22 ok / **6 fail**） |
+| `xvlog -sv` 全 15 个文件 | rc=0，**0 error / 0 warning** |
+| `xelab bin_unit_axi_wrap_v50 VLANES=8 / 16` | **Built**（两份快照） |
+| `FUSE=0` 结构不变 | 全部 `sel_fuse_q ? … : v39` 的**else 分支逐字节未动**；唯一改动的 `u_err` 只在 fuse 分支加 `arena_err` |
+| `verify_lazy_net --hw 64`（taskset −c 6-7） | sha1 **`104710f69c4d / 2ac6efec2325 / 8ab595fcf7cd`** = 冻结值；改前/改后归一化 stdout **0 差异** |
+| `FUSE=1`（FakePL 无链引擎 ⇒ 自动回落 v5） | sha1 与 FUSE=0 **逐位相同**（回落是字节等价的） |
+| `verify_rtl_root` | **MATCH=35 DIFF=0 EXTRA=0 MISSING=0 PASS**（manifest 已刷新） |
+
+### 15.6 还剩几条阻断 → 能不能出位流
+
+$$\Rightarrow\ \textbf{位流可以出}：\text{结构上是 v39 基线 + 新增链通路，}\mathtt{FUSE=0}\ \text{路径逐位不变（已证）}$$
+$$\Rightarrow\ \textbf{但 } \mathtt{FUSE=1}\ \text{现在还不能上板}，\text{还差三条：}$$
+$$\quad \text{① } \textbf{带级联缺集成仿真}：\text{segq 单模块 TB 过了，但 } \mathtt{fill\to conv\to band\to drain}\ \text{的带级联}\textbf{没有 TB}$$
+$$\quad \text{② } \textbf{级联序列器缺失}：\text{要吃到 } \mathtt{conv\to cat}\ \text{必须移植 IMP-B2 的 } \mathtt{bin\_band\_seq.v}\ (45\ \text{条段})$$
+$$\quad \text{③ } k\ge3\ \text{不可融合}：\mathtt{cfg\_h}\ \text{双用途（§14.7），要改核或改契约}$$
+$$\Rightarrow\ \text{建议门禁：}\mathtt{FUSE=1}\ \text{上板前必须先有 } \text{① 的逐个带级 TB 证据（否则又是"仿真等价、硬件崩"}$$

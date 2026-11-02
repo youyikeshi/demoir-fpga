@@ -1633,11 +1633,27 @@ def make_segment_plan(g, outs, band_rows=None, budget=None, vlanes=None,
         for k in kinds:
             op_mask |= (1 << BE.V50_OP_BITS[k]) if k in BE.V50_OP_BITS else 0
         why = None
+        _ks = sorted({int(o.layer.k) for o in ops if o.kind == "conv"})
         if over:
             why = "缓冲 %.1fKB > 预算 %.0fKB ⇒ 退回逐 op" % (
                 buf_bytes / 1024.0, budget / 1024.0)
         elif unsupported:
             why = "含 band 通路不支持的算子 %s ⇒ 退回逐 op" % (unsupported,)
+        elif not (len(ops) == 1 and ops[0].kind == "conv"):
+            # ★ T-89（§15）：lane16 的包装层**没有带内级联序列器**（对比 IMP-B2 的
+            #   `seq_stage`/bin_band_seq.v）：一个带只起一次 conv（`c_start =
+            #   seg_band_start`），`e_start`/`k_start` 仍只走 v39 的地址选择。
+            #   ⇒ 含 2 级及以上算子的段若判成融合，**后面的级会被静默跳过**（错数）。
+            #   本阶段只融合"单级 conv"段；多级段继续走 v39 逐 op（数值不变）。
+            why = ("含 %d 级算子 %s ⇒ 本阶段带内只能跑单级 conv"
+                   "（无级联序列器，docs/V50_ARCHITECTURE.md §15）"
+                   % (len(ops), "/".join(kinds)))
+        elif any(k != 1 for k in _ks):
+            # ★ T-89（§14.7）：conv 核的 cfg_h 同时是"输出行数"和"64-通道块步长乘数"，
+            #   halo≠0 时两者不可兼得 ⇒ k=3/5 的段继续走 v39 逐 op（数值路径不变）。
+            why = ("含 k=%s 的 conv ⇒ 本阶段融合只跑 k=1"
+                   "（核 cfg_h 双用途，docs/V50_ARCHITECTURE.md §14.7）"
+                   % (",".join(str(k) for k in _ks),))
         # 段边界（fan-out 处必须物化）：段内产出、被段外读 或 是网络输出
         boundary = []
         for o in ops:
@@ -2620,13 +2636,69 @@ class BinNet:
                       % (seg.seg_id, len(descs), out_pa, vlanes,
                          ",".join(str(int(d[6])) for d in descs)), flush=True)
             head, _words = self._segplan.write_segment_chain(descs)
-            e.v50_submit_chain(head, len(descs))
+            # ★ T-89 ①（§14.5）：`cout/k/s/d/pad` 在 10 字描述符里**没有位置**
+            #   ⇒ 走**段边界寄存器**（与 §11.6 的权重/PRM 基址同款）。
+            #   必须写在 `CHAIN_HEAD` **之前**：链是逐段提交的，段边界天然可达，
+            #   但 kick 之后 RTL 立刻用这些值 ⇒ 晚一拍就是第一条描述符用错值。
+            e._wr_seq(self._v50_seg_cfg_pairs(seg, ops), collect=None)
+            e.v50_submit_chain(head, len(descs),
+                               arena=self._v50_arena_window())
             e.v50_wait_chain()
             # 段输出：走 v5 的 epilogue（read_out 的 C8 还原 + 反量化，同标度）
             last.out.val = e.read_out(outb, last.layer)
         finally:
             be._release_slot(slot)
         return len(descs)
+
+    def _v50_seg_cfg_pairs(self, seg, ops):
+        """段边界寄存器 `(addr, value)` 列表 —— cout / k / s / d / pad。
+
+        ★ T-89（docs/V50_ARCHITECTURE.md §14.5）：这些量在 §13/§14 的 10 字
+        描述符里**没有位置**（w4 被行宽 W 占、w5 被 cfg_group 占），所以只能
+        走段边界寄存器；RTL 侧 `c_cfg_cout/k/s/d/pad` 已改成直接吃 `r_*`。
+
+        ★ 本阶段**锁 k=1**（主代理裁定）：conv 核的 `cfg_h` 是双用途
+        （conv:156 输出行数 / conv:163 通道块步长），`halo≠0` 时二者不可兼得。
+        段计划已把含 k≠1 的段判成"不融合"，这里再核一遍：融合段里出现 k≠1
+        直接抛（绝不静默按 k=1 算错数）。
+        """
+        convs = [o for o in ops if o.kind == "conv"]
+        if not convs:
+            raise MissingPiece("融合段里没有 conv 级（cout/k/s/d/pad 无从取值）")
+        ks = sorted({int(o.layer.k) for o in convs})
+        ss = sorted({int(o.layer.s) for o in convs})
+        dd = sorted({int(o.layer.dil) for o in convs})
+        pads = sorted({int(o.layer.pad) for o in convs})
+        if (len(ks) != 1) or (len(ss) != 1) or (len(dd) != 1) or (len(pads) != 1):
+            raise MissingPiece(
+                "段内 conv 的 k/s/d/pad 不一致（k=%s s=%s d=%s pad=%s）⇒ "
+                "段边界寄存器表达不了，该段不该被判成融合" % (ks, ss, dd, pads))
+        k = ks[0]
+        if k != 1:
+            raise MissingPiece(
+                "k=%d：本阶段融合只跑 k=1（conv 核 cfg_h 双用途，halo≠0 不自洽，"
+                "docs/V50_ARCHITECTURE.md §14.7）" % k)
+        cout = int(seg.c_out or 0)
+        if cout <= 0:
+            raise MissingPiece("段 cout=%r 非法" % (seg.c_out,))
+        v = max(1, int(BE.vlanes_now()))
+        if cout % v != 0:
+            raise MissingPiece("cout=%d 不是 VLANES=%d 的整数倍 ⇒ band 排空字数不整"
+                               % (cout, v))
+        _cf = BE.CFG
+        return ((_cf + BE.BIN_REG["COUT"], cout),
+                (_cf + BE.BIN_REG["K"], k),
+                (_cf + BE.BIN_REG["S"], ss[0]),
+                (_cf + BE.BIN_REG["D"], dd[0]),
+                (_cf + BE.BIN_REG["PAD"], pads[0]))
+
+    def _v50_arena_window(self):
+        """注册 arena 的物理窗口 `(lo, hi)` —— 写 0x318/0x31C 用（§14.4）。"""
+        w = getattr(self, "_v50_arena_pa", None)
+        if not w:
+            raise MissingPiece("没有 arena 物理窗口（`_v50_materialize` 没跑？）"
+                               "⇒ 拒绝提交链（RTL 的 in_arena 会退化成恒真）")
+        return (int(w[0]), int(w[1]))
 
     def _v50_chain_probe(self):
         """问引擎：链模式可用吗？（`BIN_V50_FUSE=0` 时直接 False，不碰寄存器）"""
@@ -2653,6 +2725,14 @@ class BinNet:
         """
         try:
             info = self._segplan.materialize(arena)
+            # ★ T-89（§14.4）：整块 arena 的物理窗口 = 0x318/0x31C 要写的值。
+            #   arena 里同时放描述符链与所有段张量，所以这就是 segq 的合法域。
+            try:
+                _pa = int(getattr(arena, "pa", 0) or 0)
+                _sz = int(getattr(arena, "size", 0) or 0)
+                self._v50_arena_pa = (_pa, _pa + _sz) if (_pa and _sz) else None
+            except Exception:                             # noqa: BLE001
+                self._v50_arena_pa = None
             self._v50_chain_view = getattr(self._segplan, "view", None)
             self._v50_chain_pa = int(getattr(self._segplan, "head_pa", 0) or 0)
             if BE._v50_env_on("BIN_V50_DUMP") or self.verbose:

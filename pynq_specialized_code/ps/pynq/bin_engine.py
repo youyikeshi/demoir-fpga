@@ -1901,7 +1901,7 @@ class BinConvEngine:
         return getattr(self, "_v50_why", "")
 
     def v50_submit_chain(self, head_pa, n_desc, band_rows=None, timeout=None,
-                         wdt=None):
+                         wdt=None, arena=None):
         """**一次**提交整条链：BAND_ROWS / FUSE_MODE / CHAIN_HEAD → start。
 
         红线（契约 D3 + 板端事故教训）：
@@ -1947,7 +1947,24 @@ class BinConvEngine:
                 "kick 前 CHAIN_STATUS 仍 busy（raw=%#010x，progress 未知）："
                 "上一次运行没停 ⇒ **拒绝提交**（契约 D3；err 在 kick 前"
                 "无意义，这里不看 err，R3 §12.2）" % (st0["raw"],))
-        self._wr_seq(((CFG + V50_CHAIN_REG["BAND_ROWS"], br),
+        # ★ T-89：arena 窗口必须在 CHAIN_HEAD **之前**落到 0x318/0x31C。
+        #   不给就**拒绝提交**（不静默拿 RTL 的 fallback 兜）：
+        #   `arena=(lo, hi)`，两个都是物理地址，lo < hi，窗口要盖住
+        #   描述符链 + 本次段用到的 in/out 张量。
+        if arena is None:
+            raise ValueError(
+                "v50 提交链必须给 arena 窗口（0x318/0x31C）：不给 ⇒ RTL 的 "
+                "`in_arena` 退化成恒真（复位默认值），越界 out_pa 会**静默**写坏内存"
+                "（§14.4）")
+        a_lo, a_hi = int(arena[0]), int(arena[1])
+        if not (0 < a_lo < a_hi <= 0x1_0000_0000):
+            raise ValueError("arena 窗口非法：[%#x, %#x)" % (a_lo, a_hi))
+        if not (a_lo <= int(head_pa) < a_hi):
+            raise ValueError("链首 %#x 不在 arena [%#x, %#x) 内"
+                             % (int(head_pa), a_lo, a_hi))
+        self._wr_seq(((CFG + V50_CHAIN_REG["ARENA_LO"], a_lo),
+                      (CFG + V50_CHAIN_REG["ARENA_HI"], a_hi),
+                      (CFG + V50_CHAIN_REG["BAND_ROWS"], br),
                       (CFG + V50_CHAIN_REG["FUSE_MODE"], 1),
                       (CFG + V50_CHAIN_REG["CHAIN_HEAD"], head_pa)), collect=None)
         t0 = time.time()
@@ -2361,7 +2378,13 @@ V50_DESC_STRIDE = 4096                 # 契约 B：4 KB 对齐 ⇒ 步进 4 KB
 V50_BUDGET_BYTES = 270 * 1024          # 契约 D4：BRAM 剩 ≈270 KB
 V50_CHAIN_REG = dict(CHAIN_HEAD=0x300, PROGRESS=0x304,
                      BAND_ROWS=0x308, FUSE_MODE=0x30C,
-                     CHAIN_STATUS=0x310, CHAIN_ID=0x314)
+                     CHAIN_STATUS=0x310, CHAIN_ID=0x314,
+                     # ★ T-89（docs/V50_ARCHITECTURE.md §14.4）：
+                     #   ARENA_LO/HI 的复位值是 0 / 0xFFFF_FFFF ⇒ RTL 的 `in_arena`
+                     #   恒真 ⇒ 越界的 in_pa/out_pa **一条 err 都不报**（静默写坏内存）。
+                     #   PS 必须在 CHAIN_HEAD 之前写这两个寄存器（RTL 侧另有
+                     #   "还是默认值就 fallback 到 0x3000_0000..0x3FFF_FFFF" 的兜底）。
+                     ARENA_LO=0x318, ARENA_HI=0x31C)
 # 链引擎 magic（RTL 里硬写死的只读常量）：`0x314` 读回它就说明真在位。
 # ★ 契约 R3 §12.1（2026-11-02）：**以 RTL 为准 = 0x5030_0001**。
 #   改前 PS 这里是 `0x7635_5000`（T-81 的旧常量），而 RTL 的

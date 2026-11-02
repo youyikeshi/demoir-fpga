@@ -237,11 +237,13 @@ module bin_segq #(
             chk_ok = 1'b0; chk_err = E_SIZE;
         end else if ((dw[4][63:48] & ~OP_MASK_SUP[15:0]) != 16'd0) begin
             chk_ok = 1'b0; chk_err = E_OPMASK;
-        end else if ((dw[0][31:0] == 32'd0) || (dw[1][31:0] == 32'd0)
-                     || (dw[3][63:32] == 32'd0)) begin
+        // ★ T-89：必需基址只有两个 —— 字0 in_pa、字1 out_pa。
+        //   （旧版写成 dw[1][31:0] = 字2 = cin，并且要求 dw[3][63:32]
+        //     = 字7 = flags 非 0 ⇒ cin=0 / flags=0 被误判 E_NULL）
+        end else if ((dw[0][31:0] == 32'd0) || (dw[0][63:32] == 32'd0)) begin
             chk_ok = 1'b0; chk_err = E_NULL;
         end else if (!in_arena({32'd0, dw[0][31:0]}, {32'd0, band_words} << 3)
-                     || !in_arena({32'd0, dw[1][31:0]}, {32'd0, band_words} << 3)) begin
+                     || !in_arena({32'd0, dw[0][63:32]}, {32'd0, band_words} << 3)) begin
             chk_ok = 1'b0; chk_err = E_RANGE;
         end
     end
@@ -315,14 +317,15 @@ module bin_segq #(
                 // 校验 + 字段锁存：失败 ⇒ 直接 ERR（一个请求都不发）
                 // --------------------------------------------------------
                 S_CHK: begin
-                    // 字2 = dw[1][31:0]   {16'h0, cin}
-                    // 字3 = dw[1][63:32]  {h, w}
-                    // 字4 = dw[2][31:0]   {16'h0, cout}
-                    // 字5 = dw[2][63:32]  {pad, d, s, k}
-                    // 字6 = dw[3][31:0]   {8'h0, ssh, ash, shift}
-                    // 字7 = dw[3][63:32]  wgt_pa
-                    // 字8 = dw[4][31:0]   next_pa
-                    // 字9 = dw[4][63:32]  {op_mask, nband}
+                    // ★ T-89 / §14 权威表：dw[i] 是 **64-bit 拍**，不是"字"
+                    //   字0 = dw[0][31:0]   字1 = dw[0][63:32]   ← 本文件曾把字1 漏掉
+                    //   字2 = dw[1][31:0]   字3 = dw[1][63:32]
+                    //   字4 = dw[2][31:0]   字5 = dw[2][63:32]
+                    //   字6 = dw[3][31:0]   字7 = dw[3][63:32]
+                    //   字8 = dw[4][31:0]   字9 = dw[4][63:32]
+                    //   字0=in_pa(装载源) 字1=out_pa(排空基址) 字2={16'h0,cin}
+                    //   字3={h,w} 字4={16'h0,cout} 字5={pad,d,s,k}
+                    //   字6=band_y0(R1) 字7=flags(R1) 字8=next_pa 字9={op_mask,nband}
                     f_cin    <= dw[1][15:0];
                     f_h      <= dw[1][63:48];
                     f_w      <= dw[1][47:32];
@@ -337,14 +340,14 @@ module bin_segq #(
                     f_nband  <= dw[4][47:32];
                     f_opmask <= dw[4][63:48];
                     f_in     <= dw[0][31:0];
-                    f_out    <= dw[1][31:0] & 32'hFFFF_FFFF;
+                    f_out    <= dw[0][63:32];                // 字1 = out_pa
 
                     if (!chk_ok) begin
                         st         <= S_ERR;
                         err_q_code <= chk_err;
                     end else begin
                         ld_base <= dw[0][31:0];
-                        st_base <= dw[1][31:0];
+                        st_base <= dw[0][63:32];         // 字1 = out_pa
                         cnt_q   <= 32'd0;
                         tmo_q   <= 32'd0;
                         st      <= S_LOAD;
