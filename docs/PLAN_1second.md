@@ -6175,3 +6175,66 @@ $$\Rightarrow\ \mathtt{done}\ \text{必须晚于}\mathbf{\text{写全部落地}}
 $$\Rightarrow\ s{=}2\ \text{的 } H_{\text{out}}W_{\text{out}}\ \text{减半与 } \mathtt{plane\_stride}\ \text{的一致性}$$
 $$\Rightarrow\ \text{边界 pad（}k{=}3\ \text{在张量边缘）与 halo 的叠加}$$
 $$\Rightarrow\ \text{奇数 } H/W、\text{末带、} \mathtt{nband} < \mathtt{BAND\_ROWS}\ \text{等边界}$$
+
+### 70.74 ★★★★★ T-106 审计：**"被验证的树 ≠ 被交付的树"**（2026-11-02 23:42）
+
+**最出乎意料的发现（改变下一步动作）**
+$$\Rightarrow\ \text{T-105 的 } s{=}2\ \text{修复}\textbf{已通过测试}（\mathtt{rtl\_after}\ 24576/24576\ \text{逐字节 PASS，}\mathtt{before}\ 6499/24576\ \text{FAIL}）$$
+$$\Rightarrow\ \textbf{但活树 } \mathtt{runs/timing\_v50/rtl\_v50/lane16/bin\_unit\_axi\_wrap\_v50.v}\ \text{md5 = } \mathtt{f1ff43a5} = \mathtt{rtl\_before}$$
+$$\quad\ \text{T-105 的修复只在 } \mathtt{runs/v105\_stride2/rtl\_after/}\（\mathtt{17164dfc}）\ \textbf{没合回权威树}$$
+$$\Rightarrow\ \Rightarrow\ \text{"没测过 } s{=}2\text{" 这个前提是}\textbf{错的};\ \text{真正的缺口是}\mathbf{\text{"被验证的树} \neq \text{被交付的树"}}\ \text{且}\textbf{毫无门禁}$$
+
+**s=2 根因（T-106 定位到行）**
+$$\Rightarrow\ \mathtt{bin\_unit\_axi\_wrap\_v50.v:1659\text{-}1660,1691}：\mathtt{npix} = \mathtt{c\_cfg\_h} \times \mathtt{c\_cfg\_w}（\textbf{输入 } H\times W，\text{应为 } H_{\text{out}}W_{\text{out}}）$$
+$$\Rightarrow\ s{=}2\ \text{时大 } \mathbf{4\ \text{倍}} \Rightarrow \text{① } \mathtt{pix\_q}\ \text{回绕点错} \Rightarrow \text{组内像素号跨组累加}$$
+$$\quad\ \text{② } \mathtt{plane\_delta}\ \text{大 4 倍} \Rightarrow \text{beat1 落到 beat0+4 个平面（应 } +1）\Rightarrow \text{末两组越界写}$$
+$$\Rightarrow\ \text{与板上指纹 } f=(0,2,4,6,1,3,5,7,8,10,12,14)\ \text{完全吻合}$$
+
+**B 类假设在 RTL 层被否证**
+$$\Rightarrow\ \mathtt{done}\ \text{需 } \mathtt{run\_active\ \&\&\ unit\_done\_q\ \&\&\ wr\_all\_idle};\ \mathtt{wr\_all\_idle}\ \text{含 } \mathtt{!p\_valid\ !pw\_valid\ bf/df==0}$$
+$$\quad\ \text{且 AX 状态机 } \mathtt{AX\_B}\ \text{必须等 } \mathtt{m\_axi\_bvalid}\ \text{才回 } \mathtt{AX\_IDLE} \Rightarrow \text{写响应已落地}$$
+$$\Rightarrow\ \text{残留风险只剩两处：① } \mathtt{bin\_segq.v:432}\ \text{err 路径置 done }\textbf{不等 } \mathtt{wr\_all\_idle}$$
+$$\quad\ \text{② PS } \mathtt{bin\_engine.py:2166\text{-}2177}\ \text{的 } \mathtt{BIN\_EPI\_NOINV=1}\ \text{在 lazy 路径跳过 } \mathtt{\_invalidate}$$
+$$\quad\ \Rightarrow\ \text{其安全性依赖"所有 CPU 读都汇到 } \mathtt{read\_out(lazy=False)}\text{"这个}\textbf{没有测试} \Rightarrow \textbf{bug B 排查重心移到 PS}$$
+
+**s 取值域无守护（会静默越界写）**
+$$\Rightarrow\ \text{核 } :155\ \text{只判 } \mathtt{s==2};\ \text{启动闸门 } :1232\ \text{只拒 } \mathtt{r\_s==0} \Rightarrow \mathtt{s}=3..65535\ \textbf{全放行且报成功}$$
+$$\Rightarrow\ \text{而 PS } \mathtt{bin\_ref\_numpy.py:128}\ \text{按任意 } s\ \text{算} \Rightarrow s{=}3\ \text{时 RTL 写 } H\!\times\!W、\text{PS 期望 } \lceil H/3\rceil^2 \Rightarrow \textbf{越界写 3 倍}$$
+
+**门禁结果（可执行）**
+$$\Rightarrow\ \mathtt{inv\_lint.py}\ \text{双向验证：活树 } \mathbf{PASS\ 14 / FAIL\ 8}（\text{含 I1}）；\mathtt{rtl\_after}\ \mathbf{PASS\ 15 / FAIL\ 7}（\text{I1 转 PASS}）$$
+$$\Rightarrow\ \Rightarrow\ \textbf{这个门禁能区分修复}，\text{应纳入流程}$$
+
+**覆盖矩阵：空格 106/120 = 88\%**
+$$\Rightarrow\ d{=}2\ \text{零覆盖}（\text{25 形状全 } d{=}1;\ \mathtt{bin\_3x32\_48\_d2}\ \text{有形状无 golden、}\textbf{从未被调用＝死入口}）$$
+$$\Rightarrow\ \text{奇数 } H/W\ \text{零覆盖}（H,W\in\{8,16,32\}）;\ s{=}2 \times \mathtt{cout}\%16\neq0\ \text{零覆盖}$$
+$$\Rightarrow\ \text{真实网有 } \mathtt{cout}{=}12\ \text{的 3 层}\textbf{从未被测};\ \mathtt{cin}{=}112、k{=}5\ \text{零覆盖}$$
+
+**最危险的共模问题**
+$$\Rightarrow\ \#1/\#2\ \text{平面序} \times \text{C8 布局}：\text{TB 期望、golden } \mathtt{c8\_index}、\text{PS } \mathtt{from\_c8\_deq}\ \textbf{共用同一公式}$$
+$$\Rightarrow\ \Rightarrow\ \textbf{共模比对} \Rightarrow \text{契约本身写错}\textbf{永远发现不了}$$
+
+### 70.75 ✅ `s=2` 修复合入 + v53 构建完成（2026-11-03 00:04）
+
+**合入（我做的，四道门）**
+$$\Rightarrow\ \text{拷 } \mathtt{rtl\_after}\to\text{主线};\ \text{md5 } \mathtt{f1ff43a5}\to\mathbf{\mathtt{17164dfc3029ace1cbcb9eaa08af6213}}$$
+$$\Rightarrow\ \text{manifest 只刷 1 条};\ \mathtt{verify\_rtl\_root}\ \mathbf{PASS};\ \mathtt{inv\_lint}\ \mathbf{PASS\ 15/FAIL\ 7}（\text{合入前 }14/8）\Rightarrow \mathbf{I1\ \text{转 PASS}}$$
+$$\Rightarrow\ \textbf{我中途犯的错}：\text{第一次写 manifest 时把 md5 截断值补假字符凑 32 位} \Rightarrow \mathtt{verify\_rtl\_root}\ \text{立刻 } \mathtt{DIFF=1}\ \text{拦住}$$
+$$\quad\ \Rightarrow\ \text{改用真实 md5 才过} \Rightarrow \textbf{门禁拦住了人（含我），这是它对的地方}$$
+
+**v53 构建（T-107）**
+$$\Rightarrow\ \text{bit } \mathbf{\mathtt{e19de0326fe657fc8de9ddd241ecc729}};\ \text{md5 清单 30/30 过}$$
+$$\Rightarrow\ \mathbf{routed\ WNS = +0.041\ \text{ns}}，\text{TNS }0，\text{违例端点 }0$$
+$$\quad\ \Rightarrow\ \text{v51 是 } +0.113 \Rightarrow \text{本次修复代价 } \mathbf{-0.072\ \text{ns}}（\text{仍为正）}$$
+$$\Rightarrow\ \text{资源 LUT } \mathbf{21496}（\text{v51 } 21873，-377）/ \text{FF } 21762（-60）/ \text{BRAM } 43 / \text{DSP } 126$$
+$$\Rightarrow\ \text{Z5：}\mathtt{g\_wr\_split2}\ \text{内 } \mathtt{DSP48E1} = \mathbf{1} \Rightarrow \text{乘法器确为 } 16\times16\ \text{单 DSP}（32\times32\ \text{需 } 2\sim4）\Rightarrow \textbf{没新增 DSP}$$
+$$\Rightarrow\ \text{Z4：}\mathtt{bin\_conv\_core\_v50}=1、\text{8-lane}=0、\mathtt{g\_wram}=16、\mathtt{g\_wr\_split2}\ \text{在（735 cell）}$$
+
+**⚠ T-107 纠正了我的一个前提错误**
+$$\Rightarrow\ \text{我在 brief 里把 } +0.524 / 21524/21805\ \text{当成"v51 的数"} \Rightarrow \textbf{那是 v52 的}（\text{v52 已 revert）$$
+$$\Rightarrow\ \text{真实关系：}\mathbf{v53 = v51 + s{=}2\ \text{修复}}，\text{不是 v52 + 修复}$$
+$$\Rightarrow\ \textbf{第 121 条：引用历史数字必须写清"哪个位流/哪棵树"，否则会拿被回退的版本当基线}$$
+
+**资源竞争的旁况**
+$$\Rightarrow\ \text{另一会话}\textbf{绕过 } \mathtt{memgate}\ \text{裸起了 HDMI 的 vivado}（\text{未持锁）$$
+$$\Rightarrow\ \text{T-107 选择}\textbf{等它结束}，\text{没 } \mathtt{pkill} \Rightarrow \text{处置正确}$$
