@@ -268,3 +268,41 @@ $$\Rightarrow\ \text{描述符里的 } \mathtt{desc\_pa}\ \text{仍按 v39 语�
 $$\Rightarrow\ \text{② } \mathtt{op\_mask}\ \text{只实现 bit0（conv）};\ \textbf{conv}\to\textbf{pack}\to\textbf{sam}\ \text{的}\textbf{带内串联序列未做}$$
 $$\Rightarrow\ \text{④ } \mathtt{catpack}\ \text{融合模式不支持（} \mathtt{fuse\_cfg\_bad}\to \mathtt{ERR\_UNIT}）$$
 $$\Rightarrow\ \text{⑤ 层例化依赖 IMP-A 的核文件存在（无核时 } \mathtt{xvlog}\ \text{过、} \mathtt{xelab}\ \text{不过）}$$
+
+---
+
+## 12. 契约修订 R3：三处不一致的裁定（2026-11-02 16:00）
+
+### 12.1 magic 值不一致（**PS 与 RTL 各说一个**）
+$$\Rightarrow\ \text{RTL（T-82/T-83 已仿真验证）：}\mathtt{0x314}\ \text{只读恒 } \mathbf{\mathtt{0x5030\_0001}}$$
+$$\Rightarrow\ \text{PS（T-81）：期望 } \mathbf{\mathtt{0x7635\_5000}}$$
+$$\Rightarrow\ \Rightarrow\ \textbf{裁定：以 RTL 为准 = } \mathtt{0x5030\_0001}$$（\text{它已在 } \mathtt{xsim}\ \text{里逐项验过，PS 只是常量}）
+$$\Rightarrow\ \text{PS 侧改常量，}\mathtt{BIN\_V50\_CHAIN\_MAGIC}\ \text{仍可覆盖};\ \textbf{但必须保留"读不到就不走链"}$$
+
+### 12.2 `0x310` 空闲态误报 err（T-83 发现）
+$$\Rightarrow\ \text{复位后 } \mathtt{0x310}\ \text{读 } \mathbf{\mathtt{0x0403}}（\mathtt{done}=1,\ \mathtt{err}=1,\ \mathtt{code}=4=\mathtt{E\_CANARY}）$$
+$$\Rightarrow\ \text{机理：}\mathtt{band\_buf.shape\_bad}（\mathtt{cfg\_c}=0/\mathtt{cfg\_w}=0\ \text{在复位态恒真）}\to \mathtt{cap\_err}\ \text{粘滞}\to \mathtt{band\_bad}\to \mathtt{segq}\to \mathtt{S\_ERR}$$
+$$\Rightarrow\ \text{kick 会清零，所以 kick 后正常；但}\textbf{PS 若在 kick 前读 } \mathtt{0x310}\ \text{判 err 会误判}$$
+$$\Rightarrow\ \textbf{裁定（两边都改）}：$$
+$$\quad\ \text{① RTL：}\mathtt{cap\_err}\ \textbf{在第一次 kick 之前不许置位}（\text{加 } \mathtt{cfg\_valid}\ \text{门控}）$$
+$$\quad\ \text{② PS：}\textbf{kick 之前不读 } \mathtt{err}，\text{只看 busy/done}；\mathtt{err}\ \text{只在 kick 之后有意义}$$
+
+### 12.3 描述符字 3 高 16 = `H_in`（IMP-B2 的 C5 缺口）
+$$\Rightarrow\ \text{R2 里我写了"band 装输入 } [\mathtt{y0}-\mathtt{HALO},\ \mathtt{y0}+\mathtt{nband}+\mathtt{HALO})"\text{，但}\textbf{没说 } H_{\text{in}}\ \text{从哪来}$$
+$$\Rightarrow\ \text{IMP-B2 的实现落到"}\textbf{字 3 高 16 改解释成 } \mathtt{H\_in}\text{"} \Rightarrow \textbf{采纳，写进契约 B}$$
+$$\Rightarrow\ \textbf{契约 B 修订}：\text{字 3 = } \mathtt{cfg\_h}\ (\text{低 }16) \parallel \mathtt{H\_in}\ (\text{高 }16)$$
+$$\quad\ \text{填充器用 } \mathtt{H\_in}\ \text{判 } \mathtt{yr}\ge H_{\text{in}}\Rightarrow \text{整行写 0}；\text{PS 必须两个都填}$$
+$$\Rightarrow\ \text{若 PS 只填低 16（旧行为）}\Rightarrow \mathtt{H\_in}=0 \Rightarrow \textbf{整带全 0} \Rightarrow \text{会在 sha1 上立刻暴露（好事）}$$
+
+### 12.4 SAM 的垂直抽头与 `cfg_h=nband` **互斥**（IMP-B2 的 C5）
+$$\Rightarrow\ \text{网络里的 } \mathtt{sam}\ \text{用 } y_2/y_4\ \textbf{垂直抽头}（\text{T-67 也说 }\mathtt{sam}\ \text{结构性必须两趟）$$
+$$\Rightarrow\ \text{而 } \mathtt{cfg\_h}=\mathtt{nband}\ \text{的段内行带是"输出行"}\Rightarrow \text{抽头需要}\textbf{多行输入同时在带内}$$
+$$\Rightarrow\ \textbf{裁定：}\mathtt{SAM}\ \textbf{不进融合段}（\text{本阶段}）$$
+$$\quad\ \Rightarrow \mathtt{op\_mask}\ \text{的 bit2 保留但不许 PS 下发}；\mathtt{pack}\to\mathtt{sam}\ \text{的数据语义}\textbf{当前不成立}$$
+$$\quad\ \Rightarrow\ \text{这也印证 T-67：}\mathtt{sam/tor}\ 0.245\ \text{s}\ \text{那一块}\textbf{先不动}$$
+$$\Rightarrow\ \text{本阶段的融合只做 }\mathbf{CONV}\to\mathbf{PACK}\ \text{（}\mathtt{op\_mask}=0x3\text{）}$$
+
+### 12.5 `in_pa`（字 0）在 band 模式下的语义（T-81 指出待裁）
+$$\Rightarrow\ \text{旧语义：段输入张量基址（DDR）}$$
+$$\Rightarrow\ \text{band 模式：输入来自 band 缓冲} \Rightarrow \text{字 0 改用为}\textbf{段输入在 DDR 的源基址}（\text{填充器用}）$$
+$$\Rightarrow\ \Rightarrow\ \textbf{裁定：字 0 在 } \mathtt{FUSE\_MODE=1}\ \text{时解释为"段输入 DDR 基址"}，\text{band 偏移由 } \mathtt{band\_y0}\ \text{与填行号算}$$
