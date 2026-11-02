@@ -6290,3 +6290,35 @@ $$\Rightarrow\ \text{但 } \mathtt{LAZY=1}\ \text{两次运行不同}（\text{�
 $$\Rightarrow\ \Rightarrow\ \textbf{现在用的 } \mathtt{LAZY=0}\ \text{是"正确但慢 0.87 s"的绕行方案} \Rightarrow \text{B 类值得修}$$
 
 $$\Rightarrow\ \textbf{结论}：\text{16-lane 的}\textbf{64}^2\ \text{逻辑已完全正确};\ \text{256}^2\ \text{仍需同一套逐 op 二分}$$
+
+### 70.79 ★★★★★ 256² 的根因排查：**槽数与 CMA 双双无罪，是"PL 只干了一半"**（T-114，2026-11-03 00:46）
+
+**A：槽数无罪（14 跑）**
+| 槽数 | arena | sha1=冻结 | 两次同 | PL/公式 |
+|---|---|---|---|---|
+| 2 | 0.42 MB | ✓✓✓ | ✓ | 1.16 |
+| 4 | 0.77 MB | ✓✓✓ | ✓ | 1.18 |
+| 8 | 1.47 MB | ✓✓✓ | ✓ | 1.18 |
+| 24 | 4.29 MB | ✓✓✓ | ✓ | 1.15 |
+
+$$\Rightarrow\ \text{低槽数}\textbf{完全不复现"错+两次不同"} \Rightarrow \textbf{槽数无辜}$$
+$$\Rightarrow\ \text{且 } \mathtt{BIN\_LAZY\_DEQ=0}\ \text{时 } \mathtt{nbuf}\ \text{结构上恒为 2} \Rightarrow \text{槽数只是尺寸旋钮} \Rightarrow \text{A 的结论对 }256^2\ \text{直接适用}$$
+
+**B：CMA 也无罪，且我采信了一个错误读数**
+$$\Rightarrow\ 256^2\ \text{用 }\mathbf{24\ \text{槽}（66{,}224{,}128\ \text{B，exact）}\ \text{照样错，两次还不同}$$
+$$\Rightarrow\ \textbf{那 66 MB 是在 } \mathtt{CmaFree}\ \text{只有 }5.34\ \text{MB 时分配成功的} \Rightarrow \textbf{本机 CMA 是可迁移区}（\text{page cache 占位会被迁出）$$
+$$\Rightarrow\ \Rightarrow\ \mathbf{\mathtt{CmaFree}\ \text{是误导性读数}};\ \text{T-112 的"拿不到 24 槽"混淆变量}\textbf{根本不存在}$$
+$$\quad\ \Rightarrow\ \text{而 } \mathtt{pick\_slots()}\ \text{的 } \mathtt{need\le 0.80\times CmaFree}\ \text{只是探针自己的保守闸门}$$
+$$\Rightarrow\ \textbf{第 122 条：}\mathtt{CmaFree}\ \text{不能当"能否分配"的判据}，\text{要用"实际分配成功与否"}$$
+
+**★ 真正的指纹：PL/公式 比**
+$$\Rightarrow\ 64^2\ \text{稳态 } \mathbf{1.15\sim1.21} \Rightarrow \text{RTL 周期模型}\textbf{是准的}$$
+$$\Rightarrow\ 256^2\ \mathbf{0.48\sim0.50} \Rightarrow \textbf{PL 只干了约一半}$$
+$$\quad\ \Rightarrow\ \text{比值紧贴 } 0.5（0.483/0.498）\Rightarrow \text{不像随机竞态，更像}\textbf{"一半的 op 根本没跑"}$$
+$$\Rightarrow\ \text{PS 侧同步缩水}：11\ \text{ms/op}\to63\ \text{ms/op}（16\times\ \text{数据只有 }5.7\times\ \text{时间）}$$
+$$\Rightarrow\ \Rightarrow\ \textbf{有相当一部分 conv "PS 认为 done、PL 没做"，且无任何错误位}$$
+
+**首要怀疑：sticky-done / start 握手竞态**
+$$\Rightarrow\ \mathtt{wait()}\ \text{在写 } \mathtt{start}\ \text{后立即轮询 } \mathtt{AP\_RET.bit0}，\text{而 RTL done 是}\textbf{sticky}、\text{只由下一次 } \mathtt{start}\ \text{清}$$
+$$\Rightarrow\ \Rightarrow\ \text{可能读到}\textbf{上一层留下的 done} \Rightarrow \text{立刻"完成"} \Rightarrow \text{该 op 实际没跑}$$
+$$\Rightarrow\ \text{已派 T-115 做零副作用插桩：每 op 记 } (\mathtt{t0},\mathtt{t\_done},\mathtt{seconds},\mathtt{est\_s},\mathtt{cycles})，\text{数 } \mathtt{seconds}\approx0\ \text{的 op}$$

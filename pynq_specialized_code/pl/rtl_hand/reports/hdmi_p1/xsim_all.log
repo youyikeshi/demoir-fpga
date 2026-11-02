@@ -6,7 +6,7 @@
   **** SW Build 6403652 on Thu Mar 19 13:47:00 MDT 2026
   **** IP Build 6403511 on Thu Mar 19 12:41:45 MDT 2026
   **** SharedData Build 6403650 on Thu Mar 19 14:02:13 MDT 2026
-  **** Start of session at: Mon Nov  2 23:46:21 2026
+  **** Start of session at: Tue Nov  3 00:40:09 2026
     ** Copyright 1986-2022 Xilinx, Inc. All Rights Reserved.
     ** Copyright 2022-2026 Advanced Micro Devices, Inc. All Rights Reserved.
 
@@ -27,10 +27,10 @@ run -all
 RESULT: PASS  (4 modes, total errors = 0)
 --------------------------------------------------------------
 $finish called at time : 65452108622 ps : File "/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/rtl_hand/tb/tb_hdmi_timing.v" Line 305
-run: Time (s): cpu = 00:00:00 ; elapsed = 00:00:08 . Memory (MB): peak = 1453.129 ; gain = 0.000 ; free physical = 936 ; free virtual = 13325
+run: Time (s): cpu = 00:00:00.01 ; elapsed = 00:00:08 . Memory (MB): peak = 1437.125 ; gain = 0.000 ; free physical = 870 ; free virtual = 22748
 exit
-INFO: xsimkernel Simulation Memory Usage: 275572 KB (Peak: 340848 KB), Simulation CPU Usage: 9040 ms
-INFO: [Common 17-206] Exiting xsim at Mon Nov  2 23:46:31 2026...
+INFO: xsimkernel Simulation Memory Usage: 275572 KB (Peak: 340848 KB), Simulation CPU Usage: 8940 ms
+INFO: [Common 17-206] Exiting xsim at Tue Nov  3 00:40:19 2026...
 [timing] PASS
 === [i2c] xvlog ===
 === [i2c] xelab ===
@@ -40,7 +40,7 @@ INFO: [Common 17-206] Exiting xsim at Mon Nov  2 23:46:31 2026...
   **** SW Build 6403652 on Thu Mar 19 13:47:00 MDT 2026
   **** IP Build 6403511 on Thu Mar 19 12:41:45 MDT 2026
   **** SharedData Build 6403650 on Thu Mar 19 14:02:13 MDT 2026
-  **** Start of session at: Mon Nov  2 23:46:35 2026
+  **** Start of session at: Tue Nov  3 00:40:23 2026
     ** Copyright 1986-2022 Xilinx, Inc. All Rights Reserved.
     ** Copyright 2022-2026 Advanced Micro Devices, Inc. All Rights Reserved.
 
@@ -65,8 +65,8 @@ RESULT: PASS  (all I2C criteria met, errors = 0)
 --------------------------------------------------------------
 $finish called at time : 1722195 ns : File "/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/rtl_hand/tb/tb_sil9134_i2c.v" Line 300
 exit
-INFO: xsimkernel Simulation Memory Usage: 275504 KB (Peak: 340780 KB), Simulation CPU Usage: 940 ms
-INFO: [Common 17-206] Exiting xsim at Mon Nov  2 23:46:37 2026...
+INFO: xsimkernel Simulation Memory Usage: 275504 KB (Peak: 340780 KB), Simulation CPU Usage: 850 ms
+INFO: [Common 17-206] Exiting xsim at Tue Nov  3 00:40:25 2026...
 [i2c] PASS
 === [topcfg] xvlog ===
 === [topcfg] xelab ===
@@ -76,7 +76,7 @@ INFO: [Common 17-206] Exiting xsim at Mon Nov  2 23:46:37 2026...
   **** SW Build 6403652 on Thu Mar 19 13:47:00 MDT 2026
   **** IP Build 6403511 on Thu Mar 19 12:41:45 MDT 2026
   **** SharedData Build 6403650 on Thu Mar 19 14:02:13 MDT 2026
-  **** Start of session at: Mon Nov  2 23:46:42 2026
+  **** Start of session at: Tue Nov  3 00:40:30 2026
     ** Copyright 1986-2022 Xilinx, Inc. All Rights Reserved.
     ** Copyright 2022-2026 Advanced Micro Devices, Inc. All Rights Reserved.
 
@@ -92,18 +92,42 @@ run -all
   bar compare: pixels=921600 (exp 921600) mismatches=0 de_errs=0 border_errs=0
   moving line: line_x 8 -> 16 (exp +8)
   enable=0 frame: de_high=0 d_nonzero=0
+  C-E mode 1: de_settle = 2 pix clk (门禁 <= 8)
   mode 1: pix=148.4581 MHz (exp 148.4375) | hs=2200 clk (exp 2200) | de_width=1920 (exp 1920) | de_bad(disabled)=0
-  mode 2: pix=74.2165 MHz (exp 74.2188) | hs=2200 clk (exp 2200) | de_width=1920 (exp 1920) | de_bad(disabled)=0
+  C-A[pix_a] 0x30[0]: 0 --(2.2073 ms)--> 1   [full 0x30=0x00000003]
+  C-E mode 3: de_settle = 3 pix clk (门禁 <= 8)
+  mode 3: pix=148.4581 MHz (exp 148.4375) | hs=2200 clk (exp 2200) | de_width=1920 (exp 1920) | de_bad(disabled)=0
+  C-E mode 2: de_settle = 3 pix clk (门禁 <= 8)
+  mode 2: pix=74.2190 MHz (exp 74.2188) | hs=2200 clk (exp 2200) | de_width=1920 (exp 1920) | de_bad(disabled)=0
+  C-E mode 0: de_settle = 2 pix clk (门禁 <= 8)
   mode 0: pix=74.2173 MHz (exp 74.2188) | hs=1650 clk (exp 1650) | de_width=1280 (exp 1280) | de_bad(disabled)=0
+  C-A[pix_b] 0x30[0]: 0 --(4.4152 ms)--> 1   [full 0x30=0x00000003]
   motion=0 compare: pixels=921600 mismatches=0
   STATUS after frames = 0x00000003 (vsync=1)
   CTRL after soft_reset = 0x00000015
+  0x30 PIX_HB = 0x00000002 (pix_hb=0 mmcm_locked=1)
+  C-B pix_clk STOPPED. 0x30 = 0x00000002 (pix_hb=0 mmcm_locked=1) at 254518405 ns
+  C-B 0x00 RW ok: 0x00000015 -> 0x00000011 -> restored 0x00000015
+  C-B STATUS = 0x00000001 (init_done=1 vsync=0)
+  C-B 0x30[0]: 0 --(3.0004 ms)--> 0 | pix_clk edges while stopped = 0
+  C-B pix_clk RESTORED. 0x30[0]: 1 -> 0
+  C-C mmcm_locked=0 -> 0x30 = 0x00000000 (bit1=0)
+  C-C mmcm_locked 0->1 : lk_sync 经 2 个 aclk 变 1 (要求 <= 2)
+  C-C 置 1 后 0x30 = 0x00000002 (bit1=1)
+  C-D write 0xFFFFFFFF -> read 0x00000002 (bit1=1 保留位=000000000000000000000000000000)
+  C-D write 0xFFFFFFFF 后 0x30[0]: 0 -> 1（仍按原节奏翻转）
+  C-D write 0x00000000 -> read 0x00000003 (bit1=1)
+  C-F before soft_reset: 0x30[0]=1  hb_cnt=0x14f0d
+  C-F right after soft_reset: 0x30[0]=1  hb_cnt=0x14f1a
+  C-F after 5*2^16 pix clk:  0x30[0]=0  hb_cnt=0x04f1c  (hb_cnt 非 +1 跳变 = 0 次)
 --------------------------------------------------------------
+  C-E 汇总：4 次模式切换 de_settle 最大值 = 3 pix clk (门禁 <= 8)
+  sim end at 275.180 ms
 RESULT: PASS  (all top-level criteria met, errors = 0)
 --------------------------------------------------------------
-$finish called at time : 217589655 ns : File "/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/rtl_hand/tb/tb_hdmi_top_cfg.v" Line 495
-run: Time (s): cpu = 00:00:00.01 ; elapsed = 00:00:42 . Memory (MB): peak = 1437.125 ; gain = 0.000 ; free physical = 985 ; free virtual = 13329
+$finish called at time : 275180125 ns : File "/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/rtl_hand/tb/tb_hdmi_top_cfg.v" Line 790
+run: Time (s): cpu = 00:00:00.02 ; elapsed = 00:01:04 . Memory (MB): peak = 1437.125 ; gain = 0.000 ; free physical = 442 ; free virtual = 21078
 exit
-INFO: xsimkernel Simulation Memory Usage: 279872 KB (Peak: 341048 KB), Simulation CPU Usage: 42980 ms
-INFO: [Common 17-206] Exiting xsim at Mon Nov  2 23:47:26 2026...
+INFO: xsimkernel Simulation Memory Usage: 279900 KB (Peak: 341076 KB), Simulation CPU Usage: 64960 ms
+INFO: [Common 17-206] Exiting xsim at Tue Nov  3 00:41:36 2026...
 [topcfg] PASS

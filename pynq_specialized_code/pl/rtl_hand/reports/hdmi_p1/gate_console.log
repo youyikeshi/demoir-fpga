@@ -1,0 +1,73 @@
+=== [00:42:14] 等 pgrep -cx vivado == 0 ===
+[00:42:14] 还有 8 个 vivado，继续等（已等 20s）
+=== [00:44:14] Vivado 已清空，开始 synthcheck ===
+=== [00:44:14] SYNTHCHECK 开始 ===
+[memgate] ===== 构建前预检 =====
+[memgate]   内存  MemAvailable  21.24 GB / 总  30.95 GB   (SwapTotal 0.0 GB)
+[memgate]   闸门  需 峰值 6 GB + 保留 4 GB = 10.00 GB   余量 11.24 GB
+[memgate]   根分区 /   31.60 GB 可用 / 98 GB    /tmp 当前占 3171 MB
+[memgate]   大分区 /media/felix/Data/tmp   82.74 GB 可用
+[memgate]   放行  TMPDIR=/media/felix/Data/tmp  (波形库/临时目录落这里)
+[memgate]   已持锁 /tmp/dsh_vivado.lock  2026-11-03 00:44:14  tag=felix
+[memgate]   复测 MemAvailable 21.24 GB >= 10.00 GB  ✔
+[memgate] ===== 放行 2026-11-03 00:44:14 =====
+[memgate]   令牌 DSH_BUILD_TOKEN=1793637854-44178-2340712556  BUILD_OWNER=/media/felix/Data/coding/demoir-fpga/runs/resguard/BUILD_OWNER
+  [synthcheck-hdmi] 读 4 个 RTL，跑 synth_design -rtl -top hdmi_out_top ...
+[vrun] ✅ 闸门校验通过  lock=held  token=1793637854-44178-2340712556
+[vrun] 可用内存  MB，启动: /tmp/probe_hb/synthcheck/synthcheck_hdmi.tcl → /tmp/probe_hb/synthcheck/synthcheck_hdmi.log
+[vrun] PID=44245（独立进程组，setsid --wait 保证能等到真正结束）
+[vrun] 退出码 0
+[vrun] 残留 vivado: 0    可用内存:  MB
+  多驱动   (8-6859/6858): 0
+  组合环   (8-295/LUTLP-1): 0
+  RAM→寄存器 (8-4767): 0 处
+  Latch    (8-327): 0
+  ERROR: 0
+  ✓ 门禁通过（多驱动/组合环/latch/ERROR 全 0）
+[memgate] 命令结束 rc=0  2026-11-03 00:44:27
+=== [00:44:27] SYNTHCHECK rc=0 ===
+=== [00:44:27] OOC 开始 ===
+[memgate] ===== 构建前预检 =====
+[memgate]   内存  MemAvailable  21.15 GB / 总  30.95 GB   (SwapTotal 0.0 GB)
+[memgate]   闸门  需 峰值 8 GB + 保留 4 GB = 12.00 GB   余量 9.15 GB
+[memgate]   根分区 /   31.60 GB 可用 / 98 GB    /tmp 当前占 3171 MB
+[memgate]   大分区 /media/felix/Data/tmp   82.74 GB 可用
+[memgate]   放行  TMPDIR=/media/felix/Data/tmp  (波形库/临时目录落这里)
+[memgate]   已持锁 /tmp/dsh_vivado.lock  2026-11-03 00:44:27  tag=felix
+[memgate]   复测 MemAvailable 21.15 GB >= 12.00 GB  ✔
+[memgate] ===== 放行 2026-11-03 00:44:27 =====
+[memgate]   令牌 DSH_BUILD_TOKEN=1793637867-44627-228058986  BUILD_OWNER=/media/felix/Data/coding/demoir-fpga/runs/resguard/BUILD_OWNER
+  [ooc-hdmi] synth_design -mode out_of_context ...
+[vrun] ✅ 闸门校验通过  lock=held  token=1793637867-44627-228058986
+[vrun] 可用内存  MB，启动: /tmp/probe_hb/ooc/ooc.tcl → /tmp/probe_hb/ooc/ooc.log
+[vrun] PID=44694（独立进程组，setsid --wait 保证能等到真正结束）
+[vrun] 退出码 0
+[vrun] 残留 vivado: 0    可用内存:  MB
+  --- 资源 ---
+| Slice LUTs*             |  410 |     0 |          0 |     46200 |  0.89 |
+| Slice Registers         |  624 |     0 |          0 |     92400 |  0.68 |
+|   Register as Latch     |    0 |     0 |          0 |     92400 |  0.00 |
+| Block RAM Tile |    0 |     0 |          0 |        95 |  0.00 |
+* Note: Each Block RAM Tile only has one FIFO logic available and therefore can accommodate only one FIFO36E1 or one FIFO18E1. However, if a FIFO18E1 occupies a Block RAM Tile, that tile can still accommodate a RAMB18E1
+| DSPs      |    0 |     0 |          0 |       160 |  0.00 |
+  --- latch 指纹 ---
+LATCH_CELL_COUNT=0
+  --- pix_clk WNS ---
+WNS_FROM_pix_clk_a=1.704
+WNS_TO_pix_clk_a=1.704
+WNS_FROM_pix_clk_b=8.441
+WNS_TO_pix_clk_b=8.441
+WNS_FROM_s_axi_aclk=6.437
+WNS_TO_s_axi_aclk=6.437
+# puts "CLOCKS=[get_clocks -quiet *]"
+CLOCKS=s_axi_aclk pix_clk_a pix_clk_b
+  --- 时序摘要（WNS/TNS/WHS/THS）---
+    WNS(ns)      TNS(ns)  TNS Failing Endpoints  TNS Total Endpoints      WHS(ns)      THS(ns)  THS Failing Endpoints  THS Total Endpoints     WPWS(ns)     TPWS(ns)  TPWS Failing Endpoints  TPWS Total Endpoints  
+Clock             WNS(ns)      TNS(ns)  TNS Failing Endpoints  TNS Total Endpoints      WHS(ns)      THS(ns)  THS Failing Endpoints  THS Total Endpoints     WPWS(ns)     TPWS(ns)  TPWS Failing Endpoints  TPWS Total Endpoints  
+From Clock    To Clock          WNS(ns)      TNS(ns)  TNS Failing Endpoints  TNS Total Endpoints      WHS(ns)      THS(ns)  THS Failing Endpoints  THS Total Endpoints  
+Path Group    From Clock    To Clock          WNS(ns)      TNS(ns)  TNS Failing Endpoints  TNS Total Endpoints      WHS(ns)      THS(ns)  THS Failing Endpoints  THS Total Endpoints  
+  --- 日志：/tmp/probe_hb/ooc/ooc.log ---
+  --- 资源报告：/tmp/probe_hb/ooc/util.rpt / 时序报告：/tmp/probe_hb/ooc/timing.rpt ---
+[memgate] 命令结束 rc=0  2026-11-03 00:44:57
+=== [00:44:57] OOC rc=0 ===
+=== [00:44:57] ALL GATES DONE ===
