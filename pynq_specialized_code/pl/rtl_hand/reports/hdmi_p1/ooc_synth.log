@@ -1,0 +1,521 @@
+
+****** Vivado v2025.2.1 (64-bit)
+  **** SW Build 6403652 on Thu Mar 19 13:47:00 MDT 2026
+  **** IP Build 6403511 on Thu Mar 19 12:41:45 MDT 2026
+  **** SharedData Build 6403650 on Thu Mar 19 14:02:13 MDT 2026
+  **** Start of session at: Mon Nov  2 23:33:42 2026
+    ** Copyright 1986-2022 Xilinx, Inc. All Rights Reserved.
+    ** Copyright 2022-2026 Advanced Micro Devices, Inc. All Rights Reserved.
+
+source /tmp/probe_hdmi_p1/ooc/ooc.tcl
+# read_verilog "/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/rtl_hand/modules/hdmi_timing_gen.v"
+# read_verilog "/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/rtl_hand/modules/hdmi_color_bar.v"
+# read_verilog "/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/rtl_hand/modules/sil9134_init.v"
+# read_verilog "/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/rtl_hand/modules/hdmi_out_top.v"
+# read_xdc "/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/constraints/hdmi_out_ooc.xdc"
+# synth_design -top hdmi_out_top -mode out_of_context -part xc7z015clg485-2
+Command: synth_design -top hdmi_out_top -mode out_of_context -part xc7z015clg485-2
+Starting synth_design
+Attempting to get a license for feature 'Synthesis' and/or device 'xc7z015'
+INFO: [Common 17-349] Got license for feature 'Synthesis' and/or device 'xc7z015'
+INFO: [Device 21-403] Loading part xc7z015clg485-2
+INFO: [Synth 8-7079] Multithreading enabled for synth_design using a maximum of 7 processes.
+INFO: [Synth 8-7078] Launching helper process for spawning children vivado processes
+INFO: [Synth 8-7075] Helper process launched with PID 1312238
+---------------------------------------------------------------------------------
+Starting RTL Elaboration : Time (s): cpu = 00:00:03 ; elapsed = 00:00:03 . Memory (MB): peak = 2255.727 ; gain = 482.875 ; free physical = 1876 ; free virtual = 11943
+---------------------------------------------------------------------------------
+INFO: [Synth 8-6157] synthesizing module 'hdmi_out_top' [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/rtl_hand/modules/hdmi_out_top.v:45]
+INFO: [Synth 8-6157] synthesizing module 'sil9134_init' [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/rtl_hand/modules/sil9134_init.v:39]
+	Parameter CLK_HZ bound to: 100000000 - type: integer 
+	Parameter SCL_HZ bound to: 100000 - type: integer 
+	Parameter POR_US bound to: 200 - type: integer 
+INFO: [Synth 8-226] default block is never used [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/rtl_hand/modules/sil9134_init.v:165]
+INFO: [Synth 8-6155] done synthesizing module 'sil9134_init' (0#1) [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/rtl_hand/modules/sil9134_init.v:39]
+INFO: [Synth 8-6157] synthesizing module 'hdmi_timing_gen' [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/rtl_hand/modules/hdmi_timing_gen.v:24]
+	Parameter H_TOTAL bound to: 2200 - type: integer 
+	Parameter H_ACTIVE bound to: 1920 - type: integer 
+	Parameter H_FP bound to: 88 - type: integer 
+	Parameter H_SYNC bound to: 44 - type: integer 
+	Parameter H_BP bound to: 148 - type: integer 
+	Parameter V_TOTAL bound to: 1125 - type: integer 
+	Parameter V_ACTIVE bound to: 1080 - type: integer 
+	Parameter V_FP bound to: 4 - type: integer 
+	Parameter V_SYNC bound to: 5 - type: integer 
+	Parameter V_BP bound to: 36 - type: integer 
+	Parameter HS_POL bound to: 1 - type: integer 
+	Parameter VS_POL bound to: 1 - type: integer 
+INFO: [Synth 8-6155] done synthesizing module 'hdmi_timing_gen' (0#1) [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/rtl_hand/modules/hdmi_timing_gen.v:24]
+INFO: [Synth 8-6157] synthesizing module 'hdmi_color_bar' [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/rtl_hand/modules/hdmi_color_bar.v:16]
+	Parameter H_ACTIVE bound to: 1920 - type: integer 
+	Parameter V_ACTIVE bound to: 1080 - type: integer 
+	Parameter LINE_W bound to: 4 - type: integer 
+INFO: [Synth 8-6155] done synthesizing module 'hdmi_color_bar' (0#1) [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/rtl_hand/modules/hdmi_color_bar.v:16]
+INFO: [Synth 8-6155] done synthesizing module 'hdmi_out_top' (0#1) [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/rtl_hand/modules/hdmi_out_top.v:45]
+WARNING: [Synth 8-3917] design hdmi_out_top has port s_axi_bresp[1] driven by constant 0
+WARNING: [Synth 8-3917] design hdmi_out_top has port s_axi_bresp[0] driven by constant 0
+WARNING: [Synth 8-3917] design hdmi_out_top has port s_axi_rresp[1] driven by constant 0
+WARNING: [Synth 8-3917] design hdmi_out_top has port s_axi_rresp[0] driven by constant 0
+WARNING: [Synth 8-3917] design hdmi_out_top has port m_axi_araddr[31] driven by constant 0
+WARNING: [Synth 8-3917] design hdmi_out_top has port m_axi_araddr[30] driven by constant 0
+WARNING: [Synth 8-3917] design hdmi_out_top has port m_axi_araddr[29] driven by constant 0
+WARNING: [Synth 8-3917] design hdmi_out_top has port m_axi_araddr[28] driven by constant 0
+WARNING: [Synth 8-3917] design hdmi_out_top has port m_axi_araddr[27] driven by constant 0
+WARNING: [Synth 8-3917] design hdmi_out_top has port m_axi_araddr[26] driven by constant 0
+WARNING: [Synth 8-3917] design hdmi_out_top has port m_axi_araddr[25] driven by constant 0
+WARNING: [Synth 8-3917] design hdmi_out_top has port m_axi_araddr[24] driven by constant 0
+WARNING: [Synth 8-3917] design hdmi_out_top has port m_axi_araddr[23] driven by constant 0
+WARNING: [Synth 8-3917] design hdmi_out_top has port m_axi_araddr[22] driven by constant 0
+WARNING: [Synth 8-3917] design hdmi_out_top has port m_axi_araddr[21] driven by constant 0
+WARNING: [Synth 8-3917] design hdmi_out_top has port m_axi_araddr[20] driven by constant 0
+WARNING: [Synth 8-3917] design hdmi_out_top has port m_axi_araddr[19] driven by constant 0
+WARNING: [Synth 8-3917] design hdmi_out_top has port m_axi_araddr[18] driven by constant 0
+WARNING: [Synth 8-3917] design hdmi_out_top has port m_axi_araddr[17] driven by constant 0
+WARNING: [Synth 8-3917] design hdmi_out_top has port m_axi_araddr[16] driven by constant 0
+WARNING: [Synth 8-3917] design hdmi_out_top has port m_axi_araddr[15] driven by constant 0
+WARNING: [Synth 8-3917] design hdmi_out_top has port m_axi_araddr[14] driven by constant 0
+WARNING: [Synth 8-3917] design hdmi_out_top has port m_axi_araddr[13] driven by constant 0
+WARNING: [Synth 8-3917] design hdmi_out_top has port m_axi_araddr[12] driven by constant 0
+WARNING: [Synth 8-3917] design hdmi_out_top has port m_axi_araddr[11] driven by constant 0
+WARNING: [Synth 8-3917] design hdmi_out_top has port m_axi_araddr[10] driven by constant 0
+WARNING: [Synth 8-3917] design hdmi_out_top has port m_axi_araddr[9] driven by constant 0
+WARNING: [Synth 8-3917] design hdmi_out_top has port m_axi_araddr[8] driven by constant 0
+WARNING: [Synth 8-3917] design hdmi_out_top has port m_axi_araddr[7] driven by constant 0
+WARNING: [Synth 8-3917] design hdmi_out_top has port m_axi_araddr[6] driven by constant 0
+WARNING: [Synth 8-3917] design hdmi_out_top has port m_axi_araddr[5] driven by constant 0
+WARNING: [Synth 8-3917] design hdmi_out_top has port m_axi_araddr[4] driven by constant 0
+WARNING: [Synth 8-3917] design hdmi_out_top has port m_axi_araddr[3] driven by constant 0
+WARNING: [Synth 8-3917] design hdmi_out_top has port m_axi_araddr[2] driven by constant 0
+WARNING: [Synth 8-3917] design hdmi_out_top has port m_axi_araddr[1] driven by constant 0
+WARNING: [Synth 8-3917] design hdmi_out_top has port m_axi_araddr[0] driven by constant 0
+WARNING: [Synth 8-3917] design hdmi_out_top has port m_axi_arlen[7] driven by constant 0
+WARNING: [Synth 8-3917] design hdmi_out_top has port m_axi_arlen[6] driven by constant 0
+WARNING: [Synth 8-3917] design hdmi_out_top has port m_axi_arlen[5] driven by constant 0
+WARNING: [Synth 8-3917] design hdmi_out_top has port m_axi_arlen[4] driven by constant 0
+WARNING: [Synth 8-3917] design hdmi_out_top has port m_axi_arlen[3] driven by constant 0
+WARNING: [Synth 8-3917] design hdmi_out_top has port m_axi_arlen[2] driven by constant 0
+WARNING: [Synth 8-3917] design hdmi_out_top has port m_axi_arlen[1] driven by constant 0
+WARNING: [Synth 8-3917] design hdmi_out_top has port m_axi_arlen[0] driven by constant 0
+WARNING: [Synth 8-3917] design hdmi_out_top has port m_axi_arsize[2] driven by constant 0
+WARNING: [Synth 8-3917] design hdmi_out_top has port m_axi_arsize[1] driven by constant 1
+WARNING: [Synth 8-3917] design hdmi_out_top has port m_axi_arsize[0] driven by constant 1
+WARNING: [Synth 8-3917] design hdmi_out_top has port m_axi_arburst[1] driven by constant 0
+WARNING: [Synth 8-3917] design hdmi_out_top has port m_axi_arburst[0] driven by constant 1
+WARNING: [Synth 8-3917] design hdmi_out_top has port m_axi_arvalid driven by constant 0
+WARNING: [Synth 8-3917] design hdmi_out_top has port m_axi_rready driven by constant 1
+WARNING: [Synth 8-7129] Port s_axi_araddr[31] in module hdmi_out_top is either unconnected or has no load
+WARNING: [Synth 8-7129] Port s_axi_araddr[30] in module hdmi_out_top is either unconnected or has no load
+WARNING: [Synth 8-7129] Port s_axi_araddr[29] in module hdmi_out_top is either unconnected or has no load
+WARNING: [Synth 8-7129] Port s_axi_araddr[28] in module hdmi_out_top is either unconnected or has no load
+WARNING: [Synth 8-7129] Port s_axi_araddr[27] in module hdmi_out_top is either unconnected or has no load
+WARNING: [Synth 8-7129] Port s_axi_araddr[26] in module hdmi_out_top is either unconnected or has no load
+WARNING: [Synth 8-7129] Port s_axi_araddr[25] in module hdmi_out_top is either unconnected or has no load
+WARNING: [Synth 8-7129] Port s_axi_araddr[24] in module hdmi_out_top is either unconnected or has no load
+WARNING: [Synth 8-7129] Port s_axi_araddr[23] in module hdmi_out_top is either unconnected or has no load
+WARNING: [Synth 8-7129] Port s_axi_araddr[22] in module hdmi_out_top is either unconnected or has no load
+WARNING: [Synth 8-7129] Port s_axi_araddr[21] in module hdmi_out_top is either unconnected or has no load
+WARNING: [Synth 8-7129] Port s_axi_araddr[20] in module hdmi_out_top is either unconnected or has no load
+WARNING: [Synth 8-7129] Port s_axi_araddr[19] in module hdmi_out_top is either unconnected or has no load
+WARNING: [Synth 8-7129] Port s_axi_araddr[18] in module hdmi_out_top is either unconnected or has no load
+WARNING: [Synth 8-7129] Port s_axi_araddr[17] in module hdmi_out_top is either unconnected or has no load
+WARNING: [Synth 8-7129] Port s_axi_araddr[16] in module hdmi_out_top is either unconnected or has no load
+WARNING: [Synth 8-7129] Port s_axi_araddr[15] in module hdmi_out_top is either unconnected or has no load
+WARNING: [Synth 8-7129] Port s_axi_araddr[14] in module hdmi_out_top is either unconnected or has no load
+WARNING: [Synth 8-7129] Port s_axi_araddr[13] in module hdmi_out_top is either unconnected or has no load
+WARNING: [Synth 8-7129] Port s_axi_araddr[12] in module hdmi_out_top is either unconnected or has no load
+WARNING: [Synth 8-7129] Port s_axi_araddr[11] in module hdmi_out_top is either unconnected or has no load
+WARNING: [Synth 8-7129] Port s_axi_araddr[10] in module hdmi_out_top is either unconnected or has no load
+WARNING: [Synth 8-7129] Port s_axi_araddr[9] in module hdmi_out_top is either unconnected or has no load
+WARNING: [Synth 8-7129] Port s_axi_araddr[8] in module hdmi_out_top is either unconnected or has no load
+WARNING: [Synth 8-7129] Port s_axi_araddr[1] in module hdmi_out_top is either unconnected or has no load
+WARNING: [Synth 8-7129] Port s_axi_araddr[0] in module hdmi_out_top is either unconnected or has no load
+WARNING: [Synth 8-7129] Port m_axi_arready in module hdmi_out_top is either unconnected or has no load
+WARNING: [Synth 8-7129] Port m_axi_rdata[63] in module hdmi_out_top is either unconnected or has no load
+WARNING: [Synth 8-7129] Port m_axi_rdata[62] in module hdmi_out_top is either unconnected or has no load
+WARNING: [Synth 8-7129] Port m_axi_rdata[61] in module hdmi_out_top is either unconnected or has no load
+WARNING: [Synth 8-7129] Port m_axi_rdata[60] in module hdmi_out_top is either unconnected or has no load
+WARNING: [Synth 8-7129] Port m_axi_rdata[59] in module hdmi_out_top is either unconnected or has no load
+WARNING: [Synth 8-7129] Port m_axi_rdata[58] in module hdmi_out_top is either unconnected or has no load
+WARNING: [Synth 8-7129] Port m_axi_rdata[57] in module hdmi_out_top is either unconnected or has no load
+WARNING: [Synth 8-7129] Port m_axi_rdata[56] in module hdmi_out_top is either unconnected or has no load
+WARNING: [Synth 8-7129] Port m_axi_rdata[55] in module hdmi_out_top is either unconnected or has no load
+WARNING: [Synth 8-7129] Port m_axi_rdata[54] in module hdmi_out_top is either unconnected or has no load
+WARNING: [Synth 8-7129] Port m_axi_rdata[53] in module hdmi_out_top is either unconnected or has no load
+WARNING: [Synth 8-7129] Port m_axi_rdata[52] in module hdmi_out_top is either unconnected or has no load
+WARNING: [Synth 8-7129] Port m_axi_rdata[51] in module hdmi_out_top is either unconnected or has no load
+WARNING: [Synth 8-7129] Port m_axi_rdata[50] in module hdmi_out_top is either unconnected or has no load
+WARNING: [Synth 8-7129] Port m_axi_rdata[49] in module hdmi_out_top is either unconnected or has no load
+WARNING: [Synth 8-7129] Port m_axi_rdata[48] in module hdmi_out_top is either unconnected or has no load
+WARNING: [Synth 8-7129] Port m_axi_rdata[47] in module hdmi_out_top is either unconnected or has no load
+WARNING: [Synth 8-7129] Port m_axi_rdata[46] in module hdmi_out_top is either unconnected or has no load
+WARNING: [Synth 8-7129] Port m_axi_rdata[45] in module hdmi_out_top is either unconnected or has no load
+WARNING: [Synth 8-7129] Port m_axi_rdata[44] in module hdmi_out_top is either unconnected or has no load
+WARNING: [Synth 8-7129] Port m_axi_rdata[43] in module hdmi_out_top is either unconnected or has no load
+WARNING: [Synth 8-7129] Port m_axi_rdata[42] in module hdmi_out_top is either unconnected or has no load
+WARNING: [Synth 8-7129] Port m_axi_rdata[41] in module hdmi_out_top is either unconnected or has no load
+WARNING: [Synth 8-7129] Port m_axi_rdata[40] in module hdmi_out_top is either unconnected or has no load
+WARNING: [Synth 8-7129] Port m_axi_rdata[39] in module hdmi_out_top is either unconnected or has no load
+WARNING: [Synth 8-7129] Port m_axi_rdata[38] in module hdmi_out_top is either unconnected or has no load
+WARNING: [Synth 8-7129] Port m_axi_rdata[37] in module hdmi_out_top is either unconnected or has no load
+WARNING: [Synth 8-7129] Port m_axi_rdata[36] in module hdmi_out_top is either unconnected or has no load
+WARNING: [Synth 8-7129] Port m_axi_rdata[35] in module hdmi_out_top is either unconnected or has no load
+WARNING: [Synth 8-7129] Port m_axi_rdata[34] in module hdmi_out_top is either unconnected or has no load
+WARNING: [Synth 8-7129] Port m_axi_rdata[33] in module hdmi_out_top is either unconnected or has no load
+WARNING: [Synth 8-7129] Port m_axi_rdata[32] in module hdmi_out_top is either unconnected or has no load
+WARNING: [Synth 8-7129] Port m_axi_rdata[31] in module hdmi_out_top is either unconnected or has no load
+WARNING: [Synth 8-7129] Port m_axi_rdata[30] in module hdmi_out_top is either unconnected or has no load
+WARNING: [Synth 8-7129] Port m_axi_rdata[29] in module hdmi_out_top is either unconnected or has no load
+WARNING: [Synth 8-7129] Port m_axi_rdata[28] in module hdmi_out_top is either unconnected or has no load
+WARNING: [Synth 8-7129] Port m_axi_rdata[27] in module hdmi_out_top is either unconnected or has no load
+WARNING: [Synth 8-7129] Port m_axi_rdata[26] in module hdmi_out_top is either unconnected or has no load
+WARNING: [Synth 8-7129] Port m_axi_rdata[25] in module hdmi_out_top is either unconnected or has no load
+WARNING: [Synth 8-7129] Port m_axi_rdata[24] in module hdmi_out_top is either unconnected or has no load
+WARNING: [Synth 8-7129] Port m_axi_rdata[23] in module hdmi_out_top is either unconnected or has no load
+WARNING: [Synth 8-7129] Port m_axi_rdata[22] in module hdmi_out_top is either unconnected or has no load
+WARNING: [Synth 8-7129] Port m_axi_rdata[21] in module hdmi_out_top is either unconnected or has no load
+WARNING: [Synth 8-7129] Port m_axi_rdata[20] in module hdmi_out_top is either unconnected or has no load
+WARNING: [Synth 8-7129] Port m_axi_rdata[19] in module hdmi_out_top is either unconnected or has no load
+WARNING: [Synth 8-7129] Port m_axi_rdata[18] in module hdmi_out_top is either unconnected or has no load
+WARNING: [Synth 8-7129] Port m_axi_rdata[17] in module hdmi_out_top is either unconnected or has no load
+WARNING: [Synth 8-7129] Port m_axi_rdata[16] in module hdmi_out_top is either unconnected or has no load
+WARNING: [Synth 8-7129] Port m_axi_rdata[15] in module hdmi_out_top is either unconnected or has no load
+WARNING: [Synth 8-7129] Port m_axi_rdata[14] in module hdmi_out_top is either unconnected or has no load
+WARNING: [Synth 8-7129] Port m_axi_rdata[13] in module hdmi_out_top is either unconnected or has no load
+WARNING: [Synth 8-7129] Port m_axi_rdata[12] in module hdmi_out_top is either unconnected or has no load
+WARNING: [Synth 8-7129] Port m_axi_rdata[11] in module hdmi_out_top is either unconnected or has no load
+WARNING: [Synth 8-7129] Port m_axi_rdata[10] in module hdmi_out_top is either unconnected or has no load
+WARNING: [Synth 8-7129] Port m_axi_rdata[9] in module hdmi_out_top is either unconnected or has no load
+WARNING: [Synth 8-7129] Port m_axi_rdata[8] in module hdmi_out_top is either unconnected or has no load
+WARNING: [Synth 8-7129] Port m_axi_rdata[7] in module hdmi_out_top is either unconnected or has no load
+WARNING: [Synth 8-7129] Port m_axi_rdata[6] in module hdmi_out_top is either unconnected or has no load
+WARNING: [Synth 8-7129] Port m_axi_rdata[5] in module hdmi_out_top is either unconnected or has no load
+WARNING: [Synth 8-7129] Port m_axi_rdata[4] in module hdmi_out_top is either unconnected or has no load
+WARNING: [Synth 8-7129] Port m_axi_rdata[3] in module hdmi_out_top is either unconnected or has no load
+WARNING: [Synth 8-7129] Port m_axi_rdata[2] in module hdmi_out_top is either unconnected or has no load
+WARNING: [Synth 8-7129] Port m_axi_rdata[1] in module hdmi_out_top is either unconnected or has no load
+WARNING: [Synth 8-7129] Port m_axi_rdata[0] in module hdmi_out_top is either unconnected or has no load
+WARNING: [Synth 8-7129] Port m_axi_rresp[1] in module hdmi_out_top is either unconnected or has no load
+WARNING: [Synth 8-7129] Port m_axi_rresp[0] in module hdmi_out_top is either unconnected or has no load
+WARNING: [Synth 8-7129] Port m_axi_rlast in module hdmi_out_top is either unconnected or has no load
+WARNING: [Synth 8-7129] Port m_axi_rvalid in module hdmi_out_top is either unconnected or has no load
+---------------------------------------------------------------------------------
+Finished RTL Elaboration : Time (s): cpu = 00:00:04 ; elapsed = 00:00:04 . Memory (MB): peak = 2346.695 ; gain = 573.844 ; free physical = 1891 ; free virtual = 11960
+---------------------------------------------------------------------------------
+---------------------------------------------------------------------------------
+Start Handling Custom Attributes
+---------------------------------------------------------------------------------
+---------------------------------------------------------------------------------
+Finished Handling Custom Attributes : Time (s): cpu = 00:00:04 ; elapsed = 00:00:04 . Memory (MB): peak = 2361.539 ; gain = 588.688 ; free physical = 1918 ; free virtual = 11986
+---------------------------------------------------------------------------------
+---------------------------------------------------------------------------------
+Finished RTL Optimization Phase 1 : Time (s): cpu = 00:00:04 ; elapsed = 00:00:04 . Memory (MB): peak = 2361.539 ; gain = 588.688 ; free physical = 1918 ; free virtual = 11986
+---------------------------------------------------------------------------------
+Netlist sorting complete. Time (s): cpu = 00:00:00.01 ; elapsed = 00:00:00 . Memory (MB): peak = 2361.539 ; gain = 0.000 ; free physical = 1916 ; free virtual = 11985
+INFO: [Project 1-570] Preparing netlist for logic optimization
+
+Processing XDC Constraints
+Initializing timing engine
+Parsing XDC File [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/constraints/hdmi_out_ooc.xdc]
+Finished Parsing XDC File [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/constraints/hdmi_out_ooc.xdc]
+Completed Processing XDC Constraints
+
+Netlist sorting complete. Time (s): cpu = 00:00:00 ; elapsed = 00:00:00 . Memory (MB): peak = 2470.277 ; gain = 0.000 ; free physical = 1891 ; free virtual = 11962
+INFO: [Project 1-111] Unisim Transformation Summary:
+No Unisim elements were transformed.
+
+Constraint Validation Runtime : Time (s): cpu = 00:00:00.01 ; elapsed = 00:00:00.01 . Memory (MB): peak = 2470.312 ; gain = 0.000 ; free physical = 1891 ; free virtual = 11963
+---------------------------------------------------------------------------------
+Finished Constraint Validation : Time (s): cpu = 00:00:09 ; elapsed = 00:00:09 . Memory (MB): peak = 2470.312 ; gain = 697.461 ; free physical = 1912 ; free virtual = 11999
+---------------------------------------------------------------------------------
+---------------------------------------------------------------------------------
+Start Loading Part and Timing Information
+---------------------------------------------------------------------------------
+Loading part: xc7z015clg485-2
+---------------------------------------------------------------------------------
+Finished Loading Part and Timing Information : Time (s): cpu = 00:00:09 ; elapsed = 00:00:09 . Memory (MB): peak = 2478.281 ; gain = 705.430 ; free physical = 1913 ; free virtual = 12000
+---------------------------------------------------------------------------------
+---------------------------------------------------------------------------------
+Start Applying 'set_property' XDC Constraints
+---------------------------------------------------------------------------------
+---------------------------------------------------------------------------------
+Finished applying 'set_property' XDC Constraints : Time (s): cpu = 00:00:09 ; elapsed = 00:00:09 . Memory (MB): peak = 2478.281 ; gain = 705.430 ; free physical = 1913 ; free virtual = 12000
+---------------------------------------------------------------------------------
+INFO: [Synth 8-802] inferred FSM for state register 'state_reg' in module 'sil9134_init'
+---------------------------------------------------------------------------------------------------
+                   State |                     New Encoding |                Previous Encoding 
+---------------------------------------------------------------------------------------------------
+                   S_POR |                              000 |                              000
+                 S_START |                              001 |                              001
+                   S_BIT |                              010 |                              010
+                   S_ACK |                              011 |                              011
+                  S_STOP |                              100 |                              100
+                   S_GAP |                              101 |                              101
+                   S_ERR |                              110 |                              111
+                  S_DONE |                              111 |                              110
+---------------------------------------------------------------------------------------------------
+INFO: [Synth 8-3354] encoded FSM with state register 'state_reg' using encoding 'sequential' in module 'sil9134_init'
+---------------------------------------------------------------------------------
+Finished RTL Optimization Phase 2 : Time (s): cpu = 00:00:09 ; elapsed = 00:00:09 . Memory (MB): peak = 2478.281 ; gain = 705.430 ; free physical = 1911 ; free virtual = 12004
+---------------------------------------------------------------------------------
+---------------------------------------------------------------------------------
+Start RTL Component Statistics 
+---------------------------------------------------------------------------------
+Detailed RTL Component Info : 
++---Adders : 
+	   3 Input   18 Bit       Adders := 1     
+	   2 Input   17 Bit       Adders := 1     
+	   2 Input   16 Bit       Adders := 1     
+	   2 Input    7 Bit       Adders := 1     
+	   2 Input    4 Bit       Adders := 1     
+	   2 Input    3 Bit       Adders := 1     
+	   2 Input    2 Bit       Adders := 2     
++---Registers : 
+	               32 Bit    Registers := 10    
+	               16 Bit    Registers := 3     
+	                8 Bit    Registers := 1     
+	                7 Bit    Registers := 1     
+	                4 Bit    Registers := 2     
+	                3 Bit    Registers := 3     
+	                2 Bit    Registers := 4     
+	                1 Bit    Registers := 29    
++---Muxes : 
+	   2 Input   32 Bit        Muxes := 1     
+	   2 Input   24 Bit        Muxes := 4     
+	   8 Input   24 Bit        Muxes := 1     
+	   7 Input   16 Bit        Muxes := 1     
+	   2 Input    8 Bit        Muxes := 4     
+	   7 Input    8 Bit        Muxes := 1     
+	   2 Input    7 Bit        Muxes := 1     
+	   2 Input    6 Bit        Muxes := 1     
+	   2 Input    4 Bit        Muxes := 1     
+	   7 Input    4 Bit        Muxes := 1     
+	   7 Input    3 Bit        Muxes := 2     
+	   2 Input    3 Bit        Muxes := 5     
+	   8 Input    3 Bit        Muxes := 1     
+	   4 Input    2 Bit        Muxes := 1     
+	   2 Input    2 Bit        Muxes := 1     
+	   7 Input    2 Bit        Muxes := 2     
+	   4 Input    1 Bit        Muxes := 15    
+	   2 Input    1 Bit        Muxes := 29    
+	   3 Input    1 Bit        Muxes := 1     
+	   7 Input    1 Bit        Muxes := 18    
+	  10 Input    1 Bit        Muxes := 9     
+---------------------------------------------------------------------------------
+Finished RTL Component Statistics 
+---------------------------------------------------------------------------------
+---------------------------------------------------------------------------------
+Start Part Resource Summary
+---------------------------------------------------------------------------------
+Part Resources:
+DSPs: 160 (col length:60)
+BRAMs: 190 (col length: RAMB18 60 RAMB36 30)
+---------------------------------------------------------------------------------
+Finished Part Resource Summary
+---------------------------------------------------------------------------------
+---------------------------------------------------------------------------------
+Start Cross Boundary and Area Optimization
+---------------------------------------------------------------------------------
+WARNING: [Synth 8-3917] design hdmi_out_top has port s_axi_bresp[1] driven by constant 0
+WARNING: [Synth 8-3917] design hdmi_out_top has port s_axi_bresp[0] driven by constant 0
+WARNING: [Synth 8-3917] design hdmi_out_top has port s_axi_rresp[1] driven by constant 0
+WARNING: [Synth 8-3917] design hdmi_out_top has port s_axi_rresp[0] driven by constant 0
+WARNING: [Synth 8-3917] design hdmi_out_top has port m_axi_araddr[31] driven by constant 0
+WARNING: [Synth 8-3917] design hdmi_out_top has port m_axi_araddr[30] driven by constant 0
+WARNING: [Synth 8-3917] design hdmi_out_top has port m_axi_araddr[29] driven by constant 0
+WARNING: [Synth 8-3917] design hdmi_out_top has port m_axi_araddr[28] driven by constant 0
+WARNING: [Synth 8-3917] design hdmi_out_top has port m_axi_araddr[27] driven by constant 0
+WARNING: [Synth 8-3917] design hdmi_out_top has port m_axi_araddr[26] driven by constant 0
+WARNING: [Synth 8-3917] design hdmi_out_top has port m_axi_araddr[25] driven by constant 0
+WARNING: [Synth 8-3917] design hdmi_out_top has port m_axi_araddr[24] driven by constant 0
+WARNING: [Synth 8-3917] design hdmi_out_top has port m_axi_araddr[23] driven by constant 0
+WARNING: [Synth 8-3917] design hdmi_out_top has port m_axi_araddr[22] driven by constant 0
+WARNING: [Synth 8-3917] design hdmi_out_top has port m_axi_araddr[21] driven by constant 0
+WARNING: [Synth 8-3917] design hdmi_out_top has port m_axi_araddr[20] driven by constant 0
+WARNING: [Synth 8-3917] design hdmi_out_top has port m_axi_araddr[19] driven by constant 0
+WARNING: [Synth 8-3917] design hdmi_out_top has port m_axi_araddr[18] driven by constant 0
+WARNING: [Synth 8-3917] design hdmi_out_top has port m_axi_araddr[17] driven by constant 0
+WARNING: [Synth 8-3917] design hdmi_out_top has port m_axi_araddr[16] driven by constant 0
+WARNING: [Synth 8-3917] design hdmi_out_top has port m_axi_araddr[15] driven by constant 0
+WARNING: [Synth 8-3917] design hdmi_out_top has port m_axi_araddr[14] driven by constant 0
+WARNING: [Synth 8-3917] design hdmi_out_top has port m_axi_araddr[13] driven by constant 0
+WARNING: [Synth 8-3917] design hdmi_out_top has port m_axi_araddr[12] driven by constant 0
+WARNING: [Synth 8-3917] design hdmi_out_top has port m_axi_araddr[11] driven by constant 0
+WARNING: [Synth 8-3917] design hdmi_out_top has port m_axi_araddr[10] driven by constant 0
+WARNING: [Synth 8-3917] design hdmi_out_top has port m_axi_araddr[9] driven by constant 0
+WARNING: [Synth 8-3917] design hdmi_out_top has port m_axi_araddr[8] driven by constant 0
+WARNING: [Synth 8-3917] design hdmi_out_top has port m_axi_araddr[7] driven by constant 0
+WARNING: [Synth 8-3917] design hdmi_out_top has port m_axi_araddr[6] driven by constant 0
+WARNING: [Synth 8-3917] design hdmi_out_top has port m_axi_araddr[5] driven by constant 0
+WARNING: [Synth 8-3917] design hdmi_out_top has port m_axi_araddr[4] driven by constant 0
+WARNING: [Synth 8-3917] design hdmi_out_top has port m_axi_araddr[3] driven by constant 0
+WARNING: [Synth 8-3917] design hdmi_out_top has port m_axi_araddr[2] driven by constant 0
+WARNING: [Synth 8-3917] design hdmi_out_top has port m_axi_araddr[1] driven by constant 0
+WARNING: [Synth 8-3917] design hdmi_out_top has port m_axi_araddr[0] driven by constant 0
+WARNING: [Synth 8-3917] design hdmi_out_top has port m_axi_arlen[7] driven by constant 0
+WARNING: [Synth 8-3917] design hdmi_out_top has port m_axi_arlen[6] driven by constant 0
+WARNING: [Synth 8-3917] design hdmi_out_top has port m_axi_arlen[5] driven by constant 0
+WARNING: [Synth 8-3917] design hdmi_out_top has port m_axi_arlen[4] driven by constant 0
+WARNING: [Synth 8-3917] design hdmi_out_top has port m_axi_arlen[3] driven by constant 0
+WARNING: [Synth 8-3917] design hdmi_out_top has port m_axi_arlen[2] driven by constant 0
+WARNING: [Synth 8-3917] design hdmi_out_top has port m_axi_arlen[1] driven by constant 0
+WARNING: [Synth 8-3917] design hdmi_out_top has port m_axi_arlen[0] driven by constant 0
+WARNING: [Synth 8-3917] design hdmi_out_top has port m_axi_arsize[2] driven by constant 0
+WARNING: [Synth 8-3917] design hdmi_out_top has port m_axi_arsize[1] driven by constant 1
+WARNING: [Synth 8-3917] design hdmi_out_top has port m_axi_arsize[0] driven by constant 1
+WARNING: [Synth 8-3917] design hdmi_out_top has port m_axi_arburst[1] driven by constant 0
+WARNING: [Synth 8-3917] design hdmi_out_top has port m_axi_arburst[0] driven by constant 1
+INFO: [Common 17-14] Message 'Synth 8-3917' appears 100 times and further instances of the messages will be disabled. Use the Tcl command set_msg_config to change the current settings.
+WARNING: [Synth 8-7129] Port s_axi_araddr[31] in module hdmi_out_top is either unconnected or has no load
+WARNING: [Synth 8-7129] Port s_axi_araddr[30] in module hdmi_out_top is either unconnected or has no load
+WARNING: [Synth 8-7129] Port s_axi_araddr[29] in module hdmi_out_top is either unconnected or has no load
+WARNING: [Synth 8-7129] Port s_axi_araddr[28] in module hdmi_out_top is either unconnected or has no load
+WARNING: [Synth 8-7129] Port s_axi_araddr[27] in module hdmi_out_top is either unconnected or has no load
+INFO: [Common 17-14] Message 'Synth 8-7129' appears 100 times and further instances of the messages will be disabled. Use the Tcl command set_msg_config to change the current settings.
+---------------------------------------------------------------------------------
+Finished Cross Boundary and Area Optimization : Time (s): cpu = 00:00:11 ; elapsed = 00:00:11 . Memory (MB): peak = 2478.281 ; gain = 705.430 ; free physical = 1908 ; free virtual = 11986
+---------------------------------------------------------------------------------
+---------------------------------------------------------------------------------
+Start Applying XDC Timing Constraints
+---------------------------------------------------------------------------------
+---------------------------------------------------------------------------------
+Finished Applying XDC Timing Constraints : Time (s): cpu = 00:00:14 ; elapsed = 00:00:14 . Memory (MB): peak = 2538.281 ; gain = 765.430 ; free physical = 1806 ; free virtual = 11886
+---------------------------------------------------------------------------------
+---------------------------------------------------------------------------------
+Start Timing Optimization
+---------------------------------------------------------------------------------
+---------------------------------------------------------------------------------
+Finished Timing Optimization : Time (s): cpu = 00:00:14 ; elapsed = 00:00:15 . Memory (MB): peak = 2569.328 ; gain = 796.477 ; free physical = 1796 ; free virtual = 11872
+---------------------------------------------------------------------------------
+---------------------------------------------------------------------------------
+Start Technology Mapping
+---------------------------------------------------------------------------------
+---------------------------------------------------------------------------------
+Finished Technology Mapping : Time (s): cpu = 00:00:15 ; elapsed = 00:00:15 . Memory (MB): peak = 2569.328 ; gain = 796.477 ; free physical = 1797 ; free virtual = 11873
+---------------------------------------------------------------------------------
+---------------------------------------------------------------------------------
+Start IO Insertion
+---------------------------------------------------------------------------------
+---------------------------------------------------------------------------------
+Start Flattening Before IO Insertion
+---------------------------------------------------------------------------------
+---------------------------------------------------------------------------------
+Finished Flattening Before IO Insertion
+---------------------------------------------------------------------------------
+---------------------------------------------------------------------------------
+Start Final Netlist Cleanup
+---------------------------------------------------------------------------------
+---------------------------------------------------------------------------------
+Finished Final Netlist Cleanup
+---------------------------------------------------------------------------------
+---------------------------------------------------------------------------------
+Finished IO Insertion : Time (s): cpu = 00:00:17 ; elapsed = 00:00:17 . Memory (MB): peak = 2736.141 ; gain = 963.289 ; free physical = 1352 ; free virtual = 11426
+---------------------------------------------------------------------------------
+---------------------------------------------------------------------------------
+Start Renaming Generated Instances
+---------------------------------------------------------------------------------
+---------------------------------------------------------------------------------
+Finished Renaming Generated Instances : Time (s): cpu = 00:00:17 ; elapsed = 00:00:17 . Memory (MB): peak = 2736.141 ; gain = 963.289 ; free physical = 1352 ; free virtual = 11426
+---------------------------------------------------------------------------------
+---------------------------------------------------------------------------------
+Start Rebuilding User Hierarchy
+---------------------------------------------------------------------------------
+---------------------------------------------------------------------------------
+Finished Rebuilding User Hierarchy : Time (s): cpu = 00:00:17 ; elapsed = 00:00:17 . Memory (MB): peak = 2736.141 ; gain = 963.289 ; free physical = 1352 ; free virtual = 11426
+---------------------------------------------------------------------------------
+---------------------------------------------------------------------------------
+Start Renaming Generated Ports
+---------------------------------------------------------------------------------
+---------------------------------------------------------------------------------
+Finished Renaming Generated Ports : Time (s): cpu = 00:00:17 ; elapsed = 00:00:17 . Memory (MB): peak = 2736.141 ; gain = 963.289 ; free physical = 1352 ; free virtual = 11426
+---------------------------------------------------------------------------------
+---------------------------------------------------------------------------------
+Start Handling Custom Attributes
+---------------------------------------------------------------------------------
+---------------------------------------------------------------------------------
+Finished Handling Custom Attributes : Time (s): cpu = 00:00:17 ; elapsed = 00:00:17 . Memory (MB): peak = 2736.141 ; gain = 963.289 ; free physical = 1352 ; free virtual = 11426
+---------------------------------------------------------------------------------
+---------------------------------------------------------------------------------
+Start Renaming Generated Nets
+---------------------------------------------------------------------------------
+---------------------------------------------------------------------------------
+Finished Renaming Generated Nets : Time (s): cpu = 00:00:17 ; elapsed = 00:00:17 . Memory (MB): peak = 2736.141 ; gain = 963.289 ; free physical = 1352 ; free virtual = 11426
+---------------------------------------------------------------------------------
+---------------------------------------------------------------------------------
+Start Writing Synthesis Report
+---------------------------------------------------------------------------------
+
+Report BlackBoxes: 
++-+--------------+----------+
+| |BlackBox name |Instances |
++-+--------------+----------+
++-+--------------+----------+
+
+Report Cell Usage: 
++------+-------+------+
+|      |Cell   |Count |
++------+-------+------+
+|1     |CARRY4 |    43|
+|2     |LUT1   |    14|
+|3     |LUT2   |    31|
+|4     |LUT3   |    30|
+|5     |LUT4   |    83|
+|6     |LUT5   |    54|
+|7     |LUT6   |   138|
+|8     |FDCE   |     4|
+|9     |FDRE   |   510|
+|10    |FDSE   |     4|
++------+-------+------+
+---------------------------------------------------------------------------------
+Finished Writing Synthesis Report : Time (s): cpu = 00:00:17 ; elapsed = 00:00:17 . Memory (MB): peak = 2736.141 ; gain = 963.289 ; free physical = 1352 ; free virtual = 11426
+---------------------------------------------------------------------------------
+Synthesis finished with 0 errors, 0 critical warnings and 148 warnings.
+Synthesis Optimization Runtime : Time (s): cpu = 00:00:16 ; elapsed = 00:00:16 . Memory (MB): peak = 2736.141 ; gain = 854.516 ; free physical = 1344 ; free virtual = 11418
+Synthesis Optimization Complete : Time (s): cpu = 00:00:17 ; elapsed = 00:00:17 . Memory (MB): peak = 2736.148 ; gain = 963.289 ; free physical = 1336 ; free virtual = 11410
+INFO: [Project 1-571] Translating synthesized netlist
+Netlist sorting complete. Time (s): cpu = 00:00:00 ; elapsed = 00:00:00 . Memory (MB): peak = 2736.148 ; gain = 0.000 ; free physical = 1336 ; free virtual = 11410
+INFO: [Netlist 29-17] Analyzing 43 Unisim elements for replacement
+INFO: [Netlist 29-28] Unisim Transformation completed in 0 CPU seconds
+INFO: [Project 1-570] Preparing netlist for logic optimization
+Parsing XDC File [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/constraints/hdmi_out_ooc.xdc]
+Finished Parsing XDC File [/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/constraints/hdmi_out_ooc.xdc]
+INFO: [Opt 31-138] Pushed 0 inverter(s) to 0 load pin(s).
+Netlist sorting complete. Time (s): cpu = 00:00:00 ; elapsed = 00:00:00 . Memory (MB): peak = 2792.168 ; gain = 0.000 ; free physical = 1710 ; free virtual = 11783
+INFO: [Project 1-111] Unisim Transformation Summary:
+No Unisim elements were transformed.
+
+Synth Design complete | Checksum: 797cc9f
+INFO: [Common 17-83] Releasing license: Synthesis
+27 Infos, 200 Warnings, 0 Critical Warnings and 0 Errors encountered.
+synth_design completed successfully
+synth_design: Time (s): cpu = 00:00:23 ; elapsed = 00:00:21 . Memory (MB): peak = 2792.203 ; gain = 1148.242 ; free physical = 1710 ; free virtual = 11783
+INFO: [Common 17-2834] synth_design peak Physical Memory [PSS] (MB): overall = 2131.951; main = 2131.951; forked = 357.289
+INFO: [Common 17-2834] synth_design peak Virtual Memory [VSS] (MB): overall = 3503.035; main = 2792.172; forked = 1024.750
+# write_checkpoint -force "/tmp/probe_hdmi_p1/ooc/hdmi_p1_ooc.dcp"
+INFO: [Timing 38-35] Done setting XDC timing constraints.
+Write ShapeDB Complete: Time (s): cpu = 00:00:00 ; elapsed = 00:00:00 . Memory (MB): peak = 2824.184 ; gain = 0.000 ; free physical = 1789 ; free virtual = 11840
+INFO: [Timing 38-480] Writing timing data to binary archive.
+INFO: [Common 17-1381] The checkpoint '/tmp/probe_hdmi_p1/ooc/hdmi_p1_ooc.dcp' has been generated.
+# report_utilization -file "/tmp/probe_hdmi_p1/ooc/util.rpt"
+# report_timing_summary -file "/tmp/probe_hdmi_p1/ooc/timing.rpt" -max_paths 10 -warn_on_violation
+INFO: [Timing 38-91] UpdateTimingParams: Speed grade: -2, Delay Type: min_max.
+INFO: [Timing 38-191] Multithreading enabled for timing update using a maximum of 8 CPUs
+WARNING: [Timing 38-242] The property HD.CLK_SRC of clock port "pix_clk" is not set. In out-of-context mode, this prevents timing estimation for clock delay/skew
+Resolution: Set the HD.CLK_SRC property of the out-of-context port to the location of the clock buffer instance in the top-level design
+WARNING: [Timing 38-242] The property HD.CLK_SRC of clock port "s_axi_aclk" is not set. In out-of-context mode, this prevents timing estimation for clock delay/skew
+Resolution: Set the HD.CLK_SRC property of the out-of-context port to the location of the clock buffer instance in the top-level design
+# set lat [get_cells -hier -quiet -filter {REF_NAME =~ "LDCE*" || REF_NAME =~ "LDPE*"}]
+# puts "LATCH_CELL_COUNT=[llength $lat]"
+LATCH_CELL_COUNT=0
+# if {![catch {set tp [get_timing_paths -from [get_clocks pix_clk] -setup -nworst 1 -max_paths 1]}]} {
+#     if {[llength $tp] > 0} { puts "PIX_WNS_FROM=[get_property SLACK $tp]" }
+# }
+PIX_WNS_FROM=2.101
+# if {![catch {set tp2 [get_timing_paths -to [get_clocks pix_clk] -setup -nworst 1 -max_paths 1]}]} {
+#     if {[llength $tp2] > 0} { puts "PIX_WNS_TO=[get_property SLACK $tp2]" }
+# }
+PIX_WNS_TO=2.101
+# if {![catch {set tpa [get_timing_paths -from [get_clocks s_axi_aclk] -setup -nworst 1 -max_paths 1]}]} {
+#     if {[llength $tpa] > 0} { puts "AXI_WNS_FROM=[get_property SLACK $tpa]" }
+# }
+AXI_WNS_FROM=6.432
+INFO: [Common 17-206] Exiting Vivado at Mon Nov  2 23:34:10 2026...

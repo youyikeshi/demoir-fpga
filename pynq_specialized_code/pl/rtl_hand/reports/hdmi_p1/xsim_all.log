@@ -1,0 +1,105 @@
+=== [timing] xvlog ===
+=== [timing] xelab ===
+=== [timing] xsim ===
+
+****** xsim v2025.2.1 (64-bit)
+  **** SW Build 6403652 on Thu Mar 19 13:47:00 MDT 2026
+  **** IP Build 6403511 on Thu Mar 19 12:41:45 MDT 2026
+  **** SharedData Build 6403650 on Thu Mar 19 14:02:13 MDT 2026
+  **** Start of session at: Mon Nov  2 23:32:41 2026
+    ** Copyright 1986-2022 Xilinx, Inc. All Rights Reserved.
+    ** Copyright 2022-2026 Advanced Micro Devices, Inc. All Rights Reserved.
+
+source xsim.dir/sim_timing/xsim_script.tcl
+# xsim {sim_timing} -autoloadwcfg -runall
+Time resolution is 1 ps
+run -all
+=== tb_hdmi_timing: 4 modes in parallel ===
+  [640x480p60] frame start detected, measuring ...
+  [1080p60] frame start detected, measuring ...
+  [720p60] frame start detected, measuring ...
+  [1080p30] frame start detected, measuring ...
+  [640x480p60] hs_period=800 clk (exp 800) | de_width=640 clk (exp 640) | vs_period=420000 clk (exp 420000) | lines=525 (exp 525) | de_rows=480 (exp 480) | first=(0,0) | last=(639,479) | errs=0
+  [1080p60] hs_period=2200 clk (exp 2200) | de_width=1920 clk (exp 1920) | vs_period=2475000 clk (exp 2475000) | lines=1125 (exp 1125) | de_rows=1080 (exp 1080) | first=(0,0) | last=(1919,1079) | errs=0
+  [720p60] hs_period=1650 clk (exp 1650) | de_width=1280 clk (exp 1280) | vs_period=1237500 clk (exp 1237500) | lines=750 (exp 750) | de_rows=720 (exp 720) | first=(0,0) | last=(1279,719) | errs=0
+  [1080p30] hs_period=2200 clk (exp 2200) | de_width=1920 clk (exp 1920) | vs_period=2475000 clk (exp 2475000) | lines=1125 (exp 1125) | de_rows=1080 (exp 1080) | first=(0,0) | last=(1919,1079) | errs=0
+--------------------------------------------------------------
+RESULT: PASS  (4 modes, total errors = 0)
+--------------------------------------------------------------
+$finish called at time : 65452108622 ps : File "/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/rtl_hand/tb/tb_hdmi_timing.v" Line 305
+run: Time (s): cpu = 00:00:00 ; elapsed = 00:00:08 . Memory (MB): peak = 1437.125 ; gain = 0.000 ; free physical = 3467 ; free virtual = 13306
+exit
+INFO: xsimkernel Simulation Memory Usage: 273808 KB (Peak: 339084 KB), Simulation CPU Usage: 9090 ms
+INFO: [Common 17-206] Exiting xsim at Mon Nov  2 23:32:51 2026...
+[timing] PASS
+=== [i2c] xvlog ===
+=== [i2c] xelab ===
+=== [i2c] xsim ===
+
+****** xsim v2025.2.1 (64-bit)
+  **** SW Build 6403652 on Thu Mar 19 13:47:00 MDT 2026
+  **** IP Build 6403511 on Thu Mar 19 12:41:45 MDT 2026
+  **** SharedData Build 6403650 on Thu Mar 19 14:02:13 MDT 2026
+  **** Start of session at: Mon Nov  2 23:32:55 2026
+    ** Copyright 1986-2022 Xilinx, Inc. All Rights Reserved.
+    ** Copyright 2022-2026 Advanced Micro Devices, Inc. All Rights Reserved.
+
+source xsim.dir/sim_i2c/xsim_script.tcl
+# xsim {sim_i2c} -autoloadwcfg -runall
+Time resolution is 1 ps
+run -all
+=== tb_sil9134_i2c (100 MHz clk, target SCL 100 kHz) ===
+--------------------------------------------------------------
+  measured SCL period : min=10000 ns  max=10000 ns  (n=63)
+  SCL frequency       : 100.00 kHz (target 100.00 kHz)
+  START/STOP          : starts=3 stops=3 repeated_start=0
+  aborted transactions: 1 (at addr byte: 1)
+  ACK count           : 6   NACK injected: 1
+  bad byte length     : 0 (must be 0; every byte = 8 data + 1 ACK)
+  total time          : 1719995 ns (1.720 ms, limit 100 ms)
+  transactions        : 2
+    [0] dev=0x72 reg=0x08 data=0x35  scl_rising_edges=27
+    [1] dev=0x7a reg=0x2f data=0x00  scl_rising_edges=27
+--------------------------------------------------------------
+RESULT: PASS  (all I2C criteria met, errors = 0)
+--------------------------------------------------------------
+$finish called at time : 1722195 ns : File "/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/rtl_hand/tb/tb_sil9134_i2c.v" Line 300
+exit
+INFO: xsimkernel Simulation Memory Usage: 273740 KB (Peak: 339016 KB), Simulation CPU Usage: 940 ms
+INFO: [Common 17-206] Exiting xsim at Mon Nov  2 23:32:57 2026...
+[i2c] PASS
+=== [topcfg] xvlog ===
+=== [topcfg] xelab ===
+=== [topcfg] xsim ===
+
+****** xsim v2025.2.1 (64-bit)
+  **** SW Build 6403652 on Thu Mar 19 13:47:00 MDT 2026
+  **** IP Build 6403511 on Thu Mar 19 12:41:45 MDT 2026
+  **** SharedData Build 6403650 on Thu Mar 19 14:02:13 MDT 2026
+  **** Start of session at: Mon Nov  2 23:33:01 2026
+    ** Copyright 1986-2022 Xilinx, Inc. All Rights Reserved.
+    ** Copyright 2022-2026 Advanced Micro Devices, Inc. All Rights Reserved.
+
+source xsim.dir/sim_topcfg/xsim_script.tcl
+# xsim {sim_topcfg} -autoloadwcfg -runall
+Time resolution is 1 ps
+run -all
+=== tb_hdmi_top_cfg (MODE=3 640x480, aclk=100M, pix=25.175M) ===
+  init_done asserted at 1800195 ns (1.800 ms)
+  STATUS = 0x00000001 (init_done=1 vsync=0 underflow=0)
+  CTRL reset = 0x00000015 (expect 0x15: enable=1 test=1 motion=1)
+  out-of-range writes/reads completed (bus not hung)
+  bar compare: pixels=307200 (expect 307200)  mismatches=0  de_errs=0  border_errs=0
+  moving line: line_x 8 -> 16 (expect +8 per frame)
+  STATUS after frame = 0x00000003 (vsync=1, expect 1)
+  enable=0 frame: de_high_samples=0  d_nonzero_samples=0
+  motion=0 compare: pixels=307200 mismatches=0
+  CTRL after soft_reset write = 0x00000015
+--------------------------------------------------------------
+RESULT: PASS  (all top-level criteria met, errors = 0)
+--------------------------------------------------------------
+$finish called at time : 83304415 ns : File "/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/rtl_hand/tb/tb_hdmi_top_cfg.v" Line 397
+exit
+INFO: xsimkernel Simulation Memory Usage: 277928 KB (Peak: 339104 KB), Simulation CPU Usage: 3760 ms
+INFO: [Common 17-206] Exiting xsim at Mon Nov  2 23:33:06 2026...
+[topcfg] PASS
