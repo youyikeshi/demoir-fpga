@@ -5595,3 +5595,26 @@ $$\Rightarrow\ \textbf{裁定：改默认值为 } \mathtt{16'h0300}（\text{比�
 $$\Rightarrow\ \textbf{第 110 条：跨层参数必须有一处"唯一真相源"}$$
 $$\quad\ \text{同一个基址在}\textbf{单元 / BD 外壳 / tcl / PS}\text{ 四处表达} \Rightarrow \text{任何一处默认值不同就静默错位}$$
 $$\quad\ \Rightarrow\ \text{判据：}\text{构建后必须}\textbf{实测读一次 magic}，\text{不匹配就 } \mathtt{error}（\text{不能只靠代码审阅}）$$
+
+### 70.53 ⚠ 我的"宽度被截"假设被推翻；真因是**地址译码表**（T-80 物证，2026-11-02 16:12）
+
+$$\Rightarrow\ \textbf{旧/新 stub 的端口声明逐条相同}：\mathtt{m\_axi\_awaddr}\mathbf{[159{:}0]}、\mathtt{m\_axi\_wdata}\mathbf{[159{:}0]}、\mathtt{m\_axi\_wstrb}\mathbf{[19{:}0]}$$
+$$\quad\ \Rightarrow\ \text{旧产物}\textbf{不是 } 1\ \text{路，是 } 5\ \text{路 } 160\ \text{bit} \Rightarrow \text{"宽度被截成 } 1\ \text{路"}\textbf{解释不了 T-75 的观测}$$
+$$\Rightarrow\ \Rightarrow\ \textbf{我的假设错了}（\text{第 111 次"我以为的机制"被数据推翻}）$$
+
+**真正的差异：`CORE_GENERATION_INFO` 里的地址译码表 `C_M_AXI_BASE_ADDR`（5 槽 × 64 bit，降序）**
+$$\Rightarrow\ \text{旧：}\mathbf{2}\ \text{段} = \{0x40060000,\ 0x40040000\} \Rightarrow \textbf{没有 } 0x40080000$$
+$$\Rightarrow\ \text{新：}\mathbf{3}\ \text{段} = \{0x40080000,\ 0x40060000,\ 0x40040000\} \Rightarrow \text{与 BD 三个 } \mathtt{s\_axi/reg0}\ \text{一一对应}$$
+$$\Rightarrow\ \Rightarrow\ \text{旧 xbar 网表里 } 0x40080000\ \textbf{无译码通道} \Rightarrow \mathtt{fconv}\ \text{的窗口没有从设备}$$
+$$\quad\ \Rightarrow\ \text{综合把 M04 整组当死逻辑}\textbf{剪掉} \Rightarrow \text{完全解释 T-75 的"}\mathtt{M04\_NETS}=5\ \text{只有标量握手、}\mathtt{fconv}\ \text{的 } \mathtt{s\_axi}\ \text{引脚 } 0\text{"}$$
+
+**构建确实读到了新产物**
+$$\Rightarrow\ \mathtt{.dcp}\ \text{md5 } \mathtt{313f49de}，118{,}174\ \text{B}，\text{mtime } 11\text{-}02\ 15{:}42{:}51（\text{旧是 } \mathtt{58a60dff}，116{,}679\ \text{B}，10\text{-}30\ 09{:}49）$$
+$$\Rightarrow\ \text{日志第 505 行：}\mathtt{Reading\ design\ checkpoint\ \dots/proj\_v45/\dots/xbar.dcp\ for\ cell\ design\_1\_i/axi\_ctrl/xbar}$$
+$$\Rightarrow\ \text{新缓存 } \mathtt{cache/ip/2025.2.1/1/e/1e97c5a0…}\ \text{mtime } 15{:}42{:}51;\ \text{陈旧缓存 } \mathtt{5/3/535a7ddc…}\ \text{仍是 } 10\text{-}30\ 09{:}39$$
+
+$$\Rightarrow\ \textbf{第 111 条纪律：判据要选"能区分新旧的那一维"，不是"最直觉的那一维"}$$
+$$\quad\ \text{本轮：}\textbf{端口宽度 } \mathtt{A2}\ \text{在旧产物上也通过}（\text{两边都 } 160）\Rightarrow \text{它抓不到这个 bug}$$
+$$\quad\ \textbf{有效判据 = 译码表地址段数 + 每个 BD 从设备的基址都必须在里面}$$
+$$\quad\ \Rightarrow\ \text{做法：}\textbf{对每条断言都跑"真旧产物"负对照}，\text{不过就不是判据}$$
+$$\quad\ \quad\ \text{T-80 已做两条负对照：}\text{真旧 stub} \to \text{A 炸（只有 2 段）};\ \text{人为截成 } [31{:}0]\to \text{A2 炸}$$
