@@ -6539,3 +6539,28 @@ $$\Rightarrow\ \textbf{边界随 run 变 = 非确定} \Rightarrow \textbf{逻辑
 
 $$\Rightarrow\ \text{这与 T-105 的判断一致：}\mathbf{\text{BRESP 已回} \neq \text{已落 DDR}}；\text{而 T-106 认为 RTL 的 } \mathtt{wr\_all\_idle}\ \text{已覆盖——}\textbf{现在数据说明还不够}$$
 $$\Rightarrow\ \text{与 T-104 的 B 类（尾部段错、随 run 变）}\textbf{是同一个病}$$
+
+### 70.89 T-125 修正诊断：**排空是次要效应，不是主因**（2026-11-03 03:5x）
+
+**① 写回确实没落地，但范围有限**
+$$\Rightarrow\ \text{关键修正：}\mathtt{arena.buf.cacheable=True} \Rightarrow \text{单纯"读两次"会被 CPU cache 污染}$$
+$$\quad\ \Rightarrow\ \text{改用独立 } \mathtt{/dev/mem}\ \textbf{非缓存通道}读同一块（\text{方法学正确}）$$
+$$\Rightarrow\ \mathbf{30/227}\ \text{个 op 在 } \mathtt{done}\ \text{后内容仍在变}；\text{其中 } \mathtt{op2/4/6/8}\ \text{在 } \mathtt{done}+2\ \text{ms 时 }75\%\sim84\%\ \text{未落地}$$
+$$\quad\ \Rightarrow\ \mathtt{done}+\mathbf{20\ \text{ms}}\ \text{时}\textbf{逐字节 = v39 参照} \Rightarrow \text{那 4 个 op 确实是排空问题}$$
+$$\Rightarrow\ \text{但}\textbf{无统一稳定时间}：4\ \text{个 op }20\ \text{ms 内稳定}，26\ \text{个 }20\ \text{ms 后仍在变}$$
+$$\Rightarrow\ \textbf{而 174/227 个 op 在 } \mathtt{done}+2\ \text{ms 时}\textbf{已经"稳定且错"}$$
+
+**②③④ 三种修法全部无效**
+$$\Rightarrow\ \text{延迟 } 0/0.5/2/5/20\ \text{ms} \Rightarrow \textbf{全部 } 0/3$$
+$$\Rightarrow\ \text{op 间加 }0.5\ \text{ms} \Rightarrow 0/3;\ \textbf{每个 op 都推迟 }20\ \text{ms} \Rightarrow 0/3$$
+$$\Rightarrow\ \text{回读屏障（末 }64\mathtt{B}\times2 / \text{整段重读}\times2 / \text{ARM cacheflush invalidate}\times2）\Rightarrow \textbf{全 } 0/3$$
+$$\quad\ \Rightarrow\ \mathtt{allocate(cacheable=False)}\ \text{在本机 PYNQ}\textbf{被忽略}（\text{仍报 True）} \Rightarrow \text{非缓存修法未真正执行}$$
+$$\Rightarrow\ \Rightarrow\ \textbf{纯 PS 修法不可行，必须改 RTL}（\text{但见下条：改哪里要重新定向}）$$
+
+**⑤ 新方向：错从 op13 起"稳定且单调放大"**
+$$\Rightarrow\ \mathtt{op13}\ 9955 \to \mathtt{op15}\ 55431 \to \mathtt{op16}\ 56034 \to \mathtt{op18}\ 82408\ \text{B}$$
+$$\Rightarrow\ \Rightarrow\ \textbf{不是时序抖动，是某个"稳定的错"在逐 op 传播放大}$$
+$$\Rightarrow\ \textbf{下一轮转向}：\text{查 } \mathtt{op13}\ \text{附近那个"稳定错"机制}，\textbf{别再查排空}$$
+$$\Rightarrow\ \text{新假设（待验）：}\mathbf{\text{arena 缓冲在 } \ge 128^2\ \text{时}\textbf{地址重叠}} \Rightarrow \text{后期 op 覆盖前期结果}$$
+$$\quad\ \Rightarrow\ \text{能解释：}\text{稳定错、从第 }13\ \text{个 op 起、逐 op 放大、单层全对（只用一块缓冲）}$$
+$$\quad\ \Rightarrow\ \text{而且}\textbf{纯主机侧可查}：\text{把每个 op 的 } [\mathtt{offset},\ \mathtt{offset}+\mathtt{size})\ \text{算出来做两两重叠检查}$$
