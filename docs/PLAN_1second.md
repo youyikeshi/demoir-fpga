@@ -5487,3 +5487,36 @@ $$\Rightarrow\ \mathtt{O5}\ \mathtt{prm\_addr}\ \text{组合 if-chain 换 } +8\ 
 **参数化上限**：`wl_lane` 只有 4 bit（:207）⇒ `VLANES=32` 会**永远进不了 ST_CMP（挂死）** ⇒ 上限只能 16。
 
 **其余全清**：写口/读地址 X=0；末块补零**双侧消隐**结构断言 0 违例；`p_acc` 16 位无溢出（≤16384）；`ST_CMP` 无气泡（cmp 拍数 ≡ P×K）。
+
+### 70.49 IMP-B 交付 + 契约 R2（halo/pad/cfg_h）（2026-11-02 15:45）
+
+**交付（8 文件，`_worktrees/v50_impB/`）**
+
+| 文件 | 行数 | 完成度 |
+|---|---:|---|
+| `bin_unit_axi_wrap_v50.v` | 3168 | 融合控制 70% |
+| `bin_unit_axi_wrap_bd_v50.v` | 170 | 41 条端口与 v39 外壳 **diff 为空** |
+| `bin_band_buf.v` | 369 | 95% |
+| `bin_segq.v` | 483 | **100%（四条路径仿真全过，21 条检查 0 error）** |
+| `bin_{sam,rprelu,interp,catpack}_v50.v` | 82~92 | 80%（旧端口一字不改 + band 原地口）|
+
+**关键证据**
+$$\Rightarrow\ \textbf{B1 等价}：2795\to3168\ \text{行，新增 427 行、只替换 14 处/44 行}；\text{每处右支在 } \mathtt{FUSE\_MODE=0\ \&\ VLANES=8}\ \text{时}\textbf{恒等于原表达式}$$
+$$\Rightarrow\ \mathtt{0x000..0x24C}\ \text{的 18 条 case 项}\textbf{逐字保留}；\mathtt{0x300..0x310}\ \text{按 R1 落地}$$
+$$\Rightarrow\ \textbf{B2 容量断言在 elaboration 期就失败}：\mathtt{BAND\_ROWS}=16（392 KB）\ \text{与 } \mathtt{C\_MAX}=64（393 KB）\ \text{都 } \mathtt{xelab}\ \text{直接报错}$$
+$$\quad\ \Rightarrow\ \text{默认 } 8/1/48/256 = \mathbf{240\ KB} \le 270\ \text{KB}\ \text{Built}$$
+$$\Rightarrow\ \mathtt{xelab}\ \text{对 } \mathtt{VLANES=8}\ \text{与 } \mathbf{16}\ \text{都 Built}$$
+$$\Rightarrow\ \text{写侧选 }\textbf{(b) 2 拍串行化}：\text{第二拍地址} = \mathtt{addr} + H_{\text{out}}W_{\text{out}}\times 8（\textbf{两个 C8 平面，不是 } +8）$$
+$$\quad\ \Rightarrow\ \text{配套改了}\textbf{一处写引擎}：\mathtt{wr\_accept\_ok = u\_ce\ ||\ wr\_xfer}（\text{否则"停核"会把串行化器一起停死）$$
+$$\quad\ \Rightarrow\ \textbf{这是 REVIEW 必须重点看的一处}$$
+
+**契约 R2：halo / pad / cfg_h 的段边界语义（我裁定的，已入库）**
+$$\Rightarrow\ \mathtt{y0}（\text{字 }6）= \text{首个}\textbf{有效输出行};\quad \mathtt{nband}（\text{字 }9\text{ 低 }16）= \textbf{有效输出行数};\quad \mathtt{HALO} = \text{输入侧上下行}$$
+$$\Rightarrow\ \text{band 缓冲装}\textbf{输入}：[\mathtt{y0}-\mathtt{HALO},\ \mathtt{y0}+\mathtt{nband}+\mathtt{HALO})，\text{行数} = \mathtt{nband}+2\mathtt{HALO}$$
+$$\Rightarrow\ \textbf{pad 由 E 口做}：\text{行号越界 ⇒ 整行写 0、不发起 DMA} \Rightarrow \textbf{conv 读侧零边界分支}$$
+$$\Rightarrow\ \text{输出只写 } [\mathtt{y0},\ \mathtt{y0}+\mathtt{nband})，\textbf{halo 行只读不写}$$
+$$\Rightarrow\ \mathtt{cfg\_h} = \mathtt{nband}（\textbf{不含 halo}）;\ \text{缓冲行数由硬件算，PS 不传}$$
+$$\Rightarrow\ \textbf{权重/PRM 基址走寄存器}（\mathtt{r\_wgt/r\_shift/r\_*\_shift}）：\text{段边界写一次，}\textbf{必须早于 } \mathtt{CHAIN\_HEAD}$$
+$$\quad\ \Rightarrow\ \text{理由：描述符只有 10 字，塞不下 5 个指针；段内权重连续排布}$$
+
+**未做（已派 IMP-B 续作）**：`op_mask` 只实现 bit0；`conv→pack→sam` 带内串联未做；catpack 融合不支持。
