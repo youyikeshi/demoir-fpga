@@ -5994,3 +5994,26 @@ $$\Rightarrow\ \text{按实测 } 0.55\times\ \text{周期比} + \text{conv 在 }
 $$\Rightarrow\ \Rightarrow\ \textbf{16-lane 的真实收益是 } -0.20\ \text{s（约 } 5.63\ \text{s）}，\textbf{不是 } -0.56\ \text{s}$$
 $$\Rightarrow\ \text{而 } -0.56\ \text{s 只有在"}\textbf{保持 150 MHz}"\text{时成立——那是做不到的}$$
 $$\Rightarrow\ \text{论文/汇报里} \mathbf{必须用 } -0.20\ \text{s}，\text{不能用 } -0.56\ \text{s}$$
+
+### 70.67 ★ 目标变更（用户指令 2026-11-02 21:45）：**时钟 100 MHz 即为达标；重点是结果不出错；暂停推进**
+
+$$\Rightarrow\ \textbf{新目标}：\text{18-lane/16-lane 版位流在 }\mathbf{100\ \text{MHz}}\ \text{下}\textbf{结果逐字节正确、可重复} \Rightarrow \text{就算达标}$$
+$$\Rightarrow\ \textbf{不再追求}：150\ \text{MHz}、\text{融合（} \mathtt{FUSE=1}\ \text{）、写合并提速、其它性能优化}$$
+$$\Rightarrow\ \textbf{第一判据从"快多少"改成"}\textbf{两次运行逐字节相同且等于 golden}\text{"}$$
+$$\quad\ \Rightarrow\ \text{性能只记事实，不当目标;}\ \text{达标后}\textbf{封版暂停}$$
+
+**当前已证明的事实（冻结，不再改口径）**
+| 状态 | 结论 | 证据 |
+|---|---|---|
+| v39 8-lane @150 | 基线 5.83 s，结果正确 | 两套冻结 sha1 全中 |
+| v51 16-lane @**75** | **结果逐字节正确、两次相同** | T-98 E2/E3 |
+| v51 16-lane @100 | **有非确定错** | T-98 E1 |
+| 100 MHz 达标所需 | 修 popcount 锥（+0.113）+ 第二族（+0.389）| T-100 |
+
+$$\Rightarrow\ \text{16-lane 的真实墙钟收益 } \mathbf{-0.20\ s}\ (\approx5.63\ \text{s})\ \text{@100 MHz，不是 } -0.56\ \text{s}$$
+$$\Rightarrow\ \text{@75 MHz 反而 } -10\% \Rightarrow \textbf{75 MHz 只是"正确性已验证点"，不是交付点}$$
+
+**暂停清单（明确不推进）**
+$$\Rightarrow\ \text{融合 } \mathtt{FUSE=1}\ \text{（4 个阻断未清，}\text{band 通路的写合并/带偏移/级联序列器/}k\ge3\text{）}$$
+$$\Rightarrow\ \text{写合并器（提速用，非正确性）} \Rightarrow \text{做完等价验证}\textbf{ 先不构建}$$
+$$\Rightarrow\ \text{时序战役冲 150 MHz}、\text{band 缓冲扩容}、\mathtt{SAM}\ \text{垂直抽头}$$
