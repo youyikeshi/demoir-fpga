@@ -6125,3 +6125,31 @@ $$\quad\ \Rightarrow\ \textbf{必须单独扫 v51}，\text{不能拿 v52 的数�
 **纪律补充（T-103 又踩了一次）**
 $$\Rightarrow\ \text{soak 第一版排在整网之后} \Rightarrow \text{又读到"早到的 done"}（\mathtt{cyc}\ 11\mathtt{k}\sim34\mathtt{k}\ \text{的无效数据）$$
 $$\Rightarrow\ \Rightarrow\ \textbf{第 120 条：任何紧接整网之后的 PL 操作都不可信，整网永远排最后}$$
+
+### 70.72 ★★★★★ 整网错是**两个病**，A 类的指纹是组交错的置换（T-104，2026-11-02 23:5x）
+
+**D1 过：50 MHz 逐层 3 层 ×2 次全对**（`cin48k3` 0/49152、`cin112k3d2` 0/65536、`cin512k1` 0/196608，两次逐字节相同）
+$$\Rightarrow\ \text{v39 同 PS/同运行点：}\mathbf{4/4\ \text{跑 = 冻结三件套、逐 op } 0/395\ \text{差异}} \Rightarrow \textbf{PS 与探针干净}$$
+
+**A 类（主线、确定性、可复现）**
+$$\Rightarrow\ \text{第一个出错 op} = \mathbf{op65\ \mathtt{encoder.encoder\_1.down.conv}}：\mathtt{cin}{=}48,\ \mathtt{cout}{=}96,\ k{=}3,\ \mathbf{s{=}2},\ 32\times32\to16\times16$$
+$$\quad\ 17898/24576\ \text{B 差}（\mathbf{72.83\%}）;\ \text{op0\textasciitilde op64 与 v39 逐字节全同}$$
+$$\Rightarrow\ \textbf{指纹}\text{（一眼定性）}：\text{第 } g\ \text{组的内容} = \text{v39 的第 } f(g)\ \text{组}$$
+$$\quad\ f = (0,2,4,6,\ 1,3,5,7,\ 8,10,12,14)\ \text{应为}\ (0,1,2,\dots,11)$$
+$$\quad\ \Rightarrow\ \textbf{"偶组先、奇组后"的两相交错};\ \text{组 } 0/7/8\ \text{是不动点所以"看着对"，组 } 10/11\ \text{读到不存在的组 } 12/14$$
+$$\quad\ \Rightarrow\ \textbf{数据算对了，被写进了错的平面}$$
+$$\Rightarrow\ \text{排除项}：227\ \text{个 conv 全部 } \mathtt{cout}\%\ 16==0 \Rightarrow \text{不是末组掩码};\ \text{权重/PRM 残留、越界（垫子 0 B）、epilogue 全部排除}$$
+$$\Rightarrow\ \textbf{关键}：op65\ \text{是整网}\textbf{第一个 } s{=}2\ \text{的 op}（\text{也是第一个 } \mathtt{cout}{=}96/12\ \text{组）}$$
+$$\quad\ \Rightarrow\ \textbf{逐层 harness 历史上从没测过 } s{=}2 \Rightarrow \textbf{这就是"逐层全对、整网错"的覆盖盲区}}$$
+
+**B 类（非确定）**
+$$\Rightarrow\ \text{只在 } \mathtt{BIN\_LAZY\_DEQ=1}\ \text{直读路径出现};\ \text{两跑首个不一致的 op 会变（op15 或 op27）}$$
+$$\Rightarrow\ \text{错的恒是输出张量的}\textbf{尾部连续段}（\text{op15 行 0\text{-}16 全对、行 17\text{-}31 整段错 37.7\%）$$
+$$\Rightarrow\ \text{疑 }\textbf{done 早于 AXI 写落地};\ \text{关 } \mathtt{lazy}\ \text{后 PS 插入反量化} \Rightarrow \text{变确定}$$
+$$\Rightarrow\ \mathtt{slots}\ 24\to48、\text{cat 融合开关}\ \textbf{均无改善}$$
+
+**下一步（一层定生死）**
+$$\Rightarrow\ \text{① 单独跑 } \mathtt{encoder.encoder\_1.down.conv} \Rightarrow \text{应复现组交错，得到}\textbf{单层 RTL reproducer}$$
+$$\Rightarrow\ \text{② 单独跑 } \mathtt{decoder.decoder\_3.rdb.conv\_layers.0.conv}（\mathtt{cin}{=}64,\ \mathbf{\mathtt{cout}{=}96},\ \mathbf{s{=}1}）$$
+$$\quad\ \Rightarrow\ \text{若全对} \Rightarrow \textbf{触发是 } s{=}2\ \text{而不是 } \mathtt{cout}{=}96$$
+$$\Rightarrow\ \text{RTL 判据：}f = (0,2,4,6,1,3,5,7,8,10,12,14)\ \text{必须能被核的组/pair 计数逐项复算出来}$$

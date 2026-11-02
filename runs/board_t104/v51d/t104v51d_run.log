@@ -1,0 +1,127 @@
+[t104] python=3.10.4 numpy=1.21.5 mach=armv7l
+[t104] vlanes_now()=8 prm_layout={'VLANES': 8, 'PRM_W': 16, 'PB_S': 0, 'PB_B': 2, 'PB_Z': 6, 'PB_G': 10, 'PB_SL': 14, 'seg': {'alpha': (0, 2), 'bias': (2, 6), 'zeta': (6, 10), 'gamma': (10, 14), 'slope': (14, 16)}, 'words': {'alpha': 2, 'bias': 4, 'zeta': 4, 'gamma': 4, 'slope': 2}} BIN_V50_* 残留=[]
+[t104] 日志 = /home/xilinx/demoir/t104_outd/t104_041233.log
+[t104] bit = /home/xilinx/demoir/design_1_150v51.bit
+[t104] 运行点 = {"BIN_PACK": "e1e2", "BIN_LAZY_DEQ": "1", "BIN_LAZY_SLOTS": "24", "BIN_CAT_FUSION": "1", "BIN_BILINEAR_C": "1", "BIN_PRECOMP": "1", "Q8CACHE": "1", "BIN_F32DIRECT": "1", "BIN_CAT_ECA_FUSE": "1", "BIN_EPI_NOINV": "1", "BIN_PROFILE": "1", "BIN_V50_FUSE": "", "BIN_VLANES": ""}
+
+==============================================================================
+  第 1 步：load overlay + 指纹（本进程唯一一次 download=True）
+==============================================================================
+  Overlay(design_1_150v51.bit) 用时 2.499 s
+  IP 清单：['bin_unit_0', 'conv_uni_0', 'ps7']
+  conv_uni_0  base=0x40040000 length=0x20000 （期望 0x40040000）✓
+  bin_unit_0  base=0x40060000 length=0x20000 （期望 0x40060000）✓
+  0x40070314 = 0x50300001   (CFG+0x314)
+  0x40060310 = 0x00000000   (0x310 CHAIN_STATUS)
+  0x40060308 = 0x00000000   (0x308 BAND_ROWS)
+  **magic(0x314) = 0x50300001 期望 0x50300001 ⇒ 寄存器块在位 ✓**
+  load 后 fclk0 读回 = 125 MHz
+  内核装载：{'q8': (0.269, True), 'c8deq': (4.289, True), 'bpack': (1.755, True)}
+  [DEPS] q8=fast c8deq=fast bpack=fast e1e2=fast catpack=fast safe=fast  ⇒ deps_closure_ok=True
+
+==============================================================================
+  第 3 步：64² 整网 arena（24 槽）
+==============================================================================
+  arena t104_arena64 4.29 MB（24 槽 × (in 0.07 + out 0.10 MB)）@0x30100000
+
+################ [变体 fzdump] 整网 50 MHz → fclk0 读回 50 MHz；magic=0x50300001 0x310=0x00000000
+  覆盖后的运行点差异：{}
+  （lazy_deq 由 BinNet 逐实例读 env ⇒ 本变体下一层新 net 生效）
+
+==============================================================================
+  第 3 步：64² 整网（冻结运行点）fclk 读回 50 MHz，连跑 3 次
+==============================================================================
+  输入 x0 sha1 = bbae82e46e363a776d8fce8d9004e94502456bdc（冻结口径 bbae82e46e363a776d8fce8d9004e94502456bdc）✓
+  [DEPS] q8=fast c8deq=fast bpack=fast e1e2=fast catpack=fast safe=fast  ⇒ deps_closure_ok=True
+[DEPS] q8=fast c8deq=fast bpack=fast e1e2=fast catpack=fast safe=fast  ⇒ deps_closure_ok=True
+  [LAZY_DEQ] IN/OUT 槽数 = 24（BIN_LAZY_SLOTS）
+  [dump] run1: 395 个 op（conv 227）× 7.82 MB → ops_net64_50_fzdump_run1.bin / ops_net64_50_fzdump_run1.json
+  run1: 总 4.615 s（墙钟 5.349）| PL 1.826 | PS 2.217 | conv op 227 个
+        sha1 out1=6f998c6861420eb8 out2=5e0207e3ef5b0c8d out3=165b9cf297acc375  **≠ 冻结值 ✗✗**
+        冻结 out1=bfa246d34681e748311bbcd2f1b87317a56923fe
+        冻结 out2=226bd39e522aa373b8fc183acae5280931f8b63f
+        冻结 out3=762d84b9618eab8922edd6da4f07ba06de865628
+  [LAZY_DEQ] IN/OUT 槽数 = 24（BIN_LAZY_SLOTS）
+  [dump] run2: 395 个 op（conv 227）× 7.82 MB → ops_net64_50_fzdump_run2.bin / ops_net64_50_fzdump_run2.json
+  run2: 总 3.423 s（墙钟 3.805）| PL 1.009 | PS 1.146 | conv op 227 个
+        sha1 out1=fae250e6cfc97ff8 out2=7f199c47728942d5 out3=696f2063f45b9df4  **≠ 冻结值 ✗✗**
+        冻结 out1=bfa246d34681e748311bbcd2f1b87317a56923fe
+        冻结 out2=226bd39e522aa373b8fc183acae5280931f8b63f
+        冻结 out3=762d84b9618eab8922edd6da4f07ba06de865628
+  [LAZY_DEQ] IN/OUT 槽数 = 24（BIN_LAZY_SLOTS）
+  [dump] run3: 395 个 op（conv 227）× 7.82 MB → ops_net64_50_fzdump_run3.bin / ops_net64_50_fzdump_run3.json
+  run3: 总 3.466 s（墙钟 3.850）| PL 1.025 | PS 1.153 | conv op 227 个
+        sha1 out1=1324e6ce38d74c3a out2=1e56724e642f6ecd out3=dc22438a0f1629e8  **≠ 冻结值 ✗✗**
+        冻结 out1=bfa246d34681e748311bbcd2f1b87317a56923fe
+        冻结 out2=226bd39e522aa373b8fc183acae5280931f8b63f
+        冻结 out3=762d84b9618eab8922edd6da4f07ba06de865628
+  3 次 sha1 互比：**不同 ✗✗（非确定性）**
+  逐 op 两次互比：共同的 395 个 op 里 **241 个不同**（前几个 op id：[15, 16, 18, 19, 21, 22, 24, 25]）
+[json] 已落盘 /home/xilinx/demoir/t104_outd/t104_041233.json
+
+################ [变体 fznodump] 整网 50 MHz → fclk0 读回 50 MHz；magic=0x50300001 0x310=0x00000000
+  覆盖后的运行点差异：{}
+  （lazy_deq 由 BinNet 逐实例读 env ⇒ 本变体下一层新 net 生效）
+
+==============================================================================
+  第 3 步：64² 整网（冻结运行点）fclk 读回 50 MHz，连跑 3 次
+==============================================================================
+  输入 x0 sha1 = bbae82e46e363a776d8fce8d9004e94502456bdc（冻结口径 bbae82e46e363a776d8fce8d9004e94502456bdc）✓
+  [DEPS] q8=fast c8deq=fast bpack=fast e1e2=fast catpack=fast safe=fast  ⇒ deps_closure_ok=True
+  [LAZY_DEQ] IN/OUT 槽数 = 24（BIN_LAZY_SLOTS）
+  run1: 总 2.883 s（墙钟 2.890）| PL 0.969 | PS 0.920 | conv op 227 个
+        sha1 out1=fd5c0609f33182a6 out2=9f9955677c89b328 out3=843c606363d1f253  **≠ 冻结值 ✗✗**
+        冻结 out1=bfa246d34681e748311bbcd2f1b87317a56923fe
+        冻结 out2=226bd39e522aa373b8fc183acae5280931f8b63f
+        冻结 out3=762d84b9618eab8922edd6da4f07ba06de865628
+  [LAZY_DEQ] IN/OUT 槽数 = 24（BIN_LAZY_SLOTS）
+  run2: 总 2.857 s（墙钟 2.864）| PL 0.951 | PS 0.894 | conv op 227 个
+        sha1 out1=64e4d1fb758e947c out2=ba2370749e4c5d4f out3=f56f3b3dff0b7fd8  **≠ 冻结值 ✗✗**
+        冻结 out1=bfa246d34681e748311bbcd2f1b87317a56923fe
+        冻结 out2=226bd39e522aa373b8fc183acae5280931f8b63f
+        冻结 out3=762d84b9618eab8922edd6da4f07ba06de865628
+  [LAZY_DEQ] IN/OUT 槽数 = 24（BIN_LAZY_SLOTS）
+  run3: 总 2.821 s（墙钟 2.828）| PL 0.949 | PS 0.858 | conv op 227 个
+        sha1 out1=21924a0c2df3a5c8 out2=6b604f86977df400 out3=1bf632ffa28de4c7  **≠ 冻结值 ✗✗**
+        冻结 out1=bfa246d34681e748311bbcd2f1b87317a56923fe
+        冻结 out2=226bd39e522aa373b8fc183acae5280931f8b63f
+        冻结 out3=762d84b9618eab8922edd6da4f07ba06de865628
+  3 次 sha1 互比：**不同 ✗✗（非确定性）**
+[json] 已落盘 /home/xilinx/demoir/t104_outd/t104_041233.json
+
+################ [变体 lazy0nodump] 整网 50 MHz → fclk0 读回 50 MHz；magic=0x50300001 0x310=0x00000000
+  覆盖后的运行点差异：{'BIN_LAZY_DEQ': '0'}
+  （lazy_deq 由 BinNet 逐实例读 env ⇒ 本变体下一层新 net 生效）
+
+==============================================================================
+  第 3 步：64² 整网（冻结运行点）fclk 读回 50 MHz，连跑 3 次
+==============================================================================
+  输入 x0 sha1 = bbae82e46e363a776d8fce8d9004e94502456bdc（冻结口径 bbae82e46e363a776d8fce8d9004e94502456bdc）✓
+  [DEPS] q8=fast c8deq=fast bpack=fast e1e2=fast catpack=fast safe=fast  ⇒ deps_closure_ok=True
+  run1: 总 4.135 s（墙钟 4.140）| PL 0.712 | PS 2.762 | conv op 227 个
+        sha1 out1=4ac813b97da6cb8f out2=89d9398302eb6c1a out3=8a6e6b8c57212649  **≠ 冻结值 ✗✗**
+        冻结 out1=bfa246d34681e748311bbcd2f1b87317a56923fe
+        冻结 out2=226bd39e522aa373b8fc183acae5280931f8b63f
+        冻结 out3=762d84b9618eab8922edd6da4f07ba06de865628
+  run2: 总 3.824 s（墙钟 3.830）| PL 0.666 | PS 2.519 | conv op 227 个
+        sha1 out1=4ac813b97da6cb8f out2=89d9398302eb6c1a out3=8a6e6b8c57212649  **≠ 冻结值 ✗✗**
+        冻结 out1=bfa246d34681e748311bbcd2f1b87317a56923fe
+        冻结 out2=226bd39e522aa373b8fc183acae5280931f8b63f
+        冻结 out3=762d84b9618eab8922edd6da4f07ba06de865628
+  run3: 总 3.953 s（墙钟 3.958）| PL 0.664 | PS 2.598 | conv op 227 个
+        sha1 out1=4ac813b97da6cb8f out2=89d9398302eb6c1a out3=8a6e6b8c57212649  **≠ 冻结值 ✗✗**
+        冻结 out1=bfa246d34681e748311bbcd2f1b87317a56923fe
+        冻结 out2=226bd39e522aa373b8fc183acae5280931f8b63f
+        冻结 out3=762d84b9618eab8922edd6da4f07ba06de865628
+  3 次 sha1 互比：**完全相同 ✓**
+[json] 已落盘 /home/xilinx/demoir/t104_outd/t104_041233.json
+
+==============================================================================
+  汇总
+==============================================================================
+  net64_50_fzdump fclk 50 MHz | sha1 ≠ 冻结 ✗✗ | 3 次相同 ✗✗
+  net64_50_fznodump fclk 50 MHz | sha1 ≠ 冻结 ✗✗ | 3 次相同 ✗✗
+  net64_50_lazy0nodump fclk 50 MHz | sha1 ≠ 冻结 ✗✗ | 3 次相同 ✓
+  跑后 magic=0x50300001（仍是 magic ✓）0x310=0x00000000 fclk0=50 MHz
+[t104] DONE
+[json] 已落盘 /home/xilinx/demoir/t104_outd/t104_041233.json

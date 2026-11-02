@@ -1,0 +1,96 @@
+{
+ "A": {
+  "dir": "runs/board_t104/v51var",
+  "tag": "net64_50_lazy0_run1",
+  "n": 395,
+  "n_conv": 227,
+  "bytes": 43282624
+ },
+ "B": {
+  "dir": "runs/board_t104/v39lazy0",
+  "tag": "net64_50_lazy0_run1",
+  "n": 395,
+  "n_conv": 227,
+  "bytes": 43282624
+ },
+ "n_common": 395,
+ "only_a": [],
+ "only_b": [],
+ "first_diff": {
+  "op": 65,
+  "kind": "conv",
+  "name": "encoder.encoder_1.down.conv",
+  "shape_a": "cin=48 cout=96 k=3 s=2 32x32→16x16  out_bytes=24576  cout%16=0",
+  "shape_b": "cin=48 cout=96 k=3 s=2 32x32→16x16  out_bytes=24576  cout%16=0",
+  "rec_a": {
+   "op": 65,
+   "kind": "conv",
+   "name": "encoder.encoder_1.down.conv",
+   "tshape": [
+    96,
+    16,
+    16
+   ],
+   "stage": "pl",
+   "t": 1.95284,
+   "cyc": 96846,
+   "cin": 48,
+   "cout": 96,
+   "k": 3,
+   "s": 2,
+   "H": 32,
+   "W": 32,
+   "Hout": 16,
+   "Wout": 16,
+   "out_bytes": 24576,
+   "dtype": "float32",
+   "n": 98304,
+   "shape": [
+    96,
+    16,
+    16
+   ],
+   "sha1": "0e37060685b6a54d36d1f4326caf5a1e5d72255a"
+  },
+  "stats": {
+   "n": 24576,
+   "n_diff": 17898,
+   "abs_max": 14.625
+  },
+  "prev_same_op": 64,
+  "prev_same_shape": "tshape=[48, 32, 32]",
+  "last_same_conv": {
+   "op": 59,
+   "name": "encoder.encoder_1.sam_blocks.0.b4.conv.conv",
+   "shape": "cin=368 cout=48 k=1 s=1 8x8→8x8  out_bytes=3072  cout%16=0"
+  }
+ },
+ "n_diff_ops": 325,
+ "detail": [
+  {
+   "op": 65,
+   "kind": "conv",
+   "name": "encoder.encoder_1.down.conv",
+   "shape": "cin=48 cout=96 k=3 s=2 32x32→16x16  out_bytes=24576  cout%16=0",
+   "sha1_a": "0e37060685b6a54d36d1f4326caf5a1e5d72255a",
+   "sha1_b": "c34c0594bbb1df8065e386d4153b52272b732ddc"
+  },
+  {
+   "op": 66,
+   "kind": "conv",
+   "name": "encoder.encoder_2.rdb.conv_layers.0.conv",
+   "shape": "cin=96 cout=64 k=3 s=1 16x16→16x16  out_bytes=16384  cout%16=0",
+   "sha1_a": "fe1c94a3f0e5271ec1400882fd5edf45b15f9061",
+   "sha1_b": "9d3020f8cb8241372b55e87709c20840d232639b"
+  },
+  {
+   "op": 67,
+   "kind": "cat",
+   "name": "encoder.encoder_2.rdb.conv_layers.0:cat",
+   "shape": "tshape=[160, 16, 16]",
+   "sha1_a": "44c60dc76daeb889aea7640838199e38dd5ac873",
+   "sha1_b": "e70f00014bb8d76812a23896f4d6d1dad2317e7a"
+  }
+ ],
+ "notes": []
+}

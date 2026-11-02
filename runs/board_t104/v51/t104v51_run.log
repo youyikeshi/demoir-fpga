@@ -1,0 +1,105 @@
+[t104] python=3.10.4 numpy=1.21.5 mach=armv7l
+[t104] vlanes_now()=8 prm_layout={'VLANES': 8, 'PRM_W': 16, 'PB_S': 0, 'PB_B': 2, 'PB_Z': 6, 'PB_G': 10, 'PB_SL': 14, 'seg': {'alpha': (0, 2), 'bias': (2, 6), 'zeta': (6, 10), 'gamma': (10, 14), 'slope': (14, 16)}, 'words': {'alpha': 2, 'bias': 4, 'zeta': 4, 'gamma': 4, 'slope': 2}} BIN_V50_* 残留=[]
+[t104] 日志 = /home/xilinx/demoir/t104_out/t104_040422.log
+[t104] bit = /home/xilinx/demoir/design_1_150v51.bit
+[t104] 运行点 = {"BIN_PACK": "e1e2", "BIN_LAZY_DEQ": "1", "BIN_LAZY_SLOTS": "24", "BIN_CAT_FUSION": "1", "BIN_BILINEAR_C": "1", "BIN_PRECOMP": "1", "Q8CACHE": "1", "BIN_F32DIRECT": "1", "BIN_CAT_ECA_FUSE": "1", "BIN_EPI_NOINV": "1", "BIN_PROFILE": "1", "BIN_V50_FUSE": "", "BIN_VLANES": ""}
+
+==============================================================================
+  第 1 步：load overlay + 指纹（本进程唯一一次 download=True）
+==============================================================================
+  Overlay(design_1_150v51.bit) 用时 2.499 s
+  IP 清单：['bin_unit_0', 'conv_uni_0', 'ps7']
+  conv_uni_0  base=0x40040000 length=0x20000 （期望 0x40040000）✓
+  bin_unit_0  base=0x40060000 length=0x20000 （期望 0x40060000）✓
+  0x40070314 = 0x50300001   (CFG+0x314)
+  0x40060310 = 0x00000000   (0x310 CHAIN_STATUS)
+  0x40060308 = 0x00000000   (0x308 BAND_ROWS)
+  **magic(0x314) = 0x50300001 期望 0x50300001 ⇒ 寄存器块在位 ✓**
+  load 后 fclk0 读回 = 125 MHz
+  内核装载：{'q8': (0.27, True), 'c8deq': (4.284, True), 'bpack': (1.762, True)}
+  [DEPS] q8=fast c8deq=fast bpack=fast e1e2=fast catpack=fast safe=fast  ⇒ deps_closure_ok=True
+
+==============================================================================
+  第 2 步：50 MHz 逐层（3 层 ×2；判据 0 越界 + 0 不符 + 两次相同）
+==============================================================================
+  目标 50 MHz → **fclk0 读回 50 MHz**；magic=0x50300001 0x310=0x00000000（第 119 条：改频后重读）
+  准备 decoder.decode cin=48 cout=48 k=3 32x32→32x32 K=9  OUT=49152 B  act=8192 B  ob=0x30100000  exp_sha1=f05dde3c5209
+  准备 encoder.encode cin=112 cout=64 k=3 32x32→32x32 K=18  OUT=65536 B  act=16384 B  ob=0x3011f100  exp_sha1=2d6a3dae9bc7
+  准备 encoder.encode cin=512 cout=192 k=1 32x32→32x32 K=8  OUT=196608 B  act=65536 B  ob=0x30145980  exp_sha1=b5ecf17a6697
+  ---- cin48_k3       cin=48 cout=48 k=3 out_n=49152 @ 50 MHz，连跑 2 次
+   run1: 越界 **    0 B** | 不符 **     0/49152** | cyc=   104117 | 0x310=0x00000403 | sha1=f05dde3c5209
+   run2: 越界 **    0 B** | 不符 **     0/49152** | cyc=   105882 | 0x310=0x00000403 | sha1=f05dde3c5209
+   互比：[0] ⇒ **全部逐字节相同 ✓** | 最差一次与 golden：不符 0
+   判据（0 越界 + 0 不符 + 多次逐字节相同）：✓ 过
+  ---- cin112_k3_d2   cin=112 cout=64 k=3 out_n=65536 @ 50 MHz，连跑 2 次
+   run1: 越界 **    0 B** | 不符 **     0/65536** | cyc=   139856 | 0x310=0x00000403 | sha1=2d6a3dae9bc7
+   run2: 越界 **    0 B** | 不符 **     0/65536** | cyc=   140154 | 0x310=0x00000403 | sha1=2d6a3dae9bc7
+   互比：[0] ⇒ **全部逐字节相同 ✓** | 最差一次与 golden：不符 0
+   判据（0 越界 + 0 不符 + 多次逐字节相同）：✓ 过
+  ---- cin512_k1      cin=512 cout=192 k=1 out_n=196608 @ 50 MHz，连跑 2 次
+   run1: 越界 **    0 B** | 不符 **     0/196608** | cyc=   418234 | 0x310=0x00000403 | sha1=b5ecf17a6697
+   run2: 越界 **    0 B** | 不符 **     0/196608** | cyc=   421047 | 0x310=0x00000403 | sha1=b5ecf17a6697
+   互比：[0] ⇒ **全部逐字节相同 ✓** | 最差一次与 golden：不符 0
+   判据（0 越界 + 0 不符 + 多次逐字节相同）：✓ 过
+  [50 MHz] 逐层小结：3 层 0 越界 / 0 不符 / 两次相同 ✓
+[json] 已落盘 /home/xilinx/demoir/t104_out/t104_040422.json
+
+==============================================================================
+  第 3 步：64² 整网 arena（24 槽）
+==============================================================================
+  arena t104_arena64 4.29 MB（24 槽 × (in 0.07 + out 0.10 MB)）@0x32100000
+
+################ 整网目标 50 MHz → **fclk0 读回 50 MHz**；magic=0x50300001 0x310=0x00000000
+
+==============================================================================
+  第 3 步：64² 整网（冻结运行点）fclk 读回 50 MHz，连跑 2 次
+==============================================================================
+  输入 x0 sha1 = bbae82e46e363a776d8fce8d9004e94502456bdc（冻结口径 bbae82e46e363a776d8fce8d9004e94502456bdc）✓
+  [DEPS] q8=fast c8deq=fast bpack=fast e1e2=fast catpack=fast safe=fast  ⇒ deps_closure_ok=True
+[DEPS] q8=fast c8deq=fast bpack=fast e1e2=fast catpack=fast safe=fast  ⇒ deps_closure_ok=True
+  [LAZY_DEQ] IN/OUT 槽数 = 24（BIN_LAZY_SLOTS）
+  [dump] run1: 395 个 op（conv 227）× 7.82 MB → ops_net64_50_run1.bin / ops_net64_50_run1.json
+  run1: 总 4.874 s（墙钟 5.251）| PL 1.829 | PS 2.324 | conv op 227 个
+        sha1 out1=d1c2b26462038e9d out2=6cd88511e59f130e out3=e53240d0308b740c  **≠ 冻结值 ✗✗**
+        冻结 out1=bfa246d34681e748311bbcd2f1b87317a56923fe
+        冻结 out2=226bd39e522aa373b8fc183acae5280931f8b63f
+        冻结 out3=762d84b9618eab8922edd6da4f07ba06de865628
+  [LAZY_DEQ] IN/OUT 槽数 = 24（BIN_LAZY_SLOTS）
+  [dump] run2: 395 个 op（conv 227）× 7.82 MB → ops_net64_50_run2.bin / ops_net64_50_run2.json
+  run2: 总 3.396 s（墙钟 3.777）| PL 1.017 | PS 1.143 | conv op 227 个
+        sha1 out1=46cdbc9368e13193 out2=d7d48866e638dbfd out3=85bc2fd02eef239e  **≠ 冻结值 ✗✗**
+        冻结 out1=bfa246d34681e748311bbcd2f1b87317a56923fe
+        冻结 out2=226bd39e522aa373b8fc183acae5280931f8b63f
+        冻结 out3=762d84b9618eab8922edd6da4f07ba06de865628
+  2 次 sha1 互比：**不同 ✗✗（非确定性）**
+  逐 op 两次互比：共同的 395 个 op 里 **236 个不同**（前几个 op id：[15, 16, 18, 19, 21, 22, 24, 25]）
+[json] 已落盘 /home/xilinx/demoir/t104_out/t104_040422.json
+
+################ 整网目标 150 MHz → **fclk0 读回 150 MHz**；magic=0x50300001 0x310=0x00000000
+
+==============================================================================
+  第 3 步：64² 整网（冻结运行点）fclk 读回 150 MHz，连跑 1 次
+==============================================================================
+  输入 x0 sha1 = bbae82e46e363a776d8fce8d9004e94502456bdc（冻结口径 bbae82e46e363a776d8fce8d9004e94502456bdc）✓
+  [DEPS] q8=fast c8deq=fast bpack=fast e1e2=fast catpack=fast safe=fast  ⇒ deps_closure_ok=True
+  [LAZY_DEQ] IN/OUT 槽数 = 24（BIN_LAZY_SLOTS）
+Traceback (most recent call last):
+  File "/tmp/probe_T104/probe_t104.py", line 705, in main
+    row = run_net(ov, 64, arena64, 24, rb, "net64_%g" % f, nrun,
+  File "/tmp/probe_T104/probe_t104.py", line 508, in run_net
+    outs, st = with_alarm(watchdog, net.run, x0, pipeline=True, nbuf=2,
+  File "/tmp/probe_T104/probe_t104.py", line 135, in with_alarm
+    return fn(*a, **kw)
+  File "/home/xilinx/demoir/ps/pynq/bin_net.py", line 3181, in run
+    y, rs, t_e = be.finish(pl_task)
+  File "/tmp/probe_T104/probe_t104.py", line 250, in _finish_hook
+    y, rs, t_e = _orig_finish(self, task)
+  File "/home/xilinx/demoir/ps/pynq/bin_net.py", line 1084, in finish
+    rs = e.reap(task.t0, task.timeout, out_buf=task.out_buf, L=task.layer,
+  File "/home/xilinx/demoir/ps/pynq/bin_engine.py", line 1800, in reap
+    st, _ = self.wait(timeout, est_s=est_s)
+  File "/home/xilinx/demoir/ps/pynq/bin_engine.py", line 1474, in wait
+    raise TimeoutError(msg)
+TimeoutError: bin_unit 超时 5.0s 未 done（timeout=5.015793493333334）。**不再发第二次 start**：引擎可能还在访存，继续跑会踩内存。
+  ✗✗ 整网 64² @ 150 MHz 异常：TimeoutError('bin_unit 超时 5.0s 未 done（timeout=5.015793493333334）。**不再发第二次 start**：引擎可能还在访存，继续跑会踩内存。')
+[json] 已落盘 /home/xilinx/demoir/t104_out/t104_040422.json

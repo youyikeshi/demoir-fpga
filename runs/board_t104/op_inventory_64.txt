@@ -1,0 +1,397 @@
+ops=395
+id   kind     name                                             cin  cout  k  s  Hout  Wout        P    outB cout%16
+0    unshuffle input:pixel_unshuffle(2)                       (12, 32, 32)
+1    convfp   encoder.conv_first.0                           (48, 32, 32)
+2    conv     encoder.encoder_1.rdb.conv_layers.0.conv          48    64  3  1    32    32     1024   65536 0
+3    cat      encoder.encoder_1.rdb.conv_layers.0:cat        (112, 32, 32)
+4    conv     encoder.encoder_1.rdb.conv_layers.1.conv         112    64  3  1    32    32     1024   65536 0
+5    cat      encoder.encoder_1.rdb.conv_layers.1:cat        (176, 32, 32)
+6    conv     encoder.encoder_1.rdb.conv_layers.2.conv         176    64  3  1    32    32     1024   65536 0
+7    cat      encoder.encoder_1.rdb.conv_layers.2:cat        (240, 32, 32)
+8    conv     encoder.encoder_1.rdb.conv_post.conv             240    48  1  1    32    32     1024   49152 0
+9    add      encoder.encoder_1.rdb:residual                 (48, 32, 32)
+10   interp   encoder.encoder_1.sam_blocks.0:x2              (48, 16, 16)
+11   interp   encoder.encoder_1.sam_blocks.0:x4              (48, 8, 8)
+12   conv     m_blocks.0.b0.ghost_layers.0.primary_conv.conv    48    32  1  1    32    32     1024   32768 0
+13   conv     locks.0.b0.ghost_layers.0.cheap_operation.conv    32    32  3  1    32    32     1024   32768 0
+14   cat      oder_1.sam_blocks.0.b0.ghost_layers.0:cat_prev (112, 32, 32)
+15   conv     m_blocks.0.b0.ghost_layers.1.primary_conv.conv   112    32  1  1    32    32     1024   32768 0
+16   conv     locks.0.b0.ghost_layers.1.cheap_operation.conv    32    32  3  1    32    32     1024   32768 0
+17   cat      oder_1.sam_blocks.0.b0.ghost_layers.1:cat_prev (176, 32, 32)
+18   conv     m_blocks.0.b0.ghost_layers.2.primary_conv.conv   176    32  1  1    32    32     1024   32768 0
+19   conv     locks.0.b0.ghost_layers.2.cheap_operation.conv    32    32  3  1    32    32     1024   32768 0
+20   cat      oder_1.sam_blocks.0.b0.ghost_layers.2:cat_prev (240, 32, 32)
+21   conv     m_blocks.0.b0.ghost_layers.3.primary_conv.conv   240    32  1  1    32    32     1024   32768 0
+22   conv     locks.0.b0.ghost_layers.3.cheap_operation.conv    32    32  3  1    32    32     1024   32768 0
+23   cat      oder_1.sam_blocks.0.b0.ghost_layers.3:cat_prev (304, 32, 32)
+24   conv     m_blocks.0.b0.ghost_layers.4.primary_conv.conv   304    32  1  1    32    32     1024   32768 0
+25   conv     locks.0.b0.ghost_layers.4.cheap_operation.conv    32    32  3  1    32    32     1024   32768 0
+26   cat      oder_1.sam_blocks.0.b0.ghost_layers.4:cat_prev (368, 32, 32)
+27   conv     encoder.encoder_1.sam_blocks.0.b0.conv.conv      368    48  1  1    32    32     1024   49152 0
+28   conv     m_blocks.0.b2.ghost_layers.0.primary_conv.conv    48    32  1  1    16    16      256    8192 0
+29   conv     locks.0.b2.ghost_layers.0.cheap_operation.conv    32    32  3  1    16    16      256    8192 0
+30   cat      oder_1.sam_blocks.0.b2.ghost_layers.0:cat_prev (112, 16, 16)
+31   conv     m_blocks.0.b2.ghost_layers.1.primary_conv.conv   112    32  1  1    16    16      256    8192 0
+32   conv     locks.0.b2.ghost_layers.1.cheap_operation.conv    32    32  3  1    16    16      256    8192 0
+33   cat      oder_1.sam_blocks.0.b2.ghost_layers.1:cat_prev (176, 16, 16)
+34   conv     m_blocks.0.b2.ghost_layers.2.primary_conv.conv   176    32  1  1    16    16      256    8192 0
+35   conv     locks.0.b2.ghost_layers.2.cheap_operation.conv    32    32  3  1    16    16      256    8192 0
+36   cat      oder_1.sam_blocks.0.b2.ghost_layers.2:cat_prev (240, 16, 16)
+37   conv     m_blocks.0.b2.ghost_layers.3.primary_conv.conv   240    32  1  1    16    16      256    8192 0
+38   conv     locks.0.b2.ghost_layers.3.cheap_operation.conv    32    32  3  1    16    16      256    8192 0
+39   cat      oder_1.sam_blocks.0.b2.ghost_layers.3:cat_prev (304, 16, 16)
+40   conv     m_blocks.0.b2.ghost_layers.4.primary_conv.conv   304    32  1  1    16    16      256    8192 0
+41   conv     locks.0.b2.ghost_layers.4.cheap_operation.conv    32    32  3  1    16    16      256    8192 0
+42   cat      oder_1.sam_blocks.0.b2.ghost_layers.4:cat_prev (368, 16, 16)
+43   conv     encoder.encoder_1.sam_blocks.0.b2.conv.conv      368    48  1  1    16    16      256   12288 0
+44   conv     m_blocks.0.b4.ghost_layers.0.primary_conv.conv    48    32  1  1     8     8       64    2048 0
+45   conv     locks.0.b4.ghost_layers.0.cheap_operation.conv    32    32  3  1     8     8       64    2048 0
+46   cat      oder_1.sam_blocks.0.b4.ghost_layers.0:cat_prev (112, 8, 8)
+47   conv     m_blocks.0.b4.ghost_layers.1.primary_conv.conv   112    32  1  1     8     8       64    2048 0
+48   conv     locks.0.b4.ghost_layers.1.cheap_operation.conv    32    32  3  1     8     8       64    2048 0
+49   cat      oder_1.sam_blocks.0.b4.ghost_layers.1:cat_prev (176, 8, 8)
+50   conv     m_blocks.0.b4.ghost_layers.2.primary_conv.conv   176    32  1  1     8     8       64    2048 0
+51   conv     locks.0.b4.ghost_layers.2.cheap_operation.conv    32    32  3  1     8     8       64    2048 0
+52   cat      oder_1.sam_blocks.0.b4.ghost_layers.2:cat_prev (240, 8, 8)
+53   conv     m_blocks.0.b4.ghost_layers.3.primary_conv.conv   240    32  1  1     8     8       64    2048 0
+54   conv     locks.0.b4.ghost_layers.3.cheap_operation.conv    32    32  3  1     8     8       64    2048 0
+55   cat      oder_1.sam_blocks.0.b4.ghost_layers.3:cat_prev (304, 8, 8)
+56   conv     m_blocks.0.b4.ghost_layers.4.primary_conv.conv   304    32  1  1     8     8       64    2048 0
+57   conv     locks.0.b4.ghost_layers.4.cheap_operation.conv    32    32  3  1     8     8       64    2048 0
+58   cat      oder_1.sam_blocks.0.b4.ghost_layers.4:cat_prev (368, 8, 8)
+59   conv     encoder.encoder_1.sam_blocks.0.b4.conv.conv      368    48  1  1     8     8       64    3072 0
+60   interp   encoder.encoder_1.sam_blocks.0:b2_up           (48, 32, 32)
+61   interp   encoder.encoder_1.sam_blocks.0:b4_up           (48, 32, 32)
+62   cat      encoder.encoder_1.sam_blocks.0:cat3            (144, 32, 32)
+63   eca      encoder.encoder_1.sam_blocks.0.fusion          (144, 1, 1)
+64   sam      encoder.encoder_1.sam_blocks.0:weighted_sum    (48, 32, 32)
+65   conv     encoder.encoder_1.down.conv                       48    96  3  2    16    16      256   24576 0
+66   conv     encoder.encoder_2.rdb.conv_layers.0.conv          96    64  3  1    16    16      256   16384 0
+67   cat      encoder.encoder_2.rdb.conv_layers.0:cat        (160, 16, 16)
+68   conv     encoder.encoder_2.rdb.conv_layers.1.conv         160    64  3  1    16    16      256   16384 0
+69   cat      encoder.encoder_2.rdb.conv_layers.1:cat        (224, 16, 16)
+70   conv     encoder.encoder_2.rdb.conv_layers.2.conv         224    64  3  1    16    16      256   16384 0
+71   cat      encoder.encoder_2.rdb.conv_layers.2:cat        (288, 16, 16)
+72   conv     encoder.encoder_2.rdb.conv_post.conv             288    96  1  1    16    16      256   24576 0
+73   add      encoder.encoder_2.rdb:residual                 (96, 16, 16)
+74   interp   encoder.encoder_2.sam_blocks.0:x2              (96, 8, 8)
+75   interp   encoder.encoder_2.sam_blocks.0:x4              (96, 4, 4)
+76   conv     m_blocks.0.b0.ghost_layers.0.primary_conv.conv    96    32  1  1    16    16      256    8192 0
+77   conv     locks.0.b0.ghost_layers.0.cheap_operation.conv    32    32  3  1    16    16      256    8192 0
+78   cat      oder_2.sam_blocks.0.b0.ghost_layers.0:cat_prev (160, 16, 16)
+79   conv     m_blocks.0.b0.ghost_layers.1.primary_conv.conv   160    32  1  1    16    16      256    8192 0
+80   conv     locks.0.b0.ghost_layers.1.cheap_operation.conv    32    32  3  1    16    16      256    8192 0
+81   cat      oder_2.sam_blocks.0.b0.ghost_layers.1:cat_prev (224, 16, 16)
+82   conv     m_blocks.0.b0.ghost_layers.2.primary_conv.conv   224    32  1  1    16    16      256    8192 0
+83   conv     locks.0.b0.ghost_layers.2.cheap_operation.conv    32    32  3  1    16    16      256    8192 0
+84   cat      oder_2.sam_blocks.0.b0.ghost_layers.2:cat_prev (288, 16, 16)
+85   conv     m_blocks.0.b0.ghost_layers.3.primary_conv.conv   288    32  1  1    16    16      256    8192 0
+86   conv     locks.0.b0.ghost_layers.3.cheap_operation.conv    32    32  3  1    16    16      256    8192 0
+87   cat      oder_2.sam_blocks.0.b0.ghost_layers.3:cat_prev (352, 16, 16)
+88   conv     m_blocks.0.b0.ghost_layers.4.primary_conv.conv   352    32  1  1    16    16      256    8192 0
+89   conv     locks.0.b0.ghost_layers.4.cheap_operation.conv    32    32  3  1    16    16      256    8192 0
+90   cat      oder_2.sam_blocks.0.b0.ghost_layers.4:cat_prev (416, 16, 16)
+91   conv     encoder.encoder_2.sam_blocks.0.b0.conv.conv      416    96  1  1    16    16      256   24576 0
+92   conv     m_blocks.0.b2.ghost_layers.0.primary_conv.conv    96    32  1  1     8     8       64    2048 0
+93   conv     locks.0.b2.ghost_layers.0.cheap_operation.conv    32    32  3  1     8     8       64    2048 0
+94   cat      oder_2.sam_blocks.0.b2.ghost_layers.0:cat_prev (160, 8, 8)
+95   conv     m_blocks.0.b2.ghost_layers.1.primary_conv.conv   160    32  1  1     8     8       64    2048 0
+96   conv     locks.0.b2.ghost_layers.1.cheap_operation.conv    32    32  3  1     8     8       64    2048 0
+97   cat      oder_2.sam_blocks.0.b2.ghost_layers.1:cat_prev (224, 8, 8)
+98   conv     m_blocks.0.b2.ghost_layers.2.primary_conv.conv   224    32  1  1     8     8       64    2048 0
+99   conv     locks.0.b2.ghost_layers.2.cheap_operation.conv    32    32  3  1     8     8       64    2048 0
+100  cat      oder_2.sam_blocks.0.b2.ghost_layers.2:cat_prev (288, 8, 8)
+101  conv     m_blocks.0.b2.ghost_layers.3.primary_conv.conv   288    32  1  1     8     8       64    2048 0
+102  conv     locks.0.b2.ghost_layers.3.cheap_operation.conv    32    32  3  1     8     8       64    2048 0
+103  cat      oder_2.sam_blocks.0.b2.ghost_layers.3:cat_prev (352, 8, 8)
+104  conv     m_blocks.0.b2.ghost_layers.4.primary_conv.conv   352    32  1  1     8     8       64    2048 0
+105  conv     locks.0.b2.ghost_layers.4.cheap_operation.conv    32    32  3  1     8     8       64    2048 0
+106  cat      oder_2.sam_blocks.0.b2.ghost_layers.4:cat_prev (416, 8, 8)
+107  conv     encoder.encoder_2.sam_blocks.0.b2.conv.conv      416    96  1  1     8     8       64    6144 0
+108  conv     m_blocks.0.b4.ghost_layers.0.primary_conv.conv    96    32  1  1     4     4       16     512 0
+109  conv     locks.0.b4.ghost_layers.0.cheap_operation.conv    32    32  3  1     4     4       16     512 0
+110  cat      oder_2.sam_blocks.0.b4.ghost_layers.0:cat_prev (160, 4, 4)
+111  conv     m_blocks.0.b4.ghost_layers.1.primary_conv.conv   160    32  1  1     4     4       16     512 0
+112  conv     locks.0.b4.ghost_layers.1.cheap_operation.conv    32    32  3  1     4     4       16     512 0
+113  cat      oder_2.sam_blocks.0.b4.ghost_layers.1:cat_prev (224, 4, 4)
+114  conv     m_blocks.0.b4.ghost_layers.2.primary_conv.conv   224    32  1  1     4     4       16     512 0
+115  conv     locks.0.b4.ghost_layers.2.cheap_operation.conv    32    32  3  1     4     4       16     512 0
+116  cat      oder_2.sam_blocks.0.b4.ghost_layers.2:cat_prev (288, 4, 4)
+117  conv     m_blocks.0.b4.ghost_layers.3.primary_conv.conv   288    32  1  1     4     4       16     512 0
+118  conv     locks.0.b4.ghost_layers.3.cheap_operation.conv    32    32  3  1     4     4       16     512 0
+119  cat      oder_2.sam_blocks.0.b4.ghost_layers.3:cat_prev (352, 4, 4)
+120  conv     m_blocks.0.b4.ghost_layers.4.primary_conv.conv   352    32  1  1     4     4       16     512 0
+121  conv     locks.0.b4.ghost_layers.4.cheap_operation.conv    32    32  3  1     4     4       16     512 0
+122  cat      oder_2.sam_blocks.0.b4.ghost_layers.4:cat_prev (416, 4, 4)
+123  conv     encoder.encoder_2.sam_blocks.0.b4.conv.conv      416    96  1  1     4     4       16    1536 0
+124  interp   encoder.encoder_2.sam_blocks.0:b2_up           (96, 16, 16)
+125  interp   encoder.encoder_2.sam_blocks.0:b4_up           (96, 16, 16)
+126  cat      encoder.encoder_2.sam_blocks.0:cat3            (288, 16, 16)
+127  eca      encoder.encoder_2.sam_blocks.0.fusion          (288, 1, 1)
+128  sam      encoder.encoder_2.sam_blocks.0:weighted_sum    (96, 16, 16)
+129  conv     encoder.encoder_2.down.conv                       96   192  3  2     8     8       64   12288 0
+130  conv     encoder.encoder_3.rdb.conv_layers.0.conv         192    64  3  1     8     8       64    4096 0
+131  cat      encoder.encoder_3.rdb.conv_layers.0:cat        (256, 8, 8)
+132  conv     encoder.encoder_3.rdb.conv_layers.1.conv         256    64  3  1     8     8       64    4096 0
+133  cat      encoder.encoder_3.rdb.conv_layers.1:cat        (320, 8, 8)
+134  conv     encoder.encoder_3.rdb.conv_layers.2.conv         320    64  3  1     8     8       64    4096 0
+135  cat      encoder.encoder_3.rdb.conv_layers.2:cat        (384, 8, 8)
+136  conv     encoder.encoder_3.rdb.conv_post.conv             384   192  1  1     8     8       64   12288 0
+137  add      encoder.encoder_3.rdb:residual                 (192, 8, 8)
+138  interp   encoder.encoder_3.sam_blocks.0:x2              (192, 4, 4)
+139  interp   encoder.encoder_3.sam_blocks.0:x4              (192, 2, 2)
+140  conv     m_blocks.0.b0.ghost_layers.0.primary_conv.conv   192    32  1  1     8     8       64    2048 0
+141  conv     locks.0.b0.ghost_layers.0.cheap_operation.conv    32    32  3  1     8     8       64    2048 0
+142  cat      oder_3.sam_blocks.0.b0.ghost_layers.0:cat_prev (256, 8, 8)
+143  conv     m_blocks.0.b0.ghost_layers.1.primary_conv.conv   256    32  1  1     8     8       64    2048 0
+144  conv     locks.0.b0.ghost_layers.1.cheap_operation.conv    32    32  3  1     8     8       64    2048 0
+145  cat      oder_3.sam_blocks.0.b0.ghost_layers.1:cat_prev (320, 8, 8)
+146  conv     m_blocks.0.b0.ghost_layers.2.primary_conv.conv   320    32  1  1     8     8       64    2048 0
+147  conv     locks.0.b0.ghost_layers.2.cheap_operation.conv    32    32  3  1     8     8       64    2048 0
+148  cat      oder_3.sam_blocks.0.b0.ghost_layers.2:cat_prev (384, 8, 8)
+149  conv     m_blocks.0.b0.ghost_layers.3.primary_conv.conv   384    32  1  1     8     8       64    2048 0
+150  conv     locks.0.b0.ghost_layers.3.cheap_operation.conv    32    32  3  1     8     8       64    2048 0
+151  cat      oder_3.sam_blocks.0.b0.ghost_layers.3:cat_prev (448, 8, 8)
+152  conv     m_blocks.0.b0.ghost_layers.4.primary_conv.conv   448    32  1  1     8     8       64    2048 0
+153  conv     locks.0.b0.ghost_layers.4.cheap_operation.conv    32    32  3  1     8     8       64    2048 0
+154  cat      oder_3.sam_blocks.0.b0.ghost_layers.4:cat_prev (512, 8, 8)
+155  conv     encoder.encoder_3.sam_blocks.0.b0.conv.conv      512   192  1  1     8     8       64   12288 0
+156  conv     m_blocks.0.b2.ghost_layers.0.primary_conv.conv   192    32  1  1     4     4       16     512 0
+157  conv     locks.0.b2.ghost_layers.0.cheap_operation.conv    32    32  3  1     4     4       16     512 0
+158  cat      oder_3.sam_blocks.0.b2.ghost_layers.0:cat_prev (256, 4, 4)
+159  conv     m_blocks.0.b2.ghost_layers.1.primary_conv.conv   256    32  1  1     4     4       16     512 0
+160  conv     locks.0.b2.ghost_layers.1.cheap_operation.conv    32    32  3  1     4     4       16     512 0
+161  cat      oder_3.sam_blocks.0.b2.ghost_layers.1:cat_prev (320, 4, 4)
+162  conv     m_blocks.0.b2.ghost_layers.2.primary_conv.conv   320    32  1  1     4     4       16     512 0
+163  conv     locks.0.b2.ghost_layers.2.cheap_operation.conv    32    32  3  1     4     4       16     512 0
+164  cat      oder_3.sam_blocks.0.b2.ghost_layers.2:cat_prev (384, 4, 4)
+165  conv     m_blocks.0.b2.ghost_layers.3.primary_conv.conv   384    32  1  1     4     4       16     512 0
+166  conv     locks.0.b2.ghost_layers.3.cheap_operation.conv    32    32  3  1     4     4       16     512 0
+167  cat      oder_3.sam_blocks.0.b2.ghost_layers.3:cat_prev (448, 4, 4)
+168  conv     m_blocks.0.b2.ghost_layers.4.primary_conv.conv   448    32  1  1     4     4       16     512 0
+169  conv     locks.0.b2.ghost_layers.4.cheap_operation.conv    32    32  3  1     4     4       16     512 0
+170  cat      oder_3.sam_blocks.0.b2.ghost_layers.4:cat_prev (512, 4, 4)
+171  conv     encoder.encoder_3.sam_blocks.0.b2.conv.conv      512   192  1  1     4     4       16    3072 0
+172  conv     m_blocks.0.b4.ghost_layers.0.primary_conv.conv   192    32  1  1     2     2        4     128 0
+173  conv     locks.0.b4.ghost_layers.0.cheap_operation.conv    32    32  3  1     2     2        4     128 0
+174  cat      oder_3.sam_blocks.0.b4.ghost_layers.0:cat_prev (256, 2, 2)
+175  conv     m_blocks.0.b4.ghost_layers.1.primary_conv.conv   256    32  1  1     2     2        4     128 0
+176  conv     locks.0.b4.ghost_layers.1.cheap_operation.conv    32    32  3  1     2     2        4     128 0
+177  cat      oder_3.sam_blocks.0.b4.ghost_layers.1:cat_prev (320, 2, 2)
+178  conv     m_blocks.0.b4.ghost_layers.2.primary_conv.conv   320    32  1  1     2     2        4     128 0
+179  conv     locks.0.b4.ghost_layers.2.cheap_operation.conv    32    32  3  1     2     2        4     128 0
+180  cat      oder_3.sam_blocks.0.b4.ghost_layers.2:cat_prev (384, 2, 2)
+181  conv     m_blocks.0.b4.ghost_layers.3.primary_conv.conv   384    32  1  1     2     2        4     128 0
+182  conv     locks.0.b4.ghost_layers.3.cheap_operation.conv    32    32  3  1     2     2        4     128 0
+183  cat      oder_3.sam_blocks.0.b4.ghost_layers.3:cat_prev (448, 2, 2)
+184  conv     m_blocks.0.b4.ghost_layers.4.primary_conv.conv   448    32  1  1     2     2        4     128 0
+185  conv     locks.0.b4.ghost_layers.4.cheap_operation.conv    32    32  3  1     2     2        4     128 0
+186  cat      oder_3.sam_blocks.0.b4.ghost_layers.4:cat_prev (512, 2, 2)
+187  conv     encoder.encoder_3.sam_blocks.0.b4.conv.conv      512   192  1  1     2     2        4     768 0
+188  interp   encoder.encoder_3.sam_blocks.0:b2_up           (192, 8, 8)
+189  interp   encoder.encoder_3.sam_blocks.0:b4_up           (192, 8, 8)
+190  cat      encoder.encoder_3.sam_blocks.0:cat3            (576, 8, 8)
+191  eca      encoder.encoder_3.sam_blocks.0.fusion          (576, 1, 1)
+192  sam      encoder.encoder_3.sam_blocks.0:weighted_sum    (192, 8, 8)
+193  conv     decoder.preconv_3.conv                           192    64  3  1     8     8       64    4096 0
+194  conv     decoder.decoder_3.rdb.conv_layers.0.conv          64    96  3  1     8     8       64    6144 0
+195  cat      decoder.decoder_3.rdb.conv_layers.0:cat        (160, 8, 8)
+196  conv     decoder.decoder_3.rdb.conv_layers.1.conv         160    96  3  1     8     8       64    6144 0
+197  cat      decoder.decoder_3.rdb.conv_layers.1:cat        (256, 8, 8)
+198  conv     decoder.decoder_3.rdb.conv_layers.2.conv         256    96  3  1     8     8       64    6144 0
+199  cat      decoder.decoder_3.rdb.conv_layers.2:cat        (352, 8, 8)
+200  conv     decoder.decoder_3.rdb.conv_post.conv             352    64  1  1     8     8       64    4096 0
+201  add      decoder.decoder_3.rdb:residual                 (64, 8, 8)
+202  interp   decoder.decoder_3.sam_blocks.0:x2              (64, 4, 4)
+203  interp   decoder.decoder_3.sam_blocks.0:x4              (64, 2, 2)
+204  conv     m_blocks.0.b0.ghost_layers.0.primary_conv.conv    64    48  1  1     8     8       64    3072 0
+205  conv     locks.0.b0.ghost_layers.0.cheap_operation.conv    48    48  3  1     8     8       64    3072 0
+206  cat      oder_3.sam_blocks.0.b0.ghost_layers.0:cat_prev (160, 8, 8)
+207  conv     m_blocks.0.b0.ghost_layers.1.primary_conv.conv   160    48  1  1     8     8       64    3072 0
+208  conv     locks.0.b0.ghost_layers.1.cheap_operation.conv    48    48  3  1     8     8       64    3072 0
+209  cat      oder_3.sam_blocks.0.b0.ghost_layers.1:cat_prev (256, 8, 8)
+210  conv     m_blocks.0.b0.ghost_layers.2.primary_conv.conv   256    48  1  1     8     8       64    3072 0
+211  conv     locks.0.b0.ghost_layers.2.cheap_operation.conv    48    48  3  1     8     8       64    3072 0
+212  cat      oder_3.sam_blocks.0.b0.ghost_layers.2:cat_prev (352, 8, 8)
+213  conv     m_blocks.0.b0.ghost_layers.3.primary_conv.conv   352    48  1  1     8     8       64    3072 0
+214  conv     locks.0.b0.ghost_layers.3.cheap_operation.conv    48    48  3  1     8     8       64    3072 0
+215  cat      oder_3.sam_blocks.0.b0.ghost_layers.3:cat_prev (448, 8, 8)
+216  conv     m_blocks.0.b0.ghost_layers.4.primary_conv.conv   448    48  1  1     8     8       64    3072 0
+217  conv     locks.0.b0.ghost_layers.4.cheap_operation.conv    48    48  3  1     8     8       64    3072 0
+218  cat      oder_3.sam_blocks.0.b0.ghost_layers.4:cat_prev (544, 8, 8)
+219  conv     decoder.decoder_3.sam_blocks.0.b0.conv.conv      544    64  1  1     8     8       64    4096 0
+220  conv     m_blocks.0.b2.ghost_layers.0.primary_conv.conv    64    48  1  1     4     4       16     768 0
+221  conv     locks.0.b2.ghost_layers.0.cheap_operation.conv    48    48  3  1     4     4       16     768 0
+222  cat      oder_3.sam_blocks.0.b2.ghost_layers.0:cat_prev (160, 4, 4)
+223  conv     m_blocks.0.b2.ghost_layers.1.primary_conv.conv   160    48  1  1     4     4       16     768 0
+224  conv     locks.0.b2.ghost_layers.1.cheap_operation.conv    48    48  3  1     4     4       16     768 0
+225  cat      oder_3.sam_blocks.0.b2.ghost_layers.1:cat_prev (256, 4, 4)
+226  conv     m_blocks.0.b2.ghost_layers.2.primary_conv.conv   256    48  1  1     4     4       16     768 0
+227  conv     locks.0.b2.ghost_layers.2.cheap_operation.conv    48    48  3  1     4     4       16     768 0
+228  cat      oder_3.sam_blocks.0.b2.ghost_layers.2:cat_prev (352, 4, 4)
+229  conv     m_blocks.0.b2.ghost_layers.3.primary_conv.conv   352    48  1  1     4     4       16     768 0
+230  conv     locks.0.b2.ghost_layers.3.cheap_operation.conv    48    48  3  1     4     4       16     768 0
+231  cat      oder_3.sam_blocks.0.b2.ghost_layers.3:cat_prev (448, 4, 4)
+232  conv     m_blocks.0.b2.ghost_layers.4.primary_conv.conv   448    48  1  1     4     4       16     768 0
+233  conv     locks.0.b2.ghost_layers.4.cheap_operation.conv    48    48  3  1     4     4       16     768 0
+234  cat      oder_3.sam_blocks.0.b2.ghost_layers.4:cat_prev (544, 4, 4)
+235  conv     decoder.decoder_3.sam_blocks.0.b2.conv.conv      544    64  1  1     4     4       16    1024 0
+236  conv     m_blocks.0.b4.ghost_layers.0.primary_conv.conv    64    48  1  1     2     2        4     192 0
+237  conv     locks.0.b4.ghost_layers.0.cheap_operation.conv    48    48  3  1     2     2        4     192 0
+238  cat      oder_3.sam_blocks.0.b4.ghost_layers.0:cat_prev (160, 2, 2)
+239  conv     m_blocks.0.b4.ghost_layers.1.primary_conv.conv   160    48  1  1     2     2        4     192 0
+240  conv     locks.0.b4.ghost_layers.1.cheap_operation.conv    48    48  3  1     2     2        4     192 0
+241  cat      oder_3.sam_blocks.0.b4.ghost_layers.1:cat_prev (256, 2, 2)
+242  conv     m_blocks.0.b4.ghost_layers.2.primary_conv.conv   256    48  1  1     2     2        4     192 0
+243  conv     locks.0.b4.ghost_layers.2.cheap_operation.conv    48    48  3  1     2     2        4     192 0
+244  cat      oder_3.sam_blocks.0.b4.ghost_layers.2:cat_prev (352, 2, 2)
+245  conv     m_blocks.0.b4.ghost_layers.3.primary_conv.conv   352    48  1  1     2     2        4     192 0
+246  conv     locks.0.b4.ghost_layers.3.cheap_operation.conv    48    48  3  1     2     2        4     192 0
+247  cat      oder_3.sam_blocks.0.b4.ghost_layers.3:cat_prev (448, 2, 2)
+248  conv     m_blocks.0.b4.ghost_layers.4.primary_conv.conv   448    48  1  1     2     2        4     192 0
+249  conv     locks.0.b4.ghost_layers.4.cheap_operation.conv    48    48  3  1     2     2        4     192 0
+250  cat      oder_3.sam_blocks.0.b4.ghost_layers.4:cat_prev (544, 2, 2)
+251  conv     decoder.decoder_3.sam_blocks.0.b4.conv.conv      544    64  1  1     2     2        4     256 0
+252  interp   decoder.decoder_3.sam_blocks.0:b2_up           (64, 8, 8)
+253  interp   decoder.decoder_3.sam_blocks.0:b4_up           (64, 8, 8)
+254  cat      decoder.decoder_3.sam_blocks.0:cat3            (192, 8, 8)
+255  eca      decoder.decoder_3.sam_blocks.0.fusion          (192, 1, 1)
+256  sam      decoder.decoder_3.sam_blocks.0:weighted_sum    (64, 8, 8)
+257  convfp   decoder.decoder_3.conv                         (12, 8, 8)
+258  shuffle  decoder.decoder_3:pixel_shuffle(2)             (3, 16, 16)
+259  interp   decoder.decoder_3:feat_up                      (64, 16, 16)
+260  cat      decoder.preconv_2:cat                          (160, 16, 16)
+261  conv     decoder.preconv_2.conv                           160    64  3  1    16    16      256   16384 0
+262  conv     decoder.decoder_2.rdb.conv_layers.0.conv          64    96  3  1    16    16      256   24576 0
+263  cat      decoder.decoder_2.rdb.conv_layers.0:cat        (160, 16, 16)
+264  conv     decoder.decoder_2.rdb.conv_layers.1.conv         160    96  3  1    16    16      256   24576 0
+265  cat      decoder.decoder_2.rdb.conv_layers.1:cat        (256, 16, 16)
+266  conv     decoder.decoder_2.rdb.conv_layers.2.conv         256    96  3  1    16    16      256   24576 0
+267  cat      decoder.decoder_2.rdb.conv_layers.2:cat        (352, 16, 16)
+268  conv     decoder.decoder_2.rdb.conv_post.conv             352    64  1  1    16    16      256   16384 0
+269  add      decoder.decoder_2.rdb:residual                 (64, 16, 16)
+270  interp   decoder.decoder_2.sam_blocks.0:x2              (64, 8, 8)
+271  interp   decoder.decoder_2.sam_blocks.0:x4              (64, 4, 4)
+272  conv     m_blocks.0.b0.ghost_layers.0.primary_conv.conv    64    48  1  1    16    16      256   12288 0
+273  conv     locks.0.b0.ghost_layers.0.cheap_operation.conv    48    48  3  1    16    16      256   12288 0
+274  cat      oder_2.sam_blocks.0.b0.ghost_layers.0:cat_prev (160, 16, 16)
+275  conv     m_blocks.0.b0.ghost_layers.1.primary_conv.conv   160    48  1  1    16    16      256   12288 0
+276  conv     locks.0.b0.ghost_layers.1.cheap_operation.conv    48    48  3  1    16    16      256   12288 0
+277  cat      oder_2.sam_blocks.0.b0.ghost_layers.1:cat_prev (256, 16, 16)
+278  conv     m_blocks.0.b0.ghost_layers.2.primary_conv.conv   256    48  1  1    16    16      256   12288 0
+279  conv     locks.0.b0.ghost_layers.2.cheap_operation.conv    48    48  3  1    16    16      256   12288 0
+280  cat      oder_2.sam_blocks.0.b0.ghost_layers.2:cat_prev (352, 16, 16)
+281  conv     m_blocks.0.b0.ghost_layers.3.primary_conv.conv   352    48  1  1    16    16      256   12288 0
+282  conv     locks.0.b0.ghost_layers.3.cheap_operation.conv    48    48  3  1    16    16      256   12288 0
+283  cat      oder_2.sam_blocks.0.b0.ghost_layers.3:cat_prev (448, 16, 16)
+284  conv     m_blocks.0.b0.ghost_layers.4.primary_conv.conv   448    48  1  1    16    16      256   12288 0
+285  conv     locks.0.b0.ghost_layers.4.cheap_operation.conv    48    48  3  1    16    16      256   12288 0
+286  cat      oder_2.sam_blocks.0.b0.ghost_layers.4:cat_prev (544, 16, 16)
+287  conv     decoder.decoder_2.sam_blocks.0.b0.conv.conv      544    64  1  1    16    16      256   16384 0
+288  conv     m_blocks.0.b2.ghost_layers.0.primary_conv.conv    64    48  1  1     8     8       64    3072 0
+289  conv     locks.0.b2.ghost_layers.0.cheap_operation.conv    48    48  3  1     8     8       64    3072 0
+290  cat      oder_2.sam_blocks.0.b2.ghost_layers.0:cat_prev (160, 8, 8)
+291  conv     m_blocks.0.b2.ghost_layers.1.primary_conv.conv   160    48  1  1     8     8       64    3072 0
+292  conv     locks.0.b2.ghost_layers.1.cheap_operation.conv    48    48  3  1     8     8       64    3072 0
+293  cat      oder_2.sam_blocks.0.b2.ghost_layers.1:cat_prev (256, 8, 8)
+294  conv     m_blocks.0.b2.ghost_layers.2.primary_conv.conv   256    48  1  1     8     8       64    3072 0
+295  conv     locks.0.b2.ghost_layers.2.cheap_operation.conv    48    48  3  1     8     8       64    3072 0
+296  cat      oder_2.sam_blocks.0.b2.ghost_layers.2:cat_prev (352, 8, 8)
+297  conv     m_blocks.0.b2.ghost_layers.3.primary_conv.conv   352    48  1  1     8     8       64    3072 0
+298  conv     locks.0.b2.ghost_layers.3.cheap_operation.conv    48    48  3  1     8     8       64    3072 0
+299  cat      oder_2.sam_blocks.0.b2.ghost_layers.3:cat_prev (448, 8, 8)
+300  conv     m_blocks.0.b2.ghost_layers.4.primary_conv.conv   448    48  1  1     8     8       64    3072 0
+301  conv     locks.0.b2.ghost_layers.4.cheap_operation.conv    48    48  3  1     8     8       64    3072 0
+302  cat      oder_2.sam_blocks.0.b2.ghost_layers.4:cat_prev (544, 8, 8)
+303  conv     decoder.decoder_2.sam_blocks.0.b2.conv.conv      544    64  1  1     8     8       64    4096 0
+304  conv     m_blocks.0.b4.ghost_layers.0.primary_conv.conv    64    48  1  1     4     4       16     768 0
+305  conv     locks.0.b4.ghost_layers.0.cheap_operation.conv    48    48  3  1     4     4       16     768 0
+306  cat      oder_2.sam_blocks.0.b4.ghost_layers.0:cat_prev (160, 4, 4)
+307  conv     m_blocks.0.b4.ghost_layers.1.primary_conv.conv   160    48  1  1     4     4       16     768 0
+308  conv     locks.0.b4.ghost_layers.1.cheap_operation.conv    48    48  3  1     4     4       16     768 0
+309  cat      oder_2.sam_blocks.0.b4.ghost_layers.1:cat_prev (256, 4, 4)
+310  conv     m_blocks.0.b4.ghost_layers.2.primary_conv.conv   256    48  1  1     4     4       16     768 0
+311  conv     locks.0.b4.ghost_layers.2.cheap_operation.conv    48    48  3  1     4     4       16     768 0
+312  cat      oder_2.sam_blocks.0.b4.ghost_layers.2:cat_prev (352, 4, 4)
+313  conv     m_blocks.0.b4.ghost_layers.3.primary_conv.conv   352    48  1  1     4     4       16     768 0
+314  conv     locks.0.b4.ghost_layers.3.cheap_operation.conv    48    48  3  1     4     4       16     768 0
+315  cat      oder_2.sam_blocks.0.b4.ghost_layers.3:cat_prev (448, 4, 4)
+316  conv     m_blocks.0.b4.ghost_layers.4.primary_conv.conv   448    48  1  1     4     4       16     768 0
+317  conv     locks.0.b4.ghost_layers.4.cheap_operation.conv    48    48  3  1     4     4       16     768 0
+318  cat      oder_2.sam_blocks.0.b4.ghost_layers.4:cat_prev (544, 4, 4)
+319  conv     decoder.decoder_2.sam_blocks.0.b4.conv.conv      544    64  1  1     4     4       16    1024 0
+320  interp   decoder.decoder_2.sam_blocks.0:b2_up           (64, 16, 16)
+321  interp   decoder.decoder_2.sam_blocks.0:b4_up           (64, 16, 16)
+322  cat      decoder.decoder_2.sam_blocks.0:cat3            (192, 16, 16)
+323  eca      decoder.decoder_2.sam_blocks.0.fusion          (192, 1, 1)
+324  sam      decoder.decoder_2.sam_blocks.0:weighted_sum    (64, 16, 16)
+325  convfp   decoder.decoder_2.conv                         (12, 16, 16)
+326  shuffle  decoder.decoder_2:pixel_shuffle(2)             (3, 32, 32)
+327  interp   decoder.decoder_2:feat_up                      (64, 32, 32)
+328  cat      decoder.preconv_1:cat                          (112, 32, 32)
+329  conv     decoder.preconv_1.conv                           112    64  3  1    32    32     1024   65536 0
+330  conv     decoder.decoder_1.rdb.conv_layers.0.conv          64    96  3  1    32    32     1024   98304 0
+331  cat      decoder.decoder_1.rdb.conv_layers.0:cat        (160, 32, 32)
+332  conv     decoder.decoder_1.rdb.conv_layers.1.conv         160    96  3  1    32    32     1024   98304 0
+333  cat      decoder.decoder_1.rdb.conv_layers.1:cat        (256, 32, 32)
+334  conv     decoder.decoder_1.rdb.conv_layers.2.conv         256    96  3  1    32    32     1024   98304 0
+335  cat      decoder.decoder_1.rdb.conv_layers.2:cat        (352, 32, 32)
+336  conv     decoder.decoder_1.rdb.conv_post.conv             352    64  1  1    32    32     1024   65536 0
+337  add      decoder.decoder_1.rdb:residual                 (64, 32, 32)
+338  interp   decoder.decoder_1.sam_blocks.0:x2              (64, 16, 16)
+339  interp   decoder.decoder_1.sam_blocks.0:x4              (64, 8, 8)
+340  conv     m_blocks.0.b0.ghost_layers.0.primary_conv.conv    64    48  1  1    32    32     1024   49152 0
+341  conv     locks.0.b0.ghost_layers.0.cheap_operation.conv    48    48  3  1    32    32     1024   49152 0
+342  cat      oder_1.sam_blocks.0.b0.ghost_layers.0:cat_prev (160, 32, 32)
+343  conv     m_blocks.0.b0.ghost_layers.1.primary_conv.conv   160    48  1  1    32    32     1024   49152 0
+344  conv     locks.0.b0.ghost_layers.1.cheap_operation.conv    48    48  3  1    32    32     1024   49152 0
+345  cat      oder_1.sam_blocks.0.b0.ghost_layers.1:cat_prev (256, 32, 32)
+346  conv     m_blocks.0.b0.ghost_layers.2.primary_conv.conv   256    48  1  1    32    32     1024   49152 0
+347  conv     locks.0.b0.ghost_layers.2.cheap_operation.conv    48    48  3  1    32    32     1024   49152 0
+348  cat      oder_1.sam_blocks.0.b0.ghost_layers.2:cat_prev (352, 32, 32)
+349  conv     m_blocks.0.b0.ghost_layers.3.primary_conv.conv   352    48  1  1    32    32     1024   49152 0
+350  conv     locks.0.b0.ghost_layers.3.cheap_operation.conv    48    48  3  1    32    32     1024   49152 0
+351  cat      oder_1.sam_blocks.0.b0.ghost_layers.3:cat_prev (448, 32, 32)
+352  conv     m_blocks.0.b0.ghost_layers.4.primary_conv.conv   448    48  1  1    32    32     1024   49152 0
+353  conv     locks.0.b0.ghost_layers.4.cheap_operation.conv    48    48  3  1    32    32     1024   49152 0
+354  cat      oder_1.sam_blocks.0.b0.ghost_layers.4:cat_prev (544, 32, 32)
+355  conv     decoder.decoder_1.sam_blocks.0.b0.conv.conv      544    64  1  1    32    32     1024   65536 0
+356  conv     m_blocks.0.b2.ghost_layers.0.primary_conv.conv    64    48  1  1    16    16      256   12288 0
+357  conv     locks.0.b2.ghost_layers.0.cheap_operation.conv    48    48  3  1    16    16      256   12288 0
+358  cat      oder_1.sam_blocks.0.b2.ghost_layers.0:cat_prev (160, 16, 16)
+359  conv     m_blocks.0.b2.ghost_layers.1.primary_conv.conv   160    48  1  1    16    16      256   12288 0
+360  conv     locks.0.b2.ghost_layers.1.cheap_operation.conv    48    48  3  1    16    16      256   12288 0
+361  cat      oder_1.sam_blocks.0.b2.ghost_layers.1:cat_prev (256, 16, 16)
+362  conv     m_blocks.0.b2.ghost_layers.2.primary_conv.conv   256    48  1  1    16    16      256   12288 0
+363  conv     locks.0.b2.ghost_layers.2.cheap_operation.conv    48    48  3  1    16    16      256   12288 0
+364  cat      oder_1.sam_blocks.0.b2.ghost_layers.2:cat_prev (352, 16, 16)
+365  conv     m_blocks.0.b2.ghost_layers.3.primary_conv.conv   352    48  1  1    16    16      256   12288 0
+366  conv     locks.0.b2.ghost_layers.3.cheap_operation.conv    48    48  3  1    16    16      256   12288 0
+367  cat      oder_1.sam_blocks.0.b2.ghost_layers.3:cat_prev (448, 16, 16)
+368  conv     m_blocks.0.b2.ghost_layers.4.primary_conv.conv   448    48  1  1    16    16      256   12288 0
+369  conv     locks.0.b2.ghost_layers.4.cheap_operation.conv    48    48  3  1    16    16      256   12288 0
+370  cat      oder_1.sam_blocks.0.b2.ghost_layers.4:cat_prev (544, 16, 16)
+371  conv     decoder.decoder_1.sam_blocks.0.b2.conv.conv      544    64  1  1    16    16      256   16384 0
+372  conv     m_blocks.0.b4.ghost_layers.0.primary_conv.conv    64    48  1  1     8     8       64    3072 0
+373  conv     locks.0.b4.ghost_layers.0.cheap_operation.conv    48    48  3  1     8     8       64    3072 0
+374  cat      oder_1.sam_blocks.0.b4.ghost_layers.0:cat_prev (160, 8, 8)
+375  conv     m_blocks.0.b4.ghost_layers.1.primary_conv.conv   160    48  1  1     8     8       64    3072 0
+376  conv     locks.0.b4.ghost_layers.1.cheap_operation.conv    48    48  3  1     8     8       64    3072 0
+377  cat      oder_1.sam_blocks.0.b4.ghost_layers.1:cat_prev (256, 8, 8)
+378  conv     m_blocks.0.b4.ghost_layers.2.primary_conv.conv   256    48  1  1     8     8       64    3072 0
+379  conv     locks.0.b4.ghost_layers.2.cheap_operation.conv    48    48  3  1     8     8       64    3072 0
+380  cat      oder_1.sam_blocks.0.b4.ghost_layers.2:cat_prev (352, 8, 8)
+381  conv     m_blocks.0.b4.ghost_layers.3.primary_conv.conv   352    48  1  1     8     8       64    3072 0
+382  conv     locks.0.b4.ghost_layers.3.cheap_operation.conv    48    48  3  1     8     8       64    3072 0
+383  cat      oder_1.sam_blocks.0.b4.ghost_layers.3:cat_prev (448, 8, 8)
+384  conv     m_blocks.0.b4.ghost_layers.4.primary_conv.conv   448    48  1  1     8     8       64    3072 0
+385  conv     locks.0.b4.ghost_layers.4.cheap_operation.conv    48    48  3  1     8     8       64    3072 0
+386  cat      oder_1.sam_blocks.0.b4.ghost_layers.4:cat_prev (544, 8, 8)
+387  conv     decoder.decoder_1.sam_blocks.0.b4.conv.conv      544    64  1  1     8     8       64    4096 0
+388  interp   decoder.decoder_1.sam_blocks.0:b2_up           (64, 32, 32)
+389  interp   decoder.decoder_1.sam_blocks.0:b4_up           (64, 32, 32)
+390  cat      decoder.decoder_1.sam_blocks.0:cat3            (192, 32, 32)
+391  eca      decoder.decoder_1.sam_blocks.0.fusion          (192, 1, 1)
+392  sam      decoder.decoder_1.sam_blocks.0:weighted_sum    (64, 32, 32)
+393  convfp   decoder.decoder_1.conv                         (12, 32, 32)
+394  shuffle  decoder.decoder_1:pixel_shuffle(2)             (3, 64, 64)

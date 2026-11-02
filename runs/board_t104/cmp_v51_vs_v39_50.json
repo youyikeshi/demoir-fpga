@@ -1,0 +1,96 @@
+{
+ "A": {
+  "dir": "runs/board_t104/v51",
+  "tag": "net64_50_run1",
+  "n": 395,
+  "n_conv": 227,
+  "bytes": 7815488
+ },
+ "B": {
+  "dir": "runs/board_t104/v39",
+  "tag": "net64_50_run1",
+  "n": 395,
+  "n_conv": 227,
+  "bytes": 7815488
+ },
+ "n_common": 395,
+ "only_a": [],
+ "only_b": [],
+ "first_diff": {
+  "op": 27,
+  "kind": "conv",
+  "name": "encoder.encoder_1.sam_blocks.0.b0.conv.conv",
+  "shape_a": "cin=368 cout=48 k=1 s=1 32x32→32x32  out_bytes=49152  cout%16=0",
+  "shape_b": "cin=368 cout=48 k=1 s=1 32x32→32x32  out_bytes=49152  cout%16=0",
+  "rec_a": {
+   "op": 27,
+   "kind": "conv",
+   "name": "encoder.encoder_1.sam_blocks.0.b0.conv.conv",
+   "tshape": [
+    48,
+    32,
+    32
+   ],
+   "stage": "pl",
+   "t": 2.722467,
+   "cyc": 124454,
+   "cin": 368,
+   "cout": 48,
+   "k": 1,
+   "s": 1,
+   "H": 32,
+   "W": 32,
+   "Hout": 32,
+   "Wout": 32,
+   "out_bytes": 49152,
+   "dtype": "float32",
+   "n": 196608,
+   "shape": [
+    48,
+    32,
+    32
+   ],
+   "sha1": "dc9a513af2b17d6c65dc1b5dade0e379c621fb30"
+  },
+  "stats": {
+   "n": 49152,
+   "n_diff": 5736,
+   "abs_max": 24.75
+  },
+  "prev_same_op": 26,
+  "prev_same_shape": "tshape=[368, 32, 32]",
+  "last_same_conv": {
+   "op": 25,
+   "name": "encoder.encoder_1.sam_blocks.0.b0.ghost_layers.4.cheap_operation.conv",
+   "shape": "cin=32 cout=32 k=3 s=1 32x32→32x32  out_bytes=32768  cout%16=0"
+  }
+ },
+ "n_diff_ops": 236,
+ "detail": [
+  {
+   "op": 27,
+   "kind": "conv",
+   "name": "encoder.encoder_1.sam_blocks.0.b0.conv.conv",
+   "shape": "cin=368 cout=48 k=1 s=1 32x32→32x32  out_bytes=49152  cout%16=0",
+   "sha1_a": "dc9a513af2b17d6c65dc1b5dade0e379c621fb30",
+   "sha1_b": "093555bcc7a47c1c31288c4ed140523fbf263227"
+  },
+  {
+   "op": 63,
+   "kind": "eca",
+   "name": "encoder.encoder_1.sam_blocks.0.fusion",
+   "shape": "tshape=[144]",
+   "sha1_a": "8fa19d4e55fa917bc8fa70ab86bd7df7916b03f6",
+   "sha1_b": "e1932cae07593c21942a1efbd910c46ee388a044"
+  },
+  {
+   "op": 64,
+   "kind": "sam",
+   "name": "encoder.encoder_1.sam_blocks.0:weighted_sum",
+   "shape": "tshape=[48, 32, 32]",
+   "sha1_a": "91200102a937abde1a06402aa46e42b43a3bf34a",
+   "sha1_b": "edd53d39c839facf5abdb88ac6fa236ec86fbb54"
+  }
+ ],
+ "notes": []
+}
