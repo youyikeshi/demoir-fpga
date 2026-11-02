@@ -5142,3 +5142,24 @@ $$\quad\ \text{台账至少包含：目标名 / 拥有者 / 开始时间 / 输�
 $$\Rightarrow\ \textbf{派活三步}：①\text{查台账} \to \text{②查该代理是否已收尾}（\text{第 98 条}）\to \text{③}\textbf{给每个代理分配互不相同的日志路径}$$
 $$\quad\ \text{——}\text{日志路径冲突是"两个写者"最灵敏的探针，也是最先暴露的表征}$$
 $$\Rightarrow\ \text{补救（本次有效）}：\text{新代理开工第一件事做 }\texttt{mtime}\ \text{审计}\Rightarrow\text{T-57 正是这样发现撞车的}$$
+
+### 70.38 ★ `.hwh` 不可逐字节复现 —— 判据必须是"结构化比较"（2026-11-02 11:12）
+
+$$\Rightarrow\ \text{同一脚本、同一副本：} \texttt{run3 } = \texttt{5268e7b2}、\ \texttt{run4 } = \texttt{2c36a776}，\text{大小都 } 189{,}340\ \text{B}$$
+$$\Rightarrow\ \text{原因：}\texttt{Component\_Name}\ \text{的 } \texttt{\_N}\ \text{计数}\textbf{每次运行递增}$$
+$$\Rightarrow\ \Rightarrow\ \textbf{新 } \texttt{.hwh}\ \text{的 md5 只能当}\textbf{标识}\text{，不能当"BD 是否中性"的判据}$$
+$$\quad\ \text{我下发的 W2 判据（"既有项 md5 不变"）会}\textbf{假失败}\text{——已在任务书里改成结构化比较}$$
+
+$$\Rightarrow\ \textbf{第 104 条纪律：判据要用"语义量"，不要用"产物指纹"}$$
+$$\quad\ \text{产物指纹会随生成器内部计数器/时戳变化} \Rightarrow \text{它只能证明"同一次运行没变"，不能证明"两次运行等价"}$$
+$$\quad\ \Rightarrow\ \text{正确做法：}\textbf{逐项结构化比较}（\text{基址、地址段长度、时钟频率、IP 参数表}），\text{并}\textbf{显式列出忽略项}$$
+$$\quad\ \Rightarrow\ \text{本次忽略项：}\texttt{Component\_Name}\ \text{的 } \texttt{\_N}、\text{生成时戳/注释}$$
+
+**副产物：BD 重生成这条路已经打通（在副本里）**
+$$\Rightarrow\ \texttt{bd\_regen\_v43base2.tcl}\ \text{已验 } \mathbf{rc=0}（\texttt{REGEN\_V43BASE\_OK}）：\texttt{validate} + \texttt{generate\_target}\ \text{都过}$$
+$$\Rightarrow\ \text{关键修正就是那 6 行注解（} \texttt{s\_axi}\ \text{的 } \texttt{PROTOCOL/DATA\_WIDTH/HAS\_BURST/HAS\_PROT} + 3\ \text{处 } \texttt{FREQ\_HZ}）$$
+$$\Rightarrow\ \text{加上两个脚本坑的修法：①}\texttt{create\_bd\_cell}\ \text{会复用旧 IP 实例 ⇒ 必须先 } \texttt{update\_module\_reference}$$
+$$\quad\ \text{②地址断言用}\textbf{数值}比较（} \texttt{RANGE}\ \text{返回 } \texttt{0x00020000}\ \text{而不是 } \texttt{"128K"}\text{）}$$
+
+**主工程被反复弄坏的根因**：两次（10:56、11:02:59）都是因为脚本里 `set proj` 指向主工程
+$$\Rightarrow\ \textbf{第 102 条已在 70.36 记过}\text{，但这次是}\textbf{上一轮恢复后又被下一轮踩}\Rightarrow \text{恢复必须紧跟在"该代理最后一次跑主工程"之后}$$
