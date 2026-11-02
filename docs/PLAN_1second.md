@@ -5050,3 +5050,20 @@ $$\Rightarrow\ \text{本项目所有"搬进 PL"的计划都假设"再挂一条 A
 $$\quad\ \text{而 Zynq-7015 的 HP 口只有 4 条、本设计已用 2 条、且}\textbf{ID 位宽决定能不能共享}$$
 $$\Rightarrow\ \textbf{判据}：\text{任何"把某算子搬 PL"的方案，第一步先算 } \lceil\log_2(\Sigma \text{ID})\rceil \le \text{端口位宽}$$
 $$\quad\ \text{过不了就只能}\textbf{新增从口}（\text{要动 ps7}）\text{或}\textbf{时分复用}（\text{要调度器配合}）$$
+
+### 70.34 我违反了第 71 条：给已收工的代理派新活 ⇒ 唤醒了它（2026-11-02 10:45）
+
+$$\Rightarrow\ \text{T-55 已在 10:42 收尾（"已停下等待 Q1/Q2"）}$$
+$$\Rightarrow\ \text{我随后才把 Q1/Q2 裁决用 } \texttt{send\_message}\ \text{发给它} \Rightarrow \textbf{它被唤醒并开始写 v43}$$
+$$\Rightarrow\ \text{10:38~10:42 之间它建了 } \texttt{\_worktrees/T-55-v43/}、\text{把 } \texttt{bd\_add\_fconv\_v43.tcl}\ \text{改了 4 次、跑过 } \texttt{create\_bd\_cell}$$
+$$\Rightarrow\ \text{与此同时我已新开 T-56 做同一件事} \Rightarrow \textbf{两个写者 + 两次 Vivado}$$
+
+$$\Rightarrow\ \text{幸好 T-56 在动手前做了}\textbf{文件 mtime 审计}\text{，发现"另有写者"并报警 ⇒ 没有半成品残留}$$
+$$\quad\ \text{好在 } \texttt{design\_1.bd}\ \text{仍是未改状态，锁也没被占}$$
+
+**第 98 条纪律：代理收尾后要"派新活"，只能新开代理，不许 } \texttt{send\_message}**
+$$\Rightarrow\ \text{第 71 条已经写过"会重述旧任务"，但今晚证明更危险的是：}\textbf{它会真的开始干活}$$
+$$\quad\ \text{而被唤醒的代理与新代理}\textbf{共享同一批文件}，\text{且两者都不知道对方存在}$$
+$$\Rightarrow\ \textbf{判据}：\text{决定"这个任务交给谁"之前，先看该代理是否已发过收尾消息}$$
+$$\quad\ \text{已收尾} \Rightarrow \textbf{新开};\ \text{仍在跑} \Rightarrow \texttt{send\_message}\ \text{才安全}$$
+$$\Rightarrow\ \text{补救手段（本次有效）：}\textbf{新代理动手前先做 mtime 审计}，\text{发现"另有写者"就报警而不是硬上}$$
