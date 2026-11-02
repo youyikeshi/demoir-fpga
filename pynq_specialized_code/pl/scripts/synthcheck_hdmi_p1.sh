@@ -21,11 +21,12 @@ cat > "$T" <<TCLEOF
 read_verilog "$M/hdmi_timing_gen.v"
 read_verilog "$M/hdmi_color_bar.v"
 read_verilog "$M/sil9134_init.v"
+read_verilog "$M/hdmi_fb_scan.v"
 read_verilog "$M/hdmi_out_top.v"
 synth_design -rtl -top hdmi_out_top -mode out_of_context -part xc7z015clg485-2
 TCLEOF
 
-echo "  [synthcheck-hdmi] 读 4 个 RTL，跑 synth_design -rtl -top hdmi_out_top ..."
+echo "  [synthcheck-hdmi] 读 5 个 RTL（含 hdmi_fb_scan），跑 synth_design -rtl -top hdmi_out_top ..."
 bash "$PL/scripts/vrun.sh" "$T" "$L" 900
 RC=$?
 if [[ ! -s "$L" ]]; then echo "  ❌ 没有日志（vrun rc=$RC）"; exit 3; fi

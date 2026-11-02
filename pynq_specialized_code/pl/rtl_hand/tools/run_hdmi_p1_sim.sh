@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # ============================================================================
 # run_hdmi_p1_sim.sh —— HDMI P1 的 xsim 运行器
-#   用法: ./tools/run_hdmi_p1_sim.sh timing|i2c|topcfg|all
+#   用法: ./tools/run_hdmi_p1_sim.sh timing|i2c|topcfg|topscan|all
 #   规则: 每次运行前 rm -rf xsim.dir；xelab 用 -debug off（不落 GB 级 wdb）
 #   顶层含 BUFG/BUFGMUX/IOBUF（unisim）⇒ xelab 加 -L unisims_ver 并链接 glbl
 # ============================================================================
@@ -66,8 +66,16 @@ case "$MODE" in
   topcfg)
     run_one topcfg "tb_hdmi_top_cfg glbl" \
       "$ROOT/modules/hdmi_timing_gen.v" "$ROOT/modules/hdmi_color_bar.v" \
-      "$ROOT/modules/sil9134_init.v" "$ROOT/modules/hdmi_out_top.v" \
+      "$ROOT/modules/sil9134_init.v" "$ROOT/modules/hdmi_fb_scan.v" \
+      "$ROOT/modules/hdmi_out_top.v" \
       "$GLBL" "$ROOT/tb/tb_hdmi_top_cfg.v" || RC=1
+    ;;
+  topscan)
+    run_one topscan "tb_hdmi_top_scan glbl" \
+      "$ROOT/modules/hdmi_timing_gen.v" "$ROOT/modules/hdmi_color_bar.v" \
+      "$ROOT/modules/sil9134_init.v" "$ROOT/modules/hdmi_fb_scan.v" \
+      "$ROOT/modules/hdmi_out_top.v" \
+      "$GLBL" "$ROOT/tb/tb_hdmi_top_scan.v" || RC=1
     ;;
   all)
     run_one timing tb_hdmi_timing \
@@ -76,11 +84,17 @@ case "$MODE" in
       "$ROOT/modules/sil9134_init.v" "$ROOT/tb/tb_sil9134_i2c.v" || RC=1
     run_one topcfg "tb_hdmi_top_cfg glbl" \
       "$ROOT/modules/hdmi_timing_gen.v" "$ROOT/modules/hdmi_color_bar.v" \
-      "$ROOT/modules/sil9134_init.v" "$ROOT/modules/hdmi_out_top.v" \
+      "$ROOT/modules/sil9134_init.v" "$ROOT/modules/hdmi_fb_scan.v" \
+      "$ROOT/modules/hdmi_out_top.v" \
       "$GLBL" "$ROOT/tb/tb_hdmi_top_cfg.v" || RC=1
+    run_one topscan "tb_hdmi_top_scan glbl" \
+      "$ROOT/modules/hdmi_timing_gen.v" "$ROOT/modules/hdmi_color_bar.v" \
+      "$ROOT/modules/sil9134_init.v" "$ROOT/modules/hdmi_fb_scan.v" \
+      "$ROOT/modules/hdmi_out_top.v" \
+      "$GLBL" "$ROOT/tb/tb_hdmi_top_scan.v" || RC=1
     ;;
   *)
-    echo "usage: $0 timing|i2c|topcfg|all"; exit 2
+    echo "usage: $0 timing|i2c|topcfg|topscan|all"; exit 2
     ;;
 esac
 
