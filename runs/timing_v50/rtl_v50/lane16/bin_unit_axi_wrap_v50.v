@@ -1656,7 +1656,28 @@ module bin_unit_axi_wrap_v50 #(
             logic [31:0] p1_addr;
             logic [63:0] p1_data;
             logic [7:0]  p1_sel;
-            wire  [31:0] npix        = {16'd0, c_cfg_h} * {16'd0, c_cfg_w};
+            // ★★ T-105（2026-11-02）根因修复：npix 必须是**核真正吐的像素数**
+            //    = Hout*Wout，不是输入的 H*W。
+            //    s=1 时 Hout(s)H、Wout(s)W ⇒ 两者逐字相等（T-94..T-101 全绿的原因）；
+            //    s=2 时 Hout=ceil(H/2) ⇒ H*W = 4×(Hout*Wout)，于是本条通路两处一起错：
+            //      ① pix_q 按 4 倍大的 npix 回绕 ⇒ 组内像素号跨组累加、本组像素
+            //         从 pbase 起再偏移 2048·i ⇒ beat0 落到第 i 个平面（应落 2i）；
+            //         cout=96（6 组）时第 4 组才回绕一次 ⇒ 第 4 组 pbase 重取，看
+            //         起来"后半又对了一段"（板上指纹 f=0,2,4,6,1,3,5,7,8,10 全是它）。
+            //      ② plane_delta = npix<<3 大 4 倍 ⇒ beat1 落到 beat0+4 个平面
+            //         （应 +1），末两组的 beat1 直接写出本层输出区（越界写）。
+            //    修法：只改这一处，用**与核逐字相同**的 hout/wout 公式
+            //    （bin_conv_core_v50.v:154-157 的 s_sh_c/hout_c/wout_c），
+            //    保证"包装层认为每组的像素数" ≡ "核实际每组的像素数"，任何 s/任何
+            //    模式（fuse 时 c_cfg_h=sh_nband，核同样拿它算 hout）都成立。
+            //    s=1（含 c_cfg_s=0/非法值）时逐字退化成原来的 H*W ⇒ 老形状 0 差异。
+            //    位宽：H/W ≤ HW_LIM(4096) ⇒ hout/wout ≤ 4096 ⇒ 16×16→32 的乘积精确，
+            //    且比原来那个 {16'd0,h}*{16'd0,w} 的 32×32 乘法**更小**（不新增 DSP）。
+            wire  [15:0] w_ss        = (c_cfg_s == 16'd2) ? 16'd1 : 16'd0;   // = 核 s_sh_c
+            wire  [15:0] w_hout      = ((c_cfg_h - 16'd1) >> w_ss) + 16'd1;
+            wire  [15:0] w_wout      = ((c_cfg_w - 16'd1) >> w_ss) + 16'd1;
+            wire  [31:0] npix        = ((c_cfg_h == 16'd0) || (c_cfg_w == 16'd0))
+                                       ? 32'd0 : ({16'd0, w_hout} * {16'd0, w_wout});
             wire  [31:0] plane_delta = npix << 3;
             logic [31:0] pix_q;                 // 组内像素号
             logic [31:0] pbase_q;               // 本组 C8 首地址
