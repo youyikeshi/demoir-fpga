@@ -1,0 +1,120 @@
+[t122] 日志 = /home/xilinx/demoir/t122_big/t122_054615.log
+[t122] bit = /home/xilinx/demoir/design_1_150v53.bit
+[t122] 运行点 = {"BIN_PACK": "e1e2", "BIN_LAZY_DEQ": "0", "BIN_LAZY_SLOTS": "24", "BIN_CAT_FUSION": "1", "BIN_BILINEAR_C": "1", "BIN_PRECOMP": "1", "Q8CACHE": "1", "BIN_F32DIRECT": "1", "BIN_CAT_ECA_FUSE": "1", "BIN_EPI_NOINV": "1", "BIN_PROFILE": "1", "BIN_V50_FUSE": "", "BIN_VLANES": ""}
+
+==============================================================================
+  第 1 步：load overlay + 指纹（本进程唯一一次 download=True）
+==============================================================================
+  Overlay(design_1_150v53.bit) 用时 3.198 s
+  IP 清单：['bin_unit_0', 'conv_uni_0', 'ps7']
+  conv_uni_0  base=0x40040000 length=0x20000 （期望 0x40040000）✓
+  bin_unit_0  base=0x40060000 length=0x20000 （期望 0x40060000）✓
+  0x40070314 = 0x50300001   (CFG+0x314)
+  0x40060310 = 0x00000000   (0x310 CHAIN_STATUS)
+  0x40060308 = 0x00000000   (0x308 BAND_ROWS)
+  **magic(0x314) = 0x50300001 期望 0x50300001 ⇒ 寄存器块在位 ✓**
+  load 后 fclk0 读回 = 125 MHz
+  内核装载：{'q8': (0.283, True), 'c8deq': (4.726, True), 'bpack': (1.818, True)}
+  [DEPS] q8=fast c8deq=fast bpack=fast e1e2=fast catpack=fast safe=fast  ⇒ deps_closure_ok=True
+
+==============================================================================
+  第 2 步：单层形状扫描（s=1 固定，9 个形状 ×2 次）判据：0 越界 + 0 不符 + 两次相同
+==============================================================================
+  目标 50 MHz → **fclk0 读回 50 MHz**；magic=0x50300001 0x310=0x00000000（第 119 条：改频后重读）
+  准备 cin=48 cout=32 k=3 s=1 pad=1 96x96→96x96 K=9  OUT=294912 B  act=73728 B  基层=ayers.0.cheap_operation.conv  exp_sha1=59048ce87679
+[json] 已落盘 /home/xilinx/demoir/t122_big/t122_054615.json
+  准备 cin=48 cout=32 k=3 s=1 pad=1 128x128→128x128 K=9  OUT=524288 B  act=131072 B  基层=ayers.0.cheap_operation.conv  exp_sha1=b95ad0650d7e
+[json] 已落盘 /home/xilinx/demoir/t122_big/t122_054615.json
+  准备 cin=48 cout=32 k=3 s=1 pad=1 160x160→160x160 K=9  OUT=819200 B  act=204800 B  基层=ayers.0.cheap_operation.conv  exp_sha1=dcb584400408
+[json] 已落盘 /home/xilinx/demoir/t122_big/t122_054615.json
+  准备 cin=48 cout=32 k=3 s=1 pad=1 192x192→192x192 K=9  OUT=1179648 B  act=294912 B  基层=ayers.0.cheap_operation.conv  exp_sha1=160a1fa99e31
+[json] 已落盘 /home/xilinx/demoir/t122_big/t122_054615.json
+  准备 cin=48 cout=32 k=3 s=1 pad=1 256x256→256x256 K=9  OUT=2097152 B  act=524288 B  基层=ayers.0.cheap_operation.conv  exp_sha1=6885c4f5359e
+[json] 已落盘 /home/xilinx/demoir/t122_big/t122_054615.json
+  准备 cin=48 cout=32 k=3 s=1 pad=1 64x256→64x256 K=9  OUT=524288 B  act=131072 B  基层=ayers.0.cheap_operation.conv  exp_sha1=15fe796623a8
+[json] 已落盘 /home/xilinx/demoir/t122_big/t122_054615.json
+  准备 cin=48 cout=32 k=3 s=1 pad=1 256x64→256x64 K=9  OUT=524288 B  act=131072 B  基层=ayers.0.cheap_operation.conv  exp_sha1=78d485fab667
+[json] 已落盘 /home/xilinx/demoir/t122_big/t122_054615.json
+  准备 cin=48 cout=32 k=1 s=1 pad=0 128x128→128x128 K=1  OUT=524288 B  act=131072 B  基层=t_layers.0.primary_conv.conv  exp_sha1=80edffedeaea
+[json] 已落盘 /home/xilinx/demoir/t122_big/t122_054615.json
+  准备 cin=48 cout=32 k=1 s=1 pad=0 256x256→256x256 K=1  OUT=2097152 B  act=524288 B  基层=t_layers.0.primary_conv.conv  exp_sha1=5368ba343076
+[json] 已落盘 /home/xilinx/demoir/t122_big/t122_054615.json
+  ---- big_k3_c48_o32_96x96 cin=48 cout=32 k=3 96x96→96x96 npix=9216 @ 50 MHz
+   run1: 越界 **    0 B** | 不符 **     0/294912** | cyc=   611126 | 0x310=0x00000403 | sha1=59048ce87679
+   run2: 越界 **    0 B** | 不符 **     0/294912** | cyc=   613701 | 0x310=0x00000403 | sha1=59048ce87679
+   互比：[0] ⇒ **两次逐字节相同 ✓** | 最差一次与 golden：不符 0
+   判据（0 越界 + 0 不符 + 多次逐字节相同）：✓ 过
+    组平面置换（应=恒等）：0 1 2 3
+[json] 已落盘 /home/xilinx/demoir/t122_big/t122_054615.json
+  ---- big_k3_c48_o32_128x128 cin=48 cout=32 k=3 128x128→128x128 npix=16384 @ 50 MHz
+   run1: 越界 **    0 B** | 不符 **     0/524288** | cyc=  1096606 | 0x310=0x00000403 | sha1=b95ad0650d7e
+   run2: 越界 **    0 B** | 不符 **     0/524288** | cyc=  1097977 | 0x310=0x00000403 | sha1=b95ad0650d7e
+   互比：[0] ⇒ **两次逐字节相同 ✓** | 最差一次与 golden：不符 0
+   判据（0 越界 + 0 不符 + 多次逐字节相同）：✓ 过
+    组平面置换（应=恒等）：0 1 2 3
+[json] 已落盘 /home/xilinx/demoir/t122_big/t122_054615.json
+  ---- big_k3_c48_o32_160x160 cin=48 cout=32 k=3 160x160→160x160 npix=25600 @ 50 MHz
+   run1: 越界 **    0 B** | 不符 **     0/819200** | cyc=  1709199 | 0x310=0x00000403 | sha1=dcb584400408
+   run2: 越界 **    0 B** | 不符 **     0/819200** | cyc=  1697171 | 0x310=0x00000403 | sha1=dcb584400408
+   互比：[0] ⇒ **两次逐字节相同 ✓** | 最差一次与 golden：不符 0
+   判据（0 越界 + 0 不符 + 多次逐字节相同）：✓ 过
+    组平面置换（应=恒等）：0 1 2 3
+[json] 已落盘 /home/xilinx/demoir/t122_big/t122_054615.json
+  ---- big_k3_c48_o32_192x192 cin=48 cout=32 k=3 192x192→192x192 npix=36864 @ 50 MHz
+   run1: 越界 **    0 B** | 不符 **     0/1179648** | cyc=  2439797 | 0x310=0x00000403 | sha1=160a1fa99e31
+   run2: 越界 **    0 B** | 不符 **     0/1179648** | cyc=  2451575 | 0x310=0x00000403 | sha1=160a1fa99e31
+   互比：[0] ⇒ **两次逐字节相同 ✓** | 最差一次与 golden：不符 0
+   判据（0 越界 + 0 不符 + 多次逐字节相同）：✓ 过
+    组平面置换（应=恒等）：0 1 2 3
+[json] 已落盘 /home/xilinx/demoir/t122_big/t122_054615.json
+  ---- big_k3_c48_o32_256x256 cin=48 cout=32 k=3 256x256→256x256 npix=65536 @ 50 MHz
+   run1: 越界 **    0 B** | 不符 **     0/2097152** | cyc=  4416561 | 0x310=0x00000403 | sha1=6885c4f5359e
+   run2: 越界 **    0 B** | 不符 **     0/2097152** | cyc=  4422307 | 0x310=0x00000403 | sha1=6885c4f5359e
+   互比：[0] ⇒ **两次逐字节相同 ✓** | 最差一次与 golden：不符 0
+   判据（0 越界 + 0 不符 + 多次逐字节相同）：✓ 过
+    组平面置换（应=恒等）：0 1 2 3
+[json] 已落盘 /home/xilinx/demoir/t122_big/t122_054615.json
+  ---- big_k3_c48_o32_64x256 cin=48 cout=32 k=3 64x256→64x256 npix=16384 @ 50 MHz
+   run1: 越界 **    0 B** | 不符 **     0/524288** | cyc=  1088464 | 0x310=0x00000403 | sha1=15fe796623a8
+   run2: 越界 **    0 B** | 不符 **     0/524288** | cyc=  1091790 | 0x310=0x00000403 | sha1=15fe796623a8
+   互比：[0] ⇒ **两次逐字节相同 ✓** | 最差一次与 golden：不符 0
+   判据（0 越界 + 0 不符 + 多次逐字节相同）：✓ 过
+    组平面置换（应=恒等）：0 1 2 3
+[json] 已落盘 /home/xilinx/demoir/t122_big/t122_054615.json
+  ---- big_k3_c48_o32_256x64 cin=48 cout=32 k=3 256x64→256x64 npix=16384 @ 50 MHz
+   run1: 越界 **    0 B** | 不符 **     0/524288** | cyc=  1090503 | 0x310=0x00000403 | sha1=78d485fab667
+   run2: 越界 **    0 B** | 不符 **     0/524288** | cyc=  1092660 | 0x310=0x00000403 | sha1=78d485fab667
+   互比：[0] ⇒ **两次逐字节相同 ✓** | 最差一次与 golden：不符 0
+   判据（0 越界 + 0 不符 + 多次逐字节相同）：✓ 过
+    组平面置换（应=恒等）：0 1 2 3
+[json] 已落盘 /home/xilinx/demoir/t122_big/t122_054615.json
+  ---- big_k1_c48_o32_128x128 cin=48 cout=32 k=1 128x128→128x128 npix=16384 @ 50 MHz
+   run1: 越界 **    0 B** | 不符 **     0/524288** | cyc=  1095533 | 0x310=0x00000403 | sha1=80edffedeaea
+   run2: 越界 **    0 B** | 不符 **     0/524288** | cyc=  1090431 | 0x310=0x00000403 | sha1=80edffedeaea
+   互比：[0] ⇒ **两次逐字节相同 ✓** | 最差一次与 golden：不符 0
+   判据（0 越界 + 0 不符 + 多次逐字节相同）：✓ 过
+    组平面置换（应=恒等）：0 1 2 3
+[json] 已落盘 /home/xilinx/demoir/t122_big/t122_054615.json
+  ---- big_k1_c48_o32_256x256 cin=48 cout=32 k=1 256x256→256x256 npix=65536 @ 50 MHz
+   run1: 越界 **    0 B** | 不符 **     0/2097152** | cyc=  4329324 | 0x310=0x00000403 | sha1=5368ba343076
+   run2: 越界 **    0 B** | 不符 **     0/2097152** | cyc=  4344296 | 0x310=0x00000403 | sha1=5368ba343076
+   互比：[0] ⇒ **两次逐字节相同 ✓** | 最差一次与 golden：不符 0
+   判据（0 越界 + 0 不符 + 多次逐字节相同）：✓ 过
+    组平面置换（应=恒等）：0 1 2 3
+[json] 已落盘 /home/xilinx/demoir/t122_big/t122_054615.json
+
+==============================================================================
+  偶发压力：big_k3_c48_o32_128x128 连跑 8 次（判据：全部 0 越界 + 0 不符 + 逐字节相同）
+==============================================================================
+   #01 越界    0 B | 不符      0/524288 | sha1=b95ad0650d7e
+   #02 越界    0 B | 不符      0/524288 | sha1=b95ad0650d7e
+   #03 越界    0 B | 不符      0/524288 | sha1=b95ad0650d7e
+   #04 越界    0 B | 不符      0/524288 | sha1=b95ad0650d7e
+   #05 越界    0 B | 不符      0/524288 | sha1=b95ad0650d7e
+   #06 越界    0 B | 不符      0/524288 | sha1=b95ad0650d7e
+   #07 越界    0 B | 不符      0/524288 | sha1=b95ad0650d7e
+   #08 越界    0 B | 不符      0/524288 | sha1=b95ad0650d7e
+   小结：8 次中 1 个不同 sha1（应=1）；全部 0/0：✓
+[json] 已落盘 /home/xilinx/demoir/t122_big/t122_054615.json
+  [50 MHz] 小结：9/9 形状达标 ✓
+[json] 已落盘 /home/xilinx/demoir/t122_big/t122_054615.json

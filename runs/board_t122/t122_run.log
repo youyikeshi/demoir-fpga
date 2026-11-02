@@ -1,0 +1,144 @@
+[t122] python=3.10.4 numpy=1.21.5 mach=armv7l
+[t122] vlanes_now()=8 prm_layout={'VLANES': 8, 'PRM_W': 16, 'PB_S': 0, 'PB_B': 2, 'PB_Z': 6, 'PB_G': 10, 'PB_SL': 14, 'seg': {'alpha': (0, 2), 'bias': (2, 6), 'zeta': (6, 10), 'gamma': (10, 14), 'slope': (14, 16)}, 'words': {'alpha': 2, 'bias': 4, 'zeta': 4, 'gamma': 4, 'slope': 2}} BIN_V50_* 残留=[]
+[t122] 日志 = /home/xilinx/demoir/t122_out/t122_054219.log
+[t122] bit = /home/xilinx/demoir/design_1_150v53.bit
+[t122] 运行点 = {"BIN_PACK": "e1e2", "BIN_LAZY_DEQ": "0", "BIN_LAZY_SLOTS": "24", "BIN_CAT_FUSION": "1", "BIN_BILINEAR_C": "1", "BIN_PRECOMP": "1", "Q8CACHE": "1", "BIN_F32DIRECT": "1", "BIN_CAT_ECA_FUSE": "1", "BIN_EPI_NOINV": "1", "BIN_PROFILE": "1", "BIN_V50_FUSE": "", "BIN_VLANES": ""}
+
+==============================================================================
+  第 1 步：load overlay + 指纹（本进程唯一一次 download=True）
+==============================================================================
+  Overlay(design_1_150v53.bit) 用时 2.506 s
+  IP 清单：['bin_unit_0', 'conv_uni_0', 'ps7']
+  conv_uni_0  base=0x40040000 length=0x20000 （期望 0x40040000）✓
+  bin_unit_0  base=0x40060000 length=0x20000 （期望 0x40060000）✓
+  0x40070314 = 0x50300001   (CFG+0x314)
+  0x40060310 = 0x00000000   (0x310 CHAIN_STATUS)
+  0x40060308 = 0x00000000   (0x308 BAND_ROWS)
+  **magic(0x314) = 0x50300001 期望 0x50300001 ⇒ 寄存器块在位 ✓**
+  load 后 fclk0 读回 = 125 MHz
+  内核装载：{'q8': (0.258, True), 'c8deq': (4.385, True), 'bpack': (1.808, True)}
+  [DEPS] q8=fast c8deq=fast bpack=fast e1e2=fast catpack=fast safe=fast  ⇒ deps_closure_ok=True
+
+==============================================================================
+  第 2 步：单层形状扫描（s=1 固定，13 个形状 ×2 次）判据：0 越界 + 0 不符 + 两次相同
+==============================================================================
+  目标 50 MHz → **fclk0 读回 50 MHz**；magic=0x50300001 0x310=0x00000000（第 119 条：改频后重读）
+  准备 cin=48 cout=32 k=1 s=1 pad=0 64x64→64x64 K=1  OUT=131072 B  act=32768 B  基层=t_layers.0.primary_conv.conv  exp_sha1=db5e078842bc
+[json] 已落盘 /home/xilinx/demoir/t122_out/t122_054219.json
+  准备 cin=48 cout=32 k=3 s=1 pad=1 64x64→64x64 K=9  OUT=131072 B  act=32768 B  基层=ayers.0.cheap_operation.conv  exp_sha1=4c38042eac10
+[json] 已落盘 /home/xilinx/demoir/t122_out/t122_054219.json
+  准备 cin=48 cout=32 k=3 s=1 pad=1 32x32→32x32 K=9  OUT=32768 B  act=8192 B  基层=ayers.0.cheap_operation.conv  exp_sha1=3e77e295a98f
+[json] 已落盘 /home/xilinx/demoir/t122_out/t122_054219.json
+  准备 cin=48 cout=32 k=3 s=1 pad=1 32x64→32x64 K=9  OUT=65536 B  act=16384 B  基层=ayers.0.cheap_operation.conv  exp_sha1=2192130f6745
+[json] 已落盘 /home/xilinx/demoir/t122_out/t122_054219.json
+  准备 cin=48 cout=32 k=3 s=1 pad=1 64x32→64x32 K=9  OUT=65536 B  act=16384 B  基层=ayers.0.cheap_operation.conv  exp_sha1=2a9f8496c63c
+[json] 已落盘 /home/xilinx/demoir/t122_out/t122_054219.json
+  准备 cin=48 cout=32 k=1 s=1 pad=0 32x32→32x32 K=1  OUT=32768 B  act=8192 B  基层=t_layers.0.primary_conv.conv  exp_sha1=8551e6d0af98
+[json] 已落盘 /home/xilinx/demoir/t122_out/t122_054219.json
+  准备 cin=48 cout=32 k=1 s=1 pad=0 32x64→32x64 K=1  OUT=65536 B  act=16384 B  基层=t_layers.0.primary_conv.conv  exp_sha1=5a550183ac8f
+[json] 已落盘 /home/xilinx/demoir/t122_out/t122_054219.json
+  准备 cin=48 cout=32 k=1 s=1 pad=0 64x32→64x32 K=1  OUT=65536 B  act=16384 B  基层=t_layers.0.primary_conv.conv  exp_sha1=5a550183ac8f
+[json] 已落盘 /home/xilinx/demoir/t122_out/t122_054219.json
+  准备 cin=48 cout=48 k=3 s=1 pad=1 64x64→64x64 K=9  OUT=196608 B  act=32768 B  基层=ayers.0.cheap_operation.conv  exp_sha1=90ca09f4e62a
+[json] 已落盘 /home/xilinx/demoir/t122_out/t122_054219.json
+  准备 cin=112 cout=64 k=3 s=1 pad=2 64x64→64x64 K=18  OUT=262144 B  act=65536 B  基层=der_1.rdb.conv_layers.1.conv  exp_sha1=b2b31d75cfe1
+[json] 已落盘 /home/xilinx/demoir/t122_out/t122_054219.json
+  准备 cin=48 cout=32 k=3 s=1 pad=1 48x48→48x48 K=9  OUT=73728 B  act=18432 B  基层=ayers.0.cheap_operation.conv  exp_sha1=2852b4df4035
+[json] 已落盘 /home/xilinx/demoir/t122_out/t122_054219.json
+  准备 cin=48 cout=32 k=3 s=1 pad=1 16x64→16x64 K=9  OUT=32768 B  act=8192 B  基层=ayers.0.cheap_operation.conv  exp_sha1=55268f1d2044
+[json] 已落盘 /home/xilinx/demoir/t122_out/t122_054219.json
+  准备 cin=48 cout=32 k=3 s=1 pad=1 64x16→64x16 K=9  OUT=32768 B  act=8192 B  基层=ayers.0.cheap_operation.conv  exp_sha1=14120c40b478
+[json] 已落盘 /home/xilinx/demoir/t122_out/t122_054219.json
+  ---- k1_c48_o32_64x64     cin=48 cout=32 k=1 64x64→64x64 npix=4096 @ 50 MHz
+   run1: 越界 **    0 B** | 不符 **     0/131072** | cyc=   272036 | 0x310=0x00000403 | sha1=db5e078842bc
+   run2: 越界 **    0 B** | 不符 **     0/131072** | cyc=   271690 | 0x310=0x00000403 | sha1=db5e078842bc
+   互比：[0] ⇒ **两次逐字节相同 ✓** | 最差一次与 golden：不符 0
+   判据（0 越界 + 0 不符 + 多次逐字节相同）：✓ 过
+    组平面置换（应=恒等）：0 1 2 3
+[json] 已落盘 /home/xilinx/demoir/t122_out/t122_054219.json
+  ---- k3_c48_o32_64x64     cin=48 cout=32 k=3 64x64→64x64 npix=4096 @ 50 MHz
+   run1: 越界 **    0 B** | 不符 **     0/131072** | cyc=   272787 | 0x310=0x00000403 | sha1=4c38042eac10
+   run2: 越界 **    0 B** | 不符 **     0/131072** | cyc=   274146 | 0x310=0x00000403 | sha1=4c38042eac10
+   互比：[0] ⇒ **两次逐字节相同 ✓** | 最差一次与 golden：不符 0
+   判据（0 越界 + 0 不符 + 多次逐字节相同）：✓ 过
+    组平面置换（应=恒等）：0 1 2 3
+[json] 已落盘 /home/xilinx/demoir/t122_out/t122_054219.json
+  ---- k3_c48_o32_32x32     cin=48 cout=32 k=3 32x32→32x32 npix=1024 @ 50 MHz
+   run1: 越界 **    0 B** | 不符 **     0/32768** | cyc=    71287 | 0x310=0x00000403 | sha1=3e77e295a98f
+   run2: 越界 **    0 B** | 不符 **     0/32768** | cyc=    71430 | 0x310=0x00000403 | sha1=3e77e295a98f
+   互比：[0] ⇒ **两次逐字节相同 ✓** | 最差一次与 golden：不符 0
+   判据（0 越界 + 0 不符 + 多次逐字节相同）：✓ 过
+    组平面置换（应=恒等）：0 1 2 3
+[json] 已落盘 /home/xilinx/demoir/t122_out/t122_054219.json
+  ---- k3_c48_o32_32x64     cin=48 cout=32 k=3 32x64→32x64 npix=2048 @ 50 MHz
+   run1: 越界 **    0 B** | 不符 **     0/65536** | cyc=   137913 | 0x310=0x00000403 | sha1=2192130f6745
+   run2: 越界 **    0 B** | 不符 **     0/65536** | cyc=   137031 | 0x310=0x00000403 | sha1=2192130f6745
+   互比：[0] ⇒ **两次逐字节相同 ✓** | 最差一次与 golden：不符 0
+   判据（0 越界 + 0 不符 + 多次逐字节相同）：✓ 过
+    组平面置换（应=恒等）：0 1 2 3
+[json] 已落盘 /home/xilinx/demoir/t122_out/t122_054219.json
+  ---- k3_c48_o32_64x32     cin=48 cout=32 k=3 64x32→64x32 npix=2048 @ 50 MHz
+   run1: 越界 **    0 B** | 不符 **     0/65536** | cyc=   138068 | 0x310=0x00000403 | sha1=2a9f8496c63c
+   run2: 越界 **    0 B** | 不符 **     0/65536** | cyc=   137830 | 0x310=0x00000403 | sha1=2a9f8496c63c
+   互比：[0] ⇒ **两次逐字节相同 ✓** | 最差一次与 golden：不符 0
+   判据（0 越界 + 0 不符 + 多次逐字节相同）：✓ 过
+    组平面置换（应=恒等）：0 1 2 3
+[json] 已落盘 /home/xilinx/demoir/t122_out/t122_054219.json
+  ---- k1_c48_o32_32x32     cin=48 cout=32 k=1 32x32→32x32 npix=1024 @ 50 MHz
+   run1: 越界 **    0 B** | 不符 **     0/32768** | cyc=    68951 | 0x310=0x00000403 | sha1=8551e6d0af98
+   run2: 越界 **    0 B** | 不符 **     0/32768** | cyc=    70691 | 0x310=0x00000403 | sha1=8551e6d0af98
+   互比：[0] ⇒ **两次逐字节相同 ✓** | 最差一次与 golden：不符 0
+   判据（0 越界 + 0 不符 + 多次逐字节相同）：✓ 过
+    组平面置换（应=恒等）：0 1 2 3
+[json] 已落盘 /home/xilinx/demoir/t122_out/t122_054219.json
+  ---- k1_c48_o32_32x64     cin=48 cout=32 k=1 32x64→32x64 npix=2048 @ 50 MHz
+   run1: 越界 **    0 B** | 不符 **     0/65536** | cyc=   137568 | 0x310=0x00000403 | sha1=5a550183ac8f
+   run2: 越界 **    0 B** | 不符 **     0/65536** | cyc=   136697 | 0x310=0x00000403 | sha1=5a550183ac8f
+   互比：[0] ⇒ **两次逐字节相同 ✓** | 最差一次与 golden：不符 0
+   判据（0 越界 + 0 不符 + 多次逐字节相同）：✓ 过
+    组平面置换（应=恒等）：0 1 2 3
+[json] 已落盘 /home/xilinx/demoir/t122_out/t122_054219.json
+  ---- k1_c48_o32_64x32     cin=48 cout=32 k=1 64x32→64x32 npix=2048 @ 50 MHz
+   run1: 越界 **    0 B** | 不符 **     0/65536** | cyc=   137007 | 0x310=0x00000403 | sha1=5a550183ac8f
+   run2: 越界 **    0 B** | 不符 **     0/65536** | cyc=   137544 | 0x310=0x00000403 | sha1=5a550183ac8f
+   互比：[0] ⇒ **两次逐字节相同 ✓** | 最差一次与 golden：不符 0
+   判据（0 越界 + 0 不符 + 多次逐字节相同）：✓ 过
+    组平面置换（应=恒等）：0 1 2 3
+[json] 已落盘 /home/xilinx/demoir/t122_out/t122_054219.json
+  ---- k3_c48_o48_64x64     cin=48 cout=48 k=3 64x64→64x64 npix=4096 @ 50 MHz
+   run1: 越界 **    0 B** | 不符 **     0/196608** | cyc=   411189 | 0x310=0x00000403 | sha1=90ca09f4e62a
+   run2: 越界 **    0 B** | 不符 **     0/196608** | cyc=   415158 | 0x310=0x00000403 | sha1=90ca09f4e62a
+   互比：[0] ⇒ **两次逐字节相同 ✓** | 最差一次与 golden：不符 0
+   判据（0 越界 + 0 不符 + 多次逐字节相同）：✓ 过
+    组平面置换（应=恒等）：0 1 2 3 4 5
+[json] 已落盘 /home/xilinx/demoir/t122_out/t122_054219.json
+  ---- k3_c112_o64_64x64    cin=112 cout=64 k=3 64x64→64x64 npix=4096 @ 50 MHz
+   run1: 越界 **    0 B** | 不符 **     0/262144** | cyc=   552964 | 0x310=0x00000403 | sha1=b2b31d75cfe1
+   run2: 越界 **    0 B** | 不符 **     0/262144** | cyc=   551760 | 0x310=0x00000403 | sha1=b2b31d75cfe1
+   互比：[0] ⇒ **两次逐字节相同 ✓** | 最差一次与 golden：不符 0
+   判据（0 越界 + 0 不符 + 多次逐字节相同）：✓ 过
+    组平面置换（应=恒等）：0 1 2 3 4 5 6 7
+[json] 已落盘 /home/xilinx/demoir/t122_out/t122_054219.json
+  ---- k3_c48_o32_48x48     cin=48 cout=32 k=3 48x48→48x48 npix=2304 @ 50 MHz
+   run1: 越界 **    0 B** | 不符 **     0/73728** | cyc=   155807 | 0x310=0x00000403 | sha1=2852b4df4035
+   run2: 越界 **    0 B** | 不符 **     0/73728** | cyc=   154817 | 0x310=0x00000403 | sha1=2852b4df4035
+   互比：[0] ⇒ **两次逐字节相同 ✓** | 最差一次与 golden：不符 0
+   判据（0 越界 + 0 不符 + 多次逐字节相同）：✓ 过
+    组平面置换（应=恒等）：0 1 2 3
+[json] 已落盘 /home/xilinx/demoir/t122_out/t122_054219.json
+  ---- k3_c48_o32_16x64     cin=48 cout=32 k=3 16x64→16x64 npix=1024 @ 50 MHz
+   run1: 越界 **    0 B** | 不符 **     0/32768** | cyc=    70894 | 0x310=0x00000403 | sha1=55268f1d2044
+   run2: 越界 **    0 B** | 不符 **     0/32768** | cyc=    69880 | 0x310=0x00000403 | sha1=55268f1d2044
+   互比：[0] ⇒ **两次逐字节相同 ✓** | 最差一次与 golden：不符 0
+   判据（0 越界 + 0 不符 + 多次逐字节相同）：✓ 过
+    组平面置换（应=恒等）：0 1 2 3
+[json] 已落盘 /home/xilinx/demoir/t122_out/t122_054219.json
+  ---- k3_c48_o32_64x16     cin=48 cout=32 k=3 64x16→64x16 npix=1024 @ 50 MHz
+   run1: 越界 **    0 B** | 不符 **     0/32768** | cyc=    70894 | 0x310=0x00000403 | sha1=14120c40b478
+   run2: 越界 **    0 B** | 不符 **     0/32768** | cyc=    70643 | 0x310=0x00000403 | sha1=14120c40b478
+   互比：[0] ⇒ **两次逐字节相同 ✓** | 最差一次与 golden：不符 0
+   判据（0 越界 + 0 不符 + 多次逐字节相同）：✓ 过
+    组平面置换（应=恒等）：0 1 2 3
+[json] 已落盘 /home/xilinx/demoir/t122_out/t122_054219.json
+  [50 MHz] 小结：13/13 形状达标 ✓
+[json] 已落盘 /home/xilinx/demoir/t122_out/t122_054219.json

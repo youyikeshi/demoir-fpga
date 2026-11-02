@@ -1,0 +1,248 @@
+{
+ "env_at_start": {
+  "BIN_PACK": "e1e2",
+  "BIN_LAZY_DEQ": "0",
+  "BIN_LAZY_SLOTS": "24",
+  "BIN_CAT_FUSION": "1",
+  "BIN_BILINEAR_C": "1",
+  "BIN_PRECOMP": "1",
+  "Q8CACHE": "1",
+  "BIN_F32DIRECT": "1",
+  "BIN_CAT_ECA_FUSE": "1",
+  "BIN_EPI_NOINV": "1",
+  "BIN_PROFILE": "1",
+  "BIN_V50_FUSE": "",
+  "BIN_VLANES": ""
+ },
+ "steps": {
+  "load": {
+   "bit": "/home/xilinx/demoir/design_1_150v53.bit",
+   "seconds": 2.5085,
+   "ips": [
+    "bin_unit_0",
+    "conv_uni_0",
+    "ps7"
+   ],
+   "has_fconv": false,
+   "addr": {
+    "conv_uni_0": {
+     "base": "0x40040000",
+     "length": 131072,
+     "ok": true
+    },
+    "bin_unit_0": {
+     "base": "0x40060000",
+     "length": 131072,
+     "ok": true
+    }
+   },
+   "magic": {
+    "CFG+0x314": {
+     "abs_addr": "0x40070314",
+     "hex": "0x50300001"
+    },
+    "0x310 CHAIN_STATUS": {
+     "abs_addr": "0x40060310",
+     "hex": "0x00000000"
+    },
+    "0x308 BAND_ROWS": {
+     "abs_addr": "0x40060308",
+     "hex": "0x00000000"
+    }
+   },
+   "magic_ok": true,
+   "magic_required": true,
+   "fclk0_at_load": 125.0,
+   "downloads": 1,
+   "fp_ok": true
+  },
+  "deps": {
+   "line": "[DEPS] q8=fast c8deq=fast bpack=fast e1e2=fast catpack=fast safe=fast  ⇒ deps_closure_ok=True",
+   "closure_ok": true
+  },
+  "layers": {
+   "fclk": 150.0,
+   "layers": [
+    {
+     "key": "k1_c48_o32_64x64",
+     "cin": 48,
+     "cout": 32,
+     "k": 1,
+     "s": 1,
+     "pad": 0,
+     "H": 64,
+     "W": 64,
+     "Hout": 64,
+     "Wout": 64,
+     "npix": 4096,
+     "base_name": "encoder.encoder_1.sam_blocks.0.b0.ghost_layers.0.primary_conv.conv",
+     "perm": [
+      "STALE(0x5A=0.00)",
+      "STALE(0x5A=0.00)",
+      "STALE(0x5A=0.00)",
+      "STALE(0x5A=0.00)"
+     ],
+     "perm_identity": false,
+     "out_n": 131072,
+     "exp_sha1": "db5e078842bcd00ed971eca52291fbb514cf953a",
+     "nrun": 2,
+     "runs": [
+      {
+       "label": "150#1",
+       "fclk": 150.0,
+       "wall": 0.00496,
+       "cyc": 371146,
+       "oob_bytes": 0,
+       "mismatch": 14548,
+       "out_n": 131072,
+       "st310": "0x00000403",
+       "sha1": "a4aa60dfb686e8538f710c4c8f6d778fcf7263e4",
+       "first_diffs": [
+        {
+         "i": 0,
+         "got": 2,
+         "want": 17
+        },
+        {
+         "i": 1,
+         "got": 0,
+         "want": -16
+        },
+        {
+         "i": 2,
+         "got": -1,
+         "want": -21
+        },
+        {
+         "i": 3,
+         "got": -3,
+         "want": -21
+        },
+        {
+         "i": 8,
+         "got": 1,
+         "want": -3
+        },
+        {
+         "i": 9,
+         "got": 0,
+         "want": 22
+        },
+        {
+         "i": 11,
+         "got": -3,
+         "want": -10
+        },
+        {
+         "i": 16,
+         "got": 3,
+         "want": -15
+        }
+       ]
+      },
+      {
+       "label": "150#2",
+       "fclk": 150.0,
+       "wall": 0.00409,
+       "cyc": 369930,
+       "oob_bytes": 0,
+       "mismatch": 14547,
+       "out_n": 131072,
+       "st310": "0x00000403",
+       "sha1": "a5f33cfbd00492e2e30bb5ad41e20445a7b3c68d",
+       "first_diffs": [
+        {
+         "i": 0,
+         "got": 2,
+         "want": 17
+        },
+        {
+         "i": 1,
+         "got": 0,
+         "want": -16
+        },
+        {
+         "i": 2,
+         "got": -1,
+         "want": -21
+        },
+        {
+         "i": 3,
+         "got": -3,
+         "want": -21
+        },
+        {
+         "i": 8,
+         "got": 1,
+         "want": -3
+        },
+        {
+         "i": 9,
+         "got": 0,
+         "want": 22
+        },
+        {
+         "i": 11,
+         "got": -3,
+         "want": -10
+        },
+        {
+         "i": 16,
+         "got": 3,
+         "want": -15
+        }
+       ]
+      }
+     ],
+     "diff_max": 247,
+     "same_1v2": false,
+     "mismatch_max": 14548,
+     "oob_max": 0,
+     "ok": false
+    }
+   ],
+   "layers_ok": null
+  }
+ },
+ "args": {
+  "bit": "/home/xilinx/demoir/design_1_150v53.bit",
+  "pack": "/home/xilinx/demoir/deploy/bin_weights_new",
+  "timeout": 6.0,
+  "seed": 20261031,
+  "outdir": "/home/xilinx/demoir/t122_out150",
+  "layer_freq": 150.0,
+  "layer_runs": 2,
+  "magic_required": 1,
+  "only": "",
+  "stress_key": "k3_c48_o32_64x64",
+  "stress_runs": 12,
+  "tag": "t122"
+ },
+ "runpoint": {
+  "BIN_PACK": "e1e2",
+  "BIN_LAZY_DEQ": "0",
+  "BIN_LAZY_SLOTS": "24",
+  "BIN_CAT_FUSION": "1",
+  "BIN_BILINEAR_C": "1",
+  "BIN_PRECOMP": "1",
+  "Q8CACHE": "1",
+  "BIN_F32DIRECT": "1",
+  "BIN_CAT_ECA_FUSE": "1",
+  "BIN_EPI_NOINV": "1",
+  "BIN_PROFILE": "1",
+  "BIN_V50_FUSE": "",
+  "BIN_VLANES": ""
+ },
+ "fclk": {
+  "layer": {
+   "target": 150.0,
+   "readback": 150.0,
+   "base": "0x40060000",
+   "magic": "0x50300001",
+   "magic_ok": true,
+   "st310": "0x00000000",
+   "fclk": 150.0
+  }
+ },
+ "fatal": "Traceback (most recent call last):\n  File \"/tmp/probe_T122/probe_t122.py\", line 559, in <module>\n    sys.exit(main())\n  File \"/tmp/probe_T122/probe_t122.py\", line 467, in main\n    rr = [run_once(e, C, rb, \"%g#%d\" % (rb, j + 1)) for j in range(nl)]\n  File \"/tmp/probe_T122/probe_t122.py\", line 467, in <listcomp>\n    rr = [run_once(e, C, rb, \"%g#%d\" % (rb, j + 1)) for j in range(nl)]\n  File \"/tmp/probe_T122/probe_t122.py\", line 364, in run_once\n    rs = with_alarm(C[\"timeout\"] + 30.0, e.run, C[\"ab\"], ob, L=C[\"Lr\"],\n  File \"/tmp/probe_T122/probe_t122.py\", line 128, in with_alarm\n    return fn(*a, **kw)\n  File \"/home/xilinx/demoir/ps/pynq/bin_engine.py\", line 1553, in run\n    st, dt = self.wait(timeout, wdt=wdt)\n  File \"/home/xilinx/demoir/ps/pynq/bin_engine.py\", line 1474, in wait\n    raise TimeoutError(msg)\nTimeoutError: bin_unit 超时 6.0s 未 done（timeout=6.0）。**不再发第二次 start**：引擎可能还在访存，继续跑会踩内存。\n"
+}

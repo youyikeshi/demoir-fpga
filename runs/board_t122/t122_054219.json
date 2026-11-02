@@ -1,0 +1,835 @@
+{
+ "env_at_start": {
+  "BIN_PACK": "e1e2",
+  "BIN_LAZY_DEQ": "0",
+  "BIN_LAZY_SLOTS": "24",
+  "BIN_CAT_FUSION": "1",
+  "BIN_BILINEAR_C": "1",
+  "BIN_PRECOMP": "1",
+  "Q8CACHE": "1",
+  "BIN_F32DIRECT": "1",
+  "BIN_CAT_ECA_FUSE": "1",
+  "BIN_EPI_NOINV": "1",
+  "BIN_PROFILE": "1",
+  "BIN_V50_FUSE": "",
+  "BIN_VLANES": ""
+ },
+ "steps": {
+  "load": {
+   "bit": "/home/xilinx/demoir/design_1_150v53.bit",
+   "seconds": 2.5057,
+   "ips": [
+    "bin_unit_0",
+    "conv_uni_0",
+    "ps7"
+   ],
+   "has_fconv": false,
+   "addr": {
+    "conv_uni_0": {
+     "base": "0x40040000",
+     "length": 131072,
+     "ok": true
+    },
+    "bin_unit_0": {
+     "base": "0x40060000",
+     "length": 131072,
+     "ok": true
+    }
+   },
+   "magic": {
+    "CFG+0x314": {
+     "abs_addr": "0x40070314",
+     "hex": "0x50300001"
+    },
+    "0x310 CHAIN_STATUS": {
+     "abs_addr": "0x40060310",
+     "hex": "0x00000000"
+    },
+    "0x308 BAND_ROWS": {
+     "abs_addr": "0x40060308",
+     "hex": "0x00000000"
+    }
+   },
+   "magic_ok": true,
+   "magic_required": true,
+   "fclk0_at_load": 125.0,
+   "downloads": 1,
+   "fp_ok": true
+  },
+  "deps": {
+   "line": "[DEPS] q8=fast c8deq=fast bpack=fast e1e2=fast catpack=fast safe=fast  ⇒ deps_closure_ok=True",
+   "closure_ok": true
+  },
+  "layers": {
+   "fclk": 50.0,
+   "layers": [
+    {
+     "key": "k1_c48_o32_64x64",
+     "cin": 48,
+     "cout": 32,
+     "k": 1,
+     "s": 1,
+     "pad": 0,
+     "H": 64,
+     "W": 64,
+     "Hout": 64,
+     "Wout": 64,
+     "npix": 4096,
+     "base_name": "encoder.encoder_1.sam_blocks.0.b0.ghost_layers.0.primary_conv.conv",
+     "perm": [
+      0,
+      1,
+      2,
+      3
+     ],
+     "perm_identity": true,
+     "out_n": 131072,
+     "exp_sha1": "db5e078842bcd00ed971eca52291fbb514cf953a",
+     "nrun": 2,
+     "runs": [
+      {
+       "label": "50#1",
+       "fclk": 50.0,
+       "wall": 0.00797,
+       "cyc": 272036,
+       "oob_bytes": 0,
+       "mismatch": 0,
+       "out_n": 131072,
+       "st310": "0x00000403",
+       "sha1": "db5e078842bcd00ed971eca52291fbb514cf953a",
+       "first_diffs": []
+      },
+      {
+       "label": "50#2",
+       "fclk": 50.0,
+       "wall": 0.00707,
+       "cyc": 271690,
+       "oob_bytes": 0,
+       "mismatch": 0,
+       "out_n": 131072,
+       "st310": "0x00000403",
+       "sha1": "db5e078842bcd00ed971eca52291fbb514cf953a",
+       "first_diffs": []
+      }
+     ],
+     "diff_max": 0,
+     "same_1v2": true,
+     "mismatch_max": 0,
+     "oob_max": 0,
+     "ok": true
+    },
+    {
+     "key": "k3_c48_o32_64x64",
+     "cin": 48,
+     "cout": 32,
+     "k": 3,
+     "s": 1,
+     "pad": 1,
+     "H": 64,
+     "W": 64,
+     "Hout": 64,
+     "Wout": 64,
+     "npix": 4096,
+     "base_name": "decoder.decoder_3.sam_blocks.0.b0.ghost_layers.0.cheap_operation.conv",
+     "perm": [
+      0,
+      1,
+      2,
+      3
+     ],
+     "perm_identity": true,
+     "out_n": 131072,
+     "exp_sha1": "4c38042eac104ae3d019134510890b083fba6f58",
+     "nrun": 2,
+     "runs": [
+      {
+       "label": "50#1",
+       "fclk": 50.0,
+       "wall": 0.00747,
+       "cyc": 272787,
+       "oob_bytes": 0,
+       "mismatch": 0,
+       "out_n": 131072,
+       "st310": "0x00000403",
+       "sha1": "4c38042eac104ae3d019134510890b083fba6f58",
+       "first_diffs": []
+      },
+      {
+       "label": "50#2",
+       "fclk": 50.0,
+       "wall": 0.00712,
+       "cyc": 274146,
+       "oob_bytes": 0,
+       "mismatch": 0,
+       "out_n": 131072,
+       "st310": "0x00000403",
+       "sha1": "4c38042eac104ae3d019134510890b083fba6f58",
+       "first_diffs": []
+      }
+     ],
+     "diff_max": 0,
+     "same_1v2": true,
+     "mismatch_max": 0,
+     "oob_max": 0,
+     "ok": true
+    },
+    {
+     "key": "k3_c48_o32_32x32",
+     "cin": 48,
+     "cout": 32,
+     "k": 3,
+     "s": 1,
+     "pad": 1,
+     "H": 32,
+     "W": 32,
+     "Hout": 32,
+     "Wout": 32,
+     "npix": 1024,
+     "base_name": "decoder.decoder_3.sam_blocks.0.b0.ghost_layers.0.cheap_operation.conv",
+     "perm": [
+      0,
+      1,
+      2,
+      3
+     ],
+     "perm_identity": true,
+     "out_n": 32768,
+     "exp_sha1": "3e77e295a98f7b24a147d4d26a8e9542e88966dc",
+     "nrun": 2,
+     "runs": [
+      {
+       "label": "50#1",
+       "fclk": 50.0,
+       "wall": 0.0034,
+       "cyc": 71287,
+       "oob_bytes": 0,
+       "mismatch": 0,
+       "out_n": 32768,
+       "st310": "0x00000403",
+       "sha1": "3e77e295a98f7b24a147d4d26a8e9542e88966dc",
+       "first_diffs": []
+      },
+      {
+       "label": "50#2",
+       "fclk": 50.0,
+       "wall": 0.00305,
+       "cyc": 71430,
+       "oob_bytes": 0,
+       "mismatch": 0,
+       "out_n": 32768,
+       "st310": "0x00000403",
+       "sha1": "3e77e295a98f7b24a147d4d26a8e9542e88966dc",
+       "first_diffs": []
+      }
+     ],
+     "diff_max": 0,
+     "same_1v2": true,
+     "mismatch_max": 0,
+     "oob_max": 0,
+     "ok": true
+    },
+    {
+     "key": "k3_c48_o32_32x64",
+     "cin": 48,
+     "cout": 32,
+     "k": 3,
+     "s": 1,
+     "pad": 1,
+     "H": 32,
+     "W": 64,
+     "Hout": 32,
+     "Wout": 64,
+     "npix": 2048,
+     "base_name": "decoder.decoder_3.sam_blocks.0.b0.ghost_layers.0.cheap_operation.conv",
+     "perm": [
+      0,
+      1,
+      2,
+      3
+     ],
+     "perm_identity": true,
+     "out_n": 65536,
+     "exp_sha1": "2192130f67459023139834628a9a933c2de786d9",
+     "nrun": 2,
+     "runs": [
+      {
+       "label": "50#1",
+       "fclk": 50.0,
+       "wall": 0.00472,
+       "cyc": 137913,
+       "oob_bytes": 0,
+       "mismatch": 0,
+       "out_n": 65536,
+       "st310": "0x00000403",
+       "sha1": "2192130f67459023139834628a9a933c2de786d9",
+       "first_diffs": []
+      },
+      {
+       "label": "50#2",
+       "fclk": 50.0,
+       "wall": 0.00437,
+       "cyc": 137031,
+       "oob_bytes": 0,
+       "mismatch": 0,
+       "out_n": 65536,
+       "st310": "0x00000403",
+       "sha1": "2192130f67459023139834628a9a933c2de786d9",
+       "first_diffs": []
+      }
+     ],
+     "diff_max": 0,
+     "same_1v2": true,
+     "mismatch_max": 0,
+     "oob_max": 0,
+     "ok": true
+    },
+    {
+     "key": "k3_c48_o32_64x32",
+     "cin": 48,
+     "cout": 32,
+     "k": 3,
+     "s": 1,
+     "pad": 1,
+     "H": 64,
+     "W": 32,
+     "Hout": 64,
+     "Wout": 32,
+     "npix": 2048,
+     "base_name": "decoder.decoder_3.sam_blocks.0.b0.ghost_layers.0.cheap_operation.conv",
+     "perm": [
+      0,
+      1,
+      2,
+      3
+     ],
+     "perm_identity": true,
+     "out_n": 65536,
+     "exp_sha1": "2a9f8496c63c2ba6142a651ec46cbd18593f3a25",
+     "nrun": 2,
+     "runs": [
+      {
+       "label": "50#1",
+       "fclk": 50.0,
+       "wall": 0.00475,
+       "cyc": 138068,
+       "oob_bytes": 0,
+       "mismatch": 0,
+       "out_n": 65536,
+       "st310": "0x00000403",
+       "sha1": "2a9f8496c63c2ba6142a651ec46cbd18593f3a25",
+       "first_diffs": []
+      },
+      {
+       "label": "50#2",
+       "fclk": 50.0,
+       "wall": 0.00448,
+       "cyc": 137830,
+       "oob_bytes": 0,
+       "mismatch": 0,
+       "out_n": 65536,
+       "st310": "0x00000403",
+       "sha1": "2a9f8496c63c2ba6142a651ec46cbd18593f3a25",
+       "first_diffs": []
+      }
+     ],
+     "diff_max": 0,
+     "same_1v2": true,
+     "mismatch_max": 0,
+     "oob_max": 0,
+     "ok": true
+    },
+    {
+     "key": "k1_c48_o32_32x32",
+     "cin": 48,
+     "cout": 32,
+     "k": 1,
+     "s": 1,
+     "pad": 0,
+     "H": 32,
+     "W": 32,
+     "Hout": 32,
+     "Wout": 32,
+     "npix": 1024,
+     "base_name": "encoder.encoder_1.sam_blocks.0.b0.ghost_layers.0.primary_conv.conv",
+     "perm": [
+      0,
+      1,
+      2,
+      3
+     ],
+     "perm_identity": true,
+     "out_n": 32768,
+     "exp_sha1": "8551e6d0af9875bed988ec19f4551b4ee460a591",
+     "nrun": 2,
+     "runs": [
+      {
+       "label": "50#1",
+       "fclk": 50.0,
+       "wall": 0.00342,
+       "cyc": 68951,
+       "oob_bytes": 0,
+       "mismatch": 0,
+       "out_n": 32768,
+       "st310": "0x00000403",
+       "sha1": "8551e6d0af9875bed988ec19f4551b4ee460a591",
+       "first_diffs": []
+      },
+      {
+       "label": "50#2",
+       "fclk": 50.0,
+       "wall": 0.00304,
+       "cyc": 70691,
+       "oob_bytes": 0,
+       "mismatch": 0,
+       "out_n": 32768,
+       "st310": "0x00000403",
+       "sha1": "8551e6d0af9875bed988ec19f4551b4ee460a591",
+       "first_diffs": []
+      }
+     ],
+     "diff_max": 0,
+     "same_1v2": true,
+     "mismatch_max": 0,
+     "oob_max": 0,
+     "ok": true
+    },
+    {
+     "key": "k1_c48_o32_32x64",
+     "cin": 48,
+     "cout": 32,
+     "k": 1,
+     "s": 1,
+     "pad": 0,
+     "H": 32,
+     "W": 64,
+     "Hout": 32,
+     "Wout": 64,
+     "npix": 2048,
+     "base_name": "encoder.encoder_1.sam_blocks.0.b0.ghost_layers.0.primary_conv.conv",
+     "perm": [
+      0,
+      1,
+      2,
+      3
+     ],
+     "perm_identity": true,
+     "out_n": 65536,
+     "exp_sha1": "5a550183ac8ff81a425f2eff7294346f2a4dc648",
+     "nrun": 2,
+     "runs": [
+      {
+       "label": "50#1",
+       "fclk": 50.0,
+       "wall": 0.00471,
+       "cyc": 137568,
+       "oob_bytes": 0,
+       "mismatch": 0,
+       "out_n": 65536,
+       "st310": "0x00000403",
+       "sha1": "5a550183ac8ff81a425f2eff7294346f2a4dc648",
+       "first_diffs": []
+      },
+      {
+       "label": "50#2",
+       "fclk": 50.0,
+       "wall": 0.00437,
+       "cyc": 136697,
+       "oob_bytes": 0,
+       "mismatch": 0,
+       "out_n": 65536,
+       "st310": "0x00000403",
+       "sha1": "5a550183ac8ff81a425f2eff7294346f2a4dc648",
+       "first_diffs": []
+      }
+     ],
+     "diff_max": 0,
+     "same_1v2": true,
+     "mismatch_max": 0,
+     "oob_max": 0,
+     "ok": true
+    },
+    {
+     "key": "k1_c48_o32_64x32",
+     "cin": 48,
+     "cout": 32,
+     "k": 1,
+     "s": 1,
+     "pad": 0,
+     "H": 64,
+     "W": 32,
+     "Hout": 64,
+     "Wout": 32,
+     "npix": 2048,
+     "base_name": "encoder.encoder_1.sam_blocks.0.b0.ghost_layers.0.primary_conv.conv",
+     "perm": [
+      0,
+      1,
+      2,
+      3
+     ],
+     "perm_identity": true,
+     "out_n": 65536,
+     "exp_sha1": "5a550183ac8ff81a425f2eff7294346f2a4dc648",
+     "nrun": 2,
+     "runs": [
+      {
+       "label": "50#1",
+       "fclk": 50.0,
+       "wall": 0.00474,
+       "cyc": 137007,
+       "oob_bytes": 0,
+       "mismatch": 0,
+       "out_n": 65536,
+       "st310": "0x00000403",
+       "sha1": "5a550183ac8ff81a425f2eff7294346f2a4dc648",
+       "first_diffs": []
+      },
+      {
+       "label": "50#2",
+       "fclk": 50.0,
+       "wall": 0.00438,
+       "cyc": 137544,
+       "oob_bytes": 0,
+       "mismatch": 0,
+       "out_n": 65536,
+       "st310": "0x00000403",
+       "sha1": "5a550183ac8ff81a425f2eff7294346f2a4dc648",
+       "first_diffs": []
+      }
+     ],
+     "diff_max": 0,
+     "same_1v2": true,
+     "mismatch_max": 0,
+     "oob_max": 0,
+     "ok": true
+    },
+    {
+     "key": "k3_c48_o48_64x64",
+     "cin": 48,
+     "cout": 48,
+     "k": 3,
+     "s": 1,
+     "pad": 1,
+     "H": 64,
+     "W": 64,
+     "Hout": 64,
+     "Wout": 64,
+     "npix": 4096,
+     "base_name": "decoder.decoder_3.sam_blocks.0.b0.ghost_layers.0.cheap_operation.conv",
+     "perm": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5
+     ],
+     "perm_identity": true,
+     "out_n": 196608,
+     "exp_sha1": "90ca09f4e62a1b2664ebeddca42a116485c6f6ce",
+     "nrun": 2,
+     "runs": [
+      {
+       "label": "50#1",
+       "fclk": 50.0,
+       "wall": 0.01028,
+       "cyc": 411189,
+       "oob_bytes": 0,
+       "mismatch": 0,
+       "out_n": 196608,
+       "st310": "0x00000403",
+       "sha1": "90ca09f4e62a1b2664ebeddca42a116485c6f6ce",
+       "first_diffs": []
+      },
+      {
+       "label": "50#2",
+       "fclk": 50.0,
+       "wall": 0.00994,
+       "cyc": 415158,
+       "oob_bytes": 0,
+       "mismatch": 0,
+       "out_n": 196608,
+       "st310": "0x00000403",
+       "sha1": "90ca09f4e62a1b2664ebeddca42a116485c6f6ce",
+       "first_diffs": []
+      }
+     ],
+     "diff_max": 0,
+     "same_1v2": true,
+     "mismatch_max": 0,
+     "oob_max": 0,
+     "ok": true
+    },
+    {
+     "key": "k3_c112_o64_64x64",
+     "cin": 112,
+     "cout": 64,
+     "k": 3,
+     "s": 1,
+     "pad": 2,
+     "H": 64,
+     "W": 64,
+     "Hout": 64,
+     "Wout": 64,
+     "npix": 4096,
+     "base_name": "encoder.encoder_1.rdb.conv_layers.1.conv",
+     "perm": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7
+     ],
+     "perm_identity": true,
+     "out_n": 262144,
+     "exp_sha1": "b2b31d75cfe10126bab4b8c9dba536f95ce04106",
+     "nrun": 2,
+     "runs": [
+      {
+       "label": "50#1",
+       "fclk": 50.0,
+       "wall": 0.01312,
+       "cyc": 552964,
+       "oob_bytes": 0,
+       "mismatch": 0,
+       "out_n": 262144,
+       "st310": "0x00000403",
+       "sha1": "b2b31d75cfe10126bab4b8c9dba536f95ce04106",
+       "first_diffs": []
+      },
+      {
+       "label": "50#2",
+       "fclk": 50.0,
+       "wall": 0.01269,
+       "cyc": 551760,
+       "oob_bytes": 0,
+       "mismatch": 0,
+       "out_n": 262144,
+       "st310": "0x00000403",
+       "sha1": "b2b31d75cfe10126bab4b8c9dba536f95ce04106",
+       "first_diffs": []
+      }
+     ],
+     "diff_max": 0,
+     "same_1v2": true,
+     "mismatch_max": 0,
+     "oob_max": 0,
+     "ok": true
+    },
+    {
+     "key": "k3_c48_o32_48x48",
+     "cin": 48,
+     "cout": 32,
+     "k": 3,
+     "s": 1,
+     "pad": 1,
+     "H": 48,
+     "W": 48,
+     "Hout": 48,
+     "Wout": 48,
+     "npix": 2304,
+     "base_name": "decoder.decoder_3.sam_blocks.0.b0.ghost_layers.0.cheap_operation.conv",
+     "perm": [
+      0,
+      1,
+      2,
+      3
+     ],
+     "perm_identity": true,
+     "out_n": 73728,
+     "exp_sha1": "2852b4df4035696206447b84a7843818bdba1aa6",
+     "nrun": 2,
+     "runs": [
+      {
+       "label": "50#1",
+       "fclk": 50.0,
+       "wall": 0.00522,
+       "cyc": 155807,
+       "oob_bytes": 0,
+       "mismatch": 0,
+       "out_n": 73728,
+       "st310": "0x00000403",
+       "sha1": "2852b4df4035696206447b84a7843818bdba1aa6",
+       "first_diffs": []
+      },
+      {
+       "label": "50#2",
+       "fclk": 50.0,
+       "wall": 0.0047,
+       "cyc": 154817,
+       "oob_bytes": 0,
+       "mismatch": 0,
+       "out_n": 73728,
+       "st310": "0x00000403",
+       "sha1": "2852b4df4035696206447b84a7843818bdba1aa6",
+       "first_diffs": []
+      }
+     ],
+     "diff_max": 0,
+     "same_1v2": true,
+     "mismatch_max": 0,
+     "oob_max": 0,
+     "ok": true
+    },
+    {
+     "key": "k3_c48_o32_16x64",
+     "cin": 48,
+     "cout": 32,
+     "k": 3,
+     "s": 1,
+     "pad": 1,
+     "H": 16,
+     "W": 64,
+     "Hout": 16,
+     "Wout": 64,
+     "npix": 1024,
+     "base_name": "decoder.decoder_3.sam_blocks.0.b0.ghost_layers.0.cheap_operation.conv",
+     "perm": [
+      0,
+      1,
+      2,
+      3
+     ],
+     "perm_identity": true,
+     "out_n": 32768,
+     "exp_sha1": "55268f1d2044796d4c1e79ae4bdd32f604af3c50",
+     "nrun": 2,
+     "runs": [
+      {
+       "label": "50#1",
+       "fclk": 50.0,
+       "wall": 0.00338,
+       "cyc": 70894,
+       "oob_bytes": 0,
+       "mismatch": 0,
+       "out_n": 32768,
+       "st310": "0x00000403",
+       "sha1": "55268f1d2044796d4c1e79ae4bdd32f604af3c50",
+       "first_diffs": []
+      },
+      {
+       "label": "50#2",
+       "fclk": 50.0,
+       "wall": 0.003,
+       "cyc": 69880,
+       "oob_bytes": 0,
+       "mismatch": 0,
+       "out_n": 32768,
+       "st310": "0x00000403",
+       "sha1": "55268f1d2044796d4c1e79ae4bdd32f604af3c50",
+       "first_diffs": []
+      }
+     ],
+     "diff_max": 0,
+     "same_1v2": true,
+     "mismatch_max": 0,
+     "oob_max": 0,
+     "ok": true
+    },
+    {
+     "key": "k3_c48_o32_64x16",
+     "cin": 48,
+     "cout": 32,
+     "k": 3,
+     "s": 1,
+     "pad": 1,
+     "H": 64,
+     "W": 16,
+     "Hout": 64,
+     "Wout": 16,
+     "npix": 1024,
+     "base_name": "decoder.decoder_3.sam_blocks.0.b0.ghost_layers.0.cheap_operation.conv",
+     "perm": [
+      0,
+      1,
+      2,
+      3
+     ],
+     "perm_identity": true,
+     "out_n": 32768,
+     "exp_sha1": "14120c40b47854e9670a318b66dbfcd663e61e48",
+     "nrun": 2,
+     "runs": [
+      {
+       "label": "50#1",
+       "fclk": 50.0,
+       "wall": 0.00352,
+       "cyc": 70894,
+       "oob_bytes": 0,
+       "mismatch": 0,
+       "out_n": 32768,
+       "st310": "0x00000403",
+       "sha1": "14120c40b47854e9670a318b66dbfcd663e61e48",
+       "first_diffs": []
+      },
+      {
+       "label": "50#2",
+       "fclk": 50.0,
+       "wall": 0.00302,
+       "cyc": 70643,
+       "oob_bytes": 0,
+       "mismatch": 0,
+       "out_n": 32768,
+       "st310": "0x00000403",
+       "sha1": "14120c40b47854e9670a318b66dbfcd663e61e48",
+       "first_diffs": []
+      }
+     ],
+     "diff_max": 0,
+     "same_1v2": true,
+     "mismatch_max": 0,
+     "oob_max": 0,
+     "ok": true
+    }
+   ],
+   "layers_ok": true
+  }
+ },
+ "args": {
+  "bit": "/home/xilinx/demoir/design_1_150v53.bit",
+  "pack": "/home/xilinx/demoir/deploy/bin_weights_new",
+  "timeout": 6.0,
+  "seed": 20261031,
+  "outdir": "/home/xilinx/demoir/t122_out",
+  "layer_freq": 50.0,
+  "layer_runs": 2,
+  "magic_required": 1,
+  "only": "",
+  "tag": "t122"
+ },
+ "runpoint": {
+  "BIN_PACK": "e1e2",
+  "BIN_LAZY_DEQ": "0",
+  "BIN_LAZY_SLOTS": "24",
+  "BIN_CAT_FUSION": "1",
+  "BIN_BILINEAR_C": "1",
+  "BIN_PRECOMP": "1",
+  "Q8CACHE": "1",
+  "BIN_F32DIRECT": "1",
+  "BIN_CAT_ECA_FUSE": "1",
+  "BIN_EPI_NOINV": "1",
+  "BIN_PROFILE": "1",
+  "BIN_V50_FUSE": "",
+  "BIN_VLANES": ""
+ },
+ "fclk": {
+  "layer": {
+   "target": 50.0,
+   "readback": 50.0,
+   "base": "0x40060000",
+   "magic": "0x50300001",
+   "magic_ok": true,
+   "st310": "0x00000000",
+   "fclk": 50.0
+  }
+ },
+ "verdict": {
+  "layers_ok": true,
+  "n_ok": 13,
+  "n_cases": 13,
+  "stopped": "layer_only_T122"
+ }
+}

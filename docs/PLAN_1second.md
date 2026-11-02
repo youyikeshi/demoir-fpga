@@ -6459,3 +6459,33 @@ $$\Rightarrow\ \text{最差路径终点是 } \mathbf{\mathtt{pix\_q\_reg[22]}} \
 $$\Rightarrow\ \text{而 } \mathtt{pix\_q}\ \text{最大只需 }14\ \text{位（}\mathtt{npix}\le16384） \Rightarrow \text{高 18 位纯属浪费}$$
 $$\Rightarrow\ \Rightarrow\ \text{修法有两条且都很小}：\text{① } \mathtt{pix\_q}\ \text{收窄到 }15\ \text{位}（\text{进位链 }8\to4\ \text{级）};\ \text{② 把 } \mathtt{npix}\ \text{乘法结果打一拍}$$
 $$\Rightarrow\ \text{两条合起来应能拿回 } 1.5\sim2\ \text{ns} \Rightarrow \text{v53 的 } +0.041\ \text{能变成真正的余量}$$
+
+### 70.86 ★★★★★ 我的假设被证伪：**单层任何尺寸都对 ⇒ 根因在"跨 op 上下文"**（T-122，2026-11-03 03:1x）
+
+**① 单层在 50 MHz 全部正确（13 个形状 + 9 个大形状，每形状 2 跑）**
+| 类别 | 结果 |
+|---|---|
+| k1/k3，c48/c112，o32/48/64，64×64（npix 4096） | **0 B 越界 / 0 字节错 / 2 跑逐字节相同** |
+| 非方形 32×64、64×32、16×64、64×16（npix 2048/1024） | 全对 |
+| **48²、96²、128²、160²、192²、256²**（npix 2304→65536） | 全对 |
+| 64×256、256×64（npix 16384） | 全对 |
+| k3 128² **连跑 8 次** | **8/8 同一 sha1** |
+
+$$\Rightarrow\ \textbf{我的"k=3 行抽头 × 线缓存索引"假设被证伪}：$$
+$$\quad\ \text{预测 } k{=}1@64^2\ \text{全对（}\checkmark\ \text{命中）}，\text{但 } k{=}3@64^2\ \textbf{也全对}（\times\ \text{违背}）;\ k{=}3\ \text{在 } 32^2/48^2/96^2/128^2/256^2\ \text{全对}（\times\ \text{违背）}$$
+$$\Rightarrow\ \text{T-116 的判断成立：}\mathtt{idx[3:0]=tag[3:0]}\ \textbf{只影响性能}，\text{tag 是 21 位精确比较}$$
+$$\Rightarrow\ \Rightarrow\ \textbf{"边界} = \mathtt{npix}=4096\text{" 这个前提}\textbf{不成立}：\text{单层到 } \mathtt{npix}=65536\ \text{都没事}$$
+$$\quad\ \Rightarrow\ \text{256}^2\ \text{线缓存 }2\sim8\times\ \text{超容}\textbf{也没有产生错数据} \Rightarrow \textbf{容量/线缓存方向整体作废}$$
+
+**② 但 150 MHz 单层就崩（新的硬事实）**
+$$\Rightarrow\ k1\ c48\ o32\ 64\times64 @150\ \text{MHz}：\text{run1 错 } \mathbf{14548}/131072，\text{run2 }14547，\text{两次互差 }247\ \text{B}；\text{组平面全 STALE}$$
+$$\Rightarrow\ \text{紧接下一个形状}\textbf{直接挂死}：\mathtt{bin\_unit}\ \text{超时 }6.0\ \text{s 未 done}$$
+$$\Rightarrow\ \Rightarrow\ \textbf{v53 在 150 MHz 是真违例}（\text{与 } \mathtt{WNS}+0.041@100\ \text{MHz 一致）} \Rightarrow \textbf{150 MHz 的任何结论都无效，单层也不许跑}$$
+$$\Rightarrow\ \textbf{第 125 条：}64^2\ \text{整网能到 }83.33\ \text{MHz 不代表单层能到 }150;\ \text{反之亦然}$$
+
+**③ 结论：根因在"跨 op 上下文"，不在层内**
+$$\Rightarrow\ \text{单层任何几何、任何尺寸、}\mathtt{npix}\ \text{到 }65536\ \text{都正确}$$
+$$\Rightarrow\ 128^2/256^2\ \text{的差别}\textbf{不在几何，而在"多 op"}$$
+$$\Rightarrow\ \Rightarrow\ \text{剩余嫌疑：}\textbf{槽轮转 / 写通路衔接 / 连续 start 未全排空 / arena 复用}$$
+$$\Rightarrow\ \text{T-122 下一步：}\textbf{双 op 交替}（A→OA 校验→B→OB→回读 OA 再校验；再换槽 A→OB，循环 4 轮）$$
+$$\quad\ \Rightarrow\ \text{这是能交给 xsim 的最小形状；若仍不复现，才做整网最小前缀二分}$$
