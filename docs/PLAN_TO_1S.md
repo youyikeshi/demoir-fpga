@@ -171,7 +171,7 @@ $$\quad\ \Rightarrow\ \text{每段融合}\textbf{独立可验}（\text{sha1 逐�
 
 ### 7.1 什么叫"按像素顺序逐段融合"
 
-$$\Rightarrow\ \text{一个卷积层的输出像素只依赖输入的 }    k\times k\ \text{邻域（+ 下采样对齐）}$$
+$$\Rightarrow\ \text{一个卷积层的输出像素只依赖输入的 }\ k\times k\ \text{邻域（+ 下采样对齐）}$$
 $$\Rightarrow\ \Rightarrow\ \text{把输出按}\textbf{行带（row band）}\text{切块，}\text{每块只需要输入的}\textbf{一个带 + halo}$$
 $$\Rightarrow\ \text{若相邻两层能这样串起来，}\text{中间张量}\textbf{不必落 DDR}，\text{只在片上缓冲区里存在}$$
 $$\Rightarrow\ \text{片上预算：BRAM 现有 }35/95\ \text{个（}\text{剩 }60\times36\ \text{Kb}\approx 270\ \text{KB）}\Rightarrow \text{这是"一段能挂多宽"的硬上限}$$
