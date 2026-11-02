@@ -4876,3 +4876,27 @@ $$\quad\ \Rightarrow\ \textbf{纪律}：\text{凡是改"多条请求在飞"的�
 $$\Rightarrow\ \text{先做隔离构建 } \textbf{v42d} = \text{v39} + \text{只读计数器（T-48）} \Rightarrow \text{判明"是不是那 4 个计数器干的"}$$
 $$\quad\ \text{若 v42d 正确} \Rightarrow \text{计数器无罪，锅在 } \texttt{PF\_AHEAD=2}\ \text{的簿记} \Rightarrow \text{回到 RTL 设计 + 乱序 TB}$$
 $$\quad\ \text{若 v42d 也错} \Rightarrow \text{计数器逻辑（} \texttt{clr\_t34}\ \text{挂 start\_fire）有副作用，反而是更便宜的修法}$$
+
+### 70.26 v42c 的完整故障形态（150 MHz 挂死 / 100 MHz 数据错）+ 一处口径更正（2026-11-02 09:40）
+
+| 频率 | 现象 | 证据 |
+|---|---|---|
+| **150 MHz** | **job 永不终止**（不是"等线"）| `AP_RETURN=0x02`（done=0 **busy=1**），`cyc=503{,}255{,}728` 挂高 3.35 s，`frz/cyc=0.0017\%`，卡在 `idx=17 encoder_1.sam_blocks.0.b2.ghost_layers.1.primary_conv.conv` |
+| **100 MHz** | 能跑完，但**数据错且非确定** | `bd8f848d…` vs `ba212720…`；同 session `v39@100MHz` **2/2 = 冻结** |
+
+$$\Rightarrow\ \text{150 MHz 是"跑不完"，100 MHz 是"跑完但错"} \Rightarrow \textbf{同一个功能 bug 的两种表现，不是时序}$$
+$$\Rightarrow\ \text{探针扰动已排除：把诊断读数去掉再跑，仍然错且仍不定}（\texttt{bb97b6e0…} vs \texttt{2e300a50…}）$$
+$$\Rightarrow\ \text{但"计数器逻辑本身"是否无罪，仍由 T-48 的 } \texttt{v42d}\ \text{（v39 + 只有计数器）来判}$$
+
+**⚠ 口径更正（第 87 条纪律的延伸）**
+$$\Rightarrow\ \text{本文件多处引用的"conv 冻结占比 } 46\%\text{"}\textbf{不是 conv 的实测}$$
+$$\quad\ \text{全仓检索显示它只出自 T-39 对 }\textbf{E1E2 打包通路}\text{ 的模型推断}$$
+$$\Rightarrow\ \Rightarrow\ \text{那么"0.85 s 读通路 stall"整条链都建立在}\textbf{残差} + \textbf{模型推断}\text{之上}$$
+$$\quad\ \Rightarrow\ \textbf{在拿到"数据正确的 v39 上的逐层 32 位计数器"之前，不许再把 0.85 s 当测量值用}$$
+$$\Rightarrow\ \text{同理，"PL 变快 10\%"在错数据上不成立：}100\ \text{MHz 暖跑 } \texttt{v42c}\ 0.779/0.785\ \text{vs}\ \texttt{v39}\ 0.779 \Rightarrow \textbf{连更快都不复现}$$
+
+**第 94 条纪律：参数配方的两头都堵住时，要退回设计**
+$$\Rightarrow\ \texttt{PF\_AHEAD}\ \text{单改（v42c）与全配方（v42）}\textbf{两端都被板端判死}$$
+$$\Rightarrow\ \text{RTL 注释自己写着"}\texttt{PF\_DEPTH}\ \text{必须 2 的幂且配合 } \texttt{PF\_AHEAD=2}\text{"} \Rightarrow \text{它们是}\textbf{一对契约}$$
+$$\quad\ \Rightarrow\ \text{拆开改任一端都破坏契约} \Rightarrow \text{这不是"调参空间"，是"要么整对成立、要么整对崩"}$$
+$$\Rightarrow\ \textbf{要再动它，必须先在 xsim 里做出"冻结 + 同时写入 + 响应乱序"的门禁，再上板}$$
