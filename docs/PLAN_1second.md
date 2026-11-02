@@ -5422,3 +5422,37 @@ $$\Rightarrow\ \text{板子健康：无挂死进程、无 OOM、}\mathtt{dmesg}\
 $$\Rightarrow\ \text{T-68 死在开工前，}\textbf{没有碰板子};\ \text{PL 仍是上一次的 v39}$$
 $$\Rightarrow\ \Rightarrow\ \text{这说明"}\textbf{代理死掉不会弄坏板子}\text{"——因为它没发过任何板端命令}$$
 $$\quad\ \text{但也提醒：}\textbf{若代理死在 load 与验证之间，板子会停在一颗未验证的位流上}$$
+
+### 70.47 IMP-A 完成（lane 参数化）：**任务书里三处假设是错的**（2026-11-02 15:18）
+
+$$\Rightarrow\ \text{产物 } \mathtt{\_worktrees/v50\_impA/bin\_conv\_core.v}（919\ \text{行}）；\ \mathtt{xvlog -sv}\ \mathbf{0\ WARNING\ 0\ ERROR}$$
+$$\Rightarrow\ \text{只动 }\mathbf{12}\ \text{个功能 hunk（外科式），}\text{未整篇重写} \Rightarrow \textbf{这次没死}$$
+
+**勘误一：文件本来就已参数化**
+$$\Rightarrow\ \text{它原本就用 } \mathbf{\mathtt{VLANES}}\ \text{参数化（78 处引用）};\ \text{真正写死 } 8\ \text{的只有 } \mathbf{4}\ \text{处}，不是任务书说的 } 30\ \text{处}$$
+$$\Rightarrow\ \Rightarrow\ \text{我按"30 处 lane 相关行"估算的工作量高估了} 7\times$$
+
+**勘误二：`LANES` 这个名字已被占用（关键）**
+$$\Rightarrow\ \mathtt{parameter\ int\ LANES = 64}\ \text{是}\mathbf{popcount 位宽}，\text{且包装层 } \mathtt{bin\_conv\_core.v:33}\ \text{按名绑定 } \mathtt{.LANES(LANES)}$$
+$$\Rightarrow\ \text{若按我的任务书再加 } \mathtt{parameter\ int\ LANES = 8} \Rightarrow \text{顶掉包装层绑定} \Rightarrow \mathbf{64\ lane/512\text{-}bit\ 与\ 64\text{-}bit\ 端口冲突}$$
+$$\Rightarrow\ \Rightarrow\ \textbf{lane 数一律用 } \mathtt{VLANES}（\text{默认 } 8，\text{改 } 16\ \text{即 } 16\ \text{lane}）;\ \mathtt{LANES}\ \text{原样保留}$$
+$$\quad\ \Rightarrow\ \textbf{这条要写进规格 §9}，\text{否则 IMP-B/IMP-C 会照我的错写法去接}$$
+
+**勘误三：路径前缀 `R/` 是多余的**（真实路径在仓库根）
+
+**实际改动（12 处）**
+$$\Rightarrow\ \text{新增派生常量 } \mathtt{LVW/NVA/NVB/PRM\_W/PRMW/PB\_*};\ \mathtt{prm\_i}\ [4{:}0]\to[\mathtt{PRMW}-1{:}0]$$
+$$\Rightarrow\ \mathtt{pw[0{:}15]}\to[0{:}\mathtt{PRM\_W}-1];\ \mathtt{prm\_addr}\ \text{的硬编码 } \mathtt{case}\ \text{改成按 } \mathtt{PB\_*}\ \text{阈值的 if-chain}$$
+$$\Rightarrow\ \mathtt{pw}\ \text{基址 } 14/2/6/10 \to \mathtt{PB\_S/PB\_B/PB\_Z/PB\_G};\ \mathtt{nvalid\_q[2{:}0]}\to[\mathtt{LVW}-1{:}0]$$
+$$\Rightarrow\ \textbf{刻意没动的 8 处}：\mathtt{VLANES*8}、\mathtt{8*k+:8}（\text{每 lane 1 字节}）、\mathtt{pop64}\ \text{树、}\mathtt{rd\_addr+32'd8}、\mathtt{cfg\_*<<3}、\mathtt{p\_acc[15{:}0]}、\text{预取参数}$$
+
+**等价性证据**：`runs/v50_impA/l1_equiv_proof.py` 全 PASS —— `VLANES=8` 时派生常量退化为 `LVW=3/NVA=2/NVB=4/PRM_W=16/PRMW=5/基址 0,2,6,10,14`，逐 lane 相同，`prm_addr` 对 `i=0..16 × o0∈{0,8,16,192,4096,65535}` 全相同。
+
+**交接的四件事（都在红线外，必须有人接）**
+$$\Rightarrow\ \textbf{① 16-lane 的 PRM 帧是 32 字}：\text{布局 } [0,4)\text{alpha}\ [4,12)\text{bias}\ [12,20)\text{zeta}\ [20,28)\text{gamma}\ [28,32)\text{slope}$$
+$$\quad\ \textbf{给 16 字会}\mathbf{静默读错} \Rightarrow \textbf{这是 16-lane 上板的硬前提}$$
+$$\Rightarrow\ \textbf{② } \mathtt{bin\_unit\_axi\_wrap}\ \text{的 } \mathtt{mem\_wr\_data/mem\_wr\_sel}\ \text{需 } 128/16\ \text{位或 } 2\ \text{拍串行化}$$
+$$\Rightarrow\ \textbf{③ 权重 BRAM } 8\to16\ \text{块}，\text{资源/时序需重评}$$
+$$\Rightarrow\ \textbf{④ 未做 } \mathtt{VLANES=16}\ \text{的 xelab 展开与上板}$$
+
+**工具路径**：本机 `xvlog` 在 `/media/felix/325/xilinx/2025.2/2025.2.1/Vivado/bin/xvlog`，**必须带 `-sv`**（否则 `always_comb`/signed 会报一串假错）。
