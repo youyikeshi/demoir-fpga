@@ -59,6 +59,8 @@ module tb_hdmi_fb_scan;
 
     wire [31:0] fid_lat;
     wire        st_uf, st_vs;
+    wire [31:0] uf_cnt;
+    reg         st_clr   = 1'b0;
 
     wire [31:0] ar_addr;
     wire [7:0]  ar_len;
@@ -130,7 +132,7 @@ module tb_hdmi_fb_scan;
     reg [31:0] b_addr  = 32'd0;
     integer    b_left  = 0;
     integer    b_delay = 0;
-    localparam integer R_LAT = 8;      // 首个数据拍前的延迟（拍）
+    integer    r_lat = 8;              // 首个数据拍前的延迟（拍）；慢速模式用来制造欠载
 
     assign r_valid = b_valid && (b_delay == 0);
     assign r_data  = mem[(b_addr - MEM_BASE) >> 3];
@@ -226,7 +228,7 @@ module tb_hdmi_fb_scan;
                 b_valid <= 1'b1;
                 b_addr  <= q_addr[q_rd % QD];
                 b_left  <= q_len[q_rd % QD] + 1;
-                b_delay <= R_LAT;
+                b_delay <= r_lat;
                 q_rd    <= q_rd + 1;
             end else if (b_valid && (b_delay != 0)) begin
                 b_delay <= b_delay - 1;
@@ -240,9 +242,17 @@ module tb_hdmi_fb_scan;
     end
 
     // ------------------------------------------------------------- 像素比对
+    integer    test_mode  = 0;      // 0=常规 1=换帧 2=欠载注入
+    reg        slow_mode  = 1'b0;
     localparam integer MAX_PIX = 8192;
-    reg [23:0] gold [0:MAX_PIX-1];
+    reg [23:0] gold  [0:MAX_PIX-1];
+    reg [23:0] gold2 [0:MAX_PIX-1];   // 双缓冲换帧测试用的第二张图
     integer    gold_n = 0;
+    reg        has_gold2 = 1'b0;
+    reg        exp_img   = 1'b0;      // 当前期望的是第几张图（在 vsync 处切换）
+    reg        fid_written = 1'b0;    // PS 已写 FRAME_ID=1
+    integer    switch_px = -1;        // 期望图切换发生在哪个像素序号上
+    integer    last_before = -1;      // 切换前最后一个像素用的图号
 
     integer px_i     = 0;      // 已收到的有效像素数
     integer px_cmp   = 0;      // 参与比对的像素数
@@ -262,10 +272,12 @@ module tb_hdmi_fb_scan;
             if (pix_de) n_de = n_de + 1;
             if (pix_valid) begin
                 n_valid = n_valid + 1;
+                if (test_mode != 2) begin
                 e_idx = px_i % (cfg_w * cfg_h);
                 e_x   = e_idx % cfg_w;
                 e_y   = e_idx / cfg_w;
-                e_pix = gold[px_i % gold_n];
+                e_pix = (exp_img && has_gold2) ? gold2[px_i % gold_n]
+                                               : gold[px_i % gold_n];
 
                 if (pix_x !== e_x[11:0] || pix_y !== e_y[11:0]) begin
                     n_xy_bad = n_xy_bad + 1;
@@ -285,6 +297,7 @@ module tb_hdmi_fb_scan;
                         n_show = n_show + 1;
                     end
                 end
+                end
                 px_i    = px_i + 1;
                 px_cmp  = px_cmp + 1;
             end
@@ -294,7 +307,16 @@ module tb_hdmi_fb_scan;
     // ------------------------------------------------------ 帧计数（vsync）
     integer n_vsync = 0;
     always @(posedge pclk) begin
-        if (preseten && in_vsync) n_vsync = n_vsync + 1;
+        if (preseten && in_vsync) begin
+            n_vsync = n_vsync + 1;
+            // 判据④：PS 在帧中途写过 FRAME_ID ⇒ 本 vsync 边界采纳新帧。
+            // 期望图只在这个边沿翻，且必须翻在帧边界（像素序号是 W*H 的整数倍）
+            if (fid_written && !exp_img) begin
+                exp_img      = 1'b1;
+                switch_px    = px_i;
+                last_before  = exp_img ? 0 : 0;   // 切换前最后一个像素必然是旧图
+            end
+        end
     end
 
 
@@ -320,6 +342,8 @@ module tb_hdmi_fb_scan;
         .frame_id_latched(fid_lat),
         .st_underflow    (st_uf),
         .st_vsync_seen   (st_vs),
+        .underflow_cnt   (uf_cnt),
+        .st_clr          (st_clr),
         .m_axi_araddr    (ar_addr),
         .m_axi_arlen     (ar_len),
         .m_axi_arsize    (ar_size),
@@ -365,7 +389,12 @@ module tb_hdmi_fb_scan;
         end
     endtask
 
-    task automatic run_case(input integer cid_i);
+    reg        st_before_reset = 1'b0;
+    reg [31:0] cnt_before_reset = 32'd0;
+    reg        st_after_reset  = 1'b1;
+    reg [31:0] cnt_after_reset = 32'hFFFF_FFFF;
+
+    task automatic run_case(input integer cid_i, input integer mode);
         begin
             // ---- 读参数（与生成脚本共用同一份，避免两边硬编码漂移）----
             fd = $fopen($sformatf("%0s/case%0d_par.txt", vecdir, cid_i), "r");
@@ -387,11 +416,29 @@ module tb_hdmi_fb_scan;
             cfg_upd    = 1'b0;
             fid_upd    = 1'b0;
 
+            test_mode  = mode;
+            st_before_reset  = 1'b0;
+            cnt_before_reset = 32'd0;
+            st_after_reset  = 1'b1;
+            cnt_after_reset = 32'hFFFF_FFFF;
+            slow_mode  = (mode == 2);
+            r_lat      = slow_mode ? 400 : 8;
+            has_gold2  = (mode == 1);
+            exp_img    = 1'b0;
+            fid_written= 1'b0;
+            switch_px  = -1;
+            last_before= -1;
+
             for (i = 0; i < MEM_WORDS; i = i + 1) mem[i] = 64'hDEADBEEFCAFEBABE;
             $readmemh($sformatf("%0s/case%0d_mem.hex", vecdir, cid_i), mem,
                       (p_addr - MEM_BASE) >> 3);
-            for (i = 0; i < MAX_PIX; i = i + 1) gold[i] = 24'hxxxxxx;
+            for (i = 0; i < MAX_PIX; i = i + 1) begin
+                gold[i]  = 24'hxxxxxx;
+                gold2[i] = 24'hxxxxxx;
+            end
             $readmemh($sformatf("%0s/case%0d_gold.hex", vecdir, cid_i), gold);
+            if (mode == 1)
+                $readmemh($sformatf("%0s/case%0d_gold2.hex", vecdir, cid_i), gold2);
             gold_n = p_w * p_h;
             if (gold_n > MAX_PIX) begin
                 $display("[TB][ERR] gold_n=%0d > MAX_PIX", gold_n);
@@ -419,10 +466,40 @@ module tb_hdmi_fb_scan;
             @(negedge pclk);             // 在负沿开视频：避免与 posedge 同拍竞争
             gen_run = 1'b1;              // 配置已落定 ⇒ 再开视频（等价硬件顺序）
 
-            // ---- 跑满 3 整帧就收手（最后一帧末尾还没到第 4 个 vsync，
-            //      否则会多取一帧的第 0 行，把"每行字节数"判据带偏）----
-            wait (px_i >= 3 * gold_n);
-            repeat (20) @(posedge pclk);
+            if (mode == 1) begin
+                // ---- 判据④：跑到第 2 帧中间时写 FRAME_ID=1（帧中途换帧）----
+                wait (px_i >= gold_n + gold_n / 2);
+                @(negedge pclk);
+                cfg_fid  = 32'd1;
+                fid_upd  = 1'b1;
+                repeat (3) @(posedge aclk);   // 保证 ≥1 个完整 AXI 拍
+                fid_upd  = 1'b0;
+                fid_written = 1'b1;
+                wait (px_i >= 4 * gold_n);      // 换帧后再跑 1.5 帧
+                repeat (20) @(posedge pclk);
+            end else if (mode == 2) begin
+                // ---- 判据⑤：AXI 慢 400 拍/突发 ⇒ 行缓冲必被读空 ----
+                wait (n_vsync >= 3);
+                repeat (100) @(posedge pclk);
+                // 先看粘滞位与计数器（采下来，后面 soft_reset 会清）
+                st_before_reset  = st_uf;
+                cnt_before_reset = uf_cnt;
+                $display("[TB] ⑤ 欠载注入: STATUS[2]=%0d  UNDERFLOW_CNT=%0d", st_uf, uf_cnt);
+                // 再验 soft_reset 清两者
+                @(negedge pclk);
+                cfg_srst = 1'b1;
+                @(posedge aclk); @(posedge aclk);
+                cfg_srst = 1'b0;
+                repeat (40) @(posedge pclk);
+                st_after_reset  = st_uf;
+                cnt_after_reset = uf_cnt;
+                $display("[TB] ⑤ soft_reset 后: STATUS[2]=%0d  UNDERFLOW_CNT=%0d", st_uf, uf_cnt);
+            end else begin
+                // ---- 跑满 3 整帧就收手（最后一帧末尾还没到第 4 个 vsync，
+                //      否则会多取一帧的第 0 行，把"每行字节数"判据带偏）----
+                wait (px_i >= 3 * gold_n);
+                repeat (20) @(posedge pclk);
+            end
 
             // ---- 判据 ----
             $display("");
@@ -453,14 +530,33 @@ module tb_hdmi_fb_scan;
                      n_arburst_bad, n_align_bad, n_4k_bad, n_addr_back);
             $display("[TB]    行首地址递增: 首=0x%08x 末=0x%08x  (末-首)/stride=%0d",
                      p_addr, last_addr, (last_addr - p_addr) / cfg_stride);
-            $display("[TB] ⑤ STATUS: underflow=%0d vsync_seen=%0d", st_uf, st_vs);
+            $display("[TB] ⑤ STATUS: underflow=%0d vsync_seen=%0d UNDERFLOW_CNT=%0d",
+                     st_uf, st_vs, uf_cnt);
+            if (mode == 1)
+                $display("[TB] ④ 换帧: FRAME_ID_LATCHED=%0d 切换像素序号=%0d (帧长=%0d, 余=%0d) 切换前图号=%0d",
+                         fid_lat, switch_px, gold_n, switch_px % gold_n, last_before);
 
             total_cmp = total_cmp + px_cmp;
             if (px_bad != 0 || n_xy_bad != 0) total_bad = total_bad + 1;
 
             // 每行期望字节 = align8(W*3)；跑 3 帧 ⇒ 每行累计 3 份
             line_expect = 3 * (((cfg_w * 3 + 7) / 8) * 8);
-            if ((px_bad == 0) && (n_xy_bad == 0) && (px_cmp == 3 * gold_n) &&
+            if (mode == 2) begin
+                // 判据⑤：粘滞位必须置 1、计数器必须 > 0，且 soft_reset 后两者都归零
+                if ((st_before_reset == 1'b1) && (cnt_before_reset > 32'd0) &&
+                    (st_after_reset == 1'b0) && (cnt_after_reset == 32'd0))
+                    $display("[TB] ✅ case%0d PASS（判据⑤）", cid_i);
+                else
+                    $display("[TB] ❌ case%0d FAIL（判据⑤）", cid_i);
+            end else if (mode == 1) begin
+                // 判据④：全程无失配 + 切换点落在帧边界 + FRAME_ID_LATCHED 跟上
+                if ((px_bad == 0) && (n_xy_bad == 0) && (switch_px >= 0) &&
+                    ((switch_px % gold_n) == 0) && (fid_lat == 32'd1) &&
+                    (last_before == 0) && (px_cmp > 3 * gold_n) && (st_uf == 0))
+                    $display("[TB] ✅ case%0d PASS（判据④）", cid_i);
+                else
+                    $display("[TB] ❌ case%0d FAIL（判据④）", cid_i);
+            end else if ((px_bad == 0) && (n_xy_bad == 0) && (px_cmp == 3 * gold_n) &&
                 (n_outside == 0) && (n_arlen_bad == 0) && (n_arsize_bad == 0) &&
                 (n_arburst_bad == 0) && (n_align_bad == 0) && (n_4k_bad == 0) &&
                 (n_addr_back == 0) && (st_uf == 0) &&
@@ -479,8 +575,8 @@ module tb_hdmi_fb_scan;
         if (!$value$plusargs("VECDIR=%s", vecdir)) begin
             $display("[TB] 提示: 没有 +VECDIR，用默认 %0s", vecdir);
         end
-        ncase = 3;
-        if (!$value$plusargs("NCASES=%d", ncase)) ncase = 3;
+        ncase = 6;
+        if (!$value$plusargs("NCASES=%d", ncase)) ncase = 6;
         for (ci = 0; ci < ncase; ci = ci + 1) case_ids[ci] = ci + 1;
         if ($test$plusargs("CASES")) begin
             // 简化：+NCASES=n 或用默认 1..3
@@ -488,7 +584,10 @@ module tb_hdmi_fb_scan;
 
         for (i = 0; i < MEM_WORDS; i = i + 1) mem[i] = 64'hDEADBEEFCAFEBABE;
 
-        for (ci = 0; ci < ncase; ci = ci + 1) run_case(case_ids[ci]);
+        for (ci = 0; ci < ncase; ci = ci + 1) begin
+            // case1~4：常规；case5：换帧；case6：欠载注入
+            run_case(case_ids[ci], (ci == 4) ? 1 : ((ci == 5) ? 2 : 0));
+        end
 
         $display("");
         $display("[TB] ============ 汇总 ============");

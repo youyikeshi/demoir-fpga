@@ -75,6 +75,12 @@
 //
 //  5. 状态位
 //  --------
+//  · ``underflow_cnt``（AXI-Lite 0x2C UNDERFLOW_CNT，RO 32 bit 饱和）= 自上次
+//    ``cfg_soft_reset`` 以来**出现读空的行数**（一行只计 1 次）。判据：≡ 0 才说明
+//    带宽余量够；> 0 ⇒ 提 ``s_axi_aclk`` 或降模式。按行而非按像素计数：按像素在
+//    1080p60 下 29 s 就饱和（2^32 / 148.5 MHz），反而丢掉“持续多久”的信息；
+//    按行（≤45 kHz）可连续计 26 小时。与 STATUS[2] 粘滞位并存、互不影响：
+//      0x2C 只被 soft_reset 清；STATUS[2] 可被 st_clr（顶层“读清”）或 soft_reset 清。
 //  · ``st_underflow`` = STATUS[2] scan_underflow：行缓冲被读空。判据在像素域：
 //    取数器发布“正在取第几行 + 本行已写多少像素”（行号走 toggle 握手、进度走
 //    gray），像素侧逐像素比：
@@ -151,8 +157,10 @@ module hdmi_fb_scan #(
 
     // 状态回读（接 AXI-Lite 的 STATUS 0x04 / FRAME_ID_LATCHED 0x24）
     output wire [31:0]          frame_id_latched,
-    output wire                 st_underflow,     // STATUS[2]
-    output wire                 st_vsync_seen,    // STATUS[1]
+    output wire                 st_underflow,     // STATUS[2]（粘滞；st_clr / soft_reset 清）
+    output wire                 st_vsync_seen,    // STATUS[1]（粘滞；soft_reset 清）
+    output wire [31:0]          underflow_cnt,    // 0x2C 欠载行数（饱和，soft_reset 清）
+    input  wire                 st_clr,           // 清 STATUS[2]（顶层做"读清"时给 1 拍脉冲）
 
     // ------------------------------------------------------------ AXI4 读主
     output wire [31:0]          m_axi_araddr,
@@ -397,7 +405,7 @@ module hdmi_fb_scan #(
     reg             cur_fpar, cur_valid;
     reg [31:0]      faddr;
     reg [11:0]      beats_left;     // 本行还需发起的拍数
-    reg [11:0]      outstanding;
+    reg [5:0]       outstanding;   // ≤16(门槛)+8(一次突发)=24
 
     // ---- 拍数：每次突发固定 ≤ 8 拍（64 B）-----------------------------
     // 为什么不取 16 拍（128 B）？因为契约要求 stride 按 64 B 对齐 ⇒ 64 B 对齐的
@@ -412,7 +420,7 @@ module hdmi_fb_scan #(
     wire [11:0] beats_cap = page_edge ? 12'd1 : 12'd8;
     wire [11:0] beats_min = (beats_left < beats_cap) ? beats_left : beats_cap;
     wire [3:0]  beats_nxt = beats_min[3:0];                      // 1..8
-    wire [11:0] ar_beats12 = {8'd0, beats_nxt};
+    wire [5:0]  ar_beats6  = {2'd0, beats_nxt};
 
     wire ar_fire = m_axi_arvalid & m_axi_arready;
     wire r_fire  = m_axi_rvalid  & m_axi_rready;
@@ -424,7 +432,6 @@ module hdmi_fb_scan #(
     reg [1:0]       slot;          // 下一个待写槽（0/1/2）
     reg [11:0]      beats_done;    // 本行已收拍数 B
     reg [11:0]      pops_done;     // 本行已弹像素数 P
-    reg [11:0]      wr_lp;         // 本行已写入像素数（gray 发布给像素域）
     reg [PIX_W-1:0] pub_line;      // 正在取的行号（bundled + toggle 发布）
     reg             pub_tog, pub_pend;
 
@@ -454,30 +461,30 @@ module hdmi_fb_scan #(
             fst <= F_IDLE;
             line_base <= 32'd0; line_cur <= {PIX_W{1'b0}};
             cur_fpar <= 1'b0; cur_valid <= 1'b0;
-            faddr <= 32'd0; beats_left <= 12'd0; outstanding <= 12'd0;
+            faddr <= 32'd0; beats_left <= 12'd0; outstanding <= 6'd0;
             a_line <= {PIX_W{1'b0}}; a_fpar <= 1'b0; req_ack <= 1'b0;
             slot <= 2'd0; beats_done <= 12'd0; pops_done <= 12'd0; room <= 6'd0;
             b0 <= 64'd0; b1 <= 64'd0; b2 <= 64'd0;
-            wr_lp <= 12'd0; pub_line <= {PIX_W{1'b0}}; pub_tog <= 1'b0; pub_pend <= 1'b0;
+            pub_line <= {PIX_W{1'b0}}; pub_tog <= 1'b0; pub_pend <= 1'b0;
         end else if (cfg_soft_reset) begin
             fst <= F_IDLE;
             line_base <= 32'd0; line_cur <= {PIX_W{1'b0}};
             cur_fpar <= 1'b0; cur_valid <= 1'b0;
-            faddr <= 32'd0; beats_left <= 12'd0; outstanding <= 12'd0;
+            faddr <= 32'd0; beats_left <= 12'd0; outstanding <= 6'd0;
             slot <= 2'd0; beats_done <= 12'd0; pops_done <= 12'd0; room <= 6'd0;
-            wr_lp <= 12'd0; pub_tog <= 1'b0; pub_pend <= 1'b0;
+            pub_tog <= 1'b0; pub_pend <= 1'b0;
         end else begin
 
             // ---------------- 在途拍计数（收发同拍合并）-------------------
-            outstanding <= outstanding + (ar_fire ? ar_beats12 : 12'd0)
-                                       - (r_fire  ? 12'd1 : 12'd0);
+            outstanding <= outstanding + (ar_fire ? ar_beats6 : 6'd0)
+                                       - (r_fire  ? 6'd1 : 6'd0);
 
             // ---------------- 行缓冲写（字节重排）-------------------------
             if (line_start) begin
                 // 新行的第 0 字节：清行内状态 + 发布行头（数据先落盘）
                 slot <= 2'd0; beats_done <= 12'd0; pops_done <= 12'd0;
                 room <= 6'd0;
-                wr_lp <= 12'd0; pub_line <= a_line; pub_pend <= 1'b1;
+                pub_line <= a_line; pub_pend <= 1'b1;
             end else begin
                 if (pub_pend) pub_tog <= ~pub_tog;      // 行头已稳定 ≥1 拍
                 if (beat_accept) begin
@@ -489,10 +496,7 @@ module hdmi_fb_scan #(
                     slot       <= (slot == 2'd2) ? 2'd0 : (slot + 2'd1);
                     beats_done <= beats_done + 12'd1;
                 end
-                if (pop_en) begin
-                    pops_done <= pops_done + 12'd1;
-                    wr_lp     <= wr_lp + 12'd1;
-                end
+                if (pop_en) pops_done <= pops_done + 12'd1;
                 room <= room + (beat_accept ? 6'd8 : 6'd0)
                              - (pop_en     ? 6'd3 : 6'd0);
                 if (pub_pend) pub_pend <= 1'b0;
@@ -534,13 +538,13 @@ module hdmi_fb_scan #(
                     if (beats_left == 12'd0) begin
                         fst <= F_FIN;
                     end else if (ar_fire) begin
-                        faddr      <= faddr + (ar_beats12 << 3);
-                        beats_left <= beats_left - ar_beats12;
+                        faddr      <= faddr + (ar_beats6 << 3);
+                        beats_left <= beats_left - ar_beats6;
                     end
                 end
 
                 F_FIN: begin
-                    if ((outstanding == 12'd0) && ({4'd0, pops_done} >= {4'd0, s_w})) fst <= F_IDLE;
+                    if ((outstanding == 6'd0) && ({4'd0, pops_done} >= {4'd0, s_w})) fst <= F_IDLE;
                 end
 
                 default: fst <= F_IDLE;
@@ -559,13 +563,14 @@ module hdmi_fb_scan #(
     assign m_axi_arsize  = ARSIZE_8B;
     assign m_axi_arburst = ARBURST_INCR;
     assign m_axi_arvalid = (fst == F_AR) && (beats_left != 12'd0) &&
-                           (outstanding <= 12'd16) && !cfg_soft_reset;
-    assign m_axi_rready  = beat_ok && (outstanding != 12'd0) && !cfg_soft_reset;
+                           (outstanding <= 6'd16) && !cfg_soft_reset;
+    assign m_axi_rready  = beat_ok && (outstanding != 6'd0) && !cfg_soft_reset;
 
     // ---- 行内写进度 gray 发布（AXI → PIX）------------------------------
     // 只需"本行写到第几个像素"，12 bit 足够（1920 < 2048），比 24 bit 全域计数器
     // 省一半 LUT；行号由 pub_line + toggle 单独发布，两者合起来足以判 underflow。
-    wire [11:0] wr_lp_gray = wr_lp ^ (wr_lp >> 1);
+    // pops_done 本身就是"本行已写入像素数"（弹一个像素写一个字），直接拿来发布
+    wire [11:0] wr_lp_gray = pops_done ^ (pops_done >> 1);
     reg  [11:0] wr_gray_q;
     reg  [PIX_W-1:0] pub_line_q;
     reg         pub_tog_q;
@@ -630,27 +635,45 @@ module hdmi_fb_scan #(
     reg  uf_sticky, vs_sticky;
     reg  [1:0] sr_s;
     reg  sr_q;
+    reg  uf_line_hit;                // 本行已经计过一次欠载
+    reg  uf_evt_tog;                 // 每出现一行欠载翻一次（行级事件，跨域安全）
 
     // 把"取数进度(hdr_line, wl_bin)"与"显示进度(in_vy, in_vx)"做一次字典序比较：
     // 两个分量都 < 2^12 且 W ≤ 4096 ⇒ 字典序 == 数值序，省掉两组 12-bit 比较器。
     wire        uf_now = in_vde && p_en && uf_en &&
                          !({hdr_line, wl_bin} > {in_vy, in_vx});
 
+    reg [1:0] st_s;                  // st_clr 2FF
+    always @(posedge pix_clk or negedge pix_aresetn) begin
+        if (!pix_aresetn) st_s <= 2'd0;
+        else              st_s <= {st_s[0], st_clr};
+    end
+
     always @(posedge pix_clk or negedge pix_aresetn) begin
         if (!pix_aresetn) begin
             uf_en <= 1'b0; uf_sticky <= 1'b0; vs_sticky <= 1'b0;
+            uf_line_hit <= 1'b0; uf_evt_tog <= 1'b0;
             sr_s <= 2'd0; sr_q <= 1'b0;
         end else begin
             sr_s <= {sr_s[0], cfg_soft_reset};
             sr_q <= sr_s[1];
             if (sr_s[1] & ~sr_q) begin           // soft_reset 上升沿
-                uf_en     <= 1'b0;
-                uf_sticky <= 1'b0;
-                vs_sticky <= 1'b0;
+                uf_en      <= 1'b0;
+                uf_sticky  <= 1'b0;
+                vs_sticky  <= 1'b0;
+                uf_line_hit <= 1'b0;
             end else begin
                 if (in_vsync) uf_en <= 1'b1;     // 下一场的第一个像素起才判
                 if (uf_now)   uf_sticky <= 1'b1;
                 if (in_vsync) vs_sticky <= 1'b1;
+                // 行级欠载事件：行内第一次读空 +1（同一行不重复计），
+                // 行间（de 低电平）自动复位标志
+                if (!in_vde) uf_line_hit <= 1'b0;
+                else if (uf_now && !uf_line_hit) begin
+                    uf_line_hit <= 1'b1;
+                    uf_evt_tog  <= ~uf_evt_tog;
+                end
+                if (st_s[1]) uf_sticky <= 1'b0;  // st_clr（STATUS 读清）
             end
         end
     end
@@ -663,6 +686,24 @@ module hdmi_fb_scan #(
     end
     assign st_underflow  = uf_s[1];
     assign st_vsync_seen = vs_s[1];
+
+    // ---- 0x2C UNDERFLOW_CNT：行级欠载事件累计（饱和）-------------------
+    // 每出现"某一行被读空"，uf_evt_tog 翻一次；这里 2FF + 边沿检测后 +1。
+    // 为什么按行而不按像素：按像素在 1080p60 下 29 s 就饱和（2^32/148.5MHz），
+    // 反而丢掉"持续多久"的信息；按行（≤45 kHz）可以连续计 26 小时。
+    reg [2:0]  uetg;
+    reg [31:0] uf_cnt;
+    always @(posedge s_axi_aclk or negedge aresetn) begin
+        if (!aresetn) begin
+            uetg <= 3'd0; uf_cnt <= 32'd0;
+        end else begin
+            uetg <= {uetg[1:0], uf_evt_tog};
+            if (cfg_soft_reset)    uf_cnt <= 32'd0;
+            else if (uetg[2] ^ uetg[1])
+                uf_cnt <= (&uf_cnt) ? uf_cnt : (uf_cnt + 32'd1);   // 饱和
+        end
+    end
+    assign underflow_cnt = uf_cnt;
 
     // ---- 输出流水（1 拍）------------------------------------------------
     reg               pix_de_q, pix_valid_q;
