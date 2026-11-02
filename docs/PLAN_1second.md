@@ -5366,3 +5366,39 @@ $$\quad\ \Rightarrow\ \textbf{但记为时序战役的债}：\text{最终 150 MH
 **BD validate 的 41-1356（HP2 slave segment 未分配）—— 判为元数据提示**
 $$\Rightarrow\ \text{证据：} \mathtt{runs/timing\_v43/bd\_v43.log}\ \text{里 }\mathtt{HP1\to conv\_uni}\ /\ \mathtt{HP0\to bin\_unit}\ \text{有}\textbf{一字不差的同款两条}，\text{而板上跑通}$$
 $$\Rightarrow\ \Rightarrow\ \text{直连 PS 硬口无解码器，属正常元数据提示，不是错误}$$
+
+### 70.45 ★★★ 分段地图出来了，**推翻了我的两个假设**（T-67，2026-11-02 15:40）
+
+$$\Rightarrow\ \text{395 op} \to \mathbf{223\ 段}（S1：\mathtt{consumers}==1\ \text{才并链）$$
+
+**否证一：halo/缓冲根本不是约束**
+$$\Rightarrow\ \text{S2 \textbf{从不触发}：段内 halo 只有 } \{0,2\}\ \text{行，最大缓冲 } \mathbf{64\ KB} \ll 270\ \text{KB}$$
+$$\Rightarrow\ \text{因为 3×3 的 fan-out 从不串联} \Rightarrow \textbf{真正的约束是 fan-out：220 张中间张量} \mathtt{consumers}>1$$
+$$\quad\ (\text{84 cat} + \text{101 conv} + \text{24 interp} + \text{6 add} + \text{4 sam} + \text{1 convfp})$$
+
+**否证二：按 stage/块 片上化在 64²/128² 上不可能（不是不划算）**
+$$\Rightarrow\ \text{ghost 累积 640 通道} \times 11\ \text{行} \Rightarrow \text{decoder\_1 } 880\ \text{KB} / \text{encoder\_1 } 594\ \text{KB} / \text{decoder\_2 } 440\ \text{KB} \gg 270\ \text{KB}$$
+$$\Rightarrow\ \text{只有 32² 两档（enc3/dec3，220 KB）能容 3.5 行条带}$$
+$$\Rightarrow\ \Rightarrow\ \textbf{M56 的融合单元只能是"段"，不能是 stage}\ \Rightarrow \text{我 §7.1 写的"行带流式"要限定在段内}$$
+
+**收益要打折：现实 0.40~0.60 s（中位 }\approx0.5\text{），不是我写的 0.8~1.2**
+$$\Rightarrow\ \text{可融 PS 桶合计 } 0.716\ \text{s}（\text{sam .246 + interp .263 + eca .085 + add .067 + cat .036 + shuf .019}）$$
+$$\Rightarrow\ \text{扣该桶自己的 DDR 地板 } 0.366 \Rightarrow 0.35;\ \text{再扣重算与 fp32 归约约束} \Rightarrow \mathbf{0.40\sim0.60}$$
+
+**最值得先做的三段（占可融 PS 的 68%）**
+| 段 | PS 秒 | 缓冲 |
+|---|---:|---|
+| decoder_1 SAM 块 | **0.226** | cat3 12 MB（或两趟 + 3 行条带）|
+| encoder_1 SAM 块 | **0.171** | 9 MB |
+| encoder_2 SAM 块 | **0.088** | 4.5 MB |
+$$\Rightarrow\ \text{想先打通流程就用 } \texttt{decoder\_3}（0.019\ \text{s}，\texttt{cat3}\ \text{仅 }0.75\ \text{MB}，\text{唯一能整块进 270 KB 的两档之一）}$$
+
+**两条结构性事实**
+$$\Rightarrow\ \mathtt{sam}\ \textbf{必须两趟}（\text{要先有 } w=\text{eca}(\text{cat}[y_0,y_2,y_4])\ \text{才能算加权和}）\Rightarrow \text{全网唯一"必须两趟"处}$$
+$$\quad\ \text{其 6 个同形态段 } [\text{cat3}]\to[\text{eca}]\to[\text{sam}]\ (\text{S36/73/110/146/184/222})：\text{上游邻居}\textbf{不许}融（\text{stage 输出 fan-out 5-6}），\text{下游邻居}\textbf{可以}$$
+$$\Rightarrow\ \textbf{全图字节 343.7 MB 读 + 113.0 MB 写 = 456.7 MB} \Rightarrow \text{在 } 0.48\ \text{GB/s 下} \Rightarrow \mathbf{0.95\ s\ \text{地板}}$$
+$$\quad\ \Rightarrow\ \textbf{1 s 在本图的当前数据流下不可达};\ \text{必须同时（a）融合减流量（b）16 lane（c）提高有效带宽}$$
+
+**最大风险**
+$$\Rightarrow\ \texttt{shuffle/unshuffle}\ \text{段要按"4 通道块"切条带，而 } \mathtt{out1}\ \text{是 3 通道} \Rightarrow \textbf{C8 交错失效}，\text{需单独 3 通道路径}$$
+$$\Rightarrow\ \mathtt{eca}\ \text{的 fp32 归约顺序一变 } \mathbf{sha1\ \text{必挂}} \Rightarrow \text{这是"逐字节"判据最容易破的点}$$
