@@ -5163,3 +5163,38 @@ $$\quad\ \text{②地址断言用}\textbf{数值}比较（} \texttt{RANGE}\ \tex
 
 **主工程被反复弄坏的根因**：两次（10:56、11:02:59）都是因为脚本里 `set proj` 指向主工程
 $$\Rightarrow\ \textbf{第 102 条已在 70.36 记过}\text{，但这次是}\textbf{上一轮恢复后又被下一轮踩}\Rightarrow \text{恢复必须紧跟在"该代理最后一次跑主工程"之后}$$
+
+### 70.39 ★★★★ BD 重建被判定为**中性** —— 阶段 3/4 的入口打通（2026-11-02 11:46）
+
+$$\text{同一份 RTL（} \texttt{T-51-v42e/.../modules} \text{）、同一个 BD 内容，唯一变量 = "是否重新 elaborate"}$$
+
+| 指标 | v42e（未重建）| **v43base（重建）** | Δ |
+|---|---:|---:|---|
+| LUT | 20,153 | **19,833** | −320 |
+| FF | 18,867 | **18,349** | −518 |
+| BRAM36 / DSP48E1 | 35 / 101 | **35 / 101** | 0 |
+| Latch（双查）| 0 | **0** | `LDCE=0/LDPE=0` |
+| 10 ns WNS | +0.174 | **+0.046** | −0.128（同量级，仍为正）|
+| 10 ns TNS / 违例端点 | 0 / 0 | **0 / 0** | 0 |
+| DRC | 0 Err | **0 Err** | — |
+
+$$\Rightarrow\ \text{资源反而}\textbf{更小}（\text{少了 } \texttt{pc\_conv}\ \text{两个 cell}）\Rightarrow \text{重建}\textbf{没有引入代价}$$
+$$\Rightarrow\ \text{G1 } \textbf{PASS};\ \text{G2-A/B } \mathbf{0};\ \texttt{pf\_tag\_reg}\ \mathbf{0}\ \text{条（v39 是 } 126\text{）}$$
+$$\Rightarrow\ \text{G2-C/D 相对 v39 变差，但以}\textbf{同 RTL 的 v42e 为对照}\text{只是 } +2\ \text{条} / +15\ \text{条} \Rightarrow \textbf{布局扰动量级，非结构性退化}$$
+
+**W2 结构化口径（不是 md5 —— md5 不可比，见第 104 条）**
+
+| 项 | 结果 |
+|---|---|
+| 既有寄存器 `C_BASEADDR/C_HIGHADDR` | **0 变化**（`0x40040000`/`0x40060000` +128K）|
+| `/axi_ctrl`（316 参）/ `/rst_0`（13 参）| **0 / 0** |
+| `FCLK_CLK0` | **0 变化**（150 MHz）|
+| 两个引擎的 `s_axi` 参数 | **0 变化**（这是那 6 行注解修正的收益）|
+| 变化项 | 只剩 `m_axi` 6 项 + 端口 8→4 位 + ps7 的 32 个 AXI4-only 端口被常量绑定 |
+
+$$\Rightarrow\ \textbf{变化的本质是一件事}：\text{旧元数据把 AXI3 写成 AXI4};\ \text{重建后}\textbf{元数据与端口真值一致}$$
+
+**但上板前必须记住一条新风险（本版特有）**
+$$\Rightarrow\ \text{旧 BD 里有 } \texttt{pc\_conv}\ \text{协议转换器，它会}\textbf{补 ID};\ \text{现在 AXI3 直连} \Rightarrow \texttt{ps7/S\_AXI\_HP0\_AWID}\ \textbf{被常量 0 绑定}$$
+$$\Rightarrow\ \Rightarrow\ \text{写事务共用 ID 0} \Rightarrow \textbf{多 outstanding 的语义与 `pc_conv` 时代不同}$$
+$$\Rightarrow\ \textbf{上板必须专门验写通路}：\texttt{E1E2}\ \text{打包（大量写 OUT）+ 256² 整网 sha1 + 金丝雀（T-59 执行中）}$$
