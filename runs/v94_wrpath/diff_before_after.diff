@@ -1,0 +1,200 @@
+--- before_rtl/lane16/bin_unit_axi_wrap_v50.v	2026-11-02 17:29:21.362239800 +0800
++++ ../../runs/timing_v50/rtl_v50/lane16/bin_unit_axi_wrap_v50.v	2026-11-02 20:03:23.362630900 +0800
+@@ -562,6 +562,10 @@
+                                 ((UNIT != 0) || (FUSE_EN == 0) || (run_unit == 3'd5));
+     logic        sel_fuse_q;        // 启动时锁存（运行中改 FUSE_MODE 无效）
+     logic        wr_split_busy_i;
++    // ★ T-94：串行化器**非空**（含还没被写引擎吞下的 beat0）。与 wr_split_busy_i
++    //   分开：wr_split_busy_i 只表示"还有 beat1 排队"（用它停核才能保留 1 拍重叠），
++    //   而"带/一跑是否真的写完"必须等**整条缓冲空**（见 seg_band_done）。
++    logic        wr_split_pend_i;
+     // VLANES>8 的 2 拍串行化在忙（=0 时与 v39 逐位同）。非 UNIT=0 分支没有它 ⇒ 恒 0
+     wire         wr_split_busy = (UNIT == 0) ? wr_split_busy_i : 1'b0;
+     // 单元输出（_i 后缀 = v39 原样的那一路；最终的 u_* 由融合 mux 给出）
+@@ -1616,48 +1620,106 @@
+             assign cw_beat_data = c_wr_data[63:0];
+             assign cw_beat_sel  = c_wr_sel[7:0];
+             assign wr_split_busy_i = 1'b0;
++            assign wr_split_pend_i = 1'b0;      // 8 lane 同拍直通、无缓冲
+         end else begin : g_wr_split2
+             // 16 lane：核一拍吐 128 位。lane0-7 → 组 o0/8，lane8-15 → 组 o0/8+1，
+             // 两个平面相差 Hout*Wout*8 字节（DESIGN_16LANE §7.3 不变量①：
+             // **绝不能**当成 C16 交错 +8 字节）。
+             // ⇒ 拆 2 拍：beat0 = 低 64 位 / addr；beat1 = 高 64 位 / addr+plane_delta
++            // ================================================================
++            // ★★ T-94（2026-11-02）根因修复：**第一拍的像素地址不能照抄核的地址**
++            // ----------------------------------------------------------------
++            // 实测（runs/v94_wrpath，包装层 xsim，逐笔 (addr,data,sel) 记录）：
++            //   VLANES=16 时核给 addr = pair_base + p*16（像素步长 = VLANES 字节），
++            //   plane_delta(=Hout*Wout*8) 本身是对的。
++            //   而 C8 契约要求**组内每像素只走 8 B**（DESIGN_16LANE §7.3 不变量③
++            //   "每像素仍是 1 个 64-bit 字 / 8 通道组"）。照抄核地址的后果：
++            //     组 2g 的像素 p  → pair_base + p*16（每 16 B 一个字节对，半平面空洞）
++            //     组 2g+1 的像素 p→ pair_base + p*16 + P*8 ⇒ 越过本层末尾 P*8 的一半
++            //   板上签名（T-93）：越界写落点 off 0..8184（= 1 个平面 × 8 KB），
++            //   非连续、每层 904–4096 B，且已写区间 93–98% 与 numpy 不符。
++            //   xsim（本 TB，cout=64/H=W=8）：v16 前 4 笔 = 0x200000/0x200200/
++            //   0x200010/0x200210，golden 序列 = 0x200000/0x200008/0x200010/0x200018。
++            // ----------------------------------------------------------------
++            // 修法（只改包装层，不动核）：
++            //   · pix_q  = 组内像素号 0..P-1（P = c_cfg_h*c_cfg_w），每"真正被核消费"
++            //              的一拍（c_wr_en && u_ce）加 1，到 P 回绕；
++            //   · pbase_q= 本组 C8 首地址，**在 pix_q==0 那一拍从核地址直接取**
++            //              （此时核地址 = pair_base，与核的像素步长无关）；
++            //   · beat0 地址 = pbase_q + pix_q*8  ⇒ 组内 8 B/像素（C8）；
++            //     beat1 地址 = beat0 + plane_delta ⇒ 下一个 C8 平面。
++            //   ⇒ 对"核已修成 +8"的实现同样成立（那时 pix==0 的地址语义不变）。
++            //   同时把"捕获"从**无条件**改成 `u_ce` 门控：核被冻结（写 FIFO 压力 /
++            //   合并引擎忙）时 c_wr_en 会保持多拍，无条件捕获会把同一笔重复吞下。
++            // ================================================================
+             logic        p1_v;
+             logic [31:0] p1_addr;
+             logic [63:0] p1_data;
+             logic [7:0]  p1_sel;
+-            wire  [31:0] plane_delta = ({16'd0, c_cfg_h} * {16'd0, c_cfg_w}) << 3;
+-
++            wire  [31:0] npix        = {16'd0, c_cfg_h} * {16'd0, c_cfg_w};
++            wire  [31:0] plane_delta = npix << 3;
++            logic [31:0] pix_q;                 // 组内像素号
++            logic [31:0] pbase_q;               // 本组 C8 首地址
++            wire  [31:0] pix8        = pix_q << 3;
++            wire         beat_go     = c_wr_en && u_ce;   // 核这一拍真的被消费
++            wire  [31:0] beat_addr   = (pix_q == 32'd0) ? c_wr_addr
++                                                        : (pbase_q + pix8);
++
++            // ★ T-94：两级"保持到被吞"（hold-until-accepted）
++            //   状态：(cw_beat_en,p1_v) ∈ {(0,0) 空, (1,1) beat0 摆着+beat1 排队,
++            //                              (1,0) beat0 摆着}
++            //   · 只有 (0,0) 才让核推进（beat_go）⇒ 缓冲永不超过 2 拍；
++            //   · 写引擎这一拍**吃不下**（wr_accept_ok=0：FIFO 压力 / 排空忙）时
++            //     一拍都不动，等下拍 —— 这就是"不丢拍"的关键；
++            //   · beat0 被吞下的那一拍，若 beat1 在排队就把它抬上来（保序）。
++            //   ⚠ 不要退回"每拍强制 cw_beat_en<=0"的写法：那样被挡的拍直接消失
++            //     （T-94 实测：压力线上丢 69/512 拍）。
+             always_ff @(posedge s_axi_aclk or negedge s_axi_aresetn) begin
+                 if (!s_axi_aresetn) begin
+                     p1_v <= 1'b0; p1_addr <= 32'd0; p1_data <= 64'd0; p1_sel <= 8'd0;
+                     cw_beat_en <= 1'b0; cw_beat_addr <= 32'd0;
+                     cw_beat_data <= 64'd0; cw_beat_sel <= 8'd0;
+-                end else begin
+-                    cw_beat_en <= 1'b0;
++                    pix_q <= 32'd0; pbase_q <= 32'd0;
++                end else if (beat_go) begin
++                    // 缓冲空（由 u_ce 门控保证）⇒ 装 beat0；若高位使能非 0 再排 beat1
++                    cw_beat_en   <= 1'b1;
++                    cw_beat_addr <= beat_addr;
++                    cw_beat_data <= c_wr_data[63:0];
++                    cw_beat_sel  <= c_wr_sel[7:0];
++                    if (pix_q == 32'd0) pbase_q <= c_wr_addr;   // 组的 C8 首地址
++                    // 像素号推进（P 可 > 4096 ⇒ 32 位比较）
++                    pix_q <= (npix == 32'd0 || (pix_q + 32'd1 >= npix))
++                             ? 32'd0 : (pix_q + 32'd1);
++                    if (c_wr_sel[VLANES-1:8] != 8'd0) begin
++                        p1_v    <= 1'b1;
++                        p1_addr <= beat_addr;
++                        p1_data <= c_wr_data[VLANES*8-1:64];
++                        p1_sel  <= c_wr_sel[VLANES-1:8];
++                    end else begin
++                        p1_v    <= 1'b0;
++                    end
++                end else if (cw_beat_en && wr_accept_ok) begin
++                    // beat0 已被写引擎吞下 ⇒ 抬 beat1（若有），否则清空
+                     if (p1_v) begin
+-                        // 第二拍优先（保序）
+-                        p1_v         <= 1'b0;
+                         cw_beat_en   <= 1'b1;
+                         cw_beat_addr <= p1_addr + plane_delta;
+                         cw_beat_data <= p1_data;
+                         cw_beat_sel  <= p1_sel;
+-                    end else if (c_wr_en) begin
+-                        cw_beat_en   <= 1'b1;
+-                        cw_beat_addr <= c_wr_addr;
+-                        cw_beat_data <= c_wr_data[63:0];
+-                        cw_beat_sel  <= c_wr_sel[7:0];
+-                        if (c_wr_sel[VLANES-1:8] != 8'd0) begin
+-                            p1_v    <= 1'b1;
+-                            p1_addr <= c_wr_addr;
+-                            p1_data <= c_wr_data[VLANES*8-1:64];
+-                            p1_sel  <= c_wr_sel[VLANES-1:8];
+-                        end
++                        p1_v         <= 1'b0;
++                    end else begin
++                        cw_beat_en   <= 1'b0;
+                     end
++                end else if (c_start) begin
++                    // 新的一跑 / 新的一带：像素计数从头（防御性；正常时序上
++                    // c_start 远早于第一拍，pix_q 届时本来也是 0）
++                    pix_q <= 32'd0;
+                 end
+             end
+-            // 停核条件：还有一拍没发出去（缓冲 1 深）。停核不会停死：写引擎用
+-            // wr_accept_ok（含 wr_xfer）仍能在 u_ce=0 时吞这一拍（§5 的 assign）。
++            // 停核条件：缓冲里还有 beat1 没发（2 拍缓冲只剩 1 拍余量）。
++            //   beat0 挂着但 beat1 没排队时**不停核**：那一拍核推进的同时 beat0
++            //   必被吞下（wr_accept_ok=u_ce_ns=1 才允许 u_ce=1）⇒ 不会覆盖。
+             assign wr_split_busy_i = p1_v;
++            assign wr_split_pend_i = p1_v || cw_beat_en;   // 缓冲非空（T-94 hold）
+         end
+ 
+         // ---- §10.5 融合 mux 的中间线（**先声明、后使用**）----
+@@ -1745,7 +1807,8 @@
+                             (seg_state == 4'd3) ? geo_loadw :     // LOAD
+                                                   geo_chkw;       // S_CHK 等
+         // 带写完（含串行化那一拍落地）才允许 DRAIN（契约 ⑩ / ⑤）
+-        assign seg_band_done = c_done && band_wr_idle && !wr_split_busy_i;
++        assign seg_band_done = c_done && band_wr_idle && !wr_split_busy_i
++                               && !wr_split_pend_i;
+         wire   band_bad      = band_cap_err | band_canary_err | band_arb_conf;
+ 
+         // ---- §10.4 band 缓冲 ----
+@@ -2183,14 +2246,29 @@
+     //       （证明 p_valid 与 wr_byte 同拍为 1 时 wide_pend 必为 0：wr_byte=1 ⇒ !wide。）
+     //     · p_merge 仍然要求 wst==W_IDLE ⇒ §9(2b) 的不变式 p_valid ⇒ wst==W_IDLE 不变。
+     //     · push_beat 仍然每拍最多调用一次（!pw_valid 保留）⇒ FIFO 记账不变。
+-    // ★ v50：wr_xfer = "16-lane 串行化器正在推一拍" ⇒ 写引擎**允许在 u_ce=0 时**
+-    //   吞下它（否则"停核"会把串行化器一起停住 ⇒ 死锁）。VLANES=8 时 wr_xfer
+-    //   恒 0，wr_accept_ok 就退化成 u_ce ⇒ 与 v39 逐位相同。
+-    //   ⚠ 加 !wr_fifo_press：写 FIFO 到压力线时不许绕过 u_ce 硬塞（否则 bf_cnt
+-    //     会越过 BF_PRESS 冲到满 ⇒ 静默溢出）。压力由 AX 侧在原始时钟上排空后
+-    //     自动解除，串行化器只是"多举一拍"，不会死锁。
+-    wire wr_xfer      = (VLANES > 8) && u_wr_en && !wr_fifo_press;
+-    wire wr_accept_ok = u_ce || wr_xfer;
++    // ★★ v50 / T-94（2026-11-02）：16-lane 串行化器的"吞拍许可" wr_accept_ok
++    // ------------------------------------------------------------------------
++    //  背景：串行化器一拍核写 → 两拍 AXI 写。beat0/beat1 分别在不同的拍上摆出来，
++    //  其中 beat0 那一拍 `wr_split_busy=1`（串行化自己把核停住）⇒ u_ce=0，
++    //  若 wr_accept_ok 只等于 u_ce，这两拍永远进不了写引擎 ⇒ 死锁。
++    //  但"放行"放多少，实测有两个坑（都是本文件 T-94 之前那版写错的）：
++    //    ① `u_wr_en && !wr_fifo_press`：压力线上 beat0 被**静默丢掉**
++    //       （xsim：cout=64/H=W=8 丢 69 拍，全是 pair 的 lane0-7 那一拍，
++    //        落点仍是 0xA5 哨兵 ⇒ 板上表现为"零散字节不对"）。
++    //    ② `u_wr_en`（无条件）：排空状态机 W_DR1/W_DR2 里也放行 ⇒ 同一拍
++    //       `push_beat` 被调用两次（drain_pub + pw_valid），bf_wp 只 +1 却写了
++    //       两次 ⇒ **丢一拍 + 描述符错位**（实测 64 个地址写两遍、64 个没写）。
++    //  正确形态：**只放过 `wr_split_busy` 这一项**（那是串行化自己的停核），
++    //  压力 / 排空忙 / 读 miss 一律照旧挡住（= 写引擎真的吃不下）。
++    //  ⇒ 引入 u_ce_ns = u_ce 去掉 `!wr_split_busy` 的那一版，wr_accept_ok = u_ce_ns。
++    //  VLANES=8 时 wr_split_busy≡0 ⇒ u_ce_ns ≡ u_ce ⇒ 与 v39 **逐位相同**。
++    //  被挡住的拍**不丢**：串行化器改成"保持到被吞为止"（见 §10.1 g_wr_split2），
++    //  并且 `u_ce = u_ce_ns && !wr_split_busy` 保证核在缓冲有拍时不会再塞新的。
++    wire u_ce_ns      = (!s_axi_aresetn) || (!run_active)
++                        || ((!rd_want || rd_hit)
++                            && !(wr_take && wr_fifo_press)
++                            && !((wst != W_IDLE) && wr_take));
++    wire wr_accept_ok = u_ce_ns;
+     assign wide_pend   = wr_take && u_wr_wide_w;
+     assign wr_wide_b   = wide_pend && wr_accept_ok;   // ★ v50：见 wr_byte 的注释
+     assign wr_byte   = wr_take && wr_accept_ok && !u_wr_wide_w;  // 真正被吞下、进 p_* 的字节
+@@ -2218,11 +2296,7 @@
+     // ★ v50：wr_split_busy = VLANES>8 的 2 拍串行化还有一拍没发出去 ⇒ 停核。
+     //   VLANES=8 时恒 0 ⇒ 与 v39 逐位相同。停核**不会把自己停死**：串行化缓冲
+     //   挂在原始时钟上，且 wr_accept_ok 里有 wr_xfer 让它不吃 u_ce（见 §3/§10.1）。
+-    assign u_ce = (!s_axi_aresetn) || (!run_active)
+-                || ((!rd_want || rd_hit)
+-                    && !(wr_take && wr_fifo_press)
+-                    && !((wst != W_IDLE) && wr_take)
+-                    && !wr_split_busy);
++    assign u_ce = u_ce_ns && !wr_split_busy;
+ 
+     // ---- ★ P3：时钟门已删除（always_latch + AND / u_ce_lat / u_clk 全删）----
+     //   u_ce 直接进 4 个单元例化的 .ap_ce（同步 CE），不再产生第二套时钟网络。

@@ -5800,3 +5800,46 @@ $$\Rightarrow\ \Rightarrow\ \textbf{第 115 条：任何新位流的功能验证
 
 $$\Rightarrow\ \textbf{裁定}：-0.56\ \text{s}\ \textbf{不进任何基线表}，\text{直到写通路修好（采纳 T-93 建议）}$$
 $$\Rightarrow\ \text{v50 位流}\textbf{封存}（\text{标注"仅用于写通路调试，不可用于数值"}）$$
+
+### 70.61 ★★★★ 16-lane 写通路修好：根因是**第六条**（T-94，2026-11-02 20:06）
+
+**TB 先复现了板上现象（这步是关键）**
+$$\Rightarrow\ \text{包装层级 } \mathtt{xsim}，\text{预铺 } \mathtt{0xA5} \Rightarrow \mathtt{cin}{=}48/\mathtt{cout}{=}64/k{=}3/32\times32：\mathbf{62{,}144/65{,}536\ \text{不符（94.8\%）}} + \text{越界 } 3371\ \text{B}$$
+$$\quad\ \Rightarrow\ \text{与板上第 1 层几乎同数} \Rightarrow \textbf{仿真复现了板上故障}$$
+$$\Rightarrow\ \text{改前前 4 笔}：\mathtt{200000/200200/200010/200210};\quad \text{应为 } \mathtt{200000/200008/200010/200018}$$
+$$\quad\ \Rightarrow\ \textbf{步长是 } 0x200\ \text{而应为 } 0x8 \Rightarrow \text{一眼看出是"整组偏移"而非"越界"}$$
+
+**根因 ⑥（我列的五个都不是）：第一拍像素地址照抄了核地址**
+$$\Rightarrow\ \mathtt{bin\_conv\_core\_v50.v:851}\quad \mathtt{oaddr\_q += VLANES}$$
+$$\Rightarrow\ \Rightarrow \mathtt{VLANES}=16\ \text{时核吐的是 }\textbf{C16 交错的像素对基址}（\mathtt{pair\_base} + p\times16）$$
+$$\Rightarrow\ \text{而 } \mathtt{DESIGN\_16LANE}\ \S7.3\ \text{不变量③要求 } \mathbf{8\ \text{B/像素/组平面}}$$
+$$\Rightarrow\ \mathtt{plane\_delta}（= H_{\text{out}}W_{\text{out}}\times 8）\ \textbf{是对的};\ \text{组平面步长（F1 修过）也是对的}$$
+
+**修地址后又暴露两条被掩盖的错（都在同一段）**
+$$\Rightarrow\ \textbf{③ 成立}：\mathtt{u\_wr\_en\ \&\&\ !wr\_fifo\_press}\ \text{在压力线上}\textbf{静默丢 } 69/512\ \text{拍}（\text{全是 pair 的 lane0-7 那拍）}$$
+$$\Rightarrow\ \text{而"直接删掉压力门"又会让 } \mathtt{W\_DR1/W\_DR2}\ \text{同拍两次 } \mathtt{push\_beat} \Rightarrow \text{64 个地址写两遍、64 个没写}$$
+$$\Rightarrow\ \textbf{正解}：\mathtt{wr\_accept\_ok = u\_ce\_ns}（\text{只放过串行化器自己的停核）}$$
+
+**改动（只动 `lane16/bin_unit_axi_wrap_v50.v`，核/segq 一字节未改；\text{diff} +108/−34）**
+$$\Rightarrow\ \mathtt{g\_wr\_split2}\ \text{beat0 地址} \to \mathtt{pbase\_q} + \mathtt{pix\_q}\times 8$$
+$$\quad\ \Rightarrow\ \mathtt{pbase\_q}\ \text{在每组 } \mathtt{pix}==0\ \text{时从核取} \Rightarrow \textbf{与核步长解耦}（\text{将来核改 } +8\ \text{也照样对）$$
+$$\Rightarrow\ \text{捕获改 } \mathtt{c\_wr\_en\ \&\&\ u\_ce} + \textbf{hold-until-accepted}（\text{被挡不丢拍}）$$
+$$\Rightarrow\ \mathtt{pix\_q}\ \text{在 } H_{\text{out}}W_{\text{out}}\ \text{回绕};\ \text{新增 } \mathtt{wr\_split\_pend\_i}\ \text{给 } \mathtt{seg\_band\_done}$$
+$$\Rightarrow\ \mathtt{u\_ce\_ns}\ \text{(2267-2271)};\ \mathtt{u\_ce = u\_ce\_ns\ \&\&\ !wr\_split\_busy}\ \text{(2299)}$$
+
+**验证**
+$$\Rightarrow\ \mathtt{VLANES}=16：\mathbf{10\ \text{形状全 0 差异 / 0 越界}}（\mathtt{cout}=8/16/24/32/40/48/64/96 + 32\times32 + \text{仓库 golden）}$$
+$$\quad\ \text{逐笔 } (\text{addr},\text{data},\text{WSTRB})\ \text{与 8-lane 参照 }\mathbf{11{,}328\ \text{笔 0 差异}}$$
+$$\quad\ \mathtt{cout}\%16{=}8（24/40）\ \text{末组掩码} \checkmark$$
+$$\Rightarrow\ \mathtt{VLANES}=8：\mathbf{10/10\ PASS};\ \mathtt{wr\_split\_busy}\equiv0 \Rightarrow \mathtt{u\_ce\_ns}\equiv\mathtt{u\_ce}\ \text{逐位等价}$$
+$$\Rightarrow\ \text{核级 } \mathtt{S2}\ \mathbf{24/24\ ok};\ \mathtt{S1}\ \text{有 8 例只在 SEL 不同，全在 } \mathtt{cout}\%8\neq0（13/17）\Rightarrow \textbf{F2 修正的预期差异}$$
+$$\Rightarrow\ \text{manifest 只刷 } \mathtt{bin\_unit\_axi\_wrap\_v50.v}\to\mathtt{f1ff43a5};\ \mathtt{verify\_rtl\_root}\ \mathtt{MATCH=35\ DIFF=0\ PASS}$$
+
+**⚠ T-94 发现一个陷阱**：`runs/v50_simA/run.sh` 编的是 `_worktrees/v50_impA`（**F1 未修的旧副本** e2ed125f）
+$$\Rightarrow\ \text{以后谁复跑 SIM 的 TB，都会用坏核} \Rightarrow \textbf{必须改指 } \mathtt{lane16/}\ \text{或删掉旧副本}$$
+$$\Rightarrow\ \textbf{第 116 条：TB 脚本里必须写死"被测文件的绝对路径 + md5 断言"}（\text{否则静默测错版本}）$$
+
+**两条性能事实（影响策略）**
+$$\Rightarrow\ 32\times32\ \text{层：}v8\ 76{,}028\ \text{拍} \to v16\ 55{,}774（\mathbf{0.73\times}）$$
+$$\Rightarrow\ \text{但 } \mathtt{cout}{=}24\ \text{层 } v16\ \textbf{反而 } 1.47\times\ \text{慢}（2\ \text{组}\times16\ \text{lane}\ \text{算空 }8\ \text{lane}）$$
+$$\Rightarrow\ \Rightarrow\ \textbf{16-lane 不是无条件更好};\ \text{全图净收益要上板量}$$
