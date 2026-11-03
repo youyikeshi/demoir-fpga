@@ -1,0 +1,572 @@
+# HDMI 输出：PS + PL 接口契约与实施顺序（v1）
+
+> **背景**：板上 HDMI 输出经 **SIL9134** 编码芯片（[厂商例程核实](04_厂商例程与硬件事实_HDMI与USB.md)）。
+> PL 只需输出 **24-bit 并行 RGB + HS/VS/DE + 像素时钟**，芯片内部做 8b/10b 与串行化 ⇒ **不需要 TMDS/OSERDES**。
+> **目标**：把 PS 烘好的整幅画面（含左右拼接与上下黑边，已由 `display_layout.compose()` 产出）送上显示器。
+> **顺序原则**：先证明"电与配置通"（彩条），再接"真数据"（DDR 扫描），最后合并进推理位流。
+
+---
+
+## 0. 三个阶段（不要跳）
+
+| 阶段 | 内容 | PL 增量 | 风险 |
+|---|---|---:|---|
+| **P1 彩条** | 视频时序 + 彩条图案 + SIL9134 I2C 初始化 | $\approx 500\sim700$ LUT | **最低**（不碰 DDR/AXI） |
+| **P2 真画面** | 加"AXI 读帧缓冲 → 行缓冲 → 像素流"扫描器 + PS 配置寄存器 | $+300\sim600$ LUT | 中（AXI 读、CDC、换帧） |
+| **P3 合并** | 把 P1+P2 合进推理位流（v39 基线） | 合计 $\approx 0.8\sim1.3$k LUT | 高（时序 + 需重跑 54/54 sha1） |
+
+- **P1 是唯一能"用最小代价排除最大不确定性"的一步**
+- 显示不亮 90% 的原因在时序参数/引脚/I2C 配置 ⇒ P1 正好只考这三样
+- **所以先做 P1，上板点亮，再谈 P2。**
+
+---
+
+## 1. 显示模式（参数化，默认 720p60）
+
+| 模式 | 像素时钟 | 行总/有效 | 场总/有效 | 说明 |
+|---|---:|---|---|---|
+| **0 = 720p60（默认）** | $74.25\ \text{MHz}$ | $1650 / 1280$ | $750 / 720$ | 兼容性最好 |
+| 1 = 1080p60 | $148.5\ \text{MHz}$ | $2200 / 1920$ | $1125 / 1080$ | SIL9134 支持，时序紧张些 |
+| 2 = 1080p30 | $74.25\ \text{MHz}$ | $2200 / 1920$ | $1125 / 1080$ | 折中 |
+| 3 = 640×480p60 | $25.175\ \text{MHz}$ | $800 / 640$ | $525 / 480$ | 最宽松，调试用 |
+
+- 同步极性：**HS/VS 均为正极性**（SIL9134 侧按厂商例程）。
+- `DE` 在有效像素期间为高；`rgb` 在 DE 之外输出 0。
+- 像素时钟由 MMCM 从 `s_axi_aclk`（100 MHz）分出：$74.25 = 100 \times 74.25/100$，用 `CLKFBOUT_MULT`/`DIVCLK_DIVIDE` 整数近似到 $<100\ \text{ppm}$ 即可（SIL9134 容差远大于此）。**若 100 MHz 分不出整数比，允许把 AXI 时钟设成 100 MHz 的整数倍关系并记录实际频率**。
+
+---
+
+## 2. 顶层与接口契约
+
+```
+module hdmi_out_top #(
+    parameter integer MODE_DEFAULT = 3        // 0=720p60 1=1080p60 2=1080p30 3=720p30（默认，见 §8.11）
+                                              // 注：640x480 已由 720p30 取代（它需要 25.175 MHz，本设计没有第四路时钟）
+)(
+    // ---- 时钟/复位 ----
+    input  wire        s_axi_aclk,
+    input  wire        aresetn,
+    // ---- AXI4-Lite 配置页（PS 用 mmap 写）----
+    input  wire [31:0] s_axi_awaddr,  input wire s_axi_awvalid, output wire s_axi_awready,
+    input  wire [31:0] s_axi_wdata,   input wire [3:0] s_axi_wstrb,
+    input  wire        s_axi_wvalid,  output wire s_axi_wready,
+    output wire [1:0]  s_axi_bresp,   output wire s_axi_bvalid, input wire s_axi_bready,
+    input  wire [31:0] s_axi_araddr,  input wire s_axi_arvalid, output wire s_axi_arready,
+    output wire [31:0] s_axi_rdata,   output wire [1:0] s_axi_rresp,
+    output wire        s_axi_rvalid,  input  wire s_axi_rready,
+    // ---- AXI4 master 读（P2 才用；P1 接 0，读通道保持 ready/bvalid 合法）----
+    output wire [31:0] m_axi_araddr,  output wire [7:0] m_axi_arlen,
+    output wire [2:0]  m_axi_arsize,  output wire [1:0] m_axi_arburst,
+    output wire        m_axi_arvalid, input  wire       m_axi_arready,
+    input  wire [63:0] m_axi_rdata,   input  wire [1:0] m_axi_rresp,
+    input  wire        m_axi_rlast,   input  wire       m_axi_rvalid,
+    output wire        m_axi_rready,
+    // ---- 视频输出（直连 SIL9134，引脚走 XDC）----
+    output wire        pix_clk,
+    output wire        hdmi_de,  output wire hdmi_hs, output wire hdmi_vs,
+    output wire [23:0] hdmi_d,
+    // ---- SIL9134 控制 ----
+    output wire        hdmi_rst_n,
+    output wire        i2c_scl_o, output wire i2c_scl_t,   // 1=释放(上拉)
+    input  wire        i2c_sda_i, output wire i2c_sda_o, output wire i2c_sda_t,
+    // ---- 状态 ----
+    output wire        irq_vsync,
+    output wire        init_done          // SIL9134 配置完成
+);
+```
+
+**AXI-Lite 寄存器图（4 字节对齐，只支持 32-bit 访问）**
+
+| 偏移 | 名称 | R/W | 位域 |
+|---|---|---|---|
+| `0x00` | `CTRL` | RW | `[0]` enable（彩条/扫描器使能）；`[1]` soft_reset；`[2]` test_pattern（1=彩条）；`[3]` frame_swap_req |
+| `0x04` | `STATUS` | RO | `[0]` init_done；`[1]` vsync 发生锁存；`[2]` scan_underflow（行缓冲被读空） |
+| `0x08` | `VIDEO_MODE` | RW | `[1:0]` 模式号（见 §1） |
+| `0x0C` | `FB_ADDR_LO` | RW | 帧缓冲物理地址 `[31:0]`，**64 B 对齐** |
+| `0x10` | `FB_ADDR_HI` | RW | `[31:0]`（本板 1 GB DDR ⇒ 实际只用低位，明确写 0） |
+| `0x14` | `FB_STRIDE` | RW | 每行字节数（1280×3 = 3840；1920×3 = 5760） |
+| `0x18` | `FB_W` | RW | 有效像素宽度 |
+| `0x1C` | `FB_H` | RW | 有效行数 |
+| `0x20` | `FRAME_ID` | RW | PS 写入新帧号；PL 在 **vsync 边界**采纳（双缓冲换帧） |
+| `0x24` | `FRAME_ID_LATCHED` | RO | PL 已采纳的帧号（PS 轮询确认切换完成） |
+| `0x28` | `PIXEL_FMT` | RW | 0 = RGB888（字节序 R,G,B） |
+
+- 地址必须落在独立 64 KB 块 ⇒ 与 `conv\_uni\_0=0x40040000`、`bin\_unit\_0=0x40060000` 不冲突
+- **建议 ** `hdmi\_out\_0 = 0x400A0000` (64 KB) ⇒ 最终以 .hwh 为准，写进文档
+
+---
+
+## 3. P1 的具体交付（先做这个）
+
+### 3.1 RTL（新文件，放 `pl/rtl_hand/modules/`）
+| 文件 | 内容 |
+|---|---|
+| `hdmi_timing_gen.v` | 参数化时序发生器：产生 `hs/vs/de/x/y`，参数=行总/行有效/场总/场有效 + 极性 |
+| `hdmi_color_bar.v` | 8 色竖条 / 渐变 + 边框（便于肉眼判断"是否整幅对齐"）；输入 `x,y,de` |
+| `sil9134_init.v` | I2C master（100 kHz）+ **初始化表 ROM**（照抄厂商 `lut_sil9134.v` 的寄存器序列） |
+| `hdmi_out_top.v` | 上面三个 + AXI-Lite 从机 + MMCM 输出 `pix_clk` + BUFG/IOBUF |
+
+### 3.2 约束
+- `hdmi_out_pins.xdc`：只用厂商给的引脚（CLK=H1, HS=E4, VS=E3, DE=G2, D[0..23], RST_N=L4, SCL=J8, SDA=K8），**不许自己猜引脚**。
+- 输入时钟：`s_axi_aclk` = 100 MHz（沿用工程既有约束命名）。
+
+### 3.3 仿真（xsim，必须 0 错）
+| TB | 判据 |
+|---|---|
+| `tb_hdmi_timing.v` | 一帧内：`hs` 周期 = 行总×`pix_clk`；`de` 高电平宽度 = 行有效；`vs` 周期 = 场总×行周期；`de` 行数 = 场有效；**首末像素坐标 (0,0) 与 (W-1,H-1) 精确** |
+| `tb_sil9134_i2c.v` | 起止条件合法（START/STOP）、每字节 8+ACK、**寄存器序列与 ROM 表逐条一致**、整体耗时 < 100 ms |
+| `tb_hdmi_top_cfg.v` | AXI-Lite 读写寄存器图（含只读位、越界地址不挂总线）、`test_pattern=1` 时输出彩条、`enable=0` 时 `de` 恒 0 |
+- 全部用 `xvlog/xelab/xsim`；**`rm -rf xsim.dir` 后再跑**；波形不落 wdb（`-debug off` 足够）。
+
+### 3.4 门禁
+1. xsim 三个 TB 全 0 错；
+2. `synthcheck`（工程既有脚本）：多驱动 0 / 组合环 0 / latch 0 / ERROR 0；
+3. 资源实测（OOC 综合）：LUT ≤ 800、BRAM ≤ 2、DSP 0；
+4. 时序：`pix_clk` 域 WNS ≥ 0（**P1 是新增功能，这一域必须正裕量**）。
+
+---
+
+## 4. P2 的具体交付（P1 点亮后立刻做）
+
+| 文件 | 内容 |
+|---|---|
+| `hdmi_fb_scan.v` | AXI4 读主（`arlen` 最多 15，64-bit beat）→ 异步 FIFO → 行缓冲 → 逐像素输出；读地址 = `fb_addr + y*stride + x*3` |
+| `hdmi_out_top.v` 增补 | `CTRL.test_pattern=0` 时走扫描器；**vsync 边界采纳 `FRAME_ID`**（双缓冲换帧） |
+| `ps/pynq/hdmi_out.py` | `HdmiOut(addr)`：`configure(mode, addr, stride, w, h)` / `put_frame(frame_id)` / `wait_frame(frame_id)` / `test_pattern(on)`；全部 mmap 寄存器操作 |
+| `tools/hdmi_selftest.py` | 主机侧：构造 4 种模式的画面 → 调 `compose()` → 截取"PL 会读到的字节流" → 与 `compose()` 输出逐字节比对（模拟扫描顺序） |
+
+**P2 关键判据**
+- 扫描顺序与 `compose()` 的 `(y,x,rgb)` 布局**逐字节一致**（用主机侧模型验证，不需要硬件）；
+- 换帧无撕裂：新帧只在 vsync 边界生效（TB 里造两帧不同图案，确认切换点落在 vsync）；
+- 行缓冲不 underflow（`STATUS[2]` 恒 0）。
+
+---
+
+## 5. 边界与禁令
+
+- **不许改**推理相关：`bin_net.py` / `bin_engine.py` / `bin_ref_numpy.py` / `q8*` / `bin_unit`/`conv_uni` 的 RTL。
+- **不许**动 v39 位流与 `runs/v40_archive`。
+- P1/P2 各自**独立 BD**（`hdmi_p1.bd` / `hdmi_p2.bd`），合并在 P3。
+- 一次只许**一个**综合/实现作业（`memgate`）；xsim 可并行但要 `nice`。
+- 引脚只用厂商 XDC 里出现过的；**新增引脚必须先在文档里登记来源**。
+
+---
+
+## 6. 上板清单（P1）
+
+```
+① 四项体检（df/df -i/sudo/from pynq import Overlay）
+② 一次 load：hdmi_p1.bit（唯一 load 令牌）
+③ 读 STATUS：init_done 必须为 1（SIL9134 配置完成）
+④ 接显示器：应看到彩条；若黑屏 ⇒ 查 ① pix_clk 是否在跑 ② hs/vs 极性 ③ I2C 是否真的写进去了（读回 SIL9134 寄存器）
+⑤ 记录：分辨率 / 刷新率 / 显示器是否识别
+```
+
+---
+
+## 7. 变更记录（2026-11-02 追加，双方已认账）
+
+### 7.1 像素时钟：P1 用**双时钟**，一次位流测两种模式
+
+- 那 2 条 I2C 寄存器没有"视频模式"写 ⇒ 芯片是否自适应 720p **未知**
+- 与其猜，不如**一次位流里放两个像素时钟，运行时切**
+
+- MMCM 单 VCO = 1187.5 MHz（$100 \times 11.875$），两个输出：
+  - `CLKOUT0` ÷ 8 ⇒ **148.4375 MHz**（1080p60，误差 $-421\ \text{ppm}$）
+  - `CLKOUT1` ÷ 16 ⇒ **74.21875 MHz**（720p60 / 1080p30）
+- `VIDEO_MODE[0]` 选时钟（BUFGMUX），**切模式时必须先 `enable=0`**（避免切换瞬间出非法时序）
+- 报告必须写实际频率与 ppm；**禁止写标称值**
+
+### 7.2 扫描器：确认三个设计决定
+
+| 决定 | 结论 |
+|---|---|
+| 突发 8 拍 = 64 B（`arlen=7`） | **认可**：stride 要求 64 B 对齐 ⇒ 64 B 突发天然不跨 4 KB |
+| 新增 `cfg_upd` / `fid_upd` 单拍脉冲端口 | **认可**：顶层 AXI-Lite 写配置/写 `FRAME_ID` 时必须接上 |
+| 双缓冲按 `FRAME_ID[0]` 选块，块大小 `align64(stride×H)` | **认可**：PS 驱动必须把第 $n$ 帧写进 $\text{buf} = n \bmod 2$ |
+
+### 7.3 寄存器图扩容：新增 `0x2C UNDERFLOW_CNT`
+
+- 原 0x00~0x28 冻结不变 ⇒ **新增 ** `0x2C` = 行缓冲欠载计数器（RO，32 bit 饱和）
+- 理由：1080p60 在 100 MHz AXI 下会欠载 ⇒ **需要实测余量，而不是争论**
+- 判据：`UNDERFLOW\_CNT` ≡ 0 ⇒ 余量足够；>0 ⇒ 提 AXI 频率或换模式
+- 同时 `STATUS[2]`（欠载粘滞位）保留，用于"是否发生过"的快速判断。
+
+### 7.4 带宽账（决定用哪个模式上真画面）
+
+- 扫描器在 `s\_axi\_aclk` 下稳态 1 px/cycle ⇒ 3 B × f_axi
+$$\Rightarrow\ 100\ \text{MHz} \Rightarrow 300\ \text{MB/s};\quad 150\ \text{MHz} \Rightarrow 450\ \text{MB/s}$$
+
+| 模式 | 需求 | 100 MHz 下 |
+|---|---:|---|
+| 640×480p60 | $55\ \text{MB/s}$ | ✅ 充裕 |
+| 720p60 | $166\ \text{MB/s}$ | ✅ |
+| 1080p30 | $222\ \text{MB/s}$ | ✅ |
+| **1080p60** | $445\ \text{MB/s}$ | ❌ **欠载**（需 AXI ≥ 150 MHz，且只剩 1% 余量） |
+
+### 7.5 ★ 带宽口径更正（2026-11-02，P2 实测指出）
+
+- **平均带宽**（每帧总量 / 帧周期）不是判据；决定欠载的是**有效行内瞬时带宽** = $3\,\text{B} \times f_{pix}$。
+- 因为消隐期不读 DDR，读取必须挤在有效行内完成。
+
+| 模式 | 平均 DDR | **行内瞬时** | 100 MHz AXI（300 MB/s） |
+|---|---:|---:|---|
+| 720p60 | $166\ \text{MB/s}$ | $\mathbf{223\ MB/s}$ | ✅ 余量 26% |
+| 1080p30 | $187\ \text{MB/s}$ | $\mathbf{223\ MB/s}$ | ✅ |
+| 640×480p60 | $55\ \text{MB/s}$ | $\mathbf{76\ MB/s}$ | ✅ |
+| 1080p60 | $373\ \text{MB/s}$ | $\mathbf{445\ MB/s}$ | ❌ 必须 ≥150 MHz |
+
+⇒ 结论不变（720p60 / 1080p30 够、1080p60 不够），但**口径必须用行内瞬时**。
+⇒ 我早前写的 166/222 是平均口径，**已作废**。
+
+### 7.6 `0x2C` 颗粒度：按行计（不是按像素）
+
+- 按像素在 1080p60 下 $2^{32}/148.5\ \text{MHz} \approx 29\ \text{s}$ 就饱和，反而丢掉"持续多久"的信息。
+- 按行（$\le 45\ \text{kHz}$）可连续计约 26 小时，且行间隔 ≥1 行 ⇒ 跨域用行级 1-bit toggle + 2FF 边沿检测即可，不会并事件。
+⇒ **采用按行计**（已实现并验过）。
+
+**策略**：P1 点亮后**先用 720p60 / 1080p30 做真画面**（100 MHz AXI 就够）；
+只有当芯片确实只认 1080p60 时，才把 `s_axi_aclk` 提到 150 MHz，并用 `UNDERFLOW_CNT` 实测余量。
+
+---
+
+## 8. ★ 事故驱动的三条硬规则（2026-11-03 00:18，P1 首次上板把板子挂死）
+
+事故详情见 `runs/incident/20261103_0018_HDMI_P1首次上板挂死.md`。**根因：AXI 互联被 PL 侧 MMCM 锁定门控。**
+
+### 8.1 AXI 互联绝不许被 PL 时钟锁定门控
+- AXI 互联 + 寄存器文件：只用 `s_axi_aclk` 与 **PS 时钟域的复位**。
+- 像素域**单独一把复位**（可以 `dcm_locked` 门控）。它挂了只影响出图，**不影响总线**。
+- 判据（P3-b/P3-c 必须验）：**把 MMCM 输入故意设成非法频率，AXI 仍必须可读写**。
+
+### 8.2 必须先读心跳，再读状态
+- 在 AXI 时钟域新增 `0x30 PIX_HB`（RO）：像素域一个自由翻转位经 2FF 同步过来。
+- 上板顺序：**两次读 `PIX_HB` 必须变化** ⇒ 才允许读 `CTRL/STATUS/...`。
+- 若 `PIX_HB` 不变 ⇒ 像素时钟没跑 ⇒ **立刻停，不要再做任何 AXI 访问**。
+
+### 8.3 先设时钟，再 load
+- 顺序固定：改 `FCLK0` → 等 ≥100 ms → load overlay → 读 `PIX_HB` → 读 `STATUS`。
+- 事故当次的错误顺序是"先 load 再改 FCLK"（因为先改时钟拿不到 ZOCL 上下文，见下条）。
+
+### 8.4 PYNQ 侧的一条实用知识
+- 未 load 过 overlay 时 `from pynq import Clocks; Clocks.fclk0_mhz` 会抛 `RuntimeError: No device found`（ZOCL 无上下文）。
+- 因此"先设 FCLK 再 load"在这套镜像上做不到 ⇒ **必须靠 8.1/8.2 两条机制兜底**，不能靠顺序。
+
+### 8.5 ★ 裁定：`mmcm_locked` **只许做状态上报**，不许与像素域复位相与（2026-11-03）
+
+§8.1 原文"像素域单独一把复位（可以由 `dcm_locked` 门控）"**作废**，改为下面这条更硬的规则：
+
+- extbf全设计只允许一处使用 extttMMCM.LOCKED ⇒ ext喂 exttt0x30[1] ext的状态位
+- ext不许进复位、不许进使能、不许进 exttthdmi\_rst\_n
+
+理由两条（都是硬证据，不是风格偏好）：
+
+1. **心跳独立性**：`hb_cnt` 只认 `aresetn`。若把 `mmcm_locked` 与进 `pix_rst`，
+   未锁时就会清 `hb_cnt` ⇒ `0x30[0]` 的翻转不再是"像素时钟活着"的**独立**证据 ⇒ **心跳自证失效**。
+2. **永久黑屏陷阱**：`sil9134_init` 跑在 `s_axi_aclk`（复位 = `~pwr_good`）⇒ **MMCM 没锁时 I2C 照样配完**。
+   若此时把 SIL9134 按在复位里，等 MMCM 锁上后 I2C 已 `S_DONE` ⇒ **永久黑屏**，
+   且现象是"心跳正常、状态正常、就是不亮"—— 最难查的一类。
+
+未锁时"像素域处于复位态"由**硬件拓扑**保证，不需要显式与：
+- ext像素时钟本身就是 MMCM 派生 ⇒ ext无锁即无时钟 ⇒ ext像素域触发器停在初值
+- extbf"不亮而已，不变砖"成立，靠拓扑而非靠逻辑门
+
+### 8.6 ★ 门禁必须按"引脚级别"扫，并按"警告级别"兜底（2026-11-03，事故同形态的第二个来源）
+
+`bd 41-759` 事故复现：`axi_ctrl`（`axi_interconnect`）的 **per-port 复位** `S00_ARESETN` / `M00_ARESETN`
+没接，Vivado 把**低有效**脚绑成 0 ⇒ 该口永久处于复位 ⇒ PS 读 `0x400A0000` 无响应。
+
+- ext这和 11-03 的 extttdcm\_locked ext是 extbf同一个故障形态（ ext复位被永久按住）
+- extbf说明“点名某一条已知的线”这种断言抓不住同类问题
+
+**两条规则**：
+
+1. **按引脚扫，不按名字点名**
+   - 遍历目标 cell 的**全部** `*ARESETN*` / `*_rst` / `locked` 引脚，逐个检查"有驱动 + 驱动源正确"。
+   - 理由：`NUM_SI`/`NUM_MI` 一变就会冒出新脚，点名式断言必然漏。
+
+2. **`CRITICAL WARNING` 也是门禁**
+   - `validate_bd_design` / `generate_target` 之后要 **grep 构建日志**：
+     出现 `BD 41-759` 且下一行含我们自己例化的 cell ⇒ **ERROR 退出**。
+   - 白名单只许 PS7 的已知无关脚，且必须写成**显式清单 + 注释原因**。
+   - 理由：`CRITICAL WARNING` **不阻断构建** ⇒ 不主动抓就永远没人看 ⇒ 11-03 与本次都是这么漏的。
+
+- ext一句话： extbf"不阻断构建的错误"才是真正的危险 ⇒ ext门禁要盯它们，不是盯 extERROR
+
+### 8.7 ★ 板端实证修正两条（2026-11-03 01:3x，1080p60 已点亮）
+
+#### ① `Clocks.fclk0_mhz` 在本镜像是**真实值的 1.5 倍**（读与写都是）
+| PYNQ 报 | 实测像素时钟 | 反推真实 ACLK |
+|---|---|---|
+| 150.0 | 148.46 MHz | **100.0 MHz** |
+| 100.0 | 98.99 MHz | 66.67 MHz |
+
+- `hwh` 时钟树：IO PLL 1000 MHz，`DIVISOR0=5`，`DIVISOR1=2` ⇒ 真实 FCLK0 = 100 MHz。
+- **要真实 100 MHz ACLK，必须写 `Clocks.fclk0_mhz = 150`。**
+- ⇒ 凡把 `Clocks` 报告值当作运行点记录的地方都要按 1.5× 修正，**或改为实测像素时钟**。
+- ⇒ 主线基线里"fclk 150 MHz"的运行点存在系统性风险（真实可能 100 MHz），**已登记待复核**；
+  复核方法：同一份位流在"报 150"与"报 225"下测同一层耗时，看是否 1.5×。
+
+#### ② 心跳判据：两次读"必须不同"不可靠，改为窗口内计沿
+- 两次读的间隔由进程启动决定（≈0.3 s），接近翻转周期整数倍时**必然同相**（实测 3 组全同，但 poll 拿到 1133 沿）。
+- 正确判据：**有界窗口 poll ≥100 ms，要求 ≥5 个翻转沿**；并可用沿速率反推像素时钟。
+
+#### ③ 实测频率（1080p60 点亮时的板端证据）
+| 模式 | 像素时钟实测 | 相对设计值 |
+|---|---|---|
+| 1080p60 | **148.4568 MHz** | +0.013% |
+| 720p60 | **74.2319 MHz** | +0.018% |
+
+⇒ 两路都在 ±500 ppm 内，HDMI 余量充足；`BUFGMUX` 切换实测使心跳半周期 ×2.000，证明切的是 `pix_clk_b`。
+
+### 8.8 ★ 结论：SIL9134 同时接受 1080p60 与 720p60（2026-11-03 01:2x，用户肉眼双确认）
+
+| 模式 | 像素时钟实测 | 用户肉眼 | `init_done` |
+|---|---|---|---|
+| 1080p60（`VIDEO_MODE=1`） | 148.4568 MHz | ✅ 彩条 | 1 |
+| 720p60（`VIDEO_MODE=0`） | 74.2319 MHz | ✅ **彩条** | 1（切换期间未掉） |
+
+- ext厂商那 2 条 I2C 寄存器写 extbf不锁死输出模式 ⇒ ext芯片随输入像素时钟自适应
+- extbf因此 P2（真画面）用 720p60 ⇒ ext行内瞬时 223 extMB/s ⇒ 100 extMHz AXI 余量 26%
+- ext不必把 exttts\_axi\_aclk ext提到 150 extMHz（ ext那条路只剩 1% ext余量）
+- ext1080p60 保留给"要看更大画面"的场合 ⇒ ext需 AXI ≥ 150 extMHz
+
+### 8.9 心跳判据的最终写法（对 §8.2 的修订）
+- 不用"两次读必须不同"。
+- 用：**有界窗口 poll ≥ 100 ms，要求至少 5 个 `0x30[0]` 翻转沿**。
+- 附加能力：由沿速率反推像素时钟
+  - `hb_cnt[16]` 半周期 = $2^{16}$ 个像素时钟
+  - （公式含中文，已改为文字说明） 的倒数关系 ⇒ 实测 148.4568 / 74.2319 MHz 与设计值差 $+0.013\%$ / $+0.018\%$
+
+### 8.10 ★ 用户决定：**720p30 就够用**，降低时序压力（2026-11-03 02:0x）
+
+- ext720p30 像素时钟 = 1650 imes 750 imes 30 = 37.125 extMHz ⇒ extbf只有 720p60 的一半
+- extPL 像素域时序从 13.47 extns 放宽到 **26.94 ns** ⇒ ext新逻辑的时序风险大幅下降
+- ext行内瞬时带宽 = 3 imes 37.125 = **111 MB/s** ⇒ ext对 100 extMHz AXI(300) extbf余量 63%
+- ext平均 = 1280 imes 720 imes 3 imes 30 = **82.9 MB/s**
+
+**因此：P2 真画面默认 720p30。**
+
+### 8.11 时钟与模式表（改版，三路时钟）
+
+MMCM 单 VCO = 1187.5 MHz（输入 100 MHz，`M=11.875`，`DIVCLK=1`）：
+
+| MMCM 输出 | 分频 | 频率 | 对应模式 |
+|---|---:|---:|---|
+| `CLKOUT0` | ÷8 | 148.4375 MHz | `VIDEO_MODE=1` 1080p60 |
+| `CLKOUT1` | ÷16 | 74.21875 MHz | `VIDEO_MODE=0` 720p60 |
+| **`CLKOUT2`** | **÷32** | **37.109375 MHz** | **`VIDEO_MODE=3` 720p30（新默认）** |
+
+模式表（修订）：
+
+| `VIDEO_MODE` | 分辨率/刷新 | 像素时钟 | 时序参数（H/V 总/有效） | 状态 |
+|---|---|---:|---|---|
+| 0 | 720p60 | 74.21875 MHz | 1650/1280, 750/720 | ✅ 板端已点亮 |
+| 1 | 1080p60 | 148.4375 MHz | 2200/1920, 1125/1080 | ✅ 板端已点亮 |
+| 2 | 1080p30 | 74.21875 MHz | 2200/1920, 1125/1080 | 未验证 |
+| **3** | **720p30** | **37.109375 MHz** | **1650/1280, 750/720** | **P2 默认，待板端验证** |
+
+- ext三输入时钟选择用两级 extttBUFGMUX ext串联（ extselect[0] 选 CLKOUT0/1，再与 CLKOUT2 选）
+- ext切换协议不变： extttenable=0 o ext写 extttVIDEO\_MODE o ext等 ≥ 2 ext帧 o extttenable=1
+- ext约束：三路像素时钟各自 extttcreate\_clock（6.737 / 13.474 / **26.936** extns） ext，两两互斥、都与 exttts\_axi\_aclk ext异步
+- extbf三路 WNS ≥ 0 ext是门禁
+
+### 8.12 ★ P2 构建的四个口径裁定（2026-11-03 02:1x）
+
+| # | 问题 | 裁定 |
+|---|---|---|
+| 1 | 第三路时钟约束周期 | **26.9474 ns（实际值）**，不是标称 26.936 |
+| 2 | 是否手写 `create_clock` | **不写**：BD 里 MMCM 输出**继续自动派生**，改为对三个分频与三个派生周期做硬断言 |
+| 3 | `S_AXI_HP0` 适配器 | **`axi_interconnect` 1×1**（与 `s_axi` 同套路，`auto_pc` 自动处理 AXI4→AXI3 与突发拆分） |
+| 4 | `u_hdmi_out_top` 层次 LUT 门禁 | **≤ 1200**（不是 1000） |
+
+#### 关于 #1 的理由
+- ext项目纪律是"约束 == 实跑频率" ⇒ ext实跑 37.109375 extMHz ⇒ extbf周期 26.9474 extns
+- ext标称 26.936 ext偏紧 0.04% ⇒ ext虽保守但会让 extbf跨模式 WNS 不可比
+- ext报告里实际值与标称值 extbf都要写， ext并标 -421 extppm
+
+#### 关于 #2 的理由
+- ext同一 pin 再 extttcreate\_clock ext会造出两个时钟源 ⇒ extbfWNS 失真（上一轮已被否）
+- extBD 构建里 MMCM 派生是 extbf真相 ⇒ ext用断言去卡它，而不是用第二个时钟源覆盖它
+- ext显式 extttcreate\_clock ext只保留在 extbfOOC 流程 ext（那里没有 BD，必须手写）
+
+#### 关于 #3 的理由
+- ext与 exttts\_axi ext路径同套路 ⇒ ext已被本项目验证过
+- ext只读主口的 extttAW/W/B ext会被 BD 绑 0 ⇒ ext必须在门禁 5b 白名单加 3 条并写清"扫描器是只读主口"
+- ext若白名单可以随便加，门禁 5b 就废了 ⇒ extbf白名单条目必须逐条注明理由， ext且每轮构建打印出来供人复核
+
+#### 关于 #4 的理由
+- extP1 实测 383 + extP2 扫描器 OOC 587 = 970 ⇒ ext再加 mux/时钟选择/胶合 pprox 10201070
+- ext门禁 1000 extbf会误杀 ⇒ ext定 1200
+- ext但若超过 1200 ⇒ extbf先查原因，不许改门禁了事
+
+#### 附加要求
+- ext行缓冲 extttram\_style=block ext预计 2 ext个 RAMB36 ⇒ ext整 BD BRAM 门禁 ≤ 4， ext实际值必须写进台账
+- ext三个派生周期的断言容差 ± 0.02 extns
+- ext三路 WNS ext全部 ≥ 0 ext才放行； ext任一路为负就停下报原因
+
+### 8.13 ★ PS 侧里程碑 1 的裁定（2026-11-03 02:3x）
+
+| # | 事项 | 裁定 |
+|---|---|---|
+| 1 | 块序 `[1,0,1,0]` 而非字面 `[0,1,0,1]` | **采纳实现方的相位**；我原来写的 `0,1,0,1` 是错的 |
+| 2 | `hdmi_out.MODES[3]` 旧口径 `640x480p60` | **允许改**成 720p30，并把 `0x30 PIX_HB` 加进 `REG` |
+| 3 | `pix_alive` 的频率精度要求 | 我原来要求的 `±0.1%`（100 ms 窗口）**物理上做不到**，改为窗口相关 |
+
+#### 关于 #1：首帧防撕裂
+- `enable=1` 之后 PL 立刻在扫块 0；若首帧写块 0，会**边写边被扫** ⇒ 首帧撕裂。
+- 因此首帧必须写块 1 ⇒ `FIRST_FRAME_ID = 1` ⇒ 块序 `1,0,1,0`。
+- **附加要求**：`setup()` 里必须把**两块都预填黑**（`(0,0,0)`），否则首帧之前显示器上是未初始化内存的垃圾。
+
+#### 关于 #2：口径必须唯一
+- `MODES[3]` 改为：分辨率 `1280x720`、像素时钟 `37.109375 MHz`、`H/V` = `1650/1280, 750/720`。
+- `REG` 增补 `PIX_HB = 0x30`。
+- **改完后 `tools/hdmi_selftest.py` 必须仍 119 条全过**。
+- **`display_demo` 必须改用 `hdmi_out.MODES` 这一单一来源**，删掉本地 `MODES_PS` 复制
+  （理由：两套几何表迟早会分叉，这次就已经差了 mode 3）。
+- 注释里写入实测频率：`148.450 / 74.225 / 37.09 MHz`（对应 −421 ppm 的设计值，实测偏差 ≤0.05%）。
+
+#### 关于 #3：频率精度的真实上限
+- 相对误差 ≈ `1/N`，`N` = 窗口内翻转沿数 ⇒ 要 `±p` 需 `N ≥ 1/p`。
+- 720p30 沿周期 `1.766 ms`：
+
+| 窗口 | 沿数 | 精度 |
+|---:|---:|---:|
+| 100 ms | ≈57 | **±1.8%** |
+| 500 ms | ≈283 | ±0.35% |
+| 2 s | ≈1132 | **±0.09%** |
+
+- ⇒ 判据改为：**`pix_alive(100 ms)` 只判"活着"（≥5 沿），精度声称必须注明窗口**；
+  要 ±0.1% 必须 `≥2 s`。**禁止**在 100 ms 窗口上声称 ±0.1%。
+
+### 8.14 ★ P2 RTL 集成完成的三条实证与两条判据修正（2026-11-03 02:5x）
+
+#### ① 三路时钟的实现（已复核代码）
+- 3 个 `BUFG` + **两级 `BUFGMUX` 串联**：`sel_148 = VIDEO_MODE[0]`、`sel_37 = VIDEO_MODE[0] & VIDEO_MODE[1]`
+- 选择真值表（实测正确）：`00→b(74.22)`、`01→a(148.44)`、`10→b(74.22)`、`11→c(37.11)`
+- 用两级专用 `BUFGMUX` 而不是"三选一 LUT 树"：每一级都是 glitchless 原语，切换不出毛刺
+
+#### ② mode 3 复用 720p 的 H/V 参数（省一张表）
+- `mode 3`（720p30）与 `mode 0`（720p60）**H/V 完全相同**（1650/1280, 750/720），只差像素时钟
+- ⇒ 共用一个时序发生器与彩条，**不新增实例** ⇒ 也避免两份参数日后漂移
+
+#### ③ CDC 实证：单拍 `aclk` 脉冲会被像素域漏采
+- `st_clr` 原实现是单拍 `aclk`（10 ns），而 mode 3 的像素周期是 26.9 ns ⇒ **会被漏掉**
+- 实测现象：`STATUS[2]` 读清失败（`0x07 → 0x07`）
+- 修法：拉宽成 **16 拍 aclk 的电平**（160 ns > 26.9 ns）
+- ⇒ **纪律**：任何 `aclk → pix` 的单比特脉冲，脉宽必须 ≥ `ceil(pix_period / aclk_period) + 2` 拍，或改用 toggle 握手。
+  本项目只允许两种跨域形态：**电平式拉宽** 或 **toggle + 2FF**。
+
+#### ④ `0x2C` 的判据修正：稳态而非绝对 0
+- 原判据"正常带宽下 `0x2C` 必须为 0"**是错的**：切换帧上会记到 1（扫描器在彩条模式被关掉，切过来那一拍才开始取第 0 行）
+- 正确判据：**间隔 2 帧两次读必须不增长**（实测 `1 → 1`）
+- ⇒ 不得把观测到的 1 解释掉；要改判据就明说"这是切换帧的固有计数"
+
+#### ⑤ 五 TB 的实测摘要（全部 0 错）
+| TB | 关键实测 |
+|---|---|
+| `tb_hdmi_timing` | 四模式 hs/de/vs/行数全对 |
+| `tb_sil9134_i2c` | SCL 100.00 kHz |
+| `tb_hdmi_top_cfg` | C-A~C-F + E-1（mode3 vs=750/de=720、pix=37.1087）、E-2（hb 比值 **4.0000**）、E-3（四模式连切 init_done 掉 0 拍） |
+| `tb_hdmi_fb_scan` | 6 case、23600 像素比对 0 失败 |
+| `tb_hdmi_top_scan` | D-1 彩条两档 921600 像素 0 失配；D-2 扫描流 921600 像素 0 失配；D-3 帧中途写本帧不变、下一帧才生效；D-4 starved 2162 → 稳态不增长；D-5 三路像素时钟全停后 AXI 六个寄存器仍可读写 |
+
+- extbfD-2 的做法值得记： ext帧缓冲不用内存镜像，而用地址公式生成像素 pix(y,x) = \x[7:0], y[7:0], (x+y)[7:0]\
+- ext三分量各不相同 ⇒ ext任何通道交换/字节序错都会逐字节暴露 ⇒ ext而且 2.76 extMB 不落内存
+
+### 8.15 ★ 门禁脚本的三条硬要求（2026-11-03 02:1x，又一次"陈旧产物冒充本轮结果"）
+
+实测事故：`ooc_hdmi_p1.sh` 综合失败后**没检查次生错误**，于是读到了 `/tmp` 里**上一轮留下的** `util.rpt`，
+照样打印 `LUT 410 / BRAM 0 / DSP 0` 并 `rc=0` —— 那是集成前的旧数字。
+
+- ext这是本项目最经典的失效模式 ⇒ ext报告比代码更会撒谎
+
+**任何门禁脚本必须做到三条：**
+
+1. **开跑前删自己的产物**：`util.rpt / timing.rpt / *.log / *.dcp` 先 `rm -f`
+   ⇒ 宁可"文件不存在"报错，也不许"读到上一轮"。
+2. **日志里出现 `^ERROR:` 立刻 `exit 1`**
+   ⇒ `synth_design` 失败后仍会继续跑后续步骤，"次生错误"必须显式拦。
+3. **打印它实际消费的报告的 `mtime` 与 `md5`**
+   ⇒ 让"这些数字是哪一轮的"变成可审计事实，而不是靠时间戳猜。
+   ⇒ 例：`consume util.rpt mtime=... md5=...`
+
+- ext另外： extbf源文件清单变更必须同步到所有门禁脚本
+- ext本次 exttthdmi\_fb\_scan.v ext加进设计，但 extttsynthcheck/ extttooc ext的 extttread\_verilog ext没跟上
+- ext报 extttSynth 8-439 module not found ⇒ extbf新增源文件 = 新增一份要同步的清单
+
+### 8.16 构建排队的正确互斥（对"等 pgrep==0"的修正）
+- 真正保证一机一构建的是 `memgate` 的 **`flock /tmp/dsh_vivado.lock`**（实测另一支线 `T-118`
+  的 `_guard_build.tcl` 也走 memgate ⇒ 锁是共享的、有效的）。
+- **`pgrep -cx vivado == 0` 只是启动前的瞬间抽查**，天然有竞态：检查通过的下一秒对方就可能起构建
+  ⇒ 它挡不住重叠，只会让排队方被无限饿死（实测被饿了 420 s 以上，期间锁其实一直被正确持有）。
+- ⇒ **排队只认 flock，不认 `pgrep==0`**；另加**内存门禁**：拿到锁后若 `MemAvailable < 10 GB` 则释放重试
+  （本机 30 GB / Swap 0，今天已发生过一次 OOM 杀 vivado）。
+
+### 8.17 ★ P2 RTL 收工的门禁实测与两条口径澄清（2026-11-03 03:0x）
+
+| 项 | 实测 | 门禁 |
+|---|---:|---:|
+| Slice LUTs（OOC） | **1065** | ≤1200 |
+| Block RAM Tile | **1.5** | ≤6 |
+| DSPs | **0** | 0 |
+| Register as Latch / `LDCE+LDPE` | **0 / 0** | 0 |
+| **`pix_clk_a` WNS** @6.737 ns | **+1.708 ns**（614 端点，0 failing） | ≥0 |
+| **`pix_clk_b` WNS** @13.474 ns | **+8.445 ns**（614 端点） | ≥0 |
+| **`pix_clk_c` WNS** @26.936 ns | **+21.907 ns**（613 端点） | ≥0 |
+| `s_axi_aclk` WNS @10 ns | +4.166 ns（2168 端点） | — |
+| 已创建时钟 | 4 个（`s_axi_aclk` + 三路像素） | 齐 |
+| 跨时钟路径表 | **空** | 物理互斥 + 异步组生效 |
+
+#### ① LUT 口径：报告数才是门禁，网表原语计数不是
+- `util.rpt` 报 **1065**；BD in-context 综合的 `util_hier` 报 `hdmi_out_top` 层次 **1037**（差 2.6%，口径自洽）
+- 而同一设计的**网表 LUT 原语计数 = 1240** ⇒ 明显高于两者
+- ⇒ **门禁只认 `util.rpt` / `util_hier.rpt` 的数字**；网表原语计数（含被复制/被优化的单元）**不能当门禁**
+- ⇒ 本次两者差 2.6% 也说明：**扫描器没有被例化两遍、行缓冲没掉进 LUTRAM**
+
+#### ② `pix_clk_c` 的 OOC 约束用的是 26.936（标称），BD 用 26.9474（实际）
+- 两者差 0.011 ns（0.04%）；OOC 那个**偏紧** ⇒ 保守 ⇒ 实际频率下 WNS **只会更好**
+- ⇒ 结论不受影响，但**必须记录**：OOC 是保守值，BD 是真实值
+- ⇒ 真正的纪律仍是"约束 == 实跑频率"，这里属于"OOC 阶段先用偏紧值兜住"的合理例外
+
+#### ③ 遗留三条（已写进 README §10，不阻塞）
+1. **未上板**：P2 真画面、720p30 的显示器表现、SIL9134 是否认 720p30 —— 待板子空出
+2. 从彩条切到扫描器的**那一帧**可能计 1 行 `UNDERFLOW_CNT`（无预取余量），稳态 0 增长
+3. OOC 未加 `set_output_delay`（SIL9134 输入时序厂商未给）⇒ WNS 只代表片内 + OBUF
+
+### 8.18 ★ P2 位流交付与四条口径（2026-11-03 03:1x）
+
+| 项 | 值 |
+|---|---|
+| 位流 | `runs/hdmi_p1/hdmi_p1.bit`（3,510,797 B）|
+| **设计指纹** | **`SW_CRC=bd345bcd`**（`.bit` 头里的 payload CRC，见下条）|
+| hwh | md5 `24d07045d7db7566228dad291cef57cd`，基址 `0x400A0000 / 64 KB` |
+| WNS | `pix_clk_a` **+1.500** / `pix_clk_b` **+8.087** / `pix_clk_c` **+21.952** / `clk_fpga_0` **+3.402** ns；TNS 0，failing 0 |
+| 资源 | 整 BD **1549 LUT / 2161 FF / 1.5 BRAM / 0 DSP / Latch 0**；`u_hdmi_out_top` **1037 LUT / 1564 FF** |
+| `BUFGCTRL` | **7**（1 clkfb + 3 像素 BUFG + 2 级 BUFGMUX + 1 复位桥）|
+| 子块 | `u_scan` 648 / `sil9134_init` 91 / `timing_1080` 106 / `timing_720` 71 / 自身 125；`axi_ctrl` 360 / `axi_hp0` 111 |
+
+#### ① ★ `.bit` 的 md5 **不能跨构建**当设计身份
+- 实测 `.bit` 头里有构建时间戳：`2026/11/03` + `03:10:03` ⇒ 同一设计每次构建 md5 都差 4 字节
+- 三次构建 `68ec8e59…` / `6473abeb…` / `c9164618…`，**设计完全相同**
+- ⇒ **跨构建比对用 `SW_CRC`**（`.bit` 头里，本次 `bd345bcd`），它只随设计变
+- ⇒ **文件身份**（"这份文件没被换过"）仍可用 md5；**设计身份**（"是不是同一版设计"）必须用 `SW_CRC`
+- ⇒ 归档时两者都记：`md5=… SW_CRC=… mtime=…`
+
+#### ② 三时钟的 BUFG 级联：place 阶段真的会失败
+- 现象：`ERROR: [Place 30-120] Sub-optimal placement for a BUFG-BUFG cascade pair`（`u_bufgmux` X0Y1 → `u_bufgmux_c` X0Y4）
+- 根因（结构性）：两级 `BUFGMUX` 级联要求两个 mux **循环相邻**；本设计有 6 个时钟 buffer
+  （3 输入 `BUFG` + 2 个 `BUFGMUX` + 1 个 MMCM 反馈 `BUFG`），单列站点排不下
+- 处置：对 `pix_clk_ab` 设 **`CLOCK_DEDICATED_ROUTE ANY_CMT_COLUMN`**（报错里工具自己给的出口），**未改 RTL**
+- 代价实测：`clk_pix_a` WNS **+1.795 → +1.500 ns**（−0.295 ns，仍为正）
+- ⇒ **红线**：哪天它被这条吃到负数，**正解是改 RTL**（带 `LOC` 的单级三选一），**不是放宽周期约束**
+
+#### ③ `BUFGCTRL` 数量是"级联没被改写"的判据
+- 预期 7 = 1 clkfb `BUFG` + 3 像素 `BUFG` + 2 级 `BUFGMUX` + 1 复位桥
+- 实测 `util.rpt`：`| BUFGCTRL | 7 | ... | 32 | 21.88 |` ⇒ **没被综合器改写成 LUT 树**
+- ⇒ 若该数明显偏离，说明逻辑被改写，必须停下查（不是"资源省了"）
+
+#### ④ LUT 口径（与 §8.17 一致，这里钉死）
+- 门禁**只按 `util_hier.rpt` 的 Total LUTs**（`u_hdmi_out_top` = 1037）
+- 网表 LUT 原语计数（1240）**只作提示打印，不作门禁**
+- 整 BD 1549 / BRAM 1.5 / `BUFGCTRL` 7 三条硬门禁未动
