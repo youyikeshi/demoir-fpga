@@ -428,13 +428,17 @@ def build(args) -> dict:
         raise SystemExit("一张都没接受（检查网络是否跑得起来 / 阈值是否过严）")
 
     pairs, stats, total = [], {}, 0
+    lab_dir = os.path.join(out, "check", "labeled", "pairs")
     for info, left, right, st in accepted:
         n, i = info["name"], info["index"]
-        if args.no_watermark:
-            lw, rw = left, right
-        else:
-            lw = wm_left(left, i, n)
-            rw = wm_right_gt(right) if info["right_kind"] == "gt" else wm_right_pcref(right)
+        # ★ 上屏图**一个像素的字都没有**（用户 2026-11-03 明确要求去掉左下角水印）
+        lw, rw = left, right
+        # 带标注版只写进 check/labeled/（文档留证："右半是 PC 算的"这件事不能丢）
+        write_img(os.path.join(lab_dir, "%04d_left%s" % (i, ext)),
+                  wm_left(left, i, n), args.format)
+        write_img(os.path.join(lab_dir, "%04d_right%s" % (i, ext)),
+                  wm_right_gt(right) if info["right_kind"] == "gt" else wm_right_pcref(right),
+                  args.format)
         lp = os.path.join(pdir, "%04d_left%s" % (i, ext))
         rp = os.path.join(pdir, "%04d_right%s" % (i, ext))
         lb = write_img(lp, lw, args.format)
@@ -466,11 +470,12 @@ def build(args) -> dict:
             "bars": {"top": DISP_TOP_BAR, "bottom": DISP_BOTTOM_BAR},
             "slot_equals_pair": True,
         },
-        "watermark": {
-            "baked_in_pixels": not args.no_watermark,
-            "left": "原图 · 摩尔纹 #NN/name",
-            "right_pcref": "PC 二值网输出（浮点参考）",
-            "right_gt": "干净参考图 GT",
+        "labels": {
+            "baked_in_pixels": False,
+            "why": "用户 2026-11-03 要求去掉画面左下角标注 ⇒ 上屏图一个像素的字都没有",
+            "labeled_archive": "check/labeled/pairs/（只用于文档留证，绝不用于上屏）",
+            "left_text": "原图 · 摩尔纹 #NN/name",
+            "right_pcref_text": "PC 二值网输出（浮点参考）",
         },
         "pipeline": {
             "crop": "%dx%d center, raw pixels (no resample)" % (CROP, CROP),
@@ -666,7 +671,7 @@ y=680..719                 下 40 行黑边
 
 右半是 **PC 上的浮点参考**（`pynq_specialized_code/ps/tools/bin_fp_ref.py`，
 不依赖 torch 的 numpy 实现；权重 `{ckpt}`）。它直接 `clip(0,1)×255` 转 uint8，
-**不做任何对比补偿、拉伸或水印式"美化"**。
+**不做任何对比补偿、拉伸，画面里也没有任何文字标注**（左下角标注已按用户要求去掉）。
 
 > 板端 int8 输出发灰（端到端 `out = 0.148*in + 0.310`）这条路径**不参与演示**，
 > 所以本包无需补偿，也就没有"补偿声明"。板端只负责把这 640x640 的两张图贴到屏幕上。
@@ -689,7 +694,9 @@ y=680..719                 下 40 行黑边
    这是网络输入分辨率决定的，不是显示通路。
 2. `gt` 模式下 `gt` 与 `moire` **不是像素级配准**的，只能当"同场景的干净参考"，
    不能据此算 PSNR。
-3. 水印/标签是**烘进像素**的（板端不做文字渲染），因此也计入 md5。
+3. **上屏图一个像素的字都没有**（用户 2026-11-03 明确要求）：`pairs/*.bin` 与原图/结果
+   **逐字节相同**（`--verify` 会用源图重建后逐字节比对）。带标注的版本只存在
+   `check/labeled/`，**仅供文档留证，绝不用于上屏**。
 
 ## 三种跑法（试片/录制直接用）
 
@@ -778,7 +785,11 @@ def main(argv=None) -> int:
                     help="本次最多跑几次网络（每张约 8 s）")
     ap.add_argument("--no-run", action="store_true",
                     help="不跑网络，复用 pcref_raw/*_out1.npy")
-    ap.add_argument("--no-watermark", action="store_true")
+    ap.add_argument("--labels", action="store_true",
+                    help="生成**带标注版**（只写进 check/labeled/ 供文档留证，绝不用于上屏）")
+    ap.add_argument("--no-watermark", dest="labels", action="store_false",
+                    help="（旧名，等价于默认行为：上屏图不带任何字）")
+    ap.set_defaults(labels=False)
     ap.add_argument("--verify", action="store_true", help="只校验已有产物")
     ap.add_argument("--quick", action="store_true", help="verify 时只查前 2 对")
     ap.add_argument("--preview", action="store_true", default=True)
