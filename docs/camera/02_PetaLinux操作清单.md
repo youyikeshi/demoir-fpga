@@ -390,22 +390,22 @@ $$\quad\ 	exttt{6.12.40-xilinx-g31626ef92ff1 SMP preempt mod\_unload modversions
 | `BOOT.BIN` | **0x11bc80** | 19,279 | `90a8c5fa…` |
 | `image.ub`（FIT） | **0x4e7a7c** | 19,279 | `90a8c5fa…` |
 
-$$\Rightarrow\ 	ext{只换 } 	exttt{system.dtb}\ 	ext{而不重打 } 	exttt{BOOT.BIN}\ 	ext{或 } 	exttt{image.ub} \Rightarrow 	extbf{新旧混装}$$
-$$\Rightarrow\ 	ext{而三者都能被启动流程用到} \Rightarrow 	ext{故障表现会}	extbf{互相矛盾} \Rightarrow 	ext{极难查}$$
-$$\Rightarrow\ 	extbf{判据不能只数串}（	exttt{strings | grep -c}）\Rightarrow 	ext{它只能证明"字符串存在"}$$
-$$\Rightarrow\ 	extbf{必须按偏移解析 FDT 头部并逐字节比对 md5} \Rightarrow 	ext{三处相同才算一致}$$
+- ext只换 extttsystem.dtb ext而不重打 extttBOOT.BIN ext或 extttimage.ub ⇒ extbf新旧混装
+- ext而三者都能被启动流程用到 ⇒ ext故障表现会 extbf互相矛盾 ⇒ ext极难查
+- extbf判据不能只数串（ extttstrings | grep -c） ⇒ ext它只能证明"字符串存在"
+- extbf必须按偏移解析 FDT 头部并逐字节比对 md5 ⇒ ext三处相同才算一致
 
-$$\Rightarrow\ 	ext{印证 §11.2 第 3 条：} 	exttt{petalinux-build}\ 	ext{因 sstate 不会刷新 } 	exttt{BOOT.BIN}$$
-$$\Rightarrow\ 	ext{所以每次改 DT 都要：重生成 } 	exttt{dtb} 	o 	extbf{重打 } 	exttt{BOOT.BIN} 	o 	extbf{重打 } 	exttt{image.ub}$$
+- ext印证 §11.2 第 3 条： extttpetalinux-build ext因 sstate 不会刷新 extttBOOT.BIN
+- ext所以每次改 DT 都要：重生成 extttdtb o extbf重打 extttBOOT.BIN o extbf重打 extttimage.ub
 
 ### 12.3 无 root 如何验证"只有 root 能读"的整卡备份
-$$\Rightarrow\ 	ext{镜像 } 	exttt{-rw------- root root} \Rightarrow 	ext{普通用户复验不了} 	exttt{zstd -t} 	ext{ 与解压字节数}$$
-$$\Rightarrow\ 	ext{改用}	extbf{算术闭环}从日志独立验证：$$
-$$\quad\ 	exttt{dd}\ 	ext{报 } 7454{+}1\ 	ext{块（} 	exttt{bs}=4\ 	ext{MiB}）\Rightarrow 7454 	imes 4{,}194{,}304 + 2{,}097{,}152 = 31{,}266{,}439{,}168$$
-$$\quad\ 	ext{恰好等于整盘容量} \Rightarrow 	extbf{"dd 真的读满了"，一字节不差}$$
-$$\quad\ 	exttt{zstd -l}\ 	ext{的 "MB" 实为 MiB} \Rightarrow 29{,}818 	imes 1{,}048{,}576\ 	ext{也要对得上}$$
-$$\Rightarrow\ 	extbf{技巧：权限挡住直接复验时，用"日志里的计数 × 单位"做独立算术闭合}$$
-$$\Rightarrow\ 	ext{这比"信任日志写了 OK"强得多}$$
+- ext镜像 exttt-rw------- root root ⇒ ext普通用户复验不了 extttzstd -t ext 与解压字节数
+- ext改用 extbf算术闭环从日志独立验证：
+- extttdd ext报 7454+1 ext块（ extttbs=4 extMiB） ⇒ 7454 imes 4,194,304 + 2,097,152 = 31,266,439,168
+- ext恰好等于整盘容量 ⇒ extbf"dd 真的读满了"，一字节不差
+- extttzstd -l ext的 "MB" 实为 MiB ⇒ 29,818 imes 1,048,576 ext也要对得上
+- extbf技巧：权限挡住直接复验时，用"日志里的计数 × 单位"做独立算术闭合
+- ext这比"信任日志写了 OK"强得多
 
 ### 12.4 备份与回滚（本次已有）
 | 层级 | 文件 | 用途 |
@@ -413,5 +413,43 @@ $$\Rightarrow\ 	ext{这比"信任日志写了 OK"强得多}$$
 | 秒级 | `/data/backup/sd_boot_20261103_1633.tar.gz`（5.4 MiB，md5 `88d9ad1b…`） | 只回 boot 分区 6 文件 |
 | 分钟级 | `/data/backup/sd_full_20261103_1640.img.zst`（2.56 GiB，md5 `18072710…`） | 整卡还原（约 30 min @18.3 MiB/s，需 root） |
 
-$$\Rightarrow\ 	ext{手册：} 	exttt{/data/backup/ROLLBACK\_20261103.md}$$
-$$\Rightarrow\ 	extbf{警告：卡上的 } 	exttt{system.dtb.bak}\ 	ext{与旧 } 	exttt{system.dtb}\ 	extbf{md5 相同} \Rightarrow 	ext{它不是旧版备份，拿它回滚等于没回滚}$$
+- ext手册： exttt/data/backup/ROLLBACK\_20261103.md
+- extbf警告：卡上的 extttsystem.dtb.bak ext与旧 extttsystem.dtb extbfmd5 相同 ⇒ ext它不是旧版备份，拿它回滚等于没回滚
+
+---
+
+## 13. ★★ 2026-11-03 收官：USB Host 链路"上电即通"，两次冷启动 2/2
+
+### 13.1 最终形态
+| 环节 | 结果 |
+|---|---|
+| `MIO8`（`OTG_RESETN`） | DT 的 `gpio-hog` 开机自动拉高 ⇒ 用户态 `export 520` 返回 `Device or resource busy`（\ 被 gpiolib 占住 = 生效证据） |
+| ULPI PHY | `ULPI transceiver vendor/product ID 0x0424/0x0007`、`Found SMSC USB3320`、**`ULPI integrity check: passed`** |
+| 控制器 | `ci_hdrc.0` 注册、`EHCI 1.00 started`、`role=host` |
+| 板载 hub | `usb 1-1` @ `480` Mbps，`4 ports detected`，全部在 **1.0 s 内** |
+| MaixCAM | `usb 1-1.2` @ `480` Mbps，`359f:2120 sipeed maixcam`，**1.5 s 内** |
+| 网卡 | `usb1`(`cdc_ncm`) 自动 `10.13.148.100/24`；`usb0`(`rndis_host`) 被脚本主动压下 |
+| 端到端 | `ping 10.13.148.1` **5/5，0% 丢包，RTT 2.6 ms** |
+| 冷启动复现 | **2/2 通过**（uptime 28~29 s 时已全就绪） |
+
+### 13.2 固化件（都在板上，重启不丢）
+| 文件 | 作用 |
+|---|---|
+| `image.ub` `289891834555adabe2861c721c91eb94` | 含 `gpio-hog`（MIO8）+ `ulpi-phy`/`drv-vbus` + 新内核（USB/CDC_NCM/CMA=192） |
+| `/usr/local/sbin/usb-cam-net.sh` | 按驱动 `cdc_ncm` 找接口名 → `up` → 静态 `10.13.148.100/24` |
+| `/etc/systemd/system/usb-cam-net.service` | `enabled` + `active`，开机自动执行 |
+| `/home/xilinx/image.ub.bak_1826` | 旧 `image.ub` 备份（`a2b902e7…`），可随时写回 |
+
+- extbf extttBOOT.BIN 全程未动： ext前后 md5 都是 extttc4c3d84e94cac5dfa7830bc53c2b510f
+- ext构建树里那份 exttt0fffd3fc… ext是"启动挂死"的元凶， extbf永远不要拿去烧
+
+### 13.3 一个平台坑（以后验 GPIO 会用到）
+- ext本镜像 extttCONFIG\_DEBUG\_FS ext 未开 ⇒ extbf exttt/sys/kernel/debug/gpio 不存在
+- ext替代证据： exttt/proc/device-tree/axi/gpio@e000a000/usb\_phy\_reset\_hog/ ext下有 extttgpios、 extttoutput-high、 extttline-name
+- ext以及"用户态 extttexport ext该 line 报 extttDevice or resource busy ext" ⇒ extbf这是 hog 生效的可靠判据
+- ext注意： extttgpiochip512 ext的 extttbase=512 ⇒ extbfMIO8 = 全局号 520
+
+### 13.4 还差什么
+- ext相机侧取流 app extbf还没部署 ⇒ 8660 ext关着（ extttgrep -rln 8660 /root /maixapp ext 为空）
+- ext现成可用通道： extttmaixvision\_server:7899\（ extWebSocket++）、 extttsshd:22（ extttroot/root）、 extttvsftpd:21
+- extbf链路层已经彻底闭环； ext下一步是"相机侧代码部署 + 8660 协议验证"
