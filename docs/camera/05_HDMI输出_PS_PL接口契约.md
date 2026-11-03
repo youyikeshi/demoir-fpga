@@ -570,3 +570,27 @@ MMCM 单 VCO = 1187.5 MHz（输入 100 MHz，`M=11.875`，`DIVCLK=1`）：
 - 门禁**只按 `util_hier.rpt` 的 Total LUTs**（`u_hdmi_out_top` = 1037）
 - 网表 LUT 原语计数（1240）**只作提示打印，不作门禁**
 - 整 BD 1549 / BRAM 1.5 / `BUFGCTRL` 7 三条硬门禁未动
+
+### 8.19 ★ 缺口与提议：ACLK 没有独立探针（v59 候选）
+
+#### 问题
+- ext合并方案把像素时钟改由板上 50 extMHz 晶振（ extttY14 ext）驱动 MMCM
+- ext像素时钟与 extttFCLK0 extbf完全解耦
+- extbf0x30 心跳只反映"晶振+MMCM 这条链" ⇒ ext再也不能反推 ACLK
+- ext现在 ACLK 的真实频率只能靠"写 75 读回 75" + 最终 extbfsha1 门禁 ext裁决
+- ext这是 extbf一个真实的可观测性缺口 ⇒ ext频率错了只能等到 sha1 不符才发现
+
+#### 提议：加一个 ACLK 域自由运行计数器（v59）
+| 偏移 | 名称 | 说明 |
+|---:|---|---|
+| `0x34` | `ACLK_CNT` | `s_axi_aclk` 域 32 位自由运行计数器（不复位、不读清） |
+
+- extPS 侧两次读 + 墙钟间隔 ⇒ f_aclk = ( c)/( t)
+- 32 ext位在 100 extMHz 下 43 exts 才回绕 ⇒ ext秒级窗口无需处理回绕
+- ext量化误差 1 ext计数 = 10 extns ⇒ ext对 1 exts 窗口是 10^-8 ext量级（可忽略）
+- ext主导误差是 AXI 读延迟抖动（ μ exts 级） ⇒ 1 exts 窗口下约 10^-6 ⇒ extbf足够分辨 66.7/75/100 MHz
+
+- ext代价： 32 ext个 FF + ext一个读地址 ⇒ ext几乎为零
+- extbf收益：任何位流的 ACLK 都能被独立实测 ⇒ ext不再依赖平台口径（ extttClocks ext报 1.5 ext倍那类坑彻底消失）
+
+- ext在 v59 加上之前， extbf禁止 ext在 v58 上声称"ACLK 已独立验证"
