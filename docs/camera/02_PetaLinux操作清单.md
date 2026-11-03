@@ -352,3 +352,19 @@ if (of_device_is_compatible(dev->of_node, "xlnx,zynq-usb-2.20a")) {
 - extMemTotal 930970 extMB ⇒ ext其中 extttCmaTotal=192 extMB（含在 MemTotal 内）
 - extbf非 CMA 普通内存 740780 extMB ⇒ ext算法的 numpy/BLAS 用这块
 - ext对比 512 extMB 方案：普通内存只剩 410450 extMB ⇒ extbf改 192 多出约 320 extMB
+
+### 11.5 ★ 为什么本次**只换启动三件套、不重做 rootfs**
+- ext判据一：新增选项 extbf全是 exttt=y ext内建 ⇒ extrootfs 里不需要任何新模块
+- ext判据二：内核版本不变 ⇒ extttkernel.release = exttt6.12.40-xilinx-g31626ef92ff1
+- ext判据三： extbfvermagic 逐字相同
+$$\quad\ 	exttt{6.12.40-xilinx-g31626ef92ff1 SMP preempt mod\_unload modversions ARMv7 p2v8}$$
+- ext新构建内核侧与卡上 extttzocl.ko ext的 extttmodinfo vermagic ext完全一致
+- extbf只替换 extttBOOT.BIN + extttimage.ub + extttsystem.dtb ext即可，rootfs 不用动
+- ext省掉一次 extttbuild\_pynq\_rootfs + extttmake\_sdimage + ext整盘写入 ⇒ extbf从 1~2 小时降到几分钟
+
+- extbf反例（什么时候必须重做 rootfs）：
+- ext① 任何新功能是 exttt=m ext（模块） ext② 内核版本号变了
+- ext③ vermagic 变了（SMP/preempt/modversions 任一改变） ext④ zocl 或其他 out-of-tree 模块源码变了
+- ext这四条任一成立 ⇒ extbf必须重做 rootfs， ext否则模块加载失败、PYNQ 起不来
+
+- extbf纪律：换镜像前必须核对这三条判据，而不是"顺手把 rootfs 也刷一遍"
