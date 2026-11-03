@@ -7333,3 +7333,34 @@ $$\Rightarrow\ \text{已把这两条 + "只报第 }2/3\ \text{跑"\ 发给在跑
 $$\Rightarrow\ \text{独立在 routed DCP 上复核：period 硬断言 }10.000、\mathtt{VIOL}{=}0、\mathtt{LDCE}{=}\mathtt{LDPE}{=}0$$
 $$\Rightarrow\ \text{10 ns 真值分族表也直接在 v39 DCP 上重跑：}\mathbf{WNS -1.998 / TNS -9288.02 / 7109\ \text{端点}}$$
 $$\quad\ \Rightarrow\ \text{与平移表}\textbf{逐项相同}（4488/768/652/338/276/128/…），\text{平移误差 }0.000\ \text{ns} \Rightarrow \textbf{那张表本来就是真值表}$$
+
+### 70.116 ★★★★★ T-153：**256² 降到 5.464 s**（−0.495 s / −8.3%），sha1 8/8 全中（2026-11-03 12:2x）
+
+**结果**
+$$\Rightarrow\ \textbf{墙钟 } 5.959\to\mathbf{5.464}\（\mathbf{-0.495\ s，-8.3\%}）$$
+$$\Rightarrow\ \text{P1 桶 } 0.667\to0.160;\quad \mathtt{\_analyze\_lazy}\ 0.547\to\mathbf{0.039}\（-0.508）$$
+$$\Rightarrow\ \textbf{sha1 8/8 全中}（256^2\times4、64^2\times2、128^2\times2）;\ \text{后两者第 2 跑走的就是缓存命中}$$
+$$\Rightarrow\ \text{分桶 }\Sigma\ \text{闭合 } \mathbf{-0.000\ s};\ \text{细粒度残差 }3.4\%（\text{T-151 是 }3.3\%）$$
+$$\Rightarrow\ \text{只改 } \mathtt{ps/pynq/bin\_net.py}\ 一个文件（+169\ \text{行，}\textbf{算法 0 行改动}），\mathtt{68343d5c}\to\mathtt{0990948d}$$
+
+**缓存设计（可复算）**
+$$\Rightarrow\ \text{键 }\mathtt{\_lazy\_sig}\ (\mathtt{blake2b-160}) = \text{版本号} + \text{容器身份(path/size/sha256)} + \text{环境开关串} + \text{outs 名}\to\text{张量 id} + \text{图结构} + \text{每 conv 层(name/cin/cout/k/s/H/W/act\_fs)} + \textbf{该层 } \mathtt{t\_q}\ \text{原始字节}$$
+$$\Rightarrow\ \textbf{跨 net 也命中}（\text{键是内容不是对象}）;\ \textbf{不依赖} \text{arena/内存/槽/引擎/上一帧数值}$$
+$$\Rightarrow\ \text{返回}\textbf{只读视图}（\mathtt{writeable=False} + \mathtt{\_RODict}\ \text{写就抛错）};\ \mathtt{BIN\_LAZY\_CACHE=0}\ \text{可整体关}$$
+
+**★ 我给的目标是错的，不是它没做到**
+$$\Rightarrow\ \text{我要求 "P1 } \le 0.10" \Rightarrow \textbf{不可达}：\text{P1 下界} = \mathtt{build\_graph}\ 0.088 + \text{后端/其余 }0.032 = \mathbf{0.120} > 0.10$$
+$$\Rightarrow\ \text{实测 } 0.160 = 0.120 + 0.039 \Rightarrow \textbf{已经贴着下界}$$
+$$\Rightarrow\ \textbf{第 141 条：给收益目标前必须先问"该项的理论下界是多少"}$$
+
+**污染处置（三条都落实了）**
+$$\Rightarrow\ \text{① 单 net：A1 新 engine+net、A2/A3 复用同一 net、B1 另建一套} \Rightarrow \text{不存在多 net 共用惰性槽}$$
+$$\Rightarrow\ \text{② 每趟重新部署，板端 } \mathtt{md5sum -c}\ \mathbf{159/159}\ \text{OK} + \mathtt{--check}\ \text{rc=0 之后、}\textbf{持锁期间}（12{:}03{:}01\to12{:}07{:}34）\ \text{才跑}$$
+$$\Rightarrow\ \text{③ 只报 run2/run3（}5.595/\mathbf{5.464}），\text{run1/run4 只用于暴露 P0/P1 一次性}$$
+$$\Rightarrow\ \textbf{④ 它自己发现并处理了一个我没想到的问题}：\text{11{:}54 起 } \mathtt{T-154}\ \text{在改共享 } \mathtt{bin\_engine.py}（\text{已变三次）}$$
+$$\quad\ \Rightarrow\ \text{它}\textbf{没用工作树}，\text{而用冻结快照 } \mathtt{/tmp/probe\_t153/stage}\ \text{（}\mathtt{bin\_engine.py}\ \text{还原为 T-151 那份 } \mathtt{48548b8d}\text{）}$$
+$$\quad\ \Rightarrow\ \text{并与 T-151 的部署包}\textbf{逐文件比对，只差 } \mathtt{bin\_net.py}\ \text{一个文件} \Rightarrow \textbf{单变量成立}$$
+$$\quad\ \Rightarrow\ \text{还把共享的 } \mathtt{deps\_closure.txt}\ \text{按当前工作树重生成} \Rightarrow \text{避免别人 } \mathtt{--check}\ \text{rc=1}$$
+
+$$\Rightarrow\ \textbf{新工作点}：\mathtt{v39}+\mathtt{LAZY=1}+\text{惰性分析缓存} \Rightarrow \mathbf{256^2 = 5.464\ s @150\ MHz}$$
+$$\Rightarrow\ \text{相对记录基线 }8.096\ \text{s} \Rightarrow \mathbf{-32.5\%}$$

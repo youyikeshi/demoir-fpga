@@ -1,0 +1,545 @@
+[boardlock] 取得板级独占 12:06:04  使用者=T153
+[boardlock] 已签发唯一 load 令牌
+[t153a] 位流 = /media/felix/Data/coding/demoir-fpga/pynq_specialized_code/board/overlay_engine_150mhz/design_1_150v39.bit md5=602725b86941864eeeeab3be005e1e81 ；hwh=c1686bd8e080c1c7f46181d980543202
+[t153a] 探针 md5 = e076661333c704a7271680bef36670fc ；清单 md5 = bc596ebc81a58a33794f0e13db9bb187
+[t153a] bin_net.py md5 = 0990948de490eb6ba6d4aaefbcafa355 （T-153 唯一改动的 PS 文件；期望 0990948de490eb6ba6d4aaefbcafa355）
+[t153a] bin_engine.py md5 = 48548b8d588ece6d20de43a6901d284e （锚定 T-151 实测那份；期望 48548b8d588ece6d20de43a6901d284e）
+[t153a] hw=256 slots=24 fclk=150.0 MHz 零护栏；部署根 = /tmp/probe_t153/stage
+[t153a] ⓪ bit/hwh = 冻结值 ✓
+[t153a] ⓪ 探针 py_compile ✓
+[t153a] ⓪ 打包 159 个文件（1.2M）
+--- uptime
+ 14:41:14 up 10:24,  1 user,  load average: 1.51, 1.35, 0.98
+--- disk
+/dev/root        28G  8.8G   18G  34% /
+/dev/root      3751936 209511 3542425    6% /
+--- mem/cma
+MemTotal:        1028264 kB
+MemFree:          943712 kB
+MemAvailable:     982124 kB
+SwapTotal:        524284 kB
+SwapFree:         444372 kB
+CmaTotal:         262144 kB
+CmaFree:          219436 kB
+--- 现存 python（pgrep -x python3）
+--- 杀后残留
+  (无)
+--- 现有位流
+-rwxrwxr-x 1 xilinx xilinx 3510798 May  8 15:13 /home/xilinx/demoir/design_1_150v42e.bit
+-rwxrwxr-x 1 xilinx xilinx 3510798 May  9 00:13 /home/xilinx/demoir/design_1_150v50.bit
+-rwxrwxr-x 1 xilinx xilinx 3510798 May  9 04:12 /home/xilinx/demoir/design_1_150v51.bit
+-rwxrwxr-x 1 xilinx xilinx 3510798 May  9 04:05 /home/xilinx/demoir/design_1_150v52.bit
+-rwxrwxr-x 1 xilinx xilinx 3510798 May  9 09:34 /home/xilinx/demoir/design_1_150v53.bit
+-rwxrwxr-x 1 xilinx xilinx 3510798 May  9 09:47 /home/xilinx/demoir/design_1_150v54.bit
+--- PACK 目录
+/home/xilinx/demoir/deploy/bin_weights_new
+5a793dd66daf650a4825b687fe4b24b4  /home/xilinx/demoir/deploy/bin_weights_new/index.json
+--- 真 python
+lrwxrwxrwx 1 root root 16 May  3 18:01 /usr/local/share/pynq-venv/bin/python3 -> /usr/bin/python3
+--- 腾 CMA：drop_caches 前后
+CmaFree:          219332 kB
+  ✓ drop_caches
+CmaFree:          236564 kB
+[t153a] ① done
+[t153a] ② scp done（6 个文件）
+=== ③-a 位流落位 + md5 ===
+  design_1_150v39.bit = 602725b86941864eeeeab3be005e1e81 （期望 602725b86941864eeeeab3be005e1e81）
+  design_1_150v39.hwh = c1686bd8e080c1c7f46181d980543202 （期望 c1686bd8e080c1c7f46181d980543202）
+  ✓ bit/hwh = 冻结值，成对
+=== ③-b ps 源码（逐文件 md5）===
+tar: ps/README.md: time stamp 2026-10-23 13:48:58 is 45961656.080006926 s in the future
+tar: ps/baremetal/main.c: time stamp 2026-10-21 04:36:48 is 45755726.070572994 s in the future
+tar: ps/c8/c8lib.py: time stamp 2026-10-22 18:21:23 is 45891601.069008512 s in the future
+tar: ps/c8/ops_c8.py: time stamp 2026-10-22 20:05:31 is 45897849.067856596 s in the future
+tar: ps/c8/run_all.sh: time stamp 2026-10-22 18:21:23 is 45891601.066489184 s in the future
+tar: ps/c8/txn_model.py: time stamp 2026-10-22 20:07:21 is 45897959.065504158 s in the future
+tar: ps/docs/REPORT.md: time stamp 2026-10-31 04:40:05 is 46619923.056858871 s in the future
+tar: ps/manifest_512.json: time stamp 2026-10-21 04:36:48 is 45755726.050291259 s in the future
+tar: ps/manifest_608x416.json: time stamp 2026-10-21 04:36:48 is 45755726.043331013 s in the future
+tar: ps/manifest_64.json: time stamp 2026-10-21 04:36:48 is 45755726.037153221 s in the future
+tar: ps/manifest_640.json: time stamp 2026-10-21 04:36:48 is 45755726.029801721 s in the future
+tar: ps/pynq/bilinear_c.c: time stamp 2026-10-31 12:23:53 is 46647751.026936835 s in the future
+tar: ps/pynq/bilinear_c.py: time stamp 2026-11-01 17:30:03 is 46752521.018716235 s in the future
+tar: ps/pynq/bin_catpack.py: time stamp 2026-10-30 19:41:05 is 46587583.017669079 s in the future
+tar: ps/pynq/bin_engine.py: time stamp 2026-11-03 03:57:02 is 46876540.004937403 s in the future
+tar: ps/pynq/bin_engine.py.bak_20261031_ps256: time stamp 2026-10-30 16:03:53 is 46574550.999769579 s in the future
+tar: ps/pynq/bin_engine.py.bak_before_c8direct: time stamp 2026-10-31 04:42:31 is 46620068.992468065 s in the future
+tar: ps/pynq/bin_engine.py.bak_before_catpack: time stamp 2026-10-31 04:10:49 is 46618166.984774901 s in the future
+tar: ps/pynq/bin_engine.py.bak_e1e2_20261031: time stamp 2026-10-30 19:27:49 is 46586786.980922673 s in the future
+tar: ps/pynq/bin_engine.py.bak_f32pool_20261031: time stamp 2026-10-30 21:20:05 is 46593522.975617095 s in the future
+tar: ps/pynq/bin_net.py: time stamp 2026-11-03 03:47:28 is 46875965.965419309 s in the future
+tar: ps/pynq/bin_net.py.bak_20261030: time stamp 2026-10-30 15:23:11 is 46572108.963707191 s in the future
+tar: ps/pynq/bin_net.py.bak_before_c8direct: time stamp 2026-10-31 04:42:31 is 46620068.960108199 s in the future
+tar: ps/pynq/bin_net.py.bak_before_catfusion: time stamp 2026-10-31 04:50:56 is 46620573.95643414 s in the future
+tar: ps/pynq/bin_net.py.bak_before_catpack: time stamp 2026-10-31 04:10:56 is 46618173.952750962 s in the future
+tar: ps/pynq/bin_net.py.bak_before_s2merge: time stamp 2026-10-31 05:22:23 is 46622460.947512152 s in the future
+tar: ps/pynq/bin_net.py.bak_before_t153: time stamp 2026-11-02 09:32:35 is 46810272.937674582 s in the future
+tar: ps/pynq/bin_net.py.bak_f32pool_20261031: time stamp 2026-10-30 20:58:48 is 46592245.93421791 s in the future
+tar: ps/pynq/bin_ref_numpy.py: time stamp 2026-11-02 01:56:02 is 46782879.93022491 s in the future
+tar: ps/pynq/bin_ref_numpy.py.bak_20261030: time stamp 2026-10-30 15:23:11 is 46572108.928551648 s in the future
+tar: ps/pynq/bin_ref_numpy.py.bak_20261031_ps256: time stamp 2026-10-30 16:10:22 is 46574939.926854584 s in the future
+tar: ps/pynq/bin_test_staged.py: time stamp 2026-10-30 17:58:17 is 46581414.924658704 s in the future
+tar: ps/pynq/board_cat_fusion_ab.py: time stamp 2026-10-31 05:29:49 is 46622906.922448946 s in the future
+tar: ps/pynq/board_catpack.py: time stamp 2026-10-31 04:22:13 is 46618850.92142297 s in the future
+tar: ps/pynq/board_e1e2_smoke.py: time stamp 2026-10-30 20:53:49 is 46591946.912817242 s in the future
+tar: ps/pynq/board_fconv_verify.py: time stamp 2026-10-31 13:11:33 is 46650610.911871252 s in the future
+tar: ps/pynq/board_freq_sweep.py: time stamp 2026-10-31 07:23:09 is 46629706.911068248 s in the future
+tar: ps/pynq/board_lazy_ab.py: time stamp 2026-10-31 05:23:04 is 46622501.910231674 s in the future
+tar: ps/pynq/board_pack_ab.py: time stamp 2026-10-30 19:24:31 is 46586588.909480168 s in the future
+tar: ps/pynq/board_q8_bench.py: time stamp 2026-10-31 05:17:26 is 46622163.908013354 s in the future
+tar: ps/pynq/board_safe.py: time stamp 2026-10-30 04:08:36 is 46531633.90628245 s in the future
+tar: ps/pynq/board_test_staged.py: time stamp 2026-10-30 08:55:04 is 46548821.9044913 s in the future
+tar: ps/pynq/board_v39_verify.py: time stamp 2026-11-01 17:35:23 is 46752840.902413962 s in the future
+tar: ps/pynq/board_wrst_probe.py: time stamp 2026-10-31 10:57:51 is 46642588.900418116 s in the future
+tar: ps/pynq/bpack.c: time stamp 2026-10-30 19:19:59 is 46586316.898472622 s in the future
+tar: ps/pynq/bpack.py: time stamp 2026-10-30 19:23:30 is 46586527.89665098 s in the future
+tar: ps/pynq/c8_layout.py: time stamp 2026-10-22 20:05:10 is 45897827.895054122 s in the future
+tar: ps/pynq/c8deq.c: time stamp 2026-11-02 01:56:02 is 46782879.894000972 s in the future
+tar: ps/pynq/c8deq.py: time stamp 2026-11-02 01:56:02 is 46782879.893023086 s in the future
+tar: ps/pynq/c8deq.py.bak_f32pool_20261031: time stamp 2026-10-30 21:27:34 is 46593971.892227888 s in the future
+tar: ps/pynq/catpack.py: time stamp 2026-10-31 04:27:50 is 46619187.890768262 s in the future
+tar: ps/pynq/conv_engine.py: time stamp 2026-10-22 20:08:29 is 45898026.88961037 s in the future
+tar: ps/pynq/conv_ref_fast.c: time stamp 2026-10-27 18:04:38 is 46322595.888521286 s in the future
+tar: ps/pynq/conv_ref_fast.py: time stamp 2026-10-27 17:46:24 is 46321501.887511426 s in the future
+tar: ps/pynq/convpf_c.c: time stamp 2026-11-01 17:52:14 is 46753851.886407786 s in the future
+tar: ps/pynq/convpf_c.py: time stamp 2026-11-01 18:11:08 is 46754985.885279132 s in the future
+tar: ps/pynq/convpf_neon_shim.h: time stamp 2026-11-01 17:50:14 is 46753731.884236674 s in the future
+tar: ps/pynq/display_demo.py: time stamp 2026-11-02 17:42:10 is 46839647.875615238 s in the future
+tar: ps/pynq/display_layout.py: time stamp 2026-11-02 14:22:13 is 46827650.874352766 s in the future
+tar: ps/pynq/e1e2_sim.py: time stamp 2026-10-30 20:51:59 is 46591836.873176388 s in the future
+tar: ps/pynq/fconv.py: time stamp 2026-10-31 13:10:39 is 46650556.872268852 s in the future
+tar: ps/pynq/hdmi_out.py: time stamp 2026-11-02 17:37:21 is 46839358.871170306 s in the future
+tar: ps/pynq/i8_fast.c: time stamp 2026-10-23 00:54:10 is 45915167.869883816 s in the future
+tar: ps/pynq/i8_fast.py: time stamp 2026-10-23 00:53:07 is 45915104.868798812 s in the future
+tar: ps/pynq/k1_engine.py: time stamp 2026-10-27 15:25:15 is 46313032.867347478 s in the future
+tar: ps/pynq/k3_engine.py: time stamp 2026-10-27 02:43:42 is 46267339.864844806 s in the future
+tar: ps/pynq/k5_engine.py: time stamp 2026-10-27 03:09:46 is 46268903.861341082 s in the future
+tar: ps/pynq/lut_util.py: time stamp 2026-10-23 00:30:16 is 45913733.860418012 s in the future
+tar: ps/pynq/mmio_batch.c: time stamp 2026-11-01 23:57:51 is 46775788.859615416 s in the future
+tar: ps/pynq/mmio_batch.py: time stamp 2026-11-01 23:57:51 is 46775788.858799392 s in the future
+tar: ps/pynq/ops_numpy.py: time stamp 2026-10-27 12:24:18 is 46302175.857800409 s in the future
+tar: ps/pynq/perf_probe.py: time stamp 2026-10-30 15:16:14 is 46571691.856856075 s in the future
+tar: ps/pynq/pp_engine.py: time stamp 2026-10-22 03:44:16 is 45838973.856007135 s in the future
+tar: ps/pynq/pp_ops.py: time stamp 2026-10-22 20:18:37 is 45898634.855192455 s in the future
+tar: ps/pynq/q8.c: time stamp 2026-10-31 05:09:23 is 46621680.854390261 s in the future
+tar: ps/pynq/q8.py: time stamp 2026-10-31 05:10:30 is 46621747.852967235 s in the future
+tar: ps/pynq/qcache.py: time stamp 2026-11-02 07:23:55 is 46802552.850755653 s in the future
+tar: ps/pynq/ref_numpy.py: time stamp 2026-10-30 10:16:27 is 46553704.848759429 s in the future
+tar: ps/pynq/run_network_on_board.py: time stamp 2026-10-27 02:42:30 is 46267267.846825341 s in the future
+tar: ps/pynq/runner.py: time stamp 2026-10-30 10:16:45 is 46553722.840997595 s in the future
+tar: ps/pynq/sam_sum_fast.c: time stamp 2026-10-22 20:53:09 is 45900706.838844021 s in the future
+tar: ps/pynq/tap_pack.py: time stamp 2026-10-30 10:16:33 is 46553710.836925647 s in the future
+tar: ps/pynq/test_k1_on_board.py: time stamp 2026-10-23 13:42:06 is 45961243.834935699 s in the future
+tar: ps/pynq/test_on_board.py: time stamp 2026-10-23 00:04:43 is 45912200.833041193 s in the future
+tar: ps/pynq/uni_engine.py: time stamp 2026-10-30 10:56:56 is 46556133.831125297 s in the future
+tar: ps/tools/_diag_pool.py: time stamp 2026-10-21 04:36:48 is 45755725.828978377 s in the future
+tar: ps/tools/bench_blas_ab.py: time stamp 2026-10-31 04:36:48 is 46619725.828098081 s in the future
+tar: ps/tools/bench_conv_overhead.py: time stamp 2026-10-22 20:51:35 is 45900612.827074409 s in the future
+tar: ps/tools/bench_grid_2d.py: time stamp 2026-10-23 06:07:58 is 45933995.826074779 s in the future
+tar: ps/tools/bench_ops.py: time stamp 2026-10-27 12:25:34 is 46302251.824845175 s in the future
+tar: ps/tools/bench_phase_split.py: time stamp 2026-10-22 21:22:42 is 45902479.823782887 s in the future
+tar: ps/tools/bench_qcache.py: time stamp 2026-10-31 05:17:12 is 46622149.822605003 s in the future
+tar: ps/tools/bin_fp_ref.py: time stamp 2026-10-30 10:41:34 is 46555211.821480501 s in the future
+tar: ps/tools/board_safe_run.sh: time stamp 2026-10-22 21:28:47 is 45902844.820458437 s in the future
+tar: ps/tools/build_manifest.py: time stamp 2026-10-21 04:36:48 is 45755725.819333413 s in the future
+tar: ps/tools/cat_phase_diag.py: time stamp 2026-10-23 00:10:09 is 45912526.818460665 s in the future
+tar: ps/tools/check_bin_driver.py: time stamp 2026-10-30 10:55:48 is 46556065.817646549 s in the future
+tar: ps/tools/check_consistency.py: time stamp 2026-10-23 00:04:48 is 45912205.816584879 s in the future
+tar: ps/tools/check_i8_scaling.py: time stamp 2026-10-23 00:58:34 is 45915431.815596265 s in the future
+tar: ps/tools/check_numpy_ref.py: time stamp 2026-10-21 04:36:48 is 45755725.814616513 s in the future
+tar: ps/tools/check_pack_ref.py: time stamp 2026-10-21 04:36:48 is 45755725.813641741 s in the future
+tar: ps/tools/check_tap_pack.py: time stamp 2026-10-30 10:20:19 is 46553936.812498765 s in the future
+tar: ps/tools/convpf_ab.py: time stamp 2026-11-01 18:11:29 is 46755006.811432151 s in the future
+tar: ps/tools/convpf_neon_sim.py: time stamp 2026-11-01 17:50:29 is 46753746.810570725 s in the future
+tar: ps/tools/convpf_project.py: time stamp 2026-11-01 17:53:47 is 46753944.809772983 s in the future
+tar: ps/tools/convpf_timing.py: time stamp 2026-11-01 18:11:29 is 46755006.808691819 s in the future
+tar: ps/tools/deps_closure.py: time stamp 2026-11-02 07:31:49 is 46803026.807450245 s in the future
+tar: ps/tools/diag_pp_arena.py: time stamp 2026-10-22 20:02:27 is 45897664.806359787 s in the future
+tar: ps/tools/diag_sam_all.py: time stamp 2026-10-22 20:09:31 is 45898088.805354595 s in the future
+tar: ps/tools/diag_sam_num.py: time stamp 2026-10-22 20:08:23 is 45898020.804361283 s in the future
+tar: ps/tools/diag_scale.py: time stamp 2026-10-21 04:36:48 is 45755725.803239589 s in the future
+tar: ps/tools/dump_ref.cpp: time stamp 2026-10-21 04:36:48 is 45755725.802219571 s in the future
+tar: ps/tools/eval_generalize.py: time stamp 2026-10-21 04:36:48 is 45755725.801286799 s in the future
+tar: ps/tools/export_network.py: time stamp 2026-11-01 17:30:03 is 46752520.800100449 s in the future
+tar: ps/tools/gen_e1e2_desc.py: time stamp 2026-10-30 16:12:44 is 46575081.798201743 s in the future
+tar: ps/tools/img_io.py: time stamp 2026-10-21 04:36:48 is 45755725.796656359 s in the future
+tar: ps/tools/ip_route_coverage.py: time stamp 2026-10-27 02:44:48 is 46267405.795712109 s in the future
+tar: ps/tools/make_board_bundle.py: time stamp 2026-10-27 02:42:41 is 46267278.794841653 s in the future
+tar: ps/tools/make_image_pack.py: time stamp 2026-10-21 10:47:17 is 45777954.794036411 s in the future
+tar: ps/tools/make_mock_pack.py: time stamp 2026-10-23 00:04:43 is 45912200.792498881 s in the future
+tar: ps/tools/merge_gate.sh: time stamp 2026-11-02 00:08:17 is 46776414.790635161 s in the future
+tar: ps/tools/outlier_report.py: time stamp 2026-10-21 04:36:48 is 45755725.788894933 s in the future
+tar: ps/tools/pack_bin_weights.py: time stamp 2026-10-30 10:38:59 is 46555056.786796403 s in the future
+tar: ps/tools/prep_input.py: time stamp 2026-10-21 04:36:48 is 45755725.784899257 s in the future
+tar: ps/tools/probe_atlas_order.py: time stamp 2026-10-31 04:10:25 is 46618142.782824781 s in the future
+tar: ps/tools/probe_convfp_contract.py: time stamp 2026-10-31 04:12:44 is 46618281.781200359 s in the future
+tar: ps/tools/probe_serial_k.py: time stamp 2026-11-01 17:52:40 is 46753877.780091187 s in the future
+tar: ps/tools/render_compare.py: time stamp 2026-10-21 04:36:48 is 45755725.779116661 s in the future
+tar: ps/tools/repack_k3_pad12.py: time stamp 2026-10-22 23:30:22 is 45910139.778089623 s in the future
+tar: ps/tools/repack_k5_pad28.py: time stamp 2026-10-23 00:05:08 is 45912225.777202139 s in the future
+tar: ps/tools/repack_tap_stride.py: time stamp 2026-10-30 10:21:48 is 46554025.776292065 s in the future
+tar: ps/tools/run_blas_ab.sh: time stamp 2026-10-31 04:06:58 is 46617935.775157297 s in the future
+tar: ps/tools/run_image.py: time stamp 2026-10-22 17:36:54 is 45888931.774074189 s in the future
+tar: ps/tools/sgemm_bench.c: time stamp 2026-10-31 04:20:35 is 46618752.772947323 s in the future
+tar: ps/tools/sim_pp_net.py: time stamp 2026-10-22 20:04:18 is 45897775.771938033 s in the future
+tar: ps/tools/test_c8_ab.py: time stamp 2026-10-22 20:05:49 is 45897866.770652527 s in the future
+tar: ps/tools/test_driver_discovery.py: time stamp 2026-10-21 04:36:48 is 45755725.769849289 s in the future
+tar: ps/tools/test_eca_batch_ab.py: time stamp 2026-10-31 04:04:32 is 46617789.768796481 s in the future
+tar: ps/tools/test_fuse_out_ab.py: time stamp 2026-10-22 13:01:47 is 45872424.767698661 s in the future
+tar: ps/tools/test_fuse_sum_ab.py: time stamp 2026-10-22 15:45:32 is 45882249.766508711 s in the future
+tar: ps/tools/test_k1_dispatch.py: time stamp 2026-10-27 02:56:26 is 46268103.765423701 s in the future
+tar: ps/tools/test_k1_route.py: time stamp 2026-10-27 02:55:54 is 46268071.764478965 s in the future
+tar: ps/tools/test_k3k5_route.py: time stamp 2026-10-27 02:44:08 is 46267365.763001087 s in the future
+tar: ps/tools/test_ops_vs_torch.py: time stamp 2026-10-21 04:36:48 is 45755725.761933771 s in the future
+tar: ps/tools/test_pool_plan.py: time stamp 2026-10-21 13:49:28 is 45788885.760883603 s in the future
+tar: ps/tools/test_pp_on_board.py: time stamp 2026-10-22 03:44:54 is 45839011.759870215 s in the future
+tar: ps/tools/test_pp_vs_numpy.py: time stamp 2026-10-21 17:39:45 is 45802702.758831879 s in the future
+tar: ps/tools/test_ps_opt.py: time stamp 2026-10-21 13:48:46 is 45788843.757740934 s in the future
+tar: ps/tools/test_runner_local.py: time stamp 2026-10-21 04:36:48 is 45755725.756756526 s in the future
+tar: ps/tools/test_t16_ab.py: time stamp 2026-11-01 18:33:34 is 46756331.755641024 s in the future
+tar: ps/tools/test_tap_restride.py: time stamp 2026-10-30 08:57:21 is 46548958.75443428 s in the future
+tar: ps/tools/tiled_infer.py: time stamp 2026-10-21 04:36:48 is 45755725.75320842 s in the future
+tar: ps/tools/torchless_ckpt.py: time stamp 2026-10-30 10:12:25 is 46553462.752095558 s in the future
+tar: ps/tools/verify_bin_weights.py: time stamp 2026-10-30 12:22:12 is 46561249.750836464 s in the future
+tar: ps/tools/verify_cat_fusion.py: time stamp 2026-10-31 05:02:42 is 46621279.749900254 s in the future
+tar: ps/tools/verify_e1e2_direct.py: time stamp 2026-10-31 04:47:11 is 46620348.74901463 s in the future
+tar: ps/tools/verify_e1e2_path.py: time stamp 2026-10-30 20:57:36 is 46592173.74751622 s in the future
+tar: ps/tools/verify_lazy_net.py: time stamp 2026-11-01 15:19:30 is 46744687.746378206 s in the future
+tar: ps/tools/verify_t23_mmio.py: time stamp 2026-11-01 23:57:51 is 46775788.74523829 s in the future
+  解包完成（391 个文件）
+  ✓ md5 -c 全过：159 个文件
+  python = /usr/local/share/pynq-venv/bin/python3
+=== ③-c 依赖闭包清单（与 ps/ 一起同步）===
+  主清单 md5 = bc596ebc81a58a33794f0e13db9bb187 ；镜像 md5 = bc596ebc81a58a33794f0e13db9bb187 （主机 bc596ebc81a58a33794f0e13db9bb187）
+  判据①：cd ps/pynq && md5sum -c <主清单>
+    ✓ rc=0（一致文件数 = 20）
+  判据②：deps_closure --check
+✓ deps_closure --check PASS：14 模块 / 20 文件；目录 = /home/xilinx/demoir/ps/pynq
+  闭包：bin_net, bin_engine, bin_ref_numpy, qcache, fconv, board_safe, mmio_batch, catpack, e1e2_sim, bpack, c8deq, q8, bilinear_c, convpf_c
+    rc=0
+  pl_server = /usr/local/share/pynq-venv/lib/python3.10/site-packages/pynq/pl_server
+=== ③-d 清 PYNQ 残留状态 + 释放页缓存（load 之前）===
+CmaTotal:         262144 kB
+CmaFree:          213168 kB
+  ✓ drop_caches
+===================================================================
+  单进程 一次 load：v39 @ 150.0 MHz ；hw=256 ；零护栏；LAZY=1 + 四刀 + _analyze_lazy 缓存
+  臂：A1(新) → A2,A3(复用同一 net) → B1(再做一次全新) + 附加门 64²/128² ×2
+===================================================================
+  epoch=1746801693.085992237
+[t151] 日志 = /home/xilinx/demoir/t153_out/t153a_144148.log
+[t151] 位流 = design_1_150v39.bit ；hw = 256² ；fclk 目标 = 150 ；slots = 24
+[t151] 运行点 = {"BIN_PACK": "e1e2", "BIN_LAZY_DEQ": "1", "BIN_LAZY_SLOTS": "24", "BIN_CAT_FUSION": "1", "BIN_BILINEAR_C": "1", "BIN_PRECOMP": "1", "Q8CACHE": "1", "BIN_F32DIRECT": "1", "BIN_CAT_ECA_FUSE": "1", "BIN_EPI_NOINV": "1", "BIN_PROFILE": "1", "BIN_LAZY_DEBUG": "1", "Q8CACHE_STATS": "1", "BIN_V50_FUSE": "", "BIN_VLANES": "", "BIN_SETTLE_MS": "", "NET_TPOLL": ""}
+[t151] meminfo = {"MemTotal": 1028264, "MemFree": 862040, "MemAvailable": 931836, "SwapTotal": 524284, "SwapFree": 444372, "CmaTotal": 262144, "CmaFree": 146060}
+[t151] 解释器启动 → 本模块 = 1.241 s（--epoch 口径）
+
+==============================================================================
+  P0：进程级一次性（不在 6.06 s 里，但部署每次都要付）
+==============================================================================
+  Overlay(design_1_150v39.bit) 下载 = 3.032 s
+  IP 清单：['bin_unit_0', 'conv_uni_0', 'ps7']
+  conv_uni_0  base=0x40040000 length=131072 （期望 0x40040000）✓
+  bin_unit_0  base=0x40060000 length=131072 （期望 0x40060000）✓
+  magic(0x314) = 0x00000000（v39 无 magic ⇒ 读回 0x0 按豁免 T-141）
+  0x310 = 0x00000000 ⇒ 空闲 ✓
+  第 131 条 idle 门 = ✓ ：0x310=0x00000000 ；bin_unit_0 raw=0x00000000 busy=False ；conv_uni_0 raw=0x00000000 busy=False
+
+==============================================================================
+  P0：fclk + 内核 .so 装载（q8 预热）+ arena + 引擎/权重 + NetPlan
+==============================================================================
+  fclk0 目标 150 → 读回 150 MHz（0.006 s）
+    内核 q8     load=0.258 s loaded=True
+    内核 c8deq  load=5.507 s loaded=True
+    内核 bpack  load=1.772 s loaded=True
+  **内核 .so 装载+自检合计 = 7.537 s**（= q8/c8deq/bpack 预热）
+  256² 形状：max_in 1179648 B / max_out 1572864 B / 227 个 conv / 395 个 op
+  op 种类计数 = {"unshuffle": 1, "convfp": 4, "conv": 227, "cat": 116, "add": 6, "interp": 26, "eca": 6, "sam": 6, "shuffle": 3}
+  arena 需求：24 槽 × (1179648 + 1572864 + 4096) + 64 KB = **66.22 MB**（CmaFree 前 83.1 MB）
+  arena 66.22 MB @0x30100000（0.399 s）
+
+==============================================================================
+  run1    tag=A1_first_new_engine     hw=256²  （全新 engine+net（= T-145 口径））
+==============================================================================
+  跑前 idle 门 = ✓ ：0x310=0x00000000 ；bin_unit_0 raw=0x00000000 busy=False ；conv_uni_0 raw=0x00000000 busy=False
+  engine 建 = 0.001 s ；load_weights = 0.146 s ；NetPlan+BiniNet = 0.142 s
+  输入 x0 sha1 = cfc75bc3f15d306b07787325fdc9ae715cfadd0a（冻结口径 cfc75bc3f15d306b07787325fdc9ae715cfadd0a）✓
+[DEPS] q8=fast c8deq=fast bpack=fast e1e2=fast catpack=fast safe=fast  ⇒ deps_closure_ok=True
+  [LAZY_DEQ] IN/OUT 槽数 = 24（BIN_LAZY_SLOTS）
+[Q8CACHE] hit/miss = 89/50  stale 0  逐出 0  skip 0  常驻 17.59/33.55 MB  直写 True  强引用 True  multifs True
+  **墙钟 7.964 s（perf_counter 口径 7.964）**  ⇒ 三 sha1 **全中** ✓
+     9b1940c8955b / f86a7035621b / 025757a83c39
+  跑后 idle 门 = ✓ ：0x310=0x00000000 ；bin_unit_0 raw=0x00000000 busy=False ；conv_uni_0 raw=0x00000000 busy=False
+  ---- 互不重叠桶（本次口径，单位 s）----
+    P1 循环前(每次 run) 1.085 ｜ prep 1.602 ｜ psop 2.869 ｜ epi 0.257 ｜ wait 0.716
+    kick 1.197（其中 E1E2 pack 1.145）｜ poll 0.029(389 次)
+    **Σ=7.757 vs 墙钟(pc) 7.964 ⇒ 残差 +0.207 (2.6%)**
+    P1 内拆：build_graph 0.080 ｜ _analyze_lazy 0.583 ｜ 后端+槽视图 0.004 ｜ qcache 建 0.000 ｜ enable_e1e2 0.400 ｜ 其余 0.018
+    prep 内拆：q8cache 0.712 ｜ job(描述符/量化) 0.414（desc 0.177 / f32 段量化 0.074） ｜ cfg+金丝雀 0.240 ｜ 槽 0.093
+    旧三桶（T-145 口径）：prologue 1.631 ｜ 非卷积 2.978 ｜ epilogue 0.257 ｜ wait 0.716 ｜ overlap 1.434
+    非卷积按类型：{"convfp": 1.274, "interp": 1.079, "sam": 0.263, "eca": 0.139, "cat": 0.115, "add": 0.085, "shuffle": 0.016, "unshuffle": 0.006}
+    cat 计：ops=116 惰性合并=110 回落=0 类={'i8': 60, 'mixed1': 42, 'mixed2': 8, 'blocked': 6} ｜ cat_s={'i8': 0.017, 'mixed1': 0.011, 'mixed2': 0.002, 'blocked': 0.001}
+    Q8CACHE：hit/miss = 89/50  stale 0  evict 0  skip 0  常驻 17.59 MB
+    LAZY_DEQ：direct_layers=227 deq_skipped=198 released=189 starved=9
+    E1E2 内部桶：{"views": 0.094, "desc": 0.177, "f32": 0.078, "q8": 0.074, "q8b": 15859712.0, "q8n": 13.0}
+    mmio 写 6190（跳过 5981）｜ cfg 命中 0 / 未中 227
+
+==============================================================================
+  run2    tag=A2_same_net_warm        hw=256²  （复用同一 net/engine）
+==============================================================================
+  跑前 idle 门 = ✓ ：0x310=0x00000000 ；bin_unit_0 raw=0x00000000 busy=False ；conv_uni_0 raw=0x00000000 busy=False
+  输入 x0 sha1 = cfc75bc3f15d306b07787325fdc9ae715cfadd0a（冻结口径 cfc75bc3f15d306b07787325fdc9ae715cfadd0a）✓
+  [LAZY_DEQ] IN/OUT 槽数 = 24（BIN_LAZY_SLOTS）
+[Q8CACHE] hit/miss = 89/50  stale 0  逐出 0  skip 0  常驻 17.59/33.55 MB  直写 True  强引用 True  multifs True
+  **墙钟 5.594 s（perf_counter 口径 5.594）**  ⇒ 三 sha1 **全中** ✓
+     9b1940c8955b / f86a7035621b / 025757a83c39
+  跑后 idle 门 = ✓ ：0x310=0x00000000 ；bin_unit_0 raw=0x00000000 busy=False ；conv_uni_0 raw=0x00000000 busy=False
+  ---- 互不重叠桶（本次口径，单位 s）----
+    P1 循环前(每次 run) 0.1578 ｜ prep 1.155 ｜ psop 2.014 ｜ epi 0.245 ｜ wait 0.615
+    kick 1.183（其中 E1E2 pack 1.131）｜ poll 0.030(395 次)
+    **Σ=5.400 vs 墙钟(pc) 5.594 ⇒ 残差 +0.195 (3.5%)**
+    P1 内拆：build_graph 0.088 ｜ _analyze_lazy 0.038 ｜ 后端+槽视图 0.005 ｜ qcache 建 0.000 ｜ enable_e1e2 0.000 ｜ 其余 0.026
+    prep 内拆：q8cache 0.501 ｜ job(描述符/量化) 0.257（desc 0.111 / f32 段量化 0.079） ｜ cfg+金丝雀 0.155 ｜ 槽 0.099
+    旧三桶（T-145 口径）：prologue 1.183 ｜ 非卷积 2.122 ｜ epilogue 0.245 ｜ wait 0.615 ｜ overlap 0.622
+    非卷积按类型：{"convfp": 1.257, "interp": 0.305, "sam": 0.26, "cat": 0.115, "add": 0.084, "eca": 0.08, "shuffle": 0.016, "unshuffle": 0.005}
+    cat 计：ops=116 惰性合并=110 回落=0 类={'i8': 60, 'mixed1': 42, 'mixed2': 8, 'blocked': 6} ｜ cat_s={'i8': 0.017, 'mixed1': 0.011, 'mixed2': 0.002, 'blocked': 0.001}
+    Q8CACHE：hit/miss = 89/50  stale 0  evict 0  skip 0  常驻 17.59 MB
+    LAZY_DEQ：direct_layers=227 deq_skipped=198 released=188 starved=10
+    E1E2 内部桶：{"views": 0.008, "desc": 0.11, "f32": 0.084, "q8": 0.079, "q8b": 17956864.0, "q8n": 14.0}
+    mmio 写 6176（跳过 5991）｜ cfg 命中 0 / 未中 227
+
+==============================================================================
+  run3    tag=A3_same_net_warm        hw=256²  （复用同一 net/engine）
+==============================================================================
+  跑前 idle 门 = ✓ ：0x310=0x00000000 ；bin_unit_0 raw=0x00000000 busy=False ；conv_uni_0 raw=0x00000000 busy=False
+  输入 x0 sha1 = cfc75bc3f15d306b07787325fdc9ae715cfadd0a（冻结口径 cfc75bc3f15d306b07787325fdc9ae715cfadd0a）✓
+  [LAZY_DEQ] IN/OUT 槽数 = 24（BIN_LAZY_SLOTS）
+[Q8CACHE] hit/miss = 89/50  stale 0  逐出 0  skip 0  常驻 17.59/33.55 MB  直写 True  强引用 True  multifs True
+  **墙钟 5.464 s（perf_counter 口径 5.464）**  ⇒ 三 sha1 **全中** ✓
+     9b1940c8955b / f86a7035621b / 025757a83c39
+  跑后 idle 门 = ✓ ：0x310=0x00000000 ；bin_unit_0 raw=0x00000000 busy=False ；conv_uni_0 raw=0x00000000 busy=False
+  ---- 互不重叠桶（本次口径，单位 s）----
+    P1 循环前(每次 run) 0.1596 ｜ prep 1.050 ｜ psop 2.004 ｜ epi 0.243 ｜ wait 0.623
+    kick 1.169（其中 E1E2 pack 1.119）｜ poll 0.029(397 次)
+    **Σ=5.278 vs 墙钟(pc) 5.464 ⇒ 残差 +0.186 (3.4%)**
+    P1 内拆：build_graph 0.088 ｜ _analyze_lazy 0.039 ｜ 后端+槽视图 0.005 ｜ qcache 建 0.000 ｜ enable_e1e2 0.000 ｜ 其余 0.027
+    prep 内拆：q8cache 0.500 ｜ job(描述符/量化) 0.188（desc 0.055 / f32 段量化 0.077） ｜ cfg+金丝雀 0.122 ｜ 槽 0.099
+    旧三桶（T-145 口径）：prologue 1.078 ｜ 非卷积 2.110 ｜ epilogue 0.243 ｜ wait 0.623 ｜ overlap 0.577
+    非卷积按类型：{"convfp": 1.258, "interp": 0.292, "sam": 0.259, "cat": 0.113, "add": 0.087, "eca": 0.08, "shuffle": 0.016, "unshuffle": 0.005}
+    cat 计：ops=116 惰性合并=110 回落=0 类={'i8': 60, 'mixed1': 42, 'mixed2': 8, 'blocked': 6} ｜ cat_s={'i8': 0.017, 'mixed1': 0.011, 'mixed2': 0.002, 'blocked': 0.001}
+    Q8CACHE：hit/miss = 89/50  stale 0  evict 0  skip 0  常驻 17.59 MB
+    LAZY_DEQ：direct_layers=227 deq_skipped=198 released=188 starved=10
+    E1E2 内部桶：{"views": 0.008, "desc": 0.055, "f32": 0.082, "q8": 0.077, "q8b": 17956864.0, "q8n": 14.0}
+    mmio 写 6177（跳过 5990）｜ cfg 命中 0 / 未中 227
+
+==============================================================================
+  run4    tag=B1_new_engine_again     hw=256²  （全新 engine+net（= T-145 口径））
+==============================================================================
+  跑前 idle 门 = ✓ ：0x310=0x00000000 ；bin_unit_0 raw=0x00000000 busy=False ；conv_uni_0 raw=0x00000000 busy=False
+  engine 建 = 0.001 s ；load_weights = 0.139 s ；NetPlan+BiniNet = 0.143 s
+  输入 x0 sha1 = cfc75bc3f15d306b07787325fdc9ae715cfadd0a（冻结口径 cfc75bc3f15d306b07787325fdc9ae715cfadd0a）✓
+  [LAZY_DEQ] IN/OUT 槽数 = 24（BIN_LAZY_SLOTS）
+[Q8CACHE] hit/miss = 89/50  stale 0  逐出 0  skip 0  常驻 17.59/33.55 MB  直写 True  强引用 True  multifs True
+  **墙钟 6.284 s（perf_counter 口径 6.284）**  ⇒ 三 sha1 **全中** ✓
+     9b1940c8955b / f86a7035621b / 025757a83c39
+  跑后 idle 门 = ✓ ：0x310=0x00000000 ；bin_unit_0 raw=0x00000000 busy=False ；conv_uni_0 raw=0x00000000 busy=False
+  ---- 互不重叠桶（本次口径，单位 s）----
+    P1 循环前(每次 run) 0.5371 ｜ prep 1.442 ｜ psop 2.056 ｜ epi 0.248 ｜ wait 0.618
+    kick 1.175（其中 E1E2 pack 1.125）｜ poll 0.028(393 次)
+    **Σ=6.103 vs 墙钟(pc) 6.284 ⇒ 残差 +0.181 (2.9%)**
+    P1 内拆：build_graph 0.084 ｜ _analyze_lazy 0.038 ｜ 后端+槽视图 0.004 ｜ qcache 建 0.000 ｜ enable_e1e2 0.398 ｜ 其余 0.013
+    prep 内拆：q8cache 0.692 ｜ job(描述符/量化) 0.280（desc 0.128 / f32 段量化 0.067） ｜ cfg+金丝雀 0.235 ｜ 槽 0.092
+    旧三桶（T-145 口径）：prologue 1.470 ｜ 非卷积 2.163 ｜ epilogue 0.248 ｜ wait 0.617 ｜ overlap 0.632
+    非卷积按类型：{"convfp": 1.303, "interp": 0.291, "sam": 0.261, "cat": 0.113, "eca": 0.088, "add": 0.085, "shuffle": 0.016, "unshuffle": 0.006}
+    cat 计：ops=116 惰性合并=110 回落=0 类={'i8': 60, 'mixed1': 42, 'mixed2': 8, 'blocked': 6} ｜ cat_s={'i8': 0.017, 'mixed1': 0.011, 'mixed2': 0.002, 'blocked': 0.001}
+    Q8CACHE：hit/miss = 89/50  stale 0  evict 0  skip 0  常驻 17.59 MB
+    LAZY_DEQ：direct_layers=227 deq_skipped=198 released=190 starved=8
+    E1E2 内部桶：{"views": 0.022, "desc": 0.128, "f32": 0.072, "q8": 0.067, "q8b": 15990784.0, "q8n": 10.0}
+    mmio 写 6200（跳过 5971）｜ cfg 命中 0 / 未中 227
+
+==============================================================================
+  汇总 1：逐跑互不重叠分桶 + 校验
+==============================================================================
+  run1  A1_first_new_engine    墙钟 7.964 = P1 1.085 + prep 1.602 + psop 2.869 + epi 0.257 + wait 0.716 + kick 1.197 + poll 0.029 + 其它 +0.207（2.6%）
+        PL(含pack) 3.212 ｜ PS(旧口径) 4.866 ｜ overlap 1.434 ｜ 命中 True
+  run2  A2_same_net_warm       墙钟 5.595 = P1 0.158 + prep 1.155 + psop 2.014 + epi 0.245 + wait 0.615 + kick 1.183 + poll 0.030 + 其它 +0.195（3.5%）
+        PL(含pack) 2.275 ｜ PS(旧口径) 3.550 ｜ overlap 0.622 ｜ 命中 True
+  run3  A3_same_net_warm       墙钟 5.464 = P1 0.160 + prep 1.050 + psop 2.004 + epi 0.243 + wait 0.623 + kick 1.169 + poll 0.029 + 其它 +0.186（3.4%）
+        PL(含pack) 2.222 ｜ PS(旧口径) 3.431 ｜ overlap 0.577 ｜ 命中 True
+  run4  B1_new_engine_again    墙钟 6.285 = P1 0.537 + prep 1.442 + psop 2.056 + epi 0.248 + wait 0.618 + kick 1.175 + poll 0.028 + 其它 +0.181（2.9%）
+        PL(含pack) 2.271 ｜ PS(旧口径) 3.880 ｜ overlap 0.632 ｜ 命中 True
+
+==============================================================================
+  汇总 2：★ 分桶表（取最接近稳态的一跑：run3 A3_same_net_warm，墙钟 5.464 s）
+==============================================================================
+  P1 循环前固定开销（build_graph+分析+后端+qcache）                       0.160    2.9%
+     ├ build_graph（建图）                                       0.088    1.6%
+     ├ _analyze_lazy（惰性/cat 分析）                              0.039    0.7%
+     ├ 后端 + 48 个槽视图 + 金丝雀                                    0.005    0.1%
+     ├ qcache 建（33 MB 上限）                                    0.000    0.0%
+     └ 其余（enable_e1e2 等）                                     0.027    0.5%
+  prologue：prepare（不含等 PL）                                   1.050   19.2%
+     ├ 量化缓存 q8_segments（f32 叶子→int8）                         0.500    9.2%
+     ├ 段表/描述符 prepare_segments                               0.188    3.4%
+     │    ├ desc（描述符构建）                                      0.055    1.0%
+     │    └ q8（f32 段量化 + C8 落位）                              0.077    1.4%
+     ├ cfg 写配置页 + 金丝雀                                        0.122    2.2%
+     ├ 槽获取                                                   0.099    1.8%
+     └ 其余（分类/惰性物化/pack_input/push_input）                     0.141    2.6%
+  kick（发 start，含 E1E2 pack）                                  1.169   21.4%
+     └ pack/量化：E1E2 run_prepared                             1.119   20.5%
+  非卷积算子（168 op，按类型见汇总 3）                                     2.004   36.7%
+  epilogue（反量化/钉槽/read_out）                                  0.243    4.5%
+  wait-for-PL（prepare 里等 + 循环阻塞）                             0.623   11.4%
+  poll（循环顶 MMIO 轮询，旧桶没有）                                     0.029    0.5%
+  其它（循环 Python 开销 = 残差）                                      0.186    3.4%
+  Σ（只加顶层项）                                                   5.464  100.0%  （误差 -0.000 s / -0.0%）
+  ※ overlap 0.577 s 是**视图**（⊂ prep+psop，和 PL 并行做掉的部分），不参与上面求和
+  ※ PL 口径 2.222 s = 每层 kick→看见 done 的和（含 pack 1.119）；它与 wait 有交叠，不是独立桶
+
+==============================================================================
+  汇总 3：非卷积算子按类型（时间/次数/单次）
+==============================================================================
+  convfp       1.256 s   62.6% ｜ n=  4 ｜ 单次均 313.89 ms ｜ 最大 554.70 ms ｜ in+out 10.5 MB ⇒    8.3 MB/s  (decoder.decoder_1.conv)
+  interp       0.279 s   13.9% ｜ n= 26 ｜ 单次均  10.73 ms ｜ 最大  31.97 ms ｜ in+out 57.5 MB ⇒  206.1 MB/s  (coder_1.sam_blocks.0:b2_up)
+  sam          0.253 s   12.6% ｜ n=  6 ｜ 单次均  42.13 ms ｜ 最大  85.52 ms ｜ in+out 55.1 MB ⇒  217.8 MB/s  (.sam_blocks.0:weighted_sum)
+  add          0.083 s    4.2% ｜ n=  6 ｜ 单次均  13.90 ms ｜ 最大  33.71 ms ｜ in+out 33.0 MB ⇒  396.0 MB/s  (der.decoder_1.rdb:residual)
+  eca          0.078 s    3.9% ｜ n=  6 ｜ 单次均  12.98 ms ｜ 最大  22.52 ms ｜ in+out 33.0 MB ⇒  424.3 MB/s  (oder_1.sam_blocks.0.fusion)
+  cat          0.037 s    1.8% ｜ n=116 ｜ 单次均   0.32 ms ｜ 最大   0.42 ms ｜ in+out 1003.6 MB ⇒ 27398.4 MB/s  (b2.ghost_layers.3:cat_prev)
+  shuffle      0.014 s    0.7% ｜ n=  3 ｜ 单次均   4.77 ms ｜ 最大  10.71 ms ｜ in+out 2.1 MB ⇒  144.4 MB/s  (decoder_1:pixel_shuffle(2))
+  unshuffle    0.005 s    0.2% ｜ n=  1 ｜ 单次均   4.75 ms ｜ 最大   4.75 ms ｜ in+out 1.6 MB ⇒  331.1 MB/s  (input:pixel_unshuffle(2))
+  合计 2.004 s（168 个 PS op）
+
+==============================================================================
+  汇总 4：conv prologue 按层（227 层，单层 prepare 时间）
+==============================================================================
+  单层 prepare：min 1.10 / 中位 2.10 / p90 9.30 / max 111.00 ms ｜ 合计 1.050 s
+  最慢 10 层：
+     110.99 ms  encoder.encoder_1.rdb.conv_layers.0.conv cin= 48 cout= 64 128x128 need_in=1048576 n_f32=0
+      53.51 ms  oder.encoder_1.sam_blocks.0.b0.conv.conv cin=368 cout= 48 128x128 need_in=6291456 n_f32=3
+      51.32 ms  oder.decoder_1.sam_blocks.0.b0.conv.conv cin=544 cout= 64 128x128 need_in=9437184 n_f32=2
+      35.72 ms  decoder.preconv_1.conv                   cin=112 cout= 64 128x128 need_in=2097152 n_f32=0
+      25.25 ms  0.b4.ghost_layers.3.cheap_operation.conv cin= 48 cout= 48 32x32 need_in=65536 n_f32=0
+      23.63 ms  0.b0.ghost_layers.4.cheap_operation.conv cin= 48 cout= 48 128x128 need_in=1048576 n_f32=0
+      22.90 ms  ks.0.b0.ghost_layers.4.primary_conv.conv cin=304 cout= 32 128x128 need_in=5242880 n_f32=1
+      21.13 ms  decoder.decoder_1.rdb.conv_layers.2.conv cin=256 cout= 96 128x128 need_in=4194304 n_f32=0
+      21.13 ms  ks.0.b0.ghost_layers.0.primary_conv.conv cin= 64 cout= 48 128x128 need_in=1048576 n_f32=0
+      20.78 ms  decoder.decoder_1.rdb.conv_layers.0.conv cin= 64 cout= 96 128x128 need_in=1048576 n_f32=0
+
+==============================================================================
+  汇总 5：每层 PL elapsed / pack / prep（前 12 慢 + 合计）
+==============================================================================
+  每层 PL（kick→done 观测）：min 0.20 / 中位 2.00 / p90 11.50 / max 71.80 ms ｜ 合计 1.095 s
+  每层 E1E2 pack：合计 1.127 s（中位 3.20 ms）
+  ★ pack 拆分：**纯 i8 段（n_f32=0）217 层 ⇒ 0.978 s**（均 4.51 ms） ｜ 含 f32 段 10 层 ⇒ 0.149 s（均 14.88 ms）
+  ★ 纯 i8 层的 pack 只是「把段表/描述符交给 E1E2 再等它完成」⇒ 与 conv_uni 完全串行（kick 时 conv 引擎是空的）
+    PL   71.82 ms  pack  19.29 ms  prep  21.10 ms  decoder.decoder_1.rdb.conv_layers.2.conv
+    PL   54.32 ms  pack  13.73 ms  prep   1.84 ms  decoder.decoder_1.rdb.conv_layers.1.conv
+    PL   53.05 ms  pack  11.14 ms  prep  14.96 ms  m_blocks.0.b2.ghost_layers.4.primary_conv.conv
+    PL   36.52 ms  pack  14.35 ms  prep  16.36 ms  encoder.encoder_1.rdb.conv_layers.2.conv
+    PL   33.00 ms  pack   2.23 ms  prep   1.69 ms  locks.0.b4.ghost_layers.4.cheap_operation.conv
+    PL   25.76 ms  pack  32.42 ms  prep   3.46 ms  m_blocks.0.b0.ghost_layers.4.primary_conv.conv
+    PL   24.65 ms  pack   9.82 ms  prep  16.27 ms  encoder.encoder_1.rdb.conv_layers.1.conv
+    PL   24.59 ms  pack   9.82 ms  prep  35.69 ms  decoder.preconv_1.conv
+    PL   24.13 ms  pack   1.98 ms  prep  25.22 ms  locks.0.b4.ghost_layers.3.cheap_operation.conv
+    PL   22.53 ms  pack   5.36 ms  prep   3.59 ms  encoder.encoder_1.sam_blocks.0.b4.conv.conv
+    PL   18.86 ms  pack   6.86 ms  prep   1.81 ms  decoder.decoder_2.rdb.conv_layers.2.conv
+    PL   18.83 ms  pack   5.85 ms  prep  20.75 ms  decoder.decoder_1.rdb.conv_layers.0.conv
+
+==============================================================================
+  汇总 6：第 1 次 vs 第 2/3 次（常驻进程能拿多少）
+==============================================================================
+  run1（全新 engine+net）墙钟 7.964 ｜ prep 1.602 ｜ psop 2.869 ｜ pack 1.145 ｜ poll 0.029 ｜ P1 1.085
+  run2  A2_same_net_warm       墙钟 5.595（-2.370 s，-29.8%）
+  run3  A3_same_net_warm       墙钟 5.464（-2.500 s，-31.4%）
+  run4  B1_new_engine_again    墙钟 6.285（-1.680 s，-21.1%）
+  墙钟 min 5.464 / 中位 6.285 / max 7.964（4 跑）
+
+==============================================================================
+  汇总 7：'PS ≤ 2.7 s' 的账（PL 2.3 s 不动 ⇒ 256² 总 ≤5 s）
+==============================================================================
+  当前 PS（旧三桶口径 prologue+非卷积+epilogue） = 3.431 s ；目标 2.7 s ⇒ 差 0.731 s
+  新口径里**由 PS 线程花掉**的时间（P1+prep+psop+epi+wait+kick+poll）= 5.278 s
+  ★ 旧口径漏掉但真实存在：P1 0.160（每次 run 的建图/分析） + poll 0.029（循环顶 MMIO）⇒ 旧'PS 3.1 s'**低估**了 0.189 s
+  ---- 可压缩候选（按数值大小）----
+    kick 里 E1E2 pack                     1.119 s  （占墙钟  20.5%）
+    wait-for-PL                          0.623 s  （占墙钟  11.4%）
+    非卷积 convfp（单 op：der.decoder_1.conv）   0.555 s  （占墙钟  10.2%）
+    prologue q8cache                     0.500 s  （占墙钟   9.2%）
+    非卷积 convfp（单 op：coder.conv_first.0）   0.492 s  （占墙钟   9.0%）
+    epilogue                             0.243 s  （占墙钟   4.5%）
+    P1 循环前固定开销                           0.160 s  （占墙钟   2.9%）
+    非卷积 convfp（单 op：der.decoder_2.conv）   0.147 s  （占墙钟   2.7%）
+    prologue 其它                          0.141 s  （占墙钟   2.6%）
+    prologue cfg+金丝雀                     0.122 s  （占墙钟   2.2%）
+    非卷积 sam（单 op：cks.0:weighted_sum）     0.086 s  （占墙钟   1.6%）
+    prologue q8(f32 段量化+C8)              0.077 s  （占墙钟   1.4%）
+    非卷积 sam（单 op：cks.0:weighted_sum）     0.066 s  （占墙钟   1.2%）
+    非卷积 convfp（单 op：der.decoder_3.conv）   0.062 s  （占墙钟   1.1%）
+    prologue desc 构建                     0.055 s  （占墙钟   1.0%）
+    非卷积 sam（单 op：cks.0:weighted_sum）     0.040 s  （占墙钟   0.7%）
+    非卷积 add（单 op：der_1.rdb:residual）     0.034 s  （占墙钟   0.6%）
+    非卷积 interp（单 op：sam_blocks.0:b2_up）   0.032 s  （占墙钟   0.6%）
+    poll                                 0.029 s  （占墙钟   0.5%）
+
+==============================================================================
+  附加门（T-153）：64²/128² 三 sha1 + 同尺寸第 2 跑命中分析缓存
+==============================================================================
+  64² arena 4.29 MB @0x34100000（max_in 73728 / max_out 98304）
+  [LAZY_DEQ] IN/OUT 槽数 = 24（BIN_LAZY_SLOTS）
+[Q8CACHE] hit/miss = 89/50  stale 0  逐出 0  skip 0  常驻 1.10/33.55 MB  直写 True  强引用 True  multifs True
+  64² run0 墙钟 3.301 ｜ sig a156f33daaf92622 ｜ 三 sha1 bfa246d34681/226bd39e522a/762d84b9618e ⇒ **全中** ✓
+      跑后 idle 门 = ✓ ：0x310=0x00000000 ；bin_unit_0 raw=0x00000000 busy=False ；conv_uni_0 raw=0x00000000 busy=False
+  [LAZY_DEQ] IN/OUT 槽数 = 24（BIN_LAZY_SLOTS）
+[Q8CACHE] hit/miss = 89/50  stale 0  逐出 0  skip 0  常驻 1.10/33.55 MB  直写 True  强引用 True  multifs True
+  64² run1 墙钟 1.881 ｜ sig a156f33daaf92622 ｜ 三 sha1 bfa246d34681/226bd39e522a/762d84b9618e ⇒ **全中** ✓
+      跑后 idle 门 = ✓ ：0x310=0x00000000 ；bin_unit_0 raw=0x00000000 busy=False ；conv_uni_0 raw=0x00000000 busy=False
+  64² 缓存证据：两次 sig 相同=True ；第 2 跑命中增量=1
+  128² arena 16.68 MB @0x34100000（max_in 294912 / max_out 393216）
+  [LAZY_DEQ] IN/OUT 槽数 = 24（BIN_LAZY_SLOTS）
+[Q8CACHE] hit/miss = 89/50  stale 0  逐出 0  skip 0  常驻 4.40/33.55 MB  直写 True  强引用 True  multifs True
+  128² run0 墙钟 3.778 ｜ sig f78fcd86baec90ba ｜ 三 sha1 27e25cf67fda/b82b83f3d7eb/6db4e9bb19e0 ⇒ **全中** ✓
+      跑后 idle 门 = ✓ ：0x310=0x00000000 ；bin_unit_0 raw=0x00000000 busy=False ；conv_uni_0 raw=0x00000000 busy=False
+  [LAZY_DEQ] IN/OUT 槽数 = 24（BIN_LAZY_SLOTS）
+[Q8CACHE] hit/miss = 89/50  stale 0  逐出 0  skip 0  常驻 4.40/33.55 MB  直写 True  强引用 True  multifs True
+  128² run1 墙钟 2.686 ｜ sig f78fcd86baec90ba ｜ 三 sha1 27e25cf67fda/b82b83f3d7eb/6db4e9bb19e0 ⇒ **全中** ✓
+      跑后 idle 门 = ✓ ：0x310=0x00000000 ；bin_unit_0 raw=0x00000000 busy=False ；conv_uni_0 raw=0x00000000 busy=False
+  128² 缓存证据：两次 sig 相同=True ；第 2 跑命中增量=1
+  附加门总计：✓ 全过 ；分析缓存统计 = {'hit': 5, 'miss': 3} ；条目 3
+
+==============================================================================
+  P0 汇总：进程级一次性（部署每次都要付，**不在 6.06 s 里**）
+==============================================================================
+  module_start         @+0.000 s
+  numpy_imported       @+1.465 s
+  bin_engine_imported  @+13.710 s
+  overlay_start        @+13.773 s
+  overlay_done         @+16.806 s
+  fclk                 @+16.809 s
+  kernels              @+16.816 s
+  arena                @+24.912 s
+  Overlay 下载 3.032 s ｜ 内核装载 7.537 s ｜ arena 0.399 s ｜ 其余见上
+  [JSON] /home/xilinx/demoir/t153_out/t153a_144148_144239.json
+
+[t153] 收尾：不 poweroff（外层只 sync; sync）
+  [t153a] 探针 rc=0  用时 69 s
+  ✓ 各跑三 sha1 全中参照
+602725b86941864eeeeab3be005e1e81  /home/xilinx/demoir/design_1_150v39.bit
+=== ③-h 跑后凭据 ===
+MemFree:          902104 kB
+CmaTotal:         262144 kB
+CmaFree:          198984 kB
+total 684
+drwxrwxr-x  2 xilinx xilinx   4096 May  9 14:42 .
+drwxrwxr-x 86 xilinx xilinx  12288 May  9 14:29 ..
+-rw-rw-r--  1 xilinx xilinx    300 May  9 14:41 ps_deps_md5sum_c.txt
+-rw-rw-r--  1 xilinx xilinx   4743 May  9 14:41 ps_md5_board_check.txt
+-rw-r--r--  1 root   root   611580 May  9 14:42 t153a_144148_144239.json
+-rw-r--r--  1 root   root    24276 May  9 14:42 t153a_144148.log
+-rw-rw-r--  1 xilinx xilinx     74 May  9 14:42 t153a_bit_after.md5
+-rw-rw-r--  1 xilinx xilinx  25744 May  9 14:42 t153a_run.log
+  [t153a] 收尾只 sync（不 poweroff）
+  [t153a] 仍开机：uptime=14:42:42 up 10:25,  1 user,  load average: 1.23, 1.29, 1.00
+[t153a] ③ 返回 rc=0
+[t153a] ④ 产物已拉回 /media/felix/Data/coding/demoir-fpga/runs/board_t153
+[t153a] DONE rc=0
+[boardlock] 释放板级锁 12:07:34  rc=0
