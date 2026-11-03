@@ -258,7 +258,8 @@ class Pipeline:
             self._ensure_fake()
         else:
             self._ensure_overlay()           # ① 先 load：load 之前 ZOCL 无上下文
-            self._gate_code_md5()            # ② 必须是 v57 定版 PS 代码（§3.3）
+            self._gate_code_md5() if self.strict_code else self.log(  # ② §3.3
+                "[PIPE] ⚠ strict_code=False ⇒ 跳过 PS 代码 md5 门禁（不推荐，数值出处不可证）")
             self._gate_has_hdmi()            # ③ 位流没 HDMI 从设备就别碰 0x400A0000
             self._ensure_io()
             self._set_fclk()                 # ④ 写 75（运行点），打印目标/读回
@@ -290,8 +291,7 @@ class Pipeline:
     def _gate_has_hdmi(self) -> None:
         """位流里必须有 HDMI 从设备；否则写 ``0x400A0000`` 会挂死总线（05 §8.1 同类事故）。"""
         ips = getattr(self._overlay_obj, "ip_dict", None)
-        if ips is None:
-            return                            # 调用方自己给了 disp/io，不归我们判
+        if ips is None: return                # 调用方自己给了 disp/io，不归我们判
         if not [k for k in ips if "hdmi" in str(k).lower()]:
             raise PipelineError(
                 f"位流里找不到 HDMI 从设备（ip_dict 无 *hdmi*）：{sorted(ips)[:8]}… ⇒ "

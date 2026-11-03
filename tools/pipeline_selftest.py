@@ -19,7 +19,11 @@
 
 from __future__ import annotations
 
+import argparse
+import contextlib
 import hashlib
+import re
+import subprocess
 import json
 import os
 import sys
@@ -59,14 +63,25 @@ import demo_pipeline as dp                            # noqa: E402
 
 FAILS: list[str] = []
 CHECKS = [0]
+SECTION = ["G0"]          # 当前小节（G1/G1b/G2/...）
+SEQ = [0]                 # 小节内序号
+RECORDS: list[tuple[str, bool, str]] = []   # (判据号, 通过?, 说明) —— --ids 用它出索引
+
+
+def section(name: str) -> None:
+    """进入一个判据小节：之后每条 check 的判据号变成 ``name.N``。"""
+    SECTION[0], SEQ[0] = name, 0
 
 
 def check(cond: bool, msg: str) -> bool:
-    """记录一条判据；不通过就记进 FAILS。"""
+    """记录一条判据（判据号 = 小节.序号，``--ids`` 可打印完整索引）；不通过就记进 FAILS。"""
+    SEQ[0] += 1
+    cid = f"{SECTION[0]}.{SEQ[0]}"
+    RECORDS.append((cid, bool(cond), msg))
     CHECKS[0] += 1
     if not cond:
-        FAILS.append(msg)
-        print(f"  ❌ {msg}")
+        FAILS.append(f"[{cid}] {msg}")
+        print(f"  ❌ [{cid}] {msg}")
     return bool(cond)
 
 
@@ -266,6 +281,7 @@ def run_case(behavior, size: int = 64, timeout: float = 8.0):
 # [1] 协议回环
 # ---------------------------------------------------------------------------
 def test_loopback() -> None:
+    section("G1")
     print("\n[1] 协议回环（假相机 → CamClient）")
     img = known_image(256)
     cam = FakeCam(img, chunk=4096)             # 4 KB/recv ⇒ 196608 B 要走 48 次短读
@@ -358,6 +374,7 @@ def test_loopback() -> None:
 #      逼出真实的 TCP 短读（上面 [1] 用的是内存 socket，测不到 socket 层）
 # ---------------------------------------------------------------------------
 def test_loopback_tcp() -> None:
+    section("G1b")
     import socket
     import threading
 
@@ -414,6 +431,82 @@ def test_loopback_tcp() -> None:
 
 
 # ---------------------------------------------------------------------------
+# [1c] 跨团队：相机侧仓库的假相机（**独立实现**）真 TCP 回环
+#      只有本机存在那个仓库时才跑；板上/别的机器会明确 SKIP（不算通过，也不算失败）
+# ---------------------------------------------------------------------------
+CAM_REPO = "/media/felix/892G/ai/maxicam/apps/pc/fake_camera.py"
+
+
+@contextlib.contextmanager
+def _camera_server(extra=()):
+    """起一个相机侧 fake_camera.py（``--port 0``），从它的启动行里读回真实端口。"""
+    proc = subprocess.Popen([sys.executable, CAM_REPO, "--host", "127.0.0.1", "--port", "0",
+                             "--quiet", *extra], stdout=subprocess.PIPE, text=True,
+                            stderr=subprocess.STDOUT, bufsize=1)
+    port = None
+    try:
+        deadline = time.monotonic() + 10.0
+        while time.monotonic() < deadline:
+            line = proc.stdout.readline()
+            if not line:
+                break
+            m = re.search(r":(\d+)\s*$", line.strip())
+            if m:
+                port = int(m.group(1))
+                break
+        if port is None:
+            raise RuntimeError("fake_camera 没报出监听端口")
+        yield port
+    finally:
+        proc.terminate()
+        try:
+            proc.wait(timeout=5)
+        except subprocess.TimeoutExpired:
+            proc.kill()
+
+
+def test_cross_team() -> None:
+    print("\n[1c] 跨团队：相机侧 fake_camera.py（独立实现）真 TCP 回环")
+    section("G1c")
+    if not os.path.exists(CAM_REPO):
+        print(f"  ⚠ SKIP：未找到 {CAM_REPO}（板端/别的机器没有相机仓库）"
+              f" ⇒ 本机只跑了内存假相机那两档")
+        return
+
+    cases = (
+        ("正常", (), None),
+        ("md5 错", ("--corrupt", "md5"), CamChecksumError),
+        ("少 1 字节", ("--corrupt", "short"), CamShortPayload),
+        ("包头截断", ("--corrupt", "truncate"), CamDisconnected),
+        ("中途断开", ("--corrupt", "drop"), CamShortPayload),
+        ("busy", ("--status", "busy"), CamBusy),
+    )
+    for name, args, etype in cases:
+        try:
+            with _camera_server(args) as port:
+                cli = CamClient(host="127.0.0.1", port=port, timeout=2.5)
+                if etype is None:
+                    a = cli.shot(256, 256)
+                    b = cli.shot(256, 256)
+                    check(a.shape == (256, 256, 3) and a.dtype == np.uint8,
+                          f"[相机侧] 正常回图应为 (256,256,3) uint8，得到 {a.shape}/{a.dtype}")
+                    check(np.array_equal(a, b), "[相机侧] 同一图案两次取图应逐字节相同")
+                    check(int(a.std()) > 0, "[相机侧] 回的图不应是纯色（图案没生成）")
+                else:
+                    try:
+                        cli.shot(256, 256)
+                    except etype:
+                        check(True, f"[相机侧] {name}：正确抛 {etype.__name__}")
+                    else:
+                        check(False, f"[相机侧] {name}：必须抛 {etype.__name__}，不许静默通过")
+                cli.close()
+        except Exception as ex:                                 # noqa: BLE001
+            check(False, f"[相机侧] {name}：联调脚本自身出错：{ex!r}")
+    print("  ✓ 跨团队 6 种情况 / 8 条判据（正常 ×3 + md5/短读/包头截断/断开/busy）"
+          " 与相机侧实现一致")
+
+
+# ---------------------------------------------------------------------------
 # [2] 坏包注入 5 种（+ 4 种附加）—— 每种必须报**不同**的原因
 # ---------------------------------------------------------------------------
 BAD5 = (
@@ -435,6 +528,7 @@ BAD_EXTRA = (
 
 
 def test_bad_packets() -> None:
+    section("G2")
     print("\n[2] 坏包注入：5 种必修 + 4 种附加，每种报不同原因")
     reasons: dict[str, str] = {}
     for name, fn, etype, reason in BAD5 + BAD_EXTRA:
@@ -477,6 +571,7 @@ def test_bad_packets() -> None:
 # [3] 重试语义（用假相机的请求计数断言"正好请求了 N 次"）
 # ---------------------------------------------------------------------------
 def test_retry() -> None:
+    section("G3")
     print("\n[3] 重试语义（同 seq 重发 / 次数精确）")
 
     # --- md5 一直错：必须**同 seq** 重发**正好 1 次**（总请求 2 次）---
@@ -589,6 +684,7 @@ def _block_bytes(alloc) -> bytes:
 
 
 def test_compose_e2e() -> None:
+    section("G4")
     print("\n[4] 端到端合成：假相机 → 假引擎 → compose → DDR 块")
     img = known_image(256)
     disp, alloc, _io = _fake_disp()
@@ -635,6 +731,7 @@ class SnapRegIo(dp.LocalRegIo):
 
 
 def test_frame_atomicity() -> None:
+    section("G5")
     print("\n[5] 换帧原子性：FRAME_ID 只在整帧落地后递增（假 reg_io 记写序列）")
     img1 = known_image(256)
     img2 = known_image(256)[::-1].copy()          # 第二帧换成**不同**的图 ⇒ 快照能分辨
@@ -673,6 +770,7 @@ def test_frame_atomicity() -> None:
 
 
 def test_fake_pipeline() -> None:
+    section("G6")
     print("\n[6] --fake 全流程（Pipeline.run_once + CLI + 运行点）")
     lines = []
     pipe = dp.Pipeline(fake=True, log=lines.append)
@@ -771,7 +869,10 @@ def test_fake_pipeline() -> None:
 
 
 # ---------------------------------------------------------------------------
-def main() -> int:
+def main(argv=None) -> int:
+    ap = argparse.ArgumentParser(description="端到端流水线主机自检")
+    ap.add_argument("--ids", action="store_true", help="打印判据索引（判据号 → 说明）后退出")
+    a = ap.parse_args(argv)
     print("=" * 78)
     print("端到端流水线主机自检：协议回环 / 坏包 / 重试 / 端到端合成 / 换帧原子性 / --fake")
     print("  （内存假相机 + 真实 TCP 回环两档；不连真相机）")
@@ -780,11 +881,18 @@ def main() -> int:
 
     test_loopback()
     test_loopback_tcp()
+    test_cross_team()
     test_bad_packets()
     test_retry()
     test_compose_e2e()
     test_frame_atomicity()
     test_fake_pipeline()
+
+    if a.ids:
+        print("\n判据索引（判据号 → 说明）")
+        for cid, ok, msg in RECORDS:
+            print(f"  {cid:<7} {'PASS' if ok else 'FAIL'}  {msg}")
+        return 0 if not FAILS else 1
 
     print("\n" + "=" * 78)
     if FAILS:
