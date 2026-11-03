@@ -870,6 +870,26 @@ def test_fake_pipeline() -> None:
     else:
         check(False, "种子探针不符必须抛（否则算错的帧会被送去显示）")
 
+    # 心跳先行：**不调 setup()** 也必须能读 0x30（板端 §8.2 要求读心跳早于一切；
+    # 这个 API 曾因 _io 只在 setup() 里创建而在真机上必崩）
+    class _HbIo(ho.FakeRegIo):
+        """心跳半周期 2 ms ⇒ 反推 ≈ 32.768 MHz。"""
+
+        def __init__(self):
+            super().__init__()
+            self.t0 = time.monotonic()
+
+        def read32(self, off):
+            if (int(off) & ~3) == ho.REG["PIX_HB"]:
+                return int((time.monotonic() - self.t0) / 0.002) & 1
+            return super().read32(off)
+
+    p6 = dd.DisplayPipeline(reg_io=_HbIo(), mode=dd.DEFAULT_MODE)   # 故意不调 setup()
+    alive6, mhz6 = p6.pix_alive(150)
+    check(alive6 and 28.0 <= mhz6 <= 37.0,
+          f"心跳先行：不调 setup() 也要能 pix_alive（得到 alive={alive6} {mhz6:.2f} MHz）")
+    check(p6.mmcm_locked() in (True, False), "mmcm_locked() 必须在 setup() 之前也可读")
+
     print(f"  ✓ 全流程：{res['t_total_s']:.3f} s（fake），阶段日志/运行点/CLI 全对")
     pipe.close()
     p5.close()

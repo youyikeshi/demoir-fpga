@@ -338,6 +338,7 @@ class DisplayPipeline:
         """
         if not (window_ms > 0):
             raise ValueError(f"window_ms 必须 > 0，得到 {window_ms}")
+        self._ensure_io()          # 循环外解析一次：setup() 之前也能读，且热循环不加开销
         t_end = time.monotonic() + window_ms / 1000.0
         last, edges = None, 0
         t_first = t_last = time.monotonic()
