@@ -52,6 +52,29 @@ echo xilinx | sudo -S -p '' env XILINX_XRT=/usr \
 ... demo_player.py --auto --start-delay 1.0 --loops 3 --once
 ```
 
+## 1.5 三种跑法（复制粘贴）
+
+```bash
+cd /home/xilinx/demo
+SUDO="echo xilinx | sudo -S -p ''"
+PYB=/usr/local/share/pynq-venv/bin/python3
+
+# ① 对焦/构图：定住第一对，不切换
+$SUDO env XILINX_XRT=/usr $PYB -u demo_player.py --pairs /home/xilinx/demo/pairs \
+      --still 0 --log /home/xilinx/demo/player_still.log
+
+# ② 试片（不用相机）：自己开播 3 轮 = 24 帧
+$SUDO env XILINX_XRT=/usr $PYB -u demo_player.py --pairs /home/xilinx/demo/pairs \
+      --auto --start-delay 20 --loops 3 --once --log /home/xilinx/demo/player_trial.log
+
+# ③ 正式：常驻等相机 START，无限循环
+$SUDO env XILINX_XRT=/usr $PYB -u demo_player.py --pairs /home/xilinx/demo/pairs \
+      --loops 0 --period 1.0 --start-delay 1.0 \
+      --log /home/xilinx/demo/player.log --pidfile /tmp/demo_player.pid
+```
+
+> 三种跑法**只差命令行参数**，代码一条不改。
+
 ## 2. 相机侧命令（MaixCAM）
 
 板端地址 **`10.13.148.100`**，端口 **`9999`**（相机自己是 `10.13.148.1`）。
@@ -114,4 +137,27 @@ nonblack          ≥ 80%        （实测 88.8% = 640/720 内容区）
 START→首帧        = 延迟 + <10 ms
 帧间隔            = 1.000000 ± 0.001 s
 收尾              = CTRL=0x15 / 缓冲释放 / operating / sync rc=0
+```
+
+
+## 6. 禁令（今晚付过学费的三条）
+
+1. **不要写 `CTRL[1]` 软复位**（`CTRL=0x03` 保持 ~20 ms）
+   ⇒ 会打到 `hdmi_fb_scan.cfg_soft_reset`，之后扫描 FSM 不再吐 `pix_valid`
+   ⇒ **DE 有效但像素全 0 = 全黑**，而 `0x2C` 仍为 0（握手根本不发）。
+   今晚为这一个动作排查了 4 轮。
+2. **不要在 `DisplayPipeline.setup()` 之后写 `CTRL=0x15`**
+   ⇒ `test_pattern=1` 会把扫描通路关掉（`cfg_enable = ctrl_enable && !ctrl_test`）。
+   正确顺序：`CTRL=0x15` → 1 s → `setup()` → `CTRL=0x01`（就是 `minimal_proof.bringup()`）。
+3. **不要改 `demo_player` 的寄存器调用**
+   ⇒ 一切走 `minimal_proof.bringup() / show()`。
+   今晚"照着最小脚本重写"的 4 个版本全黑，而打桩 diff 显示**寄存器写序列逐条相同** ——
+   差异在进程环境/时序里，肉眼看不出来。等价性只能靠"同一份代码"。
+
+### 收工信号怎么发
+```bash
+# ✅ 正确
+echo xilinx | sudo -S -p '' kill -TERM $(cat /tmp/demo_player.pid)
+# ❌ 禁止：kill -9 打到 sudo（今晚踩过，python 子进程变僵尸还占 CMA）
+# ❌ 禁止：pkill -f demo_player（会匹配到自己的命令行）
 ```

@@ -287,6 +287,115 @@ def _ensure_out1(name: str, crop: np.ndarray, raw_dir: str, ckpt: str,
 
 
 # ---------------------------------------------------------------------------
+# external / frames 两种"吃现成图"的模式
+# ---------------------------------------------------------------------------
+#: external 模式认的"右半"后缀，按优先级
+EXT_RIGHT_SUFFIXES = ("out", "proc", "res", "pred", "result", "gt")
+EXT_SUFFIX_ALT = ("moire", "in")          # 左半
+FULL_W, FULL_H = DISP_W, DISP_H           # frames 模式的整幅尺寸
+
+
+def load_square_to(path: str, side: int = PAIR_SIDE) -> np.ndarray:
+    """任意尺寸 → 中心正方形裁切 → 双线性缩放到 ``side²``（左右必须同一处理）。"""
+    with Image.open(path) as im:
+        im = im.convert("RGB")
+        w, h = im.size
+        sq = min(w, h)
+        im = im.crop(((w - sq) // 2, (h - sq) // 2, (w - sq) // 2 + sq, (h - sq) // 2 + sq))
+        im = im.resize((side, side), Image.BILINEAR)
+    return np.asarray(im, dtype=np.uint8)
+
+
+def frame_to_halves(path: str) -> tuple[np.ndarray, np.ndarray]:
+    """整幅成品图（1280x720 或任意比例）→ 左/右两半 640x640。
+
+    - 已经是 1280x720：直接取**内容区** ``rows 40..680``（上下黑边丢掉）；
+    - 其它尺寸：先按 16:9 中心裁切再缩到 1280x720，然后同样取 `rows 40..680`。
+      所以"同事直接给排好版的对比图"也能吃，不用他拆两半。
+    """
+    with Image.open(path) as im:
+        im = im.convert("RGB")
+        if im.size == (FULL_W, FULL_H):
+            f = im
+        else:
+            w, h = im.size
+            target = 16.0 / 9.0
+            if w / float(h) > target:                 # 太宽 → 裁左右
+                nw = int(round(h * target))
+                im = im.crop(((w - nw) // 2, 0, (w - nw) // 2 + nw, h))
+            elif w / float(h) < target:               # 太高 → 裁上下
+                nh = int(round(w / target))
+                im = im.crop((0, (h - nh) // 2, w, (h - nh) // 2 + nh))
+            f = im.resize((FULL_W, FULL_H), Image.BILINEAR)
+        a = np.asarray(f, dtype=np.uint8)
+    if a.shape != (FULL_H, FULL_W, 3):
+        raise ValueError("整幅图尺寸异常：%s" % (a.shape,))
+    content = a[DISP_TOP_BAR:DISP_TOP_BAR + PAIR_SIDE]          # rows 40..679
+    return (np.ascontiguousarray(content[:, :PAIR_SIDE]),
+            np.ascontiguousarray(content[:, PAIR_SIDE:]))
+
+
+def discover_external(src: str, pairs_list: str | None) -> list[dict]:
+    """找出所有图对。**配不上对的直接报错并列出冲突，绝不静默跳过。**"""
+    pairs, problems = [], []
+    if pairs_list:
+        base = os.path.dirname(os.path.abspath(pairs_list))
+        with open(pairs_list, encoding="utf-8") as f:
+            for ln, raw in enumerate(f, 1):
+                line = raw.strip()
+                if not line or line.startswith("#"):
+                    continue
+                parts = line.split()
+                if len(parts) != 2:
+                    problems.append("pairs.txt:%d 需要左右两个路径（空格分隔）：%r" % (ln, raw.rstrip()))
+                    continue
+                L, R = [os.path.join(base, x) if not os.path.isabs(x) else x for x in parts]
+                for q in (L, R):
+                    if not os.path.isfile(q):
+                        problems.append("pairs.txt:%d 文件不存在：%s" % (ln, q))
+                if os.path.isfile(L) and os.path.isfile(R):
+                    pairs.append({"name": os.path.splitext(os.path.basename(L))[0],
+                                  "left": L, "right": R, "how": "pairs.txt:%d" % ln})
+        if problems:
+            raise SystemExit("[external] pairs.txt 有问题：\n  " + "\n  ".join(problems))
+        return pairs
+
+    if not os.path.isdir(src):
+        raise SystemExit("[external] --src 不是目录：%s" % src)
+    files = [os.path.join(src, f) for f in sorted(os.listdir(src))
+             if os.path.splitext(f)[1].lower() in (".jpg", ".jpeg", ".png", ".bmp", ".tif", ".tiff")]
+    by_stem: dict[str, dict[str, str]] = {}
+    for f in files:
+        stem, ext = os.path.splitext(os.path.basename(f))
+        if "_" not in stem:
+            problems.append("命名不可识别（没有下划线）：%s" % os.path.basename(f))
+            continue
+        head, tail = stem.rsplit("_", 1)
+        by_stem.setdefault(head, {})[tail.lower()] = f
+    for head, d in sorted(by_stem.items()):
+        left = next((d[s] for s in EXT_SUFFIX_ALT if s in d), None)
+        right = next((d[s] for s in EXT_RIGHT_SUFFIXES if s in d), None)
+        extra = [k for k in d if k not in EXT_SUFFIX_ALT and k not in EXT_RIGHT_SUFFIXES]
+        if left and right:
+            pairs.append({"name": head, "left": left, "right": right,
+                          "how": "%s_*" % head})
+            if extra:
+                problems.append("%s 有多余后缀被忽略：%s" % (head, extra))
+        elif left or right:
+            problems.append("%s 只有半边：%s（需要 %s_<%s> + %s_<out|proc|res|pred|gt>）"
+                            % (head, sorted(d), head, "|".join(EXT_SUFFIX_ALT), head))
+        else:
+            problems.append("%s 认不出左右（后缀 %s）" % (head, sorted(d)))
+    if not pairs:
+        raise SystemExit("[external] 一对都没配上。目录=%s\n  问题：\n  %s"
+                         % (src, "\n  ".join(problems) or "（目录里没有图片？）"))
+    if problems:
+        raise SystemExit("[external] 有 %d 个问题，拒绝继续（不许静默跳过）：\n  %s"
+                         % (len(problems), "\n  ".join(problems)))
+    return pairs
+
+
+# ---------------------------------------------------------------------------
 # 选图
 # ---------------------------------------------------------------------------
 def list_names() -> list[str]:
@@ -353,6 +462,106 @@ def build(args) -> dict:
     os.makedirs(pdir, exist_ok=True)
     ext = ".bin" if args.format == "bin" else ".png"
     force = [s.strip() for s in args.force.split(",") if s.strip()]
+
+    # ============================================================
+    # external / frames：直接吃"现成图对"，不走选片、不跑网络
+    # ============================================================
+    if args.mode in ("external", "frames"):
+        if args.mode == "external":
+            found = discover_external(os.path.abspath(args.src or ""), args.pairs_list)
+            print("[external] 找到 %d 对（源：%s）" % (len(found), args.src or args.pairs_list))
+        else:
+            if not args.src or not os.path.isdir(args.src):
+                raise SystemExit("[frames] 需要 --src <目录>（里面是整幅对比图）")
+            exts = (".jpg", ".jpeg", ".png", ".bmp", ".tif", ".tiff")
+            fs = [os.path.join(args.src, f) for f in sorted(os.listdir(args.src))
+                  if os.path.splitext(f)[1].lower() in exts]
+            if not fs:
+                raise SystemExit("[frames] %s 里没有图片" % args.src)
+            found = [{"name": os.path.splitext(os.path.basename(f))[0], "full": f, "how": "整幅"}
+                     for f in fs]
+            print("[frames] 找到 %d 张整幅图（源：%s）" % (len(found), args.src))
+
+        if args.count and len(found) > args.count:
+            print("[%s] 只取前 %d 对（--count）" % (args.mode, args.count))
+            found = found[:args.count]
+
+        pairs, stats, total = [], {}, 0
+        for i, fp in enumerate(found):
+            if args.mode == "external":
+                try:
+                    wl, hl = Image.open(fp["left"]).size
+                    wr, hr = Image.open(fp["right"]).size
+                    if abs((wl / hl) / (wr / hr) - 1.0) > 0.01:
+                        raise SystemExit(
+                            "[external] %s 左右宽高比不一致（%dx%d vs %dx%d）⇒ "
+                            "中心方裁会把内容裁错位。请给**同宽高比**的两张。"
+                            % (fp["name"], wl, hl, wr, hr))
+                    L = load_square_to(fp["left"])
+                    R = load_square_to(fp["right"])
+                except Exception as e:
+                    raise SystemExit("[external] %s 读不了：%s" % (fp["name"], e))
+                info = {"index": i, "name": fp["name"], "forced": False, "score": None,
+                        "left_source": os.path.relpath(fp["left"], REPO),
+                        "right_source": os.path.relpath(fp["right"], REPO),
+                        "right_kind": "external", "how": fp["how"]}
+            else:
+                try:
+                    L, R = frame_to_halves(fp["full"])
+                except Exception as e:
+                    raise SystemExit("[frames] %s 读不了：%s" % (fp["name"], e))
+                info = {"index": i, "name": fp["name"], "forced": False, "score": None,
+                        "left_source": os.path.relpath(fp["full"], REPO) + "（左半）",
+                        "right_source": os.path.relpath(fp["full"], REPO) + "（右半）",
+                        "right_kind": "frames", "how": fp["how"]}
+            info["corr_left_right"] = round(corr(L, R), 4)
+            lp = os.path.join(pdir, "%04d_left%s" % (i, ext))
+            rp = os.path.join(pdir, "%04d_right%s" % (i, ext))
+            lb = write_img(lp, L, args.format)
+            rb = write_img(rp, R, args.format)
+            total += lb + rb
+            info.update({"left": os.path.relpath(lp, out), "right": os.path.relpath(rp, out),
+                         "bytes": lb, "md5": md5_file(lp),
+                         "right_bytes": rb, "right_md5": md5_file(rp)})
+            pairs.append(info)
+            print("[pair] %02d %-10s L=%s (%d B) R=%s (%d B) corr=%.3f"
+                  % (i, info["name"][:10], os.path.basename(lp), lb,
+                     os.path.basename(rp), rb, info["corr_left_right"]))
+        if not pairs:
+            raise SystemExit("[%s] 一对都没生成" % args.mode)
+        manifest = {
+            "version": 1, "W": PAIR_SIDE, "H": PAIR_SIDE, "channels": CHANNELS,
+            "dtype": "uint8", "pixel_format": "RGB888", "format": args.format,
+            "count": len(pairs), "mode": args.mode, "pairs": pairs,
+            "display": {"W": DISP_W, "H": DISP_H, "half": [PAIR_SIDE, PAIR_SIDE],
+                        "left": "x=0..639, y=40..679", "right": "x=640..1279, y=40..679",
+                        "bars": {"top": DISP_TOP_BAR, "bottom": DISP_BOTTOM_BAR},
+                        "slot_equals_pair": True},
+            "labels": {"baked_in_pixels": False,
+                       "why": "上屏图一个像素的字都没有（外供图原样，不再叠加任何标注）"},
+            "pipeline": {
+                "source": ("同事给的一对图（external）" if args.mode == "external"
+                           else "同事给的一整幅对比图（frames，取内容区 rows 40..680）"),
+                "crop": "center square of each source image",
+                "upscale": {"method": UPSCALE, "to": PAIR_SIDE, "same_both_sides": True},
+                "no_display_compensation": True,
+            },
+            "nbytes_per_file": NBYTES if args.format == "bin" else None,
+            "total_bytes_written": total,
+            "generator": "tools/prepare_demo_pairs.py --mode %s" % args.mode,
+            "generated_at": time.strftime("%Y-%m-%d %H:%M:%S %z"),
+            "notes": [
+                "左右各 640x640 RGB888，板端 1:1 贴图、不缩放。",
+                "pairs[i].bytes/.md5 指 left；right 见 right_bytes/right_md5。",
+                "external 模式不做任何算法处理：只做中心方裁 + 双线性缩放。",
+            ],
+        }
+        with open(os.path.join(out, "manifest.json"), "w", encoding="utf-8") as f:
+            json.dump(manifest, f, ensure_ascii=False, indent=1)
+            f.write("\n")
+        print("[manifest] %s  count=%d  total=%.2f MB"
+              % (os.path.join(out, "manifest.json"), len(pairs), total / 1e6))
+        return manifest
 
     names = list_names()
     if not names:
@@ -742,12 +951,20 @@ echo START | nc 192.168.7.2 9999        # 或 nc -u / touch /home/xilinx/demo/ST
 
 
 def write_readme(out: str, man: dict) -> None:
+    def _fmt_score(v):
+        return ("%.3f" % v) if isinstance(v, (int, float)) else "—"
     rows = "\n".join(
-        "| %d | %s | %.3f | %.3f | %s |" % (p["index"], p["name"], p["score"],
-                                            p.get("corr_left_right", 0.0),
-                                            "是" if p.get("forced") else "")
+        "| %d | %s | %s | %.3f | %s |" % (p["index"], p["name"], _fmt_score(p.get("score")),
+                                          p.get("corr_left_right", 0.0) or 0.0,
+                                          "是" if p.get("forced") else "")
         for p in man["pairs"])
-    if man["mode"] == "gt":
+    if man["mode"] in ("external", "frames"):
+        mode_doc = ("- **外供图对**：`--mode %s`，左右都只做「中心方裁 + 双线性缩放到 640x640」，\n"
+                    "  不做任何算法处理、不叠加任何标注\n"
+                    "- 源文件见 `manifest.json` 的 `pairs[i].left_source / right_source`"
+                    % man["mode"])
+        ckpt = "—（外供图，不用网络）"
+    elif man["mode"] == "gt":
         mode_doc = ("- 左 = `datasets/uhdm/eval/NNNN_moire.jpg` 的中心 256² 裁块（原图，带摩尔纹）\n"
                     "- 右 = `datasets/uhdm/eval/NNNN_gt.jpg` 的同一位置裁块（干净参考图）")
         ckpt = "—（gt 模式不用网络）"
@@ -770,7 +987,11 @@ def write_readme(out: str, man: dict) -> None:
 # ---------------------------------------------------------------------------
 def main(argv=None) -> int:
     ap = argparse.ArgumentParser(description="生成板端演示图对包")
-    ap.add_argument("--mode", choices=("pcref", "gt"), default="pcref")
+    ap.add_argument("--mode", choices=("pcref", "gt", "external", "frames"), default="pcref")
+    ap.add_argument("--src", default=None,
+                    help="external/frames 模式的源目录（external=一对对图；frames=整幅图）")
+    ap.add_argument("--pairs-list", default=None,
+                    help="external 模式也可用：一行一对，空格分隔左右两个路径")
     ap.add_argument("--format", choices=("bin", "png"), default="bin")
     ap.add_argument("--out", default=OUT_DEFAULT)
     ap.add_argument("--count", type=int, default=8)
