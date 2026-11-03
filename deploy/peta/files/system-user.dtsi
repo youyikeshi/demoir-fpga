@@ -112,3 +112,21 @@
 	dr_mode = "host";
 	usb-phy = <&usb_phy0>;
 };
+
+/* ── USB3320C 复位释放（关键！）──────────────────────────────────────
+ * 厂商手册：OTG_RESETN = PS_MIO8_500（Zynq 引脚 E18）。
+ * 我们的 ps7_init 把 MIO8 配成 GPIO 且 PULLU/PULLD 全 0 ⇒ 上电悬空
+ * ⇒ USB3320C 一直被按在复位 ⇒ 不出 60MHz ULPI_CLK ⇒ chipidea 的
+ * ULPI viewport 事务永不完成 ⇒ 读不到 PHY、写不进 DRVVBUS、端口无电。
+ * 实测：把 MIO8 输出高后，viewport 0.1ms 完成、PHY 回 0x0424/0x0007、
+ * USB2514 hub 以 480Mbps 枚举成功。
+ * 用 gpio-hog 在 gpiolib 初始化时就把该脚推成输出高（常驻、不依赖用户态）。
+ */
+&gpio0 {
+	usb_phy_reset_hog {
+		gpio-hog;
+		gpios = <8 0>;
+		output-high;
+		line-name = "usb-phy-resetn";
+	};
+};
