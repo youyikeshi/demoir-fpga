@@ -1,0 +1,85 @@
+{
+ "stage": "realdemo_step1",
+ "probe_dir": "/tmp/probe_v58_real_r1",
+ "t_wall_start": "2025-05-09 19:00:53",
+ "hw": 256,
+ "seed": 1,
+ "fclk_write": 75.0,
+ "bit": "/tmp/probe_v58_v58a/design_1_v58.bit",
+ "pack": "/home/xilinx/demoir/deploy/bin_weights_new",
+ "uname": {
+  "system": "Linux",
+  "node": "pynq",
+  "release": "6.12.40-xilinx-g31626ef92ff1",
+  "version": "#1 SMP PREEMPT Fri Nov  7 15:28:23 UTC 2025",
+  "machine": "armv7l"
+ },
+ "uptime_s": 1936.1,
+ "meminfo_before": {
+  "MemTotal": 1028260,
+  "MemAvailable": 883436,
+  "CmaTotal": 262144,
+  "CmaFree": 488
+ },
+ "fpga0_state_before": "operating",
+ "md5_onboard": {
+  "bin_net.py": "0990948de490eb6ba6d4aaefbcafa355",
+  "bin_engine.py": "2fd3d0990c47151fe3bc06544b8adb64",
+  "bin_ref_numpy.py": "337fbe3a354e3939b60d03c39b909610",
+  "qcache.py": "95636f8cad44ca2434e978468a70b38e",
+  "fconv.py": "67ea5cbb5c41c2e478d7c033800fde57",
+  "board_safe.py": "d4d62fd06f74c963b643cec59566bf54",
+  "mmio_batch.py": "fe1bacff0fd4ca66da2c932725700772",
+  "mmio_batch.c": "a51ec90452d80597da85564e41039362",
+  "catpack.py": "30149d936c9eea6cd510b200d1cd6d5c",
+  "e1e2_sim.py": "2c4a6180fb74f88abb5e13b8e641b489",
+  "bpack.py": "63d6a9368827d36f81f64bc5f62c864b",
+  "bpack.c": "2a8e6c553cb3dec95460223fa800a0f6",
+  "c8deq.py": "41c61d97ddd266655a02e86855ce28de",
+  "c8deq.c": "8cd77f1c4290b81d3b1d74d971390ac7",
+  "q8.py": "e794a43dcb8ce314f323a9b07c4274a6",
+  "q8.c": "c744794c2dafc032ddc4dde3c05adb5b",
+  "bilinear_c.py": "48134b7b0056ea71be77a965f0adf633",
+  "bilinear_c.c": "1cd97282ee30a092425602c0d09ef7c1",
+  "convpf_c.py": "e251b047f9078c9c18c76fbf78c1f61e",
+  "convpf_c.c": "10b31d43578355887ae2cbbcc45d3704",
+  "realdemo_step1.py": "08ab3560285550ab1abef75e278713c7"
+ },
+ "overlay_s": 1.46,
+ "ip_dict": {
+  "conv_uni_0": {
+   "phys_addr": "0x40040000",
+   "range": 131072
+  },
+  "bin_unit_0": {
+   "phys_addr": "0x40060000",
+   "range": 131072
+  },
+  "hdmi_v58_top_0": {
+   "phys_addr": "0x400A0000",
+   "range": 65536
+  }
+ },
+ "fclk_reported_before": 125.0,
+ "fclk_reported_after": 75.0,
+ "fclk0_ctrl": "0x00101400",
+ "div0": 20,
+ "div1": 1,
+ "div_product": 20,
+ "fclk_true_mhz": 50.0,
+ "hdmi_before_run": {
+  "CTRL": "0x00000015",
+  "STATUS": "0x00000003",
+  "VMODE": "0x00000000",
+  "FB_ADDR": "0x30100000",
+  "FRAME_ID": "0x00000003",
+  "LATCHED": "0x00000003",
+  "UFCNT_0x2C": 0,
+  "PIX_HB": "0x00000002"
+ },
+ "ufcnt_before_run": 0,
+ "engine_fclk_mhz": null,
+ "x0_sha1": "cfc75bc3f15d306b07787325fdc9ae715cfadd0a",
+ "ok": false,
+ "traceback": "Traceback (most recent call last):\n  File \"/tmp/probe_v58_real_r1/realdemo_step1.py\", line 166, in <module>\n    rc = main()\n  File \"/tmp/probe_v58_real_r1/realdemo_step1.py\", line 130, in main\n    outs, st = net.run(x0, pipeline=True, nbuf=2)\n  File \"/tmp/probe_v58_real_r1/bin_net.py\", line 3299, in run\n    task = be.prepare(op)\n  File \"/tmp/probe_v58_real_r1/bin_net.py\", line 1006, in prepare\n    data = e.pack_input(_v, L)\n  File \"/tmp/probe_v58_real_r1/bin_engine.py\", line 2118, in pack_input\n    self.enable_e1e2()\n  File \"/tmp/probe_v58_real_r1/bin_engine.py\", line 2256, in enable_e1e2\n    eng = E1E2Engine(self, desc_dir=desc_dir,\n  File \"/tmp/probe_v58_real_r1/bin_engine.py\", line 2885, in __init__\n    self.program = program or E1E2Program(desc_dir=desc_dir, verbose=self.verbose)\n  File \"/tmp/probe_v58_real_r1/bin_engine.py\", line 2706, in __init__\n    raise FileNotFoundError(\nFileNotFoundError: 找不到 E1E2 描述符目录（deploy/e1e2_desc）；可用 E1E2_DESC 指定\n"
+}
