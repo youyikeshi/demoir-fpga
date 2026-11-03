@@ -7427,3 +7427,41 @@ $$\Rightarrow\ \text{实测 } \mathtt{PF\_MAX}{=}8\ \text{与 } \mathtt{PF\_EN}{
 $$\Rightarrow\ 46\sim50\%\ \text{读 miss 是 } \mathtt{R\_RUN\_UNIT}{=}4（\mathtt{E1E2}）\ \text{的真层（}128^2/\mathtt{cin}{=}544）$$
 $$\Rightarrow\ \text{它测的 } \mathtt{UNIT}{=}0\ \text{合成 }1\text{x}64\ \text{是}\textbf{读 }13.2\%/\text{写 }59.7\% \Rightarrow \textbf{两者不是同一个瓶颈}$$
 $$\Rightarrow\ \Rightarrow\ \textbf{下一步不是改 RTL，而是给 } \mathtt{R\_RUN\_UNIT}{=}4\ \text{的 } 128^2/\mathtt{cin}{=}544\ \text{造仿真台 + golden}$$
+
+### 70.119 ★★★★★ T-150：TB 地址图撞车（像 RTL bug）+ 线缓存生产几何病理级颠簸 + 读侧仿真路关闭（2026-11-03 12:2x）
+
+**④ PF_MAX 截断闸门（已做，负测试通过）**
+$$\Rightarrow\ \text{补丁 } \mathtt{patch\_pfmax\_guard.diff}\ (24\ \text{行，只加检查）};\ \text{打在 v152 树的}\textbf{副本}（\mathtt{rtl\_guard/}\ \mathtt{37e0cad9}）$$
+$$\Rightarrow\ \text{检查三条：}\mathtt{PF\_MAX}\in0..7（>7\ \text{fatal}）；\mathtt{PF\_DEPTH}\ \text{必须 }2\ \text{的幂}；\mathtt{PF\_EN}{=}1\ \text{时 } \mathtt{PF\_MAX}\le\mathtt{NSLOT}-\mathtt{AR\_SLOTS}-1$$
+$$\Rightarrow\ \textbf{负例实测}：\mathtt{PF\_MAX}{=}8 \Rightarrow \mathtt{Fatal}\ \text{报错};\ \textbf{正例}：4/7 \Rightarrow \text{PASS 且 freeze/act/填充数与未打补丁 RTL }\textbf{逐字相同}$$
+
+**★★ 挖到并修掉一个 TB 级 bug —— 现象极像 RTL bug（对全项目有用）**
+$$\Rightarrow\ \text{旧地址表 } \mathtt{B\_IN}{=}0\mathtt{x1\_0000}\ \text{与 } \mathtt{B\_WGT}{=}0\mathtt{x5\_0000}\ \text{只隔 } \mathbf{256\ \text{KB}}$$
+$$\Rightarrow\ \text{而 } \mathtt{cin}{=}544\ \text{的 } \mathtt{act\_pack} = 9\times HW\times8\ \text{B}（64^2=288\ \text{KB}、128^2=\mathbf{1.125\ \text{MB}}）$$
+$$\Rightarrow\ \Rightarrow\ \textbf{激活区压到权重/参数区上}$$
+$$\Rightarrow\ \text{症状：}\mathbf{\text{逐字节错 }3\sim5\%、\text{散落各 } oc、\mathtt{rd\_bad}{=}0、\mathtt{DBG\_FLAG}{=}0}$$
+$$\quad\ \Rightarrow\ \textbf{读回每拍都对，但权重被激活覆盖} \Rightarrow \text{极像 RTL bug，实际是 TB 内存图}$$
+$$\Rightarrow\ \text{改 } \mathtt{B\_IN}{=}0\mathtt{x10\_0000}(2\ \text{MiB})/\mathtt{B\_WGT}{=}0\mathtt{x32\_0000}/\mathtt{B\_OUT}{=}0\mathtt{x50\_0000}/\mathtt{MAXM}{=}1\ll24$$
+$$\quad\ \Rightarrow\ 64^2\ \text{的 } \mathtt{cin}{=}544\ \textbf{由 FAIL}\to\textbf{PASS}$$
+$$\Rightarrow\ \textbf{第 144 条：}\text{"读回每拍都对却整体错 3-5%"这个签名要}\textbf{优先怀疑 TB 内存图撞车}$$
+$$\quad\ \Rightarrow\ \text{判据：}\mathtt{rd\_bad}{=}0 \text{ 且 } \mathtt{DBG\_FLAG}{=}0 \text{ 却数据错} \Rightarrow \textbf{查地址区间是否重叠}$$
+
+**⑤ 生产几何仿真台造出来了，但结论是"线缓存路径校准不了生产"**
+| 形状 | act | freeze | 读 miss | 填充 | 平均填充延迟 | 判定 |
+|---|---|---|---|---|---|---|
+| 544×64² | 672,892 | 0.99% | 0.98% | 4,723 | 83.1 | PASS |
+| 544×32² | 174,525 | 3.42% | 3.42% | 845 | 82.1 | PASS |
+| **544×128²（生产几何）** | **打满 20M** | **94%** | **94%** | **502,284** | 76.7 | **超时 FAIL** |
+| 64×128²（k=1 对照）| 157,759 | 79.2% | 74.5% | 2,074 | 73.1 | PASS |
+
+$$\Rightarrow\ \textbf{线缓存在生产几何上病理级颠簸}：502{,}284\ \text{笔填充} / 16{,}384\ \text{像素} = \mathbf{每像素 }30\ \text{条线}$$
+$$\Rightarrow\ \text{而板端生产是 }46\sim50\% / 384\mathtt{k}\ \text{拍} \Rightarrow \textbf{不在这个量级} \Rightarrow \textbf{仿真复现不了生产读侧}$$
+$$\Rightarrow\ \textbf{原因（不是调参问题）}：\text{生产数是 } \mathtt{R\_RUN\_UNIT}{=}4（\mathtt{E1E2}）\ \text{在}\textbf{生产融合/band 位流}\ \text{上量的}$$
+$$\quad\ \Rightarrow\ \textbf{v152（v39）里 } \mathtt{grep\ BAND} = \mathbf{0}\ \text{命中，根本没有 band 通路} \Rightarrow \text{读流是线缓存 + 需求缺失}$$
+$$\quad\ \Rightarrow\ \text{要造真生产台必须换 } \mathtt{E1E2}(UNIT{=}4)\ \text{的 golden + 融合包装层（另一套 TB 与数据布局）}$$
+$$\Rightarrow\ \Rightarrow\ \textbf{结论：生产读侧只能靠板端计数器}（\text{v152 的 wrap 暴露 } 0x230..0x240\ \text{读吞吐/冻结 DBG）}$$
+$$\quad\ \Rightarrow\ \mathtt{xsim}\ \text{只能给机制级结论（}\text{加在飞无益、提前量是杠杆），}\textbf{给不了收益数字}$$
+
+**顺带：golden 生成器有了快的**
+$$\Rightarrow\ \mathtt{gen\_gold\_np.py}\ \text{（numpy 版）}\textbf{自证}：4\ \text{形状}\times10\ \text{文件与仓库原版}\textbf{逐字节相同}（\text{含 } \mathtt{cin}{=}544/\text{CB}{=}9/k{=}1/3）$$
+$$\Rightarrow\ \text{生产几何 golden（}544\times128^2、k{=}3、\mathtt{cout}{=}16、\text{CB}{=}9、\text{NTOT }5184）\ \text{生成 } \mathbf{17\ \text{s}}（\text{纯 Python 要小时级）}$$
