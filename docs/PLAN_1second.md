@@ -7235,3 +7235,34 @@ $$\quad\ \Rightarrow\ \text{不在 }6\ \text{s 里，但}\textbf{每次重启付
 $$\Rightarrow\ \mathtt{\_analyze\_lazy}\ \text{缓存}（-0.52） + \mathtt{convfp}（-0.45） = -0.97 \Rightarrow \mathbf{4.99\ \text{s}}$$
 $$\Rightarrow\ \text{再接 pack（需 PS 主线）} \Rightarrow \mathbf{3.7\ \text{s}}$$
 $$\Rightarrow\ \text{它指出我给的"PS}\le2.7\text{"是}\textbf{错目标}（漏了 P1 0.667 与 pack 1.12）\Rightarrow \textbf{该盯墙钟}}$$
+
+### 70.113 ★★★★★★★ v152：**v39 的 10 ns 时序报告已无负值**（T-152，2026-11-03 11:5x）
+
+**判据（全部来自真值，不是平移）**
+$$\Rightarrow\ \mathbf{WNS = +0.206}\ \text{ns}（\text{delay }9.734 / 9\ \text{级）};\quad \mathbf{TNS = 0.000};\quad \textbf{违例端点 } 0$$
+$$\Rightarrow\ \mathbf{WHS = +0.040};\quad \text{总端点 }41{,}273;\quad \mathtt{"All\ user\ specified\ timing\ constraints\ are\ met"}$$
+$$\Rightarrow\ \textbf{没有新增任何 } \mathtt{false\_path};\quad \mathbf{\mathtt{PF\_AHEAD}\ \text{保持 }1}$$
+$$\Rightarrow\ \text{bit } \mathtt{5d1cb78969f948d45f379c7845873717}（3{,}510{,}798\ \text{B）};\ \text{DRC }\mathbf{0\ Errors}（\text{route 后 + write\_bitstream 前置各一次）}$$
+$$\Rightarrow\ \text{资源：LUT } \mathbf{20{,}255}（\text{v39 }20{,}552，\mathbf{-1.4\%}）、\text{FF }18{,}961（\text{v39 }18{,}963）、\text{BRAM }35/35、\text{DSP }101/101、\text{Latch }\mathbf{0}$$
+
+**唯一改动：1 个文件**
+$$\Rightarrow\ \mathtt{bin\_e1e2.v}：\mathtt{28375eec}\to\mathbf{\mathtt{bc28ead3}}（\text{时序刀 7：}\mathtt{sw\_act\_q} + 9\ \text{位 } \mathtt{rem}\ \text{倒计数 + 3 条 } \mathtt{translate\_off}\ \text{断言）}$$
+$$\Rightarrow\ \text{其余 11 个文件与 v39}\textbf{逐字节相同}，\text{含 } \mathtt{bin\_unit\_axi\_wrap.v}=\mathtt{0cf68b2e} \Rightarrow \textbf{PF\_AHEAD 确实是 }1$$
+
+**功能等价（它自己重跑，不引用旧日志）**
+$$\Rightarrow\ \mathtt{ab\_e1e2.sh}：\text{v39 与刀 7 的 e1e2 }\textbf{汇总行逐字相同}$$
+$$\quad\ \text{命令 } \mathbf{106/106}、\text{失败 }0、\text{字节 }6{,}302{,}720、\text{C 差异 }0、\text{ref 差异 }0、\mathbf{cycles\ 7{,}244{,}033（\text{逐拍相同}）}$$
+$$\Rightarrow\ \textbf{整网 12 个 shape}（\text{v39 RTL vs v152 RTL，同一 TB + 同一黄金向量）：}\mathbf{12/12\ \text{逐字节一致},\ \text{且每个 shape 的 cycles 完全相同}}$$
+$$\Rightarrow\ \text{交叉校验：v39 的 12 shape 数字与项目自己的 } \mathtt{runs/timing\_v40/gateB\_wrap12.log}\ \textbf{逐位相同} \Rightarrow \text{harness 可复算}$$
+
+**★ 它同时纠正了我的一个判断**
+$$\Rightarrow\ \text{我说过"时序刀 7 不在位流里"——}\textbf{记错了}$$
+$$\Rightarrow\ \mathtt{build\_v40/v41\_manifest.txt}\ \text{里 } \mathtt{bin\_e1e2.v}=\mathbf{\mathtt{bc28ead3}}（=\ \text{刀 7 版）}$$
+$$\Rightarrow\ \text{而 v40/v41 的 } \mathtt{create\_clock}\ \text{是 } \mathbf{6.667\ ns} \Rightarrow \text{它们报的 } -2.138/-1.562\ \text{是 }150\ \text{MHz 口径}$$
+$$\quad\ \Rightarrow\ \text{换算到 }10\ \text{ns 是 } \mathbf{+1.20/+1.77} \Rightarrow \textbf{刀 7 当时就已经把 }10\ \text{ns 过了}$$
+$$\Rightarrow\ \Rightarrow\ \textbf{从没有人按 }10\ \text{ns 口径报过，也没人把它放回 } \mathtt{PF\_AHEAD}{=}1\ \text{的 v39 包装层重建}$$
+$$\quad\ \Rightarrow\ \textbf{v152 做的就是这件事} \Rightarrow \text{第 137 条：}\text{历史结论必须连同口径一起查，}\text{否则会重复劳动}$$
+
+**⚠ 另一条必须记的**
+$$\Rightarrow\ \mathtt{runs/v55\_archive}（\text{T-142 的 FUSE 构建）实测 }\mathbf{WNS -12.603 / \text{TNS} -145{,}821 / 20{,}438\ \text{违例端点}$$
+$$\Rightarrow\ \text{与 } \mathtt{timing\_v52.rpt}\ \text{的 }+0.524\ \textbf{不是同一量级} \Rightarrow \text{融合线要上板必须先解释这个数}$$
