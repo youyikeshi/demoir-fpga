@@ -148,3 +148,27 @@ $$\Rightarrow\ \text{一旦 } \mathtt{FUSE=1}，256^2\ \text{下 } \mathtt{bands
 **▶ 板端验证排队（板子仍在他处）**
 1. P2 真画面（扫描器出图）2. 720p30 是否被 SIL9134 接受 3. 切换帧 UNDERFLOW 表现
 4. USB Host 三级判据（root hub → U 盘 → 摄像头 cdc_ncm）
+
+## 演示视频支线（2026-11-03 21:5x）—— **系统已就绪，等同事的图**
+
+| 项 | 状态 | 证据 |
+|---|---|---|
+| v58 合并位流（去摩尔纹+HDMI） | ✅ 上板，真画面出图 | `runs/hdmi_v58/`，`SW_CRC=cd2c8f3d` |
+| 左右对比 + 双缓冲换帧 | ✅ 用户目视确认 | 竖条跳 3 次；`runs/hdmi_v58/board_verify_20261103/` |
+| 30 Hz 模式 | ❌ 不受支持（SIL9134/显示器） | `docs/camera/09` §2；只能 720p60 |
+| 播放器（触发 + 1 fps + 三种触发） | ✅ 24/24 与 40/40 帧全中 | `demo_player.py` md5 `ee62c11d…` |
+| 8 对图（右半 = PC 二值化网结果） | ✅ 无标注版，48/48 md5 一致 | `runs/demo_pairs/` |
+| `START` 后延迟 1 s | ✅ 20000.456 ms（延迟+0.456 ms 出图） | 5 轮实测 |
+| 换图一条命令 | ✅ `--mode external` / `--mode frames` | `tools/prepare_demo_pairs.py` md5 `37059b07…` |
+| 交接格式文档 | ✅ 可直接转发同事 | `docs/camera/12_演示图对交接格式.md` |
+| 录制操作单 | ✅ | `runs/demo_pairs/RECORD_RUNBOOK.md` |
+
+**待办（都卡在外部输入）**
+1. **同事的真实图对** ⇒ 一条命令生成 + 推板 + `--still 0` 确认 ⇒ 开录
+2. **相机插上** ⇒ 复核 `usb1=10.13.148.100/24` + 真实 `START` 端到端（协议见 `docs/camera/10`）
+3. 录制方式未定（手机拍 / 采集卡）——建议先手机拍 40 s 试片
+
+**演示相关三条铁律（今晚用五轮黑屏换来的）**
+- 播放期间**不许写 `CTRL[1]` 软复位**（会打死扫描 FSM，表现为"DE 有效但全黑、`0x2C` 仍 0"）
+- **不许在 `setup()` 之后写 `0x15`**（`cfg_enable = ctrl_enable && !ctrl_test` 会关掉扫描）
+- 播放器的寄存器调用**全部走** `minimal_proof.bringup/show`，不自己写；**黑屏先跑 `minimal_proof.py`**
