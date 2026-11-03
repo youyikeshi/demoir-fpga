@@ -2338,6 +2338,30 @@ _PROF = os.environ.get("BIN_PROFILE", "") not in ("", "0", "false", "False")
 _E1E2_DBG = os.environ.get("E1E2_DBG", "") not in ("", "0", "false", "False")
 
 # ============================================================================
+# ★ T-156：E1E2 pack **每层固定开销**四项精简（`BIN_T156_PACK=0` 可整体关回原状）
+# ----------------------------------------------------------------------------
+# 依据（T-156 板端事务普查，256² 一跑、计时钩子在册）：pack 桶 1.141 s =
+#   PL 硬件 0.32 s + MMIO 0.40 s + **PS 固定开销 0.42 s**。而 MMIO 那一半**降不下来**：
+#     · `BIN_MMIO_POLL=tight` 实测 ABBA 两臂各 2 跑：5.580 → 5.551 s（−0.029 s，噪声内），
+#       而 AP_RET 读次数 14.6k → 25.6k（×1.75）⇒ 轮询读既是"等待"又占"总线"，换不回来。
+#   ⇒ 只剩**非事务**的三处纯冗余，它们**不改任何一次总线写/读的地址、值、顺序**：
+#     ① `_flush(vthr)` + `_flush(vdesc)`：两块是**同一个 owner**（`_pack_views` 切出来的），
+#        `RegionBuffer.flush()` 直接转给 owner ⇒ 第二次是同一次刷新的重复（222 µs/次）。
+#     ② `_invalidate(ov)`：`out_buf` 给了的时候（直达路径）产物**只被 PL 当下一次的 IN**，
+#        CPU 一个字节都不读 ⇒ 缓存失效是纯浪费（211 µs/次 × 227）。
+#        `out_buf is None`（返回字节给调用方/离线测试）⇒ 照旧 invalidate，语义不变。
+#     ③ `chain_on()`：每层 2 次，每次重解析 `BIN_V50_FUSE` 环境串 ⇒ 进程内按 fuse 值缓存。
+#     ④ `run_one` 的解析拍数：`while left>0` 逐 256 通道累加 ⇒ 闭式
+#        `cyc = 17 + 9·hw + 50·ceil(hw/256)`（**数值逐位相同**，主机侧已对 hw∈{256,300,
+#        1024,4096,16384,65536} 逐值核对；本网全部 698 条命令共 9365 次迭代 ⇒ 省 ~10 ms）。
+#     ⑤ 同一命令的 6 个配置字由两次 `_wr_seq` 合并成一次（写序/值/影子判断逐条相同，
+#        只少一次 Python 调用）。
+# 判据（第二跑 ABBA）：三尺寸 sha1 不变 + `tools/verify_t23_mmio.py` 的写 trace 逐条相同。
+# ============================================================================
+T156_PACK_ON = [os.environ.get("BIN_T156_PACK", "1").strip().lower()
+                not in ("0", "off", "false", "no", "n")]
+
+# ============================================================================
 # ★ v50：段计划 → 描述符链（契约 A/B/D，见 `docs/V50_ARCHITECTURE.md` §3）
 # ----------------------------------------------------------------------------
 # **全部 opt-in**（`BIN_V50_FUSE=1`）；默认关 ⇒ 本节每个函数都不会被调用，
@@ -3065,20 +3089,29 @@ class E1E2Engine:
         cyc = None
         if timeout is None:
             hw = int(cfg_h) * int(cfg_w)
-            cyc, left = 17, hw
-            while left > 0:
-                run = min(E1E2_ACC_DEPTH, left)
-                cyc += 9 * run + 50
-                left -= run
+            if T156_PACK_ON[0]:
+                # ★ T-156：闭式计算（与下面那段 while 逐位相同，见模块头 ④）
+                cyc = 17 + 9 * hw + 50 * ((hw + E1E2_ACC_DEPTH - 1)
+                                          // E1E2_ACC_DEPTH)
+            else:
+                cyc, left = 17, hw
+                while left > 0:
+                    run = min(E1E2_ACC_DEPTH, left)
+                    cyc += 9 * run + 50
+                    left -= run
             timeout = max(5.0, min(600.0, cyc / 50e6 * 4.0 + 5.0))
         est_s = None
         if cyc is None:                       # 给了 timeout 也要能估（C/est 用）
             hw = int(cfg_h) * int(cfg_w)
-            cyc, left = 17, hw
-            while left > 0:
-                run = min(E1E2_ACC_DEPTH, left)
-                cyc += 9 * run + 50
-                left -= run
+            if T156_PACK_ON[0]:
+                cyc = 17 + 9 * hw + 50 * ((hw + E1E2_ACC_DEPTH - 1)
+                                          // E1E2_ACC_DEPTH)
+            else:
+                cyc, left = 17, hw
+                while left > 0:
+                    run = min(E1E2_ACC_DEPTH, left)
+                    cyc += 9 * run + 50
+                    left -= run
         est_s = cyc / (float(getattr(self, "fclk_mhz", 150.0)) * 1e6)
 
         if chain is not None:
@@ -3098,12 +3131,24 @@ class E1E2Engine:
         pairs = [] if lib is not None else None
         # C/H/W 与 E_GROUP/E_DESC/E_OUT：地址不连续的两段，各自内部合并。
         # shadow/计数/force 语义在 _wr_seq 里照旧；collect 给了就只登记不发。
-        core._wr_seq((((CFG + BIN_REG["C"]), int(cfg_c)),
-                      ((CFG + BIN_REG["H"]), int(cfg_h)),
-                      ((CFG + BIN_REG["W"]), int(cfg_w))), collect=pairs)
-        core._wr_seq((((CFG + E1E2_REG["E_GROUP"]), int(cfg_group)),
-                      ((CFG + E1E2_REG["E_DESC"]), int(desc_pa)),
-                      ((CFG + E1E2_REG["E_OUT"]), int(out_pa))), collect=pairs)
+        if T156_PACK_ON[0]:
+            # ★ T-156 ⑤：一次 `_wr_seq` 写 6 个字（顺序/值/影子判断逐条不变，
+            #   地址不连续的地方 `_wr_seq` 自己 flush_run ⇒ 总线写序列完全相同）
+            core._wr_seq((((CFG + BIN_REG["C"]), int(cfg_c)),
+                          ((CFG + BIN_REG["H"]), int(cfg_h)),
+                          ((CFG + BIN_REG["W"]), int(cfg_w)),
+                          ((CFG + E1E2_REG["E_GROUP"]), int(cfg_group)),
+                          ((CFG + E1E2_REG["E_DESC"]), int(desc_pa)),
+                          ((CFG + E1E2_REG["E_OUT"]), int(out_pa))),
+                         collect=pairs)
+        else:
+            core._wr_seq((((CFG + BIN_REG["C"]), int(cfg_c)),
+                          ((CFG + BIN_REG["H"]), int(cfg_h)),
+                          ((CFG + BIN_REG["W"]), int(cfg_w))), collect=pairs)
+            core._wr_seq((((CFG + E1E2_REG["E_GROUP"]), int(cfg_group)),
+                          ((CFG + E1E2_REG["E_DESC"]), int(desc_pa)),
+                          ((CFG + E1E2_REG["E_OUT"]), int(out_pa))),
+                         collect=pairs)
         if not skip_idle:
             # 同一 job 的后续组：上一组刚 wait 到 done ⇒ 本来就 idle，
             # 省掉一次轮询（板端 0.1~0.3 ms × 698 条）
@@ -3148,9 +3193,21 @@ class E1E2Engine:
 
     # ------------------------------------------------------------ v50 描述符链
     def chain_on(self):
-        """链模式是否真的可用（`BIN_V50_FUSE=1` 且 RTL 探针通过）。"""
+        """链模式是否真的可用（`BIN_V50_FUSE=1` 且 RTL 探针通过）。
+
+        ★ T-156 ③：每层 2 次调用、每次重解析环境串 ⇒ 按 **fuse 值**缓存
+        （`v50_fuse_on()` 变了就重算，不会把"后来才开"的状态钉死）。
+        """
         try:
-            return bool(v50_fuse_on() and self.core.v50_chain_ready())
+            if not T156_PACK_ON[0]:
+                return bool(v50_fuse_on() and self.core.v50_chain_ready())
+            f = bool(v50_fuse_on())
+            c = self.__dict__.get("_t156_chain_c")
+            if c is not None and c[0] == f:
+                return c[1]
+            ok = bool(f and self.core.v50_chain_ready())
+            self._t156_chain_c = (f, ok)
+            return ok
         except Exception:                                 # noqa: BLE001
             return False
 
@@ -3828,8 +3885,15 @@ class E1E2Engine:
             if len(ov) < need_out:
                 raise ValueError("out_buf 只有 %d B，需要 %d B"
                                  % (len(ov), need_out))
-        for v in (vthr, vdesc):
-            _flush(v)
+        if T156_PACK_ON[0]:
+            # ★ T-156 ①：vthr/vdesc 同属一个 owner ⇒ 一次 flush 覆盖两块
+            #   （T-154 已实测 227 次/层 → 227 次/跑、sha1 不变）
+            _flush(vthr)
+            if getattr(vdesc, "_owner", None) is not getattr(vthr, "_owner", None):
+                _flush(vdesc)
+        else:
+            for v in (vthr, vdesc):
+                _flush(v)
         _chain_used = None
         if self.chain_on():
             # ★ v50（P2/P3）：整层 cb 组 →**一条 10 字描述符链、一次 kick**，
@@ -3852,7 +3916,11 @@ class E1E2Engine:
             finally:
                 if restore:
                     self.select(0, force=True)
-        _invalidate(ov)
+        if out_buf is None or not T156_PACK_ON[0]:
+            # ★ T-156 ②：`out_buf` 给了（直达 conv IN 槽）⇒ 产物只被 PL 读，
+            #   CPU 一个字节都不读 ⇒ 不必让缓存失效（211 µs × 227）。
+            #   `out_buf is None` 时返回值要交给调用方读 ⇒ 照旧 invalidate。
+            _invalidate(ov)
         data = np.frombuffer(_u8(ov), np.uint8)[:need_out]
         data.flags.writeable = False
         self.last_pack_stats = dict(cin=int(cin), H=int(H), W=int(W), cb=cb,

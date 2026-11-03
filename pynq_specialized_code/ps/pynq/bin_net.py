@@ -35,6 +35,7 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import os
 import sys
@@ -1714,6 +1715,88 @@ def make_segment_plan(g, outs, band_rows=None, budget=None, vlanes=None,
     return plan
 
 
+# ============================================================================
+# ★ T-153：`_analyze_lazy` 的**进程内缓存**（纯调度分析，零数值风险）
+#
+# 为什么可以缓存：`_analyze_lazy` 的输出**只**是"谁必须物化 f32 / 每个 int8 张量
+#   被几层 conv 读 / 每层 conv 的 lane 计划"，它是**图的纯函数**，每次 `run()` 都
+#   重算一遍（256² 实测 0.547 s，占墙钟 9.2%）。它**不读** arena 大小 / 可用内存 /
+#   已分配槽 / 引擎状态 / 上一帧的数值 ⇒ 命中后复用与重算逐项相同。
+#
+# 缓存键（见 `BinNet._lazy_sig`）= 版本号 + 容器身份（path/size/sha256）
+#   + 环境开关串 + 输出张量 id + 图结构签名（op 序列 / kind / dep·out id / 形状
+#   / 每个 conv 层的 name+cin+cout+k+s+H+W+act_fs_in/out+该层 `t_q` 原始字节）。
+#   其中 `t_q` 是 `_build_lane_plans` 唯一从容器里读的数据，所以容器换了也躲不掉。
+#
+# 铁律：**算法本身一个字节都没改**（未命中时原样走原来那段代码，算完再存）；
+#   `LAZY=1` 的语义、`needs_f32`/`nuse`/`cat_class`/lane 计划的取值全部不变。
+#   缓存值**只读**：ndarray 置 `writeable=False`、plan 字典用 `_RODict`（写就抛错），
+#   set/dict 在命中时浅拷贝 ⇒ 下游改不坏缓存，且改坏了会立刻报错而不是静默错数据。
+#
+# ⚠ 若以后让 `_analyze_lazy`/`_build_lane_plans` 读了**新的**输入（新字段、新 env、
+#   新 plan 结构），必须把 `_LAZY_SIG_VER` +1，否则旧条目会按旧语义命中。
+# ⚠ 与 `BIN_LAZY_CACHE=0` 可整体关掉（A/B 与排查用，sha1 必须完全一致）。
+_LAZY_SIG_VER = 1
+_LAZY_CACHE = {}                       # sig(bytes) → 只读结果包
+_LAZY_CACHE_MAX = 8                    # 最多 8 个图签名（64/128/256 + 换容器都够用）
+_LAZY_CACHE_ON = os.environ.get("BIN_LAZY_CACHE", "1").strip().lower() \
+    not in ("0", "off", "false", "no")
+_LAZY_CACHE_STATS_ON = os.environ.get("BIN_LAZY_CACHE_STATS", "").strip().lower() \
+    in ("1", "on", "true", "yes")
+_LAZY_CACHE_STAT = dict(hit=0, miss=0)
+
+
+class _RODict(dict):
+    """只读 dict：读法与 dict 完全一致，写就抛 `RuntimeError`。
+
+    用来装 lane 计划（`thr`/`si`/`lane_off`/`fill`/`lanes2`/`kinds`）：
+    `_PlBackend.prepare` / `_prepare_segments_cached` **只读**它（已逐行核对），
+    但缓存是跨帧共享的 ⇒ 让"改坏"这件事变成显式异常，而不是下一帧静默错数据。
+    """
+    __slots__ = ()
+
+    def _ro(self, *a, **k):
+        raise RuntimeError("lane 计划是缓存里的只读视图，不许改写")
+
+    __setitem__ = __delitem__ = _ro
+    update = setdefault = pop = popitem = clear = _ro
+
+
+def _lazy_env_fp():
+    """运行点开关串。
+
+    `_analyze_lazy` **现在**不读任何 env（逐行核对过），但把 `BIN_*`/`Q8CACHE*`/
+    `CATPACK*`/`NET_*` 全串进键里 ⇒ 以后有人在分析里加开关，最坏也只是多一次
+    未命中（慢 0.5 s），不会拿旧语义命中。键里的值只影响命中率，不影响结果。
+    """
+    return "|".join("%s=%s" % (k, os.environ[k]) for k in sorted(os.environ)
+                    if k.startswith(("BIN_", "Q8CACHE", "CATPACK", "NET_")))
+
+
+def _lazy_freeze_plans(plans):
+    """把 lane 计划冻成只读（数组 `writeable=False` + `_RODict`），不复制数组。
+
+    数组是纯派生量（`thr` 由 `closed_form_thr_vec`、`lane_off`/`si` 由段偏移算），
+    下游只做索引/加法，不改写；置只读后万一有代码写它，会当场抛错。
+    """
+    out = {}
+    for k, p in plans.items():
+        for name in ("thr", "si", "lane_off", "fill", "lanes2"):
+            a = p.get(name)
+            if isinstance(a, np.ndarray):
+                a.flags.writeable = False
+        out[k] = _RODict(p)
+    return out
+
+
+def _lazy_cache_note(hit, sig, extra=""):
+    """`BIN_LAZY_CACHE_STATS=1` 时打一行（默认静默，不改任何既有输出）。"""
+    _LAZY_CACHE_STAT["hit" if hit else "miss"] += 1
+    if _LAZY_CACHE_STATS_ON:
+        print("  [LAZY_CACHE] %s sig=%s%s"
+              % ("命中" if hit else "未命中", sig[:8].hex(), extra), flush=True)
+
+
 class BinNet:
     def __init__(self, pack_dir, engine=None, H=64, W=64, verbose=True):
         self.pack_dir = pack_dir
@@ -1760,6 +1843,8 @@ class BinNet:
         self._fconv = None
         self._fconv_why = ""
         self._cpf_pl_stats = dict(n_pl=0, seconds=0.0, last="")
+        # ★ T-153：上一次 `_analyze_lazy` 用的图签名（缓存键），只用于记账/排查。
+        self._lazy_cache_key = None
 
     @staticmethod
     def _new_cat_stats():
@@ -1774,6 +1859,51 @@ class BinNet:
                     q8_fs_conflict=0)
 
     # ---- C8 直读（BIN_LAZY_DEQ）的图分析 ----
+    def _lazy_sig(self, g, outs):
+        """图签名 = 缓存键（只含 `_analyze_lazy`/`_build_lane_plans` 真正读到的输入）。
+
+        · 图结构：op 序列的 `kind` / dep 张量 id / out 张量 id / out shape
+          —— 决定 `needs`（需物化 f32）、`nuse`、`_cat_class`；
+          **不**含权重、不含任何运行期状态（槽/arena/内存/引擎）。
+        · conv 层：`name`+`cin`+`cout`+`k`+`s`+`H`+`W`+`act_fs_in`+`act_fs_out`
+          —— 决定 lane 计划的通道分段与阈值；其中 `H`/`W` 来自建图时的分辨率。
+        · 该层 `t_q` 的**原始字节**（容器 `off_thr` 处 cin×2 字节）
+          —— `_build_lane_plans` 唯一从容器里读的数据；直接进签名 ⇒ 换权重必失效。
+        · 容器身份（path/size/sha256）+ 环境开关串。
+
+        blake2b-160：打 395 个 op + 227 层的字符串，256² 实测 1~3 ms（vs 0.547 s）。
+        """
+        h = hashlib.blake2b(digest_size=20)
+        h.update(b"v%d" % _LAZY_SIG_VER)
+        b = self.blob
+        h.update(("|b=%s/%d/%s" % (getattr(b, "path", "?"),
+                                   int(getattr(b, "size", 0) or 0),
+                                   getattr(b, "sha256", "") or "?")
+                  ).encode("utf-8", "replace"))
+        h.update(("|e=" + _lazy_env_fp()).encode("utf-8", "replace"))
+        h.update(("|o=" + ",".join("%s:%d" % (k, outs[k].id)
+                                  for k in sorted(outs))).encode("utf-8"))
+        parts = []
+        for o in g.ops:
+            parts.append("%s:%d:%s>%d:%s"
+                         % (o.kind, o.id,
+                            ".".join(str(d.id) for d in o.deps),
+                            o.out.id, "x".join(str(v) for v in o.out.shape)))
+            L = o.layer
+            if L is None:
+                continue
+            d = getattr(L, "d", None) or {}
+            parts.append("%s,%d,%d,%d,%d,%d,%d,%s,%s"
+                         % (L.name, int(L.cin), int(L.cout), int(L.k), int(L.s),
+                            int(L.H), int(L.W),
+                            d.get("act_fs_in"), d.get("act_fs_out")))
+            try:                              # t_q 原始字节（不复制整份容器）
+                h.update(b.raw(int(d["off_thr"]), 2 * int(L.cin)).tobytes())
+            except Exception:                 # noqa: BLE001
+                h.update(b"!")
+        h.update(("|g=" + ";".join(parts)).encode("utf-8", "replace"))
+        return h.digest()
+
     def _analyze_lazy(self, g, outs):
         """算出（构建期，一次）：
 
@@ -1781,7 +1911,35 @@ class BinNet:
           add/interp/sam/eca/convfp/shuffle/unshuffle 消费者、或它是网络输出、
           或它被喂给这样的 cat，就必须物化。其余（只进 cat/conv）可以保持 int8。
         · `_nuse`：每个 int8 张量会被**多少层 conv** 当输入读（释放 pin 的次数）。
+
+        ★ T-153：**结果按图签名缓存在进程内**（见文件上方 `_LAZY_CACHE` 一节）。
+          下面这段算法逐句未改；命中时只是把上次算好的只读结果回填到 `self`，
+          未命中时算完原样存一份。`BIN_LAZY_CACHE=0` 可整体关掉（sha1 必须一致）。
         """
+        v = self.verbose
+        sig = self._lazy_sig(g, outs)
+        self._lazy_cache_key = sig
+        if _LAZY_CACHE_ON:
+            ent = _LAZY_CACHE.get(sig)
+            if ent is not None:
+                # 回填（set/dict 浅拷贝；lane 计划是只读视图，直接复用）
+                self._cat_class = dict(ent["cat_class"])
+                self._cat_stats["f32_leaf_bytes_mixed"] = int(ent["f32_leaf_bytes"])
+                self._cat_stats["cats_mixed"] = int(ent["cats_mixed"])
+                self._needs_f32 = set(ent["needs_f32"])
+                self._nuse = dict(ent["nuse"])
+                self._lane_plan = dict(ent["lane_plan"])
+                self._lane_plan_q8 = dict(ent["lane_plan_q8"])
+                _lazy_cache_note(True, sig)
+                if v:
+                    print("  [LAZY_DEQ] int8 直读（**缓存命中** sig=%s）："
+                          "%d 个张量可保持 int8（无需 f32）/ %d 个总张量；"
+                          "%d 层 conv 的输入全在图里"
+                          % (sig[:8].hex(), len(g.tensors) - len(self._needs_f32),
+                             len(g.tensors),
+                             len([o for o in g.ops if o.kind == "conv"])),
+                          flush=True)
+                return
         needs = {t.id for t in outs.values()}
         for o in g.ops:
             if o.kind not in ("cat", "conv"):
@@ -1850,6 +2008,17 @@ class BinNet:
                   % (len(g.tensors) - len(needs), len(g.tensors),
                      len([o for o in g.ops if o.kind == "conv"])),
                   flush=True)
+        # ★ T-153：存缓存（只读快照；上面这段算法与原先逐句相同）
+        if _LAZY_CACHE_ON:
+            _lazy_cache_note(False, sig)
+            _LAZY_CACHE[sig] = dict(
+                cat_class=dict(cls), f32_leaf_bytes=int(f32_tot),
+                cats_mixed=int(n_mixed), needs_f32=frozenset(needs),
+                nuse=dict(nuse),
+                lane_plan=_lazy_freeze_plans(self._lane_plan),
+                lane_plan_q8=_lazy_freeze_plans(self._lane_plan_q8))
+            while len(_LAZY_CACHE) > _LAZY_CACHE_MAX:      # FIFO 淘汰（够用且无锁）
+                _LAZY_CACHE.pop(next(iter(_LAZY_CACHE)))
 
     # ---- CATPACK 的辅助（关闭时不会被调用）----
     def _adj_for(self, L):
