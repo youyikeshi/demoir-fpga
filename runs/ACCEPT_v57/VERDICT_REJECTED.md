@@ -60,3 +60,35 @@ $$\Delta = +0.513\ \text{s}\ (\mathbf{+9.7\%}),\ \text{不是 } +2.74\ \text{s}$
 **代价全在 PL，不在 PS**：v39@150 PL 2.149 / PS 3.411；v39@100 PL 2.802 / PS 3.379（PL ×1.30，部分受 DDR 带宽限制，不随时钟线性缩放；PS 不动）。
 
 **时序刀 7 本身不吃时间**：v57@100 vs v39@100 = **−0.012 s（噪声内）**。
+
+---
+
+## ★ 追加（T-162）：这个包的"0 违例"结论本身也有折扣
+
+查出：v57 的 `TNS Total Endpoints` 从 **47,805 → 41,273（−6,532，−13.7%）**。
+
+| 发现 | 内容 |
+|---|---|
+| 性质 | **不是口径差异**——同脚本复跑逐位一致、`check_timing` 两版全 0、`false_path` 覆盖只差 3 |
+| 差集 | lost **6,551** / gained 19（19 个新增全是刀 7 的 `rem_reg` + `sw_act_q_reg`）|
+| 引脚还在吗 | **在**（6,526/6,551 照旧存在，FF 只差 2）|
+| 为什么不再被分析 | 这些端点在 v39 里 87.4% 的起点就是 **刀 7 删掉的那条使能锥**（`run_len_reg[3]_replica` + `run_unit_q_reg[2]`）；v57 里它们仍有真实路径（`win_q_reg_2 → FSM_onehot_wst/D` **21.445 ns**，`→ p_0_out__0/CEA2` **26.824 ns**），但 **SLACK 为空 = untimed** |
+
+$$\Rightarrow\ \text{v39 的 } 7{,}109\ \text{ 个违例里，}\mathbf{2{,}841}\ (40\%)\ \text{在 v57 里}\textbf{不再被分析}$$
+
+$$\Rightarrow\ \Rightarrow\ \textbf{"刀 7 消掉 7,109 条违例"必须改写为：}\mathbf{4{,}268\ \text{条真被修好} + 2{,}841\ \text{条退出分析}}$$
+
+**所以本包的"WNS +0.206 / 违例端点 0"是在一个少 13.7% 端点的集合上得到的。** 数字不是假的，但它不等于"整颗设计的时序情况"。
+
+## 更值得记住的另一面
+
+$$\Rightarrow\ \text{这颗设计里有 } \mathbf{21 \sim 27\ ns}\ \text{的}\textbf{未定时真实路径}，\text{而它跑在 } 6.667\ \text{ns}$$
+$$\Rightarrow\ \text{加上 } \mathtt{catpack}\ \text{的 } \mathtt{set\_false\_path\ -through}\ \text{覆盖 } \mathbf{59.3\%}\ \text{的端点}$$
+$$\Rightarrow\ \Rightarrow\ \textbf{两版位流的时序报告对"硬件是否可用"都不可信}$$
+$$\Rightarrow\ \text{v39 之所以看起来"违例可控"，部分是因为它}\textbf{顺带看见了}\text{那些端点；刀 7 让报告变干净的同时，也把那份偶然的可见性去掉了}$$
+
+## 现在的状态
+
+- **唯一可用配置**：v39 `602725b8` @150 MHz + T-153/T-156 的 PS 改动 ⇒ 256² = **5.25~5.32 s**
+- 板子：PL = v39 @100 MHz，仍开机，仅 `sync; sync`
+- 待查：v57 在 100 MHz 失效的**真实机制**（静态时序已排除，正在用变延迟 bench 复现）
