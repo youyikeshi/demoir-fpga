@@ -1,0 +1,109 @@
+
+==============================================================================
+T-159：design_1_150v163.bit 上板验收（load + 频率 + 功能 sha1 + 计时）
+==============================================================================
+  运行点 = {"BIN_PACK": "e1e2", "BIN_LAZY_DEQ": "1", "BIN_LAZY_SLOTS": "24", "BIN_CAT_FUSION": "1", "BIN_BILINEAR_C": "1", "BIN_PRECOMP": "1", "Q8CACHE": "1", "BIN_F32DIRECT": "1", "BIN_CAT_ECA_FUSE": "1", "BIN_EPI_NOINV": "1", "BIN_PROFILE": "1", "BIN_LAZY_DEBUG": "1", "Q8CACHE_STATS": "1", "BIN_V50_FUSE": "", "BIN_MMIO_C": "", "BIN_MMIO_FAST": "", "BIN_MMIO_POLL": "", "BIN_E1E2_SLEEP": ""}
+  写频 75 / 期望读回 75.0 ；主尺寸 256² ×4（丢首 1）；附加 128,64 ×0
+
+==============================================================================
+P0：Overlay 下载（**本次会话唯一一次**）
+==============================================================================
+  Overlay(design_1_150v163.bit) = 3.226 s
+  conv_uni_0  base=0x40040000 （期望 0x40040000）✓
+  bin_unit_0  base=0x40060000 （期望 0x40060000）✓
+  overlay IP（3）：bin_unit_0, conv_uni_0, ps7
+  无 fconv ⇒ ✓ 与本位流预期一致
+  0x310=0x00000000 ；magic(0x314)=0x00000000（v57 无 magic ⇒ 读失败按 T-141 豁免）
+  第 131 条 idle 门 = ✓ ：0x310=0x00000000 ；bin_unit_0 busy=False ；conv_uni_0 busy=False
+  load 后原始 fclk0 读回 = 125 MHz
+  标定：写  150.0000 → 读回  150.0000 MHz（比值 1.0000）
+  标定：写  100.0000 → 读回  100.0000 MHz（比值 1.0000）
+/usr/local/share/pynq-venv/lib/python3.10/site-packages/pynq/ps.py:438: UserWarning: Setting frequency to the closest possible value 68.18182MHz.
+  warnings.warn(
+  标定：写   66.6667 → 读回   68.1818 MHz（比值 1.0227）
+  ★ 落点：写 75 → 读回 75 MHz
+  ★ 读回判据：期望 75 MHz ⇒ ✓
+
+==============================================================================
+P0：内核 .so + arena + 引擎/权重 + NetPlan
+==============================================================================
+  内核 = 7.183 s {'q8': 0.269, 'c8deq': 5.15, 'bpack': 1.764}
+  256²：max_in 1179648 / max_out 1572864 / 227 conv / 395 op ；arena 66.22 MB（CmaFree 75.6 MB）
+
+==============================================================================
+run1：hw=256² 整网
+==============================================================================
+  跑前 idle = ✓ ：0x310=0x00000000 ；bin_unit_0 busy=False ；conv_uni_0 busy=False
+[DEPS] q8=fast c8deq=fast bpack=fast e1e2=fast catpack=fast safe=fast  ⇒ deps_closure_ok=True
+  [LAZY_DEQ] IN/OUT 槽数 = 24（BIN_LAZY_SLOTS）
+[Q8CACHE] hit/miss = 89/50  stale 0  逐出 0  skip 0  常驻 17.59/33.55 MB  直写 True  强引用 True  multifs True
+  **墙钟 8.538 s** ⇒ 三 sha1 全中 ✓
+     9b1940c8955b / f86a7035621b / 025757a83c39
+  pack(698 命令的墙钟和) = 0.000 s ；PL = 4.203 s ；wait = 1.362 s ；prep = 1.565 s ；psop = 2.803 s ；epi = 0.252 s
+  flush 0 次 / invalidate 0 次（本跑）
+  MMIO：真写 6195 / 读 24055（本跑）；_wr_seq 调用 0、落总线 0 字、影子跳过 0
+  跑后 idle = ✓ ：0x310=0x00000000 ；bin_unit_0 busy=False ；conv_uni_0 busy=False
+
+==============================================================================
+run2：hw=256² 整网
+==============================================================================
+  跑前 idle = ✓ ：0x310=0x00000000 ；bin_unit_0 busy=False ；conv_uni_0 busy=False
+  [LAZY_DEQ] IN/OUT 槽数 = 24（BIN_LAZY_SLOTS）
+[Q8CACHE] hit/miss = 89/50  stale 0  逐出 0  skip 0  常驻 17.59/33.55 MB  直写 True  强引用 True  multifs True
+  **墙钟 6.239 s** ⇒ 三 sha1 全中 ✓
+     9b1940c8955b / f86a7035621b / 025757a83c39
+  pack(698 命令的墙钟和) = 0.000 s ；PL = 3.223 s ；wait = 1.115 s ；prep = 1.280 s ；psop = 2.012 s ；epi = 0.242 s
+  flush 0 次 / invalidate 0 次（本跑）
+  MMIO：真写 6171 / 读 23427（本跑）；_wr_seq 调用 0、落总线 0 字、影子跳过 0
+  跑后 idle = ✓ ：0x310=0x00000000 ；bin_unit_0 busy=False ；conv_uni_0 busy=False
+
+==============================================================================
+run3：hw=256² 整网
+==============================================================================
+  跑前 idle = ✓ ：0x310=0x00000000 ；bin_unit_0 busy=False ；conv_uni_0 busy=False
+  [LAZY_DEQ] IN/OUT 槽数 = 24（BIN_LAZY_SLOTS）
+[Q8CACHE] hit/miss = 89/51  stale 0  逐出 0  skip 0  常驻 17.72/33.55 MB  直写 True  强引用 True  multifs True
+  **墙钟 6.255 s** ⇒ 三 sha1 全中 ✓
+     9b1940c8955b / f86a7035621b / 025757a83c39
+  pack(698 命令的墙钟和) = 0.000 s ；PL = 3.236 s ；wait = 1.126 s ；prep = 1.282 s ；psop = 2.002 s ；epi = 0.251 s
+  flush 0 次 / invalidate 0 次（本跑）
+  MMIO：真写 6152 / 读 23766（本跑）；_wr_seq 调用 0、落总线 0 字、影子跳过 0
+  跑后 idle = ✓ ：0x310=0x00000000 ；bin_unit_0 busy=False ；conv_uni_0 busy=False
+
+==============================================================================
+run4：hw=256² 整网
+==============================================================================
+  跑前 idle = ✓ ：0x310=0x00000000 ；bin_unit_0 busy=False ；conv_uni_0 busy=False
+  [LAZY_DEQ] IN/OUT 槽数 = 24（BIN_LAZY_SLOTS）
+[Q8CACHE] hit/miss = 89/52  stale 0  逐出 0  skip 0  常驻 17.75/33.55 MB  直写 True  强引用 True  multifs True
+  **墙钟 6.208 s** ⇒ 三 sha1 全中 ✓
+     9b1940c8955b / f86a7035621b / 025757a83c39
+  pack(698 命令的墙钟和) = 0.000 s ；PL = 3.165 s ；wait = 1.134 s ；prep = 1.239 s ；psop = 2.019 s ；epi = 0.247 s
+  flush 0 次 / invalidate 0 次（本跑）
+  MMIO：真写 6147 / 读 23652（本跑）；_wr_seq 调用 0、落总线 0 字、影子跳过 0
+  跑后 idle = ✓ ：0x310=0x00000000 ；bin_unit_0 busy=False ；conv_uni_0 busy=False
+
+  ── 256² @ 75 MHz ──
+     跑数 4（报 3：丢首跑）
+     墙钟 [6.239, 6.2546, 6.2077] ⇒ **min 6.208 / 中位 6.239 / max 6.255 s**
+     PL 中位 3.223 s ；PS 中位 3.533 s ；wait 中位 1.1264 s ；overlap 见 JSON
+     PS 分桶中位：prologue 1.2796 / epilogue 0.2472 / nonconv 2.012
+     三 sha1 全中 = ✓
+
+==============================================================================
+hw=128² ×0（新 net，同一 engine/arena；单 net）
+==============================================================================
+
+  ── 128² @ 75 MHz ──
+     （0 跑，跳过汇总）
+
+==============================================================================
+hw=64² ×0（新 net，同一 engine/arena；单 net）
+==============================================================================
+
+  ── 64² @ 75 MHz ──
+     （0 跑，跳过汇总）
+
+  收尾 PL 空闲门 = ✓ ：0x310=0x00000000 ；bin_unit_0 busy=False ；conv_uni_0 busy=False
+  产物 /home/xilinx/demoir/v163_out_v163b75/v163b75_probe.json
+  ★ 总结：fclk 读回 75 MHz（期望 75.0）；三尺寸 sha1 全中 = ✓

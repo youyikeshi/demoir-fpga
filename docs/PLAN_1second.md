@@ -7775,3 +7775,40 @@ $$\quad\ \text{探针实测每 tile } \mathtt{run\_len}/\mathtt{rem}{=}256、\ma
 $$\Rightarrow\ \textbf{第 154 条：RTL 级完全等价}\ \not\Rightarrow\ \textbf{门级等价}\ \text{——两者之间隔着综合与布局布线}$$
 $$\Rightarrow\ \text{它的建议：跳出"整拍 CE 冻结 + 固定延迟契约"这层} \Rightarrow \textbf{用两版布局后 DCP 做门级 SDF 仿真}$$
 $$\quad\ \text{或上板读 } 0x230..0x240\ \text{的 DBG};\ \text{100/75/50 MHz 的频率依赖更像 }\textbf{CE 锥/setup 或门级行为}$$
+
+### 70.128 ⛔ ★★★★★★★ T-163 定案：**刀 7 有真实隐患，放弃；且它会越界写**（2026-11-03 15:0x）
+
+**两个独立实现都失败，两个都在 75 MHz 通过**
+| 构建 | 差异 | WNS | LUT | bit md5 | @100 MHz | @75 MHz |
+|---|---|---|---|---|---|---|
+| **A**（原脚本原样）| 与 v57 **只差 4 字节**（文件头时间戳 118~124）| +0.206 | 20255 | `c9e2d1a5` | **0/7**（7 个 sha1 全不同）| — |
+| **B**（仅 `place_design -directive ExtraTimingOpt`）| 与 v57 差 **1,007,957 字节**=真换实现 | +0.264 | 20278 | `957d90b6` | **0/3，且一次都没跑完** | **4/4 全对** |
+| v39 对照 | 无刀 7 | — | — | `602725b8` | **4/4 全对** | — |
+
+$$\Rightarrow\ \textbf{P\&R 是确定性的}：\text{A 重建出来就是 v57 那颗（只差时间戳）} \Rightarrow \textbf{"重跑看运气"这条路不存在}$$
+$$\Rightarrow\ \textbf{B 更狠}：\text{s1 } \mathtt{bin\_unit}\ \text{超时 }5.0\ \text{s 未 done};\ \textbf{s2/s3 金丝雀被写坏 }8/4096（\text{越界写}）$$
+$$\Rightarrow\ \textbf{而 B 在 }75\ \text{MHz 是 }4/4\ \text{全对，且 } \mathtt{WHS}=+0.027\ \text{为正} \Rightarrow \textbf{频率依赖的时序失效}，\text{不是 hold/结构错}$$
+$$\Rightarrow\ \Rightarrow\ \text{唯一共同变量 = 刀 7} \Rightarrow \textbf{P\&R 运气假设被两次否掉}$$
+
+**★ 机理终于闭环（与 T-162 咬合）**
+$$\Rightarrow\ \text{刀 7 让 }\mathbf{6{,}551}\ \text{个端点}\textbf{退出分析集}（\text{两臂 } \mathtt{TNS\ Total\ Endpoints}\ \text{都是 }41{,}273，\text{v39 是 }47{,}805）$$
+$$\Rightarrow\ \text{其中包含 }\mathbf{258}\ \text{个 BRAM 控制脚}：\mathtt{ADDRBWRADDR}\ 208、\mathtt{ENBWREN}\ 25、\mathtt{WEA}\ 16、\mathtt{ENARDEN}\ 9$$
+$$\Rightarrow\ \Rightarrow\ \textbf{这些脚的真实时序从此没有任何人验证}$$
+$$\quad\ \Rightarrow\ \text{100 MHz 下有一路真的违例} \Rightarrow \textbf{BRAM 写地址/使能踩错} \Rightarrow \textbf{越界写 + 金丝雀被写坏}$$
+$$\quad\ \Rightarrow\ \text{75 MHz 下余量足够} \Rightarrow \text{全对}$$
+$$\Rightarrow\ \Rightarrow\ \textbf{第 156 条：}\text{"消掉违例"若是靠}\textbf{让端点退出分析}，\text{那等于}\textbf{把违例藏起来}——\text{不是修复}$$
+$$\quad\ \Rightarrow\ \text{判据：}\text{改动前后 }\mathtt{TNS\ Total\ Endpoints}\ \text{必须相同；}\text{不同就是覆盖变了，}\text{要当"未验证"处理}$$
+
+**处置**
+$$\Rightarrow\ \textbf{刀 7（}\mathtt{bc28ead3}\textbf{）放弃}，\text{不得使用};\ \text{v57/ACCEPT\_v57 维持作废}$$
+$$\Rightarrow\ \text{主线 } \mathtt{rtl\_v50}\ \text{未被污染}（\text{刀 7 只存在于 v57 的构建树）} \Rightarrow \textbf{无需回退}$$
+$$\Rightarrow\ \text{若将来还想要刀 7 的收益} \Rightarrow \textbf{先把那 }6{,}551\ \text{个端点重新纳入 STA}，\text{再谈 P\&R 指令}$$
+$$\quad\ \Rightarrow\ \text{但那意味着要显式约束 } \mathtt{catpack}\ \text{的 } \mathtt{\text{-}through}\（\text{现覆盖 }59.3\%）\ \text{并补上 } \mathtt{run\_len}\ \text{锥消失后的路径}$$
+
+**这轮的净结果（不受影响）**
+$$\Rightarrow\ \textbf{唯一可用}：\mathtt{v39}\ \text{@150 MHz} + \text{T-153/T-156 的 PS 改动} = \mathbf{256^2\ 5.25\sim5.32\ s}$$
+$$\Rightarrow\ \text{相对记录基线 } 8.096\ \text{s} \Rightarrow \mathbf{-34.7\%}$$
+$$\Rightarrow\ \text{RTL 侧这轮的产出是}\textbf{零}\（\text{刀 7 放弃）}，\text{但换到了三条硬认知}：$$
+$$\quad\ \text{① 时序报告不能判可用性（第 152 条）}$$
+$$\quad\ \text{② "违例清零"必须同时报端点总数（第 153 条）}$$
+$$\quad\ \text{③ 靠减少分析覆盖来"修"违例等于藏违例，会以越界写的形式回来（第 156 条）}$$

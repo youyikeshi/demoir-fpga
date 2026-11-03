@@ -1,0 +1,55 @@
+
+==============================================================================
+T-159：design_1_150v163.bit 上板验收（load + 频率 + 功能 sha1 + 计时）
+==============================================================================
+  运行点 = {"BIN_PACK": "e1e2", "BIN_LAZY_DEQ": "1", "BIN_LAZY_SLOTS": "24", "BIN_CAT_FUSION": "1", "BIN_BILINEAR_C": "1", "BIN_PRECOMP": "1", "Q8CACHE": "1", "BIN_F32DIRECT": "1", "BIN_CAT_ECA_FUSE": "1", "BIN_EPI_NOINV": "1", "BIN_PROFILE": "1", "BIN_LAZY_DEBUG": "1", "Q8CACHE_STATS": "1", "BIN_V50_FUSE": "", "BIN_MMIO_C": "", "BIN_MMIO_FAST": "", "BIN_MMIO_POLL": "", "BIN_E1E2_SLEEP": ""}
+  写频 100 / 期望读回 100.0 ；主尺寸 256² ×4（丢首 1）；附加 128,64 ×0
+
+==============================================================================
+P0：Overlay 下载（**本次会话唯一一次**）
+==============================================================================
+  Overlay(design_1_150v163.bit) = 2.993 s
+  conv_uni_0  base=0x40040000 （期望 0x40040000）✓
+  bin_unit_0  base=0x40060000 （期望 0x40060000）✓
+  overlay IP（3）：bin_unit_0, conv_uni_0, ps7
+  无 fconv ⇒ ✓ 与本位流预期一致
+  0x310=0x00000000 ；magic(0x314)=0x00000000（v57 无 magic ⇒ 读失败按 T-141 豁免）
+  第 131 条 idle 门 = ✓ ：0x310=0x00000000 ；bin_unit_0 busy=False ；conv_uni_0 busy=False
+  load 后原始 fclk0 读回 = 125 MHz
+  标定：写  150.0000 → 读回  150.0000 MHz（比值 1.0000）
+  标定：写  100.0000 → 读回  100.0000 MHz（比值 1.0000）
+/usr/local/share/pynq-venv/lib/python3.10/site-packages/pynq/ps.py:438: UserWarning: Setting frequency to the closest possible value 68.18182MHz.
+  warnings.warn(
+  标定：写   66.6667 → 读回   68.1818 MHz（比值 1.0227）
+  ★ 落点：写 100 → 读回 100 MHz
+  ★ 读回判据：期望 100 MHz ⇒ ✓
+
+==============================================================================
+P0：内核 .so + arena + 引擎/权重 + NetPlan
+==============================================================================
+  内核 = 7.048 s {'q8': 0.263, 'c8deq': 4.976, 'bpack': 1.809}
+  256²：max_in 1179648 / max_out 1572864 / 227 conv / 395 op ；arena 66.22 MB（CmaFree 75.6 MB）
+
+==============================================================================
+run1：hw=256² 整网
+==============================================================================
+  跑前 idle = ✓ ：0x310=0x00000000 ；bin_unit_0 busy=False ；conv_uni_0 busy=False
+[DEPS] q8=fast c8deq=fast bpack=fast e1e2=fast catpack=fast safe=fast  ⇒ deps_closure_ok=True
+  [LAZY_DEQ] IN/OUT 槽数 = 24（BIN_LAZY_SLOTS）
+Traceback (most recent call last):
+  File "/tmp/probe_V163d/probe_v163.py", line 796, in <module>
+    sys.exit(main())
+  File "/tmp/probe_V163d/probe_v163.py", line 688, in main
+    rec = run_net(ov, net, arena, A.hw, i, "main")
+  File "/tmp/probe_V163d/probe_v163.py", line 512, in run_net
+    outs, st = net.run(x0, pipeline=True, nbuf=2, arena=arena)
+  File "/home/xilinx/demoir/ps/pynq/bin_net.py", line 3350, in run
+    y, rs, t_e = be.finish(pl_task)
+  File "/home/xilinx/demoir/ps/pynq/bin_net.py", line 1085, in finish
+    rs = e.reap(task.t0, task.timeout, out_buf=task.out_buf, L=task.layer,
+  File "/home/xilinx/demoir/ps/pynq/bin_engine.py", line 1800, in reap
+    st, _ = self.wait(timeout, est_s=est_s)
+  File "/home/xilinx/demoir/ps/pynq/bin_engine.py", line 1474, in wait
+    raise TimeoutError(msg)
+TimeoutError: bin_unit 超时 5.0s 未 done（timeout=5.004394666666666）。**不再发第二次 start**：引擎可能还在访存，继续跑会踩内存。
+
