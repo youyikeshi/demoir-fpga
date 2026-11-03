@@ -798,14 +798,10 @@ def test_fake_pipeline() -> None:
 
     # 真引擎路径的 sha1 门禁（不需要硬件：直接喂结果给它）
     p2 = dp.Pipeline(fake=False)
-    check(p2._gate_sha1(dp.FROZEN_SHA1[(256, 256)], 256, 256) == "ok",
-          "sha1 命中冻结基线时应返回 ok")
-    try:
-        p2._gate_sha1(("deadbeef0000", "f86a7035", "025757a8"), 256, 256)
-    except dp.Sha1Mismatch as ex:
-        check("out1" in str(ex), f"sha1 不符必须抛 Sha1Mismatch 并点名 out1，得到 {ex}")
-    else:
-        check(False, "sha1 不符必须抛 Sha1Mismatch（绝不许显示算错的图）")
+    check(p2._gate_sha1(dp.FROZEN_SHA1[(256, 256)], 256, 256) == "ok(frozen)",
+          "命中冻结基线时逐帧报告应为 ok(frozen)")
+    check(p2._gate_sha1(("deadbeef0000", "f86a7035", "025757a8"), 256, 256) == "n/a(live)",
+          "真实帧（与冻结基线不同）→ 逐帧只报 n/a(live)，不许误判成引擎坏")
     try:
         p2._gate_sha1(("x", "y", "z"), 512, 512)
     except dp.PipelineError:
@@ -864,8 +860,19 @@ def test_fake_pipeline() -> None:
               f"CLI 不应有异常输出：{r.stderr[:200]}")
     except subprocess.TimeoutExpired:
         check(False, "`demo_pipeline.py --fake` 超时（>180 s）")
+    # 种子探针：这才是真正的数值门禁（伪引擎的数 != 冻结三件套 ⇒ 必须抛）
+    p5 = dp.Pipeline(net=_OnlyOut1(), fake=True)
+    try:
+        dp.Pipeline(net=dp.FakeV57Net(), fake=True)._verify_frozen()
+    except dp.Sha1Mismatch as ex:
+        check("out1" in str(ex) and "9b1940c8" in str(ex),
+              f"种子探针不符必须抛 Sha1Mismatch 并点名期望值，得到 {ex}")
+    else:
+        check(False, "种子探针不符必须抛（否则算错的帧会被送去显示）")
+
     print(f"  ✓ 全流程：{res['t_total_s']:.3f} s（fake），阶段日志/运行点/CLI 全对")
     pipe.close()
+    p5.close()
 
 
 # ---------------------------------------------------------------------------

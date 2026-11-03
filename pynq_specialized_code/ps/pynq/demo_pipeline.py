@@ -7,24 +7,23 @@
 运行点（``runs/ACCEPT_v57/README.md`` 首行 + ``07_KNOWN_LIMITS.md``）：**v57 = 75 MHz**，
 ``Clocks.fclk0_mhz = 75``。**不要**套 HDMI 位流的"报数 = 真值 1.5×"口径（IO PLL 不同：
 HDMI 1000 MHz vs v57 1800 MHz / DIV0=4 / DIV1=3）；100 MHz sha1 0/7、150 MHz −3.07 ⇒ 只有 75。
-
-合并时钟树（``07_合并方案`` §1.1/§1.2）：HDMI 的 AXI/扫描器共用 FCLK0（实跑 75）；**像素时钟
-由板上 50 MHz 晶振**经 MMCM（VCO 1187.5）派生、与 FCLK0 **解耦** ⇒ 可独立校验，但**不能**
-用它反推 ACLK。
+合并时钟树（``07_合并方案`` §1.1/§1.2）：HDMI 的 AXI/扫描器共用 FCLK0（实跑 75）；**像素时钟由
+50 MHz 晶振**经 MMCM（VCO 1187.5）派生、与 FCLK0 **解耦** ⇒ 可独立校验，但**不能**反推 ACLK。
 
 阶段（打印成**一行**日志）：capture ``cam.shot()`` 0.1~0.5 s ｜ compute ``BinNet.run(x0,
-pipeline=True, nbuf=2, arena)`` **≈6.2 s @75 MHz** ｜ compose ``compose(orig, proc, W, H)``
-<0.05 s ｜ display ``show_frame()+wait()`` <0.05 s ⇒ 一轮 ≈ **6.3 s**（256² 墙钟实测
-6.198~6.234 s @75 MHz；v39 @150 MHz 曾是 5.25~5.32 s）。
+pipeline=True, nbuf=2, arena)`` **≈6.2 s @75 MHz** ｜ compose ``<0.05 s`` ｜ display
+``show_frame()+wait()`` <0.05 s ⇒ 一轮 ≈ **6.3 s**（256² 墙钟实测 6.198~6.234 s）；**首次**
+``setup()`` 另加一次种子探针（约 6.2 s），所以第一轮墙钟约 12.5 s。
 
-门禁：**先**比 ``sha1(ascontiguousarray(out1).tobytes())[:12]`` 与冻结基线（§3.5），**再**
-``clip→transpose→×255→round→uint8`` 转图；sha1 不符抛 ``Sha1Mismatch``。不静默降级：引擎失败
-/ sha1 不符 / 换帧未被采纳 / 像素时钟不对 / 位流缺 HDMI 从设备 ⇒ 抛（不回退 numpy）。板端待验：
-① fclk=75 的读回与真实 ACLK（只打印、不换算）；② 合并位流 v58 未产出 ⇒ 缺 HDMI 从设备时
-``setup()`` 在碰 ``0x400A0000`` 前就报错；③ 像素时钟 37.109 MHz 应与设计差 <1%。
+门禁：**显示第一帧前**用 ``default_rng(1)`` 的 256² 张量跑一次**种子探针**，比
+``sha1(ascontiguousarray(out1).tobytes())[:12]`` 与冻结基线（§3.5），不符抛 ``Sha1Mismatch``
+（真实相机帧没有基准 ⇒ 逐帧只报 ``sha1_gate=ok(frozen)|n/a(live)``，不抛）。
+不静默降级：引擎失败 / 探针不符 / 换帧未被采纳 / 像素时钟不对 / 位流缺 HDMI 从设备 ⇒ 抛。
+板端待验：① fclk=75 的读回与真实 ACLK（只打印、不换算）；② 合并位流 v58 未产出 ⇒ 缺 HDMI
+从设备时 ``setup()`` 在碰 ``0x400A0000`` 前就报错；③ 像素时钟 37.109 MHz 应与设计差 <1%。
 
 ``--fake`` 用本地图 + ``FakeV57Net`` + 假 reg_io + 本地内存块走**同一条** ``DisplayPipeline``
-路径（假引擎**显式注入**），跳过 sha1 但日志写 ``sha1_gate=skipped(fake)``。用法::
+路径（显式注入），跳过探针但日志写 ``sha1_gate=skipped(fake)``。用法::
 
     python3 demo_pipeline.py --fake                      # 主机自检（不需要板子）
     python3 demo_pipeline.py --runs 3 --json out.json    # 板端（256² / 720p30 / fclk=75）
@@ -33,6 +32,7 @@ pipeline=True, nbuf=2, arena)`` **≈6.2 s @75 MHz** ｜ compose ``compose(orig,
 from __future__ import annotations
 
 import argparse
+import contextlib
 import gc
 import hashlib
 import json
@@ -84,10 +84,9 @@ RUNPOINT = {
 def apply_runpoint() -> dict:
     """把 ``RUNPOINT`` 写进 ``os.environ``，返回**实际生效值**与现场多出来的开关。
 
-    ★ 必须在 ``import bin_net`` / ``import bin_engine`` **之前**调用：有开关是在**模块导入
-    时**读走的（如 ``_fast_eca_env`` / ``_LAZY_CACHE_ON``），导入后再设会静默不生效。
-    现场残留的其它 ``BIN_*/Q8CACHE*/CATPACK*`` 不改动，但记录并打进日志（它们能改数值，
-    sha1 门禁是最后一道防线）。
+    ★ 必须在 ``import bin_net`` / ``import bin_engine`` **之前**调用：有开关是在**模块导入时**
+    读走的（如 ``_fast_eca_env``/``_LAZY_CACHE_ON``），导入后再设会静默不生效。现场残留的其它
+    ``BIN_*/Q8CACHE*/CATPACK*`` 不改动但记录并打进日志（它们能改数值，种子探针是最后防线）。
     """
     os.environ.update(RUNPOINT)
     return {"switches": {k: os.environ.get(k, "") for k in RUNPOINT},
@@ -112,19 +111,15 @@ def sha1_prefix(a) -> str:
 
 
 def _md5_file(path: str) -> str:
-    h = hashlib.md5()
-    with open(path, "rb") as f:
-        for blk in iter(lambda: f.read(1 << 20), b""):
-            h.update(blk)
-    return h.hexdigest()
+    with open(path, "rb") as f:                     # bin_net/bin_engine 各几百 KB，一次读
+        return hashlib.md5(f.read()).hexdigest()
 
 
 def _md5_bytes(b: bytes) -> str:
     return hashlib.md5(b).hexdigest()
 
-
 def to_float_tensor(img: np.ndarray) -> np.ndarray:
-    """``(256,256,3) uint8`` RGB → ``(3,256,256) float32 ∈[0,1]``（v57 的输入口径）。"""
+    """``(256,256,3) uint8`` RGB → ``(3,256,256) float32 ∈[0,1]``（v57 输入口径）。"""
     a = np.asarray(img)
     if a.shape != (SIDE, SIDE, 3) or a.dtype != np.uint8:
         raise ValueError(f"相机帧必须是 ({SIDE},{SIDE},3) uint8，得到 {a.shape}/{a.dtype}")
@@ -148,7 +143,6 @@ class LocalBlock(np.ndarray):
         o = np.zeros(int(nbytes), dtype=np.uint8).view(cls)
         o.device_address = int(addr)
         return o
-
     def flush(self) -> None:
         pass
 
@@ -158,7 +152,6 @@ class LocalAllocator:
 
     def __init__(self, base: int = 0x1F00_0000):
         self.base, self.blocks = int(base), []
-
     def __call__(self, nbytes: int) -> LocalBlock:
         blk = LocalBlock(nbytes, self.base + len(self.blocks) * 0x0010_0000)
         self.blocks.append(blk)
@@ -182,7 +175,6 @@ class FakeCam:
             image = np.stack([x * 7 & 0xFF, y * 5 & 0xFF, (x * 3 + y * 11) & 0xFF],
                              -1).astype(np.uint8)
         self.image, self.shots = np.asarray(image, dtype=np.uint8), 0
-
     def shot(self, w: int = SIDE, h: int = SIDE, crop="center", exp_us=None, gain=None):
         if (int(w), int(h)) != (self.image.shape[1], self.image.shape[0]):
             raise ValueError(f"FakeCam 只备了 {self.image.shape[:2]} 的图，请求 {w}x{h}")
@@ -209,9 +201,9 @@ def build_v57_net(overlay, pack_dir: str = PACK_DEFAULT, slots: int = 24,
 
     - arena ``(max_in + max_out + 4096) * max(2, slots) + 64 KiB``（同一公式）；
     - ``BinConvEngine(overlay, unit_id=0)`` + ``load_weights()``；基址**从 hwh 解析、不硬编码**
-      （v57 hwh：``bin_unit_0=0x4006_0000``、``conv_uni_0=0x4004_0000``，与 §3.2 一致）；
+      （``bin_unit_0=0x4006_0000``、``conv_uni_0=0x4004_0000``，与 §3.2 一致）；
     - 跑法 ``net.run(x0, pipeline=True, nbuf=2, arena=arena)``；``load_kernels()`` 先把一次性
-      内核装载做掉，别算进首跑计时。
+      内核装载做掉，别算进首跑计时。同理 ``Pipeline.setup()`` 会先跑一次种子探针。
     """
     import bin_engine as BE                                        # noqa: E402
     import bin_net as BN                                           # noqa: E402
@@ -244,7 +236,7 @@ class Pipeline:
         self.log, self.strict_code, self.pix_tol = log, bool(strict_code), float(pix_tol)
         self._net, self._cam, self._disp = net, cam, disp
         self._overlay_obj, self._io, self._owns_io = overlay, None, False
-        self._alloc = self._arena = None
+        self._alloc = self._arena = self._frozen = None
         self._ready = False
         self._fclk = (FCLK_TARGET, None)     # (目标, 读回)
         self._pix = (None, None)             # (心跳活?, 实测 MHz)
@@ -273,10 +265,11 @@ class Pipeline:
         if self._net is None:
             self._net, self._arena = build_v57_net(self._overlay_obj, self.pack_dir,
                                                    self.slots, self.verbose)
+        if not self.fake:
+            self.log(self.frozen_line(self._verify_frozen()))   # 显示第一帧前先证明算对了
         self._ready = True
         self.log(self.runpoint_line("setup"))
         return self
-
     def _ensure_fake(self) -> None:
         self._cam = self._cam if self._cam is not None else FakeCam()
         self._net = self._net if self._net is not None else FakeV57Net()
@@ -289,10 +282,9 @@ class Pipeline:
             from pynq import Overlay                              # 只有板端有
             self._overlay_obj = Overlay(self.bit)
     def _gate_has_hdmi(self) -> None:
-        """位流里必须有 HDMI 从设备；否则写 ``0x400A0000`` 会挂死总线（05 §8.1 同类事故）。"""
-        ips = getattr(self._overlay_obj, "ip_dict", None)
-        if ips is None: return                # 调用方自己给了 disp/io，不归我们判
-        if not [k for k in ips if "hdmi" in str(k).lower()]:
+        """位流里必须有 HDMI 从设备，否则写 ``0x400A0000`` 会挂死总线（05 §8.1 同类事故）。"""
+        ips = getattr(self._overlay_obj, "ip_dict", None) or {}
+        if ips and not [k for k in ips if "hdmi" in str(k).lower()]:
             raise PipelineError(
                 f"位流里找不到 HDMI 从设备（ip_dict 无 *hdmi*）：{sorted(ips)[:8]}… ⇒ "
                 f"合并位流（07_合并方案 的 v58）还没出？不许对不存在的 0x400A0000 写寄存器")
@@ -302,12 +294,10 @@ class Pipeline:
         if self._disp is None:
             self._disp = dd.DisplayPipeline(reg_io=self._io, mode=self.mode)
     def _set_fclk(self) -> None:
-        """运行点 = **75 MHz**（``runs/ACCEPT_v57/README.md`` 首行）。
-
-        ★ 写 75 就是 75：**不要**套 HDMI 位流的"报数 = 真值 1.5×"口径（IO PLL 不同）；
-        ``06_REPRODUCE §3.1`` 的 ``assert abs(...-100)<1`` 已作废。只打印目标与读回并要求
-        读回≈目标；真实 ACLK 无独立探针（像素时钟与 ACLK 解耦）⇒ 数值由 sha1 门禁裁决。
-        """
+        """运行点 = **75 MHz**（``runs/ACCEPT_v57/README.md`` 首行）。★ 写 75 就是 75：**不要**
+        套 HDMI 位流的"报数 = 真值 1.5×"口径（IO PLL 不同）；``06_REPRODUCE §3.1`` 的
+        ``assert abs(...-100)<1`` 已作废。只打印目标/读回并要求读回≈目标；真实 ACLK 无独立
+        探针（像素时钟与 ACLK 解耦）⇒ 数值由种子探针 + sha1 裁决。"""
         from pynq import Clocks
         Clocks.fclk0_mhz = FCLK_TARGET
         time.sleep(0.2)
@@ -318,7 +308,7 @@ class Pipeline:
     def _hb_pregate(self, window_ms: float = 100.0, min_edges: int = 5) -> None:
         """05 §8.2：**任何其它 AXI 访问之前**先读 ``0x30`` 心跳；不动就立刻停。"""
         t_end, last, edges = time.monotonic() + window_ms / 1000.0, None, 0
-        while time.monotonic() < t_end:                    # 有界窗口内数翻转沿
+        while time.monotonic() < t_end:                        # 有界窗口内数翻转沿
             v = int(self._io.read32(ho.REG["PIX_HB"])) & 1
             edges += int(last is not None and v != last)
             last = v
@@ -327,14 +317,14 @@ class Pipeline:
                 f"0x30 心跳 {window_ms:g} ms 内只有 {edges} 个沿（要求 ≥{min_edges}）"
                 f" ⇒ 像素时钟没跑；按 05 §8.2 立刻停，不再做任何 AXI 访问")
     def _pix_gate(self, window_ms: float = 2000.0) -> None:
-        """像素时钟由 50 MHz 晶振经 MMCM 精确派生（合并方案 §1.2）⇒ 可独立校验；2 s 窗口
-        精度 ≈±0.09%（05 §8.13）。它与 FCLK0 **解耦**，所以**不能**反推 ACLK。"""
+        """像素时钟由 50 MHz 晶振经 MMCM 派生（合并方案 §1.2）⇒ 可独立校验；2 s 窗口精度
+        ≈±0.09%（05 §8.13）。它与 FCLK0 **解耦**，所以**不能**反推 ACLK。"""
         want = ho.MODES[self.mode].pix_clk_mhz
         alive, mhz = self._disp.pix_alive(window_ms)
         self._pix = (bool(alive), float(mhz))
         if not alive:
             raise PipelineError("像素时钟心跳 <5 沿 ⇒ 立刻停（05 §8.2），不许跑整网")
-        if want > 0 and abs(mhz / want - 1.0) > self.pix_tol:
+        if want > 0 and abs(mhz / want - 1.0) > self.pix_tol:   # 50 MHz 晶振链对不对
             raise PipelineError(
                 f"像素时钟实测 {mhz:.3f} MHz / 设计 {want:.3f} MHz 超出 ±{self.pix_tol:.1%}"
                 f" ⇒ 显示时钟树不对（50 MHz 晶振 Y14 / MMCM M=23.75？见合并方案 §1.2），停")
@@ -348,10 +338,8 @@ class Pipeline:
                                     f"（06_REPRODUCE §3.3）⇒ 冻结 sha1 无意义，拒绝继续")
     def close(self) -> None:
         if self._disp is not None:
-            try:
+            with contextlib.suppress(Exception):               # noqa: BLE001
                 self._disp.close()
-            except Exception:                                  # noqa: BLE001
-                pass
             self._disp = None
         if self._owns_io and hasattr(self._io, "close"):
             self._io.close()
@@ -365,8 +353,7 @@ class Pipeline:
         tg, rb = self._fclk
         mhz, want = self._pix[1], ho.MODES[self.mode].pix_clk_mhz
         fclk_s = "fake" if self.fake else f"{tg:g}->{'?' if rb is None else format(rb, 'g')}"
-        pix_s = "fake" if self.fake else ("?" if mhz is None else
-                                          f"{mhz:.3f}MHz(design{want:.3f})")
+        pix_s = "fake" if self.fake else ("?" if mhz is None else f"{mhz:.3f}MHz(design{want:.3f})")
         stray = ",".join(f"{k}={v}" for k, v in sorted(RUNPOINT_EFFECTIVE["stray"].items())) or "-"
         md5s = ",".join(f"{k}={v[:8]}" for k, v in sorted(self._code_md5.items())) or "-"
         return (f"[PIPE] runpoint phase={phase} fake={int(self.fake)} mode={self.mode} "
@@ -395,7 +382,7 @@ class Pipeline:
         outs, net_stats = self._net.run(x0, pipeline=True, nbuf=2, arena=self._arena)
         t_cmp = time.perf_counter() - t0
         miss = [k for k in ("out1", "out2", "out3") if k not in outs]
-        if miss:                       # 三个都必须在：少一个就等于少一道冻结判据
+        if miss:  # 三个都必须在：少一个就等于少一道冻结判据
             raise PipelineError(f"引擎没返回 {miss}（键：{sorted(outs)}）")
         # ★ 门禁顺序：**先**比 sha1（原始 float32），**再**转图
         sha1s = tuple(sha1_prefix(outs[k]) for k in ("out1", "out2", "out3"))
@@ -434,33 +421,46 @@ class Pipeline:
                 "t_total_s": round(t_tot, 6), "sha1_gate": gate, "log_line": line,
                 "sha1_out1": sha1s[0] if sha1s else None, "net_stats": net_stats,
                 "md5_orig": _md5_bytes(img.tobytes()), "md5_proc": _md5_bytes(proc.tobytes()),
-                "md5_frame": _md5_bytes(frame.tobytes()),
+                "md5_frame": _md5_bytes(frame.tobytes()), "frozen_verified": self._frozen is not None,
                 "runpoint": {"switches": dict(RUNPOINT_EFFECTIVE["switches"]),
                              "stray": dict(RUNPOINT_EFFECTIVE["stray"]),
                              "slots": self.slots}}
-
+    def _verify_frozen(self) -> dict:
+        """**一次种子探针**：证明"这套位流+运行点+代码"算出来的数就是冻结那一套。真实相机帧
+        没有基准（每张图都不同）⇒ 数值门禁只能在已知输入上做，且必须在显示第一帧**之前**做
+        （多花一次整网 ≈6 s，一次性）。"""
+        x0 = np.random.default_rng(1).random((3, SIDE, SIDE), dtype=np.float32)
+        outs, _st = self._net.run(x0, pipeline=True, nbuf=2, arena=self._arena)
+        got = tuple(sha1_prefix(outs.get(k, ())) for k in ("out1", "out2", "out3"))
+        exp = FROZEN_SHA1[(SIDE, SIDE)]
+        if got != exp:
+            raise Sha1Mismatch("种子探针与冻结 sha1 不符（**数值错了**，任何帧都不许送显示）："
+                               + "; ".join(f"{k} {g} != {e}" for k, g, e in
+                                           zip(("out1", "out2", "out3"), got, exp))
+                               + f"（引擎返回的键：{sorted(outs)}）")
+        self._frozen = {"x0_sha1": sha1_prefix(x0), "out1": got[0], "out2": got[1],
+                        "out3": got[2], "gate": "ok(frozen)"}
+        return self._frozen
+    def frozen_line(self, fz: dict) -> str:
+        """探针结果一行（带输入 sha1 ⇒ 别人能判断这是不是同一条输入）。"""
+        return (f"[PIPE] frozen phase=verify x0_sha1={fz['x0_sha1']} out1={fz['out1']} "
+                f"out2={fz['out2']} out3={fz['out3']} gate={fz['gate']}")
     def _gate_sha1(self, sha1s, w: int, h: int) -> str:
-        """冻结 sha1 门禁。返回 ``"ok"`` / ``"skipped(fake)"``（两种都写进日志）。"""
+        """逐帧**报告**：与冻结三件套一致才算 ``ok(frozen)``，否则 ``n/a(live)``；真实帧没有
+        基准 ⇒ 这里**不抛**，数值保证由 ``setup()`` 里的种子探针负责。"""
         if self.fake:
             return "skipped(fake)"
         exp = FROZEN_SHA1.get((w, h))
         if exp is None:
             raise PipelineError(f"{w}x{h} 没有冻结 sha1 基线（06_REPRODUCE §3.5 只有 "
                                 f"64/128/256）⇒ 拒绝在无门禁下跑整网")
-        bad = [(k, g, e) for k, g, e in zip(("out1", "out2", "out3"), sha1s, exp) if g != e]
-        if bad:
-            raise Sha1Mismatch("引擎输出与冻结 sha1 不符（**数值错了**，图也是废的，不送显示）："
-                               + "; ".join(f"{k} {g} != {e}" for k, g, e in bad))
-        return "ok"
-
+        return "ok(frozen)" if tuple(sha1s) == exp else "n/a(live)"
     def stats(self) -> dict:
         return {"fake": self.fake, "mode": self.mode, "runs": self.runs,
-                "frame_id": self._frame_id,
+                "frame_id": self._frame_id, "code_md5": dict(self._code_md5),
                 "fclk": {"target": self._fclk[0], "readback": self._fclk[1]},
-                "pix": {"alive": self._pix[0], "mhz": self._pix[1]},
-                "code_md5": dict(self._code_md5),
+                "pix": {"alive": self._pix[0], "mhz": self._pix[1]}, "frozen": self._frozen,
                 "runpoint": dict(RUNPOINT_EFFECTIVE["switches"])}
-
 
 def main(argv=None) -> int:
     ap = argparse.ArgumentParser(description="拍照 → 去摩尔纹 → 构图 → HDMI 一次完整流程")
@@ -477,8 +477,8 @@ def main(argv=None) -> int:
     ap.add_argument("--json", default="", help="把各轮统计写到这个 json")
     a = ap.parse_args(argv)
 
-    pipe = Pipeline(fake=a.fake, mode=a.mode, slots=a.slots, bit=a.bit, pack_dir=a.pack)
-    rows = []
+    pipe, rows = Pipeline(fake=a.fake, mode=a.mode, slots=a.slots, bit=a.bit,
+                          pack_dir=a.pack), []
     try:
         for _ in range(max(1, a.runs)):
             rows.append(pipe.run_once(a.w, a.h))
@@ -487,9 +487,9 @@ def main(argv=None) -> int:
         pipe.close()
 
     t = [r["t_total_s"] for r in rows]
-    print(f"[PIPE] done runs={len(rows)} total_min={min(t):.3f} total_max={max(t):.3f} s "
+    print(f"[PIPE] done runs={len(rows)} total_min={min(t):.3f} max={max(t):.3f} s "
           f"frame_id={rows[-1]['frame_id']} sha1_gate={rows[-1]['sha1_gate']}")
-    if a.json:
+    if a.json:  # 落盘各轮 + 运行态快照（证据带回主机）
         with open(a.json, "w", encoding="utf-8") as f:
             json.dump({"runs": rows, "stats": stats}, f, indent=1, ensure_ascii=False)
         print(f"[PIPE] json → {a.json}")

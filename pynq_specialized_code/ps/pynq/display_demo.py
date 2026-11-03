@@ -185,20 +185,35 @@ class DisplayPipeline:
     def fb_addr(self) -> int: return self._fb_addr
 
     # ------------- 寄存器小工具 -------------
+    def _ensure_io(self):
+        """按需创建 ``MmapRegIo``（**允许在 setup() 之前发生**）。
+
+        为什么必须有这个：契约 §8.2 的板端协议是"**心跳先行**"——上板第一件事
+        只读 ``0x30``，确认像素时钟在跳，才允许碰别的寄存器（否则曾整板挂死）。
+        而 ``setup()`` 内部会写 ``enable`` / ``VIDEO_MODE`` 等寄存器，
+        所以"读心跳"绝不可能等到 ``setup()`` 之后。
+        原先 ``_io`` 只在 ``setup()`` 里创建 ⇒ ``pix_alive()`` 提前调必崩
+        （``AttributeError: 'NoneType' object has no attribute 'read32'``）。
+
+        注入 ``reg_io`` 时（主机自检）此函数是纯 no-op，不碰 pynq。
+        """
+        if self._io is None:
+            self._io = ho.MmapRegIo(self.BASE)
+            self._owns_io = True
+        return self._io
+
     def _wr(self, name: str, value: int) -> None:
-        self._io.write32(ho.REG[name], int(value) & 0xFFFF_FFFF)
+        self._ensure_io().write32(ho.REG[name], int(value) & 0xFFFF_FFFF)
 
     def _rd(self, name: str) -> int:
-        return int(self._io.read32(ho.REG[name])) & 0xFFFF_FFFF
+        return int(self._ensure_io().read32(ho.REG[name])) & 0xFFFF_FFFF
 
     # ------------- 生命周期 -------------
     def setup(self) -> "DisplayPipeline":
         """分配双缓冲 → 切模式（契约协议）→ 写几何 → ``enable=1``。"""
         d = self.mode_def
         self._check_stride(stride_of(d))
-        if self._io is None:
-            self._io = ho.MmapRegIo(self.BASE)
-            self._owns_io = True
+        self._ensure_io()
         if self._out is None:
             self._out = ho.HdmiOut(self.BASE, reg_io=self._io, mode=self._mode)
         self._ensure_buffers()
@@ -311,6 +326,10 @@ class DisplayPipeline:
             time.sleep(0)
 
     # ------------- 诊断 -------------
+    def mmcm_locked(self) -> bool:
+        """``0x30[1]``：MMCM 是否锁定（**只上报状态，绝不进复位**，契约 §8.5）。"""
+        return bool(self._rd("PIX_HB") & 0x2)
+
     def pix_alive(self, window_ms: float = 100) -> tuple[bool, float]:
         """有界窗口内数 ``0x30[0]`` 的翻转沿 ⇒ ``(活?, 反推像素时钟 MHz)``。
 
