@@ -250,3 +250,60 @@ CONFIG_CMA_SIZE_MBYTES=512
 3. 插摄像头（模拟网卡）⇒ `ip link` 出现 `usb0`，`dmesg` 有 `cdc_ncm` 绑定
 
 - ext第 3 步才是真正的目标；前两步是分级验证，坏在哪一层一目了然
+
+---
+
+## 10. ★ 2026-11-03 二次更正：**只加 `dr_mode` 不行**，缺 `usb-phy` 时控制器根本不复位
+
+### 10.1 我上一节里两个判断是错的（以源码为准更正）
+
+| 我之前的说法 | 实际（源码证据） |
+|---|---|
+| “`CONFIG_USB_CHIPIDEA_ULPI` 未设是关键缺口” | **该符号在 6.12 里不存在**。ULPI 支持无条件编进 `ci_hdrc.o`：`ci_hdrc-y := core.o otg.o debug.o ulpi.o`；`core.c` 无条件调 `ci_ulpi_init()`。真实符号是 `USB_ULPI` / `USB_ULPI_BUS` / `USB_ULPI_VIEWPORT`（都已是 `=y`） |
+| “现在是 gadget 模式，所以看不到设备” | **错。控制器根本没 probe 成功**（见 10.2），不是模式问题 |
+
+### 10.2 关键机制：Zynq glue 强制要求 `usb-phy` phandle
+```c
+/* drivers/usb/chipidea/ci_hdrc_usb2.c */
+if (of_device_is_compatible(dev->of_node, "xlnx,zynq-usb-2.20a")) {
+    ci_pdata->usb_phy = devm_usb_get_phy_by_phandle(dev, "usb-phy", 0);
+    if (IS_ERR(ci_pdata->usb_phy)) return PTR_ERR(ci_pdata->usb_phy);   /* -ENODEV */
+}
+```
+- extDT 里没有 extttusb-phy ext属性 ⇒ extttdevm\_usb\_get\_phy\_by\_phandle ext返回 exttt-ENODEV
+- extbfprobe 直接失败 ⇒ ext平台设备不注册 ⇒ ext连 root hub 都没有
+- ext11-01 的 extttsystem.dtb ext里 extttusb@e0002000 ext确实没有 extttusb-phy ⇒ extbf与现象一致
+
+- **结论：`dr_mode` 与 `usb-phy` 必须成对出现**
+- extmainline 所有开 USB 的 Zynq 板都是这样（zybo / microzed / zc702）
+
+### 10.3 正确写法：用 `usb-nop-xceiv`（空壳），**不要**用厂商的 `ulpi-phy`
+```dts
+/ {
+    usb_phy0: phy0 {
+        compatible = "usb-nop-xceiv";
+        #phy-cells = <0>;
+    };
+};
+&usb0 {
+    dr_mode = "host";
+    usb-phy = <&usb_phy0>;
+};
+```
+- ext为什么不用 extttulpi-phy： ext它自己 map exttt0xe0002000 ext的 ULPI viewport
+- ext而 chipidea 内部 extttci\_ulpi\_init() ext已经占了同一组寄存器 ⇒ extbf会抢
+- extttusb-nop-xceiv ext是空壳 ⇒ ext只满足 glue 的 phandle 强制检查，不碰硬件
+- ext内核开关 extttCONFIG\_NOP\_USB\_XCEIV=y ext已存在，无需新增
+
+- extbf已知限制： extttnop-xceiv ext不驱动 VBUS
+- extAX7015B 是 USB3320C o extUSB2514 HUB， ext若 HUB/端口是板子 5V 自供电则无影响
+- ext若上板发现设备不上电 ⇒ ext再换回 extttulpi-phy + extttdrv-vbus ext并接受寄存器共用风险
+
+### 10.4 路径更正
+- ext6.12 里 USB 网卡在 extttdrivers/net/usb/ ext，不是 extttdrivers/usb/net/
+- extZynq glue 由 extttCONFIG\_USB\_CHIPIDEA\_GENERIC=y ext提供
+
+### 10.5 流程教训（比结论更重要）
+- ext我两次都是"看到 exttt.config ext里有某个符号/没有某个符号"就下结论
+- extbf配置项存在 e extbf驱动 probe 成功 ⇒ ext必须顺着 probe 路径读到 extttreturn ERR\_PTR
+- extbf规矩：凡断言"驱动没起来"，必须给出 probe 函数里的具体返回点
