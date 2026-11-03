@@ -61,8 +61,85 @@ def _writer(h):
     return w
 
 
+
+# ---------------------------------------------------------------------------
+# ★★ 硬门禁：PL 没载位流时**绝不许碰 AXI** ★★
+#   实测（2026-11-03 22:36 / 22:44，两次）：`fpga0 state = unknown` 时用 /dev/mem
+#   读 0x400A0000 ⇒ AXI 事务挂死 ⇒ **整块板卡在总线上，只能断电**。
+#   所以任何 mmap 之前先读 state；不是 operating 就用 sysfs 自动载位流，
+#   载不上就 SystemExit —— 这条不能靠"记得检查"，必须做成硬门禁。
+# ---------------------------------------------------------------------------
+FPGA_STATE = "/sys/class/fpga_manager/fpga0/state"
+BITFILE = "/home/xilinx/demo/design_1_v58.bit"
+SUDO_PW = os.environ.get("BOARD_SUDO_PW", "xilinx")
+
+
+def _state():
+    try:
+        with open(FPGA_STATE) as f:
+            return f.read().strip()
+    except Exception as e:
+        return "?%s" % e
+
+
+_PYNQ_READY = [False]
+
+
+def _register_with_pynq(log=print):
+    """让 PYNQ 知道"PL 已经载好了"（sysfs 载的它不知道）。
+
+    不这样做，``pynq.allocate()`` 会直接抛 ``RuntimeError: Overlay is not downloaded``
+    （而 CMA 其实是够的）。``download=False`` 只解析 hwh、不重载位流。
+    """
+    if _PYNQ_READY[0]:
+        return "operating"
+    try:
+        from pynq import Overlay
+        t = time.monotonic()
+        Overlay(BITFILE, download=False)
+        _PYNQ_READY[0] = True
+        log("[pl] PYNQ 已登记（download=False，%.0f ms）—— allocate 可用" %
+            ((time.monotonic() - t) * 1e3))
+    except Exception as e:
+        raise SystemExit("[pl] !! PYNQ 登记失败（allocate 会不可用）：%s: %s" % (type(e).__name__, e))
+    return "operating"
+
+
+def ensure_pl(log=print):
+    """返回 ``"operating"``；必要时用 sysfs 载位流；载不上就 SystemExit。"""
+    import subprocess
+
+    st = _state()
+    if st == "operating":
+        return _register_with_pynq(log)
+    log("[pl] fpga0 state=%r ⇒ 用 sysfs 载位流（**此时绝不 mmap**）" % st)
+    bit = BITFILE
+    if not os.path.exists(bit):
+        raise SystemExit("[pl] 位流不存在：%s" % bit)
+    base = os.path.basename(bit)
+    for cmd in ("cp -f %s /lib/firmware/%s" % (bit, base),
+                "sh -c 'echo %s > %s'" % (base, FPGA_STATE)):
+        r = subprocess.run(cmd, shell=True, capture_output=True, text=True)
+        if r.returncode != 0:
+            r = subprocess.run("echo %s | sudo -S -p '' %s" % (SUDO_PW, cmd),
+                               shell=True, capture_output=True, text=True)
+        if r.returncode != 0:
+            raise SystemExit("[pl] 载位流失败：%s\n%s" % (cmd, (r.stderr or "")[:400]))
+    for _ in range(20):
+        time.sleep(0.1)
+        if _state() == "operating":
+            log("[pl] 位流已载入：state=operating")
+            return _register_with_pynq(log)
+    raise SystemExit("[pl] !! sysfs 载位流后 state 仍为 %r ⇒ 停止（不碰 AXI）" % _state())
+
+
 def bringup():
-    """**能出图**的那串动作；返回 ``(pipe, ctx)``。"""
+    """**能出图**的那串动作；返回 ``(pipe, ctx)``。
+
+    ★ 第一件事是硬门禁 ``ensure_pl()``：state != operating 就先载位流，
+    绝不带着空 PL 去 mmap（那会把整块板子读死）。
+    """
+    ensure_pl()
     fd = os.open("/dev/mem", os.O_RDWR | os.O_SYNC)
     h = mmap.mmap(fd, 0x1000, mmap.MAP_SHARED, mmap.PROT_READ | mmap.PROT_WRITE,
                   offset=HDMI_BASE)

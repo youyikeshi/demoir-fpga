@@ -369,3 +369,40 @@ md5：demo_player 64c3c8f2… / minimal_proof 260a200e…
 `bringup()` 之后还有 ~3 s 空档（`arm(0)` + `ping -c3`），录正式片时会让"START→首帧"多 3 s。
 **保守方案**：把 `advertise_addresses()`（含 ping）挪到 `bringup()` **之前**，
 改完**必须重跑 `--still 0` 让用户再确认一次**。
+
+
+## 16. 空档修复后的 5 轮实测 + "换图不改代码"两种模式（2026-11-03 21:45-21:52）
+
+### 16.1 5 轮 40 s 实测（`--auto --start-delay 20 --loops 5 --once`）
+```
+frames=40 intervals=39
+first_frame_latency_ms = 20000.456   （start_delay 20000 + 出图 0.456 ms）
+mean = 0.999989 s   max|T-1.000| = 0.433 ms   min/max = 0.999567 / 1.000015
+首帧→末帧 = 38.999571 s     START→末帧 = 59.000027 s（理论 20+39 = 59.000）
+0x24 = 40/40 = 100%         0x2C 增量 = 0（40 个采样点全 0）
+nonblack 最小值 = 0.8886（88.86%）
+回绕 7→0 ×4：+9.0 / -3.0 / 0.0 / -6.0 µs
+收尾：CTRL=0x15 / 缓冲释放 / operating / rc=0 / sync rc=0
+```
+**`first_frame_latency_ms = 20000.456`** 就是"3 s 空档已消失"的硬证据：改前是 20000 + ~3000。
+做法：把 `advertise_addresses()`（内含 `ping -c3`）从 `bringup()` 之后挪到之前，
+顺序固定为 `preload → precheck → ping/advertise → bringup() → arm(0) → bind → 等触发`。
+
+### 16.2 `prepare_demo_pairs.py` 新增两种"吃现成图"的模式
+| 模式 | 吃什么 | 处理 |
+|---|---|---|
+| `--mode external` | 一对对的图（`NNNN_moire|in` + `NNNN_out|proc|res|pred|gt`，或 `--pairs-list`） | 中心方裁 → 双线性 640² |
+| `--mode frames` | 一整幅"排好版"的对比图（1280×720 或任意比例） | 取内容区 `rows 40..680` 再切左右半；非 16:9 先裁切缩放 |
+
+硬规则：**配不上对/只有半边/后缀认不出 ⇒ 报错逐条列出，绝不静默跳过**；
+**左右宽高比不一致 ⇒ 报错**（中心方裁会错位）；分辨率不同但比例相同则允许。
+产物仍走同一条管线（`pairs/*.bin` + `manifest.json` + `README.md` + `compose_check_0000.png` + 自校验），**无标注**。
+
+自测（假"同事目录"，尺寸 4032×3024 / 1920×1080 / 800×800 / 2560×1440）：
+external 4 对 PASS、pairs.txt 2 对 PASS、frames（含 1000×1000 非 16:9）4 对 PASS、
+负例（宽高比不一致）按预期报错、原 pcref 8 对回归 PASS。
+
+### 16.3 交接文档
+`docs/camera/12_演示图对交接格式.md` —— 可直接转发给做图的同事：
+要什么（成对、逐像素对齐）、数量（8~16，前两张文字底）、格式（8 位 RGB、无 alpha、尺寸任意但左右比例一致）、
+命名（三种方式）、**不要水印/标注**、常见问题。

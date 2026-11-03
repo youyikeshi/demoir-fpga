@@ -6,6 +6,43 @@
 
 ---
 
+
+### 0.0.1 开机自启（已装好，冷启动实测通过 2026-11-03 23:26）
+
+板子现在**开机自动**做完四件事：载位流 → 校 FCLK0 → 起播放器 → 监听 9999。
+单元：`/etc/systemd/system/demo-player.service`（`User=root`，`WantedBy=multi-user.target`，`is-enabled=enabled`）
+脚本：`/usr/local/sbin/demo-boot.sh` → `/home/xilinx/demo/fix_fclk.py` → 播放器
+
+**冷启动实测时间线（uptime 为准）**：
+```
+uptime ≈ 14 s   demo-boot 开始（state0=unknown）
+uptime ≈ 15 s   载 design_1_v58.bin → state=operating
+uptime ≈ 45 s   fix_fclk 完成（fclk0 报数 75→100，真值 177.78→66.67）
+uptime ≈ 89 s   TCP 0.0.0.0:9999 监听 + "就绪：等 START"   ← **开机到可触发 ≈ 89 s**
+```
+（暖启动/手动 `systemctl start` 约 35 s；冷启动慢在 100 对预载 23.6 s）
+
+**手动接管**：
+```sh
+sudo systemctl stop demo-player      # 停（写 0x15 回彩条、释放缓冲）
+sudo systemctl start demo-player     # 起（会重新载位流+校时钟）
+sudo systemctl restart demo-player   # ⛔ 会重载位流 ⇒ 相当于"重新武装"，可救黑屏
+sudo systemctl disable demo-player   # 取消自启
+tail -f /home/xilinx/demo/boot.log   # 启动日志（含 state0/state1/fix_fclk 全过程）
+journalctl -u demo-player -f         # systemd 视角
+```
+**换图对不改代码**：`sudo systemctl edit demo-player` 加
+```
+[Service]
+Environment=PAIRS=/home/xilinx/demo/pairsXXX
+```
+（`LOOPS/DELAY/PERIOD` 同理）
+
+**黑屏急救（按顺序）**：
+1. `systemctl restart demo-player`（= 重载位流，修"扫描 FSM 死"）
+2. 还黑：`cat /home/xilinx/demo/boot.log | tail -40` 看哪一步失败
+3. 仍黑：`sudo reboot`（一次性），等 ~90 s
+
 ## 0.0 ★ 上电/重启后**必须**先做这两件事（顺序固定）
 
 ```sh
@@ -207,6 +244,14 @@ START→首帧        = 延迟 + <10 ms
    ⇒ 一切走 `minimal_proof.bringup() / show()`。
    今晚"照着最小脚本重写"的 4 个版本全黑，而打桩 diff 显示**寄存器写序列逐条相同** ——
    差异在进程环境/时序里，肉眼看不出来。等价性只能靠"同一份代码"。
+
+3. **同一进程内 `CTRL=0x15 → 0x01` 只许做一次（`bringup()` 那一次）**
+   - 第二次之后：**扫描器不再吐 `pix_valid`** ⇒ `rgb_out` 恒 0 ⇒ DE 有效但**全黑**，
+     而 `0x2C` 仍为 0、`0x24` 照常 latch、`CTRL` 也确实是 `0x01` ⇒ **极具欺骗性**
+   - 实测（2026-11-03 23:10）：`arm()` 里加了 `0x15` 之后，用户看到的就是黑屏；
+     回退后恢复。日志里 `first_frame_latency=1000.6 ms`、`latch=OK` 全部"正常"，
+     **但画面是黑的** ⇒ **凡涉及画面，必须用户目视确认，日志不算通过**
+   - 若必须让待命态显示彩条：**不要写 `CTRL`**，改成把两块缓冲清成彩条图案（另行实现）
 
 ### 收工信号怎么发
 ```bash
