@@ -273,3 +273,17 @@ MaixCAM --USB(NCM)--> PC --RJ45 192.168.7.x--> 板子
 1. 厂商 BSP（含 USB 摄像头例程）能不能拿到？能拿到的话 §4 的 PS 配置可以直接抄
 2. AX7015B 原理图上 **USB3320 的 RESETB** 接到哪里（PS GPIO？上拉？）
 3. 当初 PYNQ 镜像的 XSA 里，PS 的 **USB0 是否曾经使能过**（如果曾经有，可能只是 DT 没写）
+
+---
+
+## ⚠ 2026-11-03 实测纠正（以此为准）
+
+1. **USB 一直不通的根因不是驱动/时钟，是 `OTG_RESETN = PS_MIO8` 悬空**：
+   厂商手册明确该引脚；我们的 `ps7_init` 把它配成 GPIO 且 `PULLU/PULLD` 全关 ⇒ 上电悬空 ⇒ USB3320C 一直复位。
+   已在 DT 用 `gpio-hog` 固化（`&gpio0 { usb_phy_reset_hog { gpio-hog; gpios=<8 0>; output-high; }; }`）。
+   实测：拉高后 ULPI viewport 事务 0.1 ms 完成、PHY 回 `0x0424/0x0007`、hub 与 MaixCAM 全枚举。
+2. **文档别处写的"板子 usb0 用 10.13.148.100"是旧命名**：
+   本机内核把 **NCM 注册成 `usb1`**、RNDIS 才是 `usb0`。脚本写成 `usb0` 会直接失败。
+   相机端是对称的（`usb1`=148 段 NCM、`usb0`=149 段 RNDIS）。
+3. **相机会自己发 DHCP**（`udhcpd`），`dhclient usb1` 可拿到 `10.13.148.100`；但开机脚本建议写静态。
+4. **8660 端口是"未部署"**：相机上 `grep -rln 8660 /root /maixapp` 为空 ⇒ 链路验收不能看它。
