@@ -7069,3 +7069,29 @@ $$\Rightarrow\ \text{同理 PL 侧那 }2.04\ \text{s}\ \text{访存（}\text{存
 $$\Rightarrow\ \Rightarrow\ \textbf{融合与 } \mathtt{LAZY=1}\ \text{不冲突，而是叠加}：$$
 $$\quad\ \mathtt{LAZY=1}\ \text{把"PS 搬运"变成"PL 直读"}（-8.76\ \text{s}）;\ \text{融合再把"PL 直读"}变成"片上读"}（\text{再省访存}）$$
 $$\Rightarrow\ \textbf{两条并行做}：\text{T-144（} \mathtt{LAZY=1}\ \text{浸泡）与 T-142（B5 一行修 + FUSE 位流）}$$
+
+### 70.108 ★★★★★★★ T-145：**`LAZY=1` 浸泡通过，256² 降到 6.06 s**（2026-11-03 10:2x）
+
+**25 跑全同，且与参照一致**
+$$\Rightarrow\ \mathbf{25/25}\ \text{跑三 sha1 全} = \mathtt{9b1940c8}/\mathtt{f86a7035}/\mathtt{025757a8};\ \text{去重后}\mathbf{\text{只有 1 组}}$$
+$$\Rightarrow\ \text{提前停机 }0\ \text{次};\ \text{有效跑 }25/25$$
+$$\Rightarrow\ \text{墙钟}\min/\text{中位}/\max = \mathbf{5.981 / 6.065 / 7.621}\ \text{s}（\text{首跑冷态 }7.621）$$
+$$\quad\ \Rightarrow\ \text{去冷态后 } \mathbf{5.981 / 6.059 / 6.358}$$
+$$\Rightarrow\ \text{PL } 2.237\sim3.122（\text{稳态 }2.24\sim2.44）;\ \text{PS } 3.072\sim4.543（\text{稳态 }3.07\sim3.33）$$
+
+**无异常的硬证据**
+$$\Rightarrow\ \text{第 131 条 idle 门：跑前+跑后 } \mathbf{50/50}\ \text{全过（}0\mathtt{x310}{=}0\ \textbf{且}\ \text{两 IP } \mathtt{AP\ busy}{=}0）$$
+$$\Rightarrow\ \mathtt{AP\_RETURN[15:8]}\ \text{跑内 } \mathbf{337{,}567}\ \text{次读}\textbf{恒 }0$$
+$$\Rightarrow\ \textbf{睡 0 次 / }\mathtt{push\_input}\ \mathbf{0}\ \text{次（硬计数，不是"以为没做"）}$$
+$$\Rightarrow\ \text{零段错误 / 零金丝雀 / 零超时}$$
+
+$$\Rightarrow\ \textbf{对比}：\text{同一颗 v39、同一 256}^2、\text{同一台板子}$$
+| 配置 | 墙钟 |
+|---|---|
+| v39 + `LAZY=0` | 14.94 s |
+| **v39 + `LAZY=1`（本次）** | **6.06 s** |
+| 旧记录（8.096 s 那次）| 8.096 s |
+$$\Rightarrow\ \Rightarrow\ \mathbf{-8.88\ \text{s}，-59\%}，\textbf{零代码改动、零重建位流}$$
+
+$$\Rightarrow\ \textbf{新性能基线} = \mathtt{v39} + \mathtt{LAZY=1} + \text{v39 后四刀}：\mathbf{256^2 = 6.06\ s @150\ MHz}$$
+$$\Rightarrow\ \text{⚠ 承认边界：}25\ \text{跑不证明"不存在"，}\text{但 }\mathtt{push\_input}{=}0\ \text{的硬计数说明了}\textbf{机制上换了条路}$$
