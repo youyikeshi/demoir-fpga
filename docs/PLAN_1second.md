@@ -7564,3 +7564,41 @@ $$\quad\ \text{而}\textbf{只有 RTL 能减少命令数} \Rightarrow \text{band
 **⚠ 一条安全提醒（它发现的）**
 $$\Rightarrow\ \mathtt{runs/board\_t154/stage}\ \text{被 T-154 的实验补丁污染}（\mathtt{bin\_engine}{=}\mathtt{db8d40dd}，\text{与其 } \mathtt{ps\_md5\_host.txt}\ \text{记的 } \mathtt{48548b8d}\ \text{不符）}$$
 $$\Rightarrow\ \Rightarrow\ \textbf{谁用那份部署树都会踩雷} \Rightarrow \text{部署树必须自证（逐文件 md5 对清单）}$$
+
+### 70.123 ★★★★★ T-158 按命令次数重算融合：**0.26~0.53 s，不是主杠杆**（2026-11-03 13:0x）
+
+**① 口径纠正（我之前把 698 理解错了）**
+$$\Rightarrow\ \textbf{698 不是 conv 命令，是 E1E2 pack 命令} = \sum \lceil \mathtt{cin}/64\rceil（\text{227 层实测复算 }=698\ \checkmark，107\ \text{层 }\mathtt{cb}{=}1）$$
+$$\Rightarrow\ \textbf{conv 侧只有 227 次 kick} \Rightarrow \text{总命令 } \mathbf{925 = 698\ \text{pack} + 227\ \text{conv}}$$
+$$\Rightarrow\ \textbf{168 个 PS op 一条 PL 命令都不发}（\mathtt{cat}\ \text{惰性 }110/116）$$
+$$\Rightarrow\ \text{pack 每条}：\underbrace{0.542\ \text{ms}}_{\text{纯开销（Python }0.295 + 5\ \text{个配置写 }0.247）} + \underbrace{0.755\ \text{ms}}_{\text{等硬件}}$$
+$$\quad\ \Rightarrow\ \text{等硬件那部分对应 pack PL 硬件 }0.317\ \text{s}（\mathtt{DBG\_E\_CYC}，\text{用 V3 拍数独立复算 }0.322\ \text{s}\ \checkmark）$$
+$$\Rightarrow\ \Rightarrow\ \textbf{第 148 条：} \text{"698 条命令"这类数字要问清}\textbf{是哪一类的命令}，\text{不能笼统当"固化开销"}$$
+
+**② 698→N 的两档**
+$$\Rightarrow\ \textbf{保守 } 698\to227：\mathtt{chain\_descs}\ \textbf{已写好}（\mathtt{bin\_engine.py:3169}），\text{只缺 v50 位流} \Rightarrow \text{总命令 } 925\to\mathbf{454}$$
+$$\Rightarrow\ \textbf{乐观 } 698\to0：\text{需带内 PACK} \Rightarrow 925\to\mathbf{223}$$
+$$\Rightarrow\ \textbf{链的结构上限只有 3 级且定序 } \mathtt{CONV}\to\mathtt{PACK}\to\mathtt{SAM}（\mathtt{bin\_band\_seq.v:109\text{-}114}）$$
+$$\quad\ \Rightarrow\ \mathbf{\text{没有 } \mathtt{conv}\to\mathtt{conv}\ \text{这条边}} \Rightarrow \text{链长由 } \mathtt{op\_mask}\ \text{定，不由 band 容量定}$$
+$$\Rightarrow\ \text{每段 } \lceil h_{\text{out}}/8\rceil\ \text{条描述符（整网 }1354\ \text{条 }=54\ \text{KB）由 } \mathtt{segq}\ \text{自取} \Rightarrow \textbf{链内 PS 一个寄存器都不写}$$
+$$\Rightarrow\ \Rightarrow\ \textbf{固定开销 }\times\ \text{段数 } 223，\textbf{不是} \times\ \text{描述符数}$$
+
+**③ 收益与下限**
+$$\Rightarrow\ \textbf{保守 } -0.26\ \text{s}（→ \mathbf{5.07}）/\ \textbf{乐观 } -0.53\ \text{s}（\text{含 }0.15\ \text{s 轮询揉合估算）→ \mathbf{4.80}}$$
+$$\Rightarrow\ \textbf{不能省的下限 } 3.56\ \text{s}（\mathbf{67\%}）：\text{pack 硬件 }0.317 + \mathtt{q8cache}\ 0.502 + \text{epi }0.240 + \text{段表 }0.186 + \mathtt{cfg}\ 0.117 + \text{槽 }0.099 + \text{conv 轮询 }0.119 + \mathtt{convfp}\ 1.246 + \text{小算子 }0.696$$
+$$\Rightarrow\ \textbf{关键：段数 } 223 \approx \text{层数 } 227 \Rightarrow \textbf{"每段/每 op"的固定开销融合几乎不动}$$
+$$\quad\ \Rightarrow\ \text{我原来指望的"命令数 } 2.41\ \text{s 大幅下降"是}\textbf{过于乐观}——\text{融合消的是 pack 那 }698\ \text{条，不是 conv 层的开销}$$
+
+**④ 它的结论（我认同其机制，但要驳回它引用的一条收益）**
+$$\Rightarrow\ \text{按命令次数算：融合 } 0.26\sim0.53\ \text{s}，\text{比不上 } \mathtt{convfp}\ \text{的 }1.256\ \text{s}$$
+$$\Rightarrow\ \text{唯一能赢的算法是把 } 0.696\ \text{s 小算子搬进 PL}（\approx1.2\ \text{s}，\text{但 }4\sim6\ \text{周 RTL）}$$
+$$\Rightarrow\ \text{最小可行：}\text{只做保守档（E1E2 描述符链），无 band/无 halo/无级联}$$
+$$\quad\ \Rightarrow\ \text{不需要 §15.6 的②序列器、也不需要③ } k\ge3\ \text{裁定};\ \text{且它是 v50 位流本来就要交付的}$$
+$$\quad\ \Rightarrow\ \textbf{先验 } \mathtt{op\_mask}\ \text{语义}：\mathtt{run\_one:3117\text{-}3126}\ \text{填的是 conv 位，要与 §14.9 }\mathtt{OP\_MASK\_SUP}\ \text{对齐}$$
+$$\Rightarrow\ \text{若只挑一段：先融 } H\ge64\ \text{的 }86\ \text{层（}249\ \text{条命令、pack 桶 }63\%）$$
+
+**★ 但它引用了一条被证伪的收益，必须驳回**
+$$\Rightarrow\ \text{T-158 写"}\text{换树里现成的 C 内核预期 } -0.45\ \text{s}\text{"}$$
+$$\Rightarrow\ \textbf{而 T-155 实测：}\mathtt{BIN\_CONVPF\_C}{=}1\ \text{让 convfp } 1.246\to\mathbf{1.375}（\text{更慢），墙钟 } +0.12\sim0.44$$
+$$\Rightarrow\ \Rightarrow\ \textbf{第 149 条：}\text{子代理引用的"预期收益"同样要核——}\text{它可能引用的是已被另一路否证的旧结论}$$
+$$\Rightarrow\ \text{convfp 的真实可用项是 T-155 的副产品：}\textbf{分层派发 } -0.18\ \text{s}（3\ \text{层赢 1 层输，}\mathtt{conv\_first}\ +303\ \text{ms 因 } k{=}5/\mathtt{cout}{=}48\ \text{是 } \mathtt{MR}{=}4\ \text{最坏形态）}$$
