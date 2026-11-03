@@ -73,6 +73,10 @@ ERR_TIMEOUT = "timeout"
 ERR_BAD_REQ = "bad_req"
 ERR_UNKNOWN_CMD = "unknown_cmd"
 ERR_INTERNAL = "internal"
+# 128 MB 板子的自我保护：可用内存低于阈值就**不硬撑**，立刻回 lowmem。
+# 板子侧按"不重试"处理（§3.5 ② 的同类：重试只会让内存更紧）。
+# 为什么需要它：真机实测过一次整机用户态卡死 —— 见 README_cam_shot §8.1。
+ERR_LOWMEM = "lowmem"
 
 
 # --------------------------------------------------------------------------- #
@@ -165,6 +169,18 @@ class InternalError(Exception):
 
     这种错会**每张都复现**，所以不该伪装成 timeout 让板子白白重试。
     """
+
+
+class LowMemory(Exception):
+    """可用内存低于看门狗阈值 ⇒ 回 err:"lowmem"，**不做这次采集**。
+
+    为什么单独一类：这不是相机错、也不是请求错，是**设备资源**错。
+    重试没用（内存不会自己变多），硬撑的代价是整机卡死（真机实测过）。
+    """
+
+    def __init__(self, msg=""):
+        Exception.__init__(self, msg)
+        self.msg = msg
 
 
 # --------------------------------------------------------------------------- #
@@ -479,7 +495,8 @@ class ShotServer(object):
     """
 
     def __init__(self, grab, host="0.0.0.0", port=DEFAULT_PORT,
-                 native=(2560, 1440), log=None, conn_timeout=10.0):
+                 native=(2560, 1440), log=None, conn_timeout=10.0,
+                 mem_avail=None, min_mem_mb=35.0):
         if not callable(grab):
             raise TypeError("grab 必须可调用")
         self.grab = grab
@@ -489,6 +506,9 @@ class ShotServer(object):
         self.native = (int(native[0]), int(native[1]))
         self.conn_timeout = float(conn_timeout)
         self._log = log or _default_log
+        # 可选的内存看门狗：mem_avail() -> 可用 MB；None 表示不监控（主机侧测试/假相机）。
+        self.mem_avail = mem_avail
+        self.min_mem_mb = float(min_mem_mb)
 
         self._srv = None
         self._accept_thread = None
@@ -505,7 +525,7 @@ class ShotServer(object):
 
         self.stats = {"req": 0, "ok": 0, "busy": 0, "timeout": 0,
                       "bad_req": 0, "unknown_cmd": 0, "internal": 0,
-                      "conn": 0, "drop": 0}
+                      "lowmem": 0, "conn": 0, "drop": 0}
 
     # ---------------- 生命周期 ---------------- #
     def start(self):
@@ -549,7 +569,13 @@ class ShotServer(object):
             return False
         req = job.req
         t0 = time.monotonic()
+        mem_before = self.mem_avail() if self.mem_avail else None
         try:
+            # 内存看门狗：128 MB 无 swap 的板子，硬撑的下场是整机用户态卡死
+            # （真机发生过一次）。低于阈值立刻回 lowmem，**绝不抛异常去赌**。
+            if mem_before is not None and mem_before < self.min_mem_mb:
+                raise LowMemory("可用 %.1f MB < 阈值 %.0f MB"
+                                % (mem_before, self.min_mem_mb))
             res = self.grab(req)
             if res is None:
                 raise ShotTimeout("grab 返回 None")
@@ -561,6 +587,10 @@ class ShotServer(object):
                 raise InternalError("grab 返回 %s 字节，应为 w*h*3=%d"
                                     % (-1 if res.data is None else len(res.data), want))
             job.res = res
+        except LowMemory as e:
+            job.err = ERR_LOWMEM
+            self._log("[grab] lowmem seq=%r %s ⇒ 拒绝采集（不硬撑）"
+                      % (req.seq, e.msg))
         except InternalError as e:
             job.err = ERR_INTERNAL
             self._log("[grab] internal seq=%r %s" % (req.seq, e))
@@ -578,6 +608,12 @@ class ShotServer(object):
             self._log("[grab] error seq=%r %r" % (req.seq, e))
         job.t_cap_us = int((time.monotonic() - t0) * 1e6)
         job.t_done = time.monotonic()
+        if mem_before is not None:
+            # 每张都记前/后：只看首末会漏掉"每张降一点、迟早掉光"
+            mem_after = self.mem_avail()
+            self._log("[mem] seq=%s before=%.1f after=%.1f delta=%+.1f MB err=%s"
+                      % (req.seq, mem_before, mem_after, mem_after - mem_before,
+                         job.err or "ok"))
         if job.abandoned:
             # 请求方已经等不及先走了：图照采（相机可能已经在曝光里），但结果作废。
             self._log("[grab] seq=%r 结果作废（请求方已超时离开）" % (req.seq,))

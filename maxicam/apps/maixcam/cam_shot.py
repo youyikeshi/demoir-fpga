@@ -57,6 +57,9 @@ if HERE not in sys.path:
     sys.path.insert(0, HERE)          # 设备上从任意 cwd 起也能 import 到同目录的 cam_core
 
 import cam_core                       # noqa: E402
+import board_notify                   # noqa: E402  PC 显示信号 -> 板端演示握手（纯标准库）
+
+VERSION = "1.1.0-preflight"     # 写进 [boot] 行：挂死时至少知道跑的是哪版
 
 DEF_PORT = 8660
 DEF_NATIVE = (2560, 1440)
@@ -78,16 +81,54 @@ def log(msg):
         pass
 
 
-def mem_avail_mb():
-    """读 /proc/meminfo（设备只有 128 MB，长跑必须盯着这个数）。"""
+def _meminfo(field):
     try:
         with open("/proc/meminfo") as f:
             for line in f:
-                if line.startswith("MemAvailable:"):
+                if line.startswith(field + ":"):
                     return int(line.split()[1]) / 1024.0
     except Exception:
         pass
     return -1.0
+
+
+def mem_avail_mb():
+    """读 /proc/meminfo（设备只有 128 MB，长跑必须盯着这个数）。"""
+    return _meminfo("MemAvailable")
+
+
+def mem_free_mb():
+    """MemFree：真正空闲、无需回收的页。MMF 要**连续**物理块，看这个更敏感。"""
+    return _meminfo("MemFree")
+
+
+# --------------------------------------------------------------------------- #
+# 设备侧矫色（模型来自 PC 端 capture_pairs.fit_color_model，JSON 直传）
+# --------------------------------------------------------------------------- #
+def load_color_model(path):
+    import json
+    with open(path, "r", encoding="utf-8") as f:
+        m = json.load(f)
+    if "coef" not in m or "gamma" not in m:
+        raise SystemExit("颜色模型缺少 coef/gamma：%s" % path)
+    return m
+
+
+def apply_color_model(data, w, h, model):
+    """RGB888 bytes -> 矫色后的 RGB888 bytes（gamma + 二次多项式，与工程一致）。
+
+    256×256 只有 6.5 万像素，RISC-V 上 numpy 几十毫秒；2K 全幅才会慢，别全幅开。
+    """
+    import numpy as np
+    gamma = float(model.get("gamma", 1.0))
+    coef = np.asarray(model["coef"], np.float64)
+    rgb = np.frombuffer(data, np.uint8).reshape(-1, 3).astype(np.float64) / 255.0
+    x = np.clip(rgb, 0, 1) ** gamma
+    R, G, B = x[:, 0], x[:, 1], x[:, 2]
+    F = np.stack([R, G, B, R * R, G * G, B * B, R * G, R * B, G * B,
+                  np.ones_like(R)], 1)
+    out = np.clip(F @ coef, 0, 1) * 255.0
+    return out.astype(np.uint8).tobytes()
 
 
 # --------------------------------------------------------------------------- #
@@ -101,7 +142,8 @@ class MaixCamera(object):
     """
 
     def __init__(self, width, height, settle=DEF_SETTLE,
-                 allow_yuv_fallback=False, log=log):
+                 allow_yuv_fallback=False, log=log, trace=False, color_model=None,
+                 color_model_path=None):
         self.width = int(width)
         self.height = int(height)
         self.settle = int(settle)
@@ -111,6 +153,10 @@ class MaixCamera(object):
         self.fmt = "?"
         self._yuv = False
         self._manual = False
+        self.trace = bool(trace)      # --trace：只多打 [tim] 日志，不改协议回包
+        self.color_model = color_model   # 设备侧矫色模型（--color-model）
+        self.color_model_path = color_model_path   # 文件变了就热加载（免重启相机）
+        self._cm_mtime = None
 
     # ---------------- 生命周期 ---------------- #
     def open(self):
@@ -162,17 +208,29 @@ class MaixCamera(object):
         return self._read_raw()
 
     def grab(self, req):
-        """一拍：丢旧帧 → 套光度 → 读原生帧 → 裁剪 → 守卫 → to_bytes。"""
+        """一拍：丢旧帧 → 套光度 → 读原生帧 → 裁剪 → 守卫 → to_bytes。
+
+        `--trace` 打开时每张多打一行 `[tim]`：把 `cap_us` 拆成
+        settle / 光度 / 取帧 / crop / to_bytes / 读回 六段。
+        **只写日志，协议回包一个字都不加**（§3.2 的 13 个字段不能变）。
+        """
+        self._reload_color_if_changed()
+        _tr = self.trace
+        _t0 = time.monotonic() if _tr else 0.0
+
         # 1) 相机一直在出帧，VI 里可能压着上一秒的画面：先丢 settle 帧保证"新鲜"
         for _ in range(self.settle):
             self.cam.read()
+        _t1 = time.monotonic() if _tr else 0.0
 
         # 2) 光度（请求里给了才动手，见 §3.1：exp_us/gain 可空，空则不干预）
         self._apply_photometry(req)
+        _t2 = time.monotonic() if _tr else 0.0
 
         # 3) 取一张原生帧
         img = self._read_raw()
         nw, nh = img.width(), img.height()
+        _t3 = time.monotonic() if _tr else 0.0
 
         # 4) 用**实测**原生尺寸重算窗口（配置档位和实际不符时，这里才是真相）
         rect = cam_core.plan_crop(req.crop, req.w, req.h, nw, nh)
@@ -180,18 +238,52 @@ class MaixCamera(object):
 
         # 5) §3.6 ① 运行时守卫：真发生 resize / padding 时，这是每张都能兜住的地方
         cam_core.assert_shape(sub.width(), sub.height(), rect)
+        _t4 = time.monotonic() if _tr else 0.0
 
         data = sub.to_bytes()                # RGB888 紧凑排布：w*h*3，行优先无 padding
         want = rect.w * rect.h * 3
         if len(data) != want:
             raise cam_core.InternalError(
                 "to_bytes %d B != w*h*3=%d（疑似行尾 padding）" % (len(data), want))
+        _t5 = time.monotonic() if _tr else 0.0
+
+        if self.color_model:
+            data = apply_color_model(data, rect.w, rect.h, self.color_model)
 
         exp_us, gain = self._readback()
+        _t6 = time.monotonic() if _tr else 0.0
+
+        if _tr:
+            def _ms(a, b):
+                return (b - a) * 1000.0
+            self._log("[tim] seq=%s settle=%d帧 %.1fms 光度 %.1fms 取帧 %.1fms "
+                      "crop %.1fms to_bytes %.1fms 读回 %.1fms | 合计 %.1fms mem=%.1fMB"
+                      % (req.seq, self.settle, _ms(_t0, _t1), _ms(_t1, _t2),
+                         _ms(_t2, _t3), _ms(_t3, _t4), _ms(_t4, _t5), _ms(_t5, _t6),
+                         _ms(_t0, _t6), mem_avail_mb()))
 
         # 128 MB 的板子经不起 11 MB 帧在 Python 层堆积：每张都主动放一次
         del sub, img
         return cam_core.GrabResult(data, native=(nw, nh), exp_us=exp_us, gain=gain)
+
+    def _reload_color_if_changed(self):
+        """模型文件 mtime 变了就重载：标定完不用重启相机（重启会偶发 MMF SIGSEGV）。"""
+        if not self.color_model_path:
+            return
+        try:
+            m = os.path.getmtime(self.color_model_path)
+        except OSError:
+            return
+        if m == self._cm_mtime:
+            return
+        try:
+            self.color_model = load_color_model(self.color_model_path)
+            self._cm_mtime = m
+            self._log("[cam] 矫色模型已加载/重载：gamma=%.2f mean_err=%.2f"
+                      % (self.color_model.get("gamma", 1.0),
+                         self.color_model.get("err_mean", -1)))
+        except Exception as e:
+            self._log("[cam] 颜色模型加载失败 %r" % (e,))
 
     # ---------------- 光度 ---------------- #
     def _apply_photometry(self, req):
@@ -383,12 +475,38 @@ def build_parser():
                    help="只做裁剪正确性自检然后退出（上机第一件事，失败返回码 2）")
     p.add_argument("--dry-run", action="store_true",
                    help="不碰相机，用解析式假图起服务（PC 上验协议/裁剪窗口用）")
+    p.add_argument("--trace", action="store_true",
+                   help="每张多打一行 [tim]：settle/光度/取帧/crop/to_bytes/读回 分段耗时"
+                        "（只写日志，协议回包字段不变）")
     p.add_argument("--gc-every", type=int, default=1,
                    help="每 N 张做一次 gc（默认 1；128MB 内存别关这个）")
+    p.add_argument("--min-free-mb", type=float, default=15.0,
+                   help="启动前置：MemFree 低于它就拒绝启动（连续内存才够 MMF 拿池）")
+    p.add_argument("--min-mem-mb", type=float, default=35.0,
+                   help="内存看门狗阈值：每张 grab 前 MemAvailable 低于它就回 err:lowmem，"
+                        "不做这次采集（128 MB 无 swap，硬撑会整机卡死）")
     p.add_argument("--stat-every", type=int, default=10,
                    help="每 N 张打一行 [stat]（0=不打）")
     p.add_argument("--max-shots", type=int, default=0,
                    help="成功发出 N 张后自动退出（0=一直跑；上机做\"连发不崩\"用）")
+    # ---- 显示信号中继：PC(:8555) -> 本服务 -> 板端演示握手 v1(:9999) ----
+    # 与 8660 采集协议完全分开：8660 是板子主动要图，这里是 PC 推"开始播放"。
+    p.add_argument("--ctrl-port", type=int, default=board_notify.DEFAULT_CTRL_PORT,
+                   help="PC 显示信号入口端口，默认 8555；0=关闭")
+    p.add_argument("--ctrl-host", default="0.0.0.0", help="显示信号监听地址")
+    p.add_argument("--board-host", default=os.environ.get(
+                       "MAIXCAM_BOARD_HOST", board_notify.DEFAULT_BOARD_HOST),
+                   help="板子 IP，默认 192.168.7.2（网口）；USB 用 10.13.148.100；"
+                        "相机在 WiFi 上时填电脑转发地址")
+    p.add_argument("--board-port", type=int, default=int(os.environ.get(
+                       "MAIXCAM_BOARD_PORT", board_notify.DEFAULT_BOARD_PORT)),
+                   help="板端握手端口，默认 9999")
+    p.add_argument("--board-timeout", type=float, default=float(os.environ.get(
+                       "MAIXCAM_BOARD_TIMEOUT", str(board_notify.DEFAULT_TIMEOUT))),
+                   help="连板子的超时秒数，默认 3.0")
+    p.add_argument("--color-model", default=None,
+                   help="设备侧矫色模型 JSON（PC 端 calib 生成）；给了才对回包矫色")
+    p.add_argument("--no-ctrl", action="store_true", help="完全关闭显示信号中继")
     return p
 
 
@@ -418,10 +536,42 @@ def main(argv=None):
     native = _parse_native(args.native)
     cam = None
 
+    # ★ 第一件事：把 [boot] 落盘。必须在 import maix / 打开相机**之前** ——
+    #   真机发生过整机卡死，日志 0 字节，连"跑的是哪版、内存多少"都无从查起。
+    #   log() 每行 flush；maix 自身的 C 层 banner 走 stdio 缓冲，进程被杀时确实会丢，
+    #   所以关键信息我们先自己写。
+    try:
+        sys.stdout.reconfigure(line_buffering=True)
+    except Exception:
+        pass
+    log("[boot] cam_shot %s pid=%d args=%s native=%dx%d settle=%d min_mem=%.0fMB "
+        "mem_avail=%.1f MB mem_free=%.1f MB"
+        % (VERSION, os.getpid(), " ".join(argv if argv is not None else sys.argv[1:]),
+           native[0], native[1], args.settle, args.min_mem_mb,
+           mem_avail_mb(), mem_free_mb()))
+
+    # 2K 帧 10.5 MB + MMF 连续池 5.4 MB×3：内存不够时启动本身就是风险。
+    # ★ 绑定约束不是 MemAvailable，而是 **MemFree + 连续可分配性**：
+    #   真机挂死那次是 MemAvailable 71 MB / Cached 55 MB / MemFree 6.6 MB —— 
+    #   "available 够" 是个错误推断，内核得先回收 55 MB page cache 才能凑连续块。
+    #   MemFree 阈值取 15 MB 而非 30 MB：实测启动成功的一次 [boot] 是 free=26.6 MB，
+    #   而 720p 服务稳定运行期间 free 常年在 5~9 MB（被 MMF 池占着），30 MB 会误判。
+    if not args.dry_run:
+        av = mem_avail_mb()
+        fr = mem_free_mb()
+        low = (av >= 0 and av < args.min_mem_mb) or (fr >= 0 and fr < args.min_free_mb)
+        log("[preflight] mem_avail=%.1f MB (阈值 %.0f)  mem_free=%.1f MB (阈值 %.0f) ⇒ %s"
+            % (av, args.min_mem_mb, fr, args.min_free_mb, "低" if low else "OK"))
+        if low:
+            log("[warn] 内存前置检查不过：拒绝启动（避免整机卡死）。"
+                "先 sync; echo 3 > /proc/sys/vm/drop_caches 再试")
+            return 5
+
     # ---------- 只做自检 ----------
     if args.check_crop:
         cam = MaixCamera(native[0], native[1], settle=args.settle,
-                         allow_yuv_fallback=args.allow_yuv_fallback, log=log)
+                         allow_yuv_fallback=args.allow_yuv_fallback, log=log,
+                         trace=args.trace)
         try:
             cam.open()
             return run_check_crop(cam, log=log)
@@ -433,8 +583,16 @@ def main(argv=None):
         grab = make_dry_grab(native, log)
         log("[serve] dry-run：不上相机，用解析式假图（只验协议/窗口，不代表真机性能）")
     else:
+        cmodel = None
+        if args.color_model and os.path.exists(args.color_model):
+            cmodel = load_color_model(args.color_model)
+        if args.color_model:
+            log("[cam] 矫色模型路径 %s（%s，稍后可热加载）"
+                % (args.color_model, "已加载" if cmodel else "暂不存在"))
         cam = MaixCamera(native[0], native[1], settle=args.settle,
-                         allow_yuv_fallback=args.allow_yuv_fallback, log=log)
+                         allow_yuv_fallback=args.allow_yuv_fallback, log=log,
+                         trace=args.trace, color_model=cmodel,
+                         color_model_path=args.color_model)
         try:
             cam.open()
         except Exception as e:
@@ -446,7 +604,9 @@ def main(argv=None):
 
     _install_signals()
     srv = cam_core.ShotServer(grab, host=args.host, port=args.port,
-                              native=native, log=log)
+                              native=native, log=log,
+                              mem_avail=mem_avail_mb,
+                              min_mem_mb=args.min_mem_mb)
     try:
         srv.start()
     except OSError as e:
@@ -457,6 +617,18 @@ def main(argv=None):
         return 4
     log("[serve] 就绪：TCP %s:%d  原生 %dx%d  settle=%d  mem_avail=%.1f MB"
         % (args.host, srv.port, native[0], native[1], args.settle, mem_avail_mb()))
+
+    # 显示信号中继（独立线程，不碰相机）：PC -> 8555 -> 板端演示握手 9999
+    ctrl = None
+    if not args.no_ctrl and args.ctrl_port > 0:
+        relay = board_notify.SignalRelay(
+            board_host=args.board_host, board_port=args.board_port,
+            timeout=args.board_timeout, log=log)
+        ctrl = board_notify.ControlServer(
+            relay.handle, host=args.ctrl_host, port=args.ctrl_port, log=log)
+        ctrl.start()
+        log("[ctrl] 显示信号：PC -> :%d -> 板子 %s（失败不影响 8660 采集）"
+            % (args.ctrl_port, relay.client.addr()))
 
     n_shot = 0
     try:
@@ -471,10 +643,11 @@ def main(argv=None):
                 # 注意 ok 会比 grabs 慢一拍：ok 是在回包**写完**之后才 +1 的，
                 # 而这一行在主线程 grab 结束时就打 —— 想看"这一张成功了没"看 [shot] 行。
                 log("[stat] grabs=%d ok=%d busy=%d timeout=%d bad_req=%d "
-                    "unknown_cmd=%d internal=%d conn=%d drop=%d mem=%.1f MB"
+                    "unknown_cmd=%d internal=%d lowmem=%d conn=%d drop=%d "
+                    "mem=%.1f MB free=%.1f MB"
                     % (n_shot, s["ok"], s["busy"], s["timeout"], s["bad_req"],
-                       s["unknown_cmd"], s["internal"], s["conn"], s["drop"],
-                       mem_avail_mb()))
+                       s["unknown_cmd"], s["internal"], s["lowmem"], s["conn"],
+                       s["drop"], mem_avail_mb(), mem_free_mb()))
             # 放在"每次循环"里判，不能只在 grab 之后判：ok 是回包写完之后才 +1 的，
             # 而回包由处理线程在做，主线程查得太早会永远差一张。
             if args.max_shots and srv.stats["ok"] >= args.max_shots:
@@ -485,12 +658,16 @@ def main(argv=None):
         log("[serve] Ctrl-C")
     finally:
         srv.stop()
+        if ctrl is not None:
+            ctrl.stop()
         if cam is not None:
             cam.close()
         s = srv.stats
         log("[serve] 退出：ok=%d busy=%d timeout=%d bad_req=%d unknown_cmd=%d "
-            "internal=%d drop=%d" % (s["ok"], s["busy"], s["timeout"], s["bad_req"],
-                                     s["unknown_cmd"], s["internal"], s["drop"]))
+            "internal=%d lowmem=%d drop=%d mem=%.1f MB"
+            % (s["ok"], s["busy"], s["timeout"], s["bad_req"],
+               s["unknown_cmd"], s["internal"], s["lowmem"], s["drop"],
+               mem_avail_mb()))
     return 0
 
 

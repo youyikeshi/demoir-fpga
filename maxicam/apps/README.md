@@ -58,20 +58,30 @@ apps/
 │   ├── app.yaml         # 想装进设备应用菜单时用
 │   ├── cam_shot.py      # ★ 精简采集服务（TCP 8660，按协议要图；不推流、不显示）
 │   ├── cam_core.py      # ★ 采集协议内核（不 import maix，PC 上可测）
-│   └── README_cam_shot.md   # ★ 上面两个的说明书（部署/协议字段表/上机清单）
+│   ├── signal_service.py # ★ 轻量信号服务（8555 -> 板端演示握手 9999，不碰相机）
+│   ├── board_notify.py  # ★ 握手 v1 客户端 + 8555 服务（纯标准库）
+│   └── README_cam_shot.md   # ★ 采集服务的说明书（部署/协议字段表/上机清单）
 ├── pc/
 │   ├── receiver.py      # 电脑端：接收 + 窗口显示 + 截图落盘
 │   ├── run.sh           # 启动脚本（自动带上 venv 的 PYTHONPATH）
 │   ├── send_cmd.py      # 给设备发命令（也能用来远程触发截图）
+│   ├── show_and_signal.py   # ★ 全屏轮播图片，逐张通知 MaixCAM
+│   ├── send_show.py     # ★ 命令行发一条 show/ping/stop
+│   ├── board_relay.py   # ★ 跨网段转发：相机 WiFi -> 电脑 -> 板子网口
+│   ├── fake_board_9999.py   # ★ 假板子（演示握手 v1 全行为）
+│   ├── test_demo_handshake.py # ★ 握手链路 23 项自测（不需要硬件）
 │   ├── fake_camera.py   # ★ 假相机（§3 协议全路径，不需要硬件）
 │   ├── test_cam_proto.py    # ★ 门禁判据 59 条（假相机 + 内核 + 裁剪硬判据）
 │   └── cam_shot_probe.py    # ★ 连发要图并逐张核对（报实测 t_cap_us）
-├── deploy.py            # 部署/启动/停止设备端应用（含 shot / shot-check / shot-status）
+├── deploy.py            # 部署/启动/停止设备端应用（shot / signal / status …）
 └── README.md            # 本文件
 ```
 
 > **要给 Zynq 板子按协议要图（不推流）** ⇒ 看 `maixcam/README_cam_shot.md`；
 > 本文件讲的是旧的那套 RTSP 推流 + 电脑端预览。两套不能同时跑（抢相机）。
+>
+> **PC 放图时要让板子开始播（演示握手 v1）** ⇒ 看 `../docs/show_signal.md`
+> （PC 8555 -> 相机 -> 板端 9999；含 USB / 电脑转发两种接法）。
 
 ---
 

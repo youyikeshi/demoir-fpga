@@ -48,6 +48,8 @@ import traceback
 
 from maix import app, camera, display, image, key, rtsp, touchscreen
 
+import board_notify       # PC「正在显示第 N 张」信号 -> 板子（纯标准库，不碰相机）
+
 # --------------------------------------------------------------------------- #
 # 配置
 # --------------------------------------------------------------------------- #
@@ -412,6 +414,11 @@ class Streamer:
         self.shots = 0
         self.last_msg = ""
         self.last_msg_t = 0
+
+        # PC 显示信号 -> 板端演示握手（9999）。板子不在线时只记 ok:false，不影响推流。
+        self.relay = board_notify.SignalRelay.from_env(log=log)
+        log("显示信号中继: PC -> :%d -> 板子 %s"
+            % (CTRL_PORT, self.relay.client.addr()))
 
         self.ctrl = ControlServer(
             CTRL_PORT,
@@ -789,6 +796,12 @@ class Streamer:
           立刻释放的，快速重开会让 camera.Camera() 失败甚至把 MMF 驱动卡死。
           所以这里只记录参数并提示，由用户显式「停止 -> 开始」（中间自然有间隔）。
         """
+        # 「PC 正在显示第 N 张图」/「视频开始播放」：转给板子（8661），不参与推流逻辑。
+        # 不是 show/play/ping 时 handle() 返回 None，继续走下面的原命令分发。
+        ack = self.relay.handle(msg)
+        if ack is not None:
+            self.ctrl.push(ack)
+            return
         if msg.get("t") != "cmd":
             return
         cmd = msg.get("cmd")

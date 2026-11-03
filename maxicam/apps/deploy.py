@@ -55,6 +55,14 @@ SHOT_LOG = posixpath.join(SHOT_DIR, "cam_shot.log")
 SHOT_PID = posixpath.join(SHOT_DIR, "cam_shot.pid")
 LOCAL_SHOT = os.path.join(HERE, "maixcam", "cam_shot.py")
 LOCAL_CORE = os.path.join(HERE, "maixcam", "cam_core.py")
+LOCAL_NOTIFY = os.path.join(HERE, "maixcam", "board_notify.py")
+
+# ---- 轻量信号服务 signal_service.py（不碰相机，只做 PC -> 板端握手）----
+SIGNAL_DIR = "/root/maxicam_signal"
+SIGNAL_PORT = 8555
+SIGNAL_LOG = posixpath.join(SIGNAL_DIR, "signal_service.log")
+SIGNAL_PID = posixpath.join(SIGNAL_DIR, "signal_service.pid")
+LOCAL_SIGNAL = os.path.join(HERE, "maixcam", "signal_service.py")
 
 
 def connect(host=DEV_HOST):
@@ -114,6 +122,7 @@ def do_start(cli, host):
     print(">> 上传应用到 %s" % REMOTE_DIR)
     upload(cli, LOCAL_MAIN, posixpath.join(REMOTE_DIR, "main.py"))
     upload(cli, LOCAL_YAML, posixpath.join(REMOTE_DIR, "app.yaml"))
+    upload(cli, LOCAL_NOTIFY, posixpath.join(REMOTE_DIR, "board_notify.py"))
 
     print(">> 停掉旧实例（先优雅退出，见 graceful_stop 的说明）")
     graceful_stop(cli, host)
@@ -191,20 +200,28 @@ def do_stop(cli, host):
 #   · 停止不用发 quit，直接 SIGTERM（应用自己接管，先关相机再退）
 #   · 绝不用 pkill -f（会误伤同名字符串；这里只杀 pid 文件里的那个 pid）
 # --------------------------------------------------------------------------- #
-def do_shot_start(cli, host, settle=4, native="2560x1440"):
-    print(">> 上传 cam_shot.py + cam_core.py 到 %s" % SHOT_DIR)
+def do_shot_start(cli, host, settle=4, native="2560x1440",
+                  board_host=None, board_port=None):
+    print(">> 上传 cam_shot.py + cam_core.py + board_notify.py 到 %s" % SHOT_DIR)
     upload(cli, LOCAL_SHOT, posixpath.join(SHOT_DIR, "cam_shot.py"))
     upload(cli, LOCAL_CORE, posixpath.join(SHOT_DIR, "cam_core.py"))
+    upload(cli, LOCAL_NOTIFY, posixpath.join(SHOT_DIR, "board_notify.py"))
 
     print(">> 停掉旧实例（SIGTERM -> 应用自己关相机）")
     shot_stop(cli, host)
     run(cli, "rm -f %s" % SHOT_LOG, quiet=True, timeout=15)
 
+    extra = ""
+    if board_host:
+        extra += " --board-host %s" % board_host
+    if board_port:
+        extra += " --board-port %d" % board_port
+
     # 不用 python -u：MMF 出错时刷屏，无缓冲会把 SD 卡写爆（应用自己 flush 日志）
     print(">> 启动（后台，日志 %s）" % SHOT_LOG)
-    run(cli, "cd %s && nohup python3 cam_shot.py --port %d --native %s --settle %d "
+    run(cli, "cd %s && nohup python3 cam_shot.py --port %d --native %s --settle %d%s "
              "> %s 2>&1 & echo $! > %s"
-        % (SHOT_DIR, SHOT_PORT, native, settle, SHOT_LOG, SHOT_PID), timeout=20)
+        % (SHOT_DIR, SHOT_PORT, native, settle, extra, SHOT_LOG, SHOT_PID), timeout=20)
     time.sleep(5)
 
     print(">> 启动日志:")
@@ -281,6 +298,77 @@ def do_shot_check(cli, host, settle=8):
     return ok
 
 
+# --------------------------------------------------------------------------- #
+# 轻量信号服务（PC 8555 -> 板端演示握手 9999；不开相机）
+# --------------------------------------------------------------------------- #
+def do_signal_start(cli, host, board_host=None, board_port=None):
+    print(">> 上传 signal_service.py + board_notify.py 到 %s" % SIGNAL_DIR)
+    run(cli, "mkdir -p %s" % SIGNAL_DIR, quiet=True, timeout=15)
+    upload(cli, LOCAL_SIGNAL, posixpath.join(SIGNAL_DIR, "signal_service.py"))
+    upload(cli, LOCAL_NOTIFY, posixpath.join(SIGNAL_DIR, "board_notify.py"))
+
+    print(">> 停掉旧实例")
+    signal_stop(cli, host)
+    run(cli, "rm -f %s" % SIGNAL_LOG, quiet=True, timeout=15)
+
+    extra = ""
+    if board_host:
+        extra += " --board-host %s" % board_host
+    if board_port:
+        extra += " --board-port %d" % board_port
+    print(">> 启动（后台，日志 %s）" % SIGNAL_LOG)
+    run(cli, "cd %s && nohup python3 signal_service.py%s > %s 2>&1 & echo $! > %s"
+        % (SIGNAL_DIR, extra, SIGNAL_LOG, SIGNAL_PID), timeout=20)
+    time.sleep(2)
+
+    print(">> 启动日志:")
+    print(run(cli, "tail -8 %s" % SIGNAL_LOG).rstrip() or "(空)")
+    ports = listening_ports(cli)
+    print("\n>> 信号服务: %s" %
+          ("运行中（监听 %d）" % SIGNAL_PORT if SIGNAL_PORT in ports else "未运行"))
+    if SIGNAL_PORT in ports:
+        print(">> PC 端这样测：")
+        print("     python3 pc/send_show.py --host %s --idx 1" % host)
+
+
+def signal_stop(cli, host, wait=6):
+    """只按 pid 文件杀（这台设备 ps/killall 会卡 SSH；而且不碰相机）。"""
+    if SIGNAL_PORT not in listening_ports(cli):
+        print(">> 端口 %d 没在听，无需停止" % SIGNAL_PORT)
+        return True
+    pid = run(cli, "cat %s 2>/dev/null" % SIGNAL_PID, quiet=True, timeout=10).strip()
+    if not pid.isdigit():
+        print("!! %d 在听但没有 pid 文件，不盲杀" % SIGNAL_PORT)
+        return False
+    run(cli, "kill -TERM %s" % pid, quiet=True, timeout=10)
+    deadline = time.time() + wait
+    while time.time() < deadline:
+        if SIGNAL_PORT not in listening_ports(cli):
+            print(">> 已退出")
+            return True
+        time.sleep(0.5)
+    print("!! %d 秒还没退出，看 signal-logs" % wait)
+    return False
+
+
+def do_signal_stop(cli, host):
+    print("已停止信号服务。" if signal_stop(cli, host) else "停止失败，见上面提示。")
+
+
+def do_signal_logs(cli):
+    print(run(cli, "tail -40 %s" % SIGNAL_LOG))
+
+
+def do_signal_status(cli):
+    ports = listening_ports(cli)
+    pid = run(cli, "cat %s 2>/dev/null" % SIGNAL_PID, quiet=True, timeout=10).strip()
+    print("== 监听端口 == %s" % (" ".join(str(p) for p in ports) or "(无)"))
+    print("== 信号服务 == %s" % ("运行中 (8555)" if SIGNAL_PORT in ports else "未运行"))
+    print("== pid      == %s" % (pid or "(无 pid 文件)"))
+    print("== 最近日志 ==")
+    print(run(cli, "tail -8 %s 2>/dev/null" % SIGNAL_LOG).rstrip() or "(无)")
+
+
 def do_logs(cli):
     print(run(cli, "tail -40 %s" % LOG))
 
@@ -300,6 +388,7 @@ def do_install(cli):
     print(">> 上传到 %s" % APP_DIR)
     upload(cli, LOCAL_MAIN, posixpath.join(APP_DIR, "main.py"))
     upload(cli, LOCAL_YAML, posixpath.join(APP_DIR, "app.yaml"))
+    upload(cli, LOCAL_NOTIFY, posixpath.join(APP_DIR, "board_notify.py"))
 
     print(">> 备份 app.info 并登记应用")
     print(run(cli, "cp -n /maixapp/apps/app.info /maixapp/apps/app.info.bak-$(date +%s) || true"))
@@ -362,10 +451,15 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("action", nargs="?", default="start",
                     choices=["start", "stop", "logs", "status", "install",
-                             "shot", "shot-check", "shot-status", "shot-logs", "shot-stop"])
+                             "shot", "shot-check", "shot-status", "shot-logs", "shot-stop",
+                             "signal", "signal-stop", "signal-status", "signal-logs"])
     ap.add_argument("--host", default=DEV_HOST)
     ap.add_argument("--settle", type=int, default=4, help="cam_shot: 每张前丢几帧")
     ap.add_argument("--native", default="2560x1440", help="cam_shot: 原生档位")
+    ap.add_argument("--board-host", default=None,
+                    help="cam_shot: 板子 IP（默认走 cam_shot 内建 10.13.148.100）")
+    ap.add_argument("--board-port", type=int, default=None,
+                    help="cam_shot: 板端信号端口（默认 8661）")
     a = ap.parse_args()
 
     cli = connect(a.host)
@@ -381,9 +475,18 @@ def main():
         elif a.action == "install":
             do_install(cli)
         elif a.action == "shot":
-            do_shot_start(cli, a.host, settle=a.settle, native=a.native)
+            do_shot_start(cli, a.host, settle=a.settle, native=a.native,
+                          board_host=a.board_host, board_port=a.board_port)
         elif a.action == "shot-check":
             do_shot_check(cli, a.host)
+        elif a.action == "signal":
+            do_signal_start(cli, a.host, board_host=a.board_host, board_port=a.board_port)
+        elif a.action == "signal-stop":
+            do_signal_stop(cli, a.host)
+        elif a.action == "signal-status":
+            do_signal_status(cli)
+        elif a.action == "signal-logs":
+            do_signal_logs(cli)
         elif a.action == "shot-status":
             do_shot_status(cli)
         elif a.action == "shot-logs":
