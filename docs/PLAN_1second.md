@@ -7057,3 +7057,15 @@ $$\Rightarrow\ \text{③ 若必须 } \mathtt{LAZY=0}\ \text{就置空 } \mathtt{
 $$\Rightarrow\ \text{④ 保住 } \mathtt{CAT\_FUSION}（\text{值 }4.30）\quad \text{⑤ 三刀合计 } -1.16$$
 $$\Rightarrow\ \Rightarrow\ \mathbf{①+②\ \text{是同一件事，值 }-8.76\ \text{s}\ (58.6\%)}$$
 $$\Rightarrow\ \textbf{而 PL 全在 }6.15\ \text{s 里只占 }2.31\ \text{s} \Rightarrow \text{再快 }50\%\ \text{也只值 }-1.15\ \text{s} \Rightarrow \textbf{排不上前 3}$$
+
+### 70.107 用户判断：**融合的直接收益在 PS 侧**（2026-11-03 10:1x）
+
+$$\Rightarrow\ \text{用户指出：融合能直接减少 PS 的计算与搬运量}$$
+$$\Rightarrow\ \textbf{成立，而且这正是那 }8.76\ \text{s 的来源}：$$
+$$\quad\ \mathtt{LAZY=0}\ \text{时 PS 对}\textbf{每一层}做 \mathtt{pack\_int8}+\mathtt{push\_input}（227\ \text{次}\times1.18\ \text{MB}，prologue\ +7.80\ \text{s}）$$
+$$\quad\ \Rightarrow\ \text{那一步的本质是：}\textbf{把中间张量从 DDR 搬进 arena 再压成 int8}$$
+$$\Rightarrow\ \text{融合让中间张量}\textbf{不落 DDR} \Rightarrow \text{这一步在物理上}\textbf{不存在} \Rightarrow \text{PS 省掉 }227\ \text{轮搬运}$$
+$$\Rightarrow\ \text{同理 PL 侧那 }2.04\ \text{s}\ \text{访存（}\text{存一次 + 取一次）}\ \text{也一并消失}$$
+$$\Rightarrow\ \Rightarrow\ \textbf{融合与 } \mathtt{LAZY=1}\ \text{不冲突，而是叠加}：$$
+$$\quad\ \mathtt{LAZY=1}\ \text{把"PS 搬运"变成"PL 直读"}（-8.76\ \text{s}）;\ \text{融合再把"PL 直读"}变成"片上读"}（\text{再省访存}）$$
+$$\Rightarrow\ \textbf{两条并行做}：\text{T-144（} \mathtt{LAZY=1}\ \text{浸泡）与 T-142（B5 一行修 + FUSE 位流）}$$
