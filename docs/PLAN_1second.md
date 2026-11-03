@@ -6952,3 +6952,25 @@ $$\Rightarrow\ \textbf{但 impB2 比主线\textbf{旧}：}\mathtt{wrap}\ \text{�
 $$\quad\ \Rightarrow\ \text{主线多出来的是 } s{=}2\ \text{修复、}\mathtt{pix\_q}\ \text{收窄、}\mathtt{npix}\ \text{寄存器化}$$
 $$\Rightarrow\ \Rightarrow\ \textbf{融合不是"拷文件"，而是}\textbf{把 band 工作合到当前主线上}（\text{真正的合并）}$$
 $$\Rightarrow\ \text{已派 T-140 做只读评估：模块地图 + 逐文件差异 + 阻断项确切行号 + 最小可验路径}$$
+
+### 70.104 用户疑问：**PS 从 5 s 涨到 10~20 s 是哪来的**（2026-11-03 09:5x）
+
+**用户指出（正确）**
+$$\Rightarrow\ \text{v39 的记录：}256^2 = 8.096\ \text{s @150\ MHz}，\text{其中 }\mathbf{\text{PS } 5.03\ \text{s}}$$
+$$\Rightarrow\ \text{而现在的实测：}\text{v54@83.33 的 PS } \mathbf{21.266\ \text{s}}（\text{含护栏 }7.269）\Rightarrow \text{净 }13.997\ \text{s}$$
+$$\Rightarrow\ \Rightarrow\ \textbf{PS 净时间涨了 }2.78\times$$
+$$\Rightarrow\ \text{§55 的旧分桶定义：}\text{prologue }1.604 + \text{非卷积 }3.606 + \text{epilogue }0.265（\text{overlap }1.691,\ \text{wait }0.873）$$
+
+**已找到的确定差异（但只解释一部分）**
+$$\Rightarrow\ \text{旧工作点用的是 } \mathtt{BIN\_LAZY\_DEQ=}\mathbf{1}（\text{懒解码开）}$$
+$$\Rightarrow\ \text{我们为了绕开非确定性，}\text{一直用 } \mathtt{BIN\_LAZY\_DEQ=}\mathbf{0}$$
+$$\Rightarrow\ \text{而已实测：}\mathtt{LAZY=1}\ \text{在 }64^2\ \text{上快 }\mathbf{23.6\%}（3.691\to2.819\ \text{s，PS }2.425\to1.267）$$
+$$\Rightarrow\ \Rightarrow\ \text{关掉懒解码是已知的}23.6\%\ \text{代价，}\textbf{但不解释 }2.78\times$$
+$$\Rightarrow\ \text{另一个成分：}256^2\ \text{的护栏 }7.269\ \text{s}\ \text{被算在 PS 桶里（已单独标出）}$$
+$$\Rightarrow\ \text{还剩 }\sim2\times\ \text{的来源未明} \Rightarrow \textbf{可能是 PS 代码在这一个多月里回归了}$$
+
+**可判定的实验（已派 T-141）**
+$$\Rightarrow\ \mathtt{v39}\ \text{在 }\mathbf{150\ \text{MHz}}\ \text{是}\textbf{已验证工作点}（\text{54/54 sha1 全中}）\Rightarrow \textbf{可以精确复现那个 8.096 s}$$
+$$\Rightarrow\ \text{用当年的 v5 工作点跑 }256^2 \Rightarrow \text{若仍 }\sim8.1\ \text{s 且 }51/51\ \text{sha1} \Rightarrow \textbf{PS 没回归}，\text{差异全是开关}$$
+$$\Rightarrow\ \text{若明显变慢} \Rightarrow \textbf{PS 代码回归} \Rightarrow \text{按 prologue/非卷积/epilogue 三段逐项定位}$$
+$$\quad\ \Rightarrow\ \text{这一段是}\textbf{最大的单点杠杆}：\text{PS }5\to14\ \text{s 若能回到 }5\ \text{s}，\text{比 PL 那边任何优化都值}$$
