@@ -6922,3 +6922,33 @@ $$\quad\ \textbf{③ PL 频率/lane 数} \Leftarrow \text{只剩 }2.3\%\ \text{�
 $$\Rightarrow\ \mathbf{\mathtt{0x310}=0\ \ne\ \text{PL 空闲}}：\text{实测 } \mathtt{bin\_AP\_RETURN}=\mathtt{0x00000002}（\mathtt{busy}{=}1）\ \text{而 } 0x310=0$$
 $$\quad\ \Rightarrow 30\ \text{s idle 门永远过不去} \Rightarrow \textbf{已落地 } \mathtt{idle\_gate()}：0x310{=}0\ \textbf{且} \text{两 IP } \mathtt{AP\ busy}{=}0；\text{读失败不算空闲}$$
 $$\Rightarrow\ \textbf{第 131 条：}\text{判 PL 空闲必须同时看 } 0x310\ \text{与两 IP 的 } \mathtt{AP\ busy}\ \text{位}$$
+
+### 70.103 ★★★ 战略转向：**停止 16-lane 性能路线，重开行带融合**（用户指令 2026-11-03 09:4x）
+
+**决定依据（本轮实测 + 复核 v39 原始记录）**
+$$\Rightarrow\ \mathbf{v39}\ (8\text{-lane})\ 256^2：\textbf{8.096\ s @150\ MHz}\ (\text{54/54 sha1 全中})，\text{PL } 3.061 + \text{PS } 5.03$$
+$$\Rightarrow\ \mathbf{v54}\ (16\text{-lane})\ 256^2：\mathbf{23.099\ s @83.33\ MHz} \Rightarrow \textbf{慢 } 2.85\times$$
+$$\Rightarrow\ \text{conv 拍数：}459\mathtt{M}\ (8\text{-lane@150}) \to \mathbf{451\mathtt{M}}\ (16\text{-lane}) = \textbf{只少 } 1.7\%$$
+$$\Rightarrow\ \text{可用时钟：}150\to83.33 = \textbf{-44\%}$$
+$$\Rightarrow\ \Rightarrow\ \textbf{拍数没省、时钟砍半} \Rightarrow \textbf{16-lane 的性能净效果是负的}$$
+
+**根因：这个引擎是访存受限，不是算力受限**
+$$\Rightarrow\ \text{同 }128\times128/\mathtt{cout}{=}64，\mathtt{cin}\in\{48,112,176\}\ \text{实测 }44.4/44.5/56.3\ \text{ms}$$
+$$\Rightarrow\ \text{计算量 }3.7\times，\text{时间只 }1.27\times \Rightarrow \textbf{时间花在访存}$$
+$$\Rightarrow\ \text{PLAN §55.3 的分解早就说过：}\text{PL } = \underbrace{1.54\ \text{s}}_{\text{算力}} + \underbrace{2.04\ \text{s}}_{\text{访存}}\ @150\ \text{MHz}$$
+$$\Rightarrow\ \Rightarrow\ \text{加 lane 只削那 }43\%\ \text{的算力部分，}\text{却把时钟砍 }44\% \Rightarrow \textbf{负收益}$$
+$$\Rightarrow\ \textbf{那 }2.04\ \text{s 访存就是行带融合要消灭的东西} \Rightarrow \textbf{融合才是唯一能到 }1\ \text{s}\ \text{的路}$$
+
+**16-lane 的处置**
+$$\Rightarrow\ \textbf{封存为"已验证但不用"}：\mathtt{v54}\ \text{的三件成果}\textbf{保留且必须保留}$$
+$$\quad\ \text{① } s{=}2\ \text{组平面修复}（\mathtt{17164dfc}）\ \text{② } \mathtt{pix\_q}\ 32\to17\ \text{位 + } \mathtt{npix}\ \text{寄存器化}（\mathtt{5646a9f6}）$$
+$$\quad\ \text{③ 三尺寸逐位正确的验证方法学}$$
+$$\Rightarrow\ \textbf{性能基线回到 } \mathtt{v39}\ (8.096\ \text{s @150\ MHz})$$
+
+**融合现状（我刚核实的）**
+$$\Rightarrow\ \text{主线 } \mathtt{bin\_band\_seq.v}\ \textbf{缺失};\ \text{但它在 } \mathtt{\_worktrees/v50\_impB2/}\ \text{里存在}（261\ \text{行，md5 } \mathtt{9699ee2d}）$$
+$$\Rightarrow\ \text{impB2 还含 } \mathtt{bin\_band\_fill\_v50.v}、\mathtt{bin\_band\_buf.v}\ \text{等完整一套}（11\text{-}02\ 15{:}xx）$$
+$$\Rightarrow\ \textbf{但 impB2 比主线\textbf{旧}：}\mathtt{wrap}\ \text{主线 }3518\ \text{行 vs impB2 }3478\ \text{行}（-40）$$
+$$\quad\ \Rightarrow\ \text{主线多出来的是 } s{=}2\ \text{修复、}\mathtt{pix\_q}\ \text{收窄、}\mathtt{npix}\ \text{寄存器化}$$
+$$\Rightarrow\ \Rightarrow\ \textbf{融合不是"拷文件"，而是}\textbf{把 band 工作合到当前主线上}（\text{真正的合并）}$$
+$$\Rightarrow\ \text{已派 T-140 做只读评估：模块地图 + 逐文件差异 + 阻断项确切行号 + 最小可验路径}$$
