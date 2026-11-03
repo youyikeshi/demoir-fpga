@@ -7364,3 +7364,31 @@ $$\quad\ \Rightarrow\ \text{还把共享的 } \mathtt{deps\_closure.txt}\ \text{
 
 $$\Rightarrow\ \textbf{新工作点}：\mathtt{v39}+\mathtt{LAZY=1}+\text{惰性分析缓存} \Rightarrow \mathbf{256^2 = 5.464\ s @150\ MHz}$$
 $$\Rightarrow\ \text{相对记录基线 }8.096\ \text{s} \Rightarrow \mathbf{-32.5\%}$$
+
+### 70.117 ★★★★★★ T-154：**"pack 空搬"这个结论是错的；真因是 AXI-Lite 事务开销 0.86 s**（2026-11-03 12:4x）
+
+**我采信并转述了一条错结论，先撤回**
+$$\Rightarrow\ \text{T-151 报"217/227 层 } \mathtt{n\_f32}=0 \Rightarrow \text{源与目标布局逐字节相同} = \text{空搬}"$$
+$$\Rightarrow\ \text{我据此说"pack 零拷贝 −1.0 s"，\text{并列为最大杠杆}} \Rightarrow \textbf{错}$$
+$$\Rightarrow\ \textbf{实测}：\text{进 } \mathbf{152.54\ \text{MB}} \to \text{出 } \mathbf{19.07\ \text{MB}} = \mathbf{8.00:1}$$
+$$\quad\ \Rightarrow\ \text{E1E2 是"}\textbf{二值化 + 位打包 + 逐通道阈值}（64\ \text{int8}\to 8\ \text{B）}$$
+$$\quad\ \Rightarrow\ \mathtt{n\_f32}=0\ \text{只表示"不用 f32 量化"}，\textbf{不等于逐字节等价}$$
+$$\Rightarrow\ \text{重叠也不可行}：\mathtt{pack}(L)\ \text{读 } \mathtt{conv}(L{-}1)\ \text{的 OUT 槽} \Rightarrow \text{pack:conv}=1.00\ \text{是}\textbf{结构性依赖}$$
+$$\Rightarrow\ \text{三改法实测：基线 }1.189 / \text{C 批量下发 }1.229 / \text{C+自校准睡 }1.769 / \text{仅预测睡 }1.202 \Rightarrow \mathbf{\text{净 } -0.00\ s}$$
+$$\Rightarrow\ \textbf{第 142 条：移交结论也要验}\ \text{——我转述了 T-151 的 "空搬" 而没有自己核对 8:1 压缩比，\text{导致把最大杠杆判给了错的地方}}$$
+
+**★ 决定性否证（本轮最值钱的一条）**
+$$\Rightarrow\ \text{同样 6 个配置字：}\mathtt{\_wr\_seq}(\text{Python}) = \mathbf{0.108\ \text{ms}}\quad\text{vs}\quad \mathtt{mmio\_batch::write\_pairs}(\text{C}) = \mathbf{0.109\ \text{ms}}$$
+$$\Rightarrow\ \Rightarrow\ \textbf{"Python 慢"是伪命题};\ \text{钱全花在 AXI-Lite 本身}：$$
+$$\quad\ \text{引擎忙时}\textbf{一次读 } \mathbf{42\ \mu s}（\text{空闲 }14.5）、\text{写 }17\ \mu s$$
+$$\quad\ 698\ \text{条命令} \times (\approx 12\ \text{写} + \approx 9\ \text{读}) = \mathbf{0.86\ s}$$
+$$\Rightarrow\ \text{pack 桶真构成} = \underbrace{0.32\ \text{s}}_{\text{PL 硬件 } \mathtt{DBG\_E\_CYC}} + \underbrace{\mathbf{0.86\ \text{s}}}_{\textbf{总线握手}}$$
+$$\Rightarrow\ \text{先睡再读无效}：\mathtt{time.sleep()}\ \text{在这板上}\textbf{过冲 }50\sim300\ \mu s，\text{省的读被过冲吃光}$$
+
+**★ 病灶是全局的，不只在 pack**
+$$\Rightarrow\ \text{同样模式在 conv 的 } \mathtt{kick}+\mathtt{reap}（\text{每次}\approx 12\ \text{写} + 9\ \text{读）}$$
+$$\Rightarrow\ \text{把"等 conv done"与"pack 的轮询"}\textbf{合并成一次等待} \Rightarrow \text{量级 } \approx \mathbf{0.6\ s}$$
+$$\Rightarrow\ \Rightarrow\ \textbf{PS 侧最大的剩余杠杆 = 减少 MMIO 事务数}，\text{合计约 } \mathbf{1.4\ s}$$
+$$\quad\ \Rightarrow\ \text{但}\textbf{不能靠"换成 C"或"批量下发"}（\text{已证无效 }0.108\ \text{vs}\ 0.109）$$
+$$\quad\ \Rightarrow\ \text{只能靠}\textbf{减少事务个数}：\text{合并等待、}\text{或改用 v50 的描述符链（5 拍 vs }9\sim12\ \text{个寄存器）}$$
+$$\Rightarrow\ \text{它独立复现了污染源①：同进程第二个 net} \Rightarrow 128^2\ \text{墙钟 } 8.61\ \text{s vs 全新进程 } 3.94\ \text{s}$$

@@ -1,0 +1,71 @@
+--- /dev/fd/63	2026-11-03 12:11:22.613002162 +0800
++++ patch_2b_sleep_first.py	2026-11-03 12:11:22.576717500 +0800
+@@ -2839,6 +2839,30 @@
+     return float(fallback)
+ 
+ 
++# ============================================================================
++# ★ T-154：E1E2 打包命令的**预测睡**（先睡到"确定还没完成"的时刻再读 done）
++# ----------------------------------------------------------------------------
++# 第 1 步诊断（v39 @150 MHz、hw=256²、227 层/698 命令、LAZY=1）实测：
++#   · pack 桶 1.118 s 里 **PL 硬件只占 ~0.32 s**（DBG_E_CYC 口径）；
++#   · 其余是 PS：**一次 AXI-Lite 读在引擎访存时要 30~42 µs**（空闲 14.5 µs）；
++#     现状每条命令 ~9 次轮询读 ⇒ 轮询开销 ≈ 0.8 ms/命令，几乎等于硬件时间；
++#   · 关键否证：把同样的"6 个配置写 + start"搬进 C（mmio_batch）实测
++#     **0.109 ms/命令 vs Python 0.108 ms/命令——一模一样**（= 纯总线 stall，
++#     不是 Python 开销）⇒ 一切"让 Python 更快"的改法都无效。
++#     （T-154 A/B：C 批量下发使 pack 1.17 → 1.74 s，**更差**，已作废。）
++#   ⇒ 唯一有效杠杆：**少读几次**。先按解析拍数睡到"确定还没完成"，再读 1~2 次。
++#     硬件实测 ≈ 2.2×解析模型（128²/64²/32² = 2.21/2.21/2.24）。
++#       · 睡过头只丢精度（RTL 的 done 是 sticky，不会丢 done）；
++#       · 睡不够只多读几次（每次 30~42 µs），不会更差于现状。
++# ============================================================================
++def e1e2_sleep_on():
++    """`BIN_E1E2_SLEEP=0/off` ⇒ 关（= 原路径）；默认开。"""
++    return os.environ.get("BIN_E1E2_SLEEP", "").strip().lower() not in (
++        "0", "off", "false", "no", "n")
++
++
++E1E2_HW_FACTOR = 2.2           # 硬件实测拍数 / 解析模型拍数（T-154 三档实测）
++
+ class E1E2Engine:
+     """`bin_e1e2`（R_RUN_UNIT=4）的 PS 驱动；**不改 conv 路径**。
+ 
+@@ -3093,6 +3117,7 @@
+             return dict(status=0, seconds=0.0, err=0, dbg={}, queued=True,
+                         n_chain=len(chain))
+ 
++        _sleep_first = e1e2_sleep_on()
+         self.select(4)
+         lib = self.core._fast.get("lib") if isinstance(self.core._fast, dict) else None
+         pairs = [] if lib is not None else None
+@@ -3125,6 +3150,13 @@
+                 st, dt = core.wait(timeout, wdt=wdt, est_s=est_s)
+         else:
+             core.start()
++            # ★ T-154：先睡到"确定还没完成"的时刻（只在 E1E2 命令上；conv 不走这里）
++            if _sleep_first:
++                _s = E1E2_HW_FACTOR * 0.92 * float(est_s or 0.0)
++                if _s > 3e-5:
++                    _sleep_until(time.time() + min(_s, 0.02))
++                    self._agg["presleep"] = self._agg.get("presleep",
++                                                          0.0) + _s
+             st, dt = core.wait(timeout, wdt=wdt, est_s=est_s)
+         err = (st >> 8) & 0xFF
+         if err:
+@@ -3828,8 +3860,13 @@
+             if len(ov) < need_out:
+                 raise ValueError("out_buf 只有 %d B，需要 %d B"
+                                  % (len(ov), need_out))
+-        for v in (vthr, vdesc):
+-            _flush(v)
++        # ★ T-154：两块在同一个 owner 里（`_pack_views` 切出来的）⇒ 刷一次就够
++        #   （实测一次 222 µs，原来每层刷两次）。不同 owner 时仍各刷一次。
++        _o1 = getattr(vthr, "_owner", None)
++        _o2 = getattr(vdesc, "_owner", None)
++        _flush(vthr)
++        if _o2 is not _o1:
++            _flush(vdesc)
+         _chain_used = None
+         if self.chain_on():
+             # ★ v50（P2/P3）：整层 cb 组 →**一条 10 字描述符链、一次 kick**，

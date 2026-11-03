@@ -1,0 +1,227 @@
+
+==============================================================================
+  T-154 第 1 步诊断：E1E2 pack 桶 1.118 s 去哪了
+==============================================================================
+  运行点 = {"BIN_PACK": "e1e2", "BIN_LAZY_DEQ": "1", "BIN_LAZY_SLOTS": "24", "BIN_CAT_FUSION": "1", "BIN_BILINEAR_C": "1", "BIN_PRECOMP": "1", "Q8CACHE": "1", "BIN_F32DIRECT": "1", "BIN_CAT_ECA_FUSE": "1", "BIN_EPI_NOINV": "1", "BIN_PROFILE": "1", "BIN_LAZY_DEBUG": "1", "Q8CACHE_STATS": "1", "BIN_V50_FUSE": "", "BIN_MMIO_C": "", "BIN_MMIO_FAST": "", "BIN_MMIO_POLL": ""}
+  hw(main)=256² slots=24 fclk=150 ；floor N=25
+
+==============================================================================
+  P0：Overlay 下载（**本次会话唯一一次**）
+==============================================================================
+  Overlay(design_1_150v39.bit) = 3.185 s
+  conv_uni_0  base=0x40040000 （期望 0x40040000）✓
+  bin_unit_0  base=0x40060000 （期望 0x40060000）✓
+  magic(0x314)=0x00000000（v39 无 magic ⇒ 读 0 按 T-141 豁免）
+  第 131 条 idle 门 = ✓ ：0x310=0x00000000 ；bin_unit_0 busy=False ；conv_uni_0 busy=False
+  fclk0 目标 150 → 读回 150 MHz
+
+==============================================================================
+  P0：内核 .so + arena + 引擎/权重 + NetPlan
+==============================================================================
+  内核 = 6.325 s {'q8': 0.257, 'c8deq': 4.296, 'bpack': 1.772}
+  256²：max_in 1179648 / max_out 1572864 / 227 conv / 395 op ；arena 66.22 MB（CmaFree 21.4 MB）
+
+==============================================================================
+  run1：hw=256² 整网（钩子只记账，不改调用）
+==============================================================================
+  跑前 idle = ✓ ：0x310=0x00000000 ；bin_unit_0 busy=False ；conv_uni_0 busy=False
+  **墙钟 7.884 s** ⇒ 三 sha1 全中 ✓
+     9b1940c8955b / f86a7035621b / 025757a83c39
+  跑后 idle = ✓ ：0x310=0x00000000 ；bin_unit_0 busy=False ；conv_uni_0 busy=False
+
+==============================================================================
+  ★ pack 桶细分（227 层，Σ 1406.4 ms = 1.406 s）
+==============================================================================
+  桶(独占)                ms       %Σ        次数
+  wait              294.6    20.9%       698
+  mmio_rd           265.5    18.9%      6314
+  run_one           206.0    14.6%       698
+  wr_seq            156.7    11.1%      1396
+  flush             100.9     7.2%       454
+  mmio_wr            82.9     5.9%      1623
+  invalidate         47.9     3.4%       227
+  select             42.3     3.0%       925
+  start              32.1     2.3%       698
+  chain_on           17.4     1.2%       227
+  wait_idle          13.2     0.9%       227
+  残留(含numpy)        146.9    10.4%         -  ← numpy 写 thr/desc 等
+
+  按分辨率（固定开销 vs 成正比）：
+      hw     层   cmd     ms/层   ms/cmd    out_B/层     in_B/层    MS/s(读)
+   16384    32    88    14.26     5.18     360448    2883584     202.25
+    4096    54   161     6.55     2.20      97697     781577     119.41
+    1024    75   236     4.46     1.42      25777     206220      46.27
+     256    44   140     3.93     1.23       6516      52131      13.28
+      64    22    73     4.08     1.23       1699      13591       3.33
+
+  线性拟合 pack_ms = 3.356 ms + 0.00027 ms/(cb·hw)  （R²=0.921）
+    ⇒ 常数项 Σ = 0.762 s ；比例项 Σ = 0.645 s
+
+  进/出字节：in 152.54 MB / out 19.07 MB ⇒ **比值 8.00:1**（恒等复制应为 1:1）
+  n_f32==0 的层 = 216/227 ；Σ cb = 698 ；Σ 层 = 227
+
+  最慢 6 层：
+    decoder.decoder_1.sam_blocks.0.b0.conv.conv    cin=544 cb=9  128²   43.71 ms  buckets={'flush': 0.44, 'chain_on': 0.08, 'mmio_wr': 0.84, 'select': 0.45, 'wr_seq': 2.0, 'mmio_rd': 15.45, 'wait_idle': 0.06, 'start': 0.42, 'wait': 17.92, 'run_one': 4.86, 'invalidate': 0.23}
+    m_blocks.0.b0.ghost_layers.4.primary_conv.conv cin=448 cb=7  128²   35.08 ms  buckets={'flush': 0.46, 'chain_on': 0.08, 'mmio_wr': 0.68, 'select': 0.36, 'wr_seq': 1.58, 'mmio_rd': 12.23, 'wait_idle': 0.06, 'start': 0.32, 'wait': 14.5, 'run_one': 3.74, 'invalidate': 0.23}
+    encoder.encoder_1.sam_blocks.0.b0.conv.conv    cin=368 cb=6  128²   29.94 ms  buckets={'flush': 0.44, 'chain_on': 0.08, 'mmio_wr': 0.63, 'select': 0.32, 'wr_seq': 1.39, 'mmio_rd': 10.31, 'wait_idle': 0.06, 'start': 0.28, 'wait': 12.17, 'run_one': 3.23, 'invalidate': 0.22}
+    m_blocks.0.b0.ghost_layers.3.primary_conv.conv cin=352 cb=6  128²   29.44 ms  buckets={'flush': 0.45, 'chain_on': 0.07, 'mmio_wr': 0.59, 'select': 0.32, 'wr_seq': 1.29, 'mmio_rd': 10.2, 'wait_idle': 0.06, 'start': 0.28, 'wait': 11.98, 'run_one': 3.19, 'invalidate': 0.22}
+    decoder.decoder_1.rdb.conv_post.conv           cin=352 cb=6  128²   29.08 ms  buckets={'flush': 0.44, 'chain_on': 0.07, 'mmio_wr': 0.56, 'select': 0.3, 'wr_seq': 1.29, 'mmio_rd': 10.17, 'wait_idle': 0.06, 'start': 0.26, 'wait': 11.86, 'run_one': 3.1, 'invalidate': 0.22}
+    m_blocks.0.b0.ghost_layers.4.primary_conv.conv cin=304 cb=5  128²   25.28 ms  buckets={'flush': 0.43, 'chain_on': 0.08, 'mmio_wr': 0.55, 'select': 0.3, 'wr_seq': 1.15, 'mmio_rd': 8.62, 'wait_idle': 0.06, 'start': 0.23, 'wait': 10.12, 'run_one': 2.74, 'invalidate': 0.22}
+  最快 3 层：
+    locks.0.b4.ghost_layers.4.cheap_operation.conv cin= 32 cb=1    8²    2.22 ms  buckets={'flush': 0.42, 'chain_on': 0.07, 'mmio_wr': 0.19, 'select': 0.09, 'wr_seq': 0.23, 'mmio_rd': 0.1, 'wait_idle': 0.06, 'wait': 0.06, 'run_one': 0.27, 'invalidate': 0.19}
+    m_blocks.0.b4.ghost_layers.0.primary_conv.conv cin= 64 cb=1   16²    2.20 ms  buckets={'flush': 0.43, 'chain_on': 0.07, 'mmio_wr': 0.18, 'select': 0.1, 'wr_seq': 0.17, 'mmio_rd': 0.1, 'wait_idle': 0.06, 'wait': 0.06, 'run_one': 0.27, 'invalidate': 0.2}
+    locks.0.b4.ghost_layers.0.cheap_operation.conv cin= 48 cb=1   16²    2.17 ms  buckets={'flush': 0.42, 'chain_on': 0.07, 'mmio_wr': 0.18, 'select': 0.09, 'wr_seq': 0.17, 'mmio_rd': 0.1, 'wait_idle': 0.06, 'wait': 0.06, 'run_one': 0.27, 'invalidate': 0.19}
+
+==============================================================================
+  ★ 单命令下限：同一 job 原地复跑（判断 a/b/c 哪个可行）
+==============================================================================
+   128²  cin= 48 cb=1（25 次/档）
+     V0 现状 run_prepared      =   5.735 ms/命令
+     V1 影子全跳(start+wait)   =   4.013 ms/命令
+     V2 V1+select 翻转         =   4.141 ms/命令
+     V3 **PL 硬件拍数口径**    =   2.221 ms/命令（cyc=333177 @150 MHz）
+     V4 C 路径(写+start+紧轮询)=   3.528 ms/命令
+     ⇒ PS 开销 = V0 - V3 =   3.514 ms/命令 ；V1 - V3 =   1.792 ；V4 - V3 =   1.307
+    64²  cin= 48 cb=1（25 次/档）
+     V0 现状 run_prepared      =   2.923 ms/命令
+     V1 影子全跳(start+wait)   =   1.269 ms/命令
+     V2 V1+select 翻转         =   1.360 ms/命令
+     V3 **PL 硬件拍数口径**    =   0.556 ms/命令（cyc=83422 @150 MHz）
+     V4 C 路径(写+start+紧轮询)=   1.019 ms/命令
+     ⇒ PS 开销 = V0 - V3 =   2.367 ms/命令 ；V1 - V3 =   0.713 ；V4 - V3 =   0.463
+    32²  cin= 48 cb=1（25 次/档）
+     V0 现状 run_prepared      =   2.226 ms/命令
+     V1 影子全跳(start+wait)   =   0.576 ms/命令
+     V2 V1+select 翻转         =   0.668 ms/命令
+     V3 **PL 硬件拍数口径**    =   0.140 ms/命令（cyc=21071 @150 MHz）
+     V4 C 路径(写+start+紧轮询)=   0.396 ms/命令
+     ⇒ PS 开销 = V0 - V3 =   2.086 ms/命令 ；V1 - V3 =   0.436 ；V4 - V3 =   0.256
+    16²  cin= 96 cb=2（25 次/档）
+     V0 现状 run_prepared      =   2.849 ms/命令
+     V1 影子全跳(start+wait)   =   0.411 ms/命令
+     V2 V1+select 翻转         =   0.495 ms/命令
+     V3 **PL 硬件拍数口径**    =   0.041 ms/命令（cyc=6104 @150 MHz）
+     V4 C 路径(写+start+紧轮询)=   0.244 ms/命令
+     ⇒ PS 开销 = V0 - V3 =   2.808 ms/命令 ；V1 - V3 =   0.370 ；V4 - V3 =   0.203
+
+==============================================================================
+  MMIO 原语成本（2000 次）
+==============================================================================
+  pynq.MMIO.read  =   14.54 µs
+  pynq.MMIO.write =   17.17 µs
+  memoryview unpack =    3.54 µs
+  （已把 MMIO fast/C 关回默认，后续 hw 跑仍走原 Python 路径）
+
+==============================================================================
+  验 sha1：hw=128²
+==============================================================================
+  NetPlan 建 = 0.253 s
+
+==============================================================================
+  run128：hw=128² 整网（钩子只记账，不改调用）
+==============================================================================
+  跑前 idle = ✓ ：0x310=0x00000000 ；bin_unit_0 busy=False ；conv_uni_0 busy=False
+  **墙钟 3.784 s** ⇒ 三 sha1 全中 ✓
+     27e25cf67fda / b82b83f3d7eb / 6db4e9bb19e0
+  跑后 idle = ✓ ：0x310=0x00000000 ；bin_unit_0 busy=False ；conv_uni_0 busy=False
+
+==============================================================================
+  ★ pack 桶细分（227 层，Σ 953.6 ms = 0.954 s）
+==============================================================================
+  桶(独占)                ms       %Σ        次数
+  run_one           161.7    17.0%       698
+  wr_seq            146.8    15.4%      1396
+  flush              99.3    10.4%       454
+  wait               89.5     9.4%       698
+  mmio_rd            88.6     9.3%      2094
+  mmio_wr            77.9     8.2%      1623
+  invalidate         46.5     4.9%       227
+  select             40.6     4.3%       925
+  start              31.3     3.3%       698
+  chain_on           16.3     1.7%       227
+  wait_idle          13.0     1.4%       227
+  残留(含numpy)        142.1    14.9%         -  ← numpy 写 thr/desc 等
+
+  按分辨率（固定开销 vs 成正比）：
+      hw     层   cmd     ms/层   ms/cmd    out_B/层     in_B/层    MS/s(读)
+    4096    32    88     6.02     2.19      90112     720896     119.82
+    1024    54   161     4.13     1.38      24424     195394      47.35
+     256    75   236     3.81     1.21       6444      51555      13.53
+      64    44   140     3.80     1.19       1629      13033       3.43
+      16    22    73     3.87     1.17        425       3398       0.88
+
+  线性拟合 pack_ms = 3.314 ms + 0.00034 ms/(cb·hw)  （R²=0.552）
+    ⇒ 常数项 Σ = 0.752 s ；比例项 Σ = 0.201 s
+
+  进/出字节：in 38.13 MB / out 4.77 MB ⇒ **比值 8.00:1**（恒等复制应为 1:1）
+  n_f32==0 的层 = 226/227 ；Σ cb = 698 ；Σ 层 = 227
+
+  最慢 6 层：
+    decoder.decoder_1.sam_blocks.0.b0.conv.conv    cin=544 cb=9   64²   16.45 ms  buckets={'flush': 0.4, 'chain_on': 0.07, 'mmio_wr': 0.79, 'select': 0.46, 'wr_seq': 1.92, 'mmio_rd': 4.07, 'wait_idle': 0.06, 'start': 0.4, 'wait': 4.62, 'run_one': 2.55, 'invalidate': 0.22}
+    m_blocks.0.b0.ghost_layers.4.primary_conv.conv cin=448 cb=7   64²   13.20 ms  buckets={'flush': 0.42, 'chain_on': 0.07, 'mmio_wr': 0.64, 'select': 0.34, 'wr_seq': 1.44, 'mmio_rd': 3.25, 'wait_idle': 0.06, 'start': 0.31, 'wait': 3.7, 'run_one': 1.98, 'invalidate': 0.21}
+    encoder.encoder_1.sam_blocks.0.b0.conv.conv    cin=368 cb=6   64²   11.64 ms  buckets={'flush': 0.43, 'chain_on': 0.08, 'mmio_wr': 0.57, 'select': 0.3, 'wr_seq': 1.23, 'mmio_rd': 2.8, 'wait_idle': 0.06, 'start': 0.26, 'wait': 3.2, 'run_one': 1.66, 'invalidate': 0.22}
+    decoder.decoder_1.rdb.conv_post.conv           cin=352 cb=6   64²   11.41 ms  buckets={'flush': 0.44, 'chain_on': 0.07, 'mmio_wr': 0.56, 'select': 0.3, 'wr_seq': 1.28, 'mmio_rd': 2.77, 'wait_idle': 0.06, 'start': 0.26, 'wait': 3.07, 'run_one': 1.65, 'invalidate': 0.21}
+    m_blocks.0.b0.ghost_layers.3.primary_conv.conv cin=352 cb=6   64²   11.29 ms  buckets={'flush': 0.44, 'chain_on': 0.07, 'mmio_wr': 0.57, 'select': 0.3, 'wr_seq': 1.22, 'mmio_rd': 2.67, 'wait_idle': 0.06, 'start': 0.27, 'wait': 3.01, 'run_one': 1.7, 'invalidate': 0.21}
+    m_blocks.0.b0.ghost_layers.4.primary_conv.conv cin=304 cb=5   64²    9.71 ms  buckets={'flush': 0.44, 'chain_on': 0.07, 'mmio_wr': 0.49, 'select': 0.25, 'wr_seq': 1.01, 'mmio_rd': 2.24, 'wait_idle': 0.06, 'start': 0.25, 'wait': 2.58, 'run_one': 1.4, 'invalidate': 0.21}
+  最快 3 层：
+    locks.0.b4.ghost_layers.0.cheap_operation.conv cin= 48 cb=1    8²    2.15 ms  buckets={'flush': 0.42, 'chain_on': 0.07, 'mmio_wr': 0.18, 'select': 0.09, 'wr_seq': 0.16, 'mmio_rd': 0.1, 'wait_idle': 0.06, 'wait': 0.06, 'run_one': 0.26, 'invalidate': 0.2}
+    locks.0.b4.ghost_layers.0.cheap_operation.conv cin= 32 cb=1   16²    2.15 ms  buckets={'flush': 0.42, 'chain_on': 0.07, 'mmio_wr': 0.19, 'select': 0.09, 'wr_seq': 0.16, 'mmio_rd': 0.1, 'wait_idle': 0.06, 'wait': 0.06, 'run_one': 0.26, 'invalidate': 0.19}
+    locks.0.b4.ghost_layers.0.cheap_operation.conv cin= 48 cb=1    4²    2.15 ms  buckets={'flush': 0.41, 'chain_on': 0.07, 'mmio_wr': 0.18, 'select': 0.09, 'wr_seq': 0.16, 'mmio_rd': 0.1, 'wait_idle': 0.06, 'wait': 0.06, 'run_one': 0.26, 'invalidate': 0.19}
+
+==============================================================================
+  验 sha1：hw=64²
+==============================================================================
+  NetPlan 建 = 0.139 s
+
+==============================================================================
+  run64：hw=64² 整网（钩子只记账，不改调用）
+==============================================================================
+  跑前 idle = ✓ ：0x310=0x00000000 ；bin_unit_0 busy=False ；conv_uni_0 busy=False
+  **墙钟 2.985 s** ⇒ 三 sha1 全中 ✓
+     bfa246d34681 / 226bd39e522a / 762d84b9618e
+  跑后 idle = ✓ ：0x310=0x00000000 ；bin_unit_0 busy=False ；conv_uni_0 busy=False
+
+==============================================================================
+  ★ pack 桶细分（227 层，Σ 859.9 ms = 0.860 s）
+==============================================================================
+  桶(独占)                ms       %Σ        次数
+  run_one           154.5    18.0%       698
+  wr_seq            146.5    17.0%      1396
+  flush              97.3    11.3%       454
+  mmio_wr            77.7     9.0%      1623
+  mmio_rd            49.5     5.8%      1093
+  invalidate         46.3     5.4%       227
+  wait               45.6     5.3%       698
+  select             40.5     4.7%       925
+  start              31.4     3.7%       698
+  chain_on           16.4     1.9%       227
+  wait_idle          13.1     1.5%       227
+  残留(含numpy)        141.0    16.4%         -  ← numpy 写 thr/desc 等
+
+  按分辨率（固定开销 vs 成正比）：
+      hw     层   cmd     ms/层   ms/cmd    out_B/层     in_B/层    MS/s(读)
+    1024    32    88     3.93     1.43      22528     180224      45.90
+     256    54   161     3.65     1.22       6106      48849      13.39
+      64    75   236     3.79     1.21       1611      12889       3.40
+      16    44   140     3.80     1.19        407       3258       0.86
+       4    22    73     3.89     1.17        106        849       0.22
+
+  线性拟合 pack_ms = 3.404 ms + 0.00058 ms/(cb·hw)  （R²=0.178）
+    ⇒ 常数项 Σ = 0.773 s ；比例项 Σ = 0.087 s
+
+  进/出字节：in 9.53 MB / out 1.19 MB ⇒ **比值 8.00:1**（恒等复制应为 1:1）
+  n_f32==0 的层 = 227/227 ；Σ cb = 698 ；Σ 层 = 227
+
+  最慢 6 层：
+    decoder.decoder_1.sam_blocks.0.b0.conv.conv    cin=544 cb=9   32²    9.39 ms  buckets={'flush': 0.42, 'chain_on': 0.07, 'mmio_wr': 0.78, 'select': 0.41, 'wr_seq': 1.96, 'mmio_rd': 1.13, 'wait_idle': 0.06, 'start': 0.39, 'wait': 1.12, 'run_one': 1.97, 'invalidate': 0.21}
+    decoder.decoder_2.sam_blocks.0.b4.conv.conv    cin=544 cb=9    4²    7.96 ms  buckets={'flush': 0.43, 'chain_on': 0.07, 'mmio_wr': 0.79, 'select': 0.55, 'wr_seq': 1.82, 'mmio_rd': 0.44, 'wait_idle': 0.06, 'start': 0.39, 'wait': 0.5, 'run_one': 1.83, 'invalidate': 0.21}
+    decoder.decoder_3.sam_blocks.0.b4.conv.conv    cin=544 cb=9    2²    7.95 ms  buckets={'flush': 0.43, 'chain_on': 0.07, 'mmio_wr': 0.78, 'select': 0.41, 'wr_seq': 1.84, 'mmio_rd': 0.54, 'wait_idle': 0.06, 'start': 0.39, 'wait': 0.51, 'run_one': 1.83, 'invalidate': 0.22}
+    decoder.decoder_2.sam_blocks.0.b2.conv.conv    cin=544 cb=9    8²    7.94 ms  buckets={'flush': 0.43, 'chain_on': 0.07, 'mmio_wr': 0.78, 'select': 0.42, 'wr_seq': 1.88, 'mmio_rd': 0.43, 'wait_idle': 0.06, 'start': 0.39, 'wait': 0.51, 'run_one': 1.9, 'invalidate': 0.21}
+    decoder.decoder_3.sam_blocks.0.b0.conv.conv    cin=544 cb=9    8²    7.89 ms  buckets={'flush': 0.42, 'chain_on': 0.07, 'mmio_wr': 0.79, 'select': 0.41, 'wr_seq': 1.84, 'mmio_rd': 0.44, 'wait_idle': 0.06, 'start': 0.39, 'wait': 0.51, 'run_one': 1.84, 'invalidate': 0.2}
+    decoder.decoder_1.sam_blocks.0.b2.conv.conv    cin=544 cb=9   16²    7.88 ms  buckets={'flush': 0.43, 'chain_on': 0.07, 'mmio_wr': 0.78, 'select': 0.47, 'wr_seq': 1.83, 'mmio_rd': 0.44, 'wait_idle': 0.06, 'start': 0.39, 'wait': 0.5, 'run_one': 1.83, 'invalidate': 0.21}
+  最快 3 层：
+    m_blocks.0.b4.ghost_layers.0.primary_conv.conv cin= 64 cb=1    4²    2.16 ms  buckets={'flush': 0.4, 'chain_on': 0.07, 'mmio_wr': 0.18, 'select': 0.09, 'wr_seq': 0.17, 'mmio_rd': 0.1, 'wait_idle': 0.06, 'wait': 0.06, 'run_one': 0.26, 'invalidate': 0.2}
+    locks.0.b2.ghost_layers.0.cheap_operation.conv cin= 48 cb=1    4²    2.15 ms  buckets={'flush': 0.41, 'chain_on': 0.07, 'mmio_wr': 0.18, 'select': 0.09, 'wr_seq': 0.16, 'mmio_rd': 0.1, 'wait_idle': 0.06, 'wait': 0.06, 'run_one': 0.26, 'invalidate': 0.2}
+    locks.0.b4.ghost_layers.0.cheap_operation.conv cin= 48 cb=1    8²    2.15 ms  buckets={'flush': 0.41, 'chain_on': 0.07, 'mmio_wr': 0.18, 'select': 0.09, 'wr_seq': 0.16, 'mmio_rd': 0.1, 'wait_idle': 0.06, 'wait': 0.06, 'run_one': 0.26, 'invalidate': 0.19}
+
+  产物 /home/xilinx/demoir/t154_out/t154d_probe.json

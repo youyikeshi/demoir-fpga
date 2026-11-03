@@ -1,0 +1,282 @@
+--- /dev/fd/62	2026-11-03 12:11:22.601001754 +0800
++++ patch_2a_cpath.py	2026-11-03 12:06:57.507950600 +0800
+@@ -2839,6 +2839,31 @@
+     return float(fallback)
+ 
+ 
++# ============================================================================
++# ★ T-154：E1E2 打包命令的**快速下发**（只影响 E1E2 的 run_one；conv 路径零改动）
++# ----------------------------------------------------------------------------
++# 第 1 步诊断（v39 @150 MHz、hw=256²、LAZY=1、698 条命令）实测：
++#   · pack 桶 1.406 s（带钩子口径；稳态 1.118 s）里，**PL 硬件只占 ~0.32 s**
++#     （DBG_E_CYC 口径：128²/64²/32²/16² 分别 2.22/0.56/0.14/0.04 ms/命令）；
++#   · 其余 ~1.08 s 全是 PS：一次 AXI-Lite 读在引擎访存时 **42 µs**（空闲 14.5 µs），
++#     一条命令 ~12 写 + ~9 读轮询 + 1 start ⇒ **1.55 ms/命令固定开销**；
++#   · 进:出 = **8.00:1**（二值化 + 位打包 + 逐通道阈值）⇒ 零拷贝不可行；
++#     且 pack(L) 读 conv(L-1) 的 OUT 槽 ⇒ 与 conv 重叠也不可行。
++#   ⇒ 唯一杠杆：把"每条命令的 PS 开销"压到接近硬件时间。
++#
++# 做法：把 6 个配置写 + start 收进**一次 C 调用**（mmio_batch::write_pairs），
++#       按解析拍数"先睡到确定还没完成的时刻"，再用 C 紧轮询收口。
++#       寄存器集合/顺序/值、影子缓存、done 判据、超时语义**逐项不变**；
++#       拿不到 mmio_batch（没有 cc / 装载失败）⇒ 静默回落原 Python 下发。
++# ⚠ 只借 lib 的 `py_write_pairs` / `py_poll_bit0`；**不**打开 `_fast["pvmode"]`
++#   ⇒ `_wr/_rd/_wr_seq` 对 conv 的行为一个字节都不变。
++# ============================================================================
++def e1e2_fast_on():
++    """`BIN_E1E2_FAST=0/off/false/no` ⇒ 关（回落原 Python 下发）；默认开。"""
++    return os.environ.get("BIN_E1E2_FAST", "").strip().lower() not in (
++        "0", "off", "false", "no", "n")
++
++
+ class E1E2Engine:
+     """`bin_e1e2`（R_RUN_UNIT=4）的 PS 驱动；**不改 conv 路径**。
+ 
+@@ -2878,6 +2903,13 @@
+         self.last_run = None
+         self.last_pack_stats = None
+         self._regions_added = set()
++        # ★ T-154：快速下发（C 批量写 + 预测睡 + C 紧轮询）
++        self._lib = "unset"          # "unset" ⇒ 还没试过；None ⇒ 不可用
++        self._fast_why = ""
++        self._fast_note = None
++        self._hwcal = {}             # (H,W) -> 上一同形状命令的实测 elapsed
++        self._fast_polls = 0         # 累计轮询次数（诊断用）
++        self._chain_cached = None    # chain_on() 的进程内缓存
+ 
+     # ---------------------------------------------------------------- 能力
+     def probe(self):
+@@ -2980,6 +3012,112 @@
+                     bytes_copied=copied, n_sentinel_refs=n_sen, cached=False,
+                     copy_ms=copy_ms)
+ 
++    # ------------------------------------------------ T-154 快速命令下发
++    def _fast_batch(self):
++        """拿 `mmio_batch` 的 lib（**只给 E1E2 命令用**）；拿不到 ⇒ None（回落）。
++
++        与 T-23 的 `BIN_MMIO_C=1` 的区别：这里**不**打开 `core._fast["pvmode"]`，
++        只借 `write_pairs / poll_bit0` 两个函数 ⇒ conv 的 `_wr/_rd` 路径不变。
++        """
++        if self._lib != "unset":
++            return self._lib
++        self._lib = None
++        if not e1e2_fast_on():
++            self._fast_why = "BIN_E1E2_FAST=0"
++            return None
++        try:
++            import mmio_batch
++            mv = None
++            f = self.core._fast
++            if isinstance(f, dict):
++                mv = f.get("mv")
++            if mv is None:
++                m = self.core.mmio
++                for attr in ("mem", "mmap", "buf", "array"):
++                    obj = getattr(m, attr, None)
++                    if obj is None:
++                        continue
++                    try:
++                        _mv = (obj if isinstance(obj, memoryview)
++                               else memoryview(obj))
++                        if _mv.readonly:
++                            continue
++                        mv = _mv
++                        break
++                    except Exception:                  # noqa: BLE001
++                        continue
++            if mv is None:
++                self._fast_why = "拿不到 MMIO 底层 buffer（无 .mem/.mmap/.buf）"
++                return None
++            self._lib = mmio_batch.load(mv)
++            if self._lib is None:
++                try:
++                    self._fast_why = "mmio_batch 不可用（%s）" % (
++                        mmio_batch.status().get("why", "?"))
++                except Exception:                      # noqa: BLE001
++                    self._fast_why = "mmio_batch 不可用"
++        except Exception as ex:                        # noqa: BLE001
++            self._lib = None
++            self._fast_why = "mmio_batch 装载异常 %r" % (ex,)
++        return self._lib
++
++    def _run_fast(self, lib, pairs, timeout, est_s=None, wdt=None,
++                  slice_s=0.5, key=None):
++        """**C 写 + start + 自校准预测睡 + 极少轮询**；返回 (status, elapsed)。
++
++        为什么必须"先睡"：实测**一次 AXI-Lite 读在引擎访存时要 ~30~42 µs**
++        （空闲 14.5 µs）⇒ 紧轮询的开销 ≈ 硬件时间本身（T-154 实测：128² 命令
++        2.22 ms 硬件 + 1.31 ms 轮询）。所以先按"上一同形状命令的实测时长"睡过去，
++        醒后再读（done 在 RTL 里 sticky ⇒ 睡过头只丢精度，不会丢 done）。
++
++        `est_s` = 解析拍数下界；自校准表 `self._hwcal[key]` 用**实测 elapsed**
++        收敛（只升不降的温和 EMA）。寄存器写序 = `pairs` 顺序 + 最后一次
++        AP_CTRL=1（自清位，每次必须真写）。超时语义与 `wait()` 相同。
++        """
++        core = self.core
++        t0 = time.time()
++        ctrl = CFG + BIN_REG["AP_CTRL"]
++        ret = CFG + BIN_REG["AP_RET"]
++        lib.py_write_pairs(list(pairs) + [(ctrl, 1)])
++        core._start_planned()          # shadow/计数记账（真写由 C 完成）
++        core._c_cmds += 1
++        _cal = self._hwcal.get(key) if key is not None else None
++        if _cal:
++            _s = 0.88 * _cal
++        elif est_s:
++            _s = 1.9 * float(est_s) + 6e-6
++        else:
++            _s = 0.0
++        if _s > 3e-5:
++            _sleep_until(time.time() + min(_s, 0.02))
++        n_poll = 0
++        while True:
++            budget = min(float(slice_s),
++                         max(1e-3, float(timeout) - (time.time() - t0)))
++            st = int(lib.py_poll_bit0(ret, budget))
++            n_poll += 1
++            if st & 1:
++                dt = time.time() - t0
++                if key is not None:                  # 自校准（EMA + 上界防跑飞）
++                    old = self._hwcal.get(key)
++                    _v = dt if old is None else (0.7 * old + 0.3 * dt)
++                    if est_s:                        # 上界：模型×3 + 1 ms
++                        _v = min(_v, 3.0 * float(est_s) + 1e-3)
++                    self._hwcal[key] = _v
++                self._fast_note = (n_poll, round(dt, 6))
++                self._fast_polls += n_poll
++                return st, dt
++            if wdt is not None:
++                wdt.beat()
++            if (time.time() - t0) > float(timeout):
++                msg = ("bin_unit 超时 %.1fs 未 done（E1E2 快速路径 timeout=%s）。"
++                       "**不再发第二次 start**。" % (time.time() - t0, timeout))
++                if wdt is not None and getattr(wdt, "armed", False):
++                    print("[bin_engine] " + msg, flush=True)
++                    while True:
++                        time.sleep(1.0)
++                raise TimeoutError(msg)
++
+     def _require_loaded(self):
+         if not self._loaded:
+             raise RuntimeError("还没 load_program()：没有 arena/描述符表")
+@@ -3095,7 +3233,9 @@
+ 
+         self.select(4)
+         lib = self.core._fast.get("lib") if isinstance(self.core._fast, dict) else None
+-        pairs = [] if lib is not None else None
++        # ★ T-154：没有全局 C 路径时，E1E2 命令仍走"自己的"C 批量下发
++        _fast = self._fast_batch() if lib is None else None
++        pairs = [] if (lib is not None or _fast is not None) else None
+         # C/H/W 与 E_GROUP/E_DESC/E_OUT：地址不连续的两段，各自内部合并。
+         # shadow/计数/force 语义在 _wr_seq 里照旧；collect 给了就只登记不发。
+         core._wr_seq((((CFG + BIN_REG["C"]), int(cfg_c)),
+@@ -3123,6 +3263,21 @@
+                 core._write_pairs_raw(pairs)
+                 core.start()
+                 st, dt = core.wait(timeout, wdt=wdt, est_s=est_s)
++        elif _fast is not None:
++            # ---- T-154：C 写 + start + 预测睡 + C 紧轮询（失败⇒回落 Python）----
++            try:
++                st, dt = self._run_fast(_fast, pairs, timeout, est_s=est_s,
++                                        wdt=wdt, key=(int(cfg_h), int(cfg_w)))
++            except BinRunError:
++                raise
++            except TimeoutError:
++                raise
++            except Exception as e:                       # noqa: BLE001
++                self._lib = None
++                self._fast_why = "快速下发失败（%r）⇒ 回落 Python" % (e,)
++                core._write_pairs_raw(pairs)
++                core.start()
++                st, dt = core.wait(timeout, wdt=wdt, est_s=est_s)
+         else:
+             core.start()
+             st, dt = core.wait(timeout, wdt=wdt, est_s=est_s)
+@@ -3148,11 +3303,21 @@
+ 
+     # ------------------------------------------------------------ v50 描述符链
+     def chain_on(self):
+-        """链模式是否真的可用（`BIN_V50_FUSE=1` 且 RTL 探针通过）。"""
++        """链模式是否真的可用（`BIN_V50_FUSE=1` 且 RTL 探针通过）。
++
++        ★ T-154：结果**进程内缓存**（开关与 RTL 在位情况在一次会话里不变）。
++          现状是每层调 2 次、每次 ~77 µs（`v50_fuse_on()` 现读环境）；
++          缓存后归零。`BIN_V50_REPROBE=1` 时不缓存（与 `v50_chain_ready` 一致）。
++        """
++        if (self._chain_cached is not None
++                and not _v50_env_on("BIN_V50_REPROBE")):
++            return bool(self._chain_cached)
+         try:
+-            return bool(v50_fuse_on() and self.core.v50_chain_ready())
++            ok = bool(v50_fuse_on() and self.core.v50_chain_ready())
+         except Exception:                                 # noqa: BLE001
+-            return False
++            ok = False
++        self._chain_cached = ok
++        return ok
+ 
+     def chain_descs(self, cin, H, W, out_pa, desc_base_pa):
+         """把 ceil(cin/64) 个"逐组命令"摊成 N 条 10 字描述符（契约 B）。
+@@ -3751,7 +3916,8 @@
+         return self._run_desc(job["cin"], job["H"], job["W"], job["descs"], 0,
+                               out_buf=out_buf, bufs=job["views"],
+                               restore=restore, timeout=timeout,
+-                              thr_i16=job["thr"], need_in=job["need_in"])
++                              thr_i16=job["thr"], need_in=job["need_in"],
++                              memo=job)
+ 
+     def pack_segments(self, segs, L, t_q=None, out_buf=None, bufs=None,
+                       restore=True, timeout=None):
+@@ -3792,7 +3958,7 @@
+     # ---------------------------------------------------------------- C8 直读
+     def _run_desc(self, cin, H, W, descs, out_pa, out_buf=None, bufs=None,
+                   restore=True, timeout=None, thr_i16=None, need_in=0,
+-                  extra=None):
++                  extra=None, memo=None):
+         """把 8×cb 个描述符写进内存 → 逐组下发 → 返回打包字节视图。
+ 
+         所有 pack_* 共用这一段（寄存器序列/等待/收尾只有一份）。
+@@ -3812,11 +3978,23 @@
+                                       bufs["thr"], bufs["desc"])
+         else:
+             vin, vout, vthr, vdesc = bufs
++        # ★ T-154：这两块每层只有 128 B + 512 B，但板端 numpy 的
++        #   `ascontiguousarray + view + 切片赋值` 实测 ~0.65 ms/层。
++        #   改成"每个 job 只 tobytes() 一次 + 一次 frombuffer 赋值"，
++        #   字节内容与原来**逐字节相同**（同一个 ndarray 的同一段内存）。
+         if thr_i16 is not None:
+-            _u8(vthr)[:need_thr] = np.ascontiguousarray(
+-                thr_i16, np.int16).view(np.uint8)
+-        _u8(vdesc)[:need_desc] = np.ascontiguousarray(
+-            descs, np.uint64).view(np.uint8)
++            _tb = memo.get("_thr_b") if isinstance(memo, dict) else None
++            if _tb is None:
++                _tb = np.ascontiguousarray(thr_i16, np.int16).tobytes()
++                if isinstance(memo, dict):
++                    memo["_thr_b"] = _tb
++            _u8(vthr)[:need_thr] = np.frombuffer(_tb, np.uint8)[:need_thr]
++        _db = memo.get("_desc_b") if isinstance(memo, dict) else None
++        if _db is None:
++            _db = np.ascontiguousarray(descs, np.uint64).tobytes()
++            if isinstance(memo, dict):
++                memo["_desc_b"] = _db
++        _u8(vdesc)[:need_desc] = np.frombuffer(_db, np.uint8)[:need_desc]
+         if out_buf is None:
+             ov = vout
+             out_pa = int(vout.physical_address)
+@@ -3828,8 +4006,13 @@
+             if len(ov) < need_out:
+                 raise ValueError("out_buf 只有 %d B，需要 %d B"
+                                  % (len(ov), need_out))
+-        for v in (vthr, vdesc):
+-            _flush(v)
++        # ★ T-154：两块在**同一个** owner 里（`_pack_views` 切出来的）⇒ 刷一次
++        #   就够（实测每次 222 µs；原来每层刷两次）。不同 owner 时仍各刷一次。
++        _o1 = getattr(vthr, "_owner", None)
++        _o2 = getattr(vdesc, "_owner", None)
++        _flush(vthr)
++        if _o2 is not _o1:
++            _flush(vdesc)
+         _chain_used = None
+         if self.chain_on():
+             # ★ v50（P2/P3）：整层 cb 组 →**一条 10 字描述符链、一次 kick**，

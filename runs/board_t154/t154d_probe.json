@@ -1,0 +1,259 @@
+{
+ "env_at_start": {
+  "BIN_PACK": "e1e2",
+  "BIN_LAZY_DEQ": "1",
+  "BIN_LAZY_SLOTS": "24",
+  "BIN_CAT_FUSION": "1",
+  "BIN_BILINEAR_C": "1",
+  "BIN_PRECOMP": "1",
+  "Q8CACHE": "1",
+  "BIN_F32DIRECT": "1",
+  "BIN_CAT_ECA_FUSE": "1",
+  "BIN_EPI_NOINV": "1",
+  "BIN_PROFILE": "1",
+  "BIN_LAZY_DEBUG": "1",
+  "Q8CACHE_STATS": "1",
+  "BIN_V50_FUSE": "",
+  "BIN_MMIO_C": "",
+  "BIN_MMIO_FAST": "",
+  "BIN_MMIO_POLL": ""
+ },
+ "python": "3.10.4",
+ "numpy": "1.21.5",
+ "machine": "armv7l",
+ "args": {
+  "bit": "/home/xilinx/demoir/design_1_150v39.bit",
+  "pack": "/home/xilinx/demoir/deploy/bin_weights_new",
+  "epoch": "1746800686.617362437",
+  "freq": 150.0,
+  "slots": 24,
+  "hw": 256,
+  "outdir": "/home/xilinx/demoir/t154_out",
+  "tag": "t154d",
+  "wd": 240.0,
+  "tmax": 600.0,
+  "extra_hw": "256,128,64",
+  "floor_n": 25
+ },
+ "overlay_s": 3.185,
+ "fclk_mhz": 150.0,
+ "gates_ok": true,
+ "arena": {
+  "need": 66224128,
+  "max_in": 1179648,
+  "max_out": 1572864,
+  "n_conv": 227,
+  "n_ops": 395,
+  "kinds": {
+   "unshuffle": 1,
+   "convfp": 4,
+   "conv": 227,
+   "cat": 116,
+   "add": 6,
+   "interp": 26,
+   "eca": 6,
+   "sam": 6,
+   "shuffle": 3
+  },
+  "cma_after": 548864
+ },
+ "runs": [
+  {
+   "run": 1,
+   "hw": 256,
+   "wall": 7.8842,
+   "sha1": [
+    "9b1940c8955be53ccffd7905e333deffcea31f0a",
+    "f86a7035621bed133374a1bef42a27db204e7019",
+    "025757a83c3993c8f592e31219b6a97906020363"
+   ],
+   "hit": true,
+   "pack_s": 1.4064,
+   "n_pack": 227,
+   "idle_pre": true,
+   "idle_post": true,
+   "stats": {
+    "pack_pl": 1.486999750137329,
+    "pl": 3.4501051902770996,
+    "ps": 4.5911656089811,
+    "total": 7.877420902252197,
+    "wait": 0.6245143413543701,
+    "prologue": 1.5592601299285889,
+    "nonconv": 2.781989336013794,
+    "epilogue": 0.24991614303871756
+   }
+  },
+  {
+   "run": 128,
+   "hw": 128,
+   "wall": 3.7836,
+   "sha1": [
+    "27e25cf67fdad22d95bfd488cc73ccc39cbe8134",
+    "b82b83f3d7eb1e0dc92e0c22a3c9656a2b963b2e",
+    "6db4e9bb19e0e744ef4f41a2c5a2eb6e003ad301"
+   ],
+   "hit": true,
+   "pack_s": 0.9536,
+   "n_pack": 227,
+   "idle_pre": true,
+   "idle_post": true,
+   "stats": {
+    "pack_pl": 1.0322155952453613,
+    "pl": 1.4486405849456787,
+    "ps": 1.7036735827714438,
+    "total": 3.7768537998199463,
+    "wait": 0.16553783416748047,
+    "prologue": 0.9882676601409912,
+    "nonconv": 0.6208400726318359,
+    "epilogue": 0.09456584999861661
+   }
+  },
+  {
+   "run": 64,
+   "hw": 64,
+   "wall": 2.9853,
+   "sha1": [
+    "bfa246d34681e748311bbcd2f1b87317a56923fe",
+    "226bd39e522aa373b8fc183acae5280931f8b63f",
+    "762d84b9618eab8922edd6da4f07ba06de865628"
+   ],
+   "hit": true,
+   "pack_s": 0.8599,
+   "n_pack": 227,
+   "idle_pre": true,
+   "idle_post": true,
+   "stats": {
+    "pack_pl": 0.939093828201294,
+    "pl": 1.1090197563171387,
+    "ps": 1.1161665756444563,
+    "total": 2.9781644344329834,
+    "wait": 0.06104159355163574,
+    "prologue": 0.7798867225646973,
+    "nonconv": 0.271467924118042,
+    "epilogue": 0.06481192896171706
+   }
+  }
+ ],
+ "floor": [
+  {
+   "name": "encoder.encoder_1.rdb.conv_layers.0.conv",
+   "cin": 48,
+   "H": 128,
+   "W": 128,
+   "cb": 1,
+   "n": 25,
+   "desc_pa": 920781952,
+   "out_pa": 806354944,
+   "V0_full_ms": 5.735,
+   "V1_startwait_ms": 4.013,
+   "V2_sel_ms": 4.141,
+   "V3_hw_ms": 2.221,
+   "V3_wait_ms": 3.343,
+   "V3_rd_beats": 132104,
+   "V3_cyc_mean": 333177,
+   "V4_cpath_ms": 3.528,
+   "mmio": {
+    "fast": true,
+    "why": ""
+   }
+  },
+  {
+   "name": "encoder.encoder_1.sam_blocks.0.b2.ghost_layers.0.primary_conv.conv",
+   "cin": 48,
+   "H": 64,
+   "W": 64,
+   "cb": 1,
+   "n": 25,
+   "desc_pa": 920781952,
+   "out_pa": 813432832,
+   "V0_full_ms": 2.923,
+   "V1_startwait_ms": 1.269,
+   "V2_sel_ms": 1.36,
+   "V3_hw_ms": 0.556,
+   "V3_wait_ms": 0.911,
+   "V3_rd_beats": 33032,
+   "V3_cyc_mean": 83422,
+   "V4_cpath_ms": 1.019,
+   "mmio": {
+    "fast": true,
+    "why": ""
+   }
+  },
+  {
+   "name": "encoder.encoder_1.sam_blocks.0.b4.ghost_layers.0.primary_conv.conv",
+   "cin": 48,
+   "H": 32,
+   "W": 32,
+   "cb": 1,
+   "n": 25,
+   "desc_pa": 920781952,
+   "out_pa": 815792128,
+   "V0_full_ms": 2.226,
+   "V1_startwait_ms": 0.576,
+   "V2_sel_ms": 0.668,
+   "V3_hw_ms": 0.14,
+   "V3_wait_ms": 0.286,
+   "V3_rd_beats": 8264,
+   "V3_cyc_mean": 21071,
+   "V4_cpath_ms": 0.396,
+   "mmio": {
+    "fast": true,
+    "why": ""
+   }
+  },
+  {
+   "name": "encoder.encoder_2.sam_blocks.0.b4.ghost_layers.0.primary_conv.conv",
+   "cin": 96,
+   "H": 16,
+   "W": 16,
+   "cb": 2,
+   "n": 25,
+   "desc_pa": 920781952,
+   "out_pa": 826408960,
+   "V0_full_ms": 2.849,
+   "V1_startwait_ms": 0.411,
+   "V2_sel_ms": 0.495,
+   "V3_hw_ms": 0.041,
+   "V3_wait_ms": 0.138,
+   "V3_rd_beats": 2072,
+   "V3_cyc_mean": 6104,
+   "V4_cpath_ms": 0.244,
+   "mmio": {
+    "fast": true,
+    "why": ""
+   }
+  }
+ ],
+ "prim_mmio": {
+  "rd_us": 14.54,
+  "wr_us": 17.167,
+  "mv_us": 3.54
+ },
+ "timeline": [
+  [
+   "module_start",
+   0.0
+  ],
+  [
+   "numpy_imported",
+   1.4519
+  ],
+  [
+   "overlay",
+   15.5719
+  ],
+  [
+   "arena",
+   24.3075
+  ]
+ ],
+ "mem_after": {
+  "MemTotal": 1028264,
+  "MemFree": 489180,
+  "MemAvailable": 573220,
+  "SwapTotal": 524284,
+  "SwapFree": 524284,
+  "CmaTotal": 262144,
+  "CmaFree": 32604
+ }
+}

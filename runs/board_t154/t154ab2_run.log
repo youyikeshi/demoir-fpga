@@ -1,0 +1,158 @@
+
+==============================================================================
+  T-154 第 2 步 A/B：E1E2 打包 C 批量下发
+==============================================================================
+  运行点 = {"BIN_PACK": "e1e2", "BIN_LAZY_DEQ": "1", "BIN_LAZY_SLOTS": "24", "BIN_CAT_FUSION": "1", "BIN_BILINEAR_C": "1", "BIN_PRECOMP": "1", "Q8CACHE": "1", "BIN_F32DIRECT": "1", "BIN_CAT_ECA_FUSE": "1", "BIN_EPI_NOINV": "1", "BIN_PROFILE": "1", "BIN_LAZY_DEBUG": "1", "Q8CACHE_STATS": "1", "BIN_E1E2_FAST": "0", "BIN_V50_FUSE": ""}
+  hw=256² slots=24 fclk=150 ；每臂 3 跑（交替）
+
+==============================================================================
+  P0：Overlay 下载（本次会话唯一一次）
+==============================================================================
+  Overlay = 2.939 s
+  conv_uni_0  base=0x40040000 （期望 0x40040000）✓
+  bin_unit_0  base=0x40060000 （期望 0x40060000）✓
+  第 131 条 idle 门 = ✓ ：0x310=0x00000000 ；bin_unit_0 busy=False ；conv_uni_0 busy=False
+  fclk0 目标 150 → 读回 150 MHz
+
+==============================================================================
+  P0：内核 .so + arena + 引擎/权重 + NetPlan
+==============================================================================
+  内核 = 6.761 s {'q8': 0.582, 'c8deq': 4.383, 'bpack': 1.796}
+  arena 66.22 MB ；engine+net 就绪
+  臂 A：原 Python 下发（BIN_E1E2_FAST=0）
+
+==============================================================================
+  预热（冷进程首次，不入账）
+==============================================================================
+[DEPS] q8=fast c8deq=fast bpack=fast e1e2=fast catpack=fast safe=fast  ⇒ deps_closure_ok=True
+  [LAZY_DEQ] IN/OUT 槽数 = 24（BIN_LAZY_SLOTS）
+[Q8CACHE] hit/miss = 89/51  stale 0  逐出 0  skip 0  常驻 17.64/33.55 MB  直写 True  强引用 True  multifs True
+  [A #0 hw=256] 墙钟 7.295 s ；pack 1.202 s ；sha1 全中 ✓
+      9b1940c8955b / f86a7035621b / 025757a83c39
+
+==============================================================================
+  A/B 交替（每臂 3 跑，逐次记账）
+==============================================================================
+  臂 A：原 Python 下发（BIN_E1E2_FAST=0）
+  [LAZY_DEQ] IN/OUT 槽数 = 24（BIN_LAZY_SLOTS）
+[Q8CACHE] hit/miss = 89/50  stale 0  逐出 0  skip 0  常驻 17.59/33.55 MB  直写 True  强引用 True  multifs True
+  [A #1 hw=256] 墙钟 6.057 s ；pack 1.181 s ；sha1 全中 ✓
+      9b1940c8955b / f86a7035621b / 025757a83c39
+  臂 B：mmio_batch lib = 可用 ；why=''
+  [LAZY_DEQ] IN/OUT 槽数 = 24（BIN_LAZY_SLOTS）
+[Q8CACHE] hit/miss = 89/51  stale 0  逐出 0  skip 0  常驻 17.72/33.55 MB  直写 True  强引用 True  multifs True
+  [B #1 hw=256] 墙钟 6.601 s ；pack 1.741 s ；sha1 全中 ✓
+      9b1940c8955b / f86a7035621b / 025757a83c39
+  臂 A：原 Python 下发（BIN_E1E2_FAST=0）
+  [LAZY_DEQ] IN/OUT 槽数 = 24（BIN_LAZY_SLOTS）
+[Q8CACHE] hit/miss = 89/51  stale 0  逐出 0  skip 0  常驻 17.72/33.55 MB  直写 True  强引用 True  multifs True
+  [A #2 hw=256] 墙钟 6.112 s ；pack 1.184 s ；sha1 全中 ✓
+      9b1940c8955b / f86a7035621b / 025757a83c39
+  臂 B：mmio_batch lib = 可用 ；why=''
+  [LAZY_DEQ] IN/OUT 槽数 = 24（BIN_LAZY_SLOTS）
+[Q8CACHE] hit/miss = 89/52  stale 0  逐出 0  skip 0  常驻 17.75/33.55 MB  直写 True  强引用 True  multifs True
+  [B #2 hw=256] 墙钟 6.746 s ；pack 1.769 s ；sha1 全中 ✓
+      9b1940c8955b / f86a7035621b / 025757a83c39
+  臂 A：原 Python 下发（BIN_E1E2_FAST=0）
+  [LAZY_DEQ] IN/OUT 槽数 = 24（BIN_LAZY_SLOTS）
+[Q8CACHE] hit/miss = 89/53  stale 0  逐出 0  skip 0  常驻 17.80/33.55 MB  直写 True  强引用 True  multifs True
+  [A #3 hw=256] 墙钟 5.908 s ；pack 1.171 s ；sha1 全中 ✓
+      9b1940c8955b / f86a7035621b / 025757a83c39
+  臂 B：mmio_batch lib = 可用 ；why=''
+  [LAZY_DEQ] IN/OUT 槽数 = 24（BIN_LAZY_SLOTS）
+[Q8CACHE] hit/miss = 89/52  stale 0  逐出 0  skip 0  常驻 17.75/33.55 MB  直写 True  强引用 True  multifs True
+  [B #3 hw=256] 墙钟 6.712 s ；pack 1.770 s ；sha1 全中 ✓
+      9b1940c8955b / f86a7035621b / 025757a83c39
+
+==============================================================================
+  插桩跑（看桶细分，墙钟会被钩子抬高）
+==============================================================================
+  臂 A：原 Python 下发（BIN_E1E2_FAST=0）
+  [LAZY_DEQ] IN/OUT 槽数 = 24（BIN_LAZY_SLOTS）
+[Q8CACHE] hit/miss = 89/53  stale 0  逐出 0  skip 0  常驻 17.80/33.55 MB  直写 True  强引用 True  multifs True
+  [A #99 hw=256 插桩] 墙钟 12.783 s ；pack 1.873 s ；sha1 全中 ✓
+      9b1940c8955b / f86a7035621b / 025757a83c39
+      ---- pack 桶细分（Σ 1.797 s）----
+        wait           296.9 ms   16.5%    698 次
+        mmio_rd        263.9 ms   14.7%   6416 次
+        run_one        208.8 ms   11.6%    698 次
+        wr_seq         152.1 ms    8.5%   1396 次
+        mmio_wr         82.7 ms    4.6%   1623 次
+        flush           60.6 ms    3.4%    227 次
+        invalidate      51.5 ms    2.9%    227 次
+        select          43.4 ms    2.4%    925 次
+        start           33.1 ms    1.8%    698 次
+        chain_on        16.8 ms    0.9%    227 次
+        wait_idle       12.9 ms    0.7%    227 次
+        残留             574.2 ms   32.0%
+        按分辨率：128² 14.09 ms/层 (5.12 ms/cmd) ；64² 14.17 ms/层 (4.75 ms/cmd) ；32² 4.29 ms/层 (1.36 ms/cmd) ；16² 3.85 ms/层 (1.21 ms/cmd) ；8² 4.08 ms/层 (1.23 ms/cmd)
+  臂 B：mmio_batch lib = 可用 ；why=''
+  [LAZY_DEQ] IN/OUT 槽数 = 24（BIN_LAZY_SLOTS）
+[Q8CACHE] hit/miss = 89/53  stale 0  逐出 0  skip 0  常驻 17.80/33.55 MB  直写 True  强引用 True  multifs True
+  [B #99 hw=256 插桩] 墙钟 8.785 s ；pack 3.826 s ；sha1 全中 ✓
+      9b1940c8955b / f86a7035621b / 025757a83c39
+      ---- pack 桶细分（Σ 3.761 s）----
+        wr_seq        1908.3 ms   50.7%   1396 次
+        run_fast      1225.0 ms   32.6%    698 次
+        run_one        203.8 ms    5.4%    698 次
+        flush           58.9 ms    1.6%    227 次
+        invalidate      54.0 ms    1.4%    227 次
+        mmio_wr         48.7 ms    1.3%    925 次
+        select          45.3 ms    1.2%    925 次
+        chain_on        16.5 ms    0.4%    227 次
+        wait_idle       12.8 ms    0.3%    227 次
+        mmio_rd         12.7 ms    0.3%    227 次
+        残留             175.3 ms    4.7%
+        按分辨率：128² 15.13 ms/层 (5.50 ms/cmd) ；64² 8.65 ms/层 (2.90 ms/cmd) ；32² 31.35 ms/层 (9.96 ms/cmd) ；16² 6.92 ms/层 (2.18 ms/cmd) ；8² 6.98 ms/层 (2.10 ms/cmd)
+
+==============================================================================
+  ★ 汇总：pack 桶与墙钟（插桩跑单列）
+==============================================================================
+  A（原 Python）：墙钟 min/med = 5.907/6.057 s ；pack min/med = 1.171/1.181 s ；3 跑
+  B（C 批量）：墙钟 min/med = 6.601/6.712 s ；pack min/med = 1.741/1.769 s ；3 跑
+
+==============================================================================
+  验 sha1：hw=128²
+==============================================================================
+  臂 A：原 Python 下发（BIN_E1E2_FAST=0）
+  [LAZY_DEQ] IN/OUT 槽数 = 24（BIN_LAZY_SLOTS）
+[Q8CACHE] hit/miss = 89/50  stale 0  逐出 0  skip 0  常驻 4.40/33.55 MB  直写 True  强引用 True  multifs True
+  [A #1 hw=128] 墙钟 7.621 s ；pack 0.758 s ；sha1 全中 ✓
+      27e25cf67fda / b82b83f3d7eb / 6db4e9bb19e0
+  臂 B：mmio_batch lib = 可用 ；why=''
+  [LAZY_DEQ] IN/OUT 槽数 = 24（BIN_LAZY_SLOTS）
+[Q8CACHE] hit/miss = 89/50  stale 0  逐出 0  skip 0  常驻 4.40/33.55 MB  直写 True  强引用 True  multifs True
+  [B #1 hw=128] 墙钟 4.508 s ；pack 1.424 s ；sha1 全中 ✓
+      27e25cf67fda / b82b83f3d7eb / 6db4e9bb19e0
+
+==============================================================================
+  验 sha1：hw=64²
+==============================================================================
+  臂 A：原 Python 下发（BIN_E1E2_FAST=0）
+  [LAZY_DEQ] IN/OUT 槽数 = 24（BIN_LAZY_SLOTS）
+[Q8CACHE] hit/miss = 89/50  stale 0  逐出 0  skip 0  常驻 1.10/33.55 MB  直写 True  强引用 True  multifs True
+  [A #1 hw=64] 墙钟 2.668 s ；pack 0.635 s ；sha1 全中 ✓
+      bfa246d34681 / 226bd39e522a / 762d84b9618e
+  臂 B：mmio_batch lib = 可用 ；why=''
+  [LAZY_DEQ] IN/OUT 槽数 = 24（BIN_LAZY_SLOTS）
+[Q8CACHE] hit/miss = 89/50  stale 0  逐出 0  skip 0  常驻 1.10/33.55 MB  直写 True  强引用 True  multifs True
+  [B #1 hw=64] 墙钟 3.156 s ；pack 1.320 s ；sha1 全中 ✓
+      bfa246d34681 / 226bd39e522a / 762d84b9618e
+
+==============================================================================
+  ★ 单命令四格（把省了哪一段钉死）
+==============================================================================
+  ---- 单命令四格 128² cin=48 cb=1（20 次/格）----
+     A 完整 run_prepared =   5.048 ms ；其中 6 字真写 =  0.108 ms
+     B 完整 run_prepared =   5.170 ms ；其中 py_write_pairs = 0.109 ms
+     B 空转 poll_bit0 = 0.022 ms ；累计轮询次数 4208 ；自校准表 {'128x128': 3.457, '64x64': 1.754, '32x32': 1.189, '16x16': 1.047, '8x8': 1.013, '4x4': 1.004, '2x2': 1.002}
+  ---- 单命令四格 64² cin=48 cb=1（20 次/格）----
+     A 完整 run_prepared =   2.314 ms ；其中 6 字真写 =  0.104 ms
+     B 完整 run_prepared =   3.223 ms ；其中 py_write_pairs = 0.109 ms
+     B 空转 poll_bit0 = 0.022 ms ；累计轮询次数 4228 ；自校准表 {'128x128': 3.457, '64x64': 1.753, '32x32': 1.189, '16x16': 1.047, '8x8': 1.013, '4x4': 1.004, '2x2': 1.002}
+  ---- 单命令四格 32² cin=48 cb=1（20 次/格）----
+     A 完整 run_prepared =   1.594 ms ；其中 6 字真写 =  0.107 ms
+     B 完整 run_prepared =   2.658 ms ；其中 py_write_pairs = 0.11 ms
+     B 空转 poll_bit0 = 0.022 ms ；累计轮询次数 4248 ；自校准表 {'128x128': 3.457, '64x64': 1.753, '32x32': 1.189, '16x16': 1.047, '8x8': 1.013, '4x4': 1.004, '2x2': 1.002}
+
+  产物 /home/xilinx/demoir/t154_out/t154ab2_probe.json
