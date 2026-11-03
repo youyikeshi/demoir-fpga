@@ -7095,3 +7095,30 @@ $$\Rightarrow\ \Rightarrow\ \mathbf{-8.88\ \text{s}，-59\%}，\textbf{零代码
 
 $$\Rightarrow\ \textbf{新性能基线} = \mathtt{v39} + \mathtt{LAZY=1} + \text{v39 后四刀}：\mathbf{256^2 = 6.06\ s @150\ MHz}$$
 $$\Rightarrow\ \text{⚠ 承认边界：}25\ \text{跑不证明"不存在"，}\text{但 }\mathtt{push\_input}{=}0\ \text{的硬计数说明了}\textbf{机制上换了条路}$$
+
+### 70.109 T-142 中途：**B5 不是一行 + 64² 单带放不下 + 融合通路已能跑但死在描述符取指**（2026-11-03 10:2x）
+
+**① B5 的"1 行"不成立（T-140 的判断被修正）**
+$$\Rightarrow\ \mathtt{segq}.\mathtt{wr\_all\_idle}\ \text{是 }\mathbf{m\_axi}\ \text{写引擎静默}，\text{LOAD 相位}\textbf{恒 }1 \Rightarrow \text{加 } \mathtt{\&\&\ wr\_all\_idle}\ \textbf{等于没加}$$
+$$\Rightarrow\ \mathtt{role\_bad\_now}\ \text{看的是 } \mathtt{bin\_band\_buf.wr\_idle\_q};\ \text{wrapper 里已有 } \mathtt{band\_wr\_idle} \text{ 却只喂 } \mathtt{seg\_band\_done}$$
+$$\Rightarrow\ \text{另两个叠加事实：}\text{最后装载字比 } \mathtt{ld\_data}\ \textbf{晚 1 拍落地}（\text{会写进 bank1 = 错带）;\ \mathtt{wr\_idle\_q}\ \text{要 }2\ \text{拍才归零}$$
+$$\Rightarrow\ \text{实际改：}\mathtt{segq}\ \text{新增 } \mathtt{band\_wr\_idle}\ \text{端口 + LOAD→RUN 改"收满 + 倒计时 2 拍 + 带写口静默"}（\mathbf{+26/-6}\ \text{行，2 文件）}$$
+$$\Rightarrow\ \mathtt{inv\_lint}\ \text{FAIL } 7\to7（\text{不增）};\ \mathtt{xvlog}\ \text{OK}$$
+
+**② 64² 单带在 xc7z015 上物理不可行（不是调参问题）**
+$$\Rightarrow\ \text{band} = 2\times(4\ \text{组}\times64\ \text{行}\times W_{\max}+1)\times8\mathtt{B}$$
+$$\Rightarrow\ \text{现有 } 43/95\ \text{块 BRAM，余 }52;\ 64^2\times64W\ \text{需 } \mathbf{65}\ \text{块} \Rightarrow 108/95 \Rightarrow \textbf{放不下}$$
+$$\Rightarrow\ \text{改 } W_{\max}=32：H{=}64/W{=}32/\mathtt{cin}{=}\mathtt{cout}{=}32（\text{CAP }128\ \text{KB} = 33\ \text{块，合计 }76/95）$$
+$$\Rightarrow\ \textbf{但这是}\textbf{浪费}：\text{输入侧只需 }1\ \text{bit/通道} \Rightarrow \text{只要 } \lceil \mathtt{cin}/64\rceil\ \text{组}，\text{现在按 int8 }8\mathtt{ch}/\text{字}\textbf{白占 }4\times$$
+
+**③ L1 xsim 结果（关键进展）**
+$$\Rightarrow\ \mathbf{v39}\ \text{通路：}\textbf{逐字节 } 65536/65536\ \text{PASS}（21/21\ \text{case}，\mathtt{axi\_errors}{=}0）\Rightarrow \textbf{B5 改动与 band 新参数没动 v39 数据通路}$$
+$$\Rightarrow\ \textbf{融合通路跑起来了，但立刻死}：\text{kick 有效、}\mathtt{st}\ \text{进过 } \mathtt{S\_HDR}、\mathtt{cur\_pa}\ \text{正确}$$
+$$\quad\ \mathtt{AP\_RET}=\mathtt{0x1}（\mathtt{done}{=}1/\mathtt{err}{=}0）、\mathtt{progress}{=}0、\text{输出区 }65536\ \text{B}\ \textbf{一个字节没写}$$
+$$\Rightarrow\ \textbf{死因不是 B5 那三条}（\text{实测 } \mathtt{arb}{=}0、\mathtt{canary}{=}0），\text{而是 }\mathbf{\text{band cap\_err}}：$$
+$$\quad\ \text{描述符影子 } \mathtt{sh\_dw[1]}\ \text{取回垃圾 } \mathtt{0x51ca\_d726} \Rightarrow \mathtt{sh\_cin}=\mathtt{0xd726} > \mathtt{C\_MAX}{=}32 \Rightarrow \mathtt{shape\_bad} \Rightarrow E\_CANARY(4)$$
+$$\quad\ \textbf{内存里 } \mathtt{w1}\ \text{正确}、\mathtt{AR\#0}=\mathtt{0x00100000}/\text{len}{=}15（128\ \text{B 线）}\text{地址也对}$$
+$$\quad\ \Rightarrow \textbf{断在"128 B 线 → 5 个描述符拍"的服务路径，第 2 拍起错} \Rightarrow \textbf{描述符取指/影子对位}$$
+$$\Rightarrow\ \Rightarrow\ \textbf{B5 是}\textbf{必要不充分}；\text{下一条要修的是描述符取指}$$
+
+$$\Rightarrow\ \textbf{进展的定性}：\text{融合通路从"物理上跑不起来"}\to\text{"能启动、能进 } \mathtt{S\_HDR}、\text{已定位到确切的下一个 bug"}$$
