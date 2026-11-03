@@ -23,7 +23,7 @@
 ┌──────────────┐   Type-C（Device 模式 + NCM）   ┌──────────────────┐
 │ MaixCAM Pro  │────────────────────────────────>│ AX7015B USB-A 口 │
 │  2K 原生采集  │   一根线：供 5V + 以太网(NCM)   │  (PS USB via Hub)│
-│  中心裁 256²  │                                  │  usb0 10.13.148.100│
+│  中心裁 256²  │                                  │  usb1 10.13.148.100│
 └──────────────┘                                  └──────────────────┘
                                                              │
                                               PS RJ45 192.168.7.2（保留给调试/回传）
@@ -35,7 +35,8 @@
 | 板端 USB Host | PetaLinux 镜像 | ❌ **待做（本文主体）** |
 | 取帧与送 PL | 板端 Python | 待写（等本文验收通过） |
 
-**IP 规划（重要）**：MaixCAM 的 NCM 口固定是 `10.13.148.1/24`，所以板子的 `usb0` 用 `10.13.148.100/24`。
+**IP 规划（重要）**：MaixCAM 的 NCM 口固定是 `10.13.148.1/24`，所以板子的 **`usb1`（NCM）** 用 `10.13.148.100/24`。
+⚠ 2026-11-03 实测纠正：内核把 **NCM 注册成 `usb1`**，`usb0` 是 RNDIS（走 `10.13.149.x`）。以 [`11_相机连接与IP_权威参考.md`](11_相机连接与IP_权威参考.md) 为准。
 ⚠️ 这个 IP 现在是我 PC 用的。因为 MaixCAM 只有一个 USB 口，**要么插 PC、要么插板子，不会同时存在**，所以复用没问题；
 但**不要**把 PC 和板子同时接到同一块 MaixCAM 上（也接不了）。
 
@@ -159,7 +160,7 @@ MaixCAM 插上后，板端应当自动出现 `usb0`（由 `cdc_ncm` 绑定）。
 
 ```bash
 # 临时（先验证连通）
-sudo ip addr add 10.13.148.100/24 dev usb0
+sudo ip addr add 10.13.148.100/24 dev usb1   # 注意是 usb1（NCM），不是 usb0
 sudo ip link set usb0 up
 ping -c 3 10.13.148.1
 ```
@@ -177,7 +178,7 @@ ping -c 3 10.13.148.1
 | 2 | `cat /proc/device-tree/usb@e0002000/status` | `okay` |
 | 3 | `lsusb -t` | 出现 `usb1`/`1-1` 及 **MaixCAM 的 VID:PID**（一个 NCM 设备） |
 | 4 | `ls /sys/class/net/` | 出现 `usb0` |
-| 5 | `ip -br addr show usb0` | `10.13.148.100/24 UP` |
+| 5 | `ip -br addr show usb1` | `10.13.148.100/24 UP` |
 | 6 | `ping -c 3 10.13.148.1` | 0% 丢包 |
 | 7 | 传 50 MB 到相机再拉回 | 单向 ≥ 8 MB/s（100 Mbps 口的上限 ~11 MB/s） |
 | 8 | `dmesg \| grep -i "dwc2\|usb 1-1"` | 无 `over-current`、无反复 disconnect |

@@ -122,7 +122,7 @@ petalinux-build -p /data/peta_prj/ax_peta 2>&1 | tee /data/peta_prj/logs/03_usbh
 ### 3.4 上板验证顺序（不要一步跳到相机）
 ```
 ① 只验 host：插 U 盘 → dmesg 有 "new high-speed USB device" → /dev/sda 出现
-② 再验网络类：插 MaixCAM → ip link 出现 usb0 → ping 10.13.148.1
+② 再验网络类：插 MaixCAM → `ip link` 出现 **`usb1`（NCM）** → 配 `10.13.148.100/24` → `ping 10.13.148.1`（详见 `11_相机连接与IP_权威参考.md`）
 ③ 最后才写取帧代码
 ```
 
