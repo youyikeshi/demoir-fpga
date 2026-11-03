@@ -36,7 +36,8 @@ def main(argv=None):
         if args.ping:
             ack = c._send_raw({"t": "cmd", "cmd": "ping"})
         elif args.stop:
-            ack = c.play("stop")
+            print("已禁用 STOP：板端收到 STOP 会卡死；停板子只能 kill 进程。")
+            return 2
         elif args.start:
             ack = c.play("start")
         else:
