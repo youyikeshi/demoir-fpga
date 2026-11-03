@@ -1237,20 +1237,25 @@ def main(argv=None) -> int:
         R["listen"] = {"port": a.port, "tcp": not a.no_tcp, "udp": not a.no_udp,
                        "flag": None if a.no_flag else a.flag}
 
-        # ② 再准备硬件：Overlay/心跳/setup 全在**等触发之前**做完
+        # ============================================================
+        # 顺序铁律（2026-11-03 晚，正式录制前定的）：
+        #   preload → precheck → **ping/advertise** → bringup() → arm(0) → bind → 等触发
+        # 网络探测含 `ping -c3`（相机不在线要 ~3 s），必须排在 bringup() **之前**，
+        # 否则"CTRL=0x01（使能扫描）→ 第一帧"之间会多出 3 s ⇒ 正式录制时
+        # START→首帧 = 延迟 + 3 s，而不是"延迟 + <10 ms"。
+        # ============================================================
+        _ADVERTISE_PORT[0] = a.port
+        R["net"] = advertise_addresses(log)
+
+        # ② 硬件：bringup()（= CTRL=0x15 → 1 s → DisplayPipeline.setup() → CTRL=0x01）
         player = DemoPlayer(ps, a, log, proto)
         player.setup()
         R["hw"] = {"mode": VIDEO_MODE, "mode_name": ho.MODES[VIDEO_MODE].name,
-                   "fclk_write_mhz": FCLK_WRITE_MHZ, "ctrl_run": CTRL_RUN,
-                   "ctrl_bars": CTRL_BARS, "uf_baseline": player.uf_baseline}
-        # ③ 预构第 0 帧 ⇒ START 后毫秒级出图
+                   "ctrl_run": CTRL_RUN, "ctrl_bars": CTRL_BARS,
+                   "uf_baseline": player.uf_baseline}
+        # ③ 预构第 0 帧（纯 numpy，不碰寄存器）⇒ 触发后毫秒级出图
         player.arm(0)
-        # ② 网络探测放在 listen **之前**：它内含 `ping -c3`（相机不在线要 ~3 s），
-        #    若夹在 bind 和等待循环之间，START 事件会排在它后面 ⇒ 首帧被推迟 3 s。
-        #    顺序保证「端口一开 = 已经能秒出图」。
-        _ADVERTISE_PORT[0] = a.port
-        R["net"] = advertise_addresses(log)
-        # ③ 最后才真正监听
+        # ④ 最后才真正监听：端口一开 = 已经能秒出图
         proto.bind().start()
         R["ready_mono"] = round(time.monotonic(), 3)
 
