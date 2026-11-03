@@ -1,10 +1,44 @@
 # 2K 无损采集改造方案（MaixCAM Pro → PC）
 
-> 状态：**采集链路已实现**（camera 分支）：
-> - 设备端 `capture_still()`：`apps/maixcam/main.py`，新增 `capture` 命令
-> - PC 端全自动采集：`apps/pc/capture_pairs.py`（Windows 用 `capture_pairs.bat`）
-> - 能力探针：`scripts/probe_modes_2k.py`（先在设备上跑，确认 2K 能开）
+> 状态：**采集 + 自动对齐 + 离线配对 已实现**（camera 分支）
+> - 设备端 `capture_still()`：`apps/maixcam/main.py`，`capture` 命令，支持 `crop`（中心裁剪，像素级子集）
+> - 设备端 UI：推流界面底部 `[停止][截图][采集][退出]`，预览上画**采集区方框**；USER 键短按 = 2K 中心采集
+> - PC 端全自动采集：`apps/pc/capture_pairs.py`（`--crop N`；Windows 用 `capture_pairs.bat`）
+> - PC 端**自动对齐**：`capture_pairs.py --calib`（ArUco 四角标记 → 单应 H）
+> - PC 端**离线配对**：`apps/pc/extract_pairs.py`（用 H 把源图映射到相机坐标，取同一块 256 当 GT）
+> - 能力探针：`scripts/probe_modes_2k.py`、`scripts/probe_crop256.py`
 > 目标：用 2560×1440 原生像素采集训练数据，每张图无损落到电脑，并和「屏幕源图」配对。
+
+## 0. 三步流程（先标定 → 再采集 → 最后配对）
+
+```bash
+# 1) 标定（同一套光学 setup 只需一次；相机/屏幕一动就要重做）
+python capture_pairs.py --out D:\shots\run01 --calib
+#    全屏显示 ArUco 标定页 → 拍一张全幅 → 求 H → 写 run01/session.json
+#    另存 calib_page.png / calib_cam.png / calib_vis.png 供检查
+#    看日志里的 RMS（正常 < 2 px）和「屏幕在画面中占比」（应在 25%~160%）
+
+# 2) 采集（只要相机画幅正中心 256×256）
+python capture_pairs.py --src D:\shots\src --out D:\shots\run01 --crop 256
+
+# 3) 生成 GT（不需要设备）
+python extract_pairs.py --run D:\shots\run01
+#    每对得到 pairs/pXXXXXX_{cam.png, src.png, gt.png, json}
+```
+
+**为什么必须 `--crop` 而不是 resize**：设备端做的是 **crop（像素级子集）**。
+resize 会重采样、改掉摩尔纹的频率成分（数据集直接作废）。
+同时 USB 每帧从 10.5 MB 降到 192 KB（省 56 倍），还顺带避开了镜头四角的暗角。
+
+**H 的方向约定**（`extract_pairs.py` 依赖，改代码时务必同步）：
+`H` = **画布(屏幕)像素 → 相机像素**；源图 → 画布的偏移是 `paste_x/crop_x0`；
+`cv2.warpPerspective` 内部会**再取一次逆**，所以传进去的必须是 **源图 → 相机**（`H · T⁻¹`）。
+这两处方向任意一处写反，GT 会整块错位（实测错位量 = 几十像素，肉眼看不出但训练全废）。
+
+**离线自检（不需要设备）**：
+- 用已知 H 把 ArUco 标定页 warp 后反求 H → 四角偏差应 < 1 px（实测 0.84 px）
+- 用同一 H 正向 warp 源图得到"假 cam"，再走 `extract_pairs` → 往返误差应 = 0（实测 0.00）
+
 
 ---
 

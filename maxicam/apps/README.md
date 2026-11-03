@@ -55,14 +55,23 @@
 apps/
 ├── maixcam/
 │   ├── main.py          # 设备端应用（触屏 UI + 推流 + 按键）
-│   └── app.yaml         # 想装进设备应用菜单时用
+│   ├── app.yaml         # 想装进设备应用菜单时用
+│   ├── cam_shot.py      # ★ 精简采集服务（TCP 8660，按协议要图；不推流、不显示）
+│   ├── cam_core.py      # ★ 采集协议内核（不 import maix，PC 上可测）
+│   └── README_cam_shot.md   # ★ 上面两个的说明书（部署/协议字段表/上机清单）
 ├── pc/
 │   ├── receiver.py      # 电脑端：接收 + 窗口显示 + 截图落盘
 │   ├── run.sh           # 启动脚本（自动带上 venv 的 PYTHONPATH）
-│   └── send_cmd.py      # 给设备发命令（也能用来远程触发截图）
-├── deploy.py            # 部署/启动/停止设备端应用
+│   ├── send_cmd.py      # 给设备发命令（也能用来远程触发截图）
+│   ├── fake_camera.py   # ★ 假相机（§3 协议全路径，不需要硬件）
+│   ├── test_cam_proto.py    # ★ 门禁判据 59 条（假相机 + 内核 + 裁剪硬判据）
+│   └── cam_shot_probe.py    # ★ 连发要图并逐张核对（报实测 t_cap_us）
+├── deploy.py            # 部署/启动/停止设备端应用（含 shot / shot-check / shot-status）
 └── README.md            # 本文件
 ```
+
+> **要给 Zynq 板子按协议要图（不推流）** ⇒ 看 `maixcam/README_cam_shot.md`；
+> 本文件讲的是旧的那套 RTSP 推流 + 电脑端预览。两套不能同时跑（抢相机）。
 
 ---
 

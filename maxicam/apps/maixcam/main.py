@@ -42,6 +42,7 @@ import signal
 import struct
 import sys
 import threading
+import gc
 import time
 import traceback
 
@@ -70,6 +71,11 @@ RESOLUTIONS = [(320, 240), (640, 480), (1280, 720), (1920, 1080)]
 # 同一批数据集里绝对不能混档。
 CAPTURE_MODES = [(2560, 1440), (1280, 720)]
 DEFAULT_CAPTURE_I = 0
+# 采集时只取画面正中心 CENTER_CROP×CENTER_CROP。
+# 为什么这么做：① 镜头四角有暗角，暗角会让局部增益随位置变化，网络容易学成
+# "顺带补偿暗角"而不是学摩尔纹；② 只传中心区，USB 流量从 10.5 MB/帧降到 192 KB/帧。
+# 必须用 crop（像素级子集），绝不能用 resize —— 缩开会重采样、改掉摩尔纹频率。
+CENTER_CROP = 256
 # 开相机后先丢几帧：AEC/AWB 每帧都在动，不收敛的话同一画面两张亮度都不一样。
 CAPTURE_SETTLE_FRAMES = 8
 # 关相机到重开之间必须等的秒数（VI/VPSS 释放有延迟，见 HANDOVER §5.3）
@@ -383,6 +389,8 @@ class Streamer:
     def __init__(self):
         init_font()
         self.disp = display.Display()
+        self._need_disp_rebuild = False
+        self._last_start_t = 0.0
         self.W, self.H = self.disp.width(), self.disp.height()
         self.ts = touchscreen.TouchScreen()
 
@@ -392,8 +400,10 @@ class Streamer:
 
         self.cam = None
         self.chan = None
+        self.canvas = None             # 480 高的合成画布（预览 + 信息条）
         self._pending_shot = None  # 主循环里待发的截图请求
         self._pending_capture = None   # 主循环里待做的无损采集（2K 独占）
+        self.caps = 0                  # 已完成的无损采集张数
         self.cap_i = DEFAULT_CAPTURE_I
         self.server = None
         self.running = False
@@ -452,7 +462,7 @@ class Streamer:
             log("rm_default_listener 失败:", repr(e))
         try:
             self.kbd = key.Key(callback=self._on_key, long_press_time=2000)
-            log("USER 键监听已就绪（短按=截图，长按2s=退出）")
+            log("USER 键监听已就绪（短按=2K中心采集，长按2s=退出）")
         except Exception as e:
             log("按键初始化失败:", repr(e))
             self.kbd = None
@@ -462,7 +472,10 @@ class Streamer:
             if int(k) != int(key.Keys.KEY_OK):
                 return
             if state == key.State.KEY_PRESSED:
-                self.do_shot("USER键")
+                # 短按 = 2K 无损采集（只取中心）。
+                # 相机是手动架着调的，按屏幕按钮容易让画面抖；物理键更稳。
+                # 快速的 640×480 截图仍然可以用屏幕上的「截图」按钮。
+                self.start_capture("USER键")
             elif state == key.State.KEY_LONG_PRESSED:
                 log("USER 键长按 -> 退出")
                 self._exit = True
@@ -470,10 +483,14 @@ class Streamer:
             log("按键回调异常:", repr(e))
 
     # ---------------- 无损静帧采集（2K 独占相机） ---------------- #
-    def request_capture(self, w=None, h=None, tag=""):
+    def request_capture(self, w=None, h=None, tag="", crop=None, exp=None, gain=None):
         """PC 发来的采集请求：这里只登记，真正碰相机的活交给主循环。
 
         相机只允许主线程读（HANDOVER §5.4），所以不能在控制通道的线程里开相机。
+
+        crop: None = 发全幅；整数 n = 发中心 n×n；[cw,ch] = 发中心 cw×ch。
+              必须是**中心裁剪**（像素级子集）—— 绝不能用缩放：缩放会重采样，
+              把摩尔纹的频率成分改掉，数据集就废了。
         """
         if self._pending_capture is not None:
             self.ctrl.push({"t": "capture", "ok": False, "err": "busy",
@@ -482,7 +499,69 @@ class Streamer:
             return
         if not w or not h:
             w, h = CAPTURE_MODES[self.cap_i]
-        self._pending_capture = {"w": int(w), "h": int(h), "tag": tag or ""}
+        self._pending_capture = {"w": int(w), "h": int(h), "tag": tag or "",
+                                 "crop": crop, "exp": exp, "gain": gain}
+
+    def _close_display(self):
+        """销毁显示对象（必须先于相机管线拆除）。
+
+        Display 析构才会真正关掉 VO；在管线拆完之后它还在推帧，
+        就会 CVI_VPSS_SendFrame failed 0xc0068005，进而 SIGSEGV。
+        """
+        old = getattr(self, "disp", None)
+        self.disp = None
+        self.canvas = None
+        if old is not None:
+            del old
+        try:
+            gc.collect()
+        except Exception:
+            pass
+
+    def _open_display(self, tries=3):
+        for i in range(tries):
+            try:
+                self.disp = display.Display()
+                self.canvas = None
+                log("显示通道已打开")
+                return True
+            except Exception as e:
+                log("打开显示失败(第 %d 次): %r" % (i + 1, e))
+                self.disp = None
+                try:
+                    gc.collect()
+                except Exception:
+                    pass
+                time.sleep(0.4)
+        return False
+
+    def _reset_display(self, why=""):
+        """重建显示通道。
+
+        为什么必须重建：采集时相机会切到 2560×1440，display 对象内部的 VPSS/VO
+        绑定会被这次重配置搞坏 —— 之后每次 disp.show() 都报
+            CVI_VPSS_SendFrame failed with 0xc0068005
+            -- [E] mmf_vo_frame_push failed
+        表现就是「RTSP 正常、设备屏全黑」。重建一个 Display 就恢复正常。
+        """
+        old = getattr(self, "disp", None)
+        try:
+            # 必须先释放旧的 Display：它内部持有 VO/VPSS 设备，
+            # 不释放就再开一个必然报
+            #     RuntimeError: display open failed
+            self.disp = None
+            self.canvas = None
+            if old is not None:
+                del old
+            gc.collect()          # 析构里才会真正 close 显示设备
+            time.sleep(0.3)
+            self.disp = display.Display()
+            log("显示通道已重建%s" % (("（%s）" % why) if why else ""))
+            return True
+        except Exception as e:
+            log("重建显示通道失败: %r" % (e,))
+            self.disp = None
+            return False
 
     def capture_still(self, req):
         """独占相机取一帧原生像素，经 :8556 推给 PC。
@@ -493,24 +572,27 @@ class Streamer:
         """
         w, h, tag = req["w"], req["h"], req.get("tag", "")
         self.shots += 1
+        self.caps += 1
         seq = self.shots
         was_running = self.running
 
         # 先停流、再把界面切到「采集中」，否则屏幕上会一直冻着最后一帧视频
         self.stop_stream(quiet=True)
+        # ★ 采集期间**完全不碰显示对象**：
+        #   ① 不在 2K 阶段调 disp.show()（正是它把 VO 绑定搞成 0xc0068005）
+        #   ② 不重建 Display（反复创建/销毁会耗尽显示缓冲池，报
+        #      Can't acquire vb block, poolid:-1）
+        #   只做个标记，等本轮结束恢复推流时统一重建一次。
+        self._need_disp_rebuild = True
         self.flash("采集中 %dx%d…" % (w, h), 8000)
-        try:
-            self._panel = self.render_panel()
-            self._panel_dirty = False
-            self.disp.show(self._panel)
-        except Exception:
-            pass
 
         gap = max(VI_RELEASE_GAP - (time.monotonic() - self._last_stop_t), 0.0)
         if gap > 0:
             time.sleep(gap)
 
         ok, err, got_w, got_h = False, "", 0, 0
+        crop_rect = None
+        got_exp, got_gain = -1, -1
         cam = None
         try:
             cam = camera.Camera(w, h, image.Format.FMT_RGB888)
@@ -523,10 +605,75 @@ class Streamer:
 
         if cam is not None:
             try:
+                # 曝光/增益：先让 AEC 收敛，再套用指定值，然后再收敛几帧。
+                # 目的：同一套 setup 里所有图的光度条件一致（否则网络会去学"整体提亮"）。
+                got_exp, got_gain = -1, -1
                 for _ in range(CAPTURE_SETTLE_FRAMES):   # 丢掉 AEC/AWB 未收敛的帧
                     cam.read()
+                try:
+                    e_set = req.get("exp")
+                    g_set = req.get("gain")
+                    manual = ((e_set is not None and int(e_set) >= 0) or
+                              (g_set is not None and int(g_set) >= 0))
+                    if manual:
+                        # ★ 必须先把 AE 切成手动，否则自动曝光会在下一帧把我们设的值盖掉。
+                        #   实测：不改模式时 6 档曝光 400~12800us 采出来白点全是 181，
+                        #   说明 AE 一直在补偿，等于没锁。
+                        try:
+                            v = cam.exp_mode(camera.AeMode.Manual)
+                        except Exception:
+                            v = cam.exp_mode(1)
+                        log("AE 已切手动（返回 %s）" % (v,))
+                        # 白平衡也必须锁：否则同一场景里 AWB 一直在微调，
+                        # 颜色标定拟合出的变换换一张图就失效（实测 ΔE 反而从 33 涨到 48+）。
+                        try:
+                            wv = cam.awb_mode(camera.AwbMode.Manual)
+                            log("AWB 已切手动（返回 %s）" % (wv,))
+                        except Exception as e:
+                            log("AWB 锁定失败: %r" % (e,))
+                        # ⚠️ 这里**不要**用 set_wb_gain() 去"锁白平衡"：
+                        #   实测该接口读回 [0,0,0,0]，把 0 写回去等于把增益清零、
+                        #   画面直接废掉。需要锁白平衡时改用 awb_mode(AwbMode.Manual)，
+                        #   而且必须先确认读回的增益是有效值。
+                    if e_set is not None and int(e_set) >= 0:
+                        v = cam.exposure(int(e_set))
+                        log("曝光设为 %d us（生效 %s）" % (int(e_set), v))
+                    if g_set is not None and int(g_set) >= 0:
+                        v = cam.gain(int(g_set))
+                        log("增益设为 %d（生效 %s）" % (int(g_set), v))
+                    for _ in range(4):                   # 改动后再丢几帧
+                        cam.read()
+                    got_exp = cam.exposure(-1)
+                    got_gain = cam.gain(-1)
+                except Exception as e:
+                    log("曝光/增益设置失败: %r" % (e,))
+
                 img = cam.read()
                 got_w, got_h = img.width(), img.height()
+
+                # 中心裁剪：只把正中间 cw×ch 发给电脑。
+                # 目的：避开镜头四角暗角 + 省 USB 带宽和 PC 算力。
+                # 必须用 crop（cv::Mat 的 copyTo，纯拷贝）而**不是** resize ——
+                # 缩放会重采样、把摩尔纹的频率成分改掉，数据集就废了。
+                cr = req.get("crop")
+                if cr:
+                    try:
+                        if isinstance(cr, (list, tuple)) and len(cr) >= 2:
+                            cw, ch = int(cr[0]), int(cr[1])
+                        else:
+                            cw = ch = int(cr)
+                    except Exception:
+                        cw = ch = 0
+                    if 0 < cw <= got_w and 0 < ch <= got_h:
+                        cx, cy = (got_w - cw) // 2, (got_h - ch) // 2
+                        img = img.crop(cx, cy, cw, ch)
+                        crop_rect = [cx, cy, cw, ch]
+                        log("中心裁剪 (%d,%d) %dx%d -> 发送 %d B（原 %dx%d）"
+                            % (cx, cy, cw, ch, cw * ch * 3, got_w, got_h))
+                        got_w, got_h = cw, ch
+                    else:
+                        log("crop 参数 %r 超出画面 %dx%d，忽略" % (cr, got_w, got_h))
+
                 ok = bool(self.shot_srv.push_image(seq, img))
                 if not ok:
                     err = "no client on :%d" % SHOT_PORT
@@ -539,6 +686,12 @@ class Streamer:
                     pass
 
         self._last_stop_t = time.monotonic()
+        # 长跑时每张 11MB 的 2K 帧很容易把 128MB 内存磨没（实测连跑十几轮后
+        # 标定阶段就开始失败）。每张采集完主动回收一次，代价几毫秒。
+        try:
+            gc.collect()
+        except Exception:
+            pass
         if was_running:
             try:
                 self.start_stream()
@@ -549,6 +702,9 @@ class Streamer:
             "t": "capture", "seq": seq, "tag": tag, "ok": ok, "err": err,
             "width": got_w, "height": got_h, "bytes": got_w * got_h * 3,
             "req_width": w, "req_height": h,
+            "crop": crop_rect,          # [x,y,w,h]；None = 未裁剪（全幅）
+            "exp_us": got_exp,          # 实际生效的曝光（-1 = 读不到）
+            "gain": got_gain,           # 实际生效的增益
         })
         log("采集 #%d 完成 ok=%s %dx%d tag=%s err=%s"
             % (seq, ok, got_w, got_h, tag, err))
@@ -641,7 +797,8 @@ class Streamer:
             self.do_shot("PC")
         elif cmd == "capture":
             # 无损静帧（2K 独占相机），数据集采集用；和 shot 是两条独立的路
-            self.request_capture(msg.get("w"), msg.get("h"), msg.get("tag", ""))
+            self.request_capture(msg.get("w"), msg.get("h"), msg.get("tag", ""),
+                                 msg.get("crop"), msg.get("exp"), msg.get("gain"))
         elif cmd == "start":
             self.start_stream()
         elif cmd == "stop":
@@ -718,18 +875,30 @@ class Streamer:
         try:
             log("启动推流 %dx%d %s %d bps" % (w, h, codec_name, br))
             self.cam = camera.Camera(w, h, image.Format.FMT_YVU420SP)
-            # 显示通道：RGB888、屏幕尺寸（640x480）。
+            # 预览通道：RGB888，**按流的分辨率纵横比**建，保证画面不变形。
+            # 以前固定 640×480：16:9 的 2K 被纵向拉伸 1.33 倍，采集框看着是竖长方形，
+            # 对焦和判断位置都会被误导。现在 16:9 → 640×360，4:3 → 640×480，
+            # 再在 480 高的画布上上下留黑边（见 run() 里的合成）。
             # 截图也复用这一路 —— VI 只有 2 路通道（MMF_VI_MAX_CHN=2），
             # 主 NV21 给 RTSP 后只剩这一路可用。
-            self.chan = self.cam.add_channel(self.W, self.H, image.Format.FMT_RGB888)
-            log("预览/截图通道: %dx%d RGB888（截图即此帧，不经过编码器）"
-                % (self.W, self.H))
+            pw = self.W
+            ph = int(round(pw * float(h) / float(w)))
+            ph = max(120, min(ph, self.H))
+            self.chan = self.cam.add_channel(pw, ph, image.Format.FMT_RGB888)
+            self.canvas = image.Image(self.W, self.H, bg=rgb(8, 8, 10))
+            log("预览/截图通道: %dx%d RGB888（画幅 %dx%d → 等比 %dx%d，屏幕 %dx%d）"
+                % (pw, ph, w, h, pw, ph, self.W, self.H))
 
             self.server = rtsp.Rtsp(port=RTSP_PORT, stream_type=codec, bitrate=br)
             self.server.bind_camera(self.cam)
             self.server.start()
             urls = self.server.get_urls()
             self.url = urls[0] if urls else "rtsp://<设备IP>:%d/live" % RTSP_PORT
+            if getattr(self, "_need_disp_rebuild", False) or self.disp is None:
+                # 一轮只建一次：反复创建/销毁会耗尽显示缓冲池（poolid:-1）
+                self._open_display()
+                self._need_disp_rebuild = False
+            self._last_start_t = time.monotonic()
             self.running = True
             self._running_sig = None
             self.flash("推流已启动")
@@ -752,6 +921,7 @@ class Streamer:
             pass
         self.server = None
         self.chan = None
+        self.canvas = None
         try:
             if self.cam is not None:
                 self.cam.close()
@@ -763,6 +933,18 @@ class Streamer:
         self._last_stop_t = time.monotonic()
 
     def stop_stream(self, quiet=False):
+        # ★ 刚 start 完立刻 stop 会把 VO 打崩（实测 SIGSEGV）。
+        #   实测证据：display.Display() 返回后 VO 通道是**异步**初始化的，
+        #   日志里 SAMPLE_COMM_VO_StartChn 出现在 stop 之后 2.5s 左右，
+        #   窗口期比 3 秒长，所以这里按 6 秒保护。
+        if self.running:
+            wait = 6.0 - (time.monotonic() - getattr(self, "_last_start_t", 0.0))
+            if wait > 0:
+                log("推流刚启动，等 %.1fs 再停（避免 VO 初始化被打断）" % wait)
+                time.sleep(wait)
+        # ★ 顺序关键：显示必须先销毁，否则它会往即将拆除的管线上推帧（→ SIGSEGV）
+        self._close_display()
+        time.sleep(0.3)
         self._cleanup_stream()
         if not quiet:
             self.flash("推流已停止")
@@ -870,17 +1052,53 @@ class Streamer:
 
     # ---------------- 推流中的预览界面 ---------------- #
     def render_overlay(self, img):
-        sig = (self.running, self.shots, self.url, self.ctrl.connected)
+        sig = (self.running, self.shots, self.caps, self.url, self.ctrl.connected)
         if sig != self._running_sig:
             bar = image.Image(self.W, OVERLAY_H, bg=rgb(12, 14, 18))
-            self.btn(bar, (6, 6, 84, 44), "停止", color=C_STOP, scale=1.2)
-            self.btn(bar, (96, 6, 84, 44), "截图", color=C_SEL, scale=1.2)
-            self.btn(bar, (186, 6, 84, 44), "退出", color=rgb(90, 96, 108), scale=1.2)
-            self.txt(bar, 282, 6, "截图: %d" % self.shots, C_ACCENT, 1.0)
-            self.txt(bar, 282, 28, (self.url or "")[:40], C_DIM, 0.95)
+            self.btn(bar, (4, 6, 72, 44), "停止", color=C_STOP, scale=1.15)
+            self.btn(bar, (80, 6, 72, 44), "截图", color=C_SEL, scale=1.15)
+            self.btn(bar, (156, 6, 72, 44), "采集", color=C_GO, scale=1.15)
+            self.btn(bar, (232, 6, 72, 44), "退出", color=rgb(90, 96, 108), scale=1.15)
+            self.txt(bar, 314, 4, "截图 %d  采集 %d" % (self.shots, self.caps),
+                     C_ACCENT, 0.95)
+            self.txt(bar, 314, 26, (self.url or "")[:36], C_DIM, 0.85)
             self._overlay = bar
             self._running_sig = sig
         return self._overlay
+
+    def draw_capture_guide(self, img):
+        """在预览上画出「采集区」方框（相机坐标系里正中心 CENTER_CROP×CENTER_CROP）。
+
+        注意：预览通道是 640×480（4:3），相机是 2560×1440（16:9），VPSS 把它
+        **非等比**压到预览尺寸，所以这个框在屏幕上看**不是正方形**（256→宽 64 / 高 85）。
+        这是正常的：它精确对应 2K 画面里那块正方形区域。想在预览里判断摩尔纹，
+        认框就行，不要用框的长宽比去推断。
+        """
+        try:
+            cam_w, cam_h = RESOLUTIONS[self.res_i]
+            pw, ph = img.width(), img.height()
+            # 相机坐标 → 预览坐标：预览已按流的纵横比建，所以 x/y 缩放系数相同，
+            # 正方形采集区在屏幕上也是正方形。
+            sx = max(4, int(round(CENTER_CROP * pw / float(cam_w))))
+            sy = max(4, int(round(CENTER_CROP * ph / float(cam_h))))
+            x0, y0 = (pw - sx) // 2, (ph - sy) // 2
+            col = C_OK
+            img.draw_rect(x0, y0, sx, sy, col, 1)
+            L = max(6, min(sx, sy) // 3)
+            for (px, py, dx, dy) in ((x0, y0, 1, 1), (x0 + sx - 1, y0, -1, 1),
+                                     (x0, y0 + sy - 1, 1, -1),
+                                     (x0 + sx - 1, y0 + sy - 1, -1, -1)):
+                img.draw_line(px, py, px + dx * L, py, col, 2)
+                img.draw_line(px, py, px, py + dy * L, col, 2)
+            self.txt(img, x0, max(0, y0 - 17), "采集区 %d×%d" % (CENTER_CROP, CENTER_CROP),
+                     col, 0.78)
+        except Exception:
+            pass
+
+    def start_capture(self, tag=""):
+        """按钮/USER 键触发一次 2K 无损采集（只取中心 CENTER_CROP×CENTER_CROP）。"""
+        w, h = CAPTURE_MODES[self.cap_i]
+        self.request_capture(w, h, tag or ("dev-%d" % int(time.time())), CENTER_CROP)
 
     # ---------------- 触摸 ---------------- #
     def handle_touch(self, running):
@@ -899,12 +1117,15 @@ class Streamer:
             # ⚠️ 这个信息条是画在**屏幕底部**的（draw_image 时 y = H-OVERLAY_H），
             #    所以触摸判定必须加上底部偏移，写成 6..50 是之前的 bug，点了没反应。
             by = self.H - OVERLAY_H
-            if 6 <= x <= 90 and by + 6 <= y <= by + 50:
+            if 4 <= x <= 76 and by + 6 <= y <= by + 50:
                 log("点「停止」")
                 self.stop_stream()
-            elif 96 <= x <= 180 and by + 6 <= y <= by + 50:
+            elif 80 <= x <= 152 and by + 6 <= y <= by + 50:
                 self.do_shot("触屏")
-            elif 186 <= x <= 270 and by + 6 <= y <= by + 50:
+            elif 156 <= x <= 228 and by + 6 <= y <= by + 50:
+                log("点「采集」-> 2K 中心 %dx%d" % (CENTER_CROP, CENTER_CROP))
+                self.start_capture("触屏")
+            elif 232 <= x <= 304 and by + 6 <= y <= by + 50:
                 log("点「退出」-> 退出应用")
                 self._exit = True
             return
@@ -962,9 +1183,20 @@ class Streamer:
                     img = self.chan.read()
                     # 截图必须在画 HUD 之前 —— 存下来的原图不能带界面信息条
                     self._handle_pending_shot(img)
+                    # 采集框只画在预览上（2K 采集是另一条路，不会带这个框）
+                    self.draw_capture_guide(img)
                     bar = self.render_overlay(img)
-                    img.draw_image(0, self.H - bar.height(), bar)
-                    self.disp.show(img)
+                    # 合成到 640×480 画布：预览保持等比、垂直居中，按钮条贴底。
+                    # （预览通道已按流的纵横比建，所以这里只做平移，不缩放）
+                    cv = self.canvas
+                    if cv is None:
+                        cv = image.Image(self.W, self.H, bg=rgb(8, 8, 10))
+                        self.canvas = cv
+                    oy = max(0, (self.H - bar.height() - img.height()) // 2)
+                    cv.draw_image(0, oy, img)
+                    cv.draw_image(0, self.H - bar.height(), bar)
+                    if self.disp is not None:
+                        self.disp.show(cv)
                 except Exception:
                     time.sleep(0.05)
             else:
@@ -972,7 +1204,8 @@ class Streamer:
                     self._panel = self.render_panel()
                     self._panel_dirty = False
                     self._hits = getattr(self, "_hits", [])
-                self.disp.show(self._panel)
+                if self.disp is not None:
+                    self.disp.show(self._panel)
 
         self.shutdown()
 
@@ -990,23 +1223,50 @@ class Streamer:
 # 离线渲染界面（用于验证 UI，不需要人看着屏幕）
 # --------------------------------------------------------------------------- #
 def render_ui_to_file(path, w=640, h=480):
+    """离线渲染两张图（不需要相机/屏幕）：
+       <path>                 配置界面
+       <path>.preview.jpg     推流界面（模拟预览画面 + 采集框 + 底部信息条）
+    """
     init_font()
     s = Streamer.__new__(Streamer)
     s.W, s.H = w, h
     s.res_i, s.codec_i, s.br_i = 1, 0, 1
-    s.running = False
-    s.url = ""
-    s.shots = 0
+    s.url = "rtsp://10.13.148.1:8554/live"
+    s.shots = 3
+    s.caps = 1
     s.last_msg = ""
     s.last_msg_t = 0
     s._hits = []
+    s._running_sig = None
+    s._overlay = None
 
     class _Fake:
-        connected = 0
+        connected = 1
     s.ctrl = _Fake()
+
+    s.running = False
     img = Streamer.render_panel(s)
     img.save(path, quality=92)
-    print("已渲染界面 ->", path)
+
+    # ---- 推流界面 ----
+    s.running = True
+    s._running_sig = None
+    s.res_i = 2                                  # 1280×720（16:9），演示等比预览
+    pw = w
+    ph = int(round(w * 9.0 / 16.0))              # 640×360
+    prev = image.Image(pw, ph, bg=rgb(74, 76, 80))
+    for x in range(0, pw, 8):                    # 假装是画面的条纹纹理
+        prev.draw_line(x, 0, x, ph, rgb(96, 99, 104), 1)
+    for y in range(0, ph, 37):
+        prev.draw_line(0, y, pw, y, rgb(86, 88, 92), 1)
+    Streamer.draw_capture_guide(s, prev)
+    bar = Streamer.render_overlay(s, prev)
+    canvas = image.Image(w, h, bg=rgb(8, 8, 10))
+    oy = max(0, (h - bar.height() - ph) // 2)
+    canvas.draw_image(0, oy, prev)
+    canvas.draw_image(0, h - bar.height(), bar)
+    canvas.save(path + ".preview.jpg", quality=92)
+    print("已渲染界面 ->", path, "和", path + ".preview.jpg")
 
 
 def main():
