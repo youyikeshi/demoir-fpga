@@ -1,0 +1,42 @@
+20:10:49 [main] pid=5685 → /tmp/demo_player.pid
+20:10:49 [geom] 8 项构图断言 全过
+20:10:50 [pairs] 8 对已预载  19.7 MB  432 ms  format=bin  640x640  mode=pcref
+20:10:50 [proto] 端口预检通过 0.0.0.0:9999（TCP=True UDP=True）
+20:10:57 [hw] Overlay(/home/xilinx/demo/design_1_v58.bit, download=False) —— 位流已在 PL 里，**不重载**
+20:10:58 [hw] Overlay 就绪 1399 ms（未下载）
+20:10:59 [hw] FCLK0 写 100.0 → 报数 100.0（= 真值 ×1.5）｜FPGA0_CLK div0+1=4 ⇒ 真值 166.667 MHz｜317 ms
+20:10:59 [hw] 像素时钟心跳 alive=True  74.387 MHz（窗口 200 ms，±0.5%）
+20:10:59 [hw] DisplayPipeline(mode=0:720p60 1280x720 stride=3840 fb=0x30100000 frame_id=0)  block=2764800 B  fb=0x30100000
+20:10:59 [hw] 空闲态 CTRL=0x15（彩条）
+20:10:59 [hw] 0x2C 软复位后=0  CTRL=0x01
+20:10:59 [arm] 第 0 帧已预构（13.0 ms）⇒ START 后无需再构图
+20:10:59 [proto] TCP 已绑定 0.0.0.0:9999（listen）
+20:10:59 [proto] UDP 已绑定 0.0.0.0:9999
+20:10:59 [proto] 文件触发监听 /home/xilinx/demo/START.flag（每 50 ms，触发后改名不删）
+20:10:59 [proto] 已启动：TCP=True UDP=True flag=/home/xilinx/demo/START.flag
+20:10:59 [net] !! 找不到 cdc_ncm 接口（USB 网卡没枚举？）——继续跑，但相机可能连不上
+20:10:59 [net]    检查：lsusb 是否见 359f:2120 / 0424:2514；systemctl status usb-cam-net
+20:10:59 [net] 全部 IPv4：eth0=192.168.7.2/24
+20:10:59 [net] ping 10.13.148.1 ×3 → rc=2  (无输出)
+20:10:59 [net] !! 相机 ping 不通（演示时相机若还没插就不用管）
+20:10:59 [net] camera should connect to 10.13.148.100:9999
+20:10:59 [main] 就绪：等 START（TCP/UDP :9999，flag /home/xilinx/demo/START.flag）
+20:10:59 [proto] 新连接 127.0.0.1:44354
+20:10:59 [proto] 127.0.0.1:44354 对端关闭（播放继续，规则 2）
+20:10:59 [proto] 新连接 127.0.0.1:44366
+20:10:59 [proto] tcp 127.0.0.1:44366       <- 'START'        -> 'ACK START 0'
+20:10:59 [play#1] 开播 reason=start 对数=8 period=1.000 s 无限循环（STOP/SIGTERM 才停）
+20:10:59 [proto] 127.0.0.1:44366 对端关闭（播放继续，规则 2）
+20:10:59 [frame 000] pair=00/0094  fid=1  dt=  -    dev=   -    latch=OK   19.7ms build=0.0ms 0x24=0x1 uf=None
+20:10:59 [hw] 0x2C 软复位后=0  CTRL=0x01
+20:10:59 [play#1] START→第 1 帧上屏 1.4 ms（目标 ≤1000 ms）
+20:11:00 [frame 001] pair=01/0049  fid=2  dt=1.000026 dev=+0.000026 latch=OK   20.2ms build=8.6ms 0x24=0x2 uf=0
+20:11:01 [frame 002] pair=02/0060  fid=3  dt=1.000001 dev=+0.000027 latch=OK   20.6ms build=8.5ms 0x24=0x3 uf=0
+20:11:02 [frame 003] pair=03/0084  fid=4  dt=0.999994 dev=+0.000021 latch=OK   21.0ms build=8.9ms 0x24=0x4 uf=0
+20:11:03 [sig] 收到 SIGTERM ⇒ 优雅退出（回彩条、释放缓冲）
+20:11:03 [fin] CTRL=0x15（彩条恢复）
+20:11:03 [fin] 帧缓冲已释放（pipe.close）
+20:11:03 [fin] fpga0=operating
+20:11:03 [fin] CmaFree:            5148 kB
+20:11:03 [report] /home/xilinx/demo/report_sig2.json
+20:11:03 [exit] rc=0

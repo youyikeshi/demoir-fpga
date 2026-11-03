@@ -1,0 +1,155 @@
+20:05:06 [main] pid=5129 → /tmp/uf.pid
+20:05:07 [geom] 8 项构图断言 全过
+20:05:07 [pairs] 8 对已预载  19.7 MB  436 ms  format=bin  640x640  mode=pcref
+20:05:07 [proto] 端口预检通过 0.0.0.0:9999（TCP=True UDP=True）
+20:05:15 [hw] Overlay(/home/xilinx/demo/design_1_v58.bit, download=False) —— 位流已在 PL 里，**不重载**
+20:05:16 [hw] Overlay 就绪 1407 ms（未下载）
+20:05:17 [hw] FCLK0 写 100.0 → 报数 100.0（= 真值 ×1.5）｜FPGA0_CLK div0+1=4 ⇒ 真值 166.667 MHz｜317 ms
+20:05:17 [hw] 像素时钟心跳 alive=True  74.389 MHz（窗口 200 ms，±0.5%）
+20:05:17 [hw] DisplayPipeline(mode=0:720p60 1280x720 stride=3840 fb=0x30100000 frame_id=0)  block=2764800 B  fb=0x30100000
+20:05:17 [hw] 空闲态 CTRL=0x15（彩条）
+20:05:17 [hw] 0x2C 软复位后=0  CTRL=0x01
+20:05:17 [arm] 第 0 帧已预构（12.9 ms）⇒ START 后无需再构图
+20:05:17 [proto] TCP 已绑定 0.0.0.0:9999（listen）
+20:05:17 [proto] UDP 已绑定 0.0.0.0:9999
+20:05:17 [proto] 文件触发监听 /home/xilinx/demo/START.flag（每 50 ms，触发后改名不删）
+20:05:17 [proto] 已启动：TCP=True UDP=True flag=/home/xilinx/demo/START.flag
+20:05:17 [net] !! 找不到 cdc_ncm 接口（USB 网卡没枚举？）——继续跑，但相机可能连不上
+20:05:17 [net]    检查：lsusb 是否见 359f:2120 / 0424:2514；systemctl status usb-cam-net
+20:05:17 [net] 全部 IPv4：eth0=192.168.7.2/24
+20:05:17 [net] ping 10.13.148.1 ×3 → rc=2  (无输出)
+20:05:17 [net] !! 相机 ping 不通（演示时相机若还没插就不用管）
+20:05:17 [net] camera should connect to 10.13.148.100:9999
+20:05:17 [main] 就绪：等 START（TCP/UDP :9999，flag /home/xilinx/demo/START.flag）
+20:05:17 [proto] 新连接 127.0.0.1:48450
+20:05:17 [proto] 127.0.0.1:48450 对端关闭（播放继续，规则 2）
+20:05:17 [proto] udp 192.168.7.1:32882     <- 'START'        -> 'ACK START 0'
+20:05:17 [proto] 新连接 192.168.7.1:57654
+20:05:17 [play#1] 开播 reason=start 对数=8 period=1.000 s 无限循环（STOP/SIGTERM 才停）
+20:05:17 [proto] 192.168.7.1:57654 对端关闭（播放继续，规则 2）
+20:05:17 [frame 000] pair=00/0094  fid=1  dt=  -    dev=   -    latch=OK   10.8ms build=0.0ms 0x24=0x1 uf=None
+20:05:17 [hw] 0x2C 软复位后=0  CTRL=0x01
+20:05:17 [play#1] START→第 1 帧上屏 3.3 ms（目标 ≤1000 ms）
+20:05:18 [frame 001] pair=01/0049  fid=2  dt=0.996696 dev=+0.000021 latch=OK   14.6ms build=8.5ms 0x24=0x2 uf=0
+20:05:19 [frame 002] pair=02/0060  fid=3  dt=0.999998 dev=+0.000019 latch=OK   15.0ms build=8.5ms 0x24=0x3 uf=0
+20:05:20 [proto] udp 192.168.7.1:32882     <- 'STOP'         -> 'ACK STOP'
+20:05:20 [play#1] 结束（sigterm）：提交 3 帧
+20:05:20 [main] 本轮 mean=0.998347 s  max|T-1.000|=0.003304 s  0x24=3/3  0x2C max=0  停因=sigterm
+20:05:20 [play] CTRL=0x15（彩条）
+20:05:20 [main] 继续等下一次 START
+20:05:23 [proto] 看到 flag /home/xilinx/demo/START.flag
+20:05:23 [play#2] 开播 reason=start 对数=8 period=1.000 s 无限循环（STOP/SIGTERM 才停）
+20:05:23 [proto] flag 已改名 → /home/xilinx/demo/START.flag.20250509_200523.done（下次要触发请重新 touch）
+20:05:23 [frame 000] pair=00/0094  fid=4  dt=  -    dev=   -    latch=OK   15.1ms build=0.0ms 0x24=0x4 uf=0
+20:05:23 [hw] 0x2C 软复位后=0  CTRL=0x01
+20:05:23 [play#2] START→第 1 帧上屏 1.2 ms（目标 ≤1000 ms）
+20:05:24 [frame 001] pair=01/0049  fid=5  dt=0.998809 dev=+0.000020 latch=OK   16.8ms build=8.6ms 0x24=0x5 uf=0
+20:05:25 [frame 002] pair=02/0060  fid=6  dt=0.999990 dev=+0.000011 latch=OK   17.2ms build=8.6ms 0x24=0x6 uf=0
+20:05:26 [frame 003] pair=03/0084  fid=7  dt=1.000006 dev=+0.000017 latch=OK   17.6ms build=8.6ms 0x24=0x7 uf=0
+20:05:27 [frame 004] pair=04/0062  fid=8  dt=1.000009 dev=+0.000026 latch=OK   18.0ms build=8.6ms 0x24=0x8 uf=0
+20:05:28 [frame 005] pair=05/0089  fid=9  dt=0.999990 dev=+0.000016 latch=OK   18.4ms build=8.7ms 0x24=0x9 uf=0
+20:05:29 [frame 006] pair=06/0097  fid=10 dt=1.000003 dev=+0.000020 latch=OK   18.9ms build=9.1ms 0x24=0xA uf=0
+20:05:30 [frame 007] pair=07/0001  fid=11 dt=0.999994 dev=+0.000014 latch=OK   19.3ms build=10.4ms 0x24=0xB uf=0
+20:05:31 [frame 008] pair=00/0094  fid=12 dt=0.999998 dev=+0.000012 latch=OK   19.7ms build=8.5ms 0x24=0xC uf=0
+20:05:32 [frame 009] pair=01/0049  fid=13 dt=1.000019 dev=+0.000030 latch=OK   20.1ms build=8.5ms 0x24=0xD uf=0
+20:05:33 [frame 010] pair=02/0060  fid=14 dt=0.999985 dev=+0.000015 latch=OK   20.5ms build=8.5ms 0x24=0xE uf=0
+20:05:34 [frame 011] pair=03/0084  fid=15 dt=1.000000 dev=+0.000015 latch=OK   20.9ms build=8.5ms 0x24=0xF uf=0
+20:05:35 [frame 012] pair=04/0062  fid=16 dt=0.999997 dev=+0.000012 latch=OK   21.4ms build=9.4ms 0x24=0x10 uf=0
+20:05:36 [frame 013] pair=05/0089  fid=17 dt=1.000010 dev=+0.000022 latch=OK   21.8ms build=9.1ms 0x24=0x11 uf=0
+20:05:37 [frame 014] pair=06/0097  fid=18 dt=1.000009 dev=+0.000030 latch=OK   22.2ms build=8.8ms 0x24=0x12 uf=0
+20:05:38 [frame 015] pair=07/0001  fid=19 dt=0.999988 dev=+0.000018 latch=OK   6.0ms build=8.7ms 0x24=0x13 uf=0
+20:05:39 [frame 016] pair=00/0094  fid=20 dt=1.000010 dev=+0.000028 latch=OK   6.3ms build=8.7ms 0x24=0x14 uf=0
+20:05:40 [frame 017] pair=01/0049  fid=21 dt=0.999989 dev=+0.000017 latch=OK   6.8ms build=8.7ms 0x24=0x15 uf=0
+20:05:41 [frame 018] pair=02/0060  fid=22 dt=1.000008 dev=+0.000024 latch=OK   7.2ms build=8.6ms 0x24=0x16 uf=0
+20:05:42 [frame 019] pair=03/0084  fid=23 dt=0.999997 dev=+0.000021 latch=OK   7.6ms build=8.7ms 0x24=0x17 uf=0
+20:05:43 [frame 020] pair=04/0062  fid=24 dt=1.000001 dev=+0.000023 latch=OK   8.0ms build=8.6ms 0x24=0x18 uf=0
+20:05:44 [frame 021] pair=05/0089  fid=25 dt=0.999989 dev=+0.000012 latch=OK   8.5ms build=8.7ms 0x24=0x19 uf=0
+20:05:45 [frame 022] pair=06/0097  fid=26 dt=1.000006 dev=+0.000018 latch=OK   8.9ms build=8.8ms 0x24=0x1A uf=0
+20:05:46 [frame 023] pair=07/0001  fid=27 dt=0.999997 dev=+0.000015 latch=OK   9.3ms build=8.7ms 0x24=0x1B uf=0
+20:05:47 [frame 024] pair=00/0094  fid=28 dt=0.999996 dev=+0.000011 latch=OK   9.7ms build=8.6ms 0x24=0x1C uf=0
+20:05:48 [frame 025] pair=01/0049  fid=29 dt=1.000006 dev=+0.000017 latch=OK   10.1ms build=8.6ms 0x24=0x1D uf=0
+20:05:49 [frame 026] pair=02/0060  fid=30 dt=1.000000 dev=+0.000017 latch=OK   10.5ms build=8.6ms 0x24=0x1E uf=0
+20:05:50 [frame 027] pair=03/0084  fid=31 dt=1.000003 dev=+0.000020 latch=OK   10.9ms build=8.6ms 0x24=0x1F uf=0
+20:05:51 [frame 028] pair=04/0062  fid=32 dt=0.999996 dev=+0.000016 latch=OK   11.4ms build=8.6ms 0x24=0x20 uf=0
+20:05:52 [frame 029] pair=05/0089  fid=33 dt=1.000006 dev=+0.000022 latch=OK   11.8ms build=8.6ms 0x24=0x21 uf=0
+20:05:53 [frame 030] pair=06/0097  fid=34 dt=1.000003 dev=+0.000025 latch=OK   12.2ms build=8.6ms 0x24=0x22 uf=0
+20:05:54 [frame 031] pair=07/0001  fid=35 dt=0.999992 dev=+0.000017 latch=OK   12.6ms build=8.6ms 0x24=0x23 uf=0
+20:05:55 [frame 032] pair=00/0094  fid=36 dt=0.999999 dev=+0.000016 latch=OK   13.0ms build=8.7ms 0x24=0x24 uf=0
+20:05:56 [frame 033] pair=01/0049  fid=37 dt=1.000000 dev=+0.000016 latch=OK   13.5ms build=8.6ms 0x24=0x25 uf=0
+20:05:57 [frame 034] pair=02/0060  fid=38 dt=0.999995 dev=+0.000011 latch=OK   13.9ms build=9.0ms 0x24=0x26 uf=0
+20:05:58 [frame 035] pair=03/0084  fid=39 dt=1.000003 dev=+0.000014 latch=OK   14.3ms build=8.6ms 0x24=0x27 uf=0
+20:05:59 [frame 036] pair=04/0062  fid=40 dt=0.999998 dev=+0.000011 latch=OK   14.7ms build=8.5ms 0x24=0x28 uf=0
+20:06:00 [frame 037] pair=05/0089  fid=41 dt=1.000007 dev=+0.000018 latch=OK   15.2ms build=8.5ms 0x24=0x29 uf=0
+20:06:01 [frame 038] pair=06/0097  fid=42 dt=0.999995 dev=+0.000013 latch=OK   15.6ms build=8.5ms 0x24=0x2A uf=0
+20:06:02 [frame 039] pair=07/0001  fid=43 dt=0.999999 dev=+0.000012 latch=OK   16.0ms build=8.9ms 0x24=0x2B uf=0
+20:06:03 [frame 040] pair=00/0094  fid=44 dt=1.000008 dev=+0.000020 latch=OK   16.4ms build=8.6ms 0x24=0x2C uf=0
+20:06:04 [frame 041] pair=01/0049  fid=45 dt=0.999991 dev=+0.000011 latch=OK   16.8ms build=8.6ms 0x24=0x2D uf=0
+20:06:05 [frame 042] pair=02/0060  fid=46 dt=1.000007 dev=+0.000018 latch=OK   17.2ms build=8.5ms 0x24=0x2E uf=0
+20:06:06 [frame 043] pair=03/0084  fid=47 dt=0.999999 dev=+0.000017 latch=OK   17.6ms build=8.6ms 0x24=0x2F uf=0
+20:06:07 [frame 044] pair=04/0062  fid=48 dt=1.000007 dev=+0.000024 latch=OK   18.1ms build=8.8ms 0x24=0x30 uf=0
+20:06:08 [frame 045] pair=05/0089  fid=49 dt=0.999995 dev=+0.000019 latch=OK   18.5ms build=9.0ms 0x24=0x31 uf=0
+20:06:09 [frame 046] pair=06/0097  fid=50 dt=1.000004 dev=+0.000023 latch=OK   18.9ms build=8.7ms 0x24=0x32 uf=0
+20:06:10 [proto] 新连接 192.168.7.1:38384
+20:06:10 [proto] tcp 192.168.7.1:38384     <- 'START'        -> 'ACK START 50'
+20:06:10 [frame 047] pair=07/0001  fid=51 dt=0.999997 dev=+0.000020 latch=OK   19.3ms build=8.7ms 0x24=0x33 uf=0
+20:06:11 [frame 048] pair=00/0094  fid=52 dt=0.999993 dev=+0.000013 latch=OK   19.8ms build=8.6ms 0x24=0x34 uf=0
+20:06:12 [frame 049] pair=01/0049  fid=53 dt=1.000019 dev=+0.000032 latch=OK   20.1ms build=8.6ms 0x24=0x35 uf=0
+20:06:13 [proto] 192.168.7.1:38384 对端关闭（播放继续，规则 2）
+20:06:13 [frame 050] pair=02/0060  fid=54 dt=0.999982 dev=+0.000014 latch=OK   20.6ms build=8.9ms 0x24=0x36 uf=0
+20:06:14 [frame 051] pair=03/0084  fid=55 dt=1.000000 dev=+0.000014 latch=OK   21.0ms build=8.9ms 0x24=0x37 uf=0
+20:06:15 [frame 052] pair=04/0062  fid=56 dt=1.000001 dev=+0.000015 latch=OK   21.4ms build=8.6ms 0x24=0x38 uf=0
+20:06:16 [frame 053] pair=05/0089  fid=57 dt=1.000015 dev=+0.000031 latch=OK   21.8ms build=8.6ms 0x24=0x39 uf=0
+20:06:17 [frame 054] pair=06/0097  fid=58 dt=0.999995 dev=+0.000026 latch=OK   22.3ms build=8.6ms 0x24=0x3A uf=0
+20:06:18 [frame 055] pair=07/0001  fid=59 dt=0.999998 dev=+0.000024 latch=OK   6.0ms build=8.6ms 0x24=0x3B uf=0
+20:06:19 [frame 056] pair=00/0094  fid=60 dt=1.000002 dev=+0.000026 latch=OK   23.1ms build=8.6ms 0x24=0x3C uf=0
+20:06:20 [frame 057] pair=01/0049  fid=61 dt=0.999989 dev=+0.000015 latch=OK   6.9ms build=8.9ms 0x24=0x3D uf=0
+20:06:21 [frame 058] pair=02/0060  fid=62 dt=1.000010 dev=+0.000025 latch=OK   7.3ms build=8.5ms 0x24=0x3E uf=0
+20:06:22 [frame 059] pair=03/0084  fid=63 dt=0.999987 dev=+0.000013 latch=OK   7.7ms build=8.6ms 0x24=0x3F uf=0
+20:06:23 [frame 060] pair=04/0062  fid=64 dt=1.000015 dev=+0.000028 latch=OK   8.1ms build=8.6ms 0x24=0x40 uf=0
+20:06:24 [frame 061] pair=05/0089  fid=65 dt=0.999999 dev=+0.000026 latch=OK   8.5ms build=8.6ms 0x24=0x41 uf=0
+20:06:25 [frame 062] pair=06/0097  fid=66 dt=1.000005 dev=+0.000032 latch=OK   8.9ms build=8.6ms 0x24=0x42 uf=0
+20:06:26 [frame 063] pair=07/0001  fid=67 dt=0.999982 dev=+0.000014 latch=OK   9.4ms build=8.9ms 0x24=0x43 uf=0
+20:06:27 [frame 064] pair=00/0094  fid=68 dt=1.000001 dev=+0.000014 latch=OK   9.8ms build=8.6ms 0x24=0x44 uf=0
+20:06:28 [frame 065] pair=01/0049  fid=69 dt=1.000001 dev=+0.000016 latch=OK   10.2ms build=8.6ms 0x24=0x45 uf=0
+20:06:29 [frame 066] pair=02/0060  fid=70 dt=0.999998 dev=+0.000014 latch=OK   10.6ms build=8.6ms 0x24=0x46 uf=0
+20:06:30 [frame 067] pair=03/0084  fid=71 dt=0.999999 dev=+0.000013 latch=OK   11.0ms build=8.7ms 0x24=0x47 uf=0
+20:06:31 [frame 068] pair=04/0062  fid=72 dt=1.000008 dev=+0.000021 latch=OK   11.4ms build=8.8ms 0x24=0x48 uf=0
+20:06:32 [frame 069] pair=05/0089  fid=73 dt=0.999993 dev=+0.000014 latch=OK   11.9ms build=8.9ms 0x24=0x49 uf=0
+20:06:33 [frame 070] pair=06/0097  fid=74 dt=1.000017 dev=+0.000030 latch=OK   12.3ms build=8.6ms 0x24=0x4A uf=0
+20:06:34 [frame 071] pair=07/0001  fid=75 dt=0.999982 dev=+0.000012 latch=OK   12.7ms build=8.8ms 0x24=0x4B uf=0
+20:06:35 [frame 072] pair=00/0094  fid=76 dt=1.000011 dev=+0.000023 latch=OK   13.1ms build=8.7ms 0x24=0x4C uf=0
+20:06:36 [frame 073] pair=01/0049  fid=77 dt=0.999996 dev=+0.000020 latch=OK   13.5ms build=8.7ms 0x24=0x4D uf=0
+20:06:37 [frame 074] pair=02/0060  fid=78 dt=1.000008 dev=+0.000028 latch=OK   13.9ms build=8.6ms 0x24=0x4E uf=0
+20:06:38 [frame 075] pair=03/0084  fid=79 dt=0.999999 dev=+0.000027 latch=OK   14.4ms build=8.9ms 0x24=0x4F uf=0
+20:06:39 [frame 076] pair=04/0062  fid=80 dt=1.000001 dev=+0.000028 latch=OK   14.8ms build=8.6ms 0x24=0x50 uf=0
+20:06:40 [frame 077] pair=05/0089  fid=81 dt=0.999983 dev=+0.000011 latch=OK   15.2ms build=8.6ms 0x24=0x51 uf=0
+20:06:41 [frame 078] pair=06/0097  fid=82 dt=1.000016 dev=+0.000027 latch=OK   15.6ms build=8.7ms 0x24=0x52 uf=0
+20:06:42 [frame 079] pair=07/0001  fid=83 dt=0.999993 dev=+0.000020 latch=OK   16.0ms build=8.7ms 0x24=0x53 uf=0
+20:06:43 [frame 080] pair=00/0094  fid=84 dt=0.999999 dev=+0.000019 latch=OK   16.5ms build=8.7ms 0x24=0x54 uf=0
+20:06:44 [frame 081] pair=01/0049  fid=85 dt=1.000010 dev=+0.000029 latch=OK   16.9ms build=9.0ms 0x24=0x55 uf=0
+20:06:45 [frame 082] pair=02/0060  fid=86 dt=0.999985 dev=+0.000013 latch=OK   17.3ms build=8.5ms 0x24=0x56 uf=0
+20:06:46 [frame 083] pair=03/0084  fid=87 dt=1.000008 dev=+0.000021 latch=OK   17.7ms build=8.6ms 0x24=0x57 uf=0
+20:06:47 [frame 084] pair=04/0062  fid=88 dt=0.999992 dev=+0.000013 latch=OK   18.1ms build=8.6ms 0x24=0x58 uf=0
+20:06:48 [frame 085] pair=05/0089  fid=89 dt=1.000004 dev=+0.000017 latch=OK   18.6ms build=8.6ms 0x24=0x59 uf=0
+20:06:49 [frame 086] pair=06/0097  fid=90 dt=1.000010 dev=+0.000027 latch=OK   19.0ms build=8.6ms 0x24=0x5A uf=0
+20:06:50 [frame 087] pair=07/0001  fid=91 dt=1.000002 dev=+0.000029 latch=OK   19.4ms build=8.9ms 0x24=0x5B uf=0
+20:06:51 [frame 088] pair=00/0094  fid=92 dt=0.999998 dev=+0.000027 latch=OK   19.8ms build=8.6ms 0x24=0x5C uf=0
+20:06:52 [frame 089] pair=01/0049  fid=93 dt=1.000001 dev=+0.000028 latch=OK   20.2ms build=8.6ms 0x24=0x5D uf=0
+20:06:53 [frame 090] pair=02/0060  fid=94 dt=0.999999 dev=+0.000027 latch=OK   20.6ms build=8.6ms 0x24=0x5E uf=0
+20:06:54 [frame 091] pair=03/0084  fid=95 dt=1.000002 dev=+0.000029 latch=OK   21.1ms build=9.0ms 0x24=0x5F uf=0
+20:06:55 [frame 092] pair=04/0062  fid=96 dt=0.999996 dev=+0.000026 latch=OK   21.5ms build=8.7ms 0x24=0x60 uf=0
+20:06:56 [frame 093] pair=05/0089  fid=97 dt=0.999991 dev=+0.000016 latch=OK   21.9ms build=9.1ms 0x24=0x61 uf=0
+20:06:57 [frame 094] pair=06/0097  fid=98 dt=1.000000 dev=+0.000017 latch=OK   22.3ms build=8.6ms 0x24=0x62 uf=0
+20:06:58 [frame 095] pair=07/0001  fid=99 dt=0.999998 dev=+0.000015 latch=OK   6.1ms build=8.6ms 0x24=0x63 uf=0
+20:06:59 [frame 096] pair=00/0094  fid=100 dt=1.000004 dev=+0.000020 latch=OK   6.5ms build=8.7ms 0x24=0x64 uf=0
+20:07:00 [frame 097] pair=01/0049  fid=101 dt=0.999995 dev=+0.000015 latch=OK   6.9ms build=8.6ms 0x24=0x65 uf=0
+20:07:01 [frame 098] pair=02/0060  fid=102 dt=0.999998 dev=+0.000013 latch=OK   7.3ms build=8.6ms 0x24=0x66 uf=0
+20:07:02 [frame 099] pair=03/0084  fid=103 dt=1.000015 dev=+0.000028 latch=OK   7.7ms build=8.6ms 0x24=0x67 uf=0
+20:07:03 [frame 100] pair=04/0062  fid=104 dt=0.999995 dev=+0.000023 latch=OK   8.1ms build=8.5ms 0x24=0x68 uf=0
+20:07:04 [frame 101] pair=05/0089  fid=105 dt=0.999991 dev=+0.000014 latch=OK   8.6ms build=8.7ms 0x24=0x69 uf=0
+20:07:05 [frame 102] pair=06/0097  fid=106 dt=1.000007 dev=+0.000021 latch=OK   9.0ms build=8.5ms 0x24=0x6A uf=0
+20:07:06 [frame 103] pair=07/0001  fid=107 dt=1.000008 dev=+0.000029 latch=OK   9.4ms build=8.6ms 0x24=0x6B uf=0
+20:07:07 [fin] CTRL=0x15（彩条恢复）
+20:07:07 [fin] 帧缓冲已释放（pipe.close）
+20:07:07 [fin] fpga0=operating
+20:07:07 [fin] CmaFree:            6036 kB
