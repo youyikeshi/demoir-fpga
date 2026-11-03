@@ -124,3 +124,27 @@ $$\Rightarrow\ \text{一旦 } \mathtt{FUSE=1}，256^2\ \text{下 } \mathtt{bands
 4. 上板全程走"心跳先行"六步协议；`Clocks.fclk0_mhz` 报 1.5 倍 ⇒ 写 150 才是真 100 MHz
 
 | T-150 | 写合并器复活（16-lane） | `1813cba6` | 96/96 xsim、3.76 拍/beat、done 断言 110/110 干净；**但 8-lane 走 `g_wr_direct` 逐字节不变 ⇒ 对 v152 零收益**；v56 归档仅作功能证据 | `runs/v150_coal/`、`runs/v56_archive/` | 已归档 |
+
+**▶ 2026-11-03 17:0x 交付推进（用户指令：代码写完 + 打包 + 文档入库，验证押后）**
+
+| 项 | 状态 | 位置 |
+|---|---|---|
+| **PL_HDMI 交付包** | ✅ **已入库并推送**（`b4aabff`） | `deliverables/PL_HDMI/`（30 文件 / 1.7 MB） |
+| 打包脚本（可重建可校验） | ✅ | `tools/pack_hdmi_pl.sh`；`--check` 实测 30/30 一致 |
+| 交接文档 | ✅ | `deliverables/PL_HDMI/README.md`（§1~§11） |
+| PS 相机客户端 | ✅ 已入库（`1c0f4ed`） | `pynq_specialized_code/ps/pynq/cam_client.py`（400 行，128 条判据） |
+| PS 流水线编排 | 🔄 进行中 | `demo_pipeline.py` |
+| 相机采集服务 | 🔄 进行中（`cam_shot.py` 478 行已出） | `maxicam/apps/maixcam/cam_shot.py` |
+| 相机 README | 🔄 进行中 | `maxicam/apps/maixcam/README_cam_shot.md` |
+| 合并进 v57 BD | 🔄 方案组在做 | `pynq_specialized_code/pl/scripts/bd_merge_hdmi_v58.tcl`（他人文件，本支线不碰） |
+| PetaLinux USB+CMA 镜像 | ✅ 已编好（`BOOT.BIN 0fffd3fc…`，CMA=192 MB） | `/data/peta_prj/ax_peta/images/linux/` |
+
+**▶ 给方案组的入口（三步）**
+1. 读 `deliverables/PL_HDMI/README.md`：§2 模块图、§3 端口、§4 寄存器、§5 时钟模式
+2. 读 `README.md §7 已验证/未验证`：**哪些能直接信、哪些必须自己上板确认**
+3. 读 `README.md §8 合并要点 + 六条红线`，详细方案在 `docs/camera/07_合并方案_去摩尔纹+HDMI.md`
+   ⇒ 包内 `reports/` 有最后一次通过的 util / timing / clocks / drc 原始报告，可直接引用
+
+**▶ 板端验证排队（板子仍在他处）**
+1. P2 真画面（扫描器出图）2. 720p30 是否被 SIL9134 接受 3. 切换帧 UNDERFLOW 表现
+4. USB Host 三级判据（root hub → U 盘 → 摄像头 cdc_ncm）
