@@ -7523,3 +7523,44 @@ $$\Rightarrow\ \Rightarrow\ \textbf{融合的真正价值不在"省字节"，在
 $$\quad\ \text{band 链把一段 }N\ \text{个 op 变成}\textbf{一次 } \mathtt{kick}/\mathtt{reap} \Rightarrow \text{省掉 }(N{-}1)\times 10.6\ \text{ms}$$
 $$\quad\ \Rightarrow\ \text{若能合并 }90\ \text{段}\Rightarrow \text{粗算省 }0.5\sim1.5\ \text{s}\（\text{取决于每段平均 }N）$$
 $$\Rightarrow\ \Rightarrow\ \textbf{第 147 条：评估一个改动要看它打的是哪个成本项}——\text{融合打的是"每 op 固定开销"，不是"字节"}$$
+
+### 70.122 ★★★★★ T-156 完成：**256² = 5.33（最好）/5.39（中位）s**；事务杠杆已耗尽（2026-11-03 12:5x）
+
+**事务普查（实测，修正了上一版的漏项）**
+| 类别 | 次数 | 耗时 |
+|---|---|---|
+| pack done 轮询读（AP_RET）| 6542 | 229.6 ms（9.4 次/命令）|
+| conv reap 轮询读 | 3192 | 118.9 ms（14 次/层）|
+| pack 配置写 | 3494 | 172.1 ms（5.0 次/命令）|
+| **conv 配置写（precomp 直写，绕过 } \mathtt{\_wr}\ \text{钩子）** | **2433** | **~0.10~0.12 s**（10.7 次/层）|
+| `_wait_idle` / kick / epilogue | 227 / 227 / 410 | 10.8 / 13.8 / 19.2 ms |
+| **Σ** | **10365 读 + 6158 写** | **≈0.65 s = 墙钟 12%** |
+
+**只拿了非事务的 4 项（事务 0 变化）**
+$$\Rightarrow\ \mathtt{flush}\ \text{每层刷同一块 2 次（}472\to235）;\ \text{直达路径跳过 } \mathtt{invalidate}\ 227\ \text{次};\ \mathtt{chain\_on()}\ \text{缓存};\ \mathtt{\_wr\_seq}\ \text{六字合并}$$
+$$\Rightarrow\ \text{改 } \mathtt{ps/pynq/bin\_engine.py}\ \text{一个文件（}+90/-22\text{），}\mathtt{48548b8d}\to\mathbf{\mathtt{2fd3d099}}$$
+
+**主机侧先闭环（这一步做得对）**
+$$\Rightarrow\ \mathtt{verify\_t23\_mmio}\ \text{C1 判据} \Rightarrow \text{trace } \mathbf{10{,}471}\ \text{条}\textbf{逐条相同}$$
+$$\quad\ （\text{W }5585 / \text{R }4886 / \text{影子跳过 }2640 / \text{start }698）;\ \text{pack sha1 } \mathtt{02a49957}\ \text{相同};\ \text{寄存器页相同}$$
+$$\Rightarrow\ \Rightarrow\ \textbf{总线事务 0 变化} \Rightarrow \text{数值风险为 }0$$
+
+**板端 ABBA（同一 net/arena，A A B B A）**
+$$\Rightarrow\ \text{A } 5.5011 / 5.7924（\text{中位 }5.647）\quad\text{vs}\quad \text{B } 5.4552 / \mathbf{5.3279}（\text{中位 } \mathbf{5.391}）$$
+$$\Rightarrow\ \textbf{pack 桶（重复性 }0.3\%）1.165\to1.020 = \mathbf{-0.145\ s}$$
+$$\Rightarrow\ \text{墙钟中位 } -0.255\ \text{s};\ \text{保守（最好臂对最好臂）}5.501\to5.328 = \mathbf{-0.173\ s}$$
+$$\Rightarrow\ \textbf{sha1 全中}：256^2\ 5/5、128^2、64^2$$
+$$\Rightarrow\ \Rightarrow\ \textbf{新工作点 } \mathbf{5.33\ (\text{最好}) / 5.39\ (\text{中位})}$$
+
+**它自己的诚实结论（我认同）**
+$$\Rightarrow\ \text{事务}\textbf{全删也只有 }0.65\ \text{s}\ \text{且已贴结构下限} \Rightarrow \le5.0\ \text{必须换杠杆}$$
+$$\Rightarrow\ \text{剩余大头：}\mathtt{convfp}\ 1.256\ \text{s}\（\text{4 个 op}）/\ \text{非卷积 } 2.004\ \text{s} / \mathtt{q8\_segments}\ 0.500\ \text{s}$$
+$$\Rightarrow\ \textbf{关键一句：}"698\ \text{条命令（\textbf{只有 RTL 能合}）}"$$
+
+$$\Rightarrow\ \Rightarrow\ \textbf{这正好确定了融合的正确评估维度}（\text{第 147 条）}：$$
+$$\quad\ \text{PS↔PL 往返 = 698 次命令}，\text{每次固定开销 } \approx 10.6\ \text{ms} \Rightarrow \text{合计 } \mathbf{2.41\ s = 40\%}$$
+$$\quad\ \text{而}\textbf{只有 RTL 能减少命令数} \Rightarrow \text{band 链/描述符链是唯一的路}$$
+
+**⚠ 一条安全提醒（它发现的）**
+$$\Rightarrow\ \mathtt{runs/board\_t154/stage}\ \text{被 T-154 的实验补丁污染}（\mathtt{bin\_engine}{=}\mathtt{db8d40dd}，\text{与其 } \mathtt{ps\_md5\_host.txt}\ \text{记的 } \mathtt{48548b8d}\ \text{不符）}$$
+$$\Rightarrow\ \Rightarrow\ \textbf{谁用那份部署树都会踩雷} \Rightarrow \text{部署树必须自证（逐文件 md5 对清单）}$$
