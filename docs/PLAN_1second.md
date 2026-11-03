@@ -7478,3 +7478,48 @@ $$\quad\ \text{拍数 } 1098/6853/76028/1707/5274/55774 \ \textbf{逐一相同}$
 $$\Rightarrow\ \text{改动面：仅 } \mathtt{wrap.v}\ +\ \text{manifest 一行}$$
 
 $$\Rightarrow\ \textbf{第 145 条：编译期断言类改动也要走"逐笔 A/B + 拍数相同"}\ \text{——}\text{"只加检查"}\ \text{是}\text{声明，不是证据}$$
+
+### 70.121 ★★★★★ T-156：MMIO 事务只有 **0.58 s**（不是 1.4 s）；三个改法全否（2026-11-03 12:3x）
+
+**事务普查（256² 一跑，实测次数 × 在板单次耗时）**
+| 类别 | 读 | 写 | 合计 |
+|---|---|---|---|
+| pack 轮询(done) | 6542×36.5µs = 230 ms | — | 230 ms |
+| pack 配置+start | — | 3494×50µs = 172 ms | 172 ms |
+| conv reap 轮询 | 3192×36.5 = 119 ms | — | 119 ms |
+| `_wait_idle` | 227×36.5 = 11 ms | — | 11 ms |
+| conv kick(start) | — | 227 | 14 ms |
+| conv 配置写 | — | 562 | ~10 ms |
+| epilogue/其它 | 404 = 19 ms | 4 | 19 ms |
+| **Σ** | **10365 → 378 ms** | **4283 → 196 ms** | **≈0.58 s（占 }5.49\ \text{s 的 }10.5\%）$$ |
+
+$$\Rightarrow\ \mathtt{AP\_RET}\ \text{占}\textbf{全部 }10365\ \text{次读};\ \text{写只有 5 种寄存器}$$
+$$\Rightarrow\ \textbf{pack 桶 } 1.141\ \text{s} = \underbrace{0.32}_{\text{PL 硬件}} + \underbrace{0.40}_{\text{MMIO}} + \underbrace{\mathbf{0.42}}_{\textbf{Python/睡眠}}$$
+$$\Rightarrow\ \Rightarrow\ \textbf{我上一轮说的"1.4 s 事务杠杆"是错的}（\text{我从 T-154 的估算外推，}\text{没实测）$$
+$$\quad\ \Rightarrow\ \textbf{第 146 条：估算值（次数×单次）必须标"估算"，不能与实测混用}$$
+
+**三个改法全部实测否证**
+$$\Rightarrow\ \textbf{M3 轮询频率}：\text{去掉每次轮询的 } \mathtt{sleep(0)}（\approx47\ \mu s）\ \text{做 }\mathbf{ABBA}\ \text{各 }2\ \text{跑}$$
+$$\quad\ \text{自适应 } 5.490/5.669（\text{中位 } \mathbf{5.580}）\quad\text{vs}\quad \text{tight } 5.512/5.589（\text{中位 } \mathbf{5.551}）$$
+$$\quad\ \Rightarrow\ \Delta = -0.029\ \text{s}（-0.5\%，\textbf{噪声内}）;\ \text{而读次数 } 14.6\mathtt{k}\to25.6\mathtt{k}（\times1.75）,\ \text{pack } 1.141\ \text{vs}\ 1.143\ \text{不动}$$
+$$\quad\ \Rightarrow\ \textbf{读既是"等待"又占总线，换不回来}$$
+$$\Rightarrow\ \textbf{M2 合并配置写}：6\ \text{个字里有 2 个空洞}（\mathtt{C}\ 0x18/\mathtt{H}\ 0x20/\mathtt{W}\ 0x28;\ \mathtt{E\_GROUP}\ 0x204/\mathtt{E\_DESC}\ 0x208/\mathtt{0x20C}\ \text{是高字}/\mathtt{E\_OUT}\ 0x210）$$
+$$\quad\ \Rightarrow\ \text{一次 } \mathtt{pack\_into}\ \text{仍是}\textbf{逐字 AXI-Lite 事务}$$
+$$\Rightarrow\ \textbf{M1 合并等待}：\mathtt{pack}(L)\ \text{严格依赖 } \mathtt{conv}(L{-}1)\ \mathtt{done} \Rightarrow \textbf{串行，不是交错}$$
+$$\quad\ \Rightarrow\ \text{唯一纯冗余：}\mathtt{\_wait\_idle}\ 227\ \text{次读（}11\ \text{ms）} + \mathtt{select(0)/(4)}\ 925\ \text{次写（}37\ \text{ms）}$$
+
+**它给出的最后四项（估 }0.10\sim0.15\ \text{s，不是事务）**
+$$\Rightarrow\ \mathtt{flush}\ 2\to1（\text{同一 owner，}-40\ \text{ms}，\text{T-154 已验 sha1 不变）$$
+$$\Rightarrow\ \text{直达路径跳过 } \mathtt{invalidate}（\text{CPU 从不读那块，}-48\ \text{ms}）$$
+$$\Rightarrow\ \mathtt{chain\_on()}\ \text{进程内缓存}（-17\ \text{ms}）$$
+$$\Rightarrow\ \mathtt{\_wr\_seq}\ \text{六字合并成一次扁平写}（\text{总线写序逐条不变，可主机侧证明）}$$
+$$\Rightarrow\ \text{风险：}0.13\ \text{s}\ \text{小于跑间噪声}（\pm0.09），\text{需 }4\ \text{跑 ABBA};\ \text{数值零风险}$$
+$$\Rightarrow\ \Rightarrow\ \textbf{"}\le5.0\ \text{s}\ \text{靠减事务到不了"}\（\text{事务全删也只 }0.58，\text{且轮询已证换不回来）$$
+
+**★★ 但这组数字暴露了一件更重要的事（我之前完全低估了）**
+$$\Rightarrow\ \text{T-151 的"每 op 固定开销 }10.6\ \text{ms}\times227 = \mathbf{2.41\ \text{s} = 40\%}\ \text{墙钟"}$$
+$$\Rightarrow\ \text{而 T-148 评融合时}\textbf{只算了字节}（\text{ROI }0.8\%）\ \Rightarrow\ \textbf{算错了维度}$$
+$$\Rightarrow\ \Rightarrow\ \textbf{融合的真正价值不在"省字节"，在"减少 PS↔PL 往返次数"}：$$
+$$\quad\ \text{band 链把一段 }N\ \text{个 op 变成}\textbf{一次 } \mathtt{kick}/\mathtt{reap} \Rightarrow \text{省掉 }(N{-}1)\times 10.6\ \text{ms}$$
+$$\quad\ \Rightarrow\ \text{若能合并 }90\ \text{段}\Rightarrow \text{粗算省 }0.5\sim1.5\ \text{s}\（\text{取决于每段平均 }N）$$
+$$\Rightarrow\ \Rightarrow\ \textbf{第 147 条：评估一个改动要看它打的是哪个成本项}——\text{融合打的是"每 op 固定开销"，不是"字节"}$$
