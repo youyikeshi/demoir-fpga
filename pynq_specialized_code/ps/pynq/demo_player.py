@@ -522,14 +522,29 @@ class PairSet:
         self.names: list[str] = []
         self.md5_ok = 0
         self.md5_bad: list[str] = []
+        # ★ 播放顺序 = manifest 里的 `order` 升序**（不是文件名字典序、不是 listdir 顺序）。
+        #   有 order 就按它排并校验 0..N-1 连续；没有（旧的 8 对包）就保持 manifest 原序。
+        pairs_meta = list(self.man["pairs"])
+        if pairs_meta and "order" in pairs_meta[0]:
+            pairs_meta.sort(key=lambda q: int(q["order"]))
+            orders = [int(q["order"]) for q in pairs_meta]
+            if orders != list(range(len(orders))):
+                raise SystemExit("[pairs] manifest.order 不是 0..%d 连续：%s"
+                                 % (len(orders) - 1, orders[:12]))
+            self.orders = orders
+            self.log("[pairs] 顺序按 manifest.order 升序校验通过：0..%d" % (len(orders) - 1))
+        else:
+            self.orders = list(range(len(pairs_meta)))
+        self.man["pairs"] = pairs_meta
+
         t0 = time.monotonic()
-        for p in self.man["pairs"]:
+        for p in pairs_meta:
             L = self._load(p["left"], p)
             R = self._load(p["right"], p, right=True)
             self._check(L, p["left"])
             self._check(R, p["right"])
             self.pairs.append((L, R))
-            self.names.append(p.get("name", "%04d" % p["index"]))
+            self.names.append(p.get("name", "%04d" % p.get("index", p.get("order", len(self.names)))))
         self.load_s = time.monotonic() - t0
         self.log("[pairs] %d 对已预载  %.1f MB  %.0f ms  format=%s  %dx%d  mode=%s"
                  % (len(self.pairs), sum(a.nbytes + b.nbytes for a, b in self.pairs) / 1e6,
@@ -722,6 +737,12 @@ class DemoPlayer:
         self.log("[hw] setup 完成：CTRL=0x%02X｜0x2C 基线=%d｜未做任何软复位"
                  % (mp_ctrl(self.ctx), self.uf_baseline))
 
+    def _ctrl(self) -> int:
+        """当前 CTRL：真板读 /dev/mem（与 bringup 同一个映射），sim 读 FakeRegIo。"""
+        if getattr(self, "ctx", None):
+            return int(mp_ctrl(self.ctx)) & 0xFF
+        return int(self.pipe._rd("CTRL")) & 0xFF
+
     def _write_ctrl(self, v: int) -> None:
         self.pipe._wr("CTRL", v)
 
@@ -757,7 +778,8 @@ class DemoPlayer:
     # ---- 提交一帧 ---------------------------------------------------
     def submit(self, frame: np.ndarray, wait_s: float = 0.35):
         t_sub = time.monotonic()
-        fid = mp_show(self.ctx, frame)          # 只调用 minimal_proof.show()
+        # 真板：只调用 minimal_proof.show()（唯一可信实现）；--sim：直接走 FakeRegIo 假管线
+        fid = mp_show(self.ctx, frame) if getattr(self, "ctx", None) else self.pipe.show_frame(frame)
         ok = self.pipe.wait(fid, timeout=wait_s)
         t_latch = time.monotonic()
         self.n_submitted += 1
@@ -835,10 +857,10 @@ class DemoPlayer:
                 self.proto.set_playing(False)
             return self.report()
 
-        if (mp_ctrl(self.ctx) & 0x05) != 0x01:    # 正常情况 bringup 已是 0x01，不重复写
+        if (self._ctrl() & 0x05) != 0x01:         # 正常情况 bringup 已是 0x01，不重复写
             self._write_ctrl(CTRL_RUN)
             self.log("[play#%d] CTRL 0x%02X → 0x01（上一轮 STOP 留下的彩条）"
-                     % (self.sessions, mp_ctrl(self.ctx) & 0xFF))
+                     % (self.sessions, self._ctrl()))
         self.log("[play#%d] 开播 reason=%s 对数=%d period=%.3f s %s"
                  % (self.sessions, reason, n_pairs, period,
                     ("总帧=%d" % total) if total else "无限循环（STOP/SIGTERM 才停）"))
@@ -934,9 +956,10 @@ class DemoPlayer:
             "latch_ok": bool(ok), "uf": uf,
             "nonblack": round(getattr(self, "last_nonblack", -1.0), 4),
         })
-        self.log("[frame %03d] pair=%02d/%-5s fid=%-2d dt=%s dev=%s latch=%s %.1fms "
+        self.log("[frame %03d] order=%03d pair=%02d/%-5s fid=%-2d dt=%s dev=%s latch=%s %.1fms "
                  "build=%.1fms 0x24=0x%X uf=%s nonblack=%s"
-                 % (k, idx, self.ps.names[idx], fid,
+                 % (k, self.ps.orders[idx] if idx < len(self.ps.orders) else idx,
+                    idx, self.ps.names[idx], fid,
                     ("%.6f" % itv) if itv else "  -   ",
                     ("%+.6f" % dev) if target else "   -   ",
                     "OK  " if ok else "MISS", lat_ms, build_ms,
@@ -956,7 +979,7 @@ class DemoPlayer:
         self.log("[still] 只显示第 %d 对 %s，保持不动" % (index, self.ps.names[index]))
         stage = np.empty((DISP_H, DISP_W, 3), dtype=np.uint8)
         build_frame(*self.ps[index], out=stage, layout_compose=self.args.layout_compose)
-        if (mp_ctrl(self.ctx) & 0x05) != 0x01:
+        if (self._ctrl() & 0x05) != 0x01:
             self._write_ctrl(CTRL_RUN)
         fid, ok, t_sub, t_latch = self.submit(stage)
         self._log_frame(0, fid, ok, t_sub, t_latch, None, 0.0, 0.0)
@@ -984,6 +1007,7 @@ class DemoPlayer:
                                        if self.first_latency is not None else None),
             "period_s": float(self.args.period),
             "start_delay_s": float(getattr(self.args, "start_delay", 0.0)),
+            "order_first_last": [self.ps.orders[0], self.ps.orders[-1]] if self.ps.orders else None,
             "nonblack_min": round(min([f["nonblack"] for f in self.frames
                                        if f.get("nonblack", -1) >= 0], default=-1), 4),
             "uf_baseline_0x2c": self.uf_baseline,

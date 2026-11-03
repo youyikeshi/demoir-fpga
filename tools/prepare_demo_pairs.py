@@ -67,6 +67,7 @@ import glob
 import hashlib
 import json
 import os
+import re
 import subprocess
 import sys
 import time
@@ -464,6 +465,131 @@ def build(args) -> dict:
     force = [s.strip() for s in args.force.split(",") if s.strip()]
 
     # ============================================================
+    # uhdm100：image/uhdm100_center256/pNNN_*_gt.png 共 100 张
+    #   ★ 这些 *_gt.png **就是摩尔纹原图**（名字误导）；左=它，右=bin_fp_ref 输出
+    #   ★ 顺序 = pNNN 的**数字序**（不是 glob 字典序），编号必须 0..99 连续
+    # ============================================================
+    if args.mode == "uhdm100":
+        u_src = os.path.abspath(args.src or os.path.join(REPO, "image", "uhdm100_center256"))
+        if not os.path.isdir(u_src):
+            raise SystemExit("[uhdm100] 目录不存在：%s" % u_src)
+        rx = re.compile(r"^p(\d{3})_.*_gt\.png$", re.IGNORECASE)
+        items, bad = [], []
+        for fn in os.listdir(u_src):
+            if not fn.lower().endswith(".png"):
+                continue
+            m = rx.match(fn)
+            if not m:
+                bad.append(fn)
+                continue
+            items.append((int(m.group(1)), fn))
+        if bad:
+            raise SystemExit("[uhdm100] %d 个文件名不符合 pNNN_*_gt.png：\n  %s"
+                             % (len(bad), "\n  ".join(sorted(bad))))
+        nums = [n for n, _ in items]
+        dup = sorted({n for n in nums if nums.count(n) > 1})
+        if dup:
+            raise SystemExit("[uhdm100] 编号重复：%s" % dup)
+        missing = sorted(set(range(100)) - set(nums))
+        beyond = sorted(n for n in nums if n >= 100)
+        if missing or beyond:
+            raise SystemExit("[uhdm100] 编号必须恰好 0..99 连续：缺 %s；越界 %s"
+                             % (missing, beyond))
+        items.sort(key=lambda t: t[0])          # ← **数字序**，绝不用字典序
+        assert [n for n, _ in items] == list(range(100))
+        print("[uhdm100] %d 张，数字序 p000..p099 已校验（无缺/无重/无越界）" % len(items))
+
+        t_all = time.monotonic()
+        pairs, suspicious, total = [], [], 0
+        for i, (num, fn) in enumerate(items):
+            name = "p%03d" % num
+            crop = load_center256(os.path.join(u_src, fn))     # 本身就是 256²，等于原样
+            rnpy = _ensure_out1(name, crop, raw_dir, args.ckpt, args.no_run)
+            if rnpy is None:
+                raise SystemExit("[uhdm100] 第 %s 张网络输出缺失（--no-run？）" % name)
+            o = np.load(rnpy)
+            u8 = float_to_u8(o)
+            L = upscale(crop)
+            R = upscale(u8)
+            f = np.zeros((DISP_H, DISP_W, 3), np.uint8)
+            f[DISP_TOP_BAR:DISP_TOP_BAR + PAIR_SIDE, :PAIR_SIDE] = L
+            f[DISP_TOP_BAR:DISP_TOP_BAR + PAIR_SIDE, PAIR_SIDE:] = R
+            nb = float(np.count_nonzero(f.reshape(-1, 3).any(axis=1))) / (DISP_H * DISP_W)
+            st = {"order": num, "name": name, "file": fn,
+                  "out_min": round(float(o.min()), 4), "out_max": round(float(o.max()), 4),
+                  "out_mean": round(float(o.mean()), 4), "out_std": round(float(o.std()), 5),
+                  "u8_min": int(u8.min()), "u8_max": int(u8.max()),
+                  "u8_mean": round(float(u8.mean()), 2),
+                  "u8_std": round(float(u8.std()), 3),
+                  "nonblack": round(nb, 4)}
+            if st["out_std"] < 0.01:
+                suspicious.append(st)
+                print("[uhdm100][warn] %s 输出几乎无对比（std=%.5f, mean=%.4f）"
+                      "⇒ 上屏会像「糊了」" % (name, st["out_std"], st["out_mean"]))
+            lp = os.path.join(pdir, "%04d_left%s" % (num, ext))
+            rp = os.path.join(pdir, "%04d_right%s" % (num, ext))
+            lb = write_img(lp, L, args.format)
+            rb = write_img(rp, R, args.format)
+            total += lb + rb
+            pairs.append({**st,
+                          "left": os.path.relpath(lp, out), "right": os.path.relpath(rp, out),
+                          "bytes": lb, "md5": md5_file(lp),
+                          "right_bytes": rb, "right_md5": md5_file(rp),
+                          "left_source": os.path.relpath(os.path.join(u_src, fn), REPO),
+                          "corr_left_right": round(corr(L, R), 4)})
+            print("[pair] order=%03d %-5s %-34s std=%.5f mean=%.4f nonblack=%.4f"
+                  % (num, name, fn[:34], st["out_std"], st["out_mean"], nb))
+            # 预览：#000 / #050 / #099
+            if num in (0, 50, 99):
+                pv = os.path.join(out, "compose_check_%03d.png" % num)
+                Image.fromarray(f, "RGB").save(pv)
+                print("[preview] %s" % os.path.relpath(pv, REPO))
+        dt = time.monotonic() - t_all
+        print("[uhdm100] 完成 %d 对，总耗时 %.1f s（平均 %.2f s/张）"
+              % (len(pairs), dt, dt / max(1, len(pairs))))
+
+        manifest = {
+            "version": 1, "W": PAIR_SIDE, "H": PAIR_SIDE, "channels": CHANNELS,
+            "dtype": "uint8", "pixel_format": "RGB888", "format": args.format,
+            "count": len(pairs), "mode": "uhdm100",
+            "order_verified": True,
+            "order_key": "pNNN 整数序（0..99 连续，无缺/无重）",
+            "pairs": pairs,
+            "display": {"W": DISP_W, "H": DISP_H, "half": [PAIR_SIDE, PAIR_SIDE],
+                        "left": "x=0..639, y=40..679", "right": "x=640..1279, y=40..679",
+                        "bars": {"top": DISP_TOP_BAR, "bottom": DISP_BOTTOM_BAR},
+                        "slot_equals_pair": True},
+            "labels": {"baked_in_pixels": False,
+                       "why": "上屏图一个像素的字都没有（用户要求）"},
+            "pipeline": {
+                "source": "image/uhdm100_center256/pNNN_*_gt.png —— **这些 *_gt.png 就是摩尔纹原图**",
+                "left": "原图（256² 中心块）→ 双线性 640²",
+                "right": "bin_fp_ref.py out1 → round(255*clip(x,0,1)) → 双线性 640²",
+                "upscale": {"method": UPSCALE, "to": PAIR_SIDE, "same_both_sides": True},
+                "no_display_compensation": True,
+            },
+            "net": {"ckpt": os.path.relpath(args.ckpt, REPO), "script": os.path.relpath(NET_SCRIPT, REPO)},
+            "suspicious": [{"order": x["order"], "name": x["name"],
+                            "out_std": x["out_std"], "out_mean": x["out_mean"]}
+                           for x in suspicious],
+            "nbytes_per_file": NBYTES if args.format == "bin" else None,
+            "total_bytes_written": total,
+            "generator": "tools/prepare_demo_pairs.py --mode uhdm100",
+            "generated_at": time.strftime("%Y-%m-%d %H:%M:%S %z"),
+            "totals_s": round(dt, 1),
+            "notes": [
+                "播放顺序 = pairs[i].order 升序（播放器按 order 读，不按文件名字典序）。",
+                "左右各 640x640 RGB888，板端 1:1 贴图、不缩放。",
+            ],
+        }
+        with open(os.path.join(out, "manifest.json"), "w", encoding="utf-8") as f:
+            json.dump(manifest, f, ensure_ascii=False, indent=1)
+            f.write("\n")
+        print("[manifest] %s  count=%d  order_verified=True"
+              % (os.path.join(out, "manifest.json"), len(pairs)))
+        return manifest
+
+    # ============================================================
     # external / frames：直接吃"现成图对"，不走选片、不跑网络
     # ============================================================
     if args.mode in ("external", "frames"):
@@ -786,9 +912,10 @@ def verify(args) -> int:
         ok_sz = os.path.getsize(lp) == p["bytes"] and os.path.getsize(rp) == p["right_bytes"]
         ok_md = md5_file(lp) == p["md5"] and md5_file(rp) == p["right_md5"]
         chk(ok_sz and ok_md, "%02d %s bytes+md5 (%d/%d B) md5=%s…"
-            % (p["index"], p["name"], p["bytes"], p["right_bytes"], p["md5"][:10]))
+            % (p.get("index", p.get("order", 0)), p["name"], p["bytes"], p["right_bytes"],
+               p["md5"][:10]))
         if fmt == "bin":
-            chk(p["bytes"] == NBYTES, "%02d 单文件 = 640*640*3 = %d B" % (p["index"], NBYTES))
+            chk(p["bytes"] == NBYTES, "%02d 单文件 = 640*640*3 = %d B" % (p.get("index", p.get("order", 0)), NBYTES))
 
     print("== 判据 2：尺寸 + compose 几何（numpy 断言，不靠目测）==")
     dl = _layout_module()
@@ -796,9 +923,9 @@ def verify(args) -> int:
         L = load_pair_file(os.path.join(out, p["left"]), fmt)
         R = load_pair_file(os.path.join(out, p["right"]), fmt)
         chk(L.shape == (640, 640, 3) and L.dtype == np.uint8,
-            "%02d left  %s %s" % (p["index"], L.shape, L.dtype))
+            "%02d left  %s %s" % (p.get("index", p.get("order", 0)), L.shape, L.dtype))
         chk(R.shape == (640, 640, 3) and R.dtype == np.uint8,
-            "%02d right %s %s" % (p["index"], R.shape, R.dtype))
+            "%02d right %s %s" % (p.get("index", p.get("order", 0)), R.shape, R.dtype))
 
         # (a) 板端默认路径：640² 直接 1:1 贴进 1280x720
         frame = np.zeros((DISP_H, DISP_W, 3), np.uint8)
@@ -825,7 +952,7 @@ def verify(args) -> int:
         chk(np.array_equal(c[40:680, 640:], re256[np.ix_(didx, didx)]),
             "compose 右半 == right 的 256 入口最近邻放大")
 
-        if p["index"] == 0 and args.preview:
+        if p.get("index", p.get("order", 0)) == 0 and args.preview:
             pv = os.path.join(out, "compose_check_0000.png")
             Image.fromarray(frame, "RGB").save(pv)
             print("  [save] %s" % pv)
@@ -954,11 +1081,17 @@ def write_readme(out: str, man: dict) -> None:
     def _fmt_score(v):
         return ("%.3f" % v) if isinstance(v, (int, float)) else "—"
     rows = "\n".join(
-        "| %d | %s | %s | %.3f | %s |" % (p["index"], p["name"], _fmt_score(p.get("score")),
+        "| %d | %s | %s | %.3f | %s |" % (p.get("index", p.get("order", 0)), p["name"],
+                                          _fmt_score(p.get("score")),
                                           p.get("corr_left_right", 0.0) or 0.0,
                                           "是" if p.get("forced") else "")
         for p in man["pairs"])
-    if man["mode"] in ("external", "frames"):
+    if man["mode"] == "uhdm100":
+        mode_doc = ("- 左 = `image/uhdm100_center256/pNNN_*_gt.png`（**这些 `_gt.png` 就是摩尔纹原图**）\n"
+                    "- 右 = `bin_fp_ref.py` 对同一张图的浮点输出 → `round(255*clip(x,0,1))`\n"
+                    "- **播放顺序 = `pairs[i].order` 升序**（p000→p099，不是文件名字典序）")
+        ckpt = man.get("net", {}).get("ckpt", "?")
+    elif man["mode"] in ("external", "frames"):
         mode_doc = ("- **外供图对**：`--mode %s`，左右都只做「中心方裁 + 双线性缩放到 640x640」，\n"
                     "  不做任何算法处理、不叠加任何标注\n"
                     "- 源文件见 `manifest.json` 的 `pairs[i].left_source / right_source`"
@@ -987,7 +1120,8 @@ def write_readme(out: str, man: dict) -> None:
 # ---------------------------------------------------------------------------
 def main(argv=None) -> int:
     ap = argparse.ArgumentParser(description="生成板端演示图对包")
-    ap.add_argument("--mode", choices=("pcref", "gt", "external", "frames"), default="pcref")
+    ap.add_argument("--mode", choices=("pcref", "gt", "external", "frames", "uhdm100"),
+                    default="pcref")
     ap.add_argument("--src", default=None,
                     help="external/frames 模式的源目录（external=一对对图；frames=整幅图）")
     ap.add_argument("--pairs-list", default=None,

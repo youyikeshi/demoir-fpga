@@ -103,6 +103,29 @@ s.close()
 - 非法命令 → `ERR BADCMD <原文>`（**不会中断播放**）
 - 只服务**最新一个连接**；新连接会把旧连接关掉
 
+
+## 2.5 ★ 不依赖相机的触发方式（今晚的备用主线）
+
+相机那条 USB-NCM 链路不稳时（板子反复重启、相机枚举失败），**演示仍然可以照常录**：
+播放器的 TCP 触发不挑来源，从主机走 `eth0` 发一行 `START` 同样有效。镜头里拍"板子 + 显示器"即可。
+
+```bash
+# 主机侧（不需要板子有相机）
+printf 'START\n' | nc -q1 192.168.7.2 9999        # 最简
+python3 tools/host_trigger.py start                # 推荐：会打印 ACK START 与 EVT FIRST
+python3 tools/host_trigger.py ping                 # 保活（10 s 无数据连接会被板端关闭）
+python3 tools/host_trigger.py stop                 # 回彩条
+```
+
+`host_trigger.py start` 的输出应该是：
+```
+  >>> HELLO 1    <<< ACK HELLO 1             0.8 ms
+  >>> START      <<< ACK START 1             0.9 ms
+  <<< EVT     EVT FIRST                      ← 第一帧真正上屏
+```
+
+> 断开连接**不会**停止播放（协议规则 2）；只有 `STOP` / `SIGTERM` 才回彩条（规则 3）。
+
 ## 3. 拍摄建议
 
 | 项 | 建议 |
