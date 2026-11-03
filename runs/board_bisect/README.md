@@ -24,7 +24,7 @@ $$\Rightarrow\ \text{所以"只换 } \texttt{system.dtb}\text{"对内核实际�
 | # | BOOT.BIN | image.ub | system.dtb | 目的 | 结果 |
 |---|---|---|---|---|---|
 | 0 | 旧 | 旧 | 旧 | 基线（已验：能起、100M、ping 通） | ✅ 通过 |
-| **A** | 旧 | **新** | 旧 | 元凶是否在 `image.ub`（内核+DT） | **进行中** |
+| **A** | 旧 | **新** | 旧 | 元凶是否在 `image.ub`（内核+DT） | ✅ **能起**（见下） |
 | B | **新** | 旧 | **新** | 元凶是否在新 `BOOT.BIN`（U-Boot 被重建） | 待测 |
 
 ### 测试 A 的三种可能结果与推论
@@ -39,3 +39,38 @@ $$\Rightarrow\ \text{所以"只换 } \texttt{system.dtb}\text{"对内核实际�
 - 卡上三件：`BOOT.BIN c4c3d84e…`(旧) / `image.ub a2b902e7…`(**新**) / `system.dtb 8c6a72fc…`(旧)
 - 保留件未动：`boot.scr c63e98a3…` / `uEnv.txt 2db67850…` / `system.dtb.bak 8c6a72fc…`
 - 写入后 `sync` + 回读 md5 逐个校验通过
+
+---
+
+## 测试 A 结果：**通过（能起）** —— 2026-11-03 17:43
+
+监视器原始采样（3 s 一次，只在状态变化时打印）：
+```
+[17:42:35] ping=0 link=down carrier=0      ← 断电/插卡
+[17:43:35] ping=0 link=1000M carrier=1     ← 上电，PHY 默认值
+[17:43:43] ping=0 link=100M  carrier=1     ← 8 秒后降到 100M ⇒ Linux 的 ENET 接管了
+[17:43:46] ping=1 link=100M                ← ✅ 完全启动
+```
+
+$$\Rightarrow\ 	ext{上电 } 	o 1000\ 	ext{M（PHY 默认）} 	o \mathbf{100\ M}（	ext{Linux 接管）} 	o 	ext{ping 通}$$
+$$\Rightarrow\ 	extbf{这是"Linux 真的跑起来了"的完整指纹} \Rightarrow 	ext{比单看"最终速率"更硬}$$
+$$\Rightarrow\ \Rightarrow\ 	extbf{新 } 	exttt{image.ub}（	ext{新内核 + 新 DT}）	extbf{是无害的}$$
+
+## 推论：元凶锁定在 `BOOT.BIN`（或 FAT 上的 `system.dtb`）
+
+| 组合 | BOOT.BIN | image.ub | system.dtb | 结果 |
+|---|---|---|---|---|
+| 全旧 | 旧 | 旧 | 旧 | ✅ 起 |
+| **A** | 旧 | **新** | 旧 | ✅ **起** |
+| 全新 | **新** | 新 | **新** | ❌ 挂死 |
+
+$$\Rightarrow\ 	ext{三者相减} \Rightarrow 	ext{差异只剩 } \{ 	exttt{BOOT.BIN}, \ \texttt{system.dtb} \}$$
+$$\Rightarrow\ 	ext{而 } 	exttt{system.dtb}\ 	ext{只被 } 	exttt{boot.scr}\ 	ext{fatload 到 } 0x100000\ 	ext{当 } 	exttt{fdtcontroladdr}\ 	ext{用（\ 供 bootargs）}$$
+$$\Rightarrow\ \Rightarrow\ 	extbf{最可能是新 } 	exttt{BOOT.BIN}\ 	ext{里的 U-Boot（本次被重建，含新 DT）}$$
+
+## ★ 重要工程结论（先于进一步二分）
+
+$$\Rightarrow\ 	ext{新内核 + 新 DT 已经在}	extbf{旧 } 	exttt{BOOT.BIN}\ 	ext{下跑起来了}$$
+$$\Rightarrow\ 	ext{而 USB 需要的 } 	exttt{dr\_mode}/	exttt{usb-phy}/	exttt{phy0}\ 	ext{在 } 	exttt{image.ub}\ 	ext{自带的 DTB 里} \Rightarrow 	extbf{Linux 侧已具备条件}$$
+$$\Rightarrow\ \Rightarrow\ 	extbf{不需要新 } 	exttt{BOOT.BIN}\ 	ext{就能测 USB} \Rightarrow 	ext{老 } 	exttt{BOOT.BIN}\ 	ext{继续用}$$
+$$\Rightarrow\ 	ext{除非后续要改 FSBL/U-Boot，否则}	extbf{根本不必重打 BOOT.BIN}$$
