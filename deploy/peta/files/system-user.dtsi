@@ -81,3 +81,39 @@
 		status = "okay";
 	};
 };
+
+/* ── ④ usb-nop-xceiv：满足 ci_hdrc_usb2 对 zynq compatible 的 usb-phy 强制要求 ──
+ *
+ * 依据：drivers/usb/chipidea/ci_hdrc_usb2.c:52-71 —— 节点 compatible 打分时
+ *   "xlnx,zynq-usb-2.20a"(index 0) 胜过 "chipidea,usb2"(index 1)，拿到 ci_zynq_pdata 后
+ *   无条件走 devm_usb_get_phy_by_phandle(dev, "usb-phy", 0)；属性缺失时
+ *   drivers/usb/phy/phy.c:605 返回 ERR_PTR(-ENODEV)，probe 直接 -ENODEV，
+ *   ci_hdrc 平台设备压根不注册（板上 /sys/bus/usb/devices 为空就是它）。
+ *
+ * 用 mainline Zynq 板卡的标准写法（zynq-zybo.dts:30-34、zynq-microzed.dts:28）：
+ * 空壳 usb-nop-xceiv 不访问 ULPI 寄存器，viewport 仍由 chipidea 的 ci_ulpi_init() 独占；
+ * 厂商那套 "ulpi-phy" 会自己 map 0xe0002000 的 viewport，有抢寄存器风险，不用。
+ *
+ * ⚠ 已知限制：nop-xceiv 不驱动 VBUS（厂商 ulpi-phy 才有 drv-vbus）。
+ *   若上板后端口设备不上电，改用 ulpi-phy + drv-vbus，并重新评估寄存器共用风险。
+ */
+/ {
+	usb_phy0: phy0 {
+		compatible = "usb-nop-xceiv";
+		#phy-cells = <0>;
+	};
+};
+
+/* ── ⑤ USB0：Host 模式（接 USB 摄像头 / 摄像头模拟的 USB 网卡）──────────────
+ *
+ * 硬件：AX7015B 的 USB0 经 USB3320C(ULPI PHY) 引出，后接 USB2514 四口 HUB。
+ * 现状：pcw.dtsi 里只有 phy_type="ulpi"、status="okay"，没有 dr_mode，
+ *       落在 otg 默认值，而内核没编 OTG → 端口按外设角色工作。
+ *
+ * 注意：dr_mode="host" 后该口不能再当 gadget 用（CONFIG_USB_GADGET_XILINX
+ *       仍保留在 .config 里，只是不再有角色可切）。
+ */
+&usb0 {
+	dr_mode = "host";
+	usb-phy = <&usb_phy0>;
+};

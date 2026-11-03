@@ -7187,3 +7187,51 @@ $$\quad\ \text{机理：} \mathtt{bin\_e1e2.v}\ \text{的 } \mathtt{issue\_en}=(
 $$\Rightarrow\ \textbf{"时序刀 7"（把比较换成寄存使能 } \mathtt{sw\_act\_q} + 9\ \text{位倒计数器）是}\textbf{正确的方向}，\text{估计 } \approx1.9\ \text{ns}$$
 $$\Rightarrow\ \text{但它}\textbf{不在 v42e 里}（\text{24/25 模块未变）\Rightarrow \text{尚未实现}$$
 $$\Rightarrow\ \Rightarrow\ \textbf{正确组合}：\mathtt{v39}\ \text{RTL} + \mathbf{\mathtt{PF\_AHEAD}\ \text{保持 }1} + \textbf{时序刀 7} \Rightarrow \text{目标 } 10\ \text{ns 下 } \mathtt{WNS}\ge0\ \text{且功能不变}$$
+
+### 70.112 ★★★★★★★ T-151 分桶：**系统是"PS+打包"受限，不是 PL 受限**（2026-11-03 11:4x）
+
+**分桶（run3 = 5.959 s，互不重叠，Σ 闭合 0.0%）**
+| 桶 | 秒 | 组成 |
+|---|---|---|
+| P1 循环前 | 0.667 | `_analyze_lazy` 0.547 + build_graph 0.084 |
+| prep | 1.044 | q8cache 0.502 / 段表+描述符 0.186 / cfg+金丝雀 0.117 / 槽 0.099 / 其余 0.140 |
+| **kick（E1E2 pack）** | **1.169** | 其中 **pack 1.118** |
+| 非卷积 | 1.994 | **convfp 1.246**(4 op) / interp 0.297 / sam 0.251 / add 0.083 / eca 0.078 / cat 0.037 |
+| epi | 0.240 | |
+| wait | 0.620 | 等 PL |
+| poll/loop | 0.224 | |
+$$\Rightarrow\ \text{overlap } 0.583\ \text{是视图（}\subset \text{prep+psop），}\textbf{不可相加}$$
+
+**★ 旧口径的三处错（这条改变整个归因）**
+$$\Rightarrow\ \textbf{① "PL } 2.229\ \text{s"里 } \mathbf{1.126\ \text{s}}\ \text{是 } \mathtt{E1E2}\ \text{打包}（\text{kick 里同步阻塞、conv 引擎空转）}$$
+$$\quad\ \Rightarrow\ \textbf{conv\_uni 真算只有 } \mathbf{1.103\ \text{s}}$$
+$$\Rightarrow\ \textbf{② 旧 "PS }3.4\text{"}\ \textbf{漏了 P1 的 }0.667$$
+$$\Rightarrow\ \textbf{③ overlap 混进三桶} \Rightarrow \text{这就是 §55 加不平的真因}$$
+$$\Rightarrow\ \Rightarrow\ \textbf{系统是"PS + 打包"受限；PL 真算只占 } 1.103/5.959 = \mathbf{18.5\%}$$
+$$\Rightarrow\ \Rightarrow\ \textbf{这进一步确认：融合与 16-lane 都不是主线，PS 侧才是}$$
+
+**top3 与上限**
+$$\Rightarrow\ \textbf{① pack 1.118 s → 上限 } -1.0$$
+$$\quad\ 227\ \text{层只搬 } \mathbf{19.1\ \text{MB}} = 16.9\ \text{MB/s} \Rightarrow \textbf{比 memcpy 慢 } 39\times$$
+$$\quad\ \mathbf{217/227}\ \text{层的 } \mathtt{n\_f32}=0 \Rightarrow \textbf{源与目标布局逐字节相同} = \textbf{空搬}$$
+$$\quad\ \text{pack:conv} = \mathbf{1.00}\ \text{纯串行};\ \text{下限 } \approx 0（\text{描述符已带源 pa，零拷贝或与 conv 重叠}）$$
+$$\Rightarrow\ \textbf{② convfp 1.246 s}：0.769\ \text{GFLOP 只跑到 } \mathbf{0.61\ \text{GFLOP/s}}，\text{下限 }0.38（2\ \text{GFLOP/s）\Rightarrow -0.85}$$
+$$\quad\ \text{现成 } \mathtt{BIN\_CONVPF\_C}=1\ \text{约 } -0.5，\textbf{但会改末位} \Rightarrow \text{冻结 sha1 变}$$
+$$\Rightarrow\ \textbf{③ } \mathtt{\_analyze\_lazy}\ \mathbf{0.547\ \text{s}}（\text{每次 run 重算、纯 Python 定点迭代）\to \text{下限 }0.02 \Rightarrow \mathbf{-0.52}，\textbf{零数值风险}$$
+$$\Rightarrow\ \text{别当杠杆的：q8cache 0.502（已贴内核 }175\ \text{MB/s，只 }-0.12）；\text{interp/sam/add/eca 已 }200\sim420\ \text{MB/s}$$
+
+**★ 每 op 固定开销才是最大的一笔**
+$$\Rightarrow\ \text{prep }4.60 + \text{pack }4.96 + \text{epi }1.06 = \mathbf{10.6\ \text{ms/op}} \times 227 = \mathbf{2.41\ \text{s}} = \mathbf{40\%}\ \text{墙钟}$$
+$$\Rightarrow\ 8\times8\ \text{层每层 }4.92\ \text{ms，conv 只 }0.67\ \text{ms}（14\%）;\ 16\times16\ \text{只 }20\%$$
+$$\Rightarrow\ \Rightarrow\ \textbf{"固定开销砍半"}\approx \mathbf{-1.2\ \text{s}}，\text{比任何大算子优化都值钱}$$
+
+**★ 首次 vs 稳态**
+$$\Rightarrow\ 7.872\to 6.096\to \mathbf{5.959}（-1.91\ \text{s}/-24.3\%）$$
+$$\quad\ \text{差在：interp }1.076\to0.297（\text{首次调用/页缓存）、}\mathtt{enable\_e1e2}\ 0.39（\text{仅一次）、q8cache }0.68\to0.50、\text{cfg }0.23\to0.12$$
+$$\Rightarrow\ \textbf{P0 进程级一次性} \approx \mathbf{25\ \text{s}}（\text{import }14.0 + \text{内核 .so }6.37 + \text{Overlay }2.74 + \text{arena }0.61 + \text{解释器 }1.02）$$
+$$\quad\ \Rightarrow\ \text{不在 }6\ \text{s 里，但}\textbf{每次重启付一次} \Rightarrow \textbf{部署必须常驻进程}$$
+
+**5 s 目标：可达，且不必碰 RTL**
+$$\Rightarrow\ \mathtt{\_analyze\_lazy}\ \text{缓存}（-0.52） + \mathtt{convfp}（-0.45） = -0.97 \Rightarrow \mathbf{4.99\ \text{s}}$$
+$$\Rightarrow\ \text{再接 pack（需 PS 主线）} \Rightarrow \mathbf{3.7\ \text{s}}$$
+$$\Rightarrow\ \text{它指出我给的"PS}\le2.7\text{"是}\textbf{错目标}（漏了 P1 0.667 与 pack 1.12）\Rightarrow \textbf{该盯墙钟}}$$

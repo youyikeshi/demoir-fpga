@@ -1,0 +1,183 @@
+[t151] 日志 = /home/xilinx/demoir/t151_out/t151a_140720.log
+[t151] 位流 = design_1_150v39.bit ；hw = 256² ；fclk 目标 = 150 ；slots = 24
+[t151] 运行点 = {"BIN_PACK": "e1e2", "BIN_LAZY_DEQ": "1", "BIN_LAZY_SLOTS": "24", "BIN_CAT_FUSION": "1", "BIN_BILINEAR_C": "1", "BIN_PRECOMP": "1", "Q8CACHE": "1", "BIN_F32DIRECT": "1", "BIN_CAT_ECA_FUSE": "1", "BIN_EPI_NOINV": "1", "BIN_PROFILE": "1", "BIN_LAZY_DEBUG": "1", "Q8CACHE_STATS": "1", "BIN_V50_FUSE": "", "BIN_VLANES": "", "BIN_SETTLE_MS": "", "NET_TPOLL": ""}
+[t151] meminfo = {"MemTotal": 1028264, "MemFree": 770396, "MemAvailable": 855156, "SwapTotal": 524284, "SwapFree": 524284, "CmaTotal": 262144, "CmaFree": 87240}
+[t151] 解释器启动 → 本模块 = 1.037 s（--epoch 口径）
+
+==============================================================================
+  P0：进程级一次性（不在 6.06 s 里，但部署每次都要付）
+==============================================================================
+  Overlay(design_1_150v39.bit) 下载 = 3.448 s
+  IP 清单：['bin_unit_0', 'conv_uni_0', 'ps7']
+  conv_uni_0  base=0x40040000 length=131072 （期望 0x40040000）✓
+  bin_unit_0  base=0x40060000 length=131072 （期望 0x40060000）✓
+  magic(0x314) = 0x00000000（v39 无 magic ⇒ 读回 0x0 按豁免 T-141）
+  0x310 = 0x00000000 ⇒ 空闲 ✓
+  第 131 条 idle 门 = ✓ ：0x310=0x00000000 ；bin_unit_0 raw=0x00000000 busy=False ；conv_uni_0 raw=0x00000000 busy=False
+
+==============================================================================
+  P0：fclk + 内核 .so 装载（q8 预热）+ arena + 引擎/权重 + NetPlan
+==============================================================================
+  fclk0 目标 150 → 读回 150 MHz（0.006 s）
+    内核 q8     load=0.259 s loaded=True
+    内核 c8deq  load=4.351 s loaded=True
+    内核 bpack  load=2.117 s loaded=True
+  **内核 .so 装载+自检合计 = 6.728 s**（= q8/c8deq/bpack 预热）
+  256² 形状：max_in 1179648 B / max_out 1572864 B / 227 个 conv / 395 个 op
+  op 种类计数 = {"unshuffle": 1, "convfp": 4, "conv": 227, "cat": 116, "add": 6, "interp": 26, "eca": 6, "sam": 6, "shuffle": 3}
+  arena 需求：24 槽 × (1179648 + 1572864 + 4096) + 64 KB = **66.22 MB**（CmaFree 前 24.3 MB）
+  arena 66.22 MB @0x30100000（0.514 s）
+
+==============================================================================
+  run1    tag=A1_first_new_engine     hw=256²  （全新 engine+net（= T-145 口径））
+==============================================================================
+  跑前 idle 门 = ✓ ：0x310=0x00000000 ；bin_unit_0 raw=0x00000000 busy=False ；conv_uni_0 raw=0x00000000 busy=False
+  engine 建 = 0.001 s ；load_weights = 0.082 s ；NetPlan+BiniNet = 0.145 s
+  输入 x0 sha1 = cfc75bc3f15d306b07787325fdc9ae715cfadd0a（冻结口径 cfc75bc3f15d306b07787325fdc9ae715cfadd0a）✓
+  **墙钟 7.746 s（perf_counter 口径 7.746）**  ⇒ 三 sha1 **全中** ✓
+     9b1940c8955b / f86a7035621b / 025757a83c39
+  跑后 idle 门 = ✓ ：0x310=0x00000000 ；bin_unit_0 raw=0x00000000 busy=False ；conv_uni_0 raw=0x00000000 busy=False
+  ---- 互不重叠桶（本次口径，单位 s）----
+    P1 循环前(每次 run) 1.1152 ｜ prep 1.581 ｜ psop 2.798 ｜ epi 0.247 ｜ wait 0.611
+    kick 1.186（其中 E1E2 pack 1.135）｜ poll 0.029(396 次)
+    **Σ=7.567 vs 墙钟(pc) 7.746 ⇒ 残差 +0.179 (2.3%)**
+    prep 内拆：q8cache 0.714 ｜ job(描述符/量化) 0.403（desc 0.170 / f32 段量化 0.072） ｜ cfg+金丝雀 0.234 ｜ 槽 0.089
+    旧三桶（T-145 口径）：prologue 1.597 ｜ 非卷积 2.903 ｜ epilogue 0.247 ｜ wait 0.611 ｜ overlap 1.449
+    非卷积按类型：{"convfp": 1.279, "interp": 1.06, "sam": 0.256, "cat": 0.113, "eca": 0.094, "add": 0.081, "shuffle": 0.016, "unshuffle": 0.005}
+    cat 计：ops=116 惰性合并=110 回落=0 类={'i8': 60, 'mixed1': 42, 'mixed2': 8, 'blocked': 6} ｜ cat_s={'i8': 0.017, 'mixed1': 0.011, 'mixed2': 0.002, 'blocked': 0.001}
+    Q8CACHE：hit/miss = 89/50  stale 0  evict 0  skip 0  常驻 17.59 MB
+    LAZY_DEQ：direct_layers=227 deq_skipped=198 released=189 starved=9
+    E1E2 内部桶：{"views": 0.092, "desc": 0.17, "f32": 0.076, "q8": 0.072, "q8b": 15859712.0, "q8n": 13.0}
+    mmio 写 6187（跳过 5984）｜ cfg 命中 0 / 未中 227
+
+==============================================================================
+  run2    tag=A2_same_net_warm        hw=256²  （复用同一 net/engine）
+==============================================================================
+  跑前 idle 门 = ✓ ：0x310=0x00000000 ；bin_unit_0 raw=0x00000000 busy=False ；conv_uni_0 raw=0x00000000 busy=False
+  输入 x0 sha1 = cfc75bc3f15d306b07787325fdc9ae715cfadd0a（冻结口径 cfc75bc3f15d306b07787325fdc9ae715cfadd0a）✓
+  **墙钟 6.016 s（perf_counter 口径 6.016）**  ⇒ 三 sha1 **全中** ✓
+     9b1940c8955b / f86a7035621b / 025757a83c39
+  跑后 idle 门 = ✓ ：0x310=0x00000000 ；bin_unit_0 raw=0x00000000 busy=False ；conv_uni_0 raw=0x00000000 busy=False
+  ---- 互不重叠桶（本次口径，单位 s）----
+    P1 循环前(每次 run) 0.6373 ｜ prep 1.162 ｜ psop 1.986 ｜ epi 0.239 ｜ wait 0.616
+    kick 1.173（其中 E1E2 pack 1.123）｜ poll 0.029(404 次)
+    **Σ=5.843 vs 墙钟(pc) 6.016 ⇒ 残差 +0.173 (2.9%)**
+    prep 内拆：q8cache 0.503 ｜ job(描述符/量化) 0.256（desc 0.110 / f32 段量化 0.079） ｜ cfg+金丝雀 0.161 ｜ 槽 0.102
+    旧三桶（T-145 口径）：prologue 1.178 ｜ 非卷积 2.092 ｜ epilogue 0.239 ｜ wait 0.616 ｜ overlap 0.653
+    非卷积按类型：{"convfp": 1.231, "interp": 0.302, "sam": 0.259, "cat": 0.113, "add": 0.086, "eca": 0.08, "shuffle": 0.016, "unshuffle": 0.005}
+    cat 计：ops=116 惰性合并=110 回落=0 类={'i8': 60, 'mixed1': 42, 'mixed2': 8, 'blocked': 6} ｜ cat_s={'i8': 0.017, 'mixed1': 0.011, 'mixed2': 0.002, 'blocked': 0.001}
+    Q8CACHE：hit/miss = 89/50  stale 0  evict 0  skip 0  常驻 17.59 MB
+    LAZY_DEQ：direct_layers=227 deq_skipped=198 released=188 starved=10
+    E1E2 内部桶：{"views": 0.009, "desc": 0.11, "f32": 0.084, "q8": 0.079, "q8b": 17956864.0, "q8n": 14.0}
+    mmio 写 6176（跳过 5991）｜ cfg 命中 0 / 未中 227
+
+==============================================================================
+  run3    tag=A3_same_net_warm        hw=256²  （复用同一 net/engine）
+==============================================================================
+  跑前 idle 门 = ✓ ：0x310=0x00000000 ；bin_unit_0 raw=0x00000000 busy=False ；conv_uni_0 raw=0x00000000 busy=False
+  输入 x0 sha1 = cfc75bc3f15d306b07787325fdc9ae715cfadd0a（冻结口径 cfc75bc3f15d306b07787325fdc9ae715cfadd0a）✓
+  **墙钟 6.119 s（perf_counter 口径 6.119）**  ⇒ 三 sha1 **全中** ✓
+     9b1940c8955b / f86a7035621b / 025757a83c39
+  跑后 idle 门 = ✓ ：0x310=0x00000000 ；bin_unit_0 raw=0x00000000 busy=False ；conv_uni_0 raw=0x00000000 busy=False
+  ---- 互不重叠桶（本次口径，单位 s）----
+    P1 循环前(每次 run) 0.6401 ｜ prep 1.240 ｜ psop 2.003 ｜ epi 0.241 ｜ wait 0.616
+    kick 1.179（其中 E1E2 pack 1.129）｜ poll 0.029(397 次)
+    **Σ=5.948 vs 墙钟(pc) 6.119 ⇒ 残差 +0.172 (2.8%)**
+    prep 内拆：q8cache 0.499 ｜ job(描述符/量化) 0.286（desc 0.149 / f32 段量化 0.062） ｜ cfg+金丝雀 0.226 ｜ 槽 0.088
+    旧三桶（T-145 口径）：prologue 1.257 ｜ 非卷积 2.109 ｜ epilogue 0.241 ｜ wait 0.616 ｜ overlap 0.655
+    非卷积按类型：{"convfp": 1.245, "interp": 0.307, "sam": 0.259, "cat": 0.112, "add": 0.084, "eca": 0.08, "shuffle": 0.016, "unshuffle": 0.005}
+    cat 计：ops=116 惰性合并=110 回落=0 类={'i8': 60, 'mixed1': 42, 'mixed2': 8, 'blocked': 6} ｜ cat_s={'i8': 0.017, 'mixed1': 0.011, 'mixed2': 0.002, 'blocked': 0.001}
+    Q8CACHE：hit/miss = 89/50  stale 0  evict 0  skip 0  常驻 17.59 MB
+    LAZY_DEQ：direct_layers=227 deq_skipped=198 released=190 starved=8
+    E1E2 内部桶：{"views": 0.008, "desc": 0.149, "f32": 0.067, "q8": 0.062, "q8b": 14024704.0, "q8n": 11.0}
+    mmio 写 6182（跳过 5985）｜ cfg 命中 0 / 未中 227
+
+==============================================================================
+  run4    tag=B1_new_engine_again     hw=256²  （全新 engine+net（= T-145 口径））
+==============================================================================
+  跑前 idle 门 = ✓ ：0x310=0x00000000 ；bin_unit_0 raw=0x00000000 busy=False ；conv_uni_0 raw=0x00000000 busy=False
+  engine 建 = 0.001 s ；load_weights = 0.143 s ；NetPlan+BiniNet = 0.142 s
+  输入 x0 sha1 = cfc75bc3f15d306b07787325fdc9ae715cfadd0a（冻结口径 cfc75bc3f15d306b07787325fdc9ae715cfadd0a）✓
+  **墙钟 6.712 s（perf_counter 口径 6.712）**  ⇒ 三 sha1 **全中** ✓
+     9b1940c8955b / f86a7035621b / 025757a83c39
+  跑后 idle 门 = ✓ ：0x310=0x00000000 ；bin_unit_0 raw=0x00000000 busy=False ；conv_uni_0 raw=0x00000000 busy=False
+  ---- 互不重叠桶（本次口径，单位 s）----
+    P1 循环前(每次 run) 0.9736 ｜ prep 1.419 ｜ psop 2.071 ｜ epi 0.248 ｜ wait 0.632
+    kick 1.176（其中 E1E2 pack 1.125）｜ poll 0.029(399 次)
+    **Σ=6.549 vs 墙钟(pc) 6.712 ⇒ 残差 +0.163 (2.4%)**
+    prep 内拆：q8cache 0.657 ｜ job(描述符/量化) 0.291（desc 0.135 / f32 段量化 0.067） ｜ cfg+金丝雀 0.230 ｜ 槽 0.093
+    旧三桶（T-145 口径）：prologue 1.435 ｜ 非卷积 2.178 ｜ epilogue 0.248 ｜ wait 0.632 ｜ overlap 0.672
+    非卷积按类型：{"convfp": 1.273, "interp": 0.339, "sam": 0.257, "cat": 0.113, "eca": 0.089, "add": 0.086, "shuffle": 0.016, "unshuffle": 0.005}
+    cat 计：ops=116 惰性合并=110 回落=0 类={'i8': 60, 'mixed1': 42, 'mixed2': 8, 'blocked': 6} ｜ cat_s={'i8': 0.017, 'mixed1': 0.011, 'mixed2': 0.002, 'blocked': 0.001}
+    Q8CACHE：hit/miss = 89/50  stale 0  evict 0  skip 0  常驻 17.59 MB
+    LAZY_DEQ：direct_layers=227 deq_skipped=198 released=190 starved=8
+    E1E2 内部桶：{"views": 0.023, "desc": 0.135, "f32": 0.072, "q8": 0.067, "q8b": 15990784.0, "q8n": 10.0}
+    mmio 写 6202（跳过 5969）｜ cfg 命中 0 / 未中 227
+
+==============================================================================
+  汇总 1：逐跑互不重叠分桶 + 校验
+==============================================================================
+  run1  A1_first_new_engine    墙钟 7.746 = P1 1.115 + prep 1.581 + psop 2.798 + epi 0.247 + wait 0.611 + kick 1.186 + poll 0.029 + 其它 +0.179（2.3%）
+        PL(含pack) 3.106 ｜ PS(旧口径) 4.748 ｜ overlap 1.449 ｜ 命中 True
+  run2  A2_same_net_warm       墙钟 6.016 = P1 0.637 + prep 1.162 + psop 1.986 + epi 0.239 + wait 0.616 + kick 1.173 + poll 0.029 + 其它 +0.172（2.9%）
+        PL(含pack) 2.296 ｜ PS(旧口径) 3.509 ｜ overlap 0.653 ｜ 命中 True
+  run3  A3_same_net_warm       墙钟 6.119 = P1 0.640 + prep 1.240 + psop 2.003 + epi 0.241 + wait 0.616 + kick 1.179 + poll 0.029 + 其它 +0.172（2.8%）
+        PL(含pack) 2.300 ｜ PS(旧口径) 3.607 ｜ overlap 0.655 ｜ 命中 True
+  run4  B1_new_engine_again    墙钟 6.712 = P1 0.974 + prep 1.419 + psop 2.071 + epi 0.248 + wait 0.632 + kick 1.176 + poll 0.029 + 其它 +0.163（2.4%）
+        PL(含pack) 2.325 ｜ PS(旧口径) 3.862 ｜ overlap 0.672 ｜ 命中 True
+
+==============================================================================
+  汇总 2：★ 分桶表（取最接近稳态的一跑：run2 A2_same_net_warm，墙钟 6.016 s）
+==============================================================================
+  P1 循环前固定开销（build_graph+分析+后端+qcache）                       0.637   10.6%
+  prologue：prepare（不含等 PL）                                   1.162   19.3%
+     ├ 量化缓存 q8_segments（f32 叶子→int8）                         0.503    8.4%
+     ├ 段表/描述符 prepare_segments                               0.256    4.3%
+     │    ├ desc（描述符构建）                                      0.110    1.8%
+     │    └ q8（f32 段量化 + C8 落位）                              0.079    1.3%
+     ├ cfg 写配置页 + 金丝雀                                        0.161    2.7%
+     ├ 槽获取                                                   0.102    1.7%
+     └ 其余（分类/惰性物化/pack_input/push_input）                     0.141    2.3%
+  kick（发 start，含 E1E2 pack）                                  1.173   19.5%
+     └ pack/量化：E1E2 run_prepared                             1.123   18.7%
+  非卷积算子（168 op，按类型见汇总 3）                                     1.986   33.0%
+  epilogue（反量化/钉槽/read_out）                                  0.239    4.0%
+  wait-for-PL（prepare 里等 + 循环阻塞）                             0.616   10.2%
+  poll（循环顶 MMIO 轮询，旧桶没有）                                     0.029    0.5%
+  其它（循环 Python 开销 = 残差）                                      0.172    2.9%
+  Σ（只加顶层项）                                                   6.016  100.0%  （误差 -0.000 s / -0.0%）
+  ※ overlap 0.653 s 是**视图**（⊂ prep+psop，和 PL 并行做掉的部分），不参与上面求和
+  ※ PL 口径 2.296 s = 每层 kick→看见 done 的和（含 pack 1.123）；它与 wait 有交叠，不是独立桶
+
+==============================================================================
+  汇总 3：非卷积算子按类型（时间/次数/单次）
+==============================================================================
+  convfp       1.229 s   61.9% ｜ n=  4 ｜ 单次均 307.28 ms ｜ 最大 536.78 ms ｜ in+out 10.5 MB ⇒    8.5 MB/s  (decoder.decoder_1.conv)
+  interp       0.289 s   14.5% ｜ n= 26 ｜ 单次均  11.10 ms ｜ 最大  34.75 ms ｜ in+out 57.5 MB ⇒  199.1 MB/s  (coder_1.sam_blocks.0:b2_up)
+  sam          0.253 s   12.7% ｜ n=  6 ｜ 单次均  42.12 ms ｜ 最大  86.35 ms ｜ in+out 55.1 MB ⇒  217.9 MB/s  (.sam_blocks.0:weighted_sum)
+  add          0.082 s    4.1% ｜ n=  6 ｜ 单次均  13.67 ms ｜ 最大  33.38 ms ｜ in+out 33.0 MB ⇒  402.9 MB/s  (der.decoder_1.rdb:residual)
+  eca          0.078 s    3.9% ｜ n=  6 ｜ 单次均  13.01 ms ｜ 最大  22.56 ms ｜ in+out 33.0 MB ⇒  423.2 MB/s  (oder_1.sam_blocks.0.fusion)
+  cat          0.037 s    1.8% ｜ n=116 ｜ 单次均   0.32 ms ｜ 最大   0.41 ms ｜ in+out 1003.6 MB ⇒ 27465.8 MB/s  (b0.ghost_layers.4:cat_prev)
+  shuffle      0.014 s    0.7% ｜ n=  3 ｜ 单次均   4.77 ms ｜ 最大  10.76 ms ｜ in+out 2.1 MB ⇒  144.2 MB/s  (decoder_1:pixel_shuffle(2))
+  unshuffle    0.005 s    0.2% ｜ n=  1 ｜ 单次均   4.76 ms ｜ 最大   4.76 ms ｜ in+out 1.6 MB ⇒  330.4 MB/s  (input:pixel_unshuffle(2))
+  合计 1.986 s（168 个 PS op）
+
+==============================================================================
+  汇总 4：conv prologue 按层（227 层，单层 prepare 时间）
+==============================================================================
+  单层 prepare：min 1.10 / 中位 2.80 / p90 9.60 / max 114.40 ms ｜ 合计 1.162 s
+  最慢 10 层：
+     114.39 ms  encoder.encoder_1.rdb.conv_layers.0.conv cin= 48 cout= 64 128x128
+      58.59 ms  oder.encoder_1.sam_blocks.0.b0.conv.conv cin=368 cout= 48 128x128
+      55.10 ms  oder.decoder_1.sam_blocks.0.b0.conv.conv cin=544 cout= 64 128x128
+      36.08 ms  decoder.preconv_1.conv                   cin=112 cout= 64 128x128
+      26.26 ms  0.b4.ghost_layers.3.cheap_operation.conv cin= 48 cout= 48 32x32
+      23.25 ms  ks.0.b0.ghost_layers.4.primary_conv.conv cin=304 cout= 32 128x128
+      23.21 ms  0.b0.ghost_layers.4.cheap_operation.conv cin= 48 cout= 48 128x128
+      21.77 ms  decoder.decoder_1.rdb.conv_layers.2.conv cin=256 cout= 96 128x128
+      21.17 ms  decoder.decoder_1.rdb.conv_layers.0.conv cin= 64 cout= 96 128x128
+      20.50 ms  ks.0.b0.ghost_layers.0.primary_conv.conv cin= 64 cout= 48 128x128
+
+==============================================================================
+  汇总 5：每层 PL elapsed / pack / prep（前 12 慢 + 合计）
+==============================================================================

@@ -1,0 +1,56 @@
+[t151] 日志 = /home/xilinx/demoir/t151_out/t151a_140614.log
+[t151] 位流 = design_1_150v39.bit ；hw = 256² ；fclk 目标 = 150 ；slots = 24
+[t151] 运行点 = {"BIN_PACK": "e1e2", "BIN_LAZY_DEQ": "1", "BIN_LAZY_SLOTS": "24", "BIN_CAT_FUSION": "1", "BIN_BILINEAR_C": "1", "BIN_PRECOMP": "1", "Q8CACHE": "1", "BIN_F32DIRECT": "1", "BIN_CAT_ECA_FUSE": "1", "BIN_EPI_NOINV": "1", "BIN_PROFILE": "1", "BIN_LAZY_DEBUG": "1", "Q8CACHE_STATS": "1", "BIN_V50_FUSE": "", "BIN_VLANES": "", "BIN_SETTLE_MS": "", "NET_TPOLL": ""}
+[t151] meminfo = {"MemTotal": 1028264, "MemFree": 771660, "MemAvailable": 856152, "SwapTotal": 524284, "SwapFree": 524284, "CmaTotal": 262144, "CmaFree": 87108}
+[t151] 解释器启动 → 本模块 = 1.035 s（--epoch 口径）
+
+==============================================================================
+  P0：进程级一次性（不在 6.06 s 里，但部署每次都要付）
+==============================================================================
+  Overlay(design_1_150v39.bit) 下载 = 2.610 s
+  IP 清单：['bin_unit_0', 'conv_uni_0', 'ps7']
+  conv_uni_0  base=0x40040000 length=131072 （期望 0x40040000）✓
+  bin_unit_0  base=0x40060000 length=131072 （期望 0x40060000）✓
+  magic(0x314) = 0x00000000（v39 无 magic ⇒ 读回 0x0 按豁免 T-141）
+  0x310 = 0x00000000 ⇒ 空闲 ✓
+  第 131 条 idle 门 = ✓ ：0x310=0x00000000 ；bin_unit_0 raw=0x00000000 busy=False ；conv_uni_0 raw=0x00000000 busy=False
+
+==============================================================================
+  P0：fclk + 内核 .so 装载（q8 预热）+ arena + 引擎/权重 + NetPlan
+==============================================================================
+  fclk0 目标 150 → 读回 150 MHz（0.005 s）
+    内核 q8     load=0.258 s loaded=True
+    内核 c8deq  load=4.357 s loaded=True
+    内核 bpack  load=2.453 s loaded=True
+  **内核 .so 装载+自检合计 = 7.068 s**（= q8/c8deq/bpack 预热）
+  256² 形状：max_in 1179648 B / max_out 1572864 B / 227 个 conv / 395 个 op
+  op 种类计数 = {"unshuffle": 1, "convfp": 4, "conv": 227, "cat": 116, "add": 6, "interp": 26, "eca": 6, "sam": 6, "shuffle": 3}
+  arena 需求：24 槽 × (1179648 + 1572864 + 4096) + 64 KB = **66.22 MB**（CmaFree 前 23.5 MB）
+  arena 66.22 MB @0x30100000（0.521 s）
+
+==============================================================================
+  run1    tag=A1_first_new_engine     hw=256²  （全新 engine+net（= T-145 口径））
+==============================================================================
+  跑前 idle 门 = ✓ ：0x310=0x00000000 ；bin_unit_0 raw=0x00000000 busy=False ；conv_uni_0 raw=0x00000000 busy=False
+  engine 建 = 0.001 s ；load_weights = 0.080 s ；NetPlan+BiniNet = 0.144 s
+  输入 x0 sha1 = cfc75bc3f15d306b07787325fdc9ae715cfadd0a（冻结口径 cfc75bc3f15d306b07787325fdc9ae715cfadd0a）✓
+  **墙钟 7.794 s（perf_counter 口径 7.794）**  ⇒ 三 sha1 **全中** ✓
+     9b1940c8955b / f86a7035621b / 025757a83c39
+  跑后 idle 门 = ✓ ：0x310=0x00000000 ；bin_unit_0 raw=0x00000000 busy=False ；conv_uni_0 raw=0x00000000 busy=False
+  ---- 互不重叠桶（本次口径，单位 s）----
+    P1 循环前(每次 run) 1.0684 ｜ prep 1.585 ｜ psop 2.775 ｜ epi 0.251 ｜ wait 0.724
+    kick 1.187（其中 E1E2 pack 1.135）｜ poll 0.029(397 次)
+    **Σ=7.619 vs 墙钟(pc) 7.794 ⇒ 残差 +0.175 (2.2%)**
+    prep 内拆：q8cache 0.704 ｜ job(描述符/量化) 0.415（desc 0.169 / f32 段量化 0.072） ｜ cfg+金丝雀 0.235 ｜ 槽 0.089
+    旧三桶（T-145 口径）：prologue 1.601 ｜ 非卷积 2.882 ｜ epilogue 0.251 ｜ wait 0.724 ｜ overlap 1.439
+    非卷积按类型：{"convfp": 1.265, "interp": 1.05, "sam": 0.254, "cat": 0.114, "eca": 0.094, "add": 0.084, "shuffle": 0.016, "unshuffle": 0.005}
+    cat 计：ops=116 惰性合并=110 回落=0 类={'i8': 60, 'mixed1': 42, 'mixed2': 8, 'blocked': 6} ｜ cat_s={'i8': 0.017, 'mixed1': 0.011, 'mixed2': 0.002, 'blocked': 0.001}
+    Q8CACHE：hit/miss = 89/50  stale 0  evict 0  skip 0  常驻 17.59 MB
+    LAZY_DEQ：direct_layers=227 deq_skipped=198 released=189 starved=9
+    E1E2 内部桶：{"views": 0.104, "desc": 0.169, "f32": 0.077, "q8": 0.072, "q8b": 15859712.0, "q8n": 13.0}
+    mmio 写 6190（跳过 5981）｜ cfg 命中 0 / 未中 227
+✗✗ run1(A1_first_new_engine) 异常：ValueError('not enough values to unpack (expected 7, got 6)')
+
+==============================================================================
+  汇总 1：逐跑互不重叠分桶 + 校验
+==============================================================================

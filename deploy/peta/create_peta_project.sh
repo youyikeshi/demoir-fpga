@@ -158,6 +158,34 @@ IMAGE_BOOT_FILES:zynq = "BOOT.BIN image.ub boot.scr system.dtb"
 EOF
 echo "  ✅ 配方 / 补丁 / bsp.conf 就位"
 
+# ── [5b/6] 内核配置片段（USB Host + CMA 512MB）────────────────────────────
+# 依据：2026-11-03 的 USB Host 变更。cfg 片段必须同时出现在 SRC_URI
+# （kernel-yocto.bbclass:53 find_sccs 收 .cfg）和 KERNEL_FEATURES（交给 scc 合并），
+# 两处缺一都不会生效。
+echo
+echo "══ [5b/6] 内核 cfg 片段 ══"
+KCFGDIR="$PRJ_DIR/project-spec/meta-user/recipes-kernel/linux/linux-xlnx"
+KBB="$PRJ_DIR/project-spec/meta-user/recipes-kernel/linux/linux-xlnx_%.bbappend"
+mkdir -p "$KCFGDIR"
+cp -v "$HERE/files/usb-host-and-cma.cfg" "$KCFGDIR/"
+# KERNEL_FEATURES 引用的 .cfg 必须在 WORKDIR 里找得到，缺 bsp.cfg 会 bbfatal
+# （"Feature 'bsp.cfg' not found"），没有就先建空文件兜底
+[ -f "$KCFGDIR/bsp.cfg" ] || : > "$KCFGDIR/bsp.cfg"
+if [ ! -f "$KBB" ]; then
+    cat > "$KBB" <<'EOF'
+FILESEXTRAPATHS:prepend := "${THISDIR}/${PN}:"
+
+SRC_URI:append = " file://bsp.cfg file://usb-host-and-cma.cfg"
+KERNEL_FEATURES:append = " bsp.cfg usb-host-and-cma.cfg"
+EOF
+elif ! grep -q "usb-host-and-cma.cfg" "$KBB"; then
+    cat >> "$KBB" <<'EOF'
+SRC_URI:append = " file://usb-host-and-cma.cfg"
+KERNEL_FEATURES:append = " usb-host-and-cma.cfg"
+EOF
+fi
+echo "  ✅ 内核片段已装入 $KBB"
+
 # ── [6/6] 让配置生效 ───────────────────────────────────────────────────────
 echo
 echo "══ [6/6] petalinux-config --silentconfig ══"

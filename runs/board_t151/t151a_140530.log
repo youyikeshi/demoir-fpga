@@ -1,0 +1,16 @@
+[t151] 日志 = /home/xilinx/demoir/t151_out/t151a_140530.log
+[t151] 位流 = design_1_150v39.bit ；hw = 256² ；fclk 目标 = 150 ；slots = 24
+[t151] 运行点 = {"BIN_PACK": "e1e2", "BIN_LAZY_DEQ": "1", "BIN_LAZY_SLOTS": "24", "BIN_CAT_FUSION": "1", "BIN_BILINEAR_C": "1", "BIN_PRECOMP": "1", "Q8CACHE": "1", "BIN_F32DIRECT": "1", "BIN_CAT_ECA_FUSE": "1", "BIN_EPI_NOINV": "1", "BIN_PROFILE": "1", "BIN_LAZY_DEBUG": "1", "Q8CACHE_STATS": "1", "BIN_V50_FUSE": "", "BIN_VLANES": "", "BIN_SETTLE_MS": "", "NET_TPOLL": ""}
+[t151] meminfo = {"MemTotal": 1028264, "MemFree": 774032, "MemAvailable": 858540, "SwapTotal": 524284, "SwapFree": 524284, "CmaTotal": 262144, "CmaFree": 87232}
+[t151] 解释器启动 → 本模块 = 1.017 s（--epoch 口径）
+
+==============================================================================
+  P0：进程级一次性（不在 6.06 s 里，但部署每次都要付）
+==============================================================================
+  Overlay(design_1_150v39.bit) 下载 = 2.647 s
+  IP 清单：['bin_unit_0', 'conv_uni_0', 'ps7']
+  conv_uni_0  base=0x40040000 length=131072 （期望 0x40040000）✓
+  bin_unit_0  base=0x40060000 length=131072 （期望 0x40060000）✓
+  magic(0x314) = 0x00000000（v39 无 magic ⇒ 读回 0x0 按豁免 T-141）
+  0x310 = 0x00000000 ⇒ 空闲 ✓
+✗✗ load 异常：TypeError("'float' object cannot be interpreted as an integer")
