@@ -3,15 +3,15 @@
 
 覆盖（对应 ``docs/camera/07_端到端流水线_协议与模块图.md`` §6 的 A 层判据）：
 
-  [1] 协议回环       假相机正常回图 ⇒ 客户端拿到 (256,256,3)uint8 且 md5 == 发送端
-  [2] 坏包注入 5 种   md5 错 / 少 1 字节 / JSON 截断 / busy / 中途断开 ⇒ **必须被拒**
-  [3] 重试语义        md5 错时**同 seq** 重发一次；第二次仍错 ⇒ 抛；断言"正好请求 2 次"
-  [4] 端到端合成      假相机发已知图 ⇒ compose() 输出与直接调 compose() 逐字节相同
-  [5] 换帧原子性      FRAME_ID 只在整帧写完后递增（假 reg_io 记写序列）
-  [6] --fake 全流程   Pipeline.run_once() 跑通并返回各阶段计时
+  [1]  协议回环      假相机正常回图 ⇒ 客户端拿到 (256,256,3)uint8 且 md5 == 发送端
+  [1b] 真 TCP 回环   覆盖 SocketTransport（默认路径）+ TCP 分段短读
+  [2]  坏包注入 5 种 md5 错 / 少 1 字节 / JSON 截断 / busy / 中途断开 ⇒ **必须被拒**
+  [3]  重试语义      md5 错时**同 seq** 重发一次；第二次仍错 ⇒ 抛；"正好请求 2 次"
+  [4]  端到端合成    假相机发已知图 ⇒ 写进 DDR 的整帧与直接调 compose() **逐字节相同**
+  [5]  换帧原子性    FRAME_ID 只在整帧写完后递增（假 reg_io 在写 FRAME_ID 那一刻拍快照）
+  [6]  --fake 全流程 Pipeline.run_once() 跑通、返回各阶段计时、CLI rc=0、运行点 10 条
 
-**当前已交付 [1][2][3]（+ [1b] 真实 TCP 回环）**；[4][5][6] 随 ``demo_pipeline.py``
-一起补上（本期没写就绝不在这里声称已覆盖）。**跑通打印 PASS，返回 0。**
+**跑通打印 PASS，返回 0。**
 
 不 import pynq、不联网、不需要相机：假相机是**内存 socket**（不起线程），
 所以本文件在主机与板端行为完全一致。
@@ -52,6 +52,10 @@ from cam_client import (                              # noqa: E402
     CamRemoteTimeout, CamShortPayload, CamTimeout, DEFAULT_HOST, DEFAULT_PORT,
     SocketTransport,
 )
+from display_layout import compose                     # noqa: E402
+import display_demo as dd                             # noqa: E402
+import hdmi_out as ho                                 # noqa: E402
+import demo_pipeline as dp                            # noqa: E402
 
 FAILS: list[str] = []
 CHECKS = [0]
@@ -559,9 +563,217 @@ def test_retry() -> None:
 
 
 # ---------------------------------------------------------------------------
+# [4][5][6] 端到端（用 demo_pipeline 的可注入件，不需要相机/板子）
+# ---------------------------------------------------------------------------
+BLOCK = ho.align64(ho.MODES[dd.DEFAULT_MODE].W * 3 * ho.MODES[dd.DEFAULT_MODE].H)
+
+
+def _expected_proc(img: np.ndarray) -> np.ndarray:
+    """**独立重算** v57 口径的 proc（不走 demo_pipeline.to_uint8，避免自证）：
+    x = img/255 → y = x/2+0.25 → clip(0,1) → HWC → ×255 → round → uint8。"""
+    x = np.asarray(img, np.float32).transpose(2, 0, 1) / np.float32(255.0)
+    y = np.clip(x * np.float32(0.5) + np.float32(0.25), 0.0, 1.0)
+    return (np.clip(y, 0, 1).transpose(1, 2, 0) * np.float32(255.0)).round().astype(np.uint8)
+
+
+def _fake_disp():
+    """假 allocator + 假 reg_io 的 DisplayPipeline（走真代码路径，内存可读）。"""
+    alloc = dp.LocalAllocator()
+    io = dp.LocalRegIo()
+    pipe = dd.DisplayPipeline(reg_io=io, mode=dd.DEFAULT_MODE, allocator=alloc)
+    return pipe, alloc, io
+
+
+def _block_bytes(alloc) -> bytes:
+    return bytes(alloc.blocks[0])
+
+
+def test_compose_e2e() -> None:
+    print("\n[4] 端到端合成：假相机 → 假引擎 → compose → DDR 块")
+    img = known_image(256)
+    disp, alloc, _io = _fake_disp()
+    pipe = dp.Pipeline(net=dp.FakeV57Net(), cam=dp.FakeCam(img), disp=disp, fake=True)
+    res = pipe.run_once(256, 256)
+
+    want_proc = _expected_proc(img)
+    want_frame = compose(img, want_proc, ho.MODES[dd.DEFAULT_MODE].W,
+                         ho.MODES[dd.DEFAULT_MODE].H)
+    got = _block_bytes(alloc)[(res["frame_id"] & 1) * BLOCK:(res["frame_id"] & 1) * BLOCK + BLOCK]
+
+    check(md5_of(got) == md5_of(want_frame.tobytes()),
+          "写进 DDR 的整帧必须与『直接用同一张图调 compose()』逐字节相同")
+    check(got == want_frame.tobytes(), "整帧字节级相等（md5 之外再逐字节比一次）")
+    check(res["md5_frame"] == md5_of(want_frame.tobytes()),
+          "run_once 返回的 md5_frame 必须与 DDR 里那帧一致")
+    check(res["md5_proc"] == md5_of(want_proc.tobytes()),
+          "proc（引擎输出转成的图）必须与独立重算的结果一致")
+    check(len(got) == BLOCK == 2764800, f"单块必须是 2,764,800 B，实测 {len(got)}")
+    # 布局抽查：左上来自 orig、右侧第一列来自 proc、上下黑边为 0
+    f = np.frombuffer(got, np.uint8).reshape(ho.MODES[dd.DEFAULT_MODE].H,
+                                             ho.MODES[dd.DEFAULT_MODE].W, 3)
+    check(np.array_equal(f[0, 0], img[0, 0]), "左上角像素应来自 orig[0,0]")
+    check(np.array_equal(f[40, 640], want_proc[0, 0]), "右半首列应来自 proc[0,0]")
+    check(np.array_equal(f[0], np.zeros((1280, 3), np.uint8)), "第 0 行必须全黑")
+    check(np.array_equal(f[-1], np.zeros((1280, 3), np.uint8)), "最后一行必须全黑")
+    print(f"  ✓ 端到端：帧 md5={res['md5_frame'][:12]}…，与 compose() 独立计算逐字节相同；"
+          f"布局/黑边 4 条抽查全对")
+    pipe.close()
+
+
+class SnapRegIo(dp.LocalRegIo):
+    """在**写 FRAME_ID 的那一拍**给 DDR 块拍快照 —— 这是"整帧写完才换帧"的直接证据。"""
+
+    def __init__(self, alloc):
+        super().__init__()
+        self.alloc, self.snaps = alloc, []
+
+    def write32(self, off: int, val: int) -> None:
+        if (int(off) & ~3) == ho.REG["FRAME_ID"]:
+            slot = int(val) & 1
+            self.snaps.append((int(val), bytes(self.alloc.blocks[0][slot * BLOCK:(slot + 1) * BLOCK])))
+        super().write32(off, val)
+
+
+def test_frame_atomicity() -> None:
+    print("\n[5] 换帧原子性：FRAME_ID 只在整帧落地后递增（假 reg_io 记写序列）")
+    img1 = known_image(256)
+    img2 = known_image(256)[::-1].copy()          # 第二帧换成**不同**的图 ⇒ 快照能分辨
+    alloc = dp.LocalAllocator()
+    io = SnapRegIo(alloc)
+    disp = dd.DisplayPipeline(reg_io=io, mode=dd.DEFAULT_MODE, allocator=alloc).setup()
+    pipe = dp.Pipeline(net=dp.FakeV57Net(), cam=dp.FakeCam(img1), disp=disp, fake=True)
+
+    want1 = compose(img1, _expected_proc(img1), ho.MODES[dd.DEFAULT_MODE].W,
+                    ho.MODES[dd.DEFAULT_MODE].H).tobytes()
+    want2 = compose(img2, _expected_proc(img2), ho.MODES[dd.DEFAULT_MODE].W,
+                    ho.MODES[dd.DEFAULT_MODE].H).tobytes()
+    check(want1 != want2, "两轮用的图必须不同，否则原子性判据是空转的")
+    res1 = pipe.run_once(256, 256)
+    pipe._cam.image = img2                        # 换一张图再跑
+    res2 = pipe.run_once(256, 256)
+
+    check(len(io.snaps) == 2, f"两次运行应各写一次 FRAME_ID，实测 {len(io.snaps)} 次")
+    check([v for v, _ in io.snaps] == [res1["frame_id"], res2["frame_id"]],
+          f"写进去的 FRAME_ID 应与 run_once 返回值一致：{io.snaps and [v for v, _ in io.snaps]}")
+    check(io.snaps[0][1] == want1,
+          "第 1 次写 FRAME_ID 时，块 1 里必须已是第 1 帧的**完整整帧**（不许半张）")
+    check(io.snaps[1][1] == want2,
+          "第 2 次写 FRAME_ID 时，块 0 里必须已是第 2 帧的**完整整帧**（换图后也要对）")
+    check([res1["frame_id"] & 1, res2["frame_id"] & 1] == [1, 0],
+          f"块序必须 1,0 交替（首帧防撕裂），实测 {[res1['frame_id'] & 1, res2['frame_id'] & 1]}")
+    check(res2["frame_id"] == res1["frame_id"] + 1, "帧号必须严格 +1")
+    fid_writes = [v for (o, v) in io.writes if o == ho.REG["FRAME_ID"]]
+    check(fid_writes == [res1["frame_id"], res2["frame_id"]],
+          f"FRAME_ID 写入序列异常：{fid_writes}")
+    check(int(io.read32(ho.REG["FRAME_ID_LATCHED"])) == res2["frame_id"],
+          "最后一次换帧必须已被 vsync 采纳（FRAME_ID_LATCHED）")
+    print(f"  ✓ 原子性：FRAME_ID {fid_writes} 与块序 "
+          f"{[res1['frame_id'] & 1, res2['frame_id'] & 1]} 正确，且每次翻帧时整帧已在 DDR")
+    pipe.close()
+
+
+def test_fake_pipeline() -> None:
+    print("\n[6] --fake 全流程（Pipeline.run_once + CLI + 运行点）")
+    lines = []
+    pipe = dp.Pipeline(fake=True, log=lines.append)
+    res = pipe.run_once(256, 256)
+    for k in ("t_capture_s", "t_compute_s", "t_compose_s", "t_display_s", "t_total_s"):
+        check(k in res and res[k] >= 0, f"run_once 必须返回 {k} 且非负，得到 {res.get(k)}")
+    stages = ["t_capture_s", "t_compute_s", "t_compose_s", "t_display_s"]
+    check(res["t_total_s"] >= sum(res[k] for k in stages) * 0.99,
+          "total 必须覆盖四个阶段之和（不许把阶段计时漏算成 total）")
+    check(isinstance(res["frame_id"], int) and res["frame_id"] == 1, "首轮 frame_id 应为 1")
+    check(res["sha1_gate"] == "skipped(fake)", f"fake 模式 sha1 门禁应显式声明跳过，得到 "
+                                               f"{res['sha1_gate']!r}")
+
+    log = "\n".join(lines)
+    check("stage capture=" in log and "compute=" in log and "compose=" in log
+          and "display=" in log, "必须有一行结构化阶段日志（采集/计算/构图/显示齐全）")
+    check("runpoint" in log and "switches[10]" in log, "日志行必须带实际生效的运行点（10 条开关）")
+    check("q8cache=1" in log, "★ Q8CACHE 必须是 1（v57 档；写成 0 是 v39 档）")
+
+    # 运行点常量本身：10 条、Q8CACHE=1、已写进 os.environ
+    check(len(dp.RUNPOINT) == 10, f"RUNPOINT 必须正好 10 条，得到 {len(dp.RUNPOINT)}")
+    check(dp.RUNPOINT.get("Q8CACHE") == "1", "RUNPOINT['Q8CACHE'] 必须是 '1'")
+    check(all(os.environ.get(k) == v for k, v in dp.RUNPOINT.items()),
+          "apply_runpoint() 必须已把 10 条写进 os.environ（供 bin_net 导入时读取）")
+
+    # 真引擎路径的 sha1 门禁（不需要硬件：直接喂结果给它）
+    p2 = dp.Pipeline(fake=False)
+    check(p2._gate_sha1(dp.FROZEN_SHA1[(256, 256)], 256, 256) == "ok",
+          "sha1 命中冻结基线时应返回 ok")
+    try:
+        p2._gate_sha1(("deadbeef0000", "f86a7035", "025757a8"), 256, 256)
+    except dp.Sha1Mismatch as ex:
+        check("out1" in str(ex), f"sha1 不符必须抛 Sha1Mismatch 并点名 out1，得到 {ex}")
+    else:
+        check(False, "sha1 不符必须抛 Sha1Mismatch（绝不许显示算错的图）")
+    try:
+        p2._gate_sha1(("x", "y", "z"), 512, 512)
+    except dp.PipelineError:
+        check(True, "无冻结基线的尺寸必须拒绝跑（不许无门禁放行）")
+    else:
+        check(False, "512×512 没有冻结基线，应拒绝")
+
+    # 不静默降级：相机失败 / 引擎失败都必须抛，不许返回"看起来正常"的结果
+    class _BoomCam:
+        def shot(self, *a, **kw):
+            raise RuntimeError("模拟相机掉线")
+
+    class _BoomNet:
+        def run(self, *a, **kw):
+            raise RuntimeError("模拟引擎失败")
+
+    good = dict(cam=dp.FakeCam(known_image(256)), net=dp.FakeV57Net())
+    for desc, kw in (("相机失败", dict(good, cam=_BoomCam())),
+                     ("引擎失败", dict(good, net=_BoomNet()))):
+        disp3, _a3, _i3 = _fake_disp()
+        p4 = dp.Pipeline(disp=disp3, fake=True, **kw)
+        try:
+            p4.run_once(256, 256)
+        except RuntimeError as ex:
+            check("模拟" in str(ex),
+                  f"{desc} 必须**原样**抛出（不包装、不回退、不吞），得到 {ex!r}")
+        else:
+            check(False, f"{desc} 必须抛异常，不许静默降级")
+        p4.close()
+
+    # 引擎少返回一个输出 ⇒ 必须拒绝（少一个就等于少一道冻结判据，不许静默放过）
+    class _OnlyOut1:
+        def run(self, x0, pipeline=True, nbuf=2, arena=None):
+            return {"out1": np.zeros((3, 256, 256), np.float32)}, {}
+
+    disp2, _a2, _i2 = _fake_disp()
+    p3 = dp.Pipeline(net=_OnlyOut1(), cam=dp.FakeCam(known_image(256)), disp=disp2, fake=True)
+    try:
+        p3.run_once(256, 256)
+    except dp.PipelineError as ex:
+        check("out2" in str(ex) and "out3" in str(ex),
+              f"缺输出必须点名缺了哪些，得到 {ex}")
+    else:
+        check(False, "引擎只返回 out1 时必须抛（不许只比 out1 就放行）")
+    p3.close()
+
+    # CLI：真的跑一次子进程
+    import subprocess
+    try:
+        r = subprocess.run([sys.executable, os.path.join(_ROOT, "pynq_specialized_code", "ps",
+                                                         "pynq", "demo_pipeline.py"), "--fake"],
+                           capture_output=True, text=True, timeout=180)
+        check(r.returncode == 0, f"`demo_pipeline.py --fake` 必须 rc=0，得到 {r.returncode}")
+        check("[PIPE] stage capture=" in r.stdout, "CLI 必须打印结构化阶段日志")
+        check("traceback" not in r.stderr.lower(),
+              f"CLI 不应有异常输出：{r.stderr[:200]}")
+    except subprocess.TimeoutExpired:
+        check(False, "`demo_pipeline.py --fake` 超时（>180 s）")
+    print(f"  ✓ 全流程：{res['t_total_s']:.3f} s（fake），阶段日志/运行点/CLI 全对")
+    pipe.close()
+
+
+# ---------------------------------------------------------------------------
 def main() -> int:
     print("=" * 78)
-    print("端到端流水线主机自检：cam.shot() 协议回环 / 坏包注入 / 重试语义")
+    print("端到端流水线主机自检：协议回环 / 坏包 / 重试 / 端到端合成 / 换帧原子性 / --fake")
     print("  （内存假相机 + 真实 TCP 回环两档；不连真相机）")
     print(f"  相机默认地址 {DEFAULT_HOST}:{DEFAULT_PORT}（自检用内存假相机，不联网）")
     print("=" * 78)
@@ -570,6 +782,9 @@ def main() -> int:
     test_loopback_tcp()
     test_bad_packets()
     test_retry()
+    test_compose_e2e()
+    test_frame_atomicity()
+    test_fake_pipeline()
 
     print("\n" + "=" * 78)
     if FAILS:
@@ -578,8 +793,8 @@ def main() -> int:
             print("   -", f)
         return 1
     print(f"PASS：{CHECKS[0]} 条判据全部通过")
-    print("  判据 1 协议回环 ✅   判据 2 坏包 5 种（reason 互不相同）✅   "
-          "判据 3 重试/重连次数精确 ✅")
+    print("  [1] 协议回环 ✅  [2] 坏包 5 种（reason 互不相同）✅  [3] 重试/重连精确 ✅")
+    print("  [4] 端到端合成逐字节 ✅  [5] 换帧原子性 ✅  [6] --fake 全流程 ✅")
     return 0
 
 

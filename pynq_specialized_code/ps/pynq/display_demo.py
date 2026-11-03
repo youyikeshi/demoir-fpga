@@ -258,11 +258,23 @@ class DisplayPipeline:
         return int(frame_id) & 1
 
     def show(self, orig: np.ndarray, proc: np.ndarray) -> int:
-        """构图 → 写**后台块** → ``FRAME_ID += 1``（顺序即原子性）→ 返回新帧号。"""
+        """构图 → :meth:`show_frame`（写后台块 → ``FRAME_ID += 1``）→ 返回新帧号。"""
         if self._out is None or self._blocks is None:
             raise ho.RegError("还没 setup()：先分配双缓冲并配置 PL")
         d = self.mode_def
-        frame = compose(orig, proc, d.W, d.H)  # 含上下黑边；只调用 compose
+        return self.show_frame(compose(orig, proc, d.W, d.H))  # 含上下黑边；只调用 compose
+
+    def show_frame(self, frame: np.ndarray) -> int:
+        """把**已经 compose 好的**整幅画面写后台块并换帧（语义与 :meth:`show` 相同）。
+
+        为什么要拆出来：分段计时需要"构图"与"写块+换帧"各自计时；只给
+        ``show(orig, proc)`` 的话，调用方为了计时就得把 ``compose()`` 跑两遍。
+        本方法是**新增**，``show()`` 改为委派给它 —— 顺序（①整帧先落地 → ②再翻
+        ``FRAME_ID``）、寄存器时序、返回值一字未动，且 ``tools/display_e2e_selftest.py``
+        的 103 条判据覆盖这条路径。
+        """
+        if self._out is None or self._blocks is None:
+            raise ho.RegError("还没 setup()：先分配双缓冲并配置 PL")
         self._check_frame(frame)
         fid = (self._frame_id + 1) & 0xFFFF_FFFF
         self._write_block(self._slot(fid), frame)  # ① 整帧先落地
