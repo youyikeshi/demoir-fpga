@@ -7266,3 +7266,41 @@ $$\quad\ \Rightarrow\ \textbf{v152 做的就是这件事} \Rightarrow \text{第 
 **⚠ 另一条必须记的**
 $$\Rightarrow\ \mathtt{runs/v55\_archive}（\text{T-142 的 FUSE 构建）实测 }\mathbf{WNS -12.603 / \text{TNS} -145{,}821 / 20{,}438\ \text{违例端点}$$
 $$\Rightarrow\ \text{与 } \mathtt{timing\_v52.rpt}\ \text{的 }+0.524\ \textbf{不是同一量级} \Rightarrow \text{融合线要上板必须先解释这个数}$$
+
+### 70.114 ★★★★★★ 自我纠错：**写侧上限只有 0.145 s；生产点真正的大头是读 miss 46~50%**（2026-11-03 12:0x）
+
+**我上一轮说"写通路是下一个性能点"——这条是错的，依据取自非生产路径**
+$$\Rightarrow\ \text{我用的是 PLAN §56.3 的 } k{=}1\ \text{写压力 } \mathbf{72.9\%}（72{,}657\ \text{拍）}$$
+$$\Rightarrow\ \textbf{但那是 } \mathtt{conv8}\ \text{路径（}\mathtt{R\_RUN\_UNIT}{=}0）\ +\ \textbf{合成形状}，\text{不是生产配置}$$
+$$\Rightarrow\ \text{PLAN §57.2 早就写了"读侧到头这个结论是错的 —— 我用了非生产路径的数据"}$$
+$$\quad\ \Rightarrow\ \textbf{第 47 条：跨口径禁推；合成形状 }\ne\text{ 真层，}\mathtt{conv8}\ne\mathtt{E1E2}$$
+$$\Rightarrow\ \textbf{第 138 条（我这轮的教训）：引用性能归因前必须确认它来自}\textbf{生产配置 + 真形状}$$
+
+**板端真层实测（}\mathtt{board\_wrst\_probe.py}\text{，5 个硬件计数器，}\mathtt{R\_RUN\_UNIT}{=}4\text{ = 生产 E1E2 路径，150 MHz）**
+| 真层（256² 网）| 形状 | **读 miss 冻结** | 写压力冻结 | 读带宽 |
+|---|---|---:|---:|---:|
+| decoder_1.sam.b0.conv g0/g1/g4 | 544×128² | **48.1~48.2%** | 12.6% | 413 MB/s |
+| encoder_1.rdb.conv_post g0 | 240×128² | **48.3%** | 12.6% | 412 MB/s |
+| decoder_1.rdb.conv_layers.2 g0 | 256×128² | **48.3%** | 12.6% | 412 MB/s |
+| decoder_2.sam.b0.conv g0 | 544×64² | **48.5%** | 12.0% | 414 MB/s |
+| 48×32² / 96×16² | — | 46.0% / 49.5% | 12.6% / 11.2% | 432 / 401 |
+
+$$\Rightarrow\ \textbf{写回优化的上限 } = 12.6\% \times 1.15\ \text{s} = \mathbf{0.145\ s} \Rightarrow \text{§57.3 已把它降级为"顺手做"}$$
+$$\Rightarrow\ \textbf{读 miss 冻结 }46\sim50\% \Rightarrow \text{还有约 } \mathbf{0.5\ s}\ \text{可吃}$$
+$$\Rightarrow\ \Rightarrow\ \textbf{真正的下一个性能点在读侧，不在写侧}$$
+
+**★ 而这解释了一件更根本的事**
+$$\Rightarrow\ \text{读带宽已 }412\sim432\ \text{MB/s} \Rightarrow \textbf{不是带宽不够}$$
+$$\Rightarrow\ \text{而是}\textbf{冻结（等响应）}\ \Rightarrow \textbf{瓶颈是延迟暴露，不是流量大小}$$
+$$\quad\ \Rightarrow\ \textbf{所以"减少 DDR 字节"（融合）对它无效}——\text{流量不是问题}$$
+$$\quad\ \Rightarrow\ \textbf{有效的只有"提高并发/掩盖延迟"}（\text{更多在飞读、更好预取）$$
+$$\Rightarrow\ \Rightarrow\ \text{这一条同时解释了：为什么 T-148 算出融合只值 }0.025\ \text{s（\text{它减的是字节）}}$$
+
+**T-150 的三条纠我也都对，记下来**
+$$\Rightarrow\ \textbf{① 写合并器只存在于 } \mathtt{lane16/bin\_unit\_axi\_wrap\_v50.v}\ \text{的 } \mathtt{g\_wr\_split2}（\mathtt{VLANES}>8）$$
+$$\quad\ \Rightarrow\ \mathtt{VLANES}\le8\ \text{走 } \mathtt{g\_wr\_direct}，\textbf{一行未动} \Rightarrow \text{8-lane 网表逐位不变}（\text{V8 逐笔写日志 }16/16\ \mathtt{cmp}\ \text{相同）}$$
+$$\Rightarrow\ \textbf{② 合并器的 }3.75\ \textbf{就是 8-lane 的既有地板}：$$
+$$\quad\ 16\text{-lane}\ 21.56\to3.74;\quad \textbf{8-lane 未改 } = \mathbf{3.75}\ \text{拍/beat、}7.88\ \text{beat/AW（}\text{本来就已 8 拍一笔）}$$
+$$\quad\ \Rightarrow\ \textbf{合并器只是把 16-lane 抬到 8-lane 的既有水平} \Rightarrow \text{对 } \mathtt{v152}\ \text{树 }\textbf{0 收益}$$
+$$\Rightarrow\ \textbf{③ 我要求的"v57 = v152 + 合并器"是}\textbf{0 逻辑改动} \Rightarrow \text{指令作废}$$
+$$\Rightarrow\ \textbf{④ } \mathtt{inv\_lint}\ \text{的 FAIL 8 vs 7 是}\textbf{语料口径差}（\text{缺 }s{=}2/d{=}2/\text{dilation 形状），\text{不是副本落后}}$$
