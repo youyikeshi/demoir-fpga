@@ -307,3 +307,48 @@ if (of_device_is_compatible(dev->of_node, "xlnx,zynq-usb-2.20a")) {
 - ext我两次都是"看到 exttt.config ext里有某个符号/没有某个符号"就下结论
 - extbf配置项存在 e extbf驱动 probe 成功 ⇒ ext必须顺着 probe 路径读到 extttreturn ERR\_PTR
 - extbf规矩：凡断言"驱动没起来"，必须给出 probe 函数里的具体返回点
+
+---
+
+## 11. ★ 2026-11-03 构建记录：USB Host + CMA=192 MB 已完成，以及**三个打包陷阱**
+
+### 11.1 结果（九条门禁全过，三产物已刷新）
+| 产物 | md5 | 大小 | mtime |
+|---|---|---:|---|
+| `BOOT.BIN` | `0fffd3fc5be76ef75d353dfa2f38b562` | 1,181,648 | 2026-11-03 11:47:55 |
+| `image.ub` | `a2b902e7a888a4b022fc6de22f376fbb` | 5,163,863 | 2026-11-03 11:45:03 |
+| `system.dtb` | `90a8c5fa199acaf995f5afdd3052ff8c` | 19,279 | 2026-11-03 11:35:52 |
+
+- `CMA_SIZE_MBYTES=192`（不是 512：真实需求 arena 66 + 显示 12 ≈ 80 MB，2.4× 余量）
+- DTB 双向对上：`usb@e0002000` 有 `dr_mode="host"` **且** `usb-phy=<&phy0>`，`phy0` 节点 `compatible="usb-nop-xceiv"`
+- 符号真编进内核（`nm vmlinux`）：`ci_ulpi_init` / `usbnet_probe` / `cdc_ncm_bind` / `rndis_bind` / `usb_phy_generic_probe`
+
+- extnop-xceiv 的驱动符号叫 extttusb\_phy\_generic\_probe ext，不叫 extttusb\_nop\_xceiv
+- ext按后者 grep 会以为"没编进来" ⇒ extbf查符号要用驱动真实符号名，不要按 Kconfig 名猜
+
+### 11.2 ★ 三个打包陷阱（都会导致"改了但板上没变"）
+
+1. **`petalinux-build -c bootbin` 不存在** ⇒ 正确组件名是 `-c bootgen`
+2. **`-c bootgen` 只编 bootgen 工具**，不生成 `BOOT.BIN`
+   ⇒ `BOOT.BIN` 实际由 `petalinux-package boot --fsbl … --u-boot … --dtb … --force` 生成
+3. **BIF 里 `[load=0x100000]` 内嵌了 `system.dtb`** ⇒ **DTB 一改就必须重打包 `BOOT.BIN`**
+   ⇒ 而 `petalinux-build` 因 sstate 命中**不会刷新** `BOOT.BIN`
+   ⇒ 结果：板子跑的是**旧 DTB**，你会以为改的设备树没生效
+
+- extbf判据： extttBOOT.BIN ext能 extttstrings ext到你新加的字符串（如 extttusb-nop-xceiv）
+- ext且其体积增量 == DTB 增量（本次 +168 extB = 19279 - 19111 ext） ⇒ extbf这才是"DTB 真的进 BOOT.BIN 了"
+
+### 11.3 以后调 CMA **不必重编内核**
+- 内核 `CONFIG_CMDLINE=""` ⇒ bootargs 只来自 DTB `/chosen`
+- `boot.scr` 第 10 行 `fdt get value bootargs /chosen bootargs` ⇒ U-Boot 读 DTB 里的值
+- ⇒ 三种改法，代价递增：
+  1. **U-Boot 里 `setenv bootargs ... cma=256M`**（运行时，零编译）
+  2. 改 `/chosen` 后**只重生成 DTB + 重打 `BOOT.BIN`**（分钟级）
+  3. 改 `CONFIG_CMA_SIZE_MBYTES` 后**重编内核**（十几分钟）
+
+- ext当前 bootargs 里 extbf没有 extttcma= ext覆盖 ⇒ ext实际值就是 extttCONFIG\_CMA\_SIZE\_MBYTES=192
+
+### 11.4 内存账（1 GB，估算未上板）
+- extMemTotal 930970 extMB ⇒ ext其中 extttCmaTotal=192 extMB（含在 MemTotal 内）
+- extbf非 CMA 普通内存 740780 extMB ⇒ ext算法的 numpy/BLAS 用这块
+- ext对比 512 extMB 方案：普通内存只剩 410450 extMB ⇒ extbf改 192 多出约 320 extMB
