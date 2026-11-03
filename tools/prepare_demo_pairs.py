@@ -691,6 +691,30 @@ y=680..719                 下 40 行黑边
    不能据此算 PSNR。
 3. 水印/标签是**烘进像素**的（板端不做文字渲染），因此也计入 md5。
 
+## 三种跑法（试片/录制直接用）
+
+```bash
+PLAYER=/home/xilinx/demo/demo_player.py
+PY=/usr/local/share/pynq-venv/bin/python3
+PAIRS=/home/xilinx/demo/pairs
+
+# ① 对焦/构图：定住第一对（0094）不切换
+echo xilinx | sudo -S -p '' env XILINX_XRT=/usr $PY -u $PLAYER --pairs $PAIRS --still 0 --log /home/xilinx/demo/player_still.log
+
+# ② 试片：不用相机，--auto 自己开播（3 轮 x 8 对 = 24 帧，约 25 s）
+echo xilinx | sudo -S -p '' env XILINX_XRT=/usr $PY -u $PLAYER --pairs $PAIRS --auto --start-delay 1.0 --loops 3 --once --log /home/xilinx/demo/player_trial.log
+
+# ③ 正式：等相机 START 触发，无限循环（--loops 0 是默认）
+echo xilinx | sudo -S -p '' env XILINX_XRT=/usr $PY -u $PLAYER --pairs $PAIRS --loops 0 --log /home/xilinx/demo/player.log --pidfile /tmp/demo_player.pid
+#   相机侧：nc <板IP> 9999 然后发 START ；收工：echo xilinx | sudo -S -p '' kill -TERM $(cat /tmp/demo_player.pid)
+```
+
+- `--start-delay 1.0`（默认）：收到 `START` 后等 1.0 s 再出第一帧，**期间屏幕保持彩条不闪**；
+  `ACK START <n>` 立刻回（不等延迟），`EVT FIRST` 在第一帧真正上屏时才发。
+- 时刻表：第 k 帧 = `t_start + 1.0 + k x 1.000 s`（`time.monotonic()` 绝对时刻，不累加 sleep）。
+- 实测（1 fps）：3 轮 24 帧 → `START→第1帧 1000.4 ms`、`max|T-1| = 0.39 ms`、`START→末帧 24.0000 s`；
+  5 轮 40 帧 → `1000.7 ms`、`0.70 ms`、`40.0000 s`；`0x24` 全中、`0x2C` 全 0、回绕 8→1 无异常。
+
 ## 重新生成
 
 ```bash

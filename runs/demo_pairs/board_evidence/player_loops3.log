@@ -1,0 +1,61 @@
+20:20:21 [geom] 8 项构图断言 全过
+20:20:21 [pairs] 8 对已预载  19.7 MB  442 ms  format=bin  640x640  mode=pcref
+20:20:21 [proto] 端口预检通过 0.0.0.0:9999（TCP=True UDP=True）
+20:20:29 [hw] Overlay(/home/xilinx/demo/design_1_v58.bit, download=False) —— 位流已在 PL 里，**不重载**
+20:20:30 [hw] Overlay 就绪 1476 ms（未下载）
+20:20:31 [hw] FCLK0 写 100.0 → 报数 100.0（报数 = 真值 ×1.5 ⇒ **真值约 66.67 MHz**，docs 实测口径）｜318 ms
+20:20:31 [hw] SLCR 0xF8000158(FCLK0_CTRL)=0x00003F03 ［仅记录，不换算］
+20:20:31 [hw] 像素时钟心跳 alive=True  74.387 MHz（窗口 200 ms，±0.5%）
+20:20:31 [hw] DisplayPipeline(mode=0:720p60 1280x720 stride=3840 fb=0x30100000 frame_id=0)  block=2764800 B  fb=0x30100000
+20:20:31 [hw] 空闲态 CTRL=0x15（彩条）
+20:20:31 [hw] 0x2C 软复位后=0  CTRL=0x01
+20:20:31 [arm] 第 0 帧已预构（13.3 ms）⇒ START 后无需再构图
+20:20:31 [net] !! 找不到 cdc_ncm 接口（USB 网卡没枚举？）——继续跑，但相机可能连不上
+20:20:31 [net]    检查：lsusb 是否见 359f:2120 / 0424:2514；systemctl status usb-cam-net
+20:20:31 [net] 全部 IPv4：eth0=192.168.7.2/24
+20:20:31 [net] ping 10.13.148.1 ×3 → rc=2  (无输出)
+20:20:31 [net] !! 相机 ping 不通（演示时相机若还没插就不用管）
+20:20:31 [net] camera should connect to 10.13.148.100:9999
+20:20:31 [proto] TCP 已绑定 0.0.0.0:9999（listen）
+20:20:31 [proto] UDP 已绑定 0.0.0.0:9999
+20:20:31 [proto] 文件触发监听 /home/xilinx/demo/START.flag（每 50 ms，触发后改名不删）
+20:20:31 [proto] 已启动：TCP=True UDP=True flag=/home/xilinx/demo/START.flag
+20:20:31 [main] --auto：立即开播
+20:20:31 [main] 就绪：等 START（TCP/UDP :9999，flag /home/xilinx/demo/START.flag）
+20:20:31 [play#1] START 后延迟 1.000 s 再出第一帧（期间保持彩条，不闪）
+20:20:32 [play#1] 开播 reason=start 对数=8 period=1.000 s 总帧=24
+20:20:32 [frame 000] pair=00/0094  fid=1  dt=  -    dev=   -    latch=OK   17.0ms build=0.0ms 0x24=0x1 uf=None
+20:20:32 [hw] 0x2C 软复位后=0  CTRL=0x01
+20:20:32 [play#1] START→第 1 帧上屏 1000.4 ms（= 延迟 1000 ms + 出图 0.4 ms；判据见 README）
+20:20:33 [frame 001] pair=01/0049  fid=2  dt=0.999612 dev=+0.000022 latch=OK   17.9ms build=8.6ms 0x24=0x2 uf=0
+20:20:34 [frame 002] pair=02/0060  fid=3  dt=0.999996 dev=+0.000018 latch=OK   18.3ms build=8.6ms 0x24=0x3 uf=0
+20:20:35 [frame 003] pair=03/0084  fid=4  dt=0.999997 dev=+0.000015 latch=OK   18.7ms build=8.6ms 0x24=0x4 uf=0
+20:20:36 [frame 004] pair=04/0062  fid=5  dt=1.000002 dev=+0.000017 latch=OK   19.1ms build=8.6ms 0x24=0x5 uf=0
+20:20:37 [frame 005] pair=05/0089  fid=6  dt=1.000013 dev=+0.000030 latch=OK   19.5ms build=9.2ms 0x24=0x6 uf=0
+20:20:38 [frame 006] pair=06/0097  fid=7  dt=0.999985 dev=+0.000015 latch=OK   20.0ms build=8.7ms 0x24=0x7 uf=0
+20:20:39 [frame 007] pair=07/0001  fid=8  dt=1.000001 dev=+0.000017 latch=OK   20.4ms build=8.5ms 0x24=0x8 uf=0
+20:20:40 [frame 008] pair=00/0094  fid=9  dt=1.000003 dev=+0.000020 latch=OK   20.8ms build=8.6ms 0x24=0x9 uf=0
+20:20:41 [frame 009] pair=01/0049  fid=10 dt=1.000010 dev=+0.000030 latch=OK   21.2ms build=8.6ms 0x24=0xA uf=0
+20:20:42 [frame 010] pair=02/0060  fid=11 dt=1.000000 dev=+0.000030 latch=OK   21.6ms build=8.6ms 0x24=0xB uf=0
+20:20:43 [frame 011] pair=03/0084  fid=12 dt=0.999995 dev=+0.000025 latch=OK   22.1ms build=8.9ms 0x24=0xC uf=0
+20:20:44 [frame 012] pair=04/0062  fid=13 dt=1.000003 dev=+0.000028 latch=OK   5.8ms build=10.7ms 0x24=0xD uf=0
+20:20:45 [frame 013] pair=05/0089  fid=14 dt=0.999987 dev=+0.000015 latch=OK   6.2ms build=8.7ms 0x24=0xE uf=0
+20:20:46 [frame 014] pair=06/0097  fid=15 dt=1.000008 dev=+0.000023 latch=OK   6.6ms build=8.9ms 0x24=0xF uf=0
+20:20:47 [frame 015] pair=07/0001  fid=16 dt=0.999995 dev=+0.000017 latch=OK   7.1ms build=8.7ms 0x24=0x10 uf=0
+20:20:48 [frame 016] pair=00/0094  fid=17 dt=1.000005 dev=+0.000022 latch=OK   7.5ms build=8.8ms 0x24=0x11 uf=0
+20:20:49 [frame 017] pair=01/0049  fid=18 dt=0.999992 dev=+0.000014 latch=OK   7.9ms build=8.6ms 0x24=0x12 uf=0
+20:20:50 [frame 018] pair=02/0060  fid=19 dt=1.000004 dev=+0.000019 latch=OK   8.3ms build=8.6ms 0x24=0x13 uf=0
+20:20:51 [frame 019] pair=03/0084  fid=20 dt=1.000006 dev=+0.000025 latch=OK   8.7ms build=8.6ms 0x24=0x14 uf=0
+20:20:52 [frame 020] pair=04/0062  fid=21 dt=1.000002 dev=+0.000027 latch=OK   9.1ms build=8.6ms 0x24=0x15 uf=0
+20:20:53 [frame 021] pair=05/0089  fid=22 dt=0.999999 dev=+0.000026 latch=OK   9.5ms build=8.5ms 0x24=0x16 uf=0
+20:20:54 [frame 022] pair=06/0097  fid=23 dt=0.999989 dev=+0.000015 latch=OK   10.0ms build=8.4ms 0x24=0x17 uf=0
+20:20:55 [frame 023] pair=07/0001  fid=24 dt=1.000005 dev=+0.000021 latch=OK   10.4ms build=8.7ms 0x24=0x18 uf=0
+20:20:55 [play#1] 结束（loops）：提交 24 帧
+20:20:55 [main] 本轮 mean=0.999983 s  max|T-1.000|=0.000388 s  0x24=24/24  0x2C max=0  停因=loops
+20:20:55 [play] CTRL=0x15（彩条）
+20:20:55 [fin] CTRL=0x15（彩条恢复）
+20:20:55 [fin] 帧缓冲已释放（pipe.close）
+20:20:55 [fin] fpga0=operating
+20:20:55 [fin] CmaFree:            5324 kB
+20:20:55 [report] /home/xilinx/demo/report_loops3.json
+20:20:55 [exit] rc=0

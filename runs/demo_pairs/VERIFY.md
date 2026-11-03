@@ -97,8 +97,8 @@ min = 0.999931        max = 1.000097
 | **UDP**（主机 → `:9999/udp`） | `START` → `ACK START 0` **2.4 ms**；`STOP` → `ACK STOP` 1.1 ms | `player_uf.log` |
 | **文件** `touch /home/xilinx/demo/START.flag` | 50 ms 内发现 → 开播；flag **改名**为 `START.flag.<时间戳>.done`（不删） | `player_uf.log` |
 
-- **板内 `START→第 1 帧上屏` = 1.318 ms**（`first_frame_latency_ms`，本轮 21 帧那次）；
-  其余轮次 1.2~1.8 ms。目标 ≤1000 ms ⇒ **富余 700×**。
+- **板内 `START→第 1 帧上屏`**：`--start-delay 0` 时 = **1.318 ms**（出图本身）；
+  **默认 `--start-delay 1.0` 时 = 1000.4~1000.7 ms**（= 1.000 s 延迟 + 0.4~0.7 ms 出图），详见 §13。
 - 端到端 `START→EVT FIRST`（含 vsync 相位 + 回包）43.8~83.0 ms。
 - 为什么这么快：`Overlay`/心跳/双缓冲/第 0 帧预构图/网络探测**全在等触发之前**做完；
   端口在**全部就绪之后**才 `listen` ⇒ **端口一开 = 立刻能出图**。
@@ -144,7 +144,7 @@ sync rc=0
 
 `/home/xilinx/demo/MD5SUMS` 46 项，`md5sum -c` → **46/46 OK**（含 8 对 16 个 `.bin`、
 manifest、README、net_stats、16 个 `pcref_raw/*.npy`、3 个兄弟模块、位流/hwh、播放器本体）。
-主机侧 `demo_player.py` md5 = `112fdfef22335e21f045374a51b4a457`，与板端一致（46/46）。
+主机侧 `demo_player.py` md5 = `03fc955020a6bf121e606782646f3830`，与板端一致（46/46）。
 
 ## 9. 判据 9 / 10：`docs/camera/10` 协议 · 五条规则 + §8 自检表（板端实测）
 
@@ -229,4 +229,39 @@ echo xilinx | sudo -S -p '' env XILINX_XRT=/usr \
 nc 192.168.7.2 9999     # PING / HELLO 1 / START / XYZ / STOP
 # 收工
 echo xilinx | sudo -S -p '' kill -TERM $(cat /tmp/demo_player.pid)
+```
+
+
+## 13. 追加（2026-11-03 20:44）：START 后延迟 1 s + 循环衔接（3 轮 / 5 轮）
+
+`--start-delay`（默认 **1.0 s**）：收到 `START` 后**等 1.0 s 才出第一帧**，期间**不碰 CTRL**
+（屏幕保持彩条，不闪）；`ACK START <n>` 由网络线程**立刻回**（不等延迟）；
+`EVT FIRST` 在第一帧真正上屏时才发；网格原点 = `t_start + delay` ⇒ 第 k 帧 =
+`t_start + 1.0 + k×1.000 s`（`monotonic` 绝对时刻）。
+
+板端实测（`--auto --start-delay 1.0 --loops N --once`，1 fps）：
+
+| 轮数 | 帧数 | START→第1帧 | 间隔 mean | max\|T−1.000\| | 首帧→末帧 | **START→末帧（理论）** |
+|---|---|---|---|---|---|---|
+| 3 轮（8 对） | 24 | **1000.411 ms** | 0.999983 s | **0.388 ms** | 22.999610 s | **24.000020 s（24.0）** |
+| 5 轮（8 对） | 40 | **1000.722 ms** | 0.999982 s | **0.697 ms** | 38.999293 s | **40.000015 s（40.0）** |
+
+- **40 s 累计偏差 15 µs**（0.4 ppm）⇒ 无漂移。
+- `0x24`：**24/24** 与 **40/40**（`latch_bad=0`，全程无 MISS）；`0x2C`：两轮 **全 0**（24 / 40 个采样点）。
+- **回绕（第 8→第 1 帧）无异常**：24 帧那次 2 次回绕 `dt=1.000003 / 1.000005`；
+  40 帧那次 4 次回绕 `dt=0.999992 / 0.999987 / 1.000000 / 1.000003`（偏差 ≤13 µs）。
+- 对序完整无缺：`012345670123456701234567`、`01234567`×5。
+- 进程墙钟（含 ~12 s 启动：Overlay 1.4 s + 心跳 0.2 s + 预载 0.44 s + 网络探测 ≈3 s）：
+  24 帧 = 38.9 s，40 帧 = 53.4 s；播放段本身 = 24.000 / 40.000 s。
+- 收尾：`CTRL=0x15`、缓冲释放、`fpga0=operating`、`rc=0`、`sync rc=0`、板端 md5 46/46。
+
+### 三种跑法（已写进 `runs/demo_pairs/README.md`）
+
+```bash
+# ① 对焦/构图
+--still 0
+# ② 试片（不用相机）
+--auto --start-delay 1.0 --loops 3
+# ③ 正式（等相机 START，无限）
+--loops 0
 ```

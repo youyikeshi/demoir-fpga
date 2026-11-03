@@ -68,6 +68,7 @@ TCP server ``0.0.0.0:9999``，ASCII 行协议 ``\\n`` 结尾（``\\r\\n`` 也接
     # 交互（照 docs/camera/10 的 §8 自检表）
     nc 192.168.7.2 9999      # 然后输入 PING / START / XYZ / STOP
 
+    --start-delay 1.0 收到 START 后等 1 s 再出第一帧（屏幕不闪；ACK 立刻回）
     --auto            不等触发直接开播      --still 0   只显示第 0 对（对焦）
     --max-frames 20   播 20 帧后自动 STOP   --sim       主机仿真，不碰板子
 
@@ -802,6 +803,7 @@ class DemoPlayer:
         total = max_frames if max_frames > 0 else (loops * n_pairs if loops > 0 else 0)
 
         self.sessions += 1
+        self._t0_start = t0
         self.frames = []
         self._abort.clear()
         if self.proto is not None:
@@ -813,7 +815,23 @@ class DemoPlayer:
             self.arm(0)
             stage = self._stage
 
-        self._write_ctrl(CTRL_RUN)                # 彩条 → 帧缓冲扫描
+        # ① START 之后先等 start_delay 才出第一帧。
+        #    这段时间**不碰 CTRL**（屏幕保持彩条/黑，不闪）；ACK 早已由网络线程立刻回出。
+        delay = max(0.0, float(getattr(a, "start_delay", 0.0)))
+        t_sched0 = t0 + delay
+        if delay > 0:
+            self.log("[play#%d] START 后延迟 %.3f s 再出第一帧（期间保持彩条，不闪）"
+                     % (self.sessions, delay))
+        if not self._sleep_until(t_sched0):
+            self.stopped_by = ("stop" if (self.proto is not None
+                                          and self.proto.ev_stop_play.is_set()) else "sigterm")
+            self.log("[play#%d] 延迟期间收到 %s，本轮未出任何帧"
+                     % (self.sessions, self.stopped_by))
+            if self.proto is not None:
+                self.proto.set_playing(False)
+            return self.report()
+
+        self._write_ctrl(CTRL_RUN)                # 彩条 → 帧缓冲扫描（到点才切）
         self.log("[play#%d] 开播 reason=%s 对数=%d period=%.3f s %s"
                  % (self.sessions, reason, n_pairs, period,
                     ("总帧=%d" % total) if total else "无限循环（STOP/SIGTERM 才停）"))
@@ -821,10 +839,9 @@ class DemoPlayer:
         fid, ok, t_sub, t_latch = self.submit(stage)
         self.t_first_submit = t_sub
         self.first_latency = t_sub - t0
-        # ★ 时刻表锚点 = **第 0 帧真正提交的时刻**（而不是 START 到达时刻）：
-        #   这样 k=1,2,3… 的提交间隔严格等于 period（否则首个间隔会短掉这 1~3 ms）。
-        #   "START → 第一帧" 的延迟另外用 first_latency 单独报（判据 9/11）。
-        t0_sched = t_sub
+        # ★ 时刻表锚点 = **t_start + start_delay**（规范公式：第 k 帧 = t_start+delay+k*period）。
+        #   提交抖动只有 1~3 ms，落到首个间隔上仍远小于 20 ms 的判据。
+        t0_sched = t_sched0
         self._t0_sched = t0_sched
         self._log_frame(0, fid, ok, t_sub, t_latch, None, 0.0, 0.0)
         # 切换瞬间（彩条 → 扫描）会有 1~2 行读空，单独记下来；
@@ -837,14 +854,15 @@ class DemoPlayer:
         self._read_uf()
         if self.proto is not None:
             self.proto.notify_first()             # EVT FIRST（上屏确认后）
-        self.log("[play#%d] START→第 1 帧上屏 %.1f ms（目标 ≤1000 ms）"
-                 % (self.sessions, self.first_latency * 1e3))
+        self.log("[play#%d] START→第 1 帧上屏 %.1f ms（= 延迟 %.0f ms + 出图 %.1f ms；判据见 README）"
+                 % (self.sessions, self.first_latency * 1e3, delay * 1e3,
+                    self.first_latency * 1e3 - delay * 1e3))
 
         k, last_sub = 0, t_sub
         while True:
             k += 1
             if total and k >= total:
-                self.stopped_by = "max-frames"
+                self.stopped_by = "loops" if loops > 0 else "max-frames"
                 break
             if self.stop.is_set():
                 self.stopped_by = "sigterm"
@@ -954,6 +972,7 @@ class DemoPlayer:
             "first_frame_latency_ms": (round(self.first_latency * 1e3, 3)
                                        if self.first_latency is not None else None),
             "period_s": float(self.args.period),
+            "start_delay_s": float(getattr(self.args, "start_delay", 0.0)),
             "uf_baseline_0x2c": self.uf_baseline,
             "uf_edge_0x2c": getattr(self, "uf_edge", None),
             "uf_max": max(uf) if uf else None,
@@ -969,6 +988,11 @@ class DemoPlayer:
                 "max_interval_s": round(float(itv.max()), 6),
                 "schedule_max_abs_dev_ms": (round(float(np.abs(dev).max()) * 1e3, 3)
                                             if dev.size else None),
+                "span_from_start_s": (round(self.frames[-1]["t_submit"] - self._t0_start, 6)
+                                      if getattr(self, "_t0_start", None) else None),
+                "span_first_to_last_s": round(self.frames[-1]["t_submit"]
+                                              - self.frames[0]["t_submit"], 6),
+                "pairs": [f["pair"] for f in self.frames],
                 "latch_ms_mean": round(float(lat.mean()), 3),
                 "latch_ms_max": round(float(lat.max()), 3),
                 "intervals_s": [f["interval_s"] for f in self.frames if f.get("interval_s")],
@@ -1016,6 +1040,9 @@ def _parse_args(argv=None):
     ap.add_argument("--bit", default=None, help="位流路径（默认自动找 /home/xilinx/demo/…）")
     ap.add_argument("--log", default=DEFAULT_LOG)
     ap.add_argument("--period", type=float, default=1.0, help="每对显示秒数（默认 1.0）")
+    ap.add_argument("--start-delay", type=float, default=1.0,
+                    help="收到 START 后等多久才出第一帧（默认 1.0 s，可设 0）；"
+                         "期间屏幕保持原状态（彩条/黑）不闪")
     ap.add_argument("--loops", type=int, default=0, help="播几轮；0 = 无限（默认，靠 STOP 停）")
     ap.add_argument("--max-frames", type=int, default=0, help="本轮总帧数上限（测试用）")
     ap.add_argument("--still", type=int, default=None, metavar="INDEX",
