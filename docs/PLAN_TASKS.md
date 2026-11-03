@@ -120,3 +120,5 @@ $$\Rightarrow\ \text{一旦 } \mathtt{FUSE=1}，256^2\ \text{下 } \mathtt{bands
 2. **720p30 是否被 SIL9134 接受**（`VIDEO_MODE=3`；37.109375 MHz 已在 RTL 侧验过）
 3. 切换帧计 1 行 `UNDERFLOW_CNT` 的板端表现（判据是稳态 0 增长）
 4. 上板全程走"心跳先行"六步协议；`Clocks.fclk0_mhz` 报 1.5 倍 ⇒ 写 150 才是真 100 MHz
+
+| T-150 | 写合并器复活（16-lane） | `1813cba6` | 96/96 xsim、3.76 拍/beat、done 断言 110/110 干净；**但 8-lane 走 `g_wr_direct` 逐字节不变 ⇒ 对 v152 零收益**；v56 归档仅作功能证据 | `runs/v150_coal/`、`runs/v56_archive/` | 已归档 |
