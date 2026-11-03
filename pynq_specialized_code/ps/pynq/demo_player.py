@@ -40,7 +40,7 @@ TCP server ``0.0.0.0:9999``，ASCII 行协议 ``\\n`` 结尾（``\\r\\n`` 也接
 - **``CTRL`` 必须直接写**：播放 ``0x01``（enable=1、test_pattern=0）、彩条 ``0x15``。
   ``HdmiOut.enable()`` 是读-改-写、**不清 ``CTRL[2]``**，而 RTL ``cfg_enable = ctrl_enable
   && !ctrl_test`` ⇒ 彩条开着扫描器就停（全黑）。
-- **FCLK0**：``Clocks.fclk0_mhz`` 报数 = 真值 × 1.5；显示要真值 66.67 MHz ⇒ **写 100**。
+- **FCLK0**：``Clocks.fclk0_mhz`` 报数 = 真值 × 1.5；显示要真值 66.67 MHz。**本程序只读校验**（不在代码里改频率）。
 - 帧缓冲双块 ``align64(3840*720)=2,764,800``，``FB_ADDR + buf*2764800``。
 
 几何
@@ -106,6 +106,11 @@ for _p in _SIBLING_DIRS:
 import display_layout as dl          # noqa: E402  **只调用，不改**
 import hdmi_out as ho                # noqa: E402  只调用
 import display_demo as dd            # noqa: E402  只调用
+try:
+    from minimal_proof import bringup as mp_bringup, show as mp_show, ctrl_now as mp_ctrl
+except ImportError:                   # 板端没部署 minimal_proof.py 时给出明确指引
+    raise SystemExit("[hw] 缺 minimal_proof.py（能出图的基线脚本）——"
+                     "它必须与 demo_player.py 同目录；这是唯一可信的 bringup/show 实现")
 
 __all__ = ["Proto", "PairSet", "build_frame", "DemoPlayer", "main"]
 
@@ -120,9 +125,14 @@ FCLK_WRITE_MHZ = 100.0         # 写 100 ⇒ 真值 66.67 MHz（报数 ×1.5）
 CTRL_RUN = 0x01                # enable=1, test_pattern=0
 CTRL_BARS = 0x15               # enable=1, test_pattern=1（彩条）
 CTRL_SOFT_RESET = 0x02
+#: 软复位前后要**原样保留**的 CTRL 位：enable(0) + test_pattern(2) + motion(4)。
+#: ★ 2026-11-03 事故：这里原先写的是 `& CTRL_RUN`（只留 bit0），于是空闲态 0x15（彩条）
+#:   被静默改写成 0x01（扫描器 + 一块全黑缓冲）⇒ **倒计时期间屏幕是黑的**，
+#:   用户看到"黑屏"就是这个。掩码必须保留 test_pattern。
+CTRL_KEEP = 0x15
 
-#: SLCR FPGA0_CLK_CTRL（**不是** 0x170；这个 bitstream 的 FCLK0 源 = 666.67 MHz）
-SLCR_FPGA0_CLK_CTRL = 0x158
+#: SLCR FPGA0_CLK_CTRL：**PYNQ 的 ps.py 里就是 0x170**（0x158 不是它，别再搞错）
+SLCR_FPGA0_CLK_CTRL = 0x170
 FCLK_SRC_MHZ = 2000.0 / 3.0    # 666.666… MHz
 
 BIT_CANDIDATES = (
@@ -680,67 +690,43 @@ class DemoPlayer:
             self._vsim.start()
             self.pipe = dd.DisplayPipeline(reg_io=io, mode=VIDEO_MODE,
                                            allocator=lambda n: _FakeBlock(n)).setup()
-            self._write_ctrl(CTRL_BARS)        # 空闲态 = 彩条
-            self._soft_reset_ufcnt()
+            self.uf_baseline = self.pipe._rd("UNDERFLOW_CNT")
             return
 
-        import pynq.pl_server.embedded_device  # noqa: F401
-        from pynq import Overlay, Clocks
-
-        bit = None
-        for c in ([a.bit] if a.bit else []) + list(BIT_CANDIDATES):
-            if c and os.path.exists(c):
-                bit = c
-                break
-        if bit is None:
-            raise SystemExit("[hw] 找不到位流（试过 %s）" % (list(BIT_CANDIDATES),))
-        hwh = os.path.splitext(bit)[0] + ".hwh"
-        if not os.path.exists(hwh):
-            raise SystemExit("[hw] 位流旁边没有 .hwh：%s" % hwh)
-        self.log("[hw] Overlay(%s, download=False) —— 位流已在 PL 里，**不重载**" % bit)
+        # ============================================================
+        # 唯一的前置动作：调用**能出图**的 bringup()
+        #   CTRL=0x15 → 1 s → DisplayPipeline(mode=0).setup() → CTRL=0x01
+        # 本程序从此不再自己写任何配置寄存器（VIDEO_MODE/FB_*/FRAME_ID/PIXEL_FMT 一律不碰）。
+        # ============================================================
         t = time.monotonic()
-        self._ov = Overlay(bit, download=False)
-        self.log("[hw] Overlay 就绪 %.0f ms（未下载）" % ((time.monotonic() - t) * 1e3))
+        self.pipe, self.ctx = mp_bringup()
+        self.log("[hw] bringup()（minimal_proof）完成 %.0f ms  fb=0x%08X block=%d CTRL=0x%02X"
+                 % ((time.monotonic() - t) * 1e3, self.ctx["fb_addr"],
+                    self.ctx["block_bytes"], mp_ctrl(self.ctx)))
 
-        t = time.monotonic()
-        Clocks.fclk0_mhz = FCLK_WRITE_MHZ
-        time.sleep(0.30)
-        raw = self._fclk0_raw()
-        self.log("[hw] FCLK0 写 %.1f → 报数 %.1f（报数 = 真值 ×1.5 ⇒ **真值约 66.67 MHz**，"
-                 "docs 实测口径）｜%.0f ms"
-                 % (FCLK_WRITE_MHZ, float(Clocks.fclk0_mhz), (time.monotonic() - t) * 1e3))
-        if raw is not None:
-            # 只记录原始值，不换算：本板 FCLK0 的分频口径与 PYNQ 报数不同名同源，
-            # 硬换算会印出一个 166.67 这种误导性数字（显示实测 0x2C=0 才是判据）。
-            self.log("[hw] SLCR 0xF8000158(FCLK0_CTRL)=0x%08X ［仅记录，不换算］" % raw)
-
-        self.pipe = dd.DisplayPipeline(mode=VIDEO_MODE)
+        # 以下全是**只读**诊断，不影响显示
         alive, mhz = self.pipe.pix_alive(200)
-        self.log("[hw] 像素时钟心跳 alive=%s  %.3f MHz（窗口 200 ms，±0.5%%）" % (alive, mhz))
+        self.log("[hw] 像素时钟心跳 alive=%s  %.3f MHz（窗口 200 ms；只读 0x30）" % (alive, mhz))
         if not alive:
             raise SystemExit("[hw] 像素时钟没跳 —— 不对 AXI 做任何事")
-        self.pipe.setup()
-        self.log("[hw] %s  block=%d B  fb=0x%08X"
-                 % (self.pipe, self.pipe.block_bytes, self.pipe.fb_addr))
-        self._write_ctrl(CTRL_BARS)            # 空闲态 = 彩条（规则 3 的起点）
-        self.log("[hw] 空闲态 CTRL=0x%02X（彩条）" % self.pipe._rd("CTRL"))
-        self._soft_reset_ufcnt()
+        self.uf_baseline = self.pipe._rd("UNDERFLOW_CNT")
+        raw = self._fclk0_raw()
+        if raw is not None:
+            div = ((raw >> 8) & 0x3F) + 1
+            fclk = (3200.0 / 3.0) / div        # IO_PLL 1066.67 / (DIV0+1)
+            self.log("[hw] FCLK0 只读：FPGA0_CLK_CTRL=0x%08X → DIV0+1=%d ⇒ 真值 ≈ %.2f MHz"
+                     "（显示要 66.67）" % (raw, div, fclk))
+            if not (60.0 <= fclk <= 75.0):
+                raise SystemExit("[hw] !! FCLK0 真值 %.2f MHz 不在 60~75 ⇒ "
+                                 "请先把它设成写 100，再启动本程序。" % fclk)
+        self.log("[hw] setup 完成：CTRL=0x%02X｜0x2C 基线=%d｜未做任何软复位"
+                 % (mp_ctrl(self.ctx), self.uf_baseline))
 
     def _write_ctrl(self, v: int) -> None:
         self.pipe._wr("CTRL", v)
 
-    def _soft_reset_ufcnt(self) -> None:
-        """软复位清零 ``0x2C``，再把 ``CTRL`` 写回原值（**不用 RMW**）。"""
-        cur = self.pipe._rd("CTRL") & CTRL_RUN       # 保持 enable/test 位
-        self._write_ctrl(cur | CTRL_SOFT_RESET)
-        time.sleep(0.02)
-        self._write_ctrl(cur)
-        time.sleep(0.05)
-        self.uf_baseline = self.pipe._rd("UNDERFLOW_CNT")
-        self.log("[hw] 0x2C 软复位后=%d  CTRL=0x%02X" % (self.uf_baseline, self.pipe._rd("CTRL")))
-
     def _fclk0_raw(self) -> int | None:
-        """读 SLCR ``0xF8000158`` 原始值（**只记录、不换算**，见 setup 里的说明）。"""
+        """读 SLCR ``0xF8000170``（PYNQ 的 FPGA0_CLK_CTRL）原始值。"""
         try:
             import ctypes
             import mmap
@@ -771,12 +757,13 @@ class DemoPlayer:
     # ---- 提交一帧 ---------------------------------------------------
     def submit(self, frame: np.ndarray, wait_s: float = 0.35):
         t_sub = time.monotonic()
-        fid = self.pipe.show_frame(frame)
+        fid = mp_show(self.ctx, frame)          # 只调用 minimal_proof.show()
         ok = self.pipe.wait(fid, timeout=wait_s)
         t_latch = time.monotonic()
         self.n_submitted += 1
         if self.proto is not None:
             self.proto.set_n(self.n_submitted)
+        self.last_nonblack = self.nonblack_ratio(fid & 1) if self.pipe is not None else -1.0
         if ok:
             self.latch_ok += 1
         else:
@@ -785,13 +772,30 @@ class DemoPlayer:
                      % (fid, self.pipe._rd("FRAME_ID_LATCHED"), wait_s * 1e3))
         return fid, ok, t_sub, t_latch
 
+    def nonblack_ratio(self, slot: int) -> float:
+        """回读刚写的块，算"非黑像素占比"（判据：≥80%，抓"数据写了但画面全黑"）。
+
+        读的就是 PL 扫的那块 CMA 缓冲（``pipe._u8`` 是它的 numpy 视图），不是拷贝概念。
+        """
+        try:
+            n = self.pipe.block_bytes
+            a = self.pipe._u8[slot * n:(slot + 1) * n]
+            px = a.reshape(-1, 3)
+            nz = int(np.count_nonzero(px.any(axis=1)))
+            return nz / float(px.shape[0])
+        except Exception as e:
+            self.log("[warn] nonblack 回读失败：%s" % e)
+            return -1.0
+
     def _read_uf(self) -> int:
+        """读 0x2C 并换算成**相对基线（进程启动时的首读）的增量**（不软复位）。"""
         try:
             v = int(self.pipe._rd("UNDERFLOW_CNT"))
         except Exception:
             v = -1
-        self.uf_samples.append(v)
-        return v
+        d = (v - self.uf_baseline) if (v >= 0 and self.uf_baseline is not None) else -1
+        self.uf_samples.append(d)
+        return d
 
     # ---- 播放一轮（直到 STOP / 上限 / 进程退出）-----------------------
     def play(self, t0: float, reason: str = "start") -> dict:
@@ -831,7 +835,10 @@ class DemoPlayer:
                 self.proto.set_playing(False)
             return self.report()
 
-        self._write_ctrl(CTRL_RUN)                # 彩条 → 帧缓冲扫描（到点才切）
+        if (mp_ctrl(self.ctx) & 0x05) != 0x01:    # 正常情况 bringup 已是 0x01，不重复写
+            self._write_ctrl(CTRL_RUN)
+            self.log("[play#%d] CTRL 0x%02X → 0x01（上一轮 STOP 留下的彩条）"
+                     % (self.sessions, mp_ctrl(self.ctx) & 0xFF))
         self.log("[play#%d] 开播 reason=%s 对数=%d period=%.3f s %s"
                  % (self.sessions, reason, n_pairs, period,
                     ("总帧=%d" % total) if total else "无限循环（STOP/SIGTERM 才停）"))
@@ -844,13 +851,10 @@ class DemoPlayer:
         t0_sched = t_sched0
         self._t0_sched = t0_sched
         self._log_frame(0, fid, ok, t_sub, t_latch, None, 0.0, 0.0)
-        # 切换瞬间（彩条 → 扫描）会有 1~2 行读空，单独记下来；
-        # 之后软复位把 0x2C 清零，统计窗口 = 稳态播放（判据 6 的口径）。
+        # ★ 2026-11-03 事故后：**播放中绝不再动 CTRL**（不软复位、不软切彩条）。
+        #   软复位会重置扫描器，曾在有画面时把输出打成全黑（0x24 正常、0x2C=0 却黑屏）。
+        #   0x2C 基线已在 setup() 里（还没画面时）清零，这里只读不写。
         self.uf_edge = self.pipe._rd("UNDERFLOW_CNT") if self.pipe is not None else 0
-        if self.uf_edge:
-            self.log("[play#%d] 切换瞬间 uf_edge=%d 行（彩条→扫描的边缘，已单独记录后清零）"
-                     % (self.sessions, self.uf_edge))
-        self._soft_reset_ufcnt()
         self._read_uf()
         if self.proto is not None:
             self.proto.notify_first()             # EVT FIRST（上屏确认后）
@@ -916,6 +920,10 @@ class DemoPlayer:
         dev = (t_sub - target) if target else 0.0
         lat_ms = (t_latch - t_sub) * 1e3
         uf = self.uf_samples[-1] if self.uf_samples else None
+        nb = getattr(self, "last_nonblack", -1.0)
+        if nb >= 0 and nb < 0.80:
+            self.log("[warn] 第 %d 帧 nonblack=%.1f%% < 80%% ⇒ 这块缓冲几乎是黑的（判据 7）"
+                     % (k, nb * 100))
         self.frames.append({
             "k": k, "pair": idx, "name": self.ps.names[idx], "fid": fid,
             "t_submit": round(t_sub, 6), "t_latch": round(t_latch, 6),
@@ -924,14 +932,16 @@ class DemoPlayer:
             "interval_s": round(itv, 6) if itv else None,
             "dev_s": round(dev, 6) if target else None,
             "latch_ok": bool(ok), "uf": uf,
+            "nonblack": round(getattr(self, "last_nonblack", -1.0), 4),
         })
         self.log("[frame %03d] pair=%02d/%-5s fid=%-2d dt=%s dev=%s latch=%s %.1fms "
-                 "build=%.1fms 0x24=0x%X uf=%s"
+                 "build=%.1fms 0x24=0x%X uf=%s nonblack=%s"
                  % (k, idx, self.ps.names[idx], fid,
                     ("%.6f" % itv) if itv else "  -   ",
                     ("%+.6f" % dev) if target else "   -   ",
                     "OK  " if ok else "MISS", lat_ms, build_ms,
-                    fid if ok else self.pipe._rd("FRAME_ID_LATCHED"), uf))
+                    fid if ok else self.pipe._rd("FRAME_ID_LATCHED"), uf,
+                    ("%.1f%%" % (self.last_nonblack * 100)) if self.last_nonblack >= 0 else "?"))
 
     def ensure_bars(self) -> None:
         """规则 3：回彩条。只在 STOP / SIGTERM / 上限时调用。"""
@@ -946,7 +956,8 @@ class DemoPlayer:
         self.log("[still] 只显示第 %d 对 %s，保持不动" % (index, self.ps.names[index]))
         stage = np.empty((DISP_H, DISP_W, 3), dtype=np.uint8)
         build_frame(*self.ps[index], out=stage, layout_compose=self.args.layout_compose)
-        self._write_ctrl(CTRL_RUN)
+        if (mp_ctrl(self.ctx) & 0x05) != 0x01:
+            self._write_ctrl(CTRL_RUN)
         fid, ok, t_sub, t_latch = self.submit(stage)
         self._log_frame(0, fid, ok, t_sub, t_latch, None, 0.0, 0.0)
         t_start = time.monotonic()
@@ -973,6 +984,8 @@ class DemoPlayer:
                                        if self.first_latency is not None else None),
             "period_s": float(self.args.period),
             "start_delay_s": float(getattr(self.args, "start_delay", 0.0)),
+            "nonblack_min": round(min([f["nonblack"] for f in self.frames
+                                       if f.get("nonblack", -1) >= 0], default=-1), 4),
             "uf_baseline_0x2c": self.uf_baseline,
             "uf_edge_0x2c": getattr(self, "uf_edge", None),
             "uf_max": max(uf) if uf else None,

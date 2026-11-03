@@ -265,3 +265,107 @@ echo xilinx | sudo -S -p '' kill -TERM $(cat /tmp/demo_player.pid)
 # ③ 正式（等相机 START，无限）
 --loops 0
 ```
+
+
+## 14. 事故与修复（2026-11-03 21:00-21:15）：倒计时期间黑屏 + 判据加严
+
+### 14.1 现象
+用户按"45 s 倒计时"等屏幕，**看到的是一整段黑**；40 s 播放期间也报黑。
+同期寄存器全绿：`0x24` 20/20、`0x2C=0`、`mmcm_locked=1`、像素时钟 74.4 MHz、
+**帧缓冲回读 md5 与主机算的帧逐字节相同**（`00e3a305…`，见 §14.3）。
+
+### 14.2 已定位的直接原因（我的 bug）
+`_soft_reset_ufcnt()` 里的掩码写成了 `CTRL & CTRL_RUN`（只保留 bit0），
+本意是"保留 enable + test_pattern 位"，实际**把 test_pattern 位清掉了**：
+
+```
+setup(): 写 CTRL=0x15（彩条）→ 立刻被 _soft_reset_ufcnt 改写成 0x01
+         ⇒ 空闲态变成"扫描一块预填全黑的缓冲" ⇒ 倒计时 45 s 就是纯黑
+```
+**为什么"黑"而不是"彩条"**：`CTRL=0x15` 才是彩条（`scan_sel=1` 选 `bar_rgb`）；
+被改写成 `0x01` 后选了扫描通路，而两块缓冲在 `setup()` 里被 `_prefill_blocks()` 预填成黑，
+这一次没有提交过任何帧 ⇒ 黑。
+
+**修复**：掩码改为 `CTRL_KEEP=0x15`；且**播放中一次都不碰 CTRL**（原来在第 0 帧提交后还做了一次
+20 ms 软复位，等于在"有画面"时把扫描器复位 —— 已删除）；`setup()` 里只做一次软复位（此时无画面），
+之后空闲写 `0x15`（彩条），`START` 时写 `0x01`（与 `display_demo` 的板验顺序同向）。
+
+### 14.3 同时发现的现场问题（会把后续测试带偏）
+两轮点播进程**没死**：它们是做帧缓冲回读时被 `kill -STOP` 冻结的，
+后来 `kill -TERM` 打到了 `sudo` 包装而不是 `python` 子进程 ⇒ 一直处于状态 `T`，
+占着 11 MB CMA（`CmaFree` 一度只剩 528 kB ⇒ 新的 `allocate` 会失败）。
+现已 `kill -9` 清理，`CmaFree` 回到 6.6 MB。**以后按 `--pidfile` 里的 python pid 发信号。**
+
+### 14.4 新增判据 7'（每帧 nonblack 回读）
+每帧写完立刻回读**这块 DMA 缓冲**（`pipe._u8` 视图，就是 PL 扫的那块），统计非黑像素占比：
+
+```
+[frame 000] pair=00/0094 fid=1 latch=OK 6.3ms 0x24=0x1 uf=None nonblack=88.9%
+nonblack 期望 = 1280*640 / (1280*720) = 88.9%（黑的只有上下各 40 行黑边）
+< 80% ⇒ 日志打 [warn]；report 里给 nonblack_min
+```
+这条能抓住"数据写了但画面全黑"和"贴图几何错"，而 `0x24/0x2C` 抓不住。
+
+### 14.5 ★ 根因确认（A/B 实测，2026-11-03 21:16）
+用**最小脚本**（`runs/demo_pairs/minimal_proof.py`：只 `CTRL=0x15` → `DisplayPipeline(mode=0).setup()`
+→ `CTRL=0x01` → `show(orig,proc)`，**没有软复位、没有 FCLK0 写入**）推一张合成图
+⇒ **用户确认"有图"**。同一块帧缓冲、同一位流、同一时钟。
+
+$$\Rightarrow\ 	extbf{元凶 = } 	exttt{CTRL[1]}\ 	ext{软复位}\ (	exttt{0x03}\ 	ext{保持}\ 20\ 	ext{ms}）$$
+它打到 `hdmi_fb_scan.cfg_soft_reset`，之后扫描 FSM 不再吐 `pix_valid`
+⇒ `rgb_out = scan_pix_valid ? scan_pix_rgb : 0` **恒 0**，而 `hdmi_de` 仍有效
+⇒ **DE 有效 + 像素全 0 = 全黑**；`0x2C=0` 也自洽（握手根本不发，它统计不到）。
+除此之外的一切（数据 md5、latched、时钟、stride、块号）都是对的。
+
+### 14.6 最终形态（v3，`md5 7e0c28d2031c61e629dc552dfa3abc94`）
+- **删掉** `_soft_reset_ufcnt()` 整个函数与两处调用；**删掉** `Clocks.fclk0_mhz` 写入。
+- **直接写的寄存器只剩**：进 `setup()` 前 `CTRL=0x15`、`START` 后 `CTRL=0x01`、`STOP/SIGTERM` 时 `CTRL=0x15`。
+  `VIDEO_MODE/FB_*/FRAME_ID/PIXEL_FMT/模式切换` 全部由 `DisplayPipeline` 负责。
+- **FCLK0 只读**：报数 100 → 真值 66.67；不在 60~75 就报错退出（不在代码里改频率）。
+- **0x2C 只报增量**：基线 = 进程启动首读，之后 `uf` 是相对基线的差。
+- 每帧回读 `nonblack%`（只读，安全），`<80%` 打 `[warn]`。
+
+> 教训（三次同源）：**"清零计数器"这种好意动作，把显示通路打死了。**
+> 以后凡是要写 `CTRL`，先问一句"这会不会碰到 bit1"。
+
+
+## 15. 最终结构与 3 轮实测（2026-11-03 21:31–21:34，已由用户肉眼确认）
+
+### 15.1 结构：`demo_player` 是薄壳，`minimal_proof` 是唯一实现
+```python
+from minimal_proof import bringup as mp_bringup, show as mp_show, ctrl_now as mp_ctrl
+pipe, ctx = mp_bringup()      # CTRL=0x15 → 1 s → DisplayPipeline(mode=0).setup() → CTRL=0x01
+fid = mp_show(ctx, frame)     # 每帧只调这一句（= pipe.show_frame(frame)）
+```
+`demo_player` 里再无 `show_frame()` 直接调用；`_write_ctrl()` 只剩 STOP/SIGTERM 的 `0x15`
+与"上一轮 STOP 留下彩条时才切 `0x01`"。
+
+### 15.2 为什么改成 import（今晚最贵的一课）
+前四次"照着最小脚本重写"的版本**全部黑屏**，而最小脚本本身一直能出图。
+最后一次做了**机械打桩 diff**（给 `MmapRegIo.write32` 打桩 + `minimal_proof.WRITES` 合并成一条时间线）：
+
+```
+MIN  (13): 0x00=0x15, 0x00=0x14, 0x08=0x00, 0x0C=0x30100000, 0x10=0x00,
+           0x14=0xF00, 0x18=0x500, 0x1C=0x2D0, 0x28=0x00, 0x08=0x00,
+           0x00=0x15, 0x00=0x01, 0x20=0x01
+DEMO (13): 完全同上            SEQUENCE_IDENTICAL = True
+```
+
+$$\Rightarrow\ 	ext{写序列一致也会黑} \Rightarrow 	ext{差异在}	extbf{进程环境/时序}（	exttt{bringup()} 	ext{之后的 } 	exttt{arm(0)} + 	exttt{ping} 	ext{ 的 3 s 空档）}$$
+$$\Rightarrow\ 	extbf{结论：等价性要靠"同一份代码"，不靠"看起来一样"。}$$
+
+### 15.3 3 轮实测（24 帧，`--auto --start-delay 20 --loops 3 --once`）
+```
+mean = 0.999981 s    max|T-1.000| = 0.433 ms    min/max = 0.999567 / 1.000069
+首帧→末帧 = 22.999571 s      START→末帧 = 43.000022 s（= 20 s 延迟 + 23 s，理论 43.000）
+0x24 = 24/24 = 100%          0x2C 增量 = 0（24 采样点全 0）
+nonblack 最小值 = 0.8884（88.8%）   停因 = loops
+回绕 7→0：dt = 0.999986 (-14 µs)、1.000003 (+3 µs)
+收尾：CTRL=0x15 → 缓冲释放 → operating → rc=0 → sync rc=0
+md5：demo_player 64c3c8f2… / minimal_proof 260a200e…
+```
+
+### 15.4 待办（正式录制前）
+`bringup()` 之后还有 ~3 s 空档（`arm(0)` + `ping -c3`），录正式片时会让"START→首帧"多 3 s。
+**保守方案**：把 `advertise_addresses()`（含 ping）挪到 `bringup()` **之前**，
+改完**必须重跑 `--still 0` 让用户再确认一次**。
