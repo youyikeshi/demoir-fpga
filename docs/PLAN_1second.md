@@ -7122,3 +7122,40 @@ $$\quad\ \Rightarrow \textbf{断在"128 B 线 → 5 个描述符拍"的服务路
 $$\Rightarrow\ \Rightarrow\ \textbf{B5 是}\textbf{必要不充分}；\text{下一条要修的是描述符取指}$$
 
 $$\Rightarrow\ \textbf{进展的定性}：\text{融合通路从"物理上跑不起来"}\to\text{"能启动、能进 } \mathtt{S\_HDR}、\text{已定位到确切的下一个 bug"}$$
+
+### 70.110 ★★★★★ T-148 容量-收益模型：**256² 融合 ROI 只有 0.8%，不值得做**（2026-11-03 11:1x）
+
+**容量前沿（52 块 = 239,616 B，W=128；格 = 块数/覆盖层数）**
+| G（输出组数）| cout≤ | BR=3 | BR=5 | BR=6 | BR=8 | BR=10 |
+|---|---|---|---|---|---|---|
+| 4 | 32 | 15/90 | 25/90 | 30/90 | 40/90 | **50/90** |
+| 6 | 48 | 18/184 | 30/184 | 35/184 | **47/184** | 59NO |
+| 8 | 64 | 23/208 | 39/208 | **46/208** | 61NO | 77NO |
+| 12 | 96 | 29/222 | **48/222** | 57NO | 76NO | 95NO |
+| 24 | 192 | **45/227** | 74NO | 89NO | 119NO | 148NO |
+
+$$\Rightarrow\ \text{前沿 } (G,BR)：(4,10)(6,8)(8,6)(12,5)(24,3) \Rightarrow \textbf{组数翻倍 = 行数掉一档}$$
+$$\Rightarrow\ \textbf{推荐 } P2：G{=}12 / BR{=}5 \Rightarrow \text{覆盖 } \mathbf{222/227 = 97.8\%}，48\ \text{块}$$
+$$\quad\ \Rightarrow\ \textbf{净省 } +4.4\ \text{MB} \Rightarrow \mathbf{+0.020\ s}（\text{v5 真实口径 } -0.040\ \text{s}）$$
+
+**★ 结论：按字节判，融合不值得**
+$$\Rightarrow\ \text{ROI } 0.8\%;\ \text{全空间上限 } \mathbf{0.025\ s}$$
+$$\Rightarrow\ \text{唯一有量级的是 } \mathtt{conv}\to\mathtt{cat}（84\ \text{条，全 } k{=}3）\ \text{把 pack 的 DDR 读搬上片} \Rightarrow \text{上限 } 0.26\ \text{s}$$
+$$\quad\ \Rightarrow\ \text{但需 } \mathtt{band\_seq}\ \text{移植且}\textbf{无板级证据}$$
+$$\Rightarrow\ \textbf{建议先做 } \mathtt{mlp}（\mathbf{0.74\ s}，\mathbf{0\ BRAM}）$$
+
+**★ 三处必须知道的更正（都影响方案正确性）**
+$$\Rightarrow\ \textbf{① 现役 band 是 } \mathtt{C\_MAX}=48 \Rightarrow \mathbf{6}\ \text{组}=48\ \text{通道}，\text{不是 }4\ \text{组}/32\ \text{通道}$$
+$$\quad\ \Rightarrow\ \text{这正好解释 } 90/223（92\ \text{个单 conv 段里 } \mathtt{cout}{=}96/192\ \text{那 }2\ \text{个被挡）}$$
+$$\quad\ \Rightarrow\ \textbf{且 } \mathtt{C\_MAX}{=}48/\mathtt{BR}{=}8/\mathtt{W\_MAX}{=}256 = 245{,}760\ \text{B} = \mathbf{54}\ \text{块} > 52 \Rightarrow \textbf{真 band 装不进}$$
+$$\quad\ \Rightarrow\ \mathbf{\mathtt{W\_MAX}\ 256\to128\ \text{只要 }27\ \text{块}} \Rightarrow \textbf{这是最便宜的一刀}$$
+$$\Rightarrow\ \textbf{② } \mathtt{conv}\to\mathtt{cat}\ \text{两级是 } \mathbf{84}\ \text{条}，\text{不是 }45;\ \text{单 op conv 段是 } \mathbf{92}\ \text{条}，\text{不是 }90$$
+$$\Rightarrow\ \textbf{③ "1 bit/通道读"只描述}\textbf{目标表示}：\text{P 口径 } 227\ \text{层共 } 60.2\ \text{MB}，\textbf{v5 真实 } 292.7\ \text{MB}（\text{全图 }456.7）$$
+$$\quad\ \Rightarrow\ \text{若 DDR 真是 packed 1-bit，}2.037\ \text{s}\ \text{就只对应 } 29\ \text{MB/s} \Rightarrow \textbf{不合理}$$
+$$\quad\ \Rightarrow\ \Rightarrow\ \mathbf{\text{"省字节"和"1bit 打包"是}\textbf{替代关系}，不是互补} \Rightarrow \text{融合省的字节}=\text{打包本来也能省的} \Rightarrow \textbf{双重计算}$$
+$$\quad\ \Rightarrow\ \text{另：}\mathtt{cin}\ \text{最大 }448（\text{在 } \mathtt{cout}\le32\ \text{内）\Rightarrow 上限 }10\ \text{行，\text{不是 }23}$$
+
+**b) 直接回答**
+$$\Rightarrow\ \text{5 个 } \mathtt{cout}{=}192\ \text{层走老路只损失 } 0.80\ \text{MB}(P) = 0.0036\ \text{s}\ /\ 6.44\ \text{MB}(R) = 0.029\ \text{s}$$
+$$\Rightarrow\ \text{且全在 }32^2/16^2/8^2 \Rightarrow \textbf{绝不能为它们把 } G\ \text{扩到 }24$$
+$$\Rightarrow\ \text{若要做，}\textbf{第一步改组数}（4/6\to12），\text{行数是廉价旋钮（只影响 }2/BR\ \text{的 halo）}$$
