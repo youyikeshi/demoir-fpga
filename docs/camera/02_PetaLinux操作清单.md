@@ -202,3 +202,51 @@ petalinux-build -p /data/peta_prj/ax_peta
 
 **摄像头**：加 `usb-host.cfg`（`CONFIG_USB_DWC2_HOST` + `CDC_NCM` + `UVC`）+ DT 里 `&usb0 { dr_mode="host" }`，重建 20~40 min，先验 U 盘再验相机。
 **HDMI**：不重建镜像；在 overlay 里加"时序 + 最近邻放大 + TMDS"，PS 用 `mmap` 配寄存器。资源够（+1.5~2.5k LUT，DDR +6 MB/s），但帧率只有 0.17 fps，只适合"结果展示"。
+
+---
+
+## 9. ★ 2026-11-03 更正：USB 用 **chipidea 不是 DWC2**，且 CMA 只有 16 MB
+
+$$\Rightarrow\ 	ext{§3.1 里写的 } 	exttt{CONFIG\_USB\_DWC2}\ 	ext{系列**是错的**}$$
+$$\Rightarrow\ 	ext{Zynq-7000 的 USB 控制器由 }	extbf{chipidea}	ext{ 驱动（} 	exttt{xlnx,zynq-usb-2.20a} / 	exttt{chipidea,usb2} 	ext{）}$$
+$$\Rightarrow\ 	ext{源码证据：} 	exttt{drivers/usb/phy/phy-ulpi.c}\ 	ext{存在；DT 里 } 	exttt{usb@e0002000}\ 	ext{的 compatible 是 chipidea}$$
+
+### 9.1 工程现状（2026-11-03 实测）
+| 位置 | 现状 | 结论 |
+|---|---|---|
+| `pcw.dtsi`（XSA 派生） | `&usb0 { phy_type = "ulpi"; status = "okay"; }` | **没有 `dr_mode`** ⇒ 落 otg/外设模式 |
+| 内核 `.config` | `CONFIG_USB_CHIPIDEA=y`、`_HOST=y` | host 框架已在 |
+| 内核 `.config` | **`CONFIG_USB_CHIPIDEA_ULPI` 未设** | **关键缺口**（ULPI viewport 没编） |
+| 内核 `.config` | `CONFIG_USB_USBNET` / `CDC_NCM` / `CDCETHER` / `RNDIS_HOST` **全部未设** | 摄像头模拟网卡用不了 |
+| 内核 `.config` | `CONFIG_USB_GADGET_XILINX=y` | 现在跑的是 gadget 模式 |
+| 内核 `.config` | **`CONFIG_CMA_SIZE_MBYTES=16`** | **太小**（显示双缓冲 5.5 MB + 加速器 arena 66 MB） |
+
+### 9.2 正确的最小改动
+```dts
+/* system-user.dtsi */
+&usb0 { dr_mode = "host"; };
+```
+```
+# usb-host-and-cma.cfg
+CONFIG_USB_CHIPIDEA_ULPI=y
+CONFIG_USB_USBNET=y
+CONFIG_USB_NET_CDC_NCM=y
+CONFIG_USB_NET_CDCETHER=y
+CONFIG_USB_NET_RNDIS_HOST=y
+CONFIG_USB_VIDEO_CLASS=y
+CONFIG_MEDIA_USB_SUPPORT=y
+CONFIG_CMA_SIZE_MBYTES=512
+```
+$$\Rightarrow\ 	extbf{不要}加厂商那段 } 	exttt{ulpi-phy} 	ext{ + } 	exttt{usb-phy = <\&usb\_phy0>}$$
+$$\Rightarrow\ 	ext{Zynq 的 chipidea 走内部 ULPI viewport（} 	exttt{phy\_type="ulpi"}\ 	ext{已足够）}$$
+$$\Rightarrow\ 	ext{多加一个外部 phy 可能让驱动二选一失败}$$
+
+$$\Rightarrow\ 	ext{注意：} 	exttt{dr\_mode="host"}\ 	ext{后该口不能再当 gadget 用（} 	exttt{USB\_GADGET\_XILINX}\ 	ext{失效）}$$
+$$\Rightarrow\ 	ext{若要两者共存，用 } 	exttt{dr\_mode="otg"}\ 	ext{+ 正确的 ID 脚；本板没配 ID 脚} \Rightarrow 	extbf{选 host}$$
+
+### 9.3 判定"USB 真的起来了"的三级证据（不要只看 dmesg）
+1. `ls /sys/bus/usb/devices/` **非空**（≥1 个 root hub）
+2. 插 U 盘 ⇒ 出现块设备 + `dmesg` 有 `new high-speed USB device`
+3. 插摄像头（模拟网卡）⇒ `ip link` 出现 `usb0`，`dmesg` 有 `cdc_ncm` 绑定
+
+$$\Rightarrow\ 	ext{第 3 步才是真正的目标；前两步是分级验证，坏在哪一层一目了然}$$
