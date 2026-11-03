@@ -7694,3 +7694,53 @@ $$\quad\ \Rightarrow\ \text{刀 7 的等价性是在}\textbf{零延迟模型}下
 $$\Rightarrow\ \textbf{c) 一条未解释的覆盖差}：\mathtt{TNS\ Total\ Endpoints}\ \text{v39 } \mathbf{47{,}805}\to\text{v57 } \mathbf{41{,}273}（\text{少 }6{,}532，-13.7\%）$$
 $$\quad\ \text{而 FF 只差 }2、\mathtt{check\_timing}\ \text{全 }0 \Rightarrow \text{单文件逻辑改写不该减少被分析端点数}$$
 $$\quad\ \Rightarrow\ \text{疑：某类 CE 检查消失} \Rightarrow \text{需专查}$$
+
+### 70.126 ★★★★★★★ T-162：**6,551 个端点是"退出分析集"，不是被修好；设计里有 21\sim27\ ns 的未定时路径**（2026-11-03 13:4x）
+
+**① 不是口径差异，是真少了**
+$$\Rightarrow\ \text{两版 DCP 约束同为 } \mathtt{create\_clock\ -period\ 10.000};\ \text{同脚本复跑得 } 47805/41273\ \textbf{逐位一致}$$
+$$\Rightarrow\ \mathtt{-max\_paths\ 5\ vs\ 20}\ \text{不影响 Total Endpoints};\ \mathtt{check\_timing}\ 12\ \text{类两版全 }0$$
+$$\Rightarrow\ \text{例外覆盖 } \mathtt{FP10/11/12} = 24{,}492/13{,}742/4{,}838 \to 24{,}489/13{,}740/4{,}840（\text{只差 }3）\Rightarrow \textbf{覆盖面没变}$$
+
+**② 差集：lost 6,551 / gained 19**
+$$\Rightarrow\ \text{19 个新增全是刀 7 的新逻辑 } \mathtt{rem\_reg[0..8]} + \mathtt{sw\_act\_q\_reg}$$
+$$\Rightarrow\ \textbf{FF 只 } 18{,}963\to18{,}961;\ \textbf{6,526/6,551 的引脚在 v57 网表里照旧存在}$$
+
+**③ 少的分类**
+| pin_class | 数量 | 模块分布 |
+|---|---|---|
+| CE | **4,641** | `u_bin_unit` 顶层 2,262 / `u_eng` 2,232 / `u_pack` 146 |
+| D | 1,620 | 顶层 1,608 |
+| **BRAM 控制脚** | 258 | ADDRBWRADDR 208 / ENBWREN 25 / WEA 16 / ENARDEN 9 |
+| DSP 使能 | 32 | CEP 16 / CEA、CEB 16 |
+
+**④ ★ 机制：它们从"被分析"变成"未定时（untimed）"**
+$$\Rightarrow\ \text{这 }6{,}551\ \text{个端点在 v39 里的最差起点 } \mathbf{87.4\%}\ \text{落在}：$$
+$$\quad\ \mathtt{run\_len\_reg[3]\_replica}（3{,}178） + \mathtt{run\_unit\_q\_reg[2]}（2{,}549）$$
+$$\quad\ \Rightarrow\ \textbf{正是刀 7 删掉的那条准静态使能锥}（\mathtt{issue\_en0\_carry}\ 15\to\mathbf{0}）$$
+$$\Rightarrow\ \textbf{在 v57 里它们仍有一条真实物理路径}：$$
+$$\quad\ \mathtt{win\_q\_reg\_2}\to\mathtt{FSM\_onehot\_wst\_reg[0]/D}\quad \mathbf{21\ \text{级} / 21.445\ ns}$$
+$$\quad\ \mathtt{win\_q\_reg\_2}\to\mathtt{p\_0\_out\_\_0/CEA2}\quad \mathbf{26.824\ ns}$$
+$$\Rightarrow\ \textbf{但 } \mathtt{SLACK}\ \text{为空（untimed）} \Rightarrow \mathtt{get\_timing\_paths\ -slack\_lesser\_than\ 1000}\ \textbf{一条都取不到}$$
+$$\Rightarrow\ \textbf{自校验}：\text{那条 }21.4\ \text{ns}\ \text{路径若在 v39 里被分析，\text{v39 的 WNS 该是 } \approx-11.4\ \text{而非 }-1.998}$$
+$$\quad\ \Rightarrow\ \textbf{它本来就没被分析}——\text{v39 只是}\textbf{借 } \mathtt{run\_len}\ \text{锥"顺带看见"了它们的终点}$$
+$$\quad\ \Rightarrow\ \textbf{刀 7 删锥后，它们再无任何被分析路径} \Rightarrow \textbf{退出分析集}$$
+
+**⑤ 对"v39 违例都是准静态 CE"的影响（结论不倒，但表述必须改）**
+$$\Rightarrow\ \text{v39 的 } 7{,}109\ \text{个违例端点里，}\mathbf{2{,}841（40.0\%，其中 CE\ 2{,}697）}\ \text{在 v57 里}\textbf{不再被分析}$$
+$$\Rightarrow\ \text{其余 } 4{,}268\ \text{仍在分析且已满足（最差 }+0.206）$$
+$$\Rightarrow\ \Rightarrow\ \textbf{“刀 7 消掉 7,109 条违例”必须改写为：}\mathbf{4{,}268\ \text{条真被修好} + 2{,}841\ \text{条退出分析}}$$
+$$\Rightarrow\ \Rightarrow\ \textbf{v57 的“0 违例 / WNS +0.206”是在少 13.7\% 端点的集合上得到的}$$
+$$\Rightarrow\ \textbf{第 153 条：报“违例清零”必须同时报}\textbf{端点总数}——\text{否则清掉的可能是“被分析资格”而不是违例}$$
+
+**⑥ 但它不能解释 v57 的 100 MHz 失败**
+$$\Rightarrow\ \text{消失的是准静态使能 / BRAM 控制脚}（\text{v39 已证明 }150\ \text{MHz}\ \text{下无害的那一类）}$$
+$$\Rightarrow\ \text{方向是“报告更乐观”，与真实绑定路径 } \mathtt{win\_q}\to\mathtt{s1\_pc\_q}（\text{slack }+0.206）\ \textbf{不相交}$$
+$$\Rightarrow\ \Rightarrow\ \textbf{不会产生错数据}$$
+
+**★ 真正值得警惕的是这件的另一面**
+$$\Rightarrow\ \textbf{这颗设计里存在 }21\sim27\ \text{ns 的}\textbf{未定时真实路径}，\text{而它跑在 } 6.667\ \text{ns}$$
+$$\Rightarrow\ \text{加上 } \mathtt{catpack}\ \text{的 } \mathtt{set\_false\_path\ -through}\ \text{覆盖 59.3\% 端点$$
+$$\Rightarrow\ \Rightarrow\ \textbf{两版位流的时序报告对“硬件是否可用”都是不可信的}——\text{只是 v39 碰巧跑对了}$$
+$$\quad\ \Rightarrow\ \text{v39 的“报告有负值”之所以看起来“可控”，部分是因为它}\textbf{顺带看见了}那些端点$$
+$$\quad\ \Rightarrow\ \text{刀 7 让报告变干净的同时，也}\textbf{把那份偶然的可见性去掉了}$$
