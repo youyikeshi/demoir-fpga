@@ -7602,3 +7602,45 @@ $$\Rightarrow\ \text{T-158 写"}\text{换树里现成的 C 内核预期 } -0.45\
 $$\Rightarrow\ \textbf{而 T-155 实测：}\mathtt{BIN\_CONVPF\_C}{=}1\ \text{让 convfp } 1.246\to\mathbf{1.375}（\text{更慢），墙钟 } +0.12\sim0.44$$
 $$\Rightarrow\ \Rightarrow\ \textbf{第 149 条：}\text{子代理引用的"预期收益"同样要核——}\text{它可能引用的是已被另一路否证的旧结论}$$
 $$\Rightarrow\ \text{convfp 的真实可用项是 T-155 的副产品：}\textbf{分层派发 } -0.18\ \text{s}（3\ \text{层赢 1 层输，}\mathtt{conv\_first}\ +303\ \text{ms 因 } k{=}5/\mathtt{cout}{=}48\ \text{是 } \mathtt{MR}{=}4\ \text{最坏形态）}$$
+
+### 70.124 ⛔ ★★★★★★★ **v57 上板不通过：报告干净不等于硬件正确**（T-159，2026-11-03 13:0x）
+
+**事实（同 PS 代码、同输入、同工作点、同 100 MHz）**
+| 运行 | 位流 | 256² 三 sha1 | 判定 |
+|---|---|---|---|
+| run#1 | v57 `5d1cb789` | `af760e82` / `2c3271c9` / `719d4241` | ❌ |
+| run#2 | v57 `5d1cb789` | `61f4028d` / `afa3e398` / `b7043c96` | ❌ **且与 run#1 不同** |
+| 对照 | v39 `602725b8` | `9b1940c8` / `f86a7035` / `025757a8` | ✅ |
+
+$$\Rightarrow\ \textbf{单一变量 = 位流} \Rightarrow \text{v57 错、v39 对}$$
+$$\Rightarrow\ \text{错误}\textbf{逐次不同} \Rightarrow \text{第 117 条：}\textbf{时序失效签名}，\text{不是确定性 RTL 逻辑错}$$
+$$\Rightarrow\ \text{而 xsim 是 } \mathbf{12/12}\ \text{逐字节且逐拍相同} \Rightarrow \textbf{逻辑正确，责任在物理时序}$$
+
+$$\Rightarrow\ \Rightarrow\ \mathbf{\text{v57}：WNS +0.206 / TNS 0 / \text{违例端点 }0 \quad\not\Rightarrow\quad \text{硬件正确}}$$
+$$\Rightarrow\ \textbf{STA 漏了或错误豁免了一条真实路径} \Rightarrow \text{与 T-98 里 v50 的 } \mathtt{WNS}+0.113\ \textbf{"假安全"同一类}$$
+$$\Rightarrow\ \Rightarrow\ \textbf{第 150 条：}\text{"报告干净"不是上板许可，}\text{必须}\textbf{另有板端证据}；\text{反之"报告有负值"也不等于不能用（v39）}$$
+$$\quad\ \Rightarrow\ \text{判据只能是：}\textbf{板端多次跑 sha1 一致} + \text{时序违例性质已分类}$$
+
+**处置**
+$$\Rightarrow\ \textbf{v57 不进基线、不改用};\ \text{v39 仍是}\textbf{唯一可用基线}$$
+$$\Rightarrow\ \mathtt{runs/ACCEPT\_v57/}\ \text{已改判：}\mathtt{README}\ \text{首行改为"已作废"、新增 } \mathtt{VERDICT\_REJECTED.md}，\text{保留作证据}$$
+$$\Rightarrow\ \text{v57 的下一步}\textbf{不是验收，是查那条 STA 没覆盖的路径}：$$
+$$\quad\ \text{① 查 XDC 的 } \mathtt{false\_path}/\mathtt{multicycle\_path}/\mathtt{set\_max\_delay}\ \text{是否豁免了真实路径}$$
+$$\quad\ \text{② 查 CDC：}\mathtt{ps7/SAXIHP*ACLK} \leftrightarrow \text{PL 时钟跨域}$$
+$$\quad\ \text{③ 查时钟树：派生时钟是否未约束、skew 是否被忽略}$$
+
+**★ 我给的指令也错了一条（T-159 纠正）**
+$$\Rightarrow\ \text{我说"}\mathtt{Clocks.fclk0\_mhz}\ \text{口径是真实值的 }1.5\ \text{倍，要 }100\ \text{就写 }150\text{"} \Rightarrow \textbf{错}$$
+$$\Rightarrow\ \text{实测标定：写 }150\ \text{读回 }150;\ \text{写 }100\ \text{读回 }100;\ \text{写 }66.67\ \text{读回 }68.18 \Rightarrow \textbf{setter/getter 一致，无 }1.5\ \text{倍}$$
+$$\Rightarrow\ \text{那个 }1.5\ \text{指的是}\textbf{构建口径}（\mathtt{create\_clock}\ 10.000\ \text{ns 与实跑 }150\ \text{MHz 之差）}，\text{不是运行时 API}$$
+$$\Rightarrow\ \textbf{第 151 条：API 口径与构建口径是两回事，}\text{不能把一处的经验套到另一处}$$
+$$\quad\ \Rightarrow\ \text{若按我的错误指令执行（写 }150）\ \text{会得到真 }150\ \text{MHz}，\text{而 v57 在 }6.667\ \text{ns 是 }-3.07 \Rightarrow \text{必然更容易错}$$
+
+**顺带量到 100 MHz 的真实代价**
+$$\Rightarrow\ \text{v57 } 7.926\sim8.042\ \text{s}（\text{数据无效，仅记时间）};\quad \text{v39 } \mathbf{7.979}\ \text{s}$$
+$$\Rightarrow\ 100\ \text{MHz 比 }150\ \text{MHz（}5.33\ \text{s）\text{慢约 }2.6\ \text{s} \Rightarrow \textbf{不是我原先估的 }+0.24\ \text{s}$$
+$$\quad\ \Rightarrow\ \text{原因：访存部分不随时钟缩放，}\text{但 conv 计算随频率线性变慢；我低估了计算占比}$$
+
+**PS 侧结论不受影响**
+$$\Rightarrow\ \mathtt{runs/ACCEPT\_v57/05\_PS}\ \text{的 } \mathtt{bin\_net.py}\ \mathtt{0990948d}、\mathtt{bin\_engine.py}\ \mathtt{2fd3d099}\ \text{是}\textbf{与位流无关}的改动$$
+$$\Rightarrow\ \text{它们是在 v39 上验过 sha1 的（T-153 }8/8、\text{T-156 三尺寸全中）} \Rightarrow \textbf{继续有效}$$
