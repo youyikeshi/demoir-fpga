@@ -7304,3 +7304,32 @@ $$\quad\ 16\text{-lane}\ 21.56\to3.74;\quad \textbf{8-lane 未改 } = \mathbf{3.
 $$\quad\ \Rightarrow\ \textbf{合并器只是把 16-lane 抬到 8-lane 的既有水平} \Rightarrow \text{对 } \mathtt{v152}\ \text{树 }\textbf{0 收益}$$
 $$\Rightarrow\ \textbf{③ 我要求的"v57 = v152 + 合并器"是}\textbf{0 逻辑改动} \Rightarrow \text{指令作废}$$
 $$\Rightarrow\ \textbf{④ } \mathtt{inv\_lint}\ \text{的 FAIL 8 vs 7 是}\textbf{语料口径差}（\text{缺 }s{=}2/d{=}2/\text{dilation 形状），\text{不是副本落后}}$$
+
+### 70.115 ★★★★★ T-155 判死 convfp-C + **两条会污染所有板测的隐患**（2026-11-03 12:2x）
+
+**结论：不是 FMA；C 内核本来就逐字节不变，但它更慢**
+$$\Rightarrow\ \mathtt{-ffp-contract=off}\ \text{与 } \mathtt{fast}\ \text{编出的 .so }\mathbf{md5\ \text{完全相同}}（\mathtt{ebff10ea}）$$
+$$\quad\ \Rightarrow\ \text{热点是}\textbf{显式 NEON intrinsic}，\text{没有可合成的乘加};\ \text{且 } \mathtt{-ffp-contract=off}\ \text{自 T-17 起就在 BASE 里}$$
+$$\Rightarrow\ \textbf{逐字节}：4\ \text{个真实层 + 真实输入权重，numpy vs C 标量/v0/v1/fma/ffast = } \mathbf{0/1{,}044{,}480}\ \text{元素差，}\max|\Delta|=0$$
+$$\quad\ \Rightarrow\ \text{原因：}\textbf{板上这份 BLAS 的 K 方向累加本来就是串行} \Rightarrow \text{"会改末位"只在主机 x86（OpenBLAS 分块）成立}$$
+$$\Rightarrow\ \textbf{计时反向}：\text{convfp } 1.246\to\mathbf{1.375};\ \text{墙钟 } 6.088\to6.210（\text{冷）},\ 5.93\to6.21\sim6.37（\text{稳态）}$$
+$$\Rightarrow\ \Rightarrow\ \textbf{"既快又逐字节不变"不成立} \Rightarrow \text{判死}$$
+$$\Rightarrow\ \text{副产品（暂缓）}：\text{逐层表显示 C 内核 }\mathbf{3\ \text{层赢、1 层大输}}$$
+$$\quad\ \mathtt{dec\_1}\ -110/\mathtt{dec\_2}\ -45/\mathtt{dec\_3}\ -27\ \text{ms}，\text{而 } \mathtt{conv\_first}\ \mathbf{+303\ \text{ms}}（k{=}5/\mathtt{cout}{=}48\ \text{是 } \mathtt{MR}{=}4\ \text{分块最坏形态）}$$
+$$\quad\ \Rightarrow\ \text{分层派发投影 } 1.253\to1.072（\mathbf{-0.18\ s}，\text{逐字节不变）\Rightarrow \text{小于 }-0.4 \Rightarrow \text{只作可叠加项}$$
+
+**★★ 两条会污染所有板测的隐患（比这个结论本身更重要）**
+$$\Rightarrow\ \textbf{① 多 net 共用同一个 engine 的 24 惰性槽} \Rightarrow \textbf{污染测量、甚至让 sha1 偶发变}$$
+$$\quad\ \Rightarrow\ \text{T-155 第一趟多 net 混跑} \Rightarrow \text{nf 臂 3 跑}\textbf{互不相同};\ \text{改 single-net 后 } \mathbf{18/18}\ \text{全中}$$
+$$\quad\ \Rightarrow\ \textbf{第 139 条：整网 A/B 一次只许一个 net}$$
+$$\Rightarrow\ \textbf{② 板端 } \mathtt{ps/pynq/}\ \textbf{被并发代理替换}：\text{T-155 跑完 5 分钟内 } \mathtt{bin\_engine.py}\ \text{已被换掉}$$
+$$\quad\ \Rightarrow\ \textbf{"只校验不重部署"的第二趟不成立}$$
+$$\quad\ \Rightarrow\ \text{规程：每次测量前}\textbf{重新部署}，\text{从 } \mathtt{git\ archive\ HEAD}\ \text{取快照（\textbf{不用工作树}}，\mathtt{deps\_closure}\ \text{会 rc=1）}$$
+$$\quad\ \Rightarrow\ \text{测量前后各记板端 } \mathtt{ps/}\ \text{md5，}\textbf{不一致则数据作废}$$
+$$\quad\ \Rightarrow\ \textbf{第 140 条：多代理共享一块板时，"部署"必须视为测量的一部分}$$
+$$\Rightarrow\ \text{已把这两条 + "只报第 }2/3\ \text{跑"\ 发给在跑的 T-153 与 T-154}$$
+
+**v57 归档完成（T-152 阶段 B/C）**
+$$\Rightarrow\ \text{独立在 routed DCP 上复核：period 硬断言 }10.000、\mathtt{VIOL}{=}0、\mathtt{LDCE}{=}\mathtt{LDPE}{=}0$$
+$$\Rightarrow\ \text{10 ns 真值分族表也直接在 v39 DCP 上重跑：}\mathbf{WNS -1.998 / TNS -9288.02 / 7109\ \text{端点}}$$
+$$\quad\ \Rightarrow\ \text{与平移表}\textbf{逐项相同}（4488/768/652/338/276/128/…），\text{平移误差 }0.000\ \text{ns} \Rightarrow \textbf{那张表本来就是真值表}$$
