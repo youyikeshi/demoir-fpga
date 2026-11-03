@@ -6,6 +6,34 @@
 
 ---
 
+## 0.0 ★ 上电/重启后**必须**先做这两件事（顺序固定）
+
+```sh
+# ① 位流在不在？——不是 operating 就 sysfs 喂 **.bin**（不是 .bit！）
+cat /sys/class/fpga_manager/fpga0/state
+#   unknown ⇒
+#     sudo cp -f /home/xilinx/demo/design_1_v58.bit /lib/firmware/      # 备着
+#     echo design_1_v58.bin | sudo tee /sys/class/fpga_manager/fpga0/firmware
+#     cat /sys/class/fpga_manager/fpga0/state      # 必须 operating
+#   ⚠️ .bit 直接喂会被拒：Invalid bitstream, could not find a sync word
+#      （内核要 byte-swapped .bin；板上 /lib/firmware/design_1_v58.bin 已有）
+#   ⚠️ state != operating 时**绝不**碰 0x400A0000（AXI 挂死，只能断电）
+
+# ② 真值 66.67 MHz 对不对？——判别法：0x2C 在 2 s 内涨 ⇒ 频率错
+python3 -c "
+from pynq import Overlay, Clocks
+Overlay('/home/xilinx/demo/design_1_v58.bit', download=False)
+print('fclk0 报数 =', float(Clocks.fclk0_mhz))    # 必须是 100.0 ⇒ 真值 66.67
+"
+#   不是 100 ⇒ Clocks.fclk0_mhz = 100  （只写这一次；播放器里只读校验）
+#   实测：报数 75 ⇒ 真值 50 MHz ⇒ 每行都读空 ⇒ 0x2C 疯涨（一次涨到 1,546,533）
+#         报数 100 ⇒ SLCR 0x170=0x00100F00, DIV0+1=16 ⇒ 真值 66.67 MHz, 0x2C 增量 0
+```
+
+**这两条查完才允许跑 `minimal_proof.py` / 播放器。**
+`minimal_proof.ensure_pl()` 已经把①做成了硬门禁（state≠operating 自动 sysfs 载 + 再校验），
+但**②必须人工确认**（播放器只读校验，不对就 `SystemExit`）。
+
 ## 0. 三十秒版
 
 ```bash
@@ -169,9 +197,12 @@ START→首帧        = 延迟 + <10 ms
    ⇒ 会打到 `hdmi_fb_scan.cfg_soft_reset`，之后扫描 FSM 不再吐 `pix_valid`
    ⇒ **DE 有效但像素全 0 = 全黑**，而 `0x2C` 仍为 0（握手根本不发）。
    今晚为这一个动作排查了 4 轮。
-2. **不要在 `DisplayPipeline.setup()` 之后写 `CTRL=0x15`**
-   ⇒ `test_pattern=1` 会把扫描通路关掉（`cfg_enable = ctrl_enable && !ctrl_test`）。
-   正确顺序：`CTRL=0x15` → 1 s → `setup()` → `CTRL=0x01`（就是 `minimal_proof.bringup()`）。
+2. **正确写法：空闲/停播 = `CTRL=0x15`（彩条），每次从彩条切扫描都必须重新写 `CTRL=0x01`**
+   - `cfg_enable = ctrl_enable && !ctrl_test` ⇒ 写了 `0x15` 扫描就停（这是**想要**的待命态）
+   - **实测背书（2026-11-03 晚）**：`STOP → 0x15 → START → 0x01` 连续成功 3 次（play#1/#2/#3），
+     空闲态显示彩条、收到 START 后 1000 ms 出图
+   - 所以"不能写 0x15"是**早期误判**（当时的真因是 `CTRL[1]` 软复位 + 陈旧 pickle），已撤销
+   - **真正的禁令**：① 播放中不许写 CTRL；② 任何情况下不许写 `CTRL[1]`（软复位）
 3. **不要改 `demo_player` 的寄存器调用**
    ⇒ 一切走 `minimal_proof.bringup() / show()`。
    今晚"照着最小脚本重写"的 4 个版本全黑，而打桩 diff 显示**寄存器写序列逐条相同** ——
@@ -183,4 +214,33 @@ START→首帧        = 延迟 + <10 ms
 echo xilinx | sudo -S -p '' kill -TERM $(cat /tmp/demo_player.pid)
 # ❌ 禁止：kill -9 打到 sudo（今晚踩过，python 子进程变僵尸还占 CMA）
 # ❌ 禁止：pkill -f demo_player（会匹配到自己的命令行）
+```
+
+## 7. ⛔ 绝对禁令：PL 没载位流时，**不许碰 `0x400A0000`**
+
+**实测（2026-11-03 22:36 与 22:44，两次完全同样）**：
+`/sys/class/fpga_manager/fpga0/state` 是 `unknown`（PL 空）时，
+用 `/dev/mem` mmap 读 `0x400A0000`（HDMI 寄存器）⇒ **板子当场失联**（ping 100% 丢包、ARP INCOMPLETE），
+两次都是"上一条命令正常、读到这个地址就没返回值"。
+
+**原因**：PL 里没有那个 AXI 从设备，CPU 去读一个不存在的 AXI 地址 ⇒ 总线事务挂死。
+**这不是软件 bug，是硬件行为。**
+
+**硬规则**：
+```sh
+# 动手之前必须先看这一行
+cat /sys/class/fpga_manager/fpga0/state      # 必须 == operating
+```
+- `unknown` ⇒ **只允许**用 `sysfs` 载位流，**绝对不要** `/dev/mem`、不要 `pynq.DisplayPipeline`、不要播放器
+- `operating` ⇒ 才可以读/写 `0x400A0000`
+
+**重启后的正确顺序**：
+```sh
+# ① 只读，不碰 AXI
+cat /sys/class/fpga_manager/fpga0/state
+# ② 载位流（sysfs 路线，不依赖 PYNQ 元数据）
+sudo cp -f /home/xilinx/demo/design_1_v58.bit /lib/firmware/
+echo design_1_v58.bit | sudo tee /sys/class/fpga_manager/fpga0/firmware
+cat /sys/class/fpga_manager/fpga0/state       # 必须 == operating
+# ③ 现在才允许读寄存器 / 跑 minimal_proof / 跑播放器
 ```

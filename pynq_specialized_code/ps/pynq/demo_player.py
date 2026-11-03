@@ -774,6 +774,11 @@ class DemoPlayer:
         self._stage_pair = index % len(self.ps)
         self.log("[arm] 第 0 帧已预构（%.1f ms）⇒ START 后无需再构图"
                  % ((time.monotonic() - t) * 1e3))
+        # ★ 待命态必须是**彩条**：bringup() 收在 CTRL=0x01（扫描态），若不写回 0x15，
+        #   等 START 期间屏上会留着上一轮帧缓冲里的最后一帧。实测 STOP→0x15→START→0x01
+        #   已经连续成功 3 次（play#1/#2/#3），这条写法安全。
+        self._write_ctrl(CTRL_BARS)
+        self.log("[arm] 待命态 CTRL=0x%02X（彩条）——收到 START 时再写 0x01" % self._ctrl())
 
     # ---- 提交一帧 ---------------------------------------------------
     def submit(self, frame: np.ndarray, wait_s: float = 0.35):
