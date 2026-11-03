@@ -368,3 +368,50 @@ $$\quad\ 	exttt{6.12.40-xilinx-g31626ef92ff1 SMP preempt mod\_unload modversions
 - ext这四条任一成立 ⇒ extbf必须重做 rootfs， ext否则模块加载失败、PYNQ 起不来
 
 - extbf纪律：换镜像前必须核对这三条判据，而不是"顺手把 rootfs 也刷一遍"
+
+---
+
+## 12. ★ 2026-11-03 装卡记录：DTB 有**三个载体**，只换一处会出现新旧混装
+
+### 12.1 本次安装（可回滚覆盖，不是刷整盘）
+| 文件 | 安装后 md5（父代理独立 mount -o ro 复算确认） | 大小 |
+|---|---|---:|
+| `BOOT.BIN` | `0fffd3fc5be76ef75d353dfa2f38b562` | 1,181,648 |
+| `image.ub` | `a2b902e7a888a4b022fc6de22f376fbb` | 5,163,863 |
+| `system.dtb` | `90a8c5fa199acaf995f5afdd3052ff8c` | 19,279 |
+
+- 保留未动：`boot.scr` `c63e98a3…`、`uEnv.txt` `2db67850…`、`system.dtb.bak` `8c6a72fc…`（安装前后 md5 逐个相同）
+- rootfs（`sdb2`）**全程未挂载、未写**
+
+### 12.2 ★ 关键陷阱：同一个 DTB 存在于**三个载体**里
+| 载体 | 内嵌 FDT 偏移 | 大小 | md5 |
+|---|---|---:|---|
+| `system.dtb`（FAT 上独立文件） | 0x0 | 19,279 | `90a8c5fa…` |
+| `BOOT.BIN` | **0x11bc80** | 19,279 | `90a8c5fa…` |
+| `image.ub`（FIT） | **0x4e7a7c** | 19,279 | `90a8c5fa…` |
+
+$$\Rightarrow\ 	ext{只换 } 	exttt{system.dtb}\ 	ext{而不重打 } 	exttt{BOOT.BIN}\ 	ext{或 } 	exttt{image.ub} \Rightarrow 	extbf{新旧混装}$$
+$$\Rightarrow\ 	ext{而三者都能被启动流程用到} \Rightarrow 	ext{故障表现会}	extbf{互相矛盾} \Rightarrow 	ext{极难查}$$
+$$\Rightarrow\ 	extbf{判据不能只数串}（	exttt{strings | grep -c}）\Rightarrow 	ext{它只能证明"字符串存在"}$$
+$$\Rightarrow\ 	extbf{必须按偏移解析 FDT 头部并逐字节比对 md5} \Rightarrow 	ext{三处相同才算一致}$$
+
+$$\Rightarrow\ 	ext{印证 §11.2 第 3 条：} 	exttt{petalinux-build}\ 	ext{因 sstate 不会刷新 } 	exttt{BOOT.BIN}$$
+$$\Rightarrow\ 	ext{所以每次改 DT 都要：重生成 } 	exttt{dtb} 	o 	extbf{重打 } 	exttt{BOOT.BIN} 	o 	extbf{重打 } 	exttt{image.ub}$$
+
+### 12.3 无 root 如何验证"只有 root 能读"的整卡备份
+$$\Rightarrow\ 	ext{镜像 } 	exttt{-rw------- root root} \Rightarrow 	ext{普通用户复验不了} 	exttt{zstd -t} 	ext{ 与解压字节数}$$
+$$\Rightarrow\ 	ext{改用}	extbf{算术闭环}从日志独立验证：$$
+$$\quad\ 	exttt{dd}\ 	ext{报 } 7454{+}1\ 	ext{块（} 	exttt{bs}=4\ 	ext{MiB}）\Rightarrow 7454 	imes 4{,}194{,}304 + 2{,}097{,}152 = 31{,}266{,}439{,}168$$
+$$\quad\ 	ext{恰好等于整盘容量} \Rightarrow 	extbf{"dd 真的读满了"，一字节不差}$$
+$$\quad\ 	exttt{zstd -l}\ 	ext{的 "MB" 实为 MiB} \Rightarrow 29{,}818 	imes 1{,}048{,}576\ 	ext{也要对得上}$$
+$$\Rightarrow\ 	extbf{技巧：权限挡住直接复验时，用"日志里的计数 × 单位"做独立算术闭合}$$
+$$\Rightarrow\ 	ext{这比"信任日志写了 OK"强得多}$$
+
+### 12.4 备份与回滚（本次已有）
+| 层级 | 文件 | 用途 |
+|---|---|---|
+| 秒级 | `/data/backup/sd_boot_20261103_1633.tar.gz`（5.4 MiB，md5 `88d9ad1b…`） | 只回 boot 分区 6 文件 |
+| 分钟级 | `/data/backup/sd_full_20261103_1640.img.zst`（2.56 GiB，md5 `18072710…`） | 整卡还原（约 30 min @18.3 MiB/s，需 root） |
+
+$$\Rightarrow\ 	ext{手册：} 	exttt{/data/backup/ROLLBACK\_20261103.md}$$
+$$\Rightarrow\ 	extbf{警告：卡上的 } 	exttt{system.dtb.bak}\ 	ext{与旧 } 	exttt{system.dtb}\ 	extbf{md5 相同} \Rightarrow 	ext{它不是旧版备份，拿它回滚等于没回滚}$$
