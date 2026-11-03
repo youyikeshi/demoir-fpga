@@ -870,13 +870,15 @@ def test_fake_pipeline() -> None:
     else:
         check(False, "种子探针不符必须抛（否则算错的帧会被送去显示）")
 
-    # 心跳先行：**不调 setup()** 也必须能读 0x30（板端 §8.2 要求读心跳早于一切；
-    # 这个 API 曾因 _io 只在 setup() 里创建而在真机上必崩）
+    # 心跳先行：**不调 setup()、且不注入 reg_io** 也必须能读 0x30。
+    # ★ 判据必须走「_io 初始为 None ⇒ 由 _ensure_io() 现建」这条**真路径**：
+    #   注入 reg_io 会把 _io 提前填好 ⇒ 故障点根本执行不到 ⇒ 判据形同虚设
+    #   （这正是本判据第一版犯过的错）。所以这里**打桩 MmapRegIo**，构造时不传 reg_io。
     class _HbIo(ho.FakeRegIo):
         """心跳半周期 2 ms ⇒ 反推 ≈ 32.768 MHz。"""
 
-        def __init__(self):
-            super().__init__()
+        def __init__(self, base=ho.DEFAULT_BASE):
+            super().__init__(base)
             self.t0 = time.monotonic()
 
         def read32(self, off):
@@ -884,11 +886,26 @@ def test_fake_pipeline() -> None:
                 return int((time.monotonic() - self.t0) / 0.002) & 1
             return super().read32(off)
 
-    p6 = dd.DisplayPipeline(reg_io=_HbIo(), mode=dd.DEFAULT_MODE)   # 故意不调 setup()
-    alive6, mhz6 = p6.pix_alive(150)
-    check(alive6 and 28.0 <= mhz6 <= 37.0,
-          f"心跳先行：不调 setup() 也要能 pix_alive（得到 alive={alive6} {mhz6:.2f} MHz）")
-    check(p6.mmcm_locked() in (True, False), "mmcm_locked() 必须在 setup() 之前也可读")
+    _real_mmap = ho.MmapRegIo
+    ho.MmapRegIo = lambda base=ho.DEFAULT_BASE, size=0x1000, path="/dev/mem": _HbIo(base)
+    try:
+        p6 = dd.DisplayPipeline(mode=dd.DEFAULT_MODE)      # ← 不传 reg_io（真机写法）
+        check(p6._io is None, "构造时 _io 必须是 None，否则本判据没走真路径（自欺）")
+        try:                                                # 崩了要报成判据失败，而不是掀桌
+            alive6, mhz6 = p6.pix_alive(150)                # 不调 setup()
+            ok6 = alive6 and 28.0 <= mhz6 <= 37.0
+            why6 = f"alive={alive6} {mhz6:.2f} MHz"
+        except Exception as ex:                             # noqa: BLE001
+            ok6, why6 = False, f"{type(ex).__name__}: {ex}"
+        check(ok6, f"心跳先行：不调 setup() 也要能 pix_alive（得到 {why6}）")
+        check(p6._io is not None, "pix_alive 之后 _io 应由 _ensure_io() 建好，而不是崩溃")
+        try:
+            locked6 = p6.mmcm_locked()
+        except Exception as ex:                             # noqa: BLE001
+            locked6 = f"{type(ex).__name__}: {ex}"
+        check(isinstance(locked6, bool), f"mmcm_locked() 必须在 setup() 之前也可读（得到 {locked6}）")
+    finally:
+        ho.MmapRegIo = _real_mmap
 
     print(f"  ✓ 全流程：{res['t_total_s']:.3f} s（fake），阶段日志/运行点/CLI 全对")
     pipe.close()
