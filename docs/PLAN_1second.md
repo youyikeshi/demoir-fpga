@@ -6974,3 +6974,37 @@ $$\Rightarrow\ \mathtt{v39}\ \text{在 }\mathbf{150\ \text{MHz}}\ \text{是}\tex
 $$\Rightarrow\ \text{用当年的 v5 工作点跑 }256^2 \Rightarrow \text{若仍 }\sim8.1\ \text{s 且 }51/51\ \text{sha1} \Rightarrow \textbf{PS 没回归}，\text{差异全是开关}$$
 $$\Rightarrow\ \text{若明显变慢} \Rightarrow \textbf{PS 代码回归} \Rightarrow \text{按 prologue/非卷积/epilogue 三段逐项定位}$$
 $$\quad\ \Rightarrow\ \text{这一段是}\textbf{最大的单点杠杆}：\text{PS }5\to14\ \text{s 若能回到 }5\ \text{s}，\text{比 PL 那边任何优化都值}$$
+
+### 70.105 ★★★★★★ T-140 融合评估：**今天收益恒为 0 的三个真实原因 + 1 s 地板**（2026-11-03 10:0x）
+
+**① 模块地图（主线现状）**
+$$\Rightarrow\ \text{DDR(packed act)} \xrightarrow{E} \mathtt{band\_fill} \to \text{band0} \xrightarrow{A/B} \mathtt{conv\_core} \to \text{band1} \xrightarrow{C(\text{pack})/D(\text{小算子})=\mathbf{\text{恒不使能}}} \xrightarrow{E} \mathtt{segq}\ \text{排空} \to \text{DDR}$$
+$$\Rightarrow\ \Rightarrow\ \textbf{主线只通"装载}\to\text{conv}\to\text{排空"，}\mathbf{\text{一格 DDR 都不省}} \Rightarrow \text{所以收益是 }0$$
+
+**② impB2 的净增量（可"块移植"）**
+$$\Rightarrow\ +\mathtt{bin\_band\_seq}(261\ \text{行})、+\mathtt{pack}\ \text{读写带(C/B 口)}、+\mathtt{sam}\ \text{的 D 口}、+\text{带角色由 seq 给}$$
+$$\Rightarrow\ \text{全在 } \mathtt{tools/v50b\_fuse\_block.vh}\ (\mathbf{483}\ \text{行，由 v39 重新生成})$$
+$$\Rightarrow\ \textbf{⚠ impB2 的写通路是 T-93/T-94 两处已修 bug 的旧版}（\text{无 } \mathtt{pbase\_q}、\text{无 hold）} \Rightarrow \textbf{绝不可整文件拷}$$
+
+**③ 阻断项（真/假已逐条核实）**
+| 项 | 真伪 | 内容 |
+|---|---|---|
+| B1 band 写合并 | **假警报** | 性能项；引擎相邻 beat 串 burst，`FUSE=1` 时自然成 burst |
+| **B2 drain 缺偏移** | **真** | `segq:465`；**T-113 的"加 } y_0\ \text{行偏移"不够**：还缺每组 $(H_{\text{out}}-n_{\text{band}})W\cdot8$ 空档。128²/cout96/ROWS8 ⇒ **只落 1/16**。修法：`w4[31:16]`（现零读取）放 $H_{\text{out}}$ + 排空加 (g,r,x) 游标。**0.5~1 天** |
+| **B3 band_seq 不在主线** | **真（收益恒 0 的根因）** | PS 被迫锁 `len(ops)==1 && conv` ⇒ 90/223 段，\text{而单级 conv 不搬 DDR}。移植 483 行 .vh，6 处冲突。**1.5~3 天 + TB 1~2 天** |
+| **B4 } k\ge3\ \text{的 } \mathtt{cfg\_h}** | **真** | `conv:156`（输出行数）vs `conv:163/805`（块步长）；\text{且 } \mathtt{cfg\_pad}\ \text{仍取 } \mathtt{r\_pad}（wrap:1445）\text{未强制 }0。需加 } \mathtt{cfg\_rows}\ \text{输入，}\sim1\ \text{天** |
+| **B5（新增，最先撞上）** | **真，1 行** | `band_buf:327` 的 `role_bad_now` + `wrap:1790\text{-}1791` 带角色是组合函数 + `segq:364` LOAD→RUN 不看写静默 ⇒ **最后装载字落在 RUN 第 1 拍 ⇒ 每个带必 } arb\_conflict\to E\_CANARY**（\text{主线一个带都跑不完）}。**1 行可修**（`segq:364` 加 `&& wr_all_idle`）|
+| **E1（新增，安全）** | **真** | 现役 v53/v54 位流是 `FUSE_EN=0/BAND_ROWS=1/BAND_C_MAX=8` ⇒ **融合物理上跑不起来**；而 `0x314` magic 照样返回 ⇒ **PS 探针看不出**，会拿残值寄存器跑一条 v39 op ⇒ **写坏内存风险** |
+
+**④ 最小可验（它纠正了我的前提）**
+$$\Rightarrow\ \textbf{本网络没有"两层 conv 链"}：\text{conv 输入是 packed 1-bit、输出 int8} \Rightarrow \text{中间必须有 pack}$$
+$$\Rightarrow\ \text{2 级段 = }\mathtt{conv}\to\mathtt{cat}（45\ \text{条）}$$
+$$\Rightarrow\ \text{L1: }\mathtt{cin}32/\mathtt{cout}32/k1/64^2 + \mathtt{BAND\_ROWS}=64（\Rightarrow \mathtt{bands}{=}1）\to 1\ \text{描述符}$$
+$$\quad\ \Rightarrow\ \textbf{判据} = \text{与 } \mathtt{FUSE=0}\ \textbf{逐字节相同}（\text{不是比 numpy）}$$
+$$\Rightarrow\ \text{L2: }\mathtt{cout}{=}8\ \text{单组多带（验 } y_0）;\ \text{L3: }\mathtt{cout}{=}32（\text{验组空档）};\ \text{L4: conv}\to\mathtt{cat}$$
+
+**⑤ ★★★ 1 s 的判断：不成立**
+$$\Rightarrow\ \text{PL}(f) = 153.6\mathtt{M}/f + 2.037 \Rightarrow @150\ \text{MHz}\ \text{光拍数就 } \mathbf{1.024\ s}\ (\text{地板})$$
+$$\Rightarrow\ \text{融合顶多把 } 2.04\ \text{s 砍到 } 0.8\sim1.5\ \Rightarrow \text{PL}\approx 1.7\sim2.2\ \text{s}（\text{总 } 8.1\to\mathbf{6.8\sim7.2\ s}）$$
+$$\Rightarrow\ \Rightarrow\ \textbf{要 }1\ \text{s 必须再叠 } \mathtt{mlp}（-47.9\%\ \text{拍数）\ 或 } >153.6\ \text{MHz}（\text{T-100 已证 }100\ \text{MHz 都不稳）}$$
+$$\Rightarrow\ \textbf{方向对，今天 0 收益是 B3/E2 造成的}$$
