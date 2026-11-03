@@ -1,0 +1,84 @@
+
+****** Vivado v2025.2.1 (64-bit)
+  **** SW Build 6403652 on Thu Mar 19 13:47:00 MDT 2026
+  **** IP Build 6403511 on Thu Mar 19 12:41:45 MDT 2026
+  **** SharedData Build 6403650 on Thu Mar 19 14:02:13 MDT 2026
+  **** Start of session at: Tue Nov  3 13:19:58 2026
+    ** Copyright 1986-2022 Xilinx, Inc. All Rights Reserved.
+    ** Copyright 2022-2026 Advanced Micro Devices, Inc. All Rights Reserved.
+
+source /media/felix/Data/coding/demoir-fpga/runs/v160_stacheck/probe_cmds.tcl
+# set dcp $::env(T160_DCP)
+# open_checkpoint $dcp
+Command: open_checkpoint /media/felix/Data/coding/demoir-fpga/runs/v57_archive/design_1_150v57_routed.dcp
+
+Starting open_checkpoint Task
+
+Time (s): cpu = 00:00:00.04 ; elapsed = 00:00:00.02 . Memory (MB): peak = 1515.668 ; gain = 0.000 ; free physical = 1791 ; free virtual = 18725
+INFO: [Device 21-403] Loading part xc7z015clg485-2
+Netlist sorting complete. Time (s): cpu = 00:00:00.12 ; elapsed = 00:00:00.12 . Memory (MB): peak = 1833.113 ; gain = 0.000 ; free physical = 1502 ; free virtual = 18442
+INFO: [Netlist 29-17] Analyzing 3359 Unisim elements for replacement
+INFO: [Netlist 29-28] Unisim Transformation completed in 0 CPU seconds
+INFO: [Project 1-479] Netlist was created with Vivado 2025.2.1
+INFO: [Project 1-570] Preparing netlist for logic optimization
+Read ShapeDB Complete: Time (s): cpu = 00:00:00.04 ; elapsed = 00:00:00.04 . Memory (MB): peak = 1935.020 ; gain = 5.250 ; free physical = 1414 ; free virtual = 18357
+INFO: [Timing 38-478] Restoring timing data from binary archive.
+INFO: [Timing 38-479] Binary timing data restore complete.
+INFO: [Project 1-856] Restoring constraints from binary archive.
+INFO: [Constraints 18-5170] The checkpoint was created with non-default parameter values which do not match the current Vivado settings.  Mismatching parameters are:
+  general.maxThreads
+INFO: [Project 1-853] Binary constraint restore complete.
+INFO: [Designutils 20-5722] Start Reading Physical Databases.
+Reading placement.
+Read Netlist Cache: Time (s): cpu = 00:00:00.03 ; elapsed = 00:00:00.03 . Memory (MB): peak = 2560.988 ; gain = 0.000 ; free physical = 839 ; free virtual = 17780
+Reading placer database...
+Read Device Cache: Time (s): cpu = 00:00:00.01 ; elapsed = 00:00:00.01 . Memory (MB): peak = 2560.988 ; gain = 0.000 ; free physical = 839 ; free virtual = 17780
+Read PlaceDB: Time (s): cpu = 00:00:00 ; elapsed = 00:00:00 . Memory (MB): peak = 2560.988 ; gain = 0.000 ; free physical = 839 ; free virtual = 17780
+Read placeStorage: Time (s): cpu = 00:00:00.64 ; elapsed = 00:00:00.64 . Memory (MB): peak = 2578.988 ; gain = 18.000 ; free physical = 815 ; free virtual = 17756
+Read PulsedLatchDB: Time (s): cpu = 00:00:00 ; elapsed = 00:00:00 . Memory (MB): peak = 2578.988 ; gain = 0.000 ; free physical = 815 ; free virtual = 17756
+Reading routing.
+Read RouteStorage: Time (s): cpu = 00:00:00.65 ; elapsed = 00:00:00.21 . Memory (MB): peak = 2599.355 ; gain = 20.367 ; free physical = 803 ; free virtual = 17746
+Read Physdb Files: Time (s): cpu = 00:00:01 ; elapsed = 00:00:00.9 . Memory (MB): peak = 2599.355 ; gain = 38.367 ; free physical = 803 ; free virtual = 17746
+Restored from archive | CPU: 1.400000 secs | Memory: 36.931168 MB |
+Finished XDEF File Restore: Time (s): cpu = 00:00:01 ; elapsed = 00:00:00.94 . Memory (MB): peak = 2599.355 ; gain = 44.305 ; free physical = 803 ; free virtual = 17746
+Netlist sorting complete. Time (s): cpu = 00:00:00.01 ; elapsed = 00:00:00 . Memory (MB): peak = 2611.738 ; gain = 0.000 ; free physical = 775 ; free virtual = 17717
+INFO: [Project 1-111] Unisim Transformation Summary:
+  A total of 201 instances were transformed.
+  RAM32M => RAM32M (RAMD32(x6), RAMS32(x2)): 5 instances
+  RAM32X1D => RAM32X1D (RAMD32(x2)): 4 instances
+  RAM64M => RAM64M (RAMD64E(x4)): 168 instances
+  RAM64X1D => RAM64X1D (RAMD64E(x2)): 24 instances
+
+INFO: [Project 1-604] Checkpoint was created with Vivado v2025.2.1 (64-bit) build 6403652
+open_checkpoint: Time (s): cpu = 00:00:17 ; elapsed = 00:00:11 . Memory (MB): peak = 2619.773 ; gain = 1170.145 ; free physical = 775 ; free virtual = 17717
+# puts "@PROBE_RESET@ [lsort [info commands *reset*]]"
+@PROBE_RESET@ reset_attribute reset_drc reset_drc_check reset_methodology reset_methodology_check reset_msg_config reset_msg_count reset_operating_conditions reset_param reset_project reset_property reset_runs reset_simulation reset_ssn reset_switching_activity reset_target reset_timing reset_ucf
+# puts "@PROBE_PATH@  [lsort [info commands *path*]]"
+@PROBE_PATH@  find_routing_path get_constant_paths get_dataflow_paths get_file_path get_noc_logical_paths get_path_groups get_qor_timing_paths get_timing_paths group_path report_constant_paths set_false_path set_multicycle_path
+# puts "@PROBE_EXC@   [lsort [info commands *exc*]]"
+@PROBE_EXC@   report_exceptions
+# puts "@PROBE_FP@    [lsort [info commands *false*]]"
+@PROBE_FP@    set_false_path
+# puts "@PROBE_MC@    [lsort [info commands *multicycle*]]"
+@PROBE_MC@    set_multicycle_path
+# foreach c {reset_path report_timing get_timing_paths set_false_path report_exceptions} {
+#     if {[catch {help $c} e]} { puts "@HELP_$c@ ERR [string range $e 0 80]" } else { puts "@HELP_$c@ OK" }
+# }
+@HELP_reset_path@ ERR ERROR: [Common 17-25] No topics matched 'reset_path'
+
+@HELP_report_timing@ OK
+@HELP_get_timing_paths@ OK
+@HELP_set_false_path@ OK
+@HELP_report_exceptions@ OK
+# if {![catch {help report_timing} h]} {
+#     puts "@RT_EXCEPT_LINES@ [regexp -all -inline -line {.*(?i)except.*} $h]"
+# }
+couldn't compile regular expression pattern: quantifier operand invalid
+    while executing
+"regexp -all -inline -line {.*(?i)except.*} $h"
+    invoked from within
+"if {![catch {help report_timing} h]} {
+    puts "@RT_EXCEPT_LINES@ [regexp -all -inline -line {.*(?i)except.*} $h]"
+}"
+    (file "/media/felix/Data/coding/demoir-fpga/runs/v160_stacheck/probe_cmds.tcl" line 12)
+INFO: [Common 17-206] Exiting Vivado at Tue Nov  3 13:20:11 2026...

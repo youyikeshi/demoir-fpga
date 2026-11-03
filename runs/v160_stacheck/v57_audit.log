@@ -1,0 +1,190 @@
+
+****** Vivado v2025.2.1 (64-bit)
+  **** SW Build 6403652 on Thu Mar 19 13:47:00 MDT 2026
+  **** IP Build 6403511 on Thu Mar 19 12:41:45 MDT 2026
+  **** SharedData Build 6403650 on Thu Mar 19 14:02:13 MDT 2026
+  **** Start of session at: Tue Nov  3 13:17:23 2026
+    ** Copyright 1986-2022 Xilinx, Inc. All Rights Reserved.
+    ** Copyright 2022-2026 Advanced Micro Devices, Inc. All Rights Reserved.
+
+source /media/felix/Data/coding/demoir-fpga/runs/v160_stacheck/sta_audit.tcl
+# set dcp  $::env(T160_DCP)
+# set tag  $::env(T160_TAG)
+# set out  [file normalize $::env(T160_OUT)]
+# file mkdir $out
+# puts "@T160@ ===== tag=$tag dcp=$dcp"
+@T160@ ===== tag=v57 dcp=/media/felix/Data/coding/demoir-fpga/runs/v57_archive/design_1_150v57_routed.dcp
+# set t0 [clock seconds]
+# open_checkpoint $dcp
+Command: open_checkpoint /media/felix/Data/coding/demoir-fpga/runs/v57_archive/design_1_150v57_routed.dcp
+
+Starting open_checkpoint Task
+
+Time (s): cpu = 00:00:00.03 ; elapsed = 00:00:00.02 . Memory (MB): peak = 1580.395 ; gain = 66.039 ; free physical = 638 ; free virtual = 18560
+INFO: [Device 21-403] Loading part xc7z015clg485-2
+Netlist sorting complete. Time (s): cpu = 00:00:00.12 ; elapsed = 00:00:00.12 . Memory (MB): peak = 1832.926 ; gain = 0.000 ; free physical = 505 ; free virtual = 18253
+INFO: [Netlist 29-17] Analyzing 3359 Unisim elements for replacement
+INFO: [Netlist 29-28] Unisim Transformation completed in 0 CPU seconds
+INFO: [Project 1-479] Netlist was created with Vivado 2025.2.1
+INFO: [Project 1-570] Preparing netlist for logic optimization
+Read ShapeDB Complete: Time (s): cpu = 00:00:00.04 ; elapsed = 00:00:00.04 . Memory (MB): peak = 1934.832 ; gain = 4.250 ; free physical = 362 ; free virtual = 18138
+INFO: [Timing 38-478] Restoring timing data from binary archive.
+INFO: [Timing 38-479] Binary timing data restore complete.
+INFO: [Project 1-856] Restoring constraints from binary archive.
+INFO: [Constraints 18-5170] The checkpoint was created with non-default parameter values which do not match the current Vivado settings.  Mismatching parameters are:
+  general.maxThreads
+INFO: [Project 1-853] Binary constraint restore complete.
+INFO: [Designutils 20-5722] Start Reading Physical Databases.
+Reading placement.
+Read Netlist Cache: Time (s): cpu = 00:00:00.03 ; elapsed = 00:00:00.04 . Memory (MB): peak = 2560.832 ; gain = 0.000 ; free physical = 410 ; free virtual = 17439
+Reading placer database...
+Read Device Cache: Time (s): cpu = 00:00:00.01 ; elapsed = 00:00:00.01 . Memory (MB): peak = 2560.832 ; gain = 0.000 ; free physical = 406 ; free virtual = 17435
+Read PlaceDB: Time (s): cpu = 00:00:00 ; elapsed = 00:00:00 . Memory (MB): peak = 2560.832 ; gain = 0.000 ; free physical = 405 ; free virtual = 17434
+Read placeStorage: Time (s): cpu = 00:00:00.66 ; elapsed = 00:00:00.66 . Memory (MB): peak = 2578.832 ; gain = 18.000 ; free physical = 338 ; free virtual = 17367
+Read PulsedLatchDB: Time (s): cpu = 00:00:00 ; elapsed = 00:00:00 . Memory (MB): peak = 2578.832 ; gain = 0.000 ; free physical = 334 ; free virtual = 17363
+Reading routing.
+Read RouteStorage: Time (s): cpu = 00:00:00.7 ; elapsed = 00:00:00.21 . Memory (MB): peak = 2600.199 ; gain = 21.367 ; free physical = 293 ; free virtual = 17322
+Read Physdb Files: Time (s): cpu = 00:00:01 ; elapsed = 00:00:00.93 . Memory (MB): peak = 2600.199 ; gain = 39.367 ; free physical = 293 ; free virtual = 17322
+Restored from archive | CPU: 1.480000 secs | Memory: 36.931168 MB |
+Finished XDEF File Restore: Time (s): cpu = 00:00:01 ; elapsed = 00:00:00.97 . Memory (MB): peak = 2600.199 ; gain = 45.305 ; free physical = 293 ; free virtual = 17322
+Netlist sorting complete. Time (s): cpu = 00:00:00.01 ; elapsed = 00:00:00.01 . Memory (MB): peak = 2611.582 ; gain = 0.000 ; free physical = 273 ; free virtual = 17302
+INFO: [Project 1-111] Unisim Transformation Summary:
+  A total of 201 instances were transformed.
+  RAM32M => RAM32M (RAMD32(x6), RAMS32(x2)): 5 instances
+  RAM32X1D => RAM32X1D (RAMD32(x2)): 4 instances
+  RAM64M => RAM64M (RAMD64E(x4)): 168 instances
+  RAM64X1D => RAM64X1D (RAMD64E(x2)): 24 instances
+
+INFO: [Project 1-604] Checkpoint was created with Vivado v2025.2.1 (64-bit) build 6403652
+open_checkpoint: Time (s): cpu = 00:00:17 ; elapsed = 00:00:12 . Memory (MB): peak = 2619.617 ; gain = 1105.262 ; free physical = 297 ; free virtual = 17326
+# puts "@T160@ opened in [expr {[clock seconds]-$t0}] s"
+@T160@ opened in 12 s
+# catch { report_clocks -file $out/${tag}_clocks.rpt } e
+# foreach c [get_clocks -quiet] {
+#     puts "@CLK@ $c period=[get_property PERIOD $c] waveform=[get_property WAVEFORM $c] src=[get_property SOURCE_PINS $c]"
+# }
+@CLK@ FCLK_CLK0 period=10.000 waveform=0.000 5.000 src=design_1_i/ps7/FCLK_CLK0
+# puts "@BUFG@ [llength [get_cells -hier -quiet -filter {REF_NAME =~ BUFG*}]]"
+@BUFG@ 2
+INFO: [Timing 38-91] UpdateTimingParams: Speed grade: -2, Delay Type: min_max.
+INFO: [Timing 38-191] Multithreading enabled for timing update using a maximum of 8 CPUs
+INFO: [Timing 38-35] Done setting XDC timing constraints.
+# puts "@EXC_ALL@ [catch { report_exceptions -file $out/${tag}_exc_all.rpt } e] $e"
+@EXC_ALL@ 0 
+INFO: [Timing 38-91] UpdateTimingParams: Speed grade: -2, Delay Type: min_max.
+INFO: [Timing 38-191] Multithreading enabled for timing update using a maximum of 8 CPUs
+# puts "@EXC_IGNORED@ [catch { report_exceptions -ignored -file $out/${tag}_exc_ignored.rpt } e] $e"
+@EXC_IGNORED@ 0 
+INFO: [Timing 38-91] UpdateTimingParams: Speed grade: -2, Delay Type: min_max.
+INFO: [Timing 38-191] Multithreading enabled for timing update using a maximum of 8 CPUs
+# puts "@EXC_COVERAGE@ [catch { report_exceptions -coverage -file $out/${tag}_exc_coverage.rpt } e] $e"
+@EXC_COVERAGE@ 0 
+# puts "@EXC_XDC@ [catch { report_exceptions -write_xdc $out/${tag}_exceptions.xdc -quiet } e] $e"
+@EXC_XDC@ 1 ERROR: [Common 17-170] Unknown option '-write_xdc', please type 'report_exceptions -help' for usage info.
+
+# puts "@EXC_XDC_ALL@ [catch { report_exceptions -all -write_xdc $out/${tag}_exceptions_all.xdc -quiet } e] $e"
+@EXC_XDC_ALL@ 1 ERROR: [Common 17-170] Unknown option '-all', please type 'report_exceptions -help' for usage info.
+
+# puts "@XDC_SCAN@ [catch {
+#     set fp [open $out/${tag}_constraints_scan.txt w]
+#     foreach c [get_cells -hier -quiet] {
+#         foreach prop {FALSE_PATH MULTICYCLE_PATH MAX_DELAY_PATH MIN_DELAY_PATH} {
+#             if {![catch {get_property $prop $c} v] && $v ne "" && $v ne "0"} { puts $fp "$c $prop $v" }
+#         }
+#     }
+#     close $fp
+# } e] $e"
+@XDC_SCAN@ 0 
+# report_timing_summary -max_paths 20 -delay_type max -file $out/${tag}_summ.rpt
+INFO: [Timing 38-91] UpdateTimingParams: Speed grade: -2, Delay Type: max.
+INFO: [Timing 38-191] Multithreading enabled for timing update using a maximum of 8 CPUs
+INFO: [Timing 38-35] Done setting XDC timing constraints.
+# catch { report_timing -unconstrained -max_paths 20 -file $out/${tag}_unconstrained.rpt } e
+# catch { report_timing -max_paths 200 -nworst 1 -delay_type max -file $out/${tag}_top200.rpt } e
+INFO: [Timing 38-91] UpdateTimingParams: Speed grade: -2, Delay Type: max.
+INFO: [Timing 38-191] Multithreading enabled for timing update using a maximum of 8 CPUs
+INFO: [Timing 38-78] ReportTimingParams: -max_paths 200 -nworst 1 -delay_type max -sort_by slack.
+# catch { report_timing -max_paths 20 -nworst 1 -delay_type min -file $out/${tag}_hold20.rpt } e
+INFO: [Timing 38-91] UpdateTimingParams: Speed grade: -2, Delay Type: min.
+INFO: [Timing 38-191] Multithreading enabled for timing update using a maximum of 8 CPUs
+INFO: [Timing 38-78] ReportTimingParams: -max_paths 20 -nworst 1 -delay_type min -sort_by slack.
+# proc dumpcsv {tag out thresh} {
+#     set ps [get_timing_paths -max_paths 5000 -nworst 1 -delay_type max -slack_lesser_than $thresh -sort_by slack]
+#     set fp [open $out/${tag}_paths_lt${thresh}.csv w]
+#     puts $fp "slack,datapath_delay,logic_levels,net_delay,logic_delay,start,end,startclk,endclk,pathgroup,false_path"
+#     foreach p $ps {
+#         set row {}
+#         foreach prop {SLACK DATAPATH_DELAY LOGIC_LEVELS NET_DELAY LOGIC_DELAY STARTPOINT_PIN ENDPOINT_PIN STARTPOINT_CLOCK ENDPOINT_CLOCK PATH_GROUP FALSE_PATH} {
+#             if {[catch {get_property $prop $p} v]} { set v NA }
+#             if {$v eq ""} { set v NA }
+#             regsub -all {,} $v {;} v
+#             lappend row $v
+#         }
+#         puts $fp [join $row ,]
+#     }
+#     close $fp
+#     puts "@CSV@ tag=$tag thresh=$thresh npaths=[llength $ps]"
+# }
+# catch { dumpcsv $tag $out 1.0 } e 
+@CSV@ tag=v57 thresh=1.0 npaths=61
+# puts "@CSV_BASE@ $e"
+@CSV_BASE@ 
+# set wq [get_pins -hier -quiet -filter {NAME =~ */win_q_reg_*/CLKBWRCLK}]
+# set sp [get_cells -hier -quiet -filter {IS_SEQUENTIAL && NAME =~ */s1_pc_q_reg*}]
+# puts "@FAM@ winq_clk_pins=[llength $wq] s1pc_cells=[llength $sp]"
+@FAM@ winq_clk_pins=16 s1pc_cells=56
+# catch { report_timing -from $wq -to $sp -max_paths 30 -delay_type max -file $out/${tag}_fam_winq_to_s1pc.rpt } e 
+INFO: [Timing 38-78] ReportTimingParams: -from_pins  -to_pins  -max_paths 30 -nworst 1 -delay_type max -sort_by slack.
+# puts "@FAM1@ $e"
+@FAM1@ 
+# catch { report_timing -to $sp -max_paths 30 -delay_type max -file $out/${tag}_fam_to_s1pc.rpt } e 
+INFO: [Timing 38-78] ReportTimingParams: -to_pins  -max_paths 30 -nworst 1 -delay_type max -sort_by slack.
+# puts "@FAM2@ $e"
+@FAM2@ 
+# catch { report_timing -from $wq -max_paths 20 -delay_type max -file $out/${tag}_fam_from_winq.rpt } e 
+INFO: [Timing 38-78] ReportTimingParams: -from_pins  -max_paths 20 -nworst 1 -delay_type max -sort_by slack.
+# puts "@FAM3@ $e"
+@FAM3@ 
+# set rem [get_cells -hier -quiet -filter {NAME =~ *rem_reg*}]
+# set swq [get_cells -hier -quiet -filter {NAME =~ *sw_act_q_reg*}]
+# set ie0 [get_cells -hier -quiet -filter {NAME =~ *issue_en0_carry*}]
+# puts "@KNIFE7@ rem_regs=[llength $rem] sw_act_regs=[llength $swq] issue_en0_carry=[llength $ie0]"
+@KNIFE7@ rem_regs=86 sw_act_regs=1 issue_en0_carry=0
+# if {[llength $rem]} { catch { report_timing -to $rem -max_paths 10 -delay_type max -file $out/${tag}_knife7_to_rem.rpt } e ; puts "@K7REM@ $e" }
+INFO: [Timing 38-78] ReportTimingParams: -to_pins  -max_paths 10 -nworst 1 -delay_type max -sort_by slack.
+@K7REM@ 
+# if {[llength $swq]} { catch { report_timing -to $swq -max_paths 10 -delay_type max -file $out/${tag}_knife7_to_swact.rpt } e ; puts "@K7SW@ $e" }
+INFO: [Timing 38-78] ReportTimingParams: -to_pins  -max_paths 10 -nworst 1 -delay_type max -sort_by slack.
+@K7SW@ 
+# foreach m {g_conv u_pack catpack u_eng} {
+#     set cs [get_cells -hier -quiet -filter "IS_SEQUENTIAL && NAME =~ *${m}*"]
+#     puts "@MOD@ $m sequential=[llength $cs]"
+#     if {[llength $cs]} { catch { report_timing -to $cs -max_paths 5 -delay_type max -file $out/${tag}_mod_${m}.rpt } e ; puts "@MOD_REP@ $m $e" }
+# }
+@MOD@ g_conv sequential=7015
+INFO: [Timing 38-78] ReportTimingParams: -to_pins  -max_paths 5 -nworst 1 -delay_type max -sort_by slack.
+@MOD_REP@ g_conv 
+@MOD@ u_pack sequential=671
+INFO: [Timing 38-78] ReportTimingParams: -to_pins  -max_paths 5 -nworst 1 -delay_type max -sort_by slack.
+@MOD_REP@ u_pack 
+@MOD@ catpack sequential=1622
+INFO: [Timing 38-78] ReportTimingParams: -to_pins  -max_paths 5 -nworst 1 -delay_type max -sort_by slack.
+@MOD_REP@ catpack 
+@MOD@ u_eng sequential=4562
+INFO: [Timing 38-78] ReportTimingParams: -to_pins  -max_paths 5 -nworst 1 -delay_type max -sort_by slack.
+@MOD_REP@ u_eng 
+# puts "@RESET@ reset_path -all (只改内存里的分析容差，不改网表)"
+@RESET@ reset_path -all (只改内存里的分析容差，不改网表)
+# catch { reset_path -all } e 
+# puts "@RESET_RC@ $e"
+@RESET_RC@ invalid command name "reset_path"
+# report_timing_summary -max_paths 20 -delay_type max -file $out/${tag}_summ_noexc.rpt
+# catch { report_timing -max_paths 200 -nworst 1 -delay_type max -file $out/${tag}_top200_noexc.rpt } e
+INFO: [Timing 38-78] ReportTimingParams: -max_paths 200 -nworst 1 -delay_type max -sort_by slack.
+# catch { dumpcsv ${tag}_noexc $out 1.0 } e 
+@CSV@ tag=v57_noexc thresh=1.0 npaths=61
+# puts "@CSV_NOEXC@ $e"
+@CSV_NOEXC@ 
+# puts "@T160@ ===== DONE $tag total [expr {[clock seconds]-$t0}] s"
+@T160@ ===== DONE v57 total 25 s
+INFO: [Common 17-206] Exiting Vivado at Tue Nov  3 13:17:50 2026...

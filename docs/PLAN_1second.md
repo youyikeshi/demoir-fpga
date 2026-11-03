@@ -7644,3 +7644,53 @@ $$\quad\ \Rightarrow\ \text{原因：访存部分不随时钟缩放，}\text{但
 **PS 侧结论不受影响**
 $$\Rightarrow\ \mathtt{runs/ACCEPT\_v57/05\_PS}\ \text{的 } \mathtt{bin\_net.py}\ \mathtt{0990948d}、\mathtt{bin\_engine.py}\ \mathtt{2fd3d099}\ \text{是}\textbf{与位流无关}的改动$$
 $$\Rightarrow\ \text{它们是在 v39 上验过 sha1 的（T-153 }8/8、\text{T-156 三尺寸全中）} \Rightarrow \textbf{继续有效}$$
+
+### 70.125 ★★★★★★★ T-160：**这颗设计的最差路径与硬件正确性没有因果关系**（2026-11-03 13:2x）
+
+**① 例外普查（v57 DCP，6 条实存）**
+$$\Rightarrow\ \mathtt{src\_arst}\times3（\text{3 条被 Vivado 判 Non-existent 丢弃）};\ \mathtt{syncstages}\times2（\text{ignored}）;\ \mathbf{\mathtt{catpack}\times3}（\mathtt{\text{-}through}/\mathtt{\text{-}from}\ 1622\mathtt{FF}/\mathtt{\text{-}to}\ 1622\mathtt{FF}，\textbf{生效}）$$
+$$\Rightarrow\ \mathtt{multicycle}/\mathtt{max\_delay}/\mathtt{case\_analysis}/\mathtt{disable\_timing}/\mathtt{clock\_groups}/\mathtt{uncertainty}\ \textbf{全 }0$$
+$$\Rightarrow\ \text{单时钟}、\text{活路径无 } \mathtt{BUFGCE}、\mathtt{check\_timing}\ 12\ \text{类全 }0$$
+$$\Rightarrow\ \textbf{按判据 } \mathtt{catpack}\ \text{确实过宽}：\mathtt{\text{-}through}\ \text{一条覆盖 } \mathbf{24{,}489/41{,}273 = 59.3\%}\ \text{的端点}$$
+$$\quad\ \text{全是}\textbf{同一时钟域的同步逻辑}$$ — 唯一洗白依据是构建脚本里 "运行时 }\mathtt{CATPACK}\ \text{不启用" 这个 Func 前提
+$$\Rightarrow\ \text{而 } \mathtt{win\_q}\to\mathtt{s1\_pc}\ \textbf{不被任何例外覆盖}$$
+
+**② 活逻辑已被 100% 分析**
+$$\Rightarrow\ \text{v57 完整枚举（}\mathtt{slack}<1\ \text{ns 不截断）}\mathbf{\text{只有 } 61\ \text{条}}，\text{最差 } \mathbf{9.734}\ \text{ns}（\mathtt{win\_q\_reg\_9}\to\mathtt{s1\_pc\_q\_reg[3][6]/D}，9\ \text{级）}$$
+$$\Rightarrow\ \Rightarrow\ \textbf{不存在 } >10\ \text{ns 的路径}$$
+$$\Rightarrow\ \text{补充：Vivado 2025.2 }\textbf{没有 } \mathtt{reset\_path}\ \text{命令}（\text{已取证）} \Rightarrow \text{“移除例外重算”这条路走不通，但枚举法已等效回答}$$
+
+**③ 刀 7 没把任何路径做慢，反而更快**
+| 路径 | v39 | v57 |
+|---|---|---|
+| `win_q → s1_pc_q/D` | **10.274**（21/30 违例，9.650~10.274）| **9.734（全 MET）** |
+| `win_q → acc_b/D` | 9.851 | 8.929 |
+| `win_q → wmem/DIBDI` | 9.829 | 未进临界集 |
+| `state_reg[2] → sw_act_q/D` | — | 3.645（slack 6.322）|
+$$\Rightarrow\ \mathtt{issue\_en0\_carry}\ 15\to\mathbf{0};\ \mathtt{sw\_act\_q\_reg}\ 0\to1$$
+$$\Rightarrow\ \Rightarrow\ \textbf{同族全部快 } 0.3\sim0.6\ \text{ns} \Rightarrow \textbf{刀 7 无害且有益}$$
+
+**④ ★★★ 真发现：两条假设都被测量否证**
+$$\Rightarrow\ \textbf{不是"STA 漏报一条 } 10\sim13.3\ \text{ns 真路径"}\（\text{活逻辑里没有）}$$
+$$\Rightarrow\ \textbf{不是"刀 7 做慢了"}\（\text{同族全部更快）}$$
+$$\Rightarrow\ \Rightarrow\ \textbf{而是}：\mathtt{v39}\ \text{位流在同一 DCP 上，}\textbf{带着 21 条 } 9.65\sim10.27\ \text{ns 的同族路径}$$
+$$\quad\ \text{在 } \mathbf{150\ MHz = 6.667\ ns}\ \text{下跑对 } 54/54\ \text{sha1}、30+\ \text{跑}（\textbf{超周期 }3.6\ \text{ns，即 }0.92\times\ \text{预算）}$$
+$$\Rightarrow\ \Rightarrow\ \mathbf{\text{这颗设计的最差路径与硬件正确性}\textbf{没有因果关系}}$$
+$$\Rightarrow\ \Rightarrow\ \mathbf{\text{"报告干净"对可用性}\textbf{零信息}}$$
+$$\Rightarrow\ \text{v57 的绑定路径}\textbf{属同族且更快} \Rightarrow \textbf{不可能是 }100\ \text{MHz 失效机制}$$
+$$\Rightarrow\ \text{保持也不是差异项：v57 } 0.040\ \text{vs v39 } 0.049，\text{且都在死 IP/}\mathtt{axi\_ctrl}$$
+$$\Rightarrow\ \Rightarrow\ \textbf{第 152 条：}\text{静态时序}\textbf{既不能证明可用、也不能证明不可用}——\text{它只是必要条件，}\text{不是判据}$$
+$$\quad\ \Rightarrow\ \text{判据只能是：}\textbf{板端多次跑 sha1 一致} + \text{全频段阶梯} + \text{带延迟模型的仿真}$$
+
+**⑤ 刀 7 保留，v57 废弃**
+$$\Rightarrow\ \text{刀 7：}\textbf{不放弃}（\text{无害、消 }7{,}109\ \text{条违例、}+2.204\ \text{ns WNS、FF 不变）$$
+$$\Rightarrow\ \text{v57 位流：}\textbf{必须废弃}，\text{且}\textbf{不能再拿 WNS 判可用}$$
+
+**⑥ 下一步（按性价比，它给的）**
+$$\Rightarrow\ \textbf{a) 一次构建定生死}：\text{同 RTL 用 } \mathtt{create\_clock}\ 8.000\ \text{重建、仍跑 }100\ \text{MHz}$$
+$$\quad\ \Rightarrow\ \text{还错} \Rightarrow \textbf{静态时序彻底排除};\ \text{变对} \Rightarrow \text{有 } \sim10.x\ \text{ns 真实延迟藏在 } \mathtt{catpack}\ \text{那 }59.3\%\ \text{的洞里}$$
+$$\Rightarrow\ \textbf{b) 给 e1e2 A/B bench 的内存模型加 } \mathbf{1\sim5\ \text{拍随机响应延迟 + 冻结后压}}$$
+$$\quad\ \Rightarrow\ \text{刀 7 的等价性是在}\textbf{零延迟模型}下证的；\mathtt{u\_ce}/\mathtt{rd\_hit}/\mathtt{u\_rd\_data}\ \text{的读返回对齐正是它看不见的}$$
+$$\Rightarrow\ \textbf{c) 一条未解释的覆盖差}：\mathtt{TNS\ Total\ Endpoints}\ \text{v39 } \mathbf{47{,}805}\to\text{v57 } \mathbf{41{,}273}（\text{少 }6{,}532，-13.7\%）$$
+$$\quad\ \text{而 FF 只差 }2、\mathtt{check\_timing}\ \text{全 }0 \Rightarrow \text{单文件逻辑改写不该减少被分析端点数}$$
+$$\quad\ \Rightarrow\ \text{疑：某类 CE 检查消失} \Rightarrow \text{需专查}$$
