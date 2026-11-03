@@ -7159,3 +7159,31 @@ $$\quad\ \Rightarrow\ \text{另：}\mathtt{cin}\ \text{最大 }448（\text{在 }
 $$\Rightarrow\ \text{5 个 } \mathtt{cout}{=}192\ \text{层走老路只损失 } 0.80\ \text{MB}(P) = 0.0036\ \text{s}\ /\ 6.44\ \text{MB}(R) = 0.029\ \text{s}$$
 $$\Rightarrow\ \text{且全在 }32^2/16^2/8^2 \Rightarrow \textbf{绝不能为它们把 } G\ \text{扩到 }24$$
 $$\Rightarrow\ \text{若要做，}\textbf{第一步改组数}（4/6\to12），\text{行数是廉价旋钮（只影响 }2/BR\ \text{的 halo）}$$
+
+### 70.111 ★★★★★ 解掉一个记录矛盾：**v42e 的 +0.174 是真的，但它来自 PF_AHEAD=2 —— 而那一改被判死**（2026-11-03 11:3x）
+
+**矛盾的表象**
+$$\Rightarrow\ \mathtt{runs/v42e\_archive/timing\_v42e.rpt}\ \text{写着：}\mathbf{\text{"Setup : 0 Failing Endpoints, Worst Slack } +0.174\ \text{ns"}}$$
+$$\Rightarrow\ \text{而 }\mathtt{audit\_v42e\_summary\_by\_bucket.rpt}\ \text{写着：}\mathbf{N_{total}=7543,\ TNS=-5647.8}$$
+$$\Rightarrow\ \text{PLAN §70.29 又记着 v42e}\ \textbf{上板判死}（150\ \text{MHz 挂死}、100\ \text{MHz sha1 错）$$
+
+**三者其实不冲突，因为约束口径不同**
+$$\Rightarrow\ \text{构建约束 } = \mathbf{10.000\ ns} \Rightarrow \text{报告 } \mathtt{WNS}\ +0.174、\mathbf{0}\ \text{失败端点} \Rightarrow \textbf{时序是真的干净}$$
+$$\Rightarrow\ \text{而那份审计报告自己写了：}\mathbf{\text{"按 }6.667\ \text{ns}/150\ \text{MHz}\ \text{重评审"}} \Rightarrow 7543\ \text{个违例}$$
+$$\quad\ \Rightarrow\ \textbf{所以 v42e 是"10 ns 干净、6.667 ns 不干净"——两者都成立}$$
+$$\Rightarrow\ \text{PLAN 里记的 } \mathtt{WNS}\ -5.331/-3.159\ \text{是 } \mathbf{6.667\ ns}\ \text{口径；}\text{10 ns 口径下 v39 是 } -1.998$$
+$$\Rightarrow\ \Rightarrow\ \textbf{第 135 条：报 WNS 必须同时写约束周期，}\text{否则同一个位流能"既干净又有 }\mathbf{7543}\ \text{个违例"}$$
+
+**★ 但这是一个陷阱**
+$$\Rightarrow\ \text{PLAN §70.29：}\mathtt{v42e} = \mathtt{v39} + \textbf{只改 } \mathtt{PF\_AHEAD}\ 1\to2（\text{24/25 个模块与 } \mathtt{b58964e}\ \text{逐字节相同）}$$
+$$\Rightarrow\ \text{也就是说：}\text{那 } +2.172\ \text{ns 的时序改善，}\textbf{完全来自 } \mathtt{PF\_AHEAD}=2$$
+$$\Rightarrow\ \text{而 } \mathtt{PF\_AHEAD}=2\ \textbf{上板判死}（150\ \text{MHz 挂死、100\ \text{MHz sha1 错）$$
+$$\Rightarrow\ \Rightarrow\ \textbf{时序靠这一改拿到的，正是把它做坏的那一改} \Rightarrow \textbf{v42e 不能作为时序解}$$
+$$\Rightarrow\ \textbf{第 136 条：一个改动同时"改善时序"和"改变功能"时，}\text{必须先证明功能不变，才能把它当性能/时序收益}$$
+
+**所以 T-152 的路线要改**
+$$\Rightarrow\ \text{它的}\textbf{诊断}\text{是可信的：}\text{在 }6.667\ \text{口径下 } \mathtt{u\_pack/run\_len\_reg[3]\_replica}\ \text{一个起点占 }\mathbf{97.9\%}\ \text{的违例}$$
+$$\quad\ \text{机理：} \mathtt{bin\_e1e2.v}\ \text{的 } \mathtt{issue\_en}=(p<\mathtt{run\_len})\ \text{每拍做的 }16\ \text{位比较挂在整条 } \mathtt{u\_ce}\ \text{使能锥上}（\text{扇出 }77、11.6\ \text{ns、}73\%\ \text{布线）}$$
+$$\Rightarrow\ \textbf{"时序刀 7"（把比较换成寄存使能 } \mathtt{sw\_act\_q} + 9\ \text{位倒计数器）是}\textbf{正确的方向}，\text{估计 } \approx1.9\ \text{ns}$$
+$$\Rightarrow\ \text{但它}\textbf{不在 v42e 里}（\text{24/25 模块未变）\Rightarrow \text{尚未实现}$$
+$$\Rightarrow\ \Rightarrow\ \textbf{正确组合}：\mathtt{v39}\ \text{RTL} + \mathbf{\mathtt{PF\_AHEAD}\ \text{保持 }1} + \textbf{时序刀 7} \Rightarrow \text{目标 } 10\ \text{ns 下 } \mathtt{WNS}\ge0\ \text{且功能不变}$$
