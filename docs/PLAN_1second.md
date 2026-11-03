@@ -7465,3 +7465,16 @@ $$\quad\ \Rightarrow\ \mathtt{xsim}\ \text{只能给机制级结论（}\text{加
 **顺带：golden 生成器有了快的**
 $$\Rightarrow\ \mathtt{gen\_gold\_np.py}\ \text{（numpy 版）}\textbf{自证}：4\ \text{形状}\times10\ \text{文件与仓库原版}\textbf{逐字节相同}（\text{含 } \mathtt{cin}{=}544/\text{CB}{=}9/k{=}1/3）$$
 $$\Rightarrow\ \text{生产几何 golden（}544\times128^2、k{=}3、\mathtt{cout}{=}16、\text{CB}{=}9、\text{NTOT }5184）\ \text{生成 } \mathbf{17\ \text{s}}（\text{纯 Python 要小时级）}$$
+
+### 70.120 ✅ T-157：`PF_MAX` 闸门合入主线（2026-11-03 12:4x）
+
+$$\Rightarrow\ \text{补丁与已验版本}\textbf{逐行一致}（\text{同一 hunk，24 行，无一字差异）}$$
+$$\Rightarrow\ \text{主线 } \mathtt{wrap}\ \text{md5 } \mathtt{17164dfc}\to\mathbf{\mathtt{f376f47de7cf53ce65f4f5877d84ce95}（+15/-0\ \text{行，只有 } \mathtt{initial}\ \text{断言）}$$
+$$\Rightarrow\ \textbf{三条检查实测都能触发}：\mathtt{:3326}\ \mathtt{PF\_MAX}{=}8\to\mathtt{Fatal};\ \mathtt{:3329}\ \mathtt{PF\_DEPTH}{=}3\to\mathtt{Fatal};\ \mathtt{:3331}\ \text{货架不足}\to\mathtt{Fatal}$$
+$$\quad\ \Rightarrow\ \text{默认 }4\le11\ \textbf{不误杀}$$
+$$\Rightarrow\ \textbf{四道门禁全过}：\mathtt{xvlog}\ \text{rc=0};\ \text{manifest 用 } \mathtt{md5sum}\ \text{实取值刷新};\ \mathtt{verify\_rtl\_root}\ \mathbf{MATCH{=}35\ DIFF{=}0\ EXTRA{=}0\ PASS};\ \mathtt{inv\_lint}\ \mathbf{PASS15/FAIL7/WARN3}\ \text{与基线逐条相同}$$
+$$\Rightarrow\ \textbf{功能 A/B}：\mathtt{VLANES}\ 8/16 \times 3\ \text{形状} = 6\ \text{组，逐笔 } (\mathtt{addr},\mathtt{data},\mathtt{sel})\ \textbf{全部 IDENTICAL}$$
+$$\quad\ \text{拍数 } 1098/6853/76028/1707/5274/55774 \ \textbf{逐一相同}$$
+$$\Rightarrow\ \text{改动面：仅 } \mathtt{wrap.v}\ +\ \text{manifest 一行}$$
+
+$$\Rightarrow\ \textbf{第 145 条：编译期断言类改动也要走"逐笔 A/B + 拍数相同"}\ \text{——}\text{"只加检查"}\ \text{是}\text{声明，不是证据}$$
