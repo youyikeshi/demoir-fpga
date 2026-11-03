@@ -11,6 +11,13 @@
     ./deploy.py status           # 看进程/端口/设备IP
     ./deploy.py install          # 装成设备菜单里的应用（会改 /maixapp/apps/app.info，自动备份）
 
+    # 精简采集服务 cam_shot.py（TCP 8660，§3 协议，不推流、不显示）
+    ./deploy.py shot             # 上传并启动（cam_shot.py + cam_core.py）
+    ./deploy.py shot-check       # 上机第一件事：--check-crop 裁剪正确性自检
+    ./deploy.py shot-status      # 端口 / pid / 最近日志
+    ./deploy.py shot-logs        # 看日志
+    ./deploy.py shot-stop        # 优雅停止（发 SIGTERM，应用自己关相机）
+
 依赖 paramiko（已在工作区 venv 里）
 """
 
@@ -40,6 +47,14 @@ LOG = posixpath.join(REMOTE_DIR, "app.log")
 
 LOCAL_MAIN = os.path.join(HERE, "maixcam", "main.py")
 LOCAL_YAML = os.path.join(HERE, "maixcam", "app.yaml")
+
+# ---- 精简采集服务 cam_shot（§3 协议，TCP 8660）----
+SHOT_PORT = 8660
+SHOT_DIR = "/root/maxicam_shot"
+SHOT_LOG = posixpath.join(SHOT_DIR, "cam_shot.log")
+SHOT_PID = posixpath.join(SHOT_DIR, "cam_shot.pid")
+LOCAL_SHOT = os.path.join(HERE, "maixcam", "cam_shot.py")
+LOCAL_CORE = os.path.join(HERE, "maixcam", "cam_core.py")
 
 
 def connect(host=DEV_HOST):
@@ -169,6 +184,103 @@ def do_stop(cli, host):
     print("已停止设备端应用。")
 
 
+# --------------------------------------------------------------------------- #
+# 精简采集服务（cam_shot.py）
+#
+# 与 main.py 那套的区别：没有控制通道、没有 RTSP/显示，所以
+#   · 停止不用发 quit，直接 SIGTERM（应用自己接管，先关相机再退）
+#   · 绝不用 pkill -f（会误伤同名字符串；这里只杀 pid 文件里的那个 pid）
+# --------------------------------------------------------------------------- #
+def do_shot_start(cli, host, settle=4, native="2560x1440"):
+    print(">> 上传 cam_shot.py + cam_core.py 到 %s" % SHOT_DIR)
+    upload(cli, LOCAL_SHOT, posixpath.join(SHOT_DIR, "cam_shot.py"))
+    upload(cli, LOCAL_CORE, posixpath.join(SHOT_DIR, "cam_core.py"))
+
+    print(">> 停掉旧实例（SIGTERM -> 应用自己关相机）")
+    shot_stop(cli, host)
+    run(cli, "rm -f %s" % SHOT_LOG, quiet=True, timeout=15)
+
+    # 不用 python -u：MMF 出错时刷屏，无缓冲会把 SD 卡写爆（应用自己 flush 日志）
+    print(">> 启动（后台，日志 %s）" % SHOT_LOG)
+    run(cli, "cd %s && nohup python3 cam_shot.py --port %d --native %s --settle %d "
+             "> %s 2>&1 & echo $! > %s"
+        % (SHOT_DIR, SHOT_PORT, native, settle, SHOT_LOG, SHOT_PID), timeout=20)
+    time.sleep(5)
+
+    print(">> 启动日志:")
+    print(run(cli, "grep -aE '\\[serve\\]|\\[cam\\]|Traceback|Error' %s | tail -15"
+              % SHOT_LOG).rstrip() or "(日志还是空的，看下面端口判断)")
+
+    ports = listening_ports(cli)
+    up = SHOT_PORT in ports
+    print("\n>> 采集服务: %s" % ("运行中（监听 %d）" % SHOT_PORT if up else "未运行（看上面日志）"))
+    if not up:
+        print("   常见原因：1) 相机被别的进程占着（先 ./deploy.py shot-stop 再试）")
+        print("             2) 2K RGB888 打不开 -> 看日志里 camera 报错")
+        return
+    print(">> 板子/本机都可以这样要一张图：")
+    print("     printf '{\"v\":1,\"cmd\":\"shot\",\"seq\":1,\"w\":256,\"h\":256,"
+          "\"crop\":\"center\",\"exp_us\":null,\"gain\":null,\"timeout_ms\":8000}\\n' "
+          "| nc %s %d > /tmp/shot.bin" % (host, SHOT_PORT))
+    print("   或：python3 apps/pc/test_cam_proto.py  （主机侧自测，不需要相机）")
+
+
+def shot_stop(cli, host, wait=12):
+    """优雅停止：只对 pid 文件里的 pid 发 SIGTERM，等端口消失。绝不 kill -9。"""
+    if SHOT_PORT not in listening_ports(cli):
+        return True
+    pid = run(cli, "cat %s 2>/dev/null" % SHOT_PID, quiet=True, timeout=10).strip()
+    if not pid.isdigit():
+        print("!! 端口 %d 在听，但 %s 里没有 pid —— 不敢盲杀（这台设备硬杀会锁死 MMF）"
+              % (SHOT_PORT, SHOT_PID))
+        print("   请先确认是什么进程占着，或给设备断电重启。")
+        return False
+    print(">> SIGTERM -> pid %s（应用会先关相机再退出）" % pid)
+    run(cli, "kill -TERM %s" % pid, quiet=True, timeout=15)
+    deadline = time.time() + wait
+    while time.time() < deadline:
+        if SHOT_PORT not in listening_ports(cli):
+            print(">> 已退出（相机已释放）")
+            return True
+        time.sleep(0.8)
+    print("!! %d 秒还没退出：看 ./deploy.py shot-logs，必要时按 RST" % wait)
+    return False
+
+
+def do_shot_stop(cli, host):
+    ok = shot_stop(cli, host)
+    print("已停止采集服务。" if ok else "停止失败，见上面提示。")
+
+
+def do_shot_logs(cli):
+    print(run(cli, "tail -40 %s" % SHOT_LOG))
+
+
+def do_shot_status(cli):
+    ports = listening_ports(cli)
+    pid = run(cli, "cat %s 2>/dev/null" % SHOT_PID, quiet=True, timeout=10).strip()
+    print("== 监听端口 == %s" % (" ".join(str(p) for p in ports) or "(无)"))
+    print("== 采集服务 == %s" % ("运行中 (8660)" if SHOT_PORT in ports else "未运行"))
+    print("== pid      == %s" % (pid or "(无 pid 文件)"))
+    print("== 最近日志 ==")
+    print(run(cli, "tail -8 %s 2>/dev/null" % SHOT_LOG).rstrip() or "(无)")
+
+
+def do_shot_check(cli, host, settle=8):
+    """上机第一件事：证明 MaixPy 的 img.crop() 没有偷偷 resize。失败就别跑流水线。"""
+    if SHOT_PORT in listening_ports(cli):
+        print(">> 服务正在跑，先停掉（自检要独占相机）")
+        shot_stop(cli, host)
+    print(">> 跑 cam_shot.py --check-crop（会取一张 2K 全幅，约 11 MB，几秒钟）")
+    out = run(cli, "cd %s && python3 cam_shot.py --check-crop --settle %d; echo \"RC=$?\""
+              % (SHOT_DIR, settle), timeout=180)
+    print(out.rstrip())
+    ok = "RC=0" in out
+    print("\n>> 自检结果: %s" % ("PASS（crop 是像素子集，可以继续）" if ok
+                                else "FAIL / 没跑起来 —— 先解决，再跑任何流水线"))
+    return ok
+
+
 def do_logs(cli):
     print(run(cli, "tail -40 %s" % LOG))
 
@@ -249,8 +361,11 @@ def main():
         pass
     ap = argparse.ArgumentParser()
     ap.add_argument("action", nargs="?", default="start",
-                    choices=["start", "stop", "logs", "status", "install"])
+                    choices=["start", "stop", "logs", "status", "install",
+                             "shot", "shot-check", "shot-status", "shot-logs", "shot-stop"])
     ap.add_argument("--host", default=DEV_HOST)
+    ap.add_argument("--settle", type=int, default=4, help="cam_shot: 每张前丢几帧")
+    ap.add_argument("--native", default="2560x1440", help="cam_shot: 原生档位")
     a = ap.parse_args()
 
     cli = connect(a.host)
@@ -265,6 +380,16 @@ def main():
             do_status(cli)
         elif a.action == "install":
             do_install(cli)
+        elif a.action == "shot":
+            do_shot_start(cli, a.host, settle=a.settle, native=a.native)
+        elif a.action == "shot-check":
+            do_shot_check(cli, a.host)
+        elif a.action == "shot-status":
+            do_shot_status(cli)
+        elif a.action == "shot-logs":
+            do_shot_logs(cli)
+        elif a.action == "shot-stop":
+            do_shot_stop(cli, a.host)
     finally:
         cli.close()
 
