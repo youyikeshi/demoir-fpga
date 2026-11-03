@@ -7744,3 +7744,34 @@ $$\Rightarrow\ \text{加上 } \mathtt{catpack}\ \text{的 } \mathtt{set\_false\_
 $$\Rightarrow\ \Rightarrow\ \textbf{两版位流的时序报告对“硬件是否可用”都是不可信的}——\text{只是 v39 碰巧跑对了}$$
 $$\quad\ \Rightarrow\ \text{v39 的“报告有负值”之所以看起来“可控”，部分是因为它}\textbf{顺带看见了}那些端点$$
 $$\quad\ \Rightarrow\ \text{刀 7 让报告变干净的同时，也}\textbf{把那份偶然的可见性去掉了}$$
+
+### 70.127 T-161：**RTL 层面刀 7 与原版不可区分**（6.35M 周期 0 不符）——我的"读返回对齐"假设被否（2026-11-03 14:2x）
+
+**原 bench 是恒延迟，不是 RLAT=55 类**
+$$\Rightarrow\ \text{单元级 } \mathtt{tb\_bin\_e1e2\_desc.v} = \textbf{恒 }1\ \text{拍}（\mathtt{if(mem\_rd\_en)\ mem\_rd\_data<=memword(addr)}，\textbf{无 valid/ready}）$$
+$$\Rightarrow\ \text{AXI 级 } \mathtt{tb\_bin\_unit\_axi\_wrap\_e1e2.v} = \text{固定 }2\ \text{拍首延迟} + 1\ \text{拍拍间隔、}\mathtt{ARREADY}\ \text{串行} \Rightarrow \textbf{零随机}$$
+
+**新模型（严格得多）**
+$$\Rightarrow\ \text{每笔 burst 独立首拍 }1\sim5\ \text{拍} + \text{在飞排队惩罚、拍间隔 }0\sim1、\mathtt{AR}\ \text{握手后随机 }0\sim2\ \text{拍不 ready、}4\ \text{笔并发}$$
+$$\Rightarrow\ \text{可乱序回拍、拍可穿插；}\mathtt{LFSR}\ \text{种子 }161/162/163 + \text{一档 }1..8/\mathtt{BSTALL2}/\mathtt{ARGAP3}$$
+$$\Rightarrow\ \text{实测首拍延迟 }\min=2 / \max=\mathbf{180} / \text{均}=30\ \text{拍}$$
+
+**结果：完全没复现**
+$$\Rightarrow\ 106/106\ \text{命令、}6{,}302{,}720\ \text{字节}\textbf{逐字节 }0\ \text{差}$$
+$$\Rightarrow\ \textbf{拍数、AR 笔数（}382{,}040）、\text{AR 空档数}\textbf{逐位相同}：$$
+$$\quad\ \text{seed161 } 6{,}019{,}388 / \text{seed162 } 6{,}019{,}719 / \text{seed163 } 6{,}019{,}649 / \text{狠档 } 6{,}827{,}095$$
+$$\Rightarrow\ \textbf{连病态刺激也分不开}：$$
+$$\quad\ \text{"任意拍 CE 冻结（数据未门控）"}\Rightarrow \text{两版都错，}\textbf{错字节数完全相同}（984{,}873 / 7{,}590{,}233\ \text{拍）}$$
+$$\quad\ \text{"无 ready 的 BRAM 变延迟 }1..2\text{"}\Rightarrow \text{两版都错 } \mathbf{5{,}954{,}785}\ \text{字节，拍数相同}$$
+$$\quad\ \Rightarrow\ \textbf{RTL 级不存在能区分二者的刺激}$$
+$$\Rightarrow\ \text{（合法的"只冻读拍 + 数据寄存器同样受 } \mathtt{CE}\ \text{门控"模型：两版都 PASS，}9{,}960{,}446\ \text{拍）}$$
+
+**"读返回对齐"假设被直接否证**
+$$\Rightarrow\ \mathtt{u\_rd\_data}\ \text{在 } \mathtt{if\ (u\_ce\ \&\&\ rd\_want\ \&\&\ rd\_hit)}\ \text{内装载} \Rightarrow \text{冻结期不装载} \Rightarrow \text{待消费数据原样保留}$$
+$$\Rightarrow\ \text{新增不变式探针跑满 106 条命令、}\mathbf{6{,}353{,}024}\ \text{个消费拍}\Rightarrow \mathbf{0}\ \text{次不符}$$
+$$\Rightarrow\ \text{另排除一个可疑截断：}\mathtt{rem}\le\mathtt{run\_len[8:0]}\ \text{对 } \mathtt{run\_len}{=}256（9'\mathtt{h100}）\textbf{合法}$$
+$$\quad\ \text{探针实测每 tile } \mathtt{run\_len}/\mathtt{rem}{=}256、\mathtt{SWEEP}{=}256\ \text{拍，两版一致}$$
+
+$$\Rightarrow\ \textbf{第 154 条：RTL 级完全等价}\ \not\Rightarrow\ \textbf{门级等价}\ \text{——两者之间隔着综合与布局布线}$$
+$$\Rightarrow\ \text{它的建议：跳出"整拍 CE 冻结 + 固定延迟契约"这层} \Rightarrow \textbf{用两版布局后 DCP 做门级 SDF 仿真}$$
+$$\quad\ \text{或上板读 } 0x230..0x240\ \text{的 DBG};\ \text{100/75/50 MHz 的频率依赖更像 }\textbf{CE 锥/setup 或门级行为}$$

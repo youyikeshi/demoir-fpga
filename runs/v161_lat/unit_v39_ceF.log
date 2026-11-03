@@ -1,0 +1,36 @@
+
+****** xsim v2025.2.1 (64-bit)
+  **** SW Build 6403652 on Thu Mar 19 13:47:00 MDT 2026
+  **** IP Build 6403511 on Thu Mar 19 12:41:45 MDT 2026
+  **** SharedData Build 6403650 on Thu Mar 19 14:02:13 MDT 2026
+  **** Start of session at: Tue Nov  3 14:19:11 2026
+    ** Copyright 1986-2022 Xilinx, Inc. All Rights Reserved.
+    ** Copyright 2022-2026 Advanced Micro Devices, Inc. All Rights Reserved.
+
+source xsim.dir/snap/xsim_script.tcl
+# xsim {snap} -testplusarg MEM=/media/felix/Data/coding/demoir-fpga/worktrees/T-161-lat/tb/mem.bin -testplusarg CMDS=/media/felix/Data/coding/demoir-fpga/worktrees/T-161-lat/tb/cmds.txt -testplusarg SEED=161 -testplusarg MODE=0 -testplusarg CE_PCT=30 -autoloadwcfg -runall
+Time resolution is 1 ps
+run -all
+[VLAT-TB] SEED=161 MODE=0 CE_PCT=30 RLAT=1..5
+[VLAT-TB] MEM=/media/felix/Data/coding/demoir-fpga/worktrees/T-161-lat/tb/mem.bin MEMB=67108864
+[VLAT-TB] 读入 67108864 字节
+[VLAT-TB] 命令数 = 106
+[VLAT-TB] PASS cmd=0 c=544 128x128 g=0 bytes=131072 cycles=206718
+[VLAT-TB] PASS cmd=10 c=544 32x32 g=1 bytes=8192 cycles=12837
+[VLAT-TB] PASS cmd=20 c=544 8x8 g=2 bytes=512 cycles=859
+[VLAT-TB] PASS cmd=30 c=512 32x32 g=3 bytes=8192 cycles=12853
+[VLAT-TB] PASS cmd=40 c=512 8x8 g=5 bytes=512 cycles=866
+[VLAT-TB] PASS cmd=50 c=448 32x32 g=0 bytes=8192 cycles=12895
+[VLAT-TB] PASS cmd=60 c=368 128x128 g=3 bytes=131072 cycles=207111
+[VLAT-TB] PASS cmd=70 c=320 32x32 g=1 bytes=8192 cycles=12954
+[VLAT-TB] PASS cmd=80 c=256 32x32 g=2 bytes=8192 cycles=13071
+[VLAT-TB] PASS cmd=90 c=160 128x128 g=1 bytes=131072 cycles=207210
+[VLAT-TB] PASS cmd=100 c=96 64x64 g=1 bytes=32768 cycles=51916
+[VLAT-TB] 汇总：命令 106/106，失败 0，字节 6302720，C 差异 0，ref 差异 0，cycles 9960446
+[VLAT-TB] 访存：读 6353024 拍，写 787840 拍，CE 冻结 2716413 拍 / 放行 7244673 拍（27.3% 冻结）
+status=PASS
+$finish called at time : 99611065 ns : File "/media/felix/Data/coding/demoir-fpga/worktrees/T-161-lat/tb/tb_bin_e1e2_desc_vlat.v" Line 282
+run: Time (s): cpu = 00:00:00 ; elapsed = 00:00:14 . Memory (MB): peak = 1437.125 ; gain = 0.000 ; free physical = 1146 ; free virtual = 18486
+exit
+INFO: xsimkernel Simulation Memory Usage: 415408 KB (Peak: 415408 KB), Simulation CPU Usage: 14880 ms
+INFO: [Common 17-206] Exiting xsim at Tue Nov  3 14:19:27 2026...
