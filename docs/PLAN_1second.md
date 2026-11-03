@@ -7008,3 +7008,52 @@ $$\Rightarrow\ \text{PL}(f) = 153.6\mathtt{M}/f + 2.037 \Rightarrow @150\ \text{
 $$\Rightarrow\ \text{融合顶多把 } 2.04\ \text{s 砍到 } 0.8\sim1.5\ \Rightarrow \text{PL}\approx 1.7\sim2.2\ \text{s}（\text{总 } 8.1\to\mathbf{6.8\sim7.2\ s}）$$
 $$\Rightarrow\ \Rightarrow\ \textbf{要 }1\ \text{s 必须再叠 } \mathtt{mlp}（-47.9\%\ \text{拍数）\ 或 } >153.6\ \text{MHz}（\text{T-100 已证 }100\ \text{MHz 都不稳）}$$
 $$\Rightarrow\ \textbf{方向对，今天 0 收益是 B3/E2 造成的}$$
+
+### 70.106 ★★★★★★★ T-141 定案：**PS 没回归；2.78× 全来自一个开关，而我们一直在用最慢的组合**（2026-11-03 10:0x）
+
+**v39 @150 MHz、256²、当前 PS 代码：6.15 s（比旧记录 8.096 s 还快 24%）**
+$$\Rightarrow\ \text{PS } \mathbf{3.08\sim3.35\ \text{s}}（\text{旧记录 }5.03\ \text{s} \Rightarrow \textbf{反而快 }35\%）$$
+$$\Rightarrow\ \text{墙钟稳态 } \mathbf{6.15\ \text{s}};\ \text{sha1 三件套全中}（\text{11 跑 33 个 sha1 全同）}$$
+$$\Rightarrow\ \text{旧 }8.1 \to \text{今 }6.15\ \text{的差} = \text{v39 之后的四刀}（\mathtt{CAT\_FUSION}\ -4.3、\mathtt{PRECOMP}\ -0.57、\mathtt{Q8CACHE}\ -0.32、\mathtt{F32DIRECT}\ -0.27）$$
+
+**★ 2.78× 全来自一个开关**
+$$\Rightarrow\ \mathtt{BIN\_LAZY\_DEQ}\ 1\to0（\text{其余全同、零护栏）}：$$
+$$\quad\ \text{墙钟 } 6.177\to\mathbf{14.935}（\mathbf{+8.76\ \text{s}，+141.8\%}）$$
+$$\quad\ \text{PS } 3.241\to\mathbf{13.256}（\mathbf{+10.0\ \text{s}，+309\%}）$$
+$$\quad\ \text{涨在 } \mathbf{prologue\ +7.80\ \text{s}\ (78\%)}、\mathtt{cat}\ +1.39、\text{非卷积 }+1.43、\mathtt{epilogue}\ +0.79$$
+$$\Rightarrow\ \textbf{机制}：\mathtt{LAZY=0}\ \text{时每层 } \mathtt{pack\_int8}+\mathtt{push\_input}\ \text{把 f32 压 int8 再写 arena}$$
+$$\quad\ （\mathbf{227}\ \text{次}\times 1.18\ \text{MB}，\mathtt{flush}\ 1135、\mathtt{push\_input}\ 227）$$
+$$\Rightarrow\ \mathtt{LAZY=1}\ \text{由 } \mathtt{E1E2}\ \text{在}\textbf{PL 侧直读}（\mathtt{direct\_layers}=227/227、\mathtt{deq\_skipped}=198、\mathtt{push\_input}\ \mathbf{0}\ \text{次}、\mathtt{flush}\ 468）$$
+
+**v54 的 21.266 完全对上（证明 16-lane 的 PS 侧零代价）**
+$$\Rightarrow\ 21.266 = 13.997（\text{净}） + 7.269（\text{护栏}）$$
+$$\Rightarrow\ 13.997 \approx \text{v39 的 } \mathtt{LAZY=0}\ 13.256 + 0.74\ (5.6\%) \Rightarrow \textbf{16-lane 的 PS 零额外代价}$$
+
+**★ 每个开关值多少秒（v39@150、256²、} \mathtt{LAZY=1}\ \text{基线 }6.150）**
+| 开关 | 代价 |
+|---|---|
+| **\mathtt{LAZY=0}** | **+8.758 s** |
+| \mathtt{CAT\_FUSION=0} | +4.303 s |
+| 不挂 e1e2（PS 自己打包）| +4.132 s |
+| \mathtt{PRECOMP=0} | +0.573 s |
+| \mathtt{Q8CACHE=0} | +0.317 s |
+| \mathtt{F32DIRECT=0} | +0.267 s |
+
+$$\Rightarrow\ \textbf{四种组合排序}：\text{e1e2}+\mathtt{LAZY1} \mathbf{6.15} < \text{不挂 e1e2 } 10.28 < \text{e1e2}+\mathtt{LAZY0} \mathbf{14.94}$$
+$$\Rightarrow\ \Rightarrow\ \textbf{我们现在的"冻结口径"恰好是最慢的那一种}：\text{付了 E1E2 的打包税，}\textbf{却没拿到直读收益}$$
+
+**★ LAZY=1 的非确定性：那条旧记录被推翻**
+$$\Rightarrow\ \text{本轮 v39@150/256}^2\ \mathtt{LAZY=1}：\mathbf{11\ \text{跑}、零护栏、零 sleep，33\ \text{个 sha1 全同}}$$
+$$\Rightarrow\ \text{历史的"}\mathtt{LAZY=1}\ \text{两次不同"是在 } \mathbf{\mathtt{v53}\ 16\text{-lane}@83.33}\ \text{上测的}$$
+$$\quad\ \Rightarrow\ \textbf{那颗位流在同档本身就有非确定数据错} \Rightarrow \text{那条记录}\textbf{不能归因 } \mathtt{LAZY}$$
+$$\Rightarrow\ \text{护栏位点：}\mathtt{LAZY=0}\ \text{走 } \mathbf{227}\ \text{次}（227\times32 = 7.27\ \text{s}）;\ \mathtt{LAZY=1}\ \text{只 }\mathbf{14\sim16}\ \text{次}、\mathtt{push\_input}\ 0$$
+$$\quad\ \Rightarrow\ \textbf{护栏剂量可降到 }0$$
+$$\Rightarrow\ \text{⚠ 但只证明"位点少 16 倍 + 11 跑未见错"，}\textbf{没证明"不存在"} \Rightarrow \text{需 }\ge20\ \text{跑浸泡}$$
+
+**★ 加速清单（它给的）**
+$$\Rightarrow\ \textbf{① 恢复 } \mathtt{LAZY=1}：\mathbf{-8.76\ \text{s}}（\text{低风险，需 } \ge20\ \text{跑浸泡}}）$$
+$$\Rightarrow\ \textbf{② 同上去掉护栏}：\mathbf{-7.27\ \text{s}\ @256^2}（\text{v54 墙钟的 }31.5\%）$$
+$$\Rightarrow\ \text{③ 若必须 } \mathtt{LAZY=0}\ \text{就置空 } \mathtt{BIN\_PACK}（14.94\to10.28，-4.65）$$
+$$\Rightarrow\ \text{④ 保住 } \mathtt{CAT\_FUSION}（\text{值 }4.30）\quad \text{⑤ 三刀合计 } -1.16$$
+$$\Rightarrow\ \Rightarrow\ \mathbf{①+②\ \text{是同一件事，值 }-8.76\ \text{s}\ (58.6\%)}$$
+$$\Rightarrow\ \textbf{而 PL 全在 }6.15\ \text{s 里只占 }2.31\ \text{s} \Rightarrow \text{再快 }50\%\ \text{也只值 }-1.15\ \text{s} \Rightarrow \textbf{排不上前 3}$$
