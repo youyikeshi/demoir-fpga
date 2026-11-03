@@ -7392,3 +7392,38 @@ $$\Rightarrow\ \Rightarrow\ \textbf{PS 侧最大的剩余杠杆 = 减少 MMIO �
 $$\quad\ \Rightarrow\ \text{但}\textbf{不能靠"换成 C"或"批量下发"}（\text{已证无效 }0.108\ \text{vs}\ 0.109）$$
 $$\quad\ \Rightarrow\ \text{只能靠}\textbf{减少事务个数}：\text{合并等待、}\text{或改用 v50 的描述符链（5 拍 vs }9\sim12\ \text{个寄存器）}$$
 $$\Rightarrow\ \text{它独立复现了污染源①：同进程第二个 net} \Rightarrow 128^2\ \text{墙钟 } 8.61\ \text{s vs 全新进程 } 3.94\ \text{s}$$
+
+### 70.118 v56 时序 + 读侧四问：**加并发无效，而"提前量"这条路已在板上死过**（T-150，2026-11-03 12:5x）
+
+**v56（16-lane + 合并器）**
+$$\Rightarrow\ \mathbf{WNS = -0.044}\ \text{ns}（4\ \text{个违例端点，TNS }-0.121）;\ \text{v53 是 }+0.041 \Rightarrow \textbf{合并器吃掉 }0.085\ \text{ns}$$
+$$\Rightarrow\ \text{最差路径正是合并器出口 } \mathtt{f1\_adr\_reg[5][31]/D} \Rightarrow \textbf{真实数据通路}$$
+$$\Rightarrow\ \text{资源 } \text{LUT }+483、\textbf{FF }+1754（2\times8\times104\ \text{位 FIFO）}$$
+$$\Rightarrow\ \Rightarrow\ \textbf{只作功能证据，不作性能候选}$$（\text{16-lane 本就封存}）
+
+**读侧四问的答案（它逐值复现了 PLAN §56.3，口径可信）**
+$$\Rightarrow\ \text{并发度：}\mathtt{AR\_SLOTS}{=}4、\mathtt{PF\_MAX}{=}4、\mathtt{PF\_DEPTH}{=}4、\mathtt{NSLOT}{=}16、\mathtt{RD\_WIN\_WORDS}{=}16$$
+$$\quad\ \text{实测峰值在飞槽 }3\sim5、\textbf{峰值在飞 AR}=8 \Rightarrow \textbf{槽与 AR 队列都不是瓶颈}$$
+$$\Rightarrow\ \text{fill 与 demand }\textbf{可并行}（\text{预取走独立通道，demand 不受 } \mathtt{PF\_MAX}\ \text{预算限制）}$$
+$$\Rightarrow\ \text{一笔 fill } =\mathbf{73.5\sim80.6}\ \text{拍}（1\ \text{AR} + \mathtt{RLAT}\ 55 + 16\ \text{拍 R）};\ \text{demand miss 期间引擎}\textbf{完全冻结}（\mathtt{u\_ce}{=}0）$$
+$$\quad\ \text{每笔 fill 的}\textbf{暴露}：\mathtt{PF\_AHEAD}{=}1\ \text{时 } k{=}1\ 64^2 = \mathbf{52.9}\ \text{拍（只掩盖 }20）;\ k\ge3 = 5.0\sim5.4\ \text{拍（已掩盖 }93\sim94\%）}$$
+$$\Rightarrow\ \textbf{在飞提到 }7\ \textbf{实测逐字无变化} \Rightarrow \textbf{加并发无效}$$
+$$\quad\ \Rightarrow\ \text{原因：} \mathtt{pf\_push}\ \text{只在 } \mathtt{new\_line}\ \text{时把"线号}+\mathtt{PF\_AHEAD}\ \text{入队} \Rightarrow \text{预取与需求}\textbf{同一拍}发出$$
+$$\quad\ \Rightarrow\ \textbf{提前量恒为 }1\ \text{条线} \Rightarrow \text{在飞再多也没东西可提前发}$$
+
+**★ 而"提前量"这条路已经在板上死过**
+$$\Rightarrow\ \mathtt{PF\_AHEAD}\ 1\to2：\text{读 miss 冻结 } 16{,}195\to\mathbf{3{,}693（-77\%）}，\text{act } -3.6\%\ \Rightarrow \text{仿真很好看}$$
+$$\Rightarrow\ \text{但 } \mathtt{v42e} = \mathtt{v39} + \textbf{只改 } \mathtt{PF\_AHEAD}\ 1\to2 \Rightarrow \textbf{板上判死}：$$
+$$\quad\ 150\ \text{MHz 第 1 跑 } \mathtt{bin\_unit}\ \text{5\ \text{s}\ 超时未 done（}\mathtt{AP\_RETURN{=}0x02}）;\ 100\ \text{MHz sha1} \ne \text{冻结}$$
+$$\Rightarrow\ \Rightarrow\ \textbf{第 143 条：仿真收益必须先查"这个改法有没有在板上死过"}$$
+$$\Rightarrow\ \text{它也印证了技能 §5.1：}\textbf{ }\mathtt{RLAT}{=}55\ \text{的模型没复现出那个挂死} \Rightarrow \textbf{是仿真覆盖不到的失效模式}$$
+$$\Rightarrow\ \text{其它实测：}\mathtt{PF\_AHEAD}{=}3\ \text{miss 再降但 act 回升}（\text{过预取变慢）};\ k{=}3\ \text{几乎没得吃};\ \text{小形状 } 1\times64\_16^2 \text{ 变差}$$
+
+**★ 挖到一个地雷**
+$$\Rightarrow\ \mathtt{localparam\ [2:0]\ PF\_MAX3 = PF\_MAX} \Rightarrow \mathbf{\mathtt{PF\_MAX}\ge8\ \text{会静默截断成 }0} \Rightarrow \textbf{预取完全不发}$$
+$$\Rightarrow\ \text{实测 } \mathtt{PF\_MAX}{=}8\ \text{与 } \mathtt{PF\_EN}{=}0\ \text{逐字相同} \Rightarrow \text{确证} \Rightarrow \textbf{须加 } \mathtt{\$fatal(PF\_MAX<=7)}$$
+
+**★ 它诚实指出：仿真还没复现出生产瓶颈**
+$$\Rightarrow\ 46\sim50\%\ \text{读 miss 是 } \mathtt{R\_RUN\_UNIT}{=}4（\mathtt{E1E2}）\ \text{的真层（}128^2/\mathtt{cin}{=}544）$$
+$$\Rightarrow\ \text{它测的 } \mathtt{UNIT}{=}0\ \text{合成 }1\text{x}64\ \text{是}\textbf{读 }13.2\%/\text{写 }59.7\% \Rightarrow \textbf{两者不是同一个瓶颈}$$
+$$\Rightarrow\ \Rightarrow\ \textbf{下一步不是改 RTL，而是给 } \mathtt{R\_RUN\_UNIT}{=}4\ \text{的 } 128^2/\mathtt{cin}{=}544\ \text{造仿真台 + golden}$$
