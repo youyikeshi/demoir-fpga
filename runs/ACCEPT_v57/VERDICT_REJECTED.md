@@ -92,3 +92,44 @@ $$\Rightarrow\ \text{v39 之所以看起来"违例可控"，部分是因为它}\
 - **唯一可用配置**：v39 `602725b8` @150 MHz + T-153/T-156 的 PS 改动 ⇒ 256² = **5.25~5.32 s**
 - 板子：PL = v39 @100 MHz，仍开机，仅 `sync; sync`
 - 待查：v57 在 100 MHz 失效的**真实机制**（静态时序已排除，正在用变延迟 bench 复现）
+
+---
+
+## 最终定案（T-163）：刀 7 放弃
+
+| 臂 | 与 v57 的差异 | @100 MHz | @75 MHz |
+|---|---|---|---|
+| **A** 原脚本原样重建 | **仅 4 字节**（文件头时间戳 118~124）| **0/7**（7 个 sha1 全不同）| — |
+| **B** 仅改 `place_design -directive ExtraTimingOpt` | 1,007,957 字节（真换了实现）| **0/3，且一次没跑完**（1× 超时 5 s 未 done、2× **金丝雀被写坏 8/4096 = 越界写**）| **4/4 全对** |
+| v39 对照（无刀 7）| — | **4/4 全对**（读回 100.0000）| — |
+
+$$\\Rightarrow\\ \\textbf{P\\&R 是确定性的}$$（A 重建即 v57）$$\\Rightarrow\\ \\textbf{"重跑看运气"不存在}$$
+$$\\Rightarrow\\ \\textbf{两个独立实现都 }100\\ \\text{ 错、}75\\ \\text{ 对；无刀 7 的 v39 在 }100\\ \\text{ 对} \\Rightarrow \\textbf{唯一共同变量 = 刀 7}$$
+
+### 失效机理（与 T-162 咬合）
+
+$$\\Rightarrow\\ \\text{刀 7 让 } \\mathbf{6{,}551}\\ \\text{ 个端点}\\textbf{退出分析集}$$（两臂 `TNS Total Endpoints` 都是 41,273，v39 是 47,805）
+$$\\Rightarrow\\ \\text{其中含 } \\mathbf{258}\\ \\text{ 个 BRAM 控制脚}：\\texttt{ADDRBWRADDR}\\ 208、\\texttt{ENBWREN}\\ 25、\\texttt{WEA}\\ 16、\\texttt{ENARDEN}\\ 9$$
+$$\\Rightarrow\\ \\textbf{这些脚的真实时序从此没有任何人验证}$$
+$$\\Rightarrow\\ 100\\ \\text{ MHz 下有一路真的违例} \\Rightarrow \\textbf{BRAM 写地址/使能踩错} \\Rightarrow \\textbf{越界写、金丝雀被写坏}$$
+$$\\Rightarrow\\ 75\\ \\text{ MHz 下余量足够} \\Rightarrow \\text{全对}$$
+
+### 因此
+
+$$\\Rightarrow\\ \\textbf{刀 7（}\\texttt{bc28ead3}\\textbf{）不得使用}；\\text{v57 与本源维持作废}$$
+$$\\Rightarrow\\ \\text{主线 } \\texttt{runs/timing\\_v50/rtl\\_v50}\\ \\text{未被污染}（\\text{刀 7 只存在于 v57 构建树}）\\Rightarrow \\textbf{无需回退}$$
+$$\\Rightarrow\\ \\text{若将来还要这个收益} \\Rightarrow \\textbf{先把那 }6{,}551\\ \\text{ 个端点重新纳入 STA}，\\text{并显式处理 } \\texttt{catpack}\\ \\text{的 } \\texttt{-through}（\\text{覆盖 }59.3\\%）$$
+
+## 三条硬教训（本包的主要价值）
+
+| # | 教训 |
+|---|---|
+| 152 | **静态时序既不能证明可用、也不能证明不可用**——v39 带着 9.65~10.27 ns 的路径跑在 6.667 ns 上照样全对 |
+| 153 | **报"违例清零"必须同时报端点总数**——否则清掉的可能是"被分析资格"而不是违例 |
+| 156 | **靠减少分析覆盖来"修"违例等于藏违例**，它会以越界写的形式回来 |
+
+## 最终状态
+
+- **唯一可用配置**：v39 `602725b8` @150 MHz + T-153/T-156 的 PS 改动 ⇒ 256² = **5.25~5.32 s**
+- 相对记录基线 8.096 s ⇒ **−34.7%**
+- 板子：PL = v39 @100 MHz，仍开机，仅 `sync; sync`
