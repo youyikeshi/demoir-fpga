@@ -1,0 +1,170 @@
+#!/bin/bash
+# ============================================================================
+#  verify_all.sh —— 一键跑全部 RTL 单元验证（串行，避免内存爆掉）
+#
+#  用法： ./tools/verify_all.sh [conv|bin|wrap|wrap_slow|all]
+#        BENCH_LAT=55 ./tools/verify_all.sh wrap     # 等价的显式写法
+#  说明： 每个单元都做逐字节比对；任何一项失败立即非零退出。
+#
+#  wrap = bin_unit_axi_wrap（AXI3 包装层）。它跑的是 **包装层 + 四个二值核**
+#         的整链：AXI4-Lite 配寄存器 → start → done → 逐个 golden 字节比对。
+#         tb 里自带一个 AXI3 从机模型（随机 arready 反压 / 1..20 拍读延迟 /
+#         跨 ID 乱序 / 任意 arlen 的 INCR burst）以及一套从模型自检（T0）。
+#         ⇒ 读侧重写（arlen=7）落地后，**不用改 tb** 直接再跑一遍即可。
+# ============================================================================
+set -u
+ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+WHAT="${1:-all}"
+
+# Vivado 的 settings64.sh 引用未定义变量，set -u 下会直接终止
+set +u
+source /data/xilinx/2025.2/2025.2.1/Vivado/settings64.sh >/dev/null 2>&1 || true
+set -u
+command -v xvlog >/dev/null || { echo "xvlog 不在 PATH" >&2; exit 2; }
+
+FAILED=0
+note() { printf '\n\033[1m=== %s ===\033[0m\n' "$*"; }
+
+# ---------------------------------------------------------------- int8 引擎（7 形状，经 AXI 包装层）
+if [[ "$WHAT" == "conv" || "$WHAT" == "all" ]]; then
+  note "conv_uni（引擎 + AXI 包装层）7 个形状"
+  W=$(mktemp -d /tmp/vconv.XXXXXX); cd "$W"
+  # ★ tb 显式传 .USE_BUFGCE(1'b0)，所以仿真侧不依赖 BUFGCE 原语/glbl；
+  #   如果以后去掉 tb 那个覆盖，这里要加 -L unisims_ver 并补 glbl。
+  xvlog --sv -L xpm \
+      "$ROOT/modules/conv_int8_uni.v" \
+      "$ROOT/modules/conv_uni_axi_wrap.v" \
+      "$ROOT/tb/tb_conv_uni_axi_wrap.v" > v.log 2>&1 || { echo "xvlog 失败"; cat v.log; exit 1; }
+  xelab -debug typical --relax tb_conv_uni_axi_wrap -s snap > e.log 2>&1 || { echo "xelab 失败"; tail -20 e.log; exit 1; }
+  run_one() {
+    local tag=$1 cin=$2 cout=$3 k=$4 s=$5 d=$6 pad=$7 h=$8 w=$9 sh=${10} rl=${11} tap=${12}
+    # ★ 参数以 golden/shape.env 为准（自描述），命令行给的只是兜底。
+    #   踩过的坑：这里曾硬编码 TAP=4/12/28，权重容器改成 8/16/32 后
+    #   7 个形状全在启动校验撞 ERR_TAP(2)，整批误判 FAIL。
+    local envf="$ROOT/golden/$tag/shape.env"
+    if [ -f "$envf" ]; then
+      _g() { grep -oE "\b$1=[0-9]+" "$envf" 2>/dev/null | head -1 | cut -d= -f2; }
+      cin=$(_g CIN  || true); cout=$(_g COUT || true); k=$(_g KK || true)
+      s=$(_g SS || true); d=$(_g DD || true); pad=$(_g PAD || true)
+      h=$(_g HH || true); w=$(_g WW || true); sh=$(_g SHIFT || true)
+      rl=$(_g RELU || true); tap=$(_g TAPSTRIDE || true)
+      : "${cin:=$2}" "${cout:=$3}" "${k:=$4}" "${s:=$5}" "${d:=$6}" "${pad:=$7}"
+      : "${h:=$8}" "${w:=$9}" "${sh:=${10}}" "${rl:=${11}}" "${tap:=${12}}"
+    fi
+    timeout 1800 xsim snap -R \
+      -testplusarg "GOLDEN=$ROOT/golden/$tag" -testplusarg "CIN=$cin" -testplusarg "COUT=$cout" \
+      -testplusarg "K=$k" -testplusarg "S=$s" -testplusarg "D=$d" -testplusarg "PAD=$pad" \
+      -testplusarg "H=$h" -testplusarg "W=$w" -testplusarg "SHIFT=$sh" \
+      -testplusarg "RELU=$rl" -testplusarg "TAP=$tap" -testplusarg "RLAT=56" > "r_$tag.log" 2>&1
+    local res; res=$(grep -oE '逐字节一致 : [0-9]+ / [0-9]+ 字节' "r_$tag.log" | tail -1)
+    local st;  st=$(grep -oE 'status=[A-Z]+' "r_$tag.log" | tail -1)
+    if [[ "$st" == "status=PASS" ]]; then printf '  ✓ %-22s %s\n' "$tag" "$res"
+    else printf '  ✗ %-22s %s\n' "$tag" "$st"; FAILED=$((FAILED+1)); fi
+  }
+  run_one uni_k1_8x8_8x8     8   8 1 1 1 0 8  8  7 1 4
+  run_one uni_k1_64x12_8x8  64  12 1 1 1 0 8  8  7 1 4
+  run_one uni_k3_64x12_8x8  64  12 3 1 1 1 8  8  7 1 12
+  run_one uni_k5_12x48_8x8  12  48 5 1 1 2 8  8  9 1 28
+  run_one uni_k3_d3_32x16   32  16 3 1 3 1 16 16 7 1 12
+  run_one uni_k1_s2_192x64 192  64 1 2 1 0 8  8  7 0 4
+  run_one uni_k3_nopad_16x8 16   8 3 1 1 1 6  10 6 1 12
+  cd - >/dev/null; rm -rf "$W"
+fi
+
+# ---------------------------------------------------------------- AXI 包装层
+#  bin_unit_axi_wrap：四个二值核共用的 AXI3 包装层（PS 唯一接口）。
+#  ⚠ 这个 tb 在 2026-10-31 之前**从未能 xelab**（端口是旧的 m_axi_rd_*/m_axi_wr_*），
+#    所以 verify_all 一直没跑它、四个单元的包装层也从没被仿真过。
+#    现在它是读侧重写（arlen=7 突发 + 多线缓存）唯一的安全网。
+#  tb 自带 AXI3 从机模型（随机 arready 反压 / 1..20 拍读延迟 / 跨 ID 乱序 /
+#  任意 arlen 的 INCR burst）+ T0 从模型自检 ⇒ 读侧改了**不用动 tb**再跑一遍即可。
+#  ★ 板端校准模式：BENCH_LAT=<n>（或 WHAT=wrap_slow，等价于 55）
+#    板端实测「一条 64 B 线填充」≈ 55.2 拍（arlen=0 时代，从
+#    runs/perf114x/data/net_per_layer.csv 里 fill≈rd 的层反推）。
+#    默认的 1..20 拍是**功能仿真**口径（快），做性能预测必须用校准口径。
+BENCH_LAT="${BENCH_LAT:-}"
+if [[ "$WHAT" == "wrap_slow" ]]; then WHAT=wrap; BENCH_LAT="${BENCH_LAT:-55}"; fi
+LAT_ARGS=()
+if [[ -n "$BENCH_LAT" ]]; then
+  LAT_ARGS=(-testplusarg "RLMIN=$BENCH_LAT" -testplusarg "RLMAX=$BENCH_LAT")
+fi
+
+if [[ "$WHAT" == "wrap" || "$WHAT" == "all" ]]; then
+  if [[ -n "$BENCH_LAT" ]]; then
+    note "bin_unit_axi_wrap（AXI3 包装层）四个单元 12 个形状 —— 板端校准口径 RLAT=$BENCH_LAT 拍"
+  else
+    note "bin_unit_axi_wrap（AXI3 包装层 + 从模型）四个单元 12 个形状 —— 功能口径 RLAT=1..20 拍"
+  fi
+  run_wrap() {
+    local U=$1; shift
+    local W; W=$(mktemp -d "/tmp/vwrap${U}.XXXXXX"); cd "$W"
+    # 四个核都编进去：DUT 用 generate-if 只 elaborat 选中的那个，但先全都解析一遍
+    # 可以让同一个 tb 用 -d TB_UNIT=0/1/2/3 直接切单元。
+    xvlog --sv -L xpm -d TB_UNIT="$U" \
+        "$ROOT/modules/bin_conv_core.v" "$ROOT/modules/bin_conv_core8.v" \
+        "$ROOT/modules/bin_rprelu.v" \
+        "$ROOT/modules/bin_sam.v" "$ROOT/modules/bin_interp.v" \
+        "$ROOT/modules/bin_unit_axi_wrap.v" \
+        "$ROOT/modules/bin_e1e2.v" "$ROOT/modules/bin_catpack.v" \
+        "$ROOT/tb/tb_bin_unit_axi_wrap.v" > v.log 2>&1 \
+      || { echo "  ✗ UNIT=$U xvlog 失败"; tail -10 v.log; FAILED=$((FAILED+1)); return; }
+    # -debug typical：tb 要层次化访问 dut.u_ce / dut.rd_hit / dut.done_sticky 等内部信号
+    xelab -debug typical --relax -L xpm tb_bin_unit_axi_wrap -s snap > e.log 2>&1 \
+      || { echo "  ✗ UNIT=$U xelab 失败"; tail -10 e.log; FAILED=$((FAILED+1)); return; }
+    local tag
+    for tag in "$@"; do
+      local envf="$ROOT/golden/$tag/shape.env"
+      local PARGS=()
+      if [ -f "$envf" ]; then
+        # ★ 形状参数以 golden/shape.env 为准（自描述），tb 里的表只兜底。
+        #   踩过的坑：硬编码参数一旦与 golden 漂移，整个形状会静默错。
+        _gw() { grep -oE "\b$1=[0-9]+" "$envf" 2>/dev/null | head -1 | cut -d= -f2; }
+        local _v
+        _v=$(_gw CIN); [ -z "${_v:-}" ] && _v=$(_gw CC)      # rprelu/sam/interp 用 CC
+        [ -n "${_v:-}" ] && PARGS+=(-testplusarg "CIN=$_v")
+        for _k in COUT KK SS DD PAD HH WW SHIFT HO WO; do
+          _v=$(_gw "$_k")
+          [ -n "${_v:-}" ] && PARGS+=(-testplusarg "$_k=$_v")
+        done
+      fi
+      timeout 1800 xsim snap -R \
+        -testplusarg "GOLDEN=$ROOT/golden/$tag" -testplusarg "SHAPE_NAME=$tag" \
+        ${LAT_ARGS[@]+"${LAT_ARGS[@]}"} \
+        ${PARGS[@]+"${PARGS[@]}"} > "r_$tag.log" 2>&1
+      local res; res=$(grep -oE '逐字节一致 : [0-9]+ / [0-9]+ 字节' "r_$tag.log" | tail -1)
+      local st;  st=$(grep -oE 'status=[A-Z]+' "r_$tag.log" | tail -1)
+      local cy; cy=$(grep -oE 'cycles=[0-9]+' "r_$tag.log" | tail -1)
+      if [[ "$st" == "status=PASS" ]]; then printf '  ✓ %-26s %s%-10s\n' "$tag" "$res" " $cy"
+      else
+        printf '  ✗ %-26s %s（日志 %s/r_%s.log）\n' "$tag" "$st" "$W" "$tag"
+        grep -E '\[TB-T0\]|\[TB-AXI\]|\[TB-RD\]|\[BIN-WRAP\]|差异|超时' "r_$tag.log" \
+          | head -5 | sed 's/^/       /'
+        FAILED=$((FAILED+1))
+      fi
+    done
+    cd - >/dev/null
+    if [[ $FAILED -eq 0 ]]; then rm -rf "$W"; else echo "  （日志留在 $W）"; fi
+  }
+  run_wrap 0 bin_1x32_32_8x8 bin_1x64_16x16 bin_3x32_48_8x8 bin_3x32_48_d2 bin_3x96_64_8x8
+  run_wrap 1 rprelu_64_8x8 rprelu_96_8x8 rprelu_48_4x16
+  run_wrap 2 sam_32_8x8 sam_64_8x8
+  run_wrap 3 interp_16_8x8_to_16x16 interp_16_16x16_to_8x8
+fi
+
+# ---------------------------------------------------------------- 四个二值单元
+if [[ "$WHAT" == "bin" || "$WHAT" == "all" ]]; then
+  for m in bin_conv_core bin_rprelu bin_sam bin_interp; do
+    note "$m"
+    ( cd "$ROOT" && "./tools/run_bin_unit.sh" "$m" ) > "/tmp/vb_$m.log" 2>&1
+    local_line=$(grep -oE '形状通过: [0-9]+ / [0-9]+' "/tmp/vb_$m.log" | tail -1)
+    if grep -q '形状通过: \([0-9]*\) / \1' "/tmp/vb_$m.log" 2>/dev/null || grep -qE '形状通过: ([0-9]+) / \1$' "/tmp/vb_$m.log"; then
+      printf '  ✓ %-16s %s\n' "$m" "$local_line"
+    else
+      printf '  ✗ %-16s %s（日志 /tmp/vb_%s.log）\n' "$m" "$local_line" "$m"; FAILED=$((FAILED+1))
+    fi
+  done
+fi
+
+echo
+if [[ $FAILED -eq 0 ]]; then echo "全部通过 ✓"; exit 0
+else echo "有 $FAILED 组失败 ✗"; exit 1; fi

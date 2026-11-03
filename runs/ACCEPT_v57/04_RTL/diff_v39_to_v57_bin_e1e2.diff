@@ -1,0 +1,159 @@
+--- runs/timing_v50/rtl_v50/bin_e1e2.v	2026-11-02 12:25:02.037855300 +0800
++++ worktrees/T-152_timing/rtl/bin_e1e2.v	2026-11-02 09:53:38.566049600 +0800
+@@ -141,6 +141,39 @@
+     logic [15:0] p;                // tile 内像素号
+     logic [15:0] run_len;
+ 
++    // ★ 时序刀 7（v40，2026-10-31）：SWEEP 期的读使能改成**寄存的倒计数器**
++    // ------------------------------------------------------------------------
++    //  改前（v39 及以前）：ST_SWEEP 里 `issue_en = (p < run_len)`。
++    //  布线后实测（150 MHz 口径，run_len∈[1,256]）：
++    //     · 起点 `run_len_reg[3]_replica` 一个寄存器 = **7,124 条违例端点（34.4%）**
++    //     · 最差路径 −5.331 ns：
++    //         run_len → 16 位比较 issue_en0_carry（4×CARRY4，1.46 ns）
++    //         → issue_en/mem_rd_en → 包装层 rd_want → u_ce
++    //         → 引擎内部 CE（2 个千级扇出网）→ DSP CEA2
++    //  为什么这是结构性浪费：run_len 每个 tile 只变一次，却出现在**逐拍**读使能的
++    //  组合锥里 ⇒ 整条 u_ce 使能锥都挂在它上面（CE 端点占全部违例的 51.6%）。
++    //
++    //  改法（**等价改写，不是删比较**）：
++    //     · `rem`：SWEEP 期剩余读拍数（9 位够：run_len ≤ 256 = 9'h100）
++    //     · 装载只发生在**边界**：ST_THR（每 lane 一次、进 SWEEP 前），值 = run_len
++    //     · 递减只发生在 ST_SWEEP（p 递增的同一拍）⇒ rem ≡ run_len − p
++    //     · 退出条件 `rem == 9'd1`  ⇔  原 `p == run_len − 16'd1`（逐位等价）
++    //     · `sw_act_q`：SWEEP 期读使能，在进 SWEEP 的那一条边置 1、退出时清 0
++    //  等价性证明（三段，全部可验）：
++    //     (1) 进入 SWEEP 时 p=0、rem=run_len（ST_LINI 与 ST_THR 都清 p；
++    //         rem 在 ST_THR 装载，且 ST_THR 里 run_len 已是本 tile 的终值：
++    //         tile0 由 ST_DESC(ph=15) 装载、后续 tile 由 ST_LAST 装载，都在 ST_LINI 之前）
++    //     (2) SWEEP 每拍 p+1、rem−1 ⇒ 第 k 拍 rem = run_len − k，不变量保持
++    //     (3) run_len ∈ [1,256]（ST_CHK 保证 h,w≠0 ⇒ hw≥1；且 run_len=min(hw,256)）
++    //         ⇒ p 只取 0..run_len−1 ⇒ 改前的 `p < run_len` 在 SWEEP 期**恒为 1**
++    //         ⇒ `issue_en = sw_act_q` 与改前逐拍相同；退出拍也相同（p=run_len−1）
++    //  拍数：状态机转移表一字未改（进入/退出 SWEEP 的条件等价）⇒ 总拍数不变。
++    //  ⚠ 依然**不许**"直接把比较删掉"（前代理"时序刀 6"那样做被叫停）：
++    //    删掉后 issue_en 与状态机失去耦合，任何让 p 越界的 bug 都会静默多发读。
++    //    这里保留 rem 计数 + §5 的 translate_off 断言（p<run_len、rem==run_len−p）。
++    logic [8:0]  rem;              // SWEEP 期剩余读拍（1..256），装载于 ST_THR
++    logic        sw_act_q;         // SWEEP 期读使能（寄存；= 原 `p < run_len`）
++
+     // ★ 面积刀 2：本 lane 的通道区间。原来
+     //       `for (j) en_q[j] <= (lchan + 32'(j) < {16'd0,c_q});`
+     //   被展开成 **8 条独立的 32 位加法 + 32 位比较链**
+@@ -258,7 +291,11 @@
+             //   支持"恒真"，但板上 227 层 sha1 目前无法复测（板端 CMA 阻塞）⇒
+             //   **先回退，等有板上 sha1 判据再做**。备份：/tmp/bin_e1e2_knife6_91b287.v
+             //   与 rtl_hand/.snapshots/v38_A_unverified/bin_e1e2.v。
+-            if (p < run_len) begin
++            //
++            // ★ v40 时序刀 7：比较**不再删**，而是等价改写成寄存使能 `sw_act_q`
++            //   （边界装载；证明见 §1 的 rem/sw_act_q 注释块）。
++            //   SWEEP 期 sw_act_q 恒 1 ⇔ 原 `p < run_len` 恒 1 ⇒ 逐拍等价。
++            if (sw_act_q) begin
+                 issue_en   = 1'b1;
+                 issue_addr = rd_addr_q;              // 已寄存，路径上无加法
+             end
+@@ -285,6 +322,7 @@
+             c_q <= '0; h_q <= '0; w_q <= '0; grp_q <= '0;
+             desc_q <= '0; out_q <= '0; hw_q <= '0; tile_q <= '0;
+             lane <= '0; ph <= '0; p <= '0; run_len <= '0;
++            rem <= '0;  sw_act_q <= 1'b0;
+             resp_vld <= 1'b0; resp_p <= '0;
+             wv_q <= 1'b0; wp_q <= '0;
+             rd_addr_q <= '0;
+@@ -362,6 +400,13 @@
+                 // 第 2 刀：扫地址在这里算好；ST_SWEEP 只做 +8 递增
+                 // ★ 时序刀 4：改由 src_base_q 相加（寄存器+寄存器），不再从 desc_ram 输出起算
+                 rd_addr_q <= src_base_q + (tile_q << 3);
++                // ★ v40 时序刀 7：**边界装载倒计数器**。ST_THR 是本 lane 进 SWEEP 前的
++                //   最后 4 拍，此处的 run_len 已是本 tile 的终值（tile0 由 ST_DESC(ph=15)、
++                //   后续 tile 由 ST_LAST 装载，两者都在 ST_LINI 之前）⇒ 这里装载
++                //   rem = run_len 后，SWEEP 每拍 −1 就恒等于 run_len − p。
++                //   每 lane 装一次（ST_THR 4 拍写同值，无害）；换 lane 时 run_len 不变，
++                //   所以 lane 1..7 也走同一条装载路径 —— **没有第二处装载点**。
++                rem <= run_len[8:0];
+                 if (ph[0]) begin                        // 收数
+                     if (ph == 4'd1) begin
+                         thr_q[0] <= $signed(mem_rd_data[15:0]);
+@@ -376,6 +421,7 @@
+                         thr_q[7] <= $signed(mem_rd_data[63:48]);
+                         ph    <= '0;
+                         p     <= '0;
++                        sw_act_q <= 1'b1;               // 进 SWEEP 的这条边就当拍置位
+                         state <= ST_SWEEP;
+                     end
+                 end else begin
+@@ -386,9 +432,13 @@
+             // 扫一趟：每拍发一个读，同时把**上一拍**的数据写进缓冲
+             ST_SWEEP: begin
+                 rd_addr_q <= rd_addr_q + 32'd8;
+-                if (p == run_len - 16'd1) begin
+-                    p     <= '0;
+-                    state <= ST_DRAIN;
++                // ★ v40 时序刀 7：退出条件从 `p == run_len-1`（16 位减法+比较）
++                //   改成 `rem == 9'd1`（9 位常数比较）。两者逐位等价，见 §1 证明 (1)~(3)。
++                rem <= rem - 9'd1;
++                if (rem == 9'd1) begin
++                    p        <= '0;
++                    sw_act_q <= 1'b0;               // 退出这条边清使能（下一拍 ST_DRAIN）
++                    state    <= ST_DRAIN;
+                 end else begin
+                     p <= p + 16'd1;
+                 end
+@@ -565,6 +615,56 @@
+ 
+     assign ctrl_busy = (state != ST_IDLE);
+ 
++    // ========================================================================
++    // 5. 断言（**只仿真**）：守住 rem 倒计数器 / sw_act_q 与原 `p < run_len` 的等价性
++    // ------------------------------------------------------------------------
++    //   为什么要它：时序刀 7 把"每拍比较"换成了"边界装载的计数器 + 寄存使能"。
++    //   这类改写最怕的是**在某个边角状态**下不再是同一个函数（多发/少发读）。
++    //   逐字节 A/B（106 命令 / 24 层）抓的是"值错了"，抓不到"多读了一拍、又恰好
++    //   被后写覆盖"这种。所以这里把不变量逐拍钉死：
++    //       (A) SWEEP 期 p < run_len                 ← 原比较的左半（这是"恒真"的依据）
++    //       (B) rem ≡ run_len − p                    ← 倒计数器与 p 同步
++    //       (C) SWEEP 期 sw_act_q ≡ 1                ← 原比较的取值（恒真）
++    //       (D) 非 SWEEP 期 sw_act_q ≡ 0
++    //       (E) 进 SWEEP 前 rem 已装载且非 0、run_len 非 0
++    //   `synthesis translate_off` ⇒ 综合完全看不到（不占面积、不进时序、不进 8-4767）。
++    // ========================================================================
++    // synthesis translate_off
++    always_ff @(posedge ap_clk) begin
++        if (ap_rst_n && ap_ce) begin
++            if (state == ST_SWEEP) begin
++                if (!(p < run_len)) begin
++                    $error("[E1E2-ASRT] SWEEP 期 p=%0d 不满足 p<run_len=%0d（(A) 不变量破）",
++                           p, run_len);
++                end
++                if (rem !== (run_len[8:0] - p[8:0])) begin
++                    $error("[E1E2-ASRT] rem=%0d != run_len-p=%0d（(B) 倒计数器失步）",
++                           rem, run_len - p);
++                end
++                if (sw_act_q !== 1'b1) begin
++                    $error("[E1E2-ASRT] SWEEP 期 sw_act_q=0（(C) 读使能丢了，会少发读）");
++                end
++                if (rem == 9'd0) begin
++                    $error("[E1E2-ASRT] SWEEP 期 rem=0（(E) 计数器已空，会多发读）");
++                end
++            end else begin
++                if (sw_act_q !== 1'b0) begin
++                    $error("[E1E2-ASRT] 非 SWEEP 状态(state=%0d) sw_act_q 仍为 1（(D) 会多发读）",
++                           state);
++                end
++            end
++            if ((state == ST_THR) && ph[0] && (ph == 4'd3)) begin
++                if (rem == 9'd0) begin
++                    $error("[E1E2-ASRT] 即将进 SWEEP 但 rem=0（(E) run_len 未装载 / >256）");
++                end
++                if (run_len == 16'd0) begin
++                    $error("[E1E2-ASRT] 即将进 SWEEP 但 run_len=0（(E) 会空转）");
++                end
++            end
++        end
++    end
++    // synthesis translate_on
++
+     // h_q/w_q 只参与 ST_CHK 的合法性判断（保留寄存器便于调试观察）
+     logic unused_ok;
+     assign unused_ok = &{1'b0, h_q[0], w_q[0], 1'b0};

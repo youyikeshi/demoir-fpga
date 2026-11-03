@@ -1,0 +1,24 @@
+== v39 G2 专项：地址 / 突发 / 写使能通路的 setup 违例（门槛：全部为 0 条）==
+   口径：10.000 ns (150 MHz)。每条通路给 ①绝对最差 slack（含不违例）②该组里的违例端点数
+
+G2-A_e1e2组自增(desc/out/grp)/D           pins=80     绝对最差=    6.305  违例=0     PASS
+                                         最差路径: levels=0  design_1_i/bin_unit_0/inst/u_bin_unit/r_edesc_reg[6]/C
+
+G2-B_AXI_AR_AW_W载荷/D                   pins=184    绝对最差=    4.094  违例=0     PASS
+                                         最差路径: levels=7  design_1_i/conv_uni_0/inst/u_conv_uni/df_rp_reg[1]/C
+
+G2-C_线缓存win_q写地址                       pins=1024   绝对最差=    1.728  违例=0     PASS
+                                         最差路径: levels=8  design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_pack/run_len_reg[3]_replica/C
+
+G2-D_线缓存fill槽表/D                       pins=192    绝对最差=    2.958  违例=0     PASS
+                                         最差路径: levels=7  design_1_i/ps7/inst/PS7_i/SAXIHP0ACLK
+
+G2-E_预取tag_pf_全脚(新违例族)                 pins=993    绝对最差=   -1.918  违例=107   FAIL
+                                         最差路径: levels=18  design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_pack/run_len_reg[3]_replica/C
+      违例 -1.918    N2   design_1_i/bin_unit_0/inst/u_bin_unit/pf_tag_reg[1][6]/CE  <- design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_pack/run_len_reg[3]_replica/C
+      违例 -1.882    N2   design_1_i/bin_unit_0/inst/u_bin_unit/pf_tag_reg[3][10]/CE  <- design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_pack/run_len_reg[3]_replica/C
+      违例 -1.882    N2   design_1_i/bin_unit_0/inst/u_bin_unit/pf_tag_reg[3][21]/CE  <- design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_pack/run_len_reg[3]_replica/C
+      违例 -1.882    N2   design_1_i/bin_unit_0/inst/u_bin_unit/pf_tag_reg[3][23]/CE  <- design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_pack/run_len_reg[3]_replica/C
+      违例 -1.882    N2   design_1_i/bin_unit_0/inst/u_bin_unit/pf_tag_reg[3][24]/CE  <- design_1_i/bin_unit_0/inst/u_bin_unit/g_conv.u_pack/run_len_reg[3]_replica/C
+      ... 其余 102 条见 CSV
+
