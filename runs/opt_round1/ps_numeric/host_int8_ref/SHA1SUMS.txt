@@ -1,0 +1,13 @@
+# 主机 int8 整网参照（pack_v60, engine=None / bin_ref_numpy.conv_rtl）
+# sha1 算法: sha1(np.ascontiguousarray(a).tobytes())
+#   a = out1_u8: uint8 (3,256,256) C 序 = rint(clip(f32,0,1)*255)  ← 对拍用这一列
+#   a = out1_f32/out1_f64: BinNet.run() 原始 out1（板端 board_verify_numfix
+#     打印的 sha1[:12] 用的就是 ascontiguousarray(outs['out1'])，板端 numpy 是
+#     float32 ⇒ 对比 f32 那列）
+# md5 列 = 文件 md5（.npy 含头，跨机器同字节）
+# tag    in_sha1(输入f32 (3,256,256))                sha1_out1_u8                     sha1_out1_f32                    md5_out1_u8                      md5_out1_f32
+p0000  8d83f10019713d9d5a1207ecb77847bf535cef09  963eef0631dc0729c3f1126c51915b348183fb7c  57a1bf161f26767d330544ed1ff49ed4bc746184  cf7319a99bff2191106f94cdf9930a2a  36dbcbc2c8b4699ae87828dfa4c6cdf1
+p0021  2eaea23e3695d5fabc382e365b45b54e774e539d  573d2d3b41075d58fad438e449da02602c29b7b4  aacc6d925fbcd72b792984702c1b6a0c0961f80f  b4254a7754c0f18845ca2d9e9f702039  e1799f03c8cc27bf0ddd72716f40fad8
+p0043  8cddddc9c0e5fd6ed031e5d801f63e13d2db8342  8e83ff405d46194cf2d875e1c5a100e29ed2b280  66d9054e6d285de64483632eabbe94184894aaa0  e8eb2f07fe79d3bf2c42126a21673669  c9c2675bfa943704733992dc427ae461
+p0067  c13eb436ed6f4709f16f4422b86aca6f4f4dec7a  2d699f822df72c4bdc25f038e5987f70c7ee10b0  2b1cd63cc7ef5fe528229d4038d56000a038d8c6  4edf69f5a932e381b2a9286b11ebf65b  cc21a01a6b64378069af2eb607ac5fd2
+p0089  e47ffcf223d04319beb8db5ed38b4da57bc31e5c  0153b868559f058028600b262d6b87a1ac06a008  3e8982a98f6bf1394eb12348bd8cc160db2cb8ba  faf91a628a32fda0fc09068bb7b5b771  d907d0c2356388e47a3805d4b4b0b265
