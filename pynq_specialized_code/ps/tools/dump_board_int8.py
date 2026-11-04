@@ -325,6 +325,10 @@ def main(argv=None) -> int:
                "total_s": st.get("total"), "pl_s": st.get("pl"),
                "ps_s": st.get("ps"), "overlap": st.get("overlap"),
                "mmio": st.get("mmio_writes"),
+               # ★ 分段计时（引擎自报，只读不改）：prologue / PL / epilogue / nonconv / overlap / wait
+               "seg": {k: st.get(k) for k in
+                       ("total", "ps", "ps_prologue", "ps_epilogue", "ps_nonconv",
+                        "pl", "pack_pl", "overlap", "wait", "mmio_writes")},
                "tensors": {}, "int8": {}}
         for k in ("out1", "out2", "out3"):
             if k not in outs:
