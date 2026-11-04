@@ -1,0 +1,90 @@
+
+****** Vivado v2025.2.1 (64-bit)
+  **** SW Build 6403652 on Thu Mar 19 13:47:00 MDT 2026
+  **** IP Build 6403511 on Thu Mar 19 12:41:45 MDT 2026
+  **** SharedData Build 6403650 on Thu Mar 19 14:02:13 MDT 2026
+  **** Start of session at: Wed Nov  4 16:59:17 2026
+    ** Copyright 1986-2022 Xilinx, Inc. All Rights Reserved.
+    ** Copyright 2022-2026 Advanced Micro Devices, Inc. All Rights Reserved.
+
+source /tmp/fp2.tcl
+# set OUT /media/felix/Data/coding/demoir-fpga/runs/hdmi_v60
+# open_checkpoint [file join $OUT design_1_v60_routed.dcp]
+Command: open_checkpoint /media/felix/Data/coding/demoir-fpga/runs/hdmi_v60/design_1_v60_routed.dcp
+
+Starting open_checkpoint Task
+
+Time (s): cpu = 00:00:00.05 ; elapsed = 00:00:00.03 . Memory (MB): peak = 1582.516 ; gain = 0.000 ; free physical = 1478 ; free virtual = 15192
+INFO: [Device 21-403] Loading part xc7z015clg485-2
+Netlist sorting complete. Time (s): cpu = 00:00:00.13 ; elapsed = 00:00:00.13 . Memory (MB): peak = 1838.039 ; gain = 0.000 ; free physical = 1343 ; free virtual = 15034
+INFO: [Netlist 29-17] Analyzing 3760 Unisim elements for replacement
+INFO: [Netlist 29-28] Unisim Transformation completed in 0 CPU seconds
+INFO: [Project 1-479] Netlist was created with Vivado 2025.2.1
+INFO: [Project 1-570] Preparing netlist for logic optimization
+Read ShapeDB Complete: Time (s): cpu = 00:00:00.04 ; elapsed = 00:00:00.04 . Memory (MB): peak = 1941.914 ; gain = 4.250 ; free physical = 1239 ; free virtual = 14929
+INFO: [Timing 38-478] Restoring timing data from binary archive.
+INFO: [Timing 38-479] Binary timing data restore complete.
+INFO: [Project 1-856] Restoring constraints from binary archive.
+INFO: [Constraints 18-5170] The checkpoint was created with non-default parameter values which do not match the current Vivado settings.  Mismatching parameters are:
+  general.maxThreads
+INFO: [Project 1-853] Binary constraint restore complete.
+INFO: [Designutils 20-5722] Start Reading Physical Databases.
+Reading placement.
+Read Netlist Cache: Time (s): cpu = 00:00:00.03 ; elapsed = 00:00:00.03 . Memory (MB): peak = 2569.297 ; gain = 0.000 ; free physical = 655 ; free virtual = 14350
+Reading placer database...
+Read Device Cache: Time (s): cpu = 00:00:00.01 ; elapsed = 00:00:00.01 . Memory (MB): peak = 2569.297 ; gain = 0.000 ; free physical = 651 ; free virtual = 14346
+Read PlaceDB: Time (s): cpu = 00:00:00 ; elapsed = 00:00:00 . Memory (MB): peak = 2569.297 ; gain = 0.000 ; free physical = 651 ; free virtual = 14346
+Read placeStorage: Time (s): cpu = 00:00:00.66 ; elapsed = 00:00:00.66 . Memory (MB): peak = 2591.297 ; gain = 22.000 ; free physical = 626 ; free virtual = 14321
+Read PulsedLatchDB: Time (s): cpu = 00:00:00 ; elapsed = 00:00:00 . Memory (MB): peak = 2591.297 ; gain = 0.000 ; free physical = 625 ; free virtual = 14321
+Reading routing.
+Read RouteStorage: Time (s): cpu = 00:00:00.63 ; elapsed = 00:00:00.2 . Memory (MB): peak = 2614.922 ; gain = 23.625 ; free physical = 597 ; free virtual = 14290
+Read Physdb Files: Time (s): cpu = 00:00:01 ; elapsed = 00:00:00.91 . Memory (MB): peak = 2614.922 ; gain = 45.625 ; free physical = 597 ; free virtual = 14290
+Restored from archive | CPU: 1.400000 secs | Memory: 40.832932 MB |
+Finished XDEF File Restore: Time (s): cpu = 00:00:01 ; elapsed = 00:00:00.94 . Memory (MB): peak = 2614.922 ; gain = 49.594 ; free physical = 597 ; free virtual = 14290
+Netlist sorting complete. Time (s): cpu = 00:00:00.01 ; elapsed = 00:00:00.01 . Memory (MB): peak = 2632.742 ; gain = 0.000 ; free physical = 573 ; free virtual = 14266
+INFO: [Project 1-111] Unisim Transformation Summary:
+  A total of 300 instances were transformed.
+  IOBUF => IOBUF (IBUF, OBUFT): 2 instances
+  RAM32M => RAM32M (RAMD32(x6), RAMS32(x2)): 5 instances
+  RAM32X1D => RAM32X1D (RAMD32(x2)): 5 instances
+  RAM64M => RAM64M (RAMD64E(x4)): 264 instances
+  RAM64X1D => RAM64X1D (RAMD64E(x2)): 24 instances
+
+INFO: [Project 1-604] Checkpoint was created with Vivado v2025.2.1 (64-bit) build 6403652
+open_checkpoint: Time (s): cpu = 00:00:17 ; elapsed = 00:00:11 . Memory (MB): peak = 2640.777 ; gain = 1058.262 ; free physical = 573 ; free virtual = 14266
+# set_param tcl.collectionResultDisplayLimit 0
+# proc c_under {pat ref} {
+#     set n [llength [get_cells -quiet -hier -filter "NAME =~ $pat && REF_NAME == $ref"]]
+#     return $n
+# }
+# puts "== u_eng（bin_conv_core8）内的 DSP48E1 =="
+== u_eng（bin_conv_core8）内的 DSP48E1 ==
+# puts "   $ = [c_under {*g_conv.u_unit/u_eng*} DSP48E1]"
+   $ = 45
+# puts "== u_pack（bin_e1e2）内的 CARRY4 / LUT =="
+== u_pack（bin_e1e2）内的 CARRY4 / LUT ==
+# puts "   CARRY4 = [c_under {*g_conv.u_pack*} CARRY4]"
+   CARRY4 = 191
+# set nlut [llength [get_cells -quiet -hier -filter {NAME =~ *g_conv.u_pack* && REF_NAME =~ LUT*}]]
+# puts "   LUT*   = $nlut"
+   LUT*   = 1459
+# set nff [llength [get_cells -quiet -hier -filter {NAME =~ *g_conv.u_pack* && IS_SEQUENTIAL}]]
+# puts "   FF     = $nff"
+   FF     = 1136
+# puts "== u_pack 里与 bcmp 相关的 net（看 shift 的接线痕迹）=="
+== u_pack 里与 bcmp 相关的 net（看 shift 的接线痕迹）==
+# foreach pat {*bcmp* *thr_q* *xs_c*} {
+#     set nn [llength [get_nets -quiet -hier -filter "NAME =~ $pat"]]
+#     puts [format "   %-10s net 数 = %d" $pat $nn]
+# }
+   *bcmp*     net 数 = 8
+   *thr_q*    net 数 = 132
+   *xs_c*     net 数 = 0
+# puts "== R3 的 oob_add 落点（找 u_eng 里那个 5x16 乘法）=="
+== R3 的 oob_add 落点（找 u_eng 里那个 5x16 乘法）==
+# set nd [c_under {*g_conv.u_unit/u_eng*} DSP48E1]
+# puts "   u_eng DSP48E1 = $nd（v60 期望 17 = 8 个 S1 + 8 个 S4 + 1 个 n_oob·cin）"
+   u_eng DSP48E1 = 45（v60 期望 17 = 8 个 S1 + 8 个 S4 + 1 个 n_oob·cin）
+# puts "FP2_DONE"
+FP2_DONE
+INFO: [Common 17-206] Exiting Vivado at Wed Nov  4 16:59:30 2026...

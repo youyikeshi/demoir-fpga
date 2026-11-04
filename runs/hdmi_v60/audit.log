@@ -1,0 +1,207 @@
+
+****** Vivado v2025.2.1 (64-bit)
+  **** SW Build 6403652 on Thu Mar 19 13:47:00 MDT 2026
+  **** IP Build 6403511 on Thu Mar 19 12:41:45 MDT 2026
+  **** SharedData Build 6403650 on Thu Mar 19 14:02:13 MDT 2026
+  **** Start of session at: Wed Nov  4 16:56:05 2026
+    ** Copyright 1986-2022 Xilinx, Inc. All Rights Reserved.
+    ** Copyright 2022-2026 Advanced Micro Devices, Inc. All Rights Reserved.
+
+source pl/scripts/audit_v60_paths.tcl
+# set OUT /media/felix/Data/coding/demoir-fpga/runs/hdmi_v60
+# set DCP [file join $OUT design_1_v60_routed.dcp]
+# if {![file exists $DCP]} { error "缺 routed DCP：$DCP" }
+# open_checkpoint $DCP
+Command: open_checkpoint /media/felix/Data/coding/demoir-fpga/runs/hdmi_v60/design_1_v60_routed.dcp
+
+Starting open_checkpoint Task
+
+Time (s): cpu = 00:00:00.05 ; elapsed = 00:00:00.02 . Memory (MB): peak = 1580.398 ; gain = 0.000 ; free physical = 5551 ; free virtual = 15209
+INFO: [Device 21-403] Loading part xc7z015clg485-2
+Netlist sorting complete. Time (s): cpu = 00:00:00.12 ; elapsed = 00:00:00.13 . Memory (MB): peak = 1837.906 ; gain = 0.000 ; free physical = 5300 ; free virtual = 14943
+INFO: [Netlist 29-17] Analyzing 3760 Unisim elements for replacement
+INFO: [Netlist 29-28] Unisim Transformation completed in 0 CPU seconds
+INFO: [Project 1-479] Netlist was created with Vivado 2025.2.1
+INFO: [Project 1-570] Preparing netlist for logic optimization
+Read ShapeDB Complete: Time (s): cpu = 00:00:00.04 ; elapsed = 00:00:00.03 . Memory (MB): peak = 1941.750 ; gain = 3.250 ; free physical = 5180 ; free virtual = 14824
+INFO: [Timing 38-478] Restoring timing data from binary archive.
+INFO: [Timing 38-479] Binary timing data restore complete.
+INFO: [Project 1-856] Restoring constraints from binary archive.
+INFO: [Constraints 18-5170] The checkpoint was created with non-default parameter values which do not match the current Vivado settings.  Mismatching parameters are:
+  general.maxThreads
+INFO: [Project 1-853] Binary constraint restore complete.
+INFO: [Designutils 20-5722] Start Reading Physical Databases.
+Reading placement.
+Read Netlist Cache: Time (s): cpu = 00:00:00.03 ; elapsed = 00:00:00.03 . Memory (MB): peak = 2571.070 ; gain = 0.000 ; free physical = 4644 ; free virtual = 14301
+Reading placer database...
+Read Device Cache: Time (s): cpu = 00:00:00.01 ; elapsed = 00:00:00.01 . Memory (MB): peak = 2571.070 ; gain = 0.000 ; free physical = 4644 ; free virtual = 14301
+Read PlaceDB: Time (s): cpu = 00:00:00 ; elapsed = 00:00:00 . Memory (MB): peak = 2571.070 ; gain = 0.000 ; free physical = 4644 ; free virtual = 14301
+Read placeStorage: Time (s): cpu = 00:00:00.64 ; elapsed = 00:00:00.64 . Memory (MB): peak = 2591.070 ; gain = 20.000 ; free physical = 4630 ; free virtual = 14286
+Read PulsedLatchDB: Time (s): cpu = 00:00:00 ; elapsed = 00:00:00 . Memory (MB): peak = 2591.070 ; gain = 0.000 ; free physical = 4630 ; free virtual = 14286
+Reading routing.
+Read RouteStorage: Time (s): cpu = 00:00:00.67 ; elapsed = 00:00:00.22 . Memory (MB): peak = 2614.695 ; gain = 23.625 ; free physical = 4590 ; free virtual = 14247
+Read Physdb Files: Time (s): cpu = 00:00:01 ; elapsed = 00:00:00.92 . Memory (MB): peak = 2614.695 ; gain = 43.625 ; free physical = 4590 ; free virtual = 14247
+Restored from archive | CPU: 1.440000 secs | Memory: 40.832932 MB |
+Finished XDEF File Restore: Time (s): cpu = 00:00:01 ; elapsed = 00:00:00.95 . Memory (MB): peak = 2614.695 ; gain = 49.562 ; free physical = 4590 ; free virtual = 14247
+Netlist sorting complete. Time (s): cpu = 00:00:00 ; elapsed = 00:00:00.01 . Memory (MB): peak = 2632.516 ; gain = 0.000 ; free physical = 4546 ; free virtual = 14202
+INFO: [Project 1-111] Unisim Transformation Summary:
+  A total of 300 instances were transformed.
+  IOBUF => IOBUF (IBUF, OBUFT): 2 instances
+  RAM32M => RAM32M (RAMD32(x6), RAMS32(x2)): 5 instances
+  RAM32X1D => RAM32X1D (RAMD32(x2)): 5 instances
+  RAM64M => RAM64M (RAMD64E(x4)): 264 instances
+  RAM64X1D => RAM64X1D (RAMD64E(x2)): 24 instances
+
+INFO: [Project 1-604] Checkpoint was created with Vivado v2025.2.1 (64-bit) build 6403652
+open_checkpoint: Time (s): cpu = 00:00:16 ; elapsed = 00:00:11 . Memory (MB): peak = 2640.551 ; gain = 1060.152 ; free physical = 4546 ; free virtual = 14202
+# puts "================================================================"
+================================================================
+# puts " ① 每时钟 WNS / TNS / 违例端点数"
+ ① 每时钟 WNS / TNS / 违例端点数
+# puts "================================================================"
+================================================================
+# foreach c [get_clocks -quiet] {
+#     set nm [get_property NAME $c]
+#     set ps [get_timing_paths -quiet -delay_type max -max_paths 1 -from $c -to $c]
+#     if {[llength $ps] == 0} { puts [format "  %-12s （该域内无路径）" $nm]; continue }
+#     set w [get_property SLACK [lindex $ps 0]]
+#     set pr [get_property PERIOD $c]
+#     puts [format "  %-12s PERIOD=%.4f  WNS=%+0.3f  折算 Fmax=%.1f MHz" \
+#               $nm $pr $w [expr {1000.0/($pr - $w)}]]
+# }
+  FCLK_CLK0    PERIOD=10.0000  WNS=-1.810  折算 Fmax=84.7 MHz
+  FCLK_CLK1    PERIOD=10.0000  WNS=+1.705  折算 Fmax=120.6 MHz
+  clk_50m      （该域内无路径）
+  clkfb_out    （该域内无路径）
+  clk_pix_a    PERIOD=6.7370  WNS=+0.724  折算 Fmax=166.3 MHz
+  clk_pix_b    PERIOD=13.4740  WNS=+7.454  折算 Fmax=166.1 MHz
+  clk_pix_c    PERIOD=26.9470  WNS=+20.919  折算 Fmax=165.9 MHz
+# puts ""
+
+# puts "================================================================"
+================================================================
+# puts " ② 违例端点分类（CE = 准静态使能脚；D = 真实数据脚）"
+ ② 违例端点分类（CE = 准静态使能脚；D = 真实数据脚）
+# puts "================================================================"
+================================================================
+# set allp [get_timing_paths -quiet -delay_type max -max_paths 200000 -nworst 1 \
+#               -slack_lesser_than 0]
+# puts "  违例路径条数（nworst 1，每端点 1 条）= [llength $allp]"
+  违例路径条数（nworst 1，每端点 1 条）= 756
+# set n_ce 0
+# set n_d 0
+# set n_other 0
+# set hier [dict create]
+# set worst {}
+# foreach p $allp {
+#     set ep [get_property ENDPOINT_PIN $p]
+#     set sl [get_property SLACK $p]
+#     if {[llength $worst] < 15} { lappend worst [list $sl $ep [get_property STARTPOINT_PIN $p] \
+#                                                [get_property LOGIC_LEVELS $p] [get_property DATAPATH_DELAY $p]] }
+#     # 端点脚名与方向：CE / D / 其它（R 等）
+#     set pin [lindex [split $ep "/"] end]
+#     if {[string match "*_reg*CE" $pin] || [string match "*CE" $pin] || [regexp {_CE$} $pin]} { incr n_ce } \
+#     elseif {[regexp {_D$} $pin] || [regexp {^D$} $pin]} { incr n_d } \
+#     else { incr n_other }
+#     # 层次：取端点路径的第 3 段（design_1_i/<cell>/...）
+#     set segs [split $ep "/"]
+#     set cell [expr {[llength $segs] > 3 ? [lindex $segs 3] : "?"}]
+#     if {[dict exists $hier $cell]} { dict incr hier $cell } else { dict set hier $cell 1 }
+# }
+# puts "  端点类型统计： CE=$n_ce   D=$n_d   其它=$n_other"
+  端点类型统计： CE=331   D=177   其它=248
+# puts "  按层次（端点所在 cell）："
+  按层次（端点所在 cell）：
+# set pairs {}
+# dict for {k v} $hier { lappend pairs [list $v $k] }
+# foreach pr [lsort -integer -decreasing -index 0 $pairs] {
+#     puts [format "     %-34s %5d" [lindex $pr 1] [lindex $pr 0]]
+# }
+     inst                                 711
+     gen_axi4_axi3.axi3_conv_inst          44
+     PS7_i                                  1
+# puts ""
+
+# puts "  最差 15 条路径："
+  最差 15 条路径：
+# foreach w $worst {
+#     lassign $w sl ep sp lv dp
+#     puts [format "    slack=%+0.3f  levels=%-3s delay=%.3f" $sl $lv $dp]
+#     puts "      from: $sp"
+#     puts "      to  : $ep"
+# }
+    slack=-1.810  levels=22  delay=11.549
+      from: design_1_i/bin_unit_0/inst/inst/u_bin_unit/g_conv.u_pack/desc_q_reg[3]_replica/C
+      to  : design_1_i/bin_unit_0/inst/inst/u_bin_unit/pf_tag_reg[0][0]/CE
+    slack=-1.810  levels=22  delay=11.549
+      from: design_1_i/bin_unit_0/inst/inst/u_bin_unit/g_conv.u_pack/desc_q_reg[3]_replica/C
+      to  : design_1_i/bin_unit_0/inst/inst/u_bin_unit/pf_tag_reg[0][12]/CE
+    slack=-1.810  levels=22  delay=11.549
+      from: design_1_i/bin_unit_0/inst/inst/u_bin_unit/g_conv.u_pack/desc_q_reg[3]_replica/C
+      to  : design_1_i/bin_unit_0/inst/inst/u_bin_unit/pf_tag_reg[0][14]/CE
+    slack=-1.810  levels=22  delay=11.549
+      from: design_1_i/bin_unit_0/inst/inst/u_bin_unit/g_conv.u_pack/desc_q_reg[3]_replica/C
+      to  : design_1_i/bin_unit_0/inst/inst/u_bin_unit/pf_tag_reg[0][22]/CE
+    slack=-1.803  levels=22  delay=11.542
+      from: design_1_i/bin_unit_0/inst/inst/u_bin_unit/g_conv.u_pack/desc_q_reg[3]_replica/C
+      to  : design_1_i/bin_unit_0/inst/inst/u_bin_unit/pf_tag_reg[0][15]/CE
+    slack=-1.771  levels=24  delay=11.724
+      from: design_1_i/bin_unit_0/inst/inst/u_bin_unit/g_conv.u_pack/desc_q_reg[3]_replica/C
+      to  : design_1_i/bin_unit_0/inst/inst/u_bin_unit/pf_cnt_reg[3]/D
+    slack=-1.769  levels=24  delay=11.723
+      from: design_1_i/bin_unit_0/inst/inst/u_bin_unit/g_conv.u_pack/desc_q_reg[3]_replica/C
+      to  : design_1_i/bin_unit_0/inst/inst/u_bin_unit/pf_cnt_reg[0]/D
+    slack=-1.735  levels=24  delay=11.725
+      from: design_1_i/bin_unit_0/inst/inst/u_bin_unit/g_conv.u_pack/desc_q_reg[3]_replica/C
+      to  : design_1_i/bin_unit_0/inst/inst/u_bin_unit/pf_cnt_reg[2]/D
+    slack=-1.709  levels=22  delay=11.448
+      from: design_1_i/bin_unit_0/inst/inst/u_bin_unit/g_conv.u_pack/desc_q_reg[3]_replica/C
+      to  : design_1_i/bin_unit_0/inst/inst/u_bin_unit/pf_tag_reg[0][16]/CE
+    slack=-1.709  levels=22  delay=11.448
+      from: design_1_i/bin_unit_0/inst/inst/u_bin_unit/g_conv.u_pack/desc_q_reg[3]_replica/C
+      to  : design_1_i/bin_unit_0/inst/inst/u_bin_unit/pf_tag_reg[0][19]/CE
+    slack=-1.709  levels=22  delay=11.448
+      from: design_1_i/bin_unit_0/inst/inst/u_bin_unit/g_conv.u_pack/desc_q_reg[3]_replica/C
+      to  : design_1_i/bin_unit_0/inst/inst/u_bin_unit/pf_tag_reg[0][20]/CE
+    slack=-1.709  levels=22  delay=11.448
+      from: design_1_i/bin_unit_0/inst/inst/u_bin_unit/g_conv.u_pack/desc_q_reg[3]_replica/C
+      to  : design_1_i/bin_unit_0/inst/inst/u_bin_unit/pf_tag_reg[0][5]/CE
+    slack=-1.700  levels=22  delay=11.480
+      from: design_1_i/bin_unit_0/inst/inst/u_bin_unit/g_conv.u_pack/desc_q_reg[3]_replica/C
+      to  : design_1_i/bin_unit_0/inst/inst/u_bin_unit/pf_tag_reg[6][15]/CE
+    slack=-1.700  levels=22  delay=11.480
+      from: design_1_i/bin_unit_0/inst/inst/u_bin_unit/g_conv.u_pack/desc_q_reg[3]_replica/C
+      to  : design_1_i/bin_unit_0/inst/inst/u_bin_unit/pf_tag_reg[6][16]/CE
+    slack=-1.700  levels=22  delay=11.480
+      from: design_1_i/bin_unit_0/inst/inst/u_bin_unit/g_conv.u_pack/desc_q_reg[3]_replica/C
+      to  : design_1_i/bin_unit_0/inst/inst/u_bin_unit/pf_tag_reg[6][1]/CE
+# puts ""
+
+# puts "================================================================"
+================================================================
+# puts " ③ 门禁复核（用本轮主代理给的口径，不改设计）"
+ ③ 门禁复核（用本轮主代理给的口径，不改设计）
+# puts "================================================================"
+================================================================
+# set lut [expr {[llength [get_cells -hier -quiet -filter {REF_NAME =~ LUT* && PRIMITIVE_LEVEL != "MACRO"}]]}]
+# puts "  （LUT 原语计数仅供参考；口径以 util.rpt 的 Slice LUTs 为准）"
+  （LUT 原语计数仅供参考；口径以 util.rpt 的 Slice LUTs 为准）
+# set nb 0
+# foreach c [get_cells -hier -quiet -filter {REF_NAME =~ BUFG*}] { incr nb }
+# puts "  BUFG* 原语 = $nb"
+  BUFG* 原语 = 9
+# foreach c [get_cells -hier -quiet -filter {REF_NAME =~ MMCM*}] {
+#     puts "  MMCM: [get_property NAME $c]"
+# }
+  MMCM: design_1_i/hdmi_v60_top_0/inst/u_mmcm
+# puts "  FCLK1 域寄存器："
+  FCLK1 域寄存器：
+# foreach c [get_cells -hier -quiet -filter "IS_SEQUENTIAL && NAME =~ *u_scan*"] { }
+# set nscan [llength [get_cells -hier -quiet -filter "IS_SEQUENTIAL && NAME =~ *u_hdmi_out_top/u_scan*"]]
+# puts "    u_hdmi_out_top/u_scan 内的时序 cell 数 = $nscan"
+    u_hdmi_out_top/u_scan 内的时序 cell 数 = 1307
+# puts ""
+
+# puts "AUDIT_V60_DONE"
+AUDIT_V60_DONE
+INFO: [Common 17-206] Exiting Vivado at Wed Nov  4 16:56:22 2026...

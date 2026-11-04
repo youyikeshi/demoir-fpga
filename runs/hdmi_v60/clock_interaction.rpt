@@ -1,0 +1,47 @@
+Copyright 1986-2022 Xilinx, Inc. All Rights Reserved. Copyright 2022-2026 Advanced Micro Devices, Inc. All Rights Reserved.
+---------------------------------------------------------------------------------------------------------------------------------------------
+| Tool Version : Vivado v.2025.2.1 (lin64) Build 6403652 Thu Mar 19 13:47:00 MDT 2026
+| Date         : Wed Nov  4 16:48:23 2026
+| Host         : 2 running 64-bit Ubuntu 22.04.5 LTS
+| Command      : report_clock_interaction -file /media/felix/Data/coding/demoir-fpga/runs/hdmi_v60/clock_interaction.rpt -delay_type max
+| Design       : design_1_wrapper
+| Device       : 7z015-clg485
+| Speed File   : -2  PRODUCTION 1.12 2019-11-22
+| Design State : Physopt postRoute
+---------------------------------------------------------------------------------------------------------------------------------------------
+
+Clock Interaction Report
+
+Clock Interaction Table
+-----------------------
+
+                            WNS                            TNS Failing  TNS Total    WNS Path         Clock-Pair           Inter-Clock          
+From Clock    To Clock      Clock Edges  WNS(ns)  TNS(ns)    Endpoints    Endpoints  Requirement(ns)  Classification       Constraints          
+------------  ------------  -----------  -------  -------  -----------  -----------  ---------------  -------------------  -------------------  
+FCLK_CLK0     FCLK_CLK0     rise - rise    -1.81  -597.67          756        67290            10.00  Clean                Partial False Path   
+FCLK_CLK0     FCLK_CLK1                                              0          241                   Ignored              Asynchronous Groups  
+FCLK_CLK0     clk_pix_a                                              0           44                   Ignored              Asynchronous Groups  
+FCLK_CLK0     clk_pix_b                                              0           44                   Ignored              Asynchronous Groups  
+FCLK_CLK0     clk_pix_c                                              0           44                   Ignored              Asynchronous Groups  
+FCLK_CLK1     FCLK_CLK0                                              0            2                   Ignored              Asynchronous Groups  
+FCLK_CLK1     FCLK_CLK1     rise - rise     1.71     0.00            0         2810            10.00  Clean                Timed                
+FCLK_CLK1     clk_pix_a                                              0           68                   Ignored              Asynchronous Groups  
+FCLK_CLK1     clk_pix_b                                              0           68                   Ignored              Asynchronous Groups  
+FCLK_CLK1     clk_pix_c                                              0           68                   Ignored              Asynchronous Groups  
+clk_pix_a     FCLK_CLK0                                              0           37                   Ignored              Asynchronous Groups  
+clk_pix_a     FCLK_CLK1                                              0           85                   Ignored              Asynchronous Groups  
+clk_pix_a     clk_pix_a     rise - rise     0.72     0.00            0          792             6.74  Clean                Timed                
+clk_pix_a     clk_pix_b                                              0          792                   Ignored              Exclusive Groups     
+clk_pix_a     clk_pix_c                                              0          791                   Ignored              Exclusive Groups     
+clk_pix_b     FCLK_CLK0                                              0           37                   Ignored              Asynchronous Groups  
+clk_pix_b     FCLK_CLK1                                              0           85                   Ignored              Asynchronous Groups  
+clk_pix_b     clk_pix_a                                              0          792                   Ignored              Exclusive Groups     
+clk_pix_b     clk_pix_b     rise - rise     7.45     0.00            0          792            13.47  Clean                Timed                
+clk_pix_b     clk_pix_c                                              0          791                   Ignored              Exclusive Groups     
+clk_pix_c     FCLK_CLK0                                              0           37                   Ignored              Asynchronous Groups  
+clk_pix_c     FCLK_CLK1                                              0           85                   Ignored              Asynchronous Groups  
+clk_pix_c     clk_pix_a                                              0          792                   Ignored              Exclusive Groups     
+clk_pix_c     clk_pix_b                                              0          792                   Ignored              Exclusive Groups     
+clk_pix_c     clk_pix_c     rise - rise    20.92     0.00            0          791            26.95  Clean                Timed                
+
+

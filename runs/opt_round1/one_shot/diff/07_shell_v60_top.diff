@@ -1,0 +1,30 @@
+--- orig/hdmi_v58_top.v	2026-11-03 16:58:11.591456100 +0800
++++ /media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/vivado/hdmi_v60/rtl/hdmi_v60_top.v	2026-11-04 15:43:45.745304600 +0800
+@@ -44,7 +44,7 @@
+ // ============================================================================
+ `timescale 1ns / 1ps
+ 
+-module hdmi_v58_top #(
++module hdmi_v60_top #(
+     parameter integer MODE_DEFAULT = 3,            // 3 = 720p30（37.109375 MHz）
+     parameter integer AXI_HZ       = 150_000_000   // = BD 里 FCLK0 的声明值（150 MHz）
+ ) (
+@@ -57,6 +57,10 @@
+     (* X_INTERFACE_PARAMETER = "XIL_INTERFACENAME s_axi_aclk, ASSOCIATED_BUSIF s_axi:m_axi, FREQ_HZ 150000000" *)
+     (* X_INTERFACE_INFO = "xilinx.com:signal:clock:1.0 s_axi_aclk CLK" *)
+     input  wire        s_axi_aclk,
++    // ★ v60：扫描域独立时钟（板上 FCLK1）。原 v58 只有 s_axi_aclk，扫描器跟着
++    //   PS 的 FCLK0 跑；v60 把扫描数据通路搬到这个时钟上（1080p60 需要 ≥100 MHz），
++    //   而 AXI-Lite 寄存器块仍在 s_axi_aclk ⇒ hdmi_fb_scan 内部做真正的 CDC。
++    input  wire        scan_clk,
+     (* X_INTERFACE_PARAMETER = "XIL_INTERFACENAME aresetn, POLARITY ACTIVE_LOW" *)
+     (* X_INTERFACE_INFO = "xilinx.com:signal:reset:1.0 aresetn RST" *)
+     input  wire        aresetn,
+@@ -223,6 +227,7 @@
+         .AXI_HZ       (AXI_HZ)
+     ) u_hdmi_out_top (
+         .s_axi_aclk     (s_axi_aclk),
++        .scan_clk       (scan_clk),
+         .aresetn        (aresetn),            // ★ 只有 PS 域复位：AXI 绝不被 MMCM 门控
+         .pix_clk_a      (clk_pix_a),
+         .pix_clk_b      (clk_pix_b),

@@ -1,0 +1,18 @@
+#idx	shift	r	old	new	diff?	note
+v1	0	0	0	0	same	shift=0 不加半
+v2	0	127	127	127	same	shift=0 正边界
+v3	0	-128	-128	-128	same	shift=0 负边界
+v4	0	128	127	127	same	shift=0 正溢出
+v5	1	0	0	0	same	最小 shift
+v6	1	1	0	1	DIFF	+0.5 LSB 进位（差异点）
+v7	1	-1	-1	0	DIFF	−0.5 LSB 向 +∞（差异点）
+v8	4	8	0	1	DIFF	恰 0.5 LSB（差异点）
+v9	4	7	0	0	same	0.5 LSB − 1
+v10	4	-8	-1	0	DIFF	−0.5 LSB（差异点）
+v11	4	-9	-1	-1	same	略小于 −0.5 LSB
+v12	6	32	0	1	DIFF	half=32（差异点）
+v13	6	-33	-1	-1	same	−33+32=−1 ⇒ −1
+v14	8	32512	127	127	same	正向未饱和
+v15	8	32767	127	127	same	正向饱和
+v16	8	-32768	-128	-128	same	负向饱和边界
+v17	8	-32769	-128	-128	same	负向溢出

@@ -1,0 +1,42 @@
+# v60 合并位流门禁台账  2026-11-04 16:48:50
+# 设计指纹 SW_CRC=dd2da11c   bit md5=db43e55aef20f3028250d749257def26
+gate1_latch_util        = 0
+gate1_latch_netlist     = 0
+gate2_fclk0_wns_ns      = -1.810   (v57 +0.206)
+gate2_fclk0_tns_ns      = -597.671   (v57 0)
+gate2_fclk0_failing     = 756   (v57 0)
+gate2_fclk0_endpoints   = 48649   (v57 41273)
+gate2b_fclk1_wns_ns     = 1.705   (约束 10 ns = 真值 100 MHz)
+gate2b_fclk1_fmax_mhz   = 120.6   (门禁 ≥133)
+gate4_wns_clk_pix_a_ns = 0.724
+gate4_wns_clk_pix_b_ns = 7.454
+gate4_wns_clk_pix_c_ns = 20.919
+gate4_wns_clk_50m_ns = N/A(no regs in domain)
+gate6_bufgctrl_sites = 9   (期望 8)
+gate8b_hdmi_shell_lut   = 1073   (hdmi_v60_top_0, util_hier Total LUTs, 门禁 ≤ 1200)
+gate8b_hdmi_inner_lut   = 1073   (u_hdmi_out_top, p1 基线 1037)
+gate8b_pc_conv_hdmi_lut = 118
+gate8b_axi_ctrl_lut     = 691
+gate8e_glue_lut         = 440   (三段拆分 ③)
+gate8e_split_v57_hdmi_glue = 20255 / 1073 / 440
+gate3_drc_errors        = 0
+res_lut                 = 21768   (v57 20255, delta 1513, 门禁 ≤ 22000)
+res_ff                  = 21760    (v57 18961, delta 2799)
+res_bram                = 35  (v57 35, delta 0, 门禁 ≤ 41)
+res_dsp                 = 102   (v57 101, 门禁 == 101)
+addr_conv_uni_0         = 0x40040000/128K  (不变)
+addr_bin_unit_0         = 0x40060000/128K  (不变)
+addr_hdmi_v60_top_0     = 0x400A0000/64K   (新增)
+clk_input               = clk_50m (Y14) 20.000 ns -> MMCM M=23.75 D=1 VCO=1187.5
+sw_crc                  = dd2da11c
+# ---- 补记（build 收尾后按主代理裁决做的只读复核，未重建）----
+gate2b_fclk0_at_runpoint_period_ns = 19.6875   (真值 50.79 MHz = 板上 PYNQ fclk0_mhz=75)
+gate2b_fclk0_at_runpoint_wns_ns    = 7.8780    (工作点 19.69 ns：PASS)
+gate2b_fclk0_at_runpoint_tns_ns    = 0.0000    (工作点：TNS 0)
+gate2b_fclk0_at_runpoint_failing   = 0         (工作点：违例端点 0)
+gate2_fclk0_at_10ns_wns_ns         = -1.810    (10 ns 口径：FAIL —— 已知项，待 E1E2 issue_addr 打拍后才可能修)
+gate6_bufgctrl_expected            = 9         (v60 口径：FCLK1 自带 1 个 BUFG；HDMI 侧 6 站点未变)
+gate8d_dsp_expected                = 101..102  (v60 口径：+1 = R3 的 n_oob·cin 小乘法)
+FCLK1_note                          = WNS +1.705 @10 ns ⇒ Fmax 120.6 MHz；板端 fclk1_mhz 建议 150 报数(真值≈96.97)，不要 200
+sw_crc                             = dd2da11c
+bit_md5                            = db43e55aef20f3028250d749257def26

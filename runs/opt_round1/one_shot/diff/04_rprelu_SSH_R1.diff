@@ -1,0 +1,74 @@
+--- orig/bin_rprelu.v	2026-10-30 19:07:25.685394600 +0800
++++ /media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/rtl_hand/modules/bin_rprelu.v	2026-11-04 15:53:45.233256200 +0800
+@@ -115,7 +115,16 @@
+ // ============================================================================
+ `timescale 1ns/1ps
+ 
+-module bin_rprelu (
++module bin_rprelu #(
++    // v60：slope_shift **保持契约值 8**（曾试过 12：分辨率 1/256→1/4096，但主机
++    //   2×2 实测证明 s12 是净退步——中位 mean|Δu8| 15.08→16.33、|Δmean| 0.057→0.062、
++    //   通过数 2/5→1/5，p0000 从 9.31/27.27 dB 掉到 16.33/22.98 dB ⇒ 回退）。
++    //   SSH 参数化保留（乘法器与 34 bit 乘积宽度与 8/12 无关）；
++    //   R1_ROUND = 1：epilogue 的 `sat8(r>>>shift)` → `sat8((r+H)>>>shift)`，
++    //   H = (shift==0)?0:1<<(shift-1)，按 R1-A 并入 gamma（两支都是 ...+gamma）。
++    parameter int SSH       = 8,      // v60 实测：Q12 是净退步 ⇒ 回退到契约值 8
++    parameter bit R1_ROUND  = 1'b1
++) (
+     input  logic        ap_clk,
+     input  logic        ap_rst_n,
+     input  logic        ap_ce,           // ★ P3: 同步时钟使能（包装层的 u_ce）
+@@ -159,6 +168,12 @@
+     logic [3:0]  p_idx;                 // 参数读序号 0..NPW-1
+     logic [2:0]  wcnt;                  // 写 burst 内的字节号 0..7
+     logic [5:0]  sshift_r, oshift_r;    // slope_shift / shift
++
++    // ★ v60 R1-A：半个输出 LSB（q 域）——并入 gamma 的装载（见 §6）
++    //   shift==0 时不加半（此时 LSB 就是 q 单位）；shift≥31 时取 2^31−1（防坑）。
++    wire signed [31:0] half_c = (oshift_r == 6'd0)  ? 32'sd0 :
++                                (oshift_r >= 6'd31) ? 32'sh7FFF_FFFF :
++                                ($signed(32'sd1) <<< (oshift_r - 6'd1));
+     // ⚠ sshift_r 现在只做契约可见性保留（wrapper 强制 =8，数据通路用常量 8；
+     //   见 §6.1 P0）。留着它不产生任何数据路径逻辑，综合会自行裁掉。
+     // 字号计数器（替代 cg_r*hw_r 的 32×32 乘法，见 §2）
+@@ -311,9 +326,9 @@
+             if (dd_r[i] > 18'sd0)
+                 r_c[i] = dd_r[i] + $signed({{2{gamma_g[i][31]}}, gamma_g[i]});
+             else
+-                // slope_shift ≡ 8（P0）⇒ 常量算术右移，纯布线 0 LUT。
++                // slope_shift ≡ SSH（v60 起 = 12）⇒ 常量算术右移，纯布线 0 LUT。
+                 // prod_r 是 signed，'>>>' 就是算术右移（向 -∞，与 Python 一致）。
+-                r_c[i] = (prod_r[i] >>> 8)
++                r_c[i] = (prod_r[i] >>> SSH)
+                          + $signed({{2{gamma_g[i][31]}}, gamma_g[i]});
+             // 算术右移（r_c 是 signed）；4 级桶形（P2：shift <= 15）
+             v_c[i] = r_c[i] >>> oshift_r[3:0];
+@@ -414,20 +429,20 @@
+                             zeta_g[7] <= $signed(mem_rd_data[63:32]);
+                         end
+                         4'd4: begin
+-                            gamma_g[0] <= $signed(mem_rd_data[31:0]);
+-                            gamma_g[1] <= $signed(mem_rd_data[63:32]);
++                            gamma_g[0] <= (R1_ROUND ? ($signed(mem_rd_data[31:0]) + half_c) : $signed(mem_rd_data[31:0]));
++                            gamma_g[1] <= (R1_ROUND ? ($signed(mem_rd_data[63:32]) + half_c) : $signed(mem_rd_data[63:32]));
+                         end
+                         4'd5: begin
+-                            gamma_g[2] <= $signed(mem_rd_data[31:0]);
+-                            gamma_g[3] <= $signed(mem_rd_data[63:32]);
++                            gamma_g[2] <= (R1_ROUND ? ($signed(mem_rd_data[31:0]) + half_c) : $signed(mem_rd_data[31:0]));
++                            gamma_g[3] <= (R1_ROUND ? ($signed(mem_rd_data[63:32]) + half_c) : $signed(mem_rd_data[63:32]));
+                         end
+                         4'd6: begin
+-                            gamma_g[4] <= $signed(mem_rd_data[31:0]);
+-                            gamma_g[5] <= $signed(mem_rd_data[63:32]);
++                            gamma_g[4] <= (R1_ROUND ? ($signed(mem_rd_data[31:0]) + half_c) : $signed(mem_rd_data[31:0]));
++                            gamma_g[5] <= (R1_ROUND ? ($signed(mem_rd_data[63:32]) + half_c) : $signed(mem_rd_data[63:32]));
+                         end
+                         4'd7: begin
+-                            gamma_g[6] <= $signed(mem_rd_data[31:0]);
+-                            gamma_g[7] <= $signed(mem_rd_data[63:32]);
++                            gamma_g[6] <= (R1_ROUND ? ($signed(mem_rd_data[31:0]) + half_c) : $signed(mem_rd_data[31:0]));
++                            gamma_g[7] <= (R1_ROUND ? ($signed(mem_rd_data[63:32]) + half_c) : $signed(mem_rd_data[63:32]));
+                         end
+                         4'd8: begin
+                             slope_g[0] <= $signed(mem_rd_data[15:0]);

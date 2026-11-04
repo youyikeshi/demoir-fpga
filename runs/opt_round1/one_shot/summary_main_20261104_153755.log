@@ -1,0 +1,41 @@
+sweep 2026-11-04T15:37:55+08:00 NLINES=100 R_LAT=0
+--- run aclk_half=9845ps tag=50.79MHz R_LAT=0 ---
+[SUM] ================ TAG=50.79MHz ================
+[SUM] CFG  W=1280 H=720 stride=3840 fb=0x10000000
+[SUM] CLK  f_axi=50.787202 MHz f_pix=74.217011 MHz ratio=0.6843 R_LAT=0
+[SUM] AXI 从机模型：主机带宽无限、突发内背靠背、R_LAT_MODE=1（1=流水式首拍延迟）
+[SUM] BUDGET aclk_per_line=1129.11  pops_per_line=1280  fill_need=0.882 aclk/pop
+[SUM] THEORY f_axi_min = f_pix*W/H_TOTAL = 57.574408 MHz
+[SUM] after cfg: s_w=1280 s_h=720 s_stride=3840 s_fsize=2764800 s_beats=480 cfg_tog=1
+[CDCWAVE] ---- 开始：8 次快速 CTRL + 8 次 FRAME_ID 写（间隔跨过 fs_busy）
+[CDCWAVE] cfg 终值检查：s_en=1 p_en=1 (期望 1/1)  fid_latched=00000000 (期望 a50000ff)  cfg_req=0
+[CDCWAVE] 后 3 帧：pix_de=0 pix_valid=1843200 cov=1843200.000000
+[CDCWAVE] underflow: DUT=0  TB独立计数=0 (期望相等)
+[CDCWAVE] VERDICT CDC_FAIL
+[SUM] ---------------- 统计 ----------------
+[SUM] frames_seen          = 4
+[SUM] lines_expected       = 100  (active=2160 finished=2160)
+[SUM] req_issued(pix)      = 2161
+[SUM] req_accepted(axi)    = 2160
+[SUM] line_start(axi)      = 2161
+[SUM] line_skipped(jump>1) = 0
+[SUM] ar_bursts=129600  r_beats=1036800
+[SUM] pixels_de            = 2764800  (expect 2764800)
+[SUM] pixels_valid         = 2764800  (100.0000%)
+[SUM] pixels_data_mismatch = 1843200   (V2: 显示缓冲逐像素 == 测试图案)
+[SUM] line_order_bad       = 0   (V3: 帧内行号非 +1 的次数)
+[SUM] x_sequence_bad       = 0   (V2: 行内 pix_x 非 0,1,2.. 的次数)
+[SUM] alias_write_cycles   = 0   (V3: 写到正在显示的 buffer 的拍数)
+[SUM] disp_lines           = 2160
+[SUM] lines_short          = 0
+[SUM] lines_valid(clean)   = 2160
+[SUM] lines_lost(dirty)    = 0
+[SUM] LOST_RATE            = 0.0000%  (0 / 2160)
+[SUM] underflow_cnt(0x2C)  = 0  (per frame=0.00 per line=0.0000)
+[SUM] avg_done_line_at_vde = 359.5 (line#, W=1280, 28.09%)
+[SUM] line_fill_time       = 6440 ns (avg over 2160 lines)  line_period = 22232 ns  ratio = 0.290
+[SUM] STAT st_underflow=0 st_vsync_seen=1 fid_latched=2768240895
+[SUM] VERDICT V1_lost_rate=0.0000 V2_databad=1843200 V3_lineorder_bad=0 V3_alias=0 V6_uf_cnt=0
+[SUM] VERDICT lost_rate=0.0000 underflow_per_line=0.0000
+[SUM] ================= END 50.79MHz =================
+log: /media/felix/Data/coding/demoir-fpga/runs/opt_round1/one_shot/sim/logs/repro_50.79MHz_rlat0_v60_s3.log

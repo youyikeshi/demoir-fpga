@@ -1,0 +1,11 @@
+--- orig/bin_unit_axi_wrap.v	2026-11-02 07:48:51.223914700 +0800
++++ /media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/rtl_hand/modules/bin_unit_axi_wrap.v	2026-11-04 15:53:45.286118600 +0800
+@@ -848,7 +848,7 @@
+             // 契约 §1 把这两个移位固定成 9/8 ⇒ 复位就写死固定值，
+             // 软件不写 0x68 也不会算错（写 0x68/0x6C 仍可覆盖，但 start 会校验）。
+             r_alpha_shift <= 32'd9;
+-            r_slope_shift <= 32'd8;
++            r_slope_shift <= 32'd8;      // 契约值 8（v60 实测 Q12 净退步 ⇒ 回退）
+             r_in <= 32'd0; r_in2 <= 32'd0; r_in3 <= 32'd0; r_in4 <= 32'd0;
+             r_wgt <= 32'd0; r_w2 <= 32'd0; r_w3 <= 32'd0; r_bias <= 32'd0;
+             r_zeta <= 32'd0; r_gamma <= 32'd0; r_slope_b <= 32'd0;

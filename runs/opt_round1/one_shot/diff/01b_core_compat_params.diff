@@ -1,0 +1,24 @@
+--- orig/bin_conv_core.v	2026-11-04 16:02:14.959977800 +0800
++++ /media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/rtl_hand/modules/bin_conv_core.v	2026-11-04 15:26:21.228146900 +0800
+@@ -9,7 +9,10 @@
+ `timescale 1ns/1ps
+ module bin_conv_core #(
+     parameter int LANES    = 64,
+-    parameter int COUT_MAX = 192
++    parameter int COUT_MAX = 192,
++    // v60：透传数值补丁开关（默认 = v60 语义；=0 时逐字节回到 v58）
++    parameter bit R1_ROUND = 1'b1,
++    parameter bit OOB_ZERO = 1'b1
+ )(
+     input  logic        ap_clk,
+     input  logic        ap_rst_n,
+@@ -30,7 +33,8 @@
+     output logic [63:0] mem_wr_data,
+     output logic [7:0]  mem_wr_sel
+ );
+-    bin_conv_core8 #(.LANES(LANES), .COUT_MAX(COUT_MAX)) u_eng (
++    bin_conv_core8 #(.LANES(LANES), .COUT_MAX(COUT_MAX),
++                     .R1_ROUND(R1_ROUND), .OOB_ZERO(OOB_ZERO)) u_eng (
+         .ap_clk(ap_clk), .ap_rst_n(ap_rst_n), .ap_ce(ap_ce),
+         .ctrl_start(ctrl_start), .ctrl_done(ctrl_done), .ctrl_busy(ctrl_busy),
+         .cfg_cin(cfg_cin), .cfg_cout(cfg_cout), .cfg_k(cfg_k), .cfg_s(cfg_s),

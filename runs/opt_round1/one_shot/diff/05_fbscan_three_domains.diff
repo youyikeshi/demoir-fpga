@@ -1,0 +1,468 @@
+--- orig/hdmi_fb_scan.v	2026-11-04 14:57:44.881274800 +0800
++++ /media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/rtl_hand/modules/hdmi_fb_scan.v	2026-11-04 15:41:48.443843900 +0800
+@@ -168,8 +168,13 @@
+     parameter integer PIX_W   = 12
+ ) (
+     // ---------------------------------------------------------------- AXI 域
++    //  ★ v60：本模块内部**三个**时钟域（见 §0 的桥）
++    //      s_axi_aclk : 只做 cfg 采样与 status 回读（与 PS 的 FCLK0 同域）
++    //      scan_clk   : 取数 FSM + AXI4 读主 + 行缓冲写口（板上 FCLK1，目标 100 MHz）
++    //      pix_clk    : 行缓冲读口 + 输出 + 欠载判据
+     input  wire                 s_axi_aclk,
+     input  wire                 aresetn,
++    input  wire                 scan_clk,
+ 
+     // 配置（由 hdmi_out_top 的 AXI-Lite 寄存器直连；契约 §2 的 0x0C~0x1C）
+     input  wire [31:0]          cfg_fb_addr_lo,   // 0x0C 帧缓冲物理地址 [31:0]
+@@ -222,8 +227,210 @@
+     localparam [1:0] ARBURST_INCR = 2'b01;    // INCR
+ 
+     // =====================================================================
+-    // 0. 配置快照（AXI 域）—— FB_SIZE 用“h 次累加”算，不用乘法器
++    // 0. ★ v60：AXI-Lite 域（s_axi_aclk）⇄ 扫描域（scan_clk）的桥
++    // ---------------------------------------------------------------------
++    //  为什么有这一段：v60 起**扫描数据通路整体搬进 scan_clk**（板上 FCLK1，
++    //  真值 ≈100 MHz），而 AXI-Lite 寄存器块（在 hdmi_out_top 里）仍跟 PS 的
++    //  FCLK0 ⇒ 本模块内出现第三个时钟域。三域分工：
++    //      s_axi_aclk : cfg 采样 / status 回读（本段）——AXI 协议不跨域
++    //      scan_clk   : §0b~§5 的取数 FSM / AXI4 读主 / 行缓冲写口
++    //      pix_clk    : §4 的行缓冲读口 / 输出 / 欠载判据（逻辑一行没动）
++    //
++    //  ① cfg（addr/stride/w/h/enable，多 bit）→ **整捆 + 4 相 req/ack 握手**
++    //     只用 2FF 会**撕裂**（w 已是新值、h 还是旧值 ⇒ FB_SIZE 错 ⇒ 行首地址错）。
++    //     时序：数据先稳定 → req↑ → 扫描域整捆采样 → ack↑ → req↓ → ack↓。
++    //     握手期间来的新写只覆盖 1 深 shadow（不污染在途那捆），握手一结束立刻
++    //     再发一次 ⇒ **任何一次写都会到达**；中间值可合并（等价 cfg_req 的
++    //     "最后一次写生效"），终值必达。
++    //  ② FRAME_ID（32 bit）→ 同一套握手（独立通道）
++    //  ③ cfg_soft_reset / st_clr（1 拍脉冲）→ toggle 事件 + 3FF 边沿 + **展宽**到
++    //     8 个 scan 拍（≈80 ns ≫ 13.47 ns 像素周期）再进像素域，短脉冲不会丢
++    //  ④ status 回程：FRAME_ID_LATCHED = bundled+toggle；st_underflow/st_vsync_seen
++    //     = 2FF 电平（粘滞位，天然电平语义）；UNDERFLOW_CNT **整个计数器在本域**
++    //     （aclk），跨域只有 1 bit 事件 toggle ⇒ 全程**没有多 bit 直连**
++    //  ⚠ 三域之间没有 set_false_path / clock_groups：全部是上面这些真实同步器。
++    // =====================================================================
++    reg [1:0] scan_rst_s;                       // 扫描域复位：异步置位、同步释放
++    always @(posedge scan_clk or negedge aresetn) begin
++        if (!aresetn) scan_rst_s <= 2'b00;
++        else          scan_rst_s <= {scan_rst_s[0], 1'b1};
++    end
++    wire scan_aresetn = scan_rst_s[1];
++
++    // ---- ① cfg 整捆握手 --------------------------------------------------
++    reg        cfg_sh_pend;                     // shadow 里有未发表的写
++    reg [31:0] cfg_sh_addr, cfg_sh_stride;
++    reg [15:0] cfg_sh_w, cfg_sh_h;
++    reg        cfg_sh_en;
++    reg        cfg_ld_busy;                     // 一捆正在途
++    reg [31:0] cfg_ld_addr, cfg_ld_stride;
++    reg [15:0] cfg_ld_w, cfg_ld_h;
++    reg        cfg_ld_en;
++    reg        cfg_req_lvl;
++    reg [2:0]  cfg_ack_s;
++    wire       cfg_ack_lvl = cfg_ack_s[1];
++
++    // ---- ② FRAME_ID 整捆握手 ---------------------------------------------
++    reg        fid_ld_busy;
++    reg [31:0] fid_ld_val;
++    reg        fid_req_lvl;
++    reg [2:0]  fid_ack_s;
++    wire       fid_ack_lvl = fid_ack_s[1];
++
++    // ---- ③ 事件 toggle（aclk 侧）----------------------------------------
++    reg        sr_tog_a, st_tog_a;
++
++    // ---- ④ status：pix → aclk 的 1 bit 事件（计数器在本域）---------------
++    //   像素域的源端寄存器（在这里**声明**、在 §4 的像素域块里**驱动**）
++    reg        uf_sticky, vs_sticky;            // 粘滞位（像素域电平）
++    reg        uf_evt_tog;                      // 每出现一行欠载翻一次
++    reg [2:0]  uetg;                            // uf_evt_tog 的 3FF（像素域事件）
++    reg [31:0] uf_cnt;                          // 0x2C（饱和）
++    reg [1:0]  uf_s, vs_s;                      // 粘滞位 2FF（像素域电平）
++
++    // ---- 扫描域回程 ack（异步进本域，先过 2FF 再用）--------------------
++    wire       cfg_ack_lvl_s;                   // 扫描域：cfg 已采样
++    wire       fid_ack_lvl_s;                   // 扫描域：fid 已采样
++
++    always @(posedge s_axi_aclk or negedge aresetn) begin
++        if (!aresetn) begin
++            cfg_sh_pend <= 1'b0; cfg_sh_addr <= 32'd0; cfg_sh_stride <= 32'd0;
++            cfg_sh_w <= 16'd0; cfg_sh_h <= 16'd0; cfg_sh_en <= 1'b0;
++            cfg_ld_busy <= 1'b0; cfg_ld_addr <= 32'd0; cfg_ld_stride <= 32'd0;
++            cfg_ld_w <= 16'd0; cfg_ld_h <= 16'd0; cfg_ld_en <= 1'b0;
++            cfg_req_lvl <= 1'b0; cfg_ack_s <= 3'd0;
++            fid_ld_busy <= 1'b0; fid_ld_val <= 32'd0;
++            fid_req_lvl <= 1'b0; fid_ack_s <= 3'd0;
++            sr_tog_a <= 1'b0; st_tog_a <= 1'b0;
++            uetg <= 3'd0; uf_cnt <= 32'd0; uf_s <= 2'd0; vs_s <= 2'd0;
++        end else begin
++            cfg_ack_s <= {cfg_ack_s[1:0], cfg_ack_lvl_s};
++            fid_ack_s <= {fid_ack_s[1:0], fid_ack_lvl_s};
++            if (cfg_soft_reset) sr_tog_a <= ~sr_tog_a;
++            if (st_clr)         st_tog_a <= ~st_tog_a;
++
++            // cfg：登记 → 发表 → 等 ack → 撤 req → 等 ack 撤 → 空闲
++            if (cfg_upd) begin
++                cfg_sh_addr   <= cfg_fb_addr_lo;
++                cfg_sh_stride <= cfg_fb_stride;
++                cfg_sh_w      <= cfg_fb_w;
++                cfg_sh_h      <= cfg_fb_h;
++                cfg_sh_en     <= cfg_enable;
++                cfg_sh_pend   <= 1'b1;
++            end
++            if (!cfg_ld_busy) begin
++                if (cfg_sh_pend) begin
++                    cfg_ld_addr   <= cfg_sh_addr;
++                    cfg_ld_stride <= cfg_sh_stride;
++                    cfg_ld_w      <= cfg_sh_w;
++                    cfg_ld_h      <= cfg_sh_h;
++                    cfg_ld_en     <= cfg_sh_en;
++                    cfg_sh_pend   <= 1'b0;
++                    cfg_ld_busy   <= 1'b1;
++                    cfg_req_lvl   <= 1'b1;
++                end
++            end else if (cfg_req_lvl && cfg_ack_lvl) begin
++                cfg_req_lvl <= 1'b0;
++            end else if (!cfg_req_lvl && !cfg_ack_lvl) begin
++                cfg_ld_busy <= 1'b0;
++            end
++
++            // FRAME_ID：同一套四相（独立通道）
++            if (fid_upd) begin
++                fid_ld_val  <= cfg_frame_id;
++                fid_req_lvl <= 1'b1;
++            end
++            if (fid_ld_busy) begin
++                if (fid_req_lvl && fid_ack_lvl)      fid_req_lvl <= 1'b0;
++                else if (!fid_req_lvl && !fid_ack_lvl) fid_ld_busy <= 1'b0;
++            end else if (fid_upd) begin
++                fid_ld_busy <= 1'b1;
++            end
++
++            // 0x2C UNDERFLOW_CNT：像素域行级事件 +1（饱和）；soft_reset 清
++            uetg <= {uetg[1:0], uf_evt_tog};
++            if (cfg_soft_reset)    uf_cnt <= 32'd0;
++            else if (uetg[2] ^ uetg[1])
++                uf_cnt <= (&uf_cnt) ? uf_cnt : (uf_cnt + 32'd1);
++            uf_s <= {uf_s[0], uf_sticky};
++            vs_s <= {vs_s[0], vs_sticky};
++        end
++    end
++
++    assign st_underflow  = uf_s[1];
++    assign st_vsync_seen = vs_s[1];
++    assign underflow_cnt = uf_cnt;
++
++    // ---- 扫描域接收侧 ---------------------------------------------------
++    reg [2:0]  cfg_req_s;
++    reg        cfg_ack_r;                       // = cfg_ack_lvl_s
++    reg [31:0] k_addr, k_stride;
++    reg [15:0] k_w, k_h;
++    reg        k_en;
++    reg        k_evt;                           // 收到一捆新 cfg（1 拍）
++    reg [2:0]  fid_req_s;
++    reg        fid_ack_r;
++    reg [31:0] k_fid;
++    reg        k_fid_evt;
++    reg [2:0]  srtg, sctg;                      // soft_reset / st_clr 事件 3FF
++    reg        sr_evt_s, sc_evt_s;              // 1 拍脉冲
++    reg [3:0]  sr_hold, sc_hold;                // 展宽（8 个 scan 拍）
++    reg        sr_hold_q;                       // 供像素域用的电平
++    reg        sc_hold_q;
++
++    assign cfg_ack_lvl_s = cfg_ack_r;
++    assign fid_ack_lvl_s = fid_ack_r;
++
++    always @(posedge scan_clk or negedge scan_aresetn) begin
++        if (!scan_aresetn) begin
++            cfg_req_s <= 3'd0; cfg_ack_r <= 1'b0; k_evt <= 1'b0;
++            k_addr <= 32'd0; k_stride <= 32'd0; k_w <= 16'd0; k_h <= 16'd0; k_en <= 1'b0;
++            fid_req_s <= 3'd0; fid_ack_r <= 1'b0; k_fid <= 32'd0; k_fid_evt <= 1'b0;
++            srtg <= 3'd0; sctg <= 3'd0; sr_evt_s <= 1'b0; sc_evt_s <= 1'b0;
++            sr_hold <= 4'd0; sc_hold <= 4'd0; sr_hold_q <= 1'b0; sc_hold_q <= 1'b0;
++        end else begin
++            cfg_req_s <= {cfg_req_s[1:0], cfg_req_lvl};
++            fid_req_s <= {fid_req_s[1:0], fid_req_lvl};
++            srtg      <= {srtg[1:0], sr_tog_a};
++            sctg      <= {sctg[1:0], st_tog_a};
++            k_evt <= 1'b0; k_fid_evt <= 1'b0; sr_evt_s <= 1'b0; sc_evt_s <= 1'b0;
++
++            // cfg 整捆（数据自 req↑ 之前就稳定 ⇒ 整捆采样安全）
++            if (cfg_req_s[2] && !cfg_ack_r) begin
++                k_addr   <= cfg_ld_addr;
++                k_stride <= cfg_ld_stride;
++                k_w      <= cfg_ld_w;
++                k_h      <= cfg_ld_h;
++                k_en     <= cfg_ld_en;
++                cfg_ack_r <= 1'b1;
++                k_evt     <= 1'b1;
++            end else if (!cfg_req_s[2] && cfg_ack_r) begin
++                cfg_ack_r <= 1'b0;
++            end
++
++            if (fid_req_s[2] && !fid_ack_r) begin
++                k_fid      <= fid_ld_val;
++                fid_ack_r  <= 1'b1;
++                k_fid_evt  <= 1'b1;
++            end else if (!fid_req_s[2] && fid_ack_r) begin
++                fid_ack_r <= 1'b0;
++            end
++
++            // soft_reset / st_clr：边沿 → 1 拍 → 展宽 8 拍（进像素域用展宽后的电平）
++            if (srtg[2] ^ srtg[1]) begin sr_evt_s <= 1'b1; sr_hold <= 4'd8; end
++            else if (sr_hold != 4'd0) sr_hold <= sr_hold - 4'd1;
++            if (sctg[2] ^ sctg[1]) begin sc_evt_s <= 1'b1; sc_hold <= 4'd8; end
++            else if (sc_hold != 4'd0) sc_hold <= sc_hold - 4'd1;
++            sr_hold_q <= (sr_hold != 4'd0) | sr_evt_s;
++            sc_hold_q <= (sc_hold != 4'd0) | sc_evt_s;
++        end
++    end
++
++    // =====================================================================
++    // 0b. 配置快照（扫描域）—— FB_SIZE 用“h 次累加”算，不用乘法器
+     //    FB_SIZE = align64(FB_STRIDE * FB_H)
++    //    ★ v60：本块从 s_axi_aclk 搬到 scan_clk；cfg_* 端口换成 k_*（桥的落点），
++    //      cfg_upd 换成 k_evt，cfg_soft_reset 换成 sr_evt_s。**逻辑逐位不变**。
+     // =====================================================================
+     reg [31:0] s_addr, s_stride;
+     reg [15:0] s_w, s_h;
+@@ -234,7 +441,7 @@
+ 
+     reg        fs_busy;
+     reg        cfg_req;          // v2：有"未被处理的 cfg 写"（防 fs_busy 期间被吞）
+-    wire       cfg_start = cfg_req && !fs_busy && !cfg_pend && !cfg_soft_reset;
++    wire       cfg_start = cfg_req && !fs_busy && !cfg_pend && !sr_evt_s;
+     reg [15:0] fs_cnt;
+     reg [31:0] fs_acc, fs_add;
+     reg [31:0] l_addr, l_stride;
+@@ -242,14 +449,14 @@
+     reg        l_en;
+ 
+ 
+-    always @(posedge s_axi_aclk or negedge aresetn) begin
+-        if (!aresetn) begin
++    always @(posedge scan_clk or negedge scan_aresetn) begin
++        if (!scan_aresetn) begin
+             s_addr <= 32'd0; s_stride <= 32'd0; s_w <= 16'd0; s_h <= 16'd0;
+             s_en <= 1'b0; s_fsize <= 32'd0; s_line_beats <= 12'd0;
+             cfg_tog <= 1'b0; cfg_pend <= 1'b0; cfg_req <= 1'b0;
+             fs_busy <= 1'b0; fs_cnt <= 16'd0; fs_acc <= 32'd0; fs_add <= 32'd0;
+             l_addr <= 32'd0; l_stride <= 32'd0; l_w <= 16'd0; l_h <= 16'd0; l_en <= 1'b0;
+-        end else if (cfg_soft_reset) begin
++        end else if (sr_evt_s) begin
+             // 取消进行中的配置提交（已生效的配置值不动）
+             fs_busy  <= 1'b0;
+             cfg_pend <= 1'b0;
+@@ -257,13 +464,13 @@
+         end else if (cfg_start) begin
+             fs_busy  <= 1'b1;
+             fs_cnt   <= 16'd1;
+-            fs_acc   <= cfg_fb_stride;
+-            fs_add   <= cfg_fb_stride;
+-            l_addr   <= cfg_fb_addr_lo;
+-            l_stride <= cfg_fb_stride;
+-            l_w      <= cfg_fb_w;
+-            l_h      <= cfg_fb_h;
+-            l_en     <= cfg_enable;
++            fs_acc   <= k_stride;
++            fs_add   <= k_stride;
++            l_addr   <= k_addr;
++            l_stride <= k_stride;
++            l_w      <= k_w;
++            l_h      <= k_h;
++            l_en     <= k_en;
+         end else if (fs_busy) begin
+             if (fs_cnt >= l_h) begin
+                 fs_busy      <= 1'b0;
+@@ -288,9 +495,9 @@
+         // v2：cfg 写请求的"粘滞"记账（写进来就记住，直到真正开始提交）
+         //   与上面的分支写的是不同的寄存器，同块内不冲突；置位优先于清除，
+         //   这样"启动同拍又来一次写"只会多提交一次(幂等)，绝不会丢写。
+-        if (!aresetn)                cfg_req <= 1'b0;
+-        else if (cfg_soft_reset)     cfg_req <= 1'b0;
+-        else if (cfg_upd)            cfg_req <= 1'b1;
++        if (!scan_aresetn)           cfg_req <= 1'b0;
++        else if (sr_evt_s)           cfg_req <= 1'b0;
++        else if (k_evt)              cfg_req <= 1'b1;
+         else if (cfg_start)          cfg_req <= 1'b0;
+     end
+ 
+@@ -319,12 +526,12 @@
+     // =====================================================================
+     reg [31:0] fid_val, fid_seen;
+     reg        fid_tog, fid_pend;
+-    always @(posedge s_axi_aclk or negedge aresetn) begin
+-        if (!aresetn) begin
++    always @(posedge scan_clk or negedge scan_aresetn) begin
++        if (!scan_aresetn) begin
+             fid_val <= 32'd0; fid_seen <= 32'd0; fid_tog <= 1'b0; fid_pend <= 1'b0;
+-        end else if (fid_upd) begin
+-            fid_seen <= cfg_frame_id;     // 第 1 拍：数据落盘
+-            fid_val  <= cfg_frame_id;
++        end else if (k_fid_evt) begin
++            fid_seen <= k_fid;            // 第 1 拍：数据落盘
++            fid_val  <= k_fid;
+             fid_pend <= 1'b1;
+         end else if (fid_pend) begin
+             fid_tog  <= ~fid_tog;         // 第 2 拍：翻 toggle
+@@ -398,9 +605,9 @@
+     reg             a_tog;            // 受理时锁存的 toggle（F_FIN 时回送）
+ 
+     // 只做同步，不驱动任何握手状态（避免与主 FSM 双驱动）
+-    always @(posedge s_axi_aclk or negedge aresetn) begin
+-        if (!aresetn) rtg <= 3'd0;
+-        else          rtg <= {rtg[1:0], rq_tog};
++    always @(posedge scan_clk or negedge scan_aresetn) begin
++        if (!scan_aresetn) rtg <= 3'd0;
++        else               rtg <= {rtg[1:0], rq_tog};
+     end
+ 
+     // ---- 像素域：何时请求、请求哪一行 ----------------------------------
+@@ -542,8 +749,8 @@
+     wire line_done = (fst == F_FIN) && (outstanding == 6'd0) &&
+                      ({4'd0, pops_done} >= {4'd0, s_w});
+ 
+-    always @(posedge s_axi_aclk or negedge aresetn) begin
+-        if (!aresetn) begin
++    always @(posedge scan_clk or negedge scan_aresetn) begin
++        if (!scan_aresetn) begin
+             fst <= F_IDLE;
+             line_base <= 32'd0; line_cur <= {PIX_W{1'b0}};
+             cur_fpar <= 1'b0; cur_valid <= 1'b0;
+@@ -552,7 +759,7 @@
+             slot <= 2'd0; beats_done <= 12'd0; pops_done <= 12'd0; room <= 6'd0;
+             b0 <= 64'd0; b1 <= 64'd0; b2 <= 64'd0;
+             pub_line <= {PIX_W{1'b0}}; pub_tog <= 1'b0; pub_pend <= 1'b0;
+-        end else if (cfg_soft_reset) begin
++        end else if (sr_evt_s) begin
+             fst <= F_IDLE;
+             line_base <= 32'd0; line_cur <= {PIX_W{1'b0}};
+             cur_fpar <= 1'b0; cur_valid <= 1'b0;
+@@ -667,8 +874,8 @@
+     assign m_axi_arsize  = ARSIZE_8B;
+     assign m_axi_arburst = ARBURST_INCR;
+     assign m_axi_arvalid = (fst == F_AR) && (beats_left != 12'd0) &&
+-                           (outstanding <= 6'd16) && !cfg_soft_reset;
+-    assign m_axi_rready  = beat_ok && (outstanding != 6'd0) && !cfg_soft_reset;
++                           (outstanding <= 6'd16) && !sr_evt_s;
++    assign m_axi_rready  = beat_ok && (outstanding != 6'd0) && !sr_evt_s;
+ 
+     // ---- 行号发布寄存（bundled data + toggle，AXI → PIX）----------------
+     //  v2：不再发布"行内写进度 gray"。双缓冲下像素侧要的是"哪一行已经整行就绪"，
+@@ -676,8 +883,8 @@
+     //  + 24 个同步触发器 + gray→bin 的 11 个异或）。跨域仍只有 toggle + 2FF 同步。
+     reg  [PIX_W-1:0] pub_line_q;
+     reg         pub_tog_q;
+-    always @(posedge s_axi_aclk or negedge aresetn) begin
+-        if (!aresetn) begin pub_line_q <= {PIX_W{1'b0}}; pub_tog_q <= 1'b0; end
++    always @(posedge scan_clk or negedge scan_aresetn) begin
++        if (!scan_aresetn) begin pub_line_q <= {PIX_W{1'b0}}; pub_tog_q <= 1'b0; end
+         else begin
+             pub_line_q <= pub_line;
+             pub_tog_q  <= pub_tog;
+@@ -697,7 +904,7 @@
+     (* ram_style = "block" *) reg [23:0] lb1_o [0:(1<<(LINE_AW-1))-1];
+ 
+     // 写口：s_axi_aclk（像素号偶→E bank，奇→O bank；pop_two 时 E/O 同拍各写一个）
+-    always @(posedge s_axi_aclk) begin
++    always @(posedge scan_clk) begin
+         if (bram_we) begin
+             if (bram_wbuf) begin
+                 if (!pops_done[0]) lb1_e[bram_waddr] <= bram_wdata;
+@@ -759,31 +966,34 @@
+     //   说明：单缓冲时代"行内逐像素比进度"的判据在双缓冲下会误判（取数在写下一行，
+     //   进度对不上当前行）；"整行就绪"才是这里要的信息，也天然保守。
+     reg  uf_en;                      // soft_reset 后到下一次 vsync 之间不判
+-    reg  uf_sticky, vs_sticky;
++    // ★ v60：uf_sticky / vs_sticky / uf_evt_tog 的**声明**提到 §0 的桥里
++    //   （aclk 域的 status 段要用它们；Verilog 要求先声明后使用）。
+     reg  [1:0] sr_s;
+     reg  sr_q;
+     reg  uf_line_hit;                // 本行已经计过一次欠载
+-    reg  uf_evt_tog;                 // 每出现一行欠载翻一次（行级事件，跨域安全）
++    // uf_evt_tog 的声明在 §0（跨域事件的源端，仍在像素域驱动）
+ 
+     // v2 判据只需 12 bit 无符号比较（hdr_line >= in_vy），比原来的
+     // 24 bit 字典序比较器省一半 LUT，也不再需要 gray 进度通路。
+     wire        uf_now = in_vde && p_en && uf_en &&
+                          !(hdr_line >= in_vy);
+ 
+-    reg [1:0] st_s;                  // st_clr 2FF
++    reg [1:0] st_s;                  // st_clr（扫描域展宽后的电平）2FF
++    reg       st_sq;                 // 边沿检测（电平 → 1 拍事件）
+     always @(posedge pix_clk or negedge pix_aresetn) begin
+         if (!pix_aresetn) st_s <= 2'd0;
+-        else              st_s <= {st_s[0], st_clr};
++        else              st_s <= {st_s[0], sc_hold_q};
+     end
+ 
+     always @(posedge pix_clk or negedge pix_aresetn) begin
+         if (!pix_aresetn) begin
+             uf_en <= 1'b0; uf_sticky <= 1'b0; vs_sticky <= 1'b0;
+             uf_line_hit <= 1'b0; uf_evt_tog <= 1'b0;
+-            sr_s <= 2'd0; sr_q <= 1'b0;
++            sr_s <= 2'd0; sr_q <= 1'b0; st_sq <= 1'b0;
+         end else begin
+-            sr_s <= {sr_s[0], cfg_soft_reset};
++            sr_s <= {sr_s[0], sr_hold_q};     // 扫描域展宽 ≥8 拍后再进来
+             sr_q <= sr_s[1];
++            st_sq <= st_s[1];
+             if (sr_s[1] & ~sr_q) begin           // soft_reset 上升沿
+                 uf_en      <= 1'b0;
+                 uf_sticky  <= 1'b0;
+@@ -800,37 +1010,15 @@
+                     uf_line_hit <= 1'b1;
+                     uf_evt_tog  <= ~uf_evt_tog;
+                 end
+-                if (st_s[1]) uf_sticky <= 1'b0;  // st_clr（STATUS 读清）
++                // st_clr：用**边沿**而不是电平（电平在整个展宽窗口内会把
++                // 粘滞位反复清掉，与同窗口内的 uf_now 置位打架）
++                if (st_s[1] & ~st_sq) uf_sticky <= 1'b0;
+             end
+         end
+     end
+ 
+-    // 粘滞位 2FF → AXI 域（STATUS 读）
+-    reg [1:0] uf_s, vs_s;
+-    always @(posedge s_axi_aclk or negedge aresetn) begin
+-        if (!aresetn) begin uf_s <= 2'd0; vs_s <= 2'd0; end
+-        else begin uf_s <= {uf_s[0], uf_sticky}; vs_s <= {vs_s[0], vs_sticky}; end
+-    end
+-    assign st_underflow  = uf_s[1];
+-    assign st_vsync_seen = vs_s[1];
+-
+-    // ---- 0x2C UNDERFLOW_CNT：行级欠载事件累计（饱和）-------------------
+-    // 每出现"某一行被读空"，uf_evt_tog 翻一次；这里 2FF + 边沿检测后 +1。
+-    // 为什么按行而不按像素：按像素在 1080p60 下 29 s 就饱和（2^32/148.5MHz），
+-    // 反而丢掉"持续多久"的信息；按行（≤45 kHz）可以连续计 26 小时。
+-    reg [2:0]  uetg;
+-    reg [31:0] uf_cnt;
+-    always @(posedge s_axi_aclk or negedge aresetn) begin
+-        if (!aresetn) begin
+-            uetg <= 3'd0; uf_cnt <= 32'd0;
+-        end else begin
+-            uetg <= {uetg[1:0], uf_evt_tog};
+-            if (cfg_soft_reset)    uf_cnt <= 32'd0;
+-            else if (uetg[2] ^ uetg[1])
+-                uf_cnt <= (&uf_cnt) ? uf_cnt : (uf_cnt + 32'd1);   // 饱和
+-        end
+-    end
+-    assign underflow_cnt = uf_cnt;
++    // ★ v60：粘滞位 2FF 与 0x2C 计数器已搬到 §0 的 aclk 桥（现在它们在
++    //   s_axi_aclk 域：像素域 → 本域只有 1 bit 事件/电平，没有多 bit 直连）。
+ 
+     // ---- 输出流水（1 拍）------------------------------------------------
+     reg               pix_de_q, pix_valid_q;
+@@ -843,7 +1031,11 @@
+             pix_de_q    <= in_vde;
+             pix_x_q     <= in_vx;
+             pix_y_q     <= in_vy;
+-            pix_valid_q <= in_vde && p_en && !uf_now;
++            // ★ v60：再加 uf_en —— 第一次 vsync 之前（含 soft_reset 之后）缓冲里
++            //   可能是空的，此时不能声称"像素有效"。v3 靠"释放视频的时刻恰好落在
++            //   消隐区"侥幸躲过；跨域改造后相位一变就暴露（首帧 1 行 xxx 被当成有效
++            //   ⇒ 错字节 1280）。代价 1 个 LUT。
++            pix_valid_q <= in_vde && p_en && uf_en && !uf_now;
+         end
+     end
+ 

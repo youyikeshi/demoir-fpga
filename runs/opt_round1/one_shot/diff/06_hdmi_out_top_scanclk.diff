@@ -1,0 +1,25 @@
+--- orig/hdmi_out_top.v	2026-11-03 01:34:23.100454900 +0800
++++ /media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/rtl_hand/modules/hdmi_out_top.v	2026-11-04 15:43:40.568296300 +0800
+@@ -78,6 +78,11 @@
+     // ---- 时钟/复位 ----
+     input  wire        s_axi_aclk,
+     input  wire        aresetn,
++    // ★ v60：扫描数据通路的独立时钟（板上 FCLK1，目标 100 MHz 真值）。
++    //   只有 hdmi_fb_scan 内部的取数 FSM / AXI 读主 / 行缓冲写口用它；
++    //   AXI-Lite 寄存器块与 status 回读仍在 s_axi_aclk（PS 同域）。
++    //   ⇒ 本模块内部三个时钟域：s_axi_aclk / scan_clk / pix_clk。
++    input  wire        scan_clk,
+     input  wire        pix_clk_a,        // 148.4375 MHz（BD MMCM CLKOUT0，mode 1）
+     input  wire        pix_clk_b,        //  74.21875 MHz（BD MMCM CLKOUT1，mode 0/2）
+     input  wire        pix_clk_c,        //  37.109375 MHz（BD MMCM CLKOUT2，mode 3=720p30）
+@@ -602,7 +607,9 @@
+         .PIX_W   (12)
+     ) u_scan (
+         .s_axi_aclk      (s_axi_aclk),
+-        .aresetn         (aresetn),
++        .aresetn         (aresetn),          // 两域的复位都从这里派生（扫描域内部做
++                                             // 异步置位/同步释放，见 fb_scan §0）
++        .scan_clk        (scan_clk),
+ 
+         .cfg_fb_addr_lo  (fb_addr_lo),
+         .cfg_fb_addr_hi  (fb_addr_hi),

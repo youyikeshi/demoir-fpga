@@ -1,0 +1,37 @@
+--- orig/bin_e1e2.v	2026-11-02 07:48:51.221887600 +0800
++++ /media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/rtl_hand/modules/bin_e1e2.v	2026-11-04 15:26:28.980000900 +0800
+@@ -381,12 +381,30 @@
+     // 本组的输出区间 [out_q, out_q + HW·8) 必须整个落在 32 位地址空间里
+     assign ovf_c  = (({3'd0, out_q} + hw8_c) > 35'h1_0000_0000);
+ 
+-    // bit_j = en_j && (src_byte_j + THR_j > 0)
++    // ========================================================================
++    // ★ v60 R2：阈值加 k 位小数（k = 6 ⇒ 1/64 LSB），语义仍是严格 `> 0`
++    // ------------------------------------------------------------------------
++    //   旧：bit = ( sext(src_byte) + thr_q        > 0 )     阈值分辨率 1 LSB
++    //   新：bit = ( sext(src_byte)·2^6 + thr_k   > 0 )     分辨率 1/64 LSB
++    //   为什么要它：40 304 个 (层,通道) 里 30.0% 的阈值落在半个 LSB 内被舍成 0，
++    //   对占 20% 的 ReLU 精确 0 激活判成 −1（模型判 +1）⇒ 每层中位 9.11% 符号翻错。
++    //   位宽（RTL_SPEC §R2 已证）：|x·2^6| ≤ 128·64 = 8192、|thr_k| ≤ 5249
++    //   ⇒ 和 ≤ 13441 < 32767 ⇒ **16 位有符号加法器不用加宽**；`<<< 6` 是常量
++    //   移位（纯布线，0 LUT）；thr 表大小不变（同槽同大小，只是打包端换算）。
++    //   x = 0（ReLU 精确零）：bit = (thr_k > 0) = (t < 0) ✔ 与 sign(0+t) 一致。
++    //   容器侧：thr_k = round(t · 2^f · 2^6)（ps/tools/pack_bin_weights.py）。
++    // ========================================================================
++    localparam int THR_K = 6;
++    logic signed [15:0] xs_c [0:7];
++    always_comb begin
++        for (int j = 0; j < 8; j++)
++            xs_c[j] = $signed({{8{mem_rd_data[j*8+7]}}, mem_rd_data[j*8 +: 8]})
++                      <<< THR_K;
++    end
++    // bit_j = en_j && (src_byte_j·2^K + THR_j > 0)
+     always_comb begin
+         for (int j = 0; j < 8; j++) begin
+-            bcmp[j] = en_q[j] &&
+-                      (($signed({{8{mem_rd_data[j*8+7]}}, mem_rd_data[j*8 +: 8]})
+-                        + $signed(thr_q[j])) > 0);
++            bcmp[j] = en_q[j] && ((xs_c[j] + $signed(thr_q[j])) > 0);
+         end
+     end
+ 

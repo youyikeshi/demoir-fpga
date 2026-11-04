@@ -1,0 +1,37 @@
+sweep 2026-11-04T15:53:18+08:00 NLINES=400 R_LAT=0
+--- run aclk_half=9845ps tag=mut_pop1 R_LAT=0 ---
+[SUM] ================ TAG=mut_pop1 ================
+[SUM] CFG  W=1280 H=720 stride=3840 fb=0x10000000
+[SUM] CLK  f_axi=50.787202 MHz f_pix=74.217011 MHz ratio=0.6843 R_LAT=0
+[SUM] AXI 从机模型：主机带宽无限、突发内背靠背、R_LAT_MODE=1（1=流水式首拍延迟）
+[SUM] BUDGET aclk_per_line=1129.11  pops_per_line=1280  fill_need=0.882 aclk/pop
+[SUM] THEORY f_axi_min = f_pix*W/H_TOTAL = 57.574408 MHz
+[SUM] after cfg: s_w=0 s_h=0 s_stride=0 s_fsize=0 s_beats=0 cfg_tog=0
+[SUM] cfg 已跨域生效（p_en=1，等了 316 pix 拍）@ t=19853 ns
+[SUM] ---------------- 统计 ----------------
+[SUM] frames_seen          = 1
+[SUM] lines_expected       = 400  (active=400 finished=399)
+[SUM] req_issued(pix)      = 256
+[SUM] req_accepted(axi)    = 255
+[SUM] line_start(axi)      = 256
+[SUM] line_skipped(jump>1) = 142
+[SUM] ar_bursts=15360  r_beats=122874
+[SUM] pixels_de            = 510724  (expect 510720)
+[SUM] pixels_valid         = 1623  (0.3178%)
+[SUM] pixels_data_mismatch = 0   (V2: 显示缓冲逐像素 == 测试图案)
+[SUM] line_order_bad       = 0   (V3: 帧内行号非 +1 的次数)
+[SUM] x_sequence_bad       = 0   (V2: 行内 pix_x 非 0,1,2.. 的次数)
+[SUM] alias_write_cycles   = 130013   (V3: 写到正在显示的 buffer 的拍数)
+[SUM] disp_lines           = 400
+[SUM] lines_short          = 0
+[SUM] lines_valid(clean)   = 1
+[SUM] lines_lost(dirty)    = 398
+[SUM] LOST_RATE            = 99.7494%  (398 / 399)
+[SUM] underflow_cnt(0x2C)  = 399  (per frame=399.00 per line=1.0000)
+[SUM] avg_done_line_at_vde = 197.1 (line#, W=1280, 15.40%)
+[SUM] line_fill_time       = 34585 ns (avg over 255 lines)  line_period = 22232 ns  ratio = 1.556
+[SUM] STAT st_underflow=1 st_vsync_seen=1 fid_latched=0
+[SUM] VERDICT V1_lost_rate=99.7494 V2_databad=0 V3_lineorder_bad=0 V3_alias=130013 V6_uf_cnt=399
+[SUM] VERDICT lost_rate=99.7494 underflow_per_line=1.0000
+[SUM] ================= END mut_pop1 =================
+log: /media/felix/Data/coding/demoir-fpga/runs/opt_round1/one_shot/sim/logs/repro_mut_pop1_rlat0_v60_mut_p1.log

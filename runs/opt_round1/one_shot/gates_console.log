@@ -1,0 +1,547 @@
+[memgate] ===== 构建前预检 =====
+[memgate]   内存  MemAvailable   8.17 GB / 总  30.95 GB   (SwapTotal 0.0 GB)
+[memgate]   闸门  需 峰值 2 GB + 保留 4 GB = 6.00 GB   余量 2.17 GB
+[memgate]   根分区 /   31.44 GB 可用 / 98 GB    /tmp 当前占 2400 MB
+[memgate]   大分区 /media/felix/Data/tmp   78.79 GB 可用
+[memgate]   放行  TMPDIR=/media/felix/Data/tmp  (波形库/临时目录落这里)
+[memgate]   已持锁 /tmp/dsh_vivado.lock  2026-11-04 15:50:22  tag=felix
+[memgate]   复测 MemAvailable 8.17 GB >= 6.00 GB  ✔
+[memgate] ===== 放行 2026-11-04 15:50:22 =====
+[memgate]   令牌 DSH_BUILD_TOKEN=1793778622-310874-125806157  BUILD_OWNER=/media/felix/Data/coding/demoir-fpga/runs/resguard/BUILD_OWNER
+
+################ s1a ################
+[run] xvlog=/data/xilinx/2025.2/2025.2.1/Vivado/bin/xvlog
+[run] RTL md5 = 325992950c9be968d6c3f10ff13ecb80
+[run] RTL=/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/rtl_hand/modules/hdmi_fb_scan.v
+[run] DEFS=<none> VAR=v60_s1a
+[run] NLINES=1200 R_LAT=0 TRACE_N=8 CASES=13468:37.11MHz 10000:50.00MHz 7500:66.67MHz
+[run] 复用已有 snapshot
+sweep 2026-11-04T15:50:22+08:00 NLINES=1200 R_LAT=0
+--- run aclk_half=13468ps tag=37.11MHz R_LAT=0 ---
+[SUM] ================ TAG=37.11MHz ================
+[SUM] CFG  W=1280 H=720 stride=3840 fb=0x10000000
+[SUM] CLK  f_axi=37.125037 MHz f_pix=74.217011 MHz ratio=0.5002 R_LAT=0
+[SUM] AXI 从机模型：主机带宽无限、突发内背靠背、R_LAT_MODE=1（1=流水式首拍延迟）
+[SUM] BUDGET aclk_per_line=825.37  pops_per_line=1280  fill_need=0.645 aclk/pop
+[SUM] THEORY f_axi_min = f_pix*W/H_TOTAL = 57.574408 MHz
+[SUM] after cfg: s_w=1280 s_h=720 s_stride=3840 s_fsize=2764800 s_beats=480 cfg_tog=1
+[SUM] cfg 已跨域生效（p_en=1，等了 0 pix 拍）@ t=21262 ns
+[SUM] ---------------- 统计 ----------------
+[SUM] frames_seen          = 2
+[SUM] lines_expected       = 1200  (active=1200 finished=1199)
+[SUM] req_issued(pix)      = 1201
+[SUM] req_accepted(axi)    = 1200
+[SUM] line_start(axi)      = 1200
+[SUM] line_skipped(jump>1) = 0
+[SUM] ar_bursts=72000  r_beats=576000
+[SUM] pixels_de            = 1534724  (expect 1534720)
+[SUM] pixels_valid         = 1534724  (100.0000%)
+[SUM] pixels_data_mismatch = 0   (V2: 显示缓冲逐像素 == 测试图案)
+[SUM] line_order_bad       = 0   (V3: 帧内行号非 +1 的次数)
+[SUM] x_sequence_bad       = 0   (V2: 行内 pix_x 非 0,1,2.. 的次数)
+[SUM] alias_write_cycles   = 0   (V3: 写到正在显示的 buffer 的拍数)
+[SUM] disp_lines           = 1200
+[SUM] lines_short          = 0
+[SUM] lines_valid(clean)   = 1199
+[SUM] lines_lost(dirty)    = 0
+[SUM] LOST_RATE            = 0.0000%  (0 / 1199)
+[SUM] underflow_cnt(0x2C)  = 0  (per frame=0.00 per line=0.0000)
+[SUM] avg_done_line_at_vde = 311.5 (line#, W=1280, 24.34%)
+[SUM] line_fill_time       = 17346 ns (avg over 1200 lines)  line_period = 22232 ns  ratio = 0.780
+[SUM] STAT st_underflow=0 st_vsync_seen=1 fid_latched=0
+[SUM] VERDICT V1_lost_rate=0.0000 V2_databad=0 V3_lineorder_bad=0 V3_alias=0 V6_uf_cnt=0
+[SUM] VERDICT lost_rate=0.0000 underflow_per_line=0.0000
+[SUM] ================= END 37.11MHz =================
+log: /media/felix/Data/coding/demoir-fpga/runs/opt_round1/one_shot/sim/logs/repro_37.11MHz_rlat0_v60_s1a.log
+--- run aclk_half=10000ps tag=50.00MHz R_LAT=0 ---
+[SUM] ================ TAG=50.00MHz ================
+[SUM] CFG  W=1280 H=720 stride=3840 fb=0x10000000
+[SUM] CLK  f_axi=50.000000 MHz f_pix=74.217011 MHz ratio=0.6737 R_LAT=0
+[SUM] AXI 从机模型：主机带宽无限、突发内背靠背、R_LAT_MODE=1（1=流水式首拍延迟）
+[SUM] BUDGET aclk_per_line=1111.61  pops_per_line=1280  fill_need=0.868 aclk/pop
+[SUM] THEORY f_axi_min = f_pix*W/H_TOTAL = 57.574408 MHz
+[SUM] after cfg: s_w=1280 s_h=720 s_stride=3840 s_fsize=2764800 s_beats=480 cfg_tog=1
+[SUM] cfg 已跨域生效（p_en=1，等了 0 pix 拍）@ t=15830 ns
+[SUM] ---------------- 统计 ----------------
+[SUM] frames_seen          = 2
+[SUM] lines_expected       = 1200  (active=1200 finished=1199)
+[SUM] req_issued(pix)      = 1201
+[SUM] req_accepted(axi)    = 1200
+[SUM] line_start(axi)      = 1200
+[SUM] line_skipped(jump>1) = 0
+[SUM] ar_bursts=72000  r_beats=576000
+[SUM] pixels_de            = 1534724  (expect 1534720)
+[SUM] pixels_valid         = 1534724  (100.0000%)
+[SUM] pixels_data_mismatch = 0   (V2: 显示缓冲逐像素 == 测试图案)
+[SUM] line_order_bad       = 0   (V3: 帧内行号非 +1 的次数)
+[SUM] x_sequence_bad       = 0   (V2: 行内 pix_x 非 0,1,2.. 的次数)
+[SUM] alias_write_cycles   = 0   (V3: 写到正在显示的 buffer 的拍数)
+[SUM] disp_lines           = 1200
+[SUM] lines_short          = 0
+[SUM] lines_valid(clean)   = 1199
+[SUM] lines_lost(dirty)    = 0
+[SUM] LOST_RATE            = 0.0000%  (0 / 1199)
+[SUM] underflow_cnt(0x2C)  = 0  (per frame=0.00 per line=0.0000)
+[SUM] avg_done_line_at_vde = 311.5 (line#, W=1280, 24.34%)
+[SUM] line_fill_time       = 12880 ns (avg over 1200 lines)  line_period = 22232 ns  ratio = 0.579
+[SUM] STAT st_underflow=0 st_vsync_seen=1 fid_latched=0
+[SUM] VERDICT V1_lost_rate=0.0000 V2_databad=0 V3_lineorder_bad=0 V3_alias=0 V6_uf_cnt=0
+[SUM] VERDICT lost_rate=0.0000 underflow_per_line=0.0000
+[SUM] ================= END 50.00MHz =================
+log: /media/felix/Data/coding/demoir-fpga/runs/opt_round1/one_shot/sim/logs/repro_50.00MHz_rlat0_v60_s1a.log
+--- run aclk_half=7500ps tag=66.67MHz R_LAT=0 ---
+[SUM] ================ TAG=66.67MHz ================
+[SUM] CFG  W=1280 H=720 stride=3840 fb=0x10000000
+[SUM] CLK  f_axi=66.666667 MHz f_pix=74.217011 MHz ratio=0.8983 R_LAT=0
+[SUM] AXI 从机模型：主机带宽无限、突发内背靠背、R_LAT_MODE=1（1=流水式首拍延迟）
+[SUM] BUDGET aclk_per_line=1482.14  pops_per_line=1280  fill_need=1.158 aclk/pop
+[SUM] THEORY f_axi_min = f_pix*W/H_TOTAL = 57.574408 MHz
+[SUM] after cfg: s_w=1280 s_h=720 s_stride=3840 s_fsize=2764800 s_beats=480 cfg_tog=1
+[SUM] cfg 已跨域生效（p_en=1，等了 0 pix 拍）@ t=11935 ns
+[SUM] ---------------- 统计 ----------------
+[SUM] frames_seen          = 2
+[SUM] lines_expected       = 1200  (active=1200 finished=1199)
+[SUM] req_issued(pix)      = 1201
+[SUM] req_accepted(axi)    = 1200
+[SUM] line_start(axi)      = 1200
+[SUM] line_skipped(jump>1) = 0
+[SUM] ar_bursts=72000  r_beats=576000
+[SUM] pixels_de            = 1534724  (expect 1534720)
+[SUM] pixels_valid         = 1534724  (100.0000%)
+[SUM] pixels_data_mismatch = 0   (V2: 显示缓冲逐像素 == 测试图案)
+[SUM] line_order_bad       = 0   (V3: 帧内行号非 +1 的次数)
+[SUM] x_sequence_bad       = 0   (V2: 行内 pix_x 非 0,1,2.. 的次数)
+[SUM] alias_write_cycles   = 0   (V3: 写到正在显示的 buffer 的拍数)
+[SUM] disp_lines           = 1200
+[SUM] lines_short          = 0
+[SUM] lines_valid(clean)   = 1199
+[SUM] lines_lost(dirty)    = 0
+[SUM] LOST_RATE            = 0.0000%  (0 / 1199)
+[SUM] underflow_cnt(0x2C)  = 0  (per frame=0.00 per line=0.0000)
+[SUM] avg_done_line_at_vde = 311.5 (line#, W=1280, 24.34%)
+[SUM] line_fill_time       = 9660 ns (avg over 1200 lines)  line_period = 22232 ns  ratio = 0.435
+[SUM] STAT st_underflow=0 st_vsync_seen=1 fid_latched=0
+[SUM] VERDICT V1_lost_rate=0.0000 V2_databad=0 V3_lineorder_bad=0 V3_alias=0 V6_uf_cnt=0
+[SUM] VERDICT lost_rate=0.0000 underflow_per_line=0.0000
+[SUM] ================= END 66.67MHz =================
+log: /media/felix/Data/coding/demoir-fpga/runs/opt_round1/one_shot/sim/logs/repro_66.67MHz_rlat0_v60_s1a.log
+[run] 汇总：/media/felix/Data/coding/demoir-fpga/runs/opt_round1/one_shot/sim/logs/summary_main_20261104_155022.log
+---- [v60_s1a] 判据 ----
+   [SUM] LOST_RATE            = 0.0000%  (0 / 1199)
+   [SUM] underflow_cnt(0x2C)  = 0  (per frame=0.00 per line=0.0000)
+   [SUM] VERDICT V1_lost_rate=0.0000 V2_databad=0 V3_lineorder_bad=0 V3_alias=0 V6_uf_cnt=0
+   [SUM] VERDICT lost_rate=0.0000 underflow_per_line=0.0000
+   [SUM] LOST_RATE            = 0.0000%  (0 / 1199)
+   [SUM] underflow_cnt(0x2C)  = 0  (per frame=0.00 per line=0.0000)
+   [SUM] VERDICT V1_lost_rate=0.0000 V2_databad=0 V3_lineorder_bad=0 V3_alias=0 V6_uf_cnt=0
+   [SUM] VERDICT lost_rate=0.0000 underflow_per_line=0.0000
+   [SUM] LOST_RATE            = 0.0000%  (0 / 1199)
+   [SUM] underflow_cnt(0x2C)  = 0  (per frame=0.00 per line=0.0000)
+   [SUM] VERDICT V1_lost_rate=0.0000 V2_databad=0 V3_lineorder_bad=0 V3_alias=0 V6_uf_cnt=0
+   [SUM] VERDICT lost_rate=0.0000 underflow_per_line=0.0000
+
+################ s1b_13468 ################
+[run] xvlog=/data/xilinx/2025.2/2025.2.1/Vivado/bin/xvlog
+[run] RTL md5 = 325992950c9be968d6c3f10ff13ecb80
+[run] RTL=/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/rtl_hand/modules/hdmi_fb_scan.v
+[run] DEFS=<none> VAR=v60_s1b_13468
+[run] NLINES=1200 R_LAT=0 TRACE_N=8 CASES=9845:scan13468
+[run] === xvlog ===
+[run] === xelab ===
+sweep 2026-11-04T15:50:48+08:00 NLINES=1200 R_LAT=0
+--- run aclk_half=9845ps tag=scan13468 R_LAT=0 ---
+[SUM] ================ TAG=scan13468 ================
+[SUM] CFG  W=1280 H=720 stride=3840 fb=0x10000000
+[SUM] CLK  f_axi=50.787202 MHz f_pix=74.217011 MHz ratio=0.6843 R_LAT=0
+[SUM] AXI 从机模型：主机带宽无限、突发内背靠背、R_LAT_MODE=1（1=流水式首拍延迟）
+[SUM] BUDGET aclk_per_line=1129.11  pops_per_line=1280  fill_need=0.882 aclk/pop
+[SUM] THEORY f_axi_min = f_pix*W/H_TOTAL = 57.574408 MHz
+[SUM] after cfg: s_w=0 s_h=0 s_stride=0 s_fsize=0 s_beats=0 cfg_tog=0
+[SUM] cfg 已跨域生效（p_en=1，等了 316 pix 拍）@ t=19853 ns
+[SUM] ---------------- 统计 ----------------
+[SUM] frames_seen          = 2
+[SUM] lines_expected       = 1200  (active=1200 finished=1199)
+[SUM] req_issued(pix)      = 1201
+[SUM] req_accepted(axi)    = 1200
+[SUM] line_start(axi)      = 1200
+[SUM] line_skipped(jump>1) = 0
+[SUM] ar_bursts=72000  r_beats=576000
+[SUM] pixels_de            = 1534724  (expect 1534720)
+[SUM] pixels_valid         = 1534724  (100.0000%)
+[SUM] pixels_data_mismatch = 0   (V2: 显示缓冲逐像素 == 测试图案)
+[SUM] line_order_bad       = 0   (V3: 帧内行号非 +1 的次数)
+[SUM] x_sequence_bad       = 0   (V2: 行内 pix_x 非 0,1,2.. 的次数)
+[SUM] alias_write_cycles   = 0   (V3: 写到正在显示的 buffer 的拍数)
+[SUM] disp_lines           = 1200
+[SUM] lines_short          = 0
+[SUM] lines_valid(clean)   = 1199
+[SUM] lines_lost(dirty)    = 0
+[SUM] LOST_RATE            = 0.0000%  (0 / 1199)
+[SUM] underflow_cnt(0x2C)  = 0  (per frame=0.00 per line=0.0000)
+[SUM] avg_done_line_at_vde = 311.5 (line#, W=1280, 24.34%)
+[SUM] line_fill_time       = 17346 ns (avg over 1200 lines)  line_period = 22232 ns  ratio = 0.780
+[SUM] STAT st_underflow=0 st_vsync_seen=1 fid_latched=0
+[SUM] VERDICT V1_lost_rate=0.0000 V2_databad=0 V3_lineorder_bad=0 V3_alias=0 V6_uf_cnt=0
+[SUM] VERDICT lost_rate=0.0000 underflow_per_line=0.0000
+[SUM] ================= END scan13468 =================
+log: /media/felix/Data/coding/demoir-fpga/runs/opt_round1/one_shot/sim/logs/repro_scan13468_rlat0_v60_s1b_13468.log
+[run] 汇总：/media/felix/Data/coding/demoir-fpga/runs/opt_round1/one_shot/sim/logs/summary_main_20261104_155048.log
+---- [v60_s1b_13468] 判据 ----
+   [SUM] LOST_RATE            = 0.0000%  (0 / 1199)
+   [SUM] underflow_cnt(0x2C)  = 0  (per frame=0.00 per line=0.0000)
+   [SUM] VERDICT V1_lost_rate=0.0000 V2_databad=0 V3_lineorder_bad=0 V3_alias=0 V6_uf_cnt=0
+   [SUM] VERDICT lost_rate=0.0000 underflow_per_line=0.0000
+
+################ s1b_10000 ################
+[run] xvlog=/data/xilinx/2025.2/2025.2.1/Vivado/bin/xvlog
+[run] RTL md5 = 325992950c9be968d6c3f10ff13ecb80
+[run] RTL=/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/rtl_hand/modules/hdmi_fb_scan.v
+[run] DEFS=<none> VAR=v60_s1b_10000
+[run] NLINES=1200 R_LAT=0 TRACE_N=8 CASES=9845:scan10000
+[run] === xvlog ===
+[run] === xelab ===
+sweep 2026-11-04T15:51:00+08:00 NLINES=1200 R_LAT=0
+--- run aclk_half=9845ps tag=scan10000 R_LAT=0 ---
+[SUM] ================ TAG=scan10000 ================
+[SUM] CFG  W=1280 H=720 stride=3840 fb=0x10000000
+[SUM] CLK  f_axi=50.787202 MHz f_pix=74.217011 MHz ratio=0.6843 R_LAT=0
+[SUM] AXI 从机模型：主机带宽无限、突发内背靠背、R_LAT_MODE=1（1=流水式首拍延迟）
+[SUM] BUDGET aclk_per_line=1129.11  pops_per_line=1280  fill_need=0.882 aclk/pop
+[SUM] THEORY f_axi_min = f_pix*W/H_TOTAL = 57.574408 MHz
+[SUM] after cfg: s_w=1280 s_h=720 s_stride=3840 s_fsize=2764800 s_beats=480 cfg_tog=1
+[SUM] cfg 已跨域生效（p_en=1，等了 0 pix 拍）@ t=15604 ns
+[SUM] ---------------- 统计 ----------------
+[SUM] frames_seen          = 2
+[SUM] lines_expected       = 1200  (active=1200 finished=1199)
+[SUM] req_issued(pix)      = 1201
+[SUM] req_accepted(axi)    = 1200
+[SUM] line_start(axi)      = 1200
+[SUM] line_skipped(jump>1) = 0
+[SUM] ar_bursts=72000  r_beats=576000
+[SUM] pixels_de            = 1534724  (expect 1534720)
+[SUM] pixels_valid         = 1534724  (100.0000%)
+[SUM] pixels_data_mismatch = 0   (V2: 显示缓冲逐像素 == 测试图案)
+[SUM] line_order_bad       = 0   (V3: 帧内行号非 +1 的次数)
+[SUM] x_sequence_bad       = 0   (V2: 行内 pix_x 非 0,1,2.. 的次数)
+[SUM] alias_write_cycles   = 0   (V3: 写到正在显示的 buffer 的拍数)
+[SUM] disp_lines           = 1200
+[SUM] lines_short          = 0
+[SUM] lines_valid(clean)   = 1199
+[SUM] lines_lost(dirty)    = 0
+[SUM] LOST_RATE            = 0.0000%  (0 / 1199)
+[SUM] underflow_cnt(0x2C)  = 0  (per frame=0.00 per line=0.0000)
+[SUM] avg_done_line_at_vde = 311.5 (line#, W=1280, 24.34%)
+[SUM] line_fill_time       = 12880 ns (avg over 1200 lines)  line_period = 22232 ns  ratio = 0.579
+[SUM] STAT st_underflow=0 st_vsync_seen=1 fid_latched=0
+[SUM] VERDICT V1_lost_rate=0.0000 V2_databad=0 V3_lineorder_bad=0 V3_alias=0 V6_uf_cnt=0
+[SUM] VERDICT lost_rate=0.0000 underflow_per_line=0.0000
+[SUM] ================= END scan10000 =================
+log: /media/felix/Data/coding/demoir-fpga/runs/opt_round1/one_shot/sim/logs/repro_scan10000_rlat0_v60_s1b_10000.log
+[run] 汇总：/media/felix/Data/coding/demoir-fpga/runs/opt_round1/one_shot/sim/logs/summary_main_20261104_155100.log
+---- [v60_s1b_10000] 判据 ----
+   [SUM] LOST_RATE            = 0.0000%  (0 / 1199)
+   [SUM] underflow_cnt(0x2C)  = 0  (per frame=0.00 per line=0.0000)
+   [SUM] VERDICT V1_lost_rate=0.0000 V2_databad=0 V3_lineorder_bad=0 V3_alias=0 V6_uf_cnt=0
+   [SUM] VERDICT lost_rate=0.0000 underflow_per_line=0.0000
+
+################ s1b_7500 ################
+[run] xvlog=/data/xilinx/2025.2/2025.2.1/Vivado/bin/xvlog
+[run] RTL md5 = 325992950c9be968d6c3f10ff13ecb80
+[run] RTL=/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/rtl_hand/modules/hdmi_fb_scan.v
+[run] DEFS=<none> VAR=v60_s1b_7500
+[run] NLINES=1200 R_LAT=0 TRACE_N=8 CASES=9845:scan7500
+[run] === xvlog ===
+[run] === xelab ===
+sweep 2026-11-04T15:51:11+08:00 NLINES=1200 R_LAT=0
+--- run aclk_half=9845ps tag=scan7500 R_LAT=0 ---
+[SUM] ================ TAG=scan7500 ================
+[SUM] CFG  W=1280 H=720 stride=3840 fb=0x10000000
+[SUM] CLK  f_axi=50.787202 MHz f_pix=74.217011 MHz ratio=0.6843 R_LAT=0
+[SUM] AXI 从机模型：主机带宽无限、突发内背靠背、R_LAT_MODE=1（1=流水式首拍延迟）
+[SUM] BUDGET aclk_per_line=1129.11  pops_per_line=1280  fill_need=0.882 aclk/pop
+[SUM] THEORY f_axi_min = f_pix*W/H_TOTAL = 57.574408 MHz
+[SUM] after cfg: s_w=1280 s_h=720 s_stride=3840 s_fsize=2764800 s_beats=480 cfg_tog=1
+[SUM] cfg 已跨域生效（p_en=1，等了 0 pix 拍）@ t=15604 ns
+[SUM] ---------------- 统计 ----------------
+[SUM] frames_seen          = 2
+[SUM] lines_expected       = 1200  (active=1200 finished=1199)
+[SUM] req_issued(pix)      = 1201
+[SUM] req_accepted(axi)    = 1200
+[SUM] line_start(axi)      = 1200
+[SUM] line_skipped(jump>1) = 0
+[SUM] ar_bursts=72000  r_beats=576000
+[SUM] pixels_de            = 1534724  (expect 1534720)
+[SUM] pixels_valid         = 1534724  (100.0000%)
+[SUM] pixels_data_mismatch = 0   (V2: 显示缓冲逐像素 == 测试图案)
+[SUM] line_order_bad       = 0   (V3: 帧内行号非 +1 的次数)
+[SUM] x_sequence_bad       = 0   (V2: 行内 pix_x 非 0,1,2.. 的次数)
+[SUM] alias_write_cycles   = 0   (V3: 写到正在显示的 buffer 的拍数)
+[SUM] disp_lines           = 1200
+[SUM] lines_short          = 0
+[SUM] lines_valid(clean)   = 1199
+[SUM] lines_lost(dirty)    = 0
+[SUM] LOST_RATE            = 0.0000%  (0 / 1199)
+[SUM] underflow_cnt(0x2C)  = 0  (per frame=0.00 per line=0.0000)
+[SUM] avg_done_line_at_vde = 311.5 (line#, W=1280, 24.34%)
+[SUM] line_fill_time       = 9660 ns (avg over 1200 lines)  line_period = 22232 ns  ratio = 0.435
+[SUM] STAT st_underflow=0 st_vsync_seen=1 fid_latched=0
+[SUM] VERDICT V1_lost_rate=0.0000 V2_databad=0 V3_lineorder_bad=0 V3_alias=0 V6_uf_cnt=0
+[SUM] VERDICT lost_rate=0.0000 underflow_per_line=0.0000
+[SUM] ================= END scan7500 =================
+log: /media/felix/Data/coding/demoir-fpga/runs/opt_round1/one_shot/sim/logs/repro_scan7500_rlat0_v60_s1b_7500.log
+[run] 汇总：/media/felix/Data/coding/demoir-fpga/runs/opt_round1/one_shot/sim/logs/summary_main_20261104_155111.log
+---- [v60_s1b_7500] 判据 ----
+   [SUM] LOST_RATE            = 0.0000%  (0 / 1199)
+   [SUM] underflow_cnt(0x2C)  = 0  (per frame=0.00 per line=0.0000)
+   [SUM] VERDICT V1_lost_rate=0.0000 V2_databad=0 V3_lineorder_bad=0 V3_alias=0 V6_uf_cnt=0
+   [SUM] VERDICT lost_rate=0.0000 underflow_per_line=0.0000
+
+################ s1c ################
+[run] xvlog=/data/xilinx/2025.2/2025.2.1/Vivado/bin/xvlog
+[run] RTL md5 = 325992950c9be968d6c3f10ff13ecb80
+[run] RTL=/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/rtl_hand/modules/hdmi_fb_scan.v
+[run] DEFS=<none> VAR=v60_s1c
+[run] NLINES=3000 R_LAT=0 TRACE_N=8 CASES=9845:rearm_50.79scan100
+[run] === xvlog ===
+[run] === xelab ===
+sweep 2026-11-04T15:51:22+08:00 NLINES=3000 R_LAT=0
+--- run aclk_half=9845ps tag=rearm_50.79scan100 R_LAT=0 ---
+[SUM] ================ TAG=rearm_50.79scan100 ================
+[SUM] CFG  W=1280 H=720 stride=3840 fb=0x10000000
+[SUM] CLK  f_axi=50.787202 MHz f_pix=74.217011 MHz ratio=0.6843 R_LAT=0
+[SUM] AXI 从机模型：主机带宽无限、突发内背靠背、R_LAT_MODE=1（1=流水式首拍延迟）
+[SUM] BUDGET aclk_per_line=1129.11  pops_per_line=1280  fill_need=0.882 aclk/pop
+[SUM] THEORY f_axi_min = f_pix*W/H_TOTAL = 57.574408 MHz
+[SUM] after cfg: s_w=1280 s_h=720 s_stride=3840 s_fsize=2764800 s_beats=480 cfg_tog=1
+[SUM] cfg 已跨域生效（p_en=1，等了 0 pix 拍）@ t=15604 ns
+[REARM] ---- phase A done (frame_idx=5), 关 enable @ t=66711950 ns
+[REARM] ---- 保持 64 拍后端重新置 1 @ t=66713244 ns
+[REARM] state@B: s_en=1 l_en=1 p_en=1 fs_busy=0 cfg_pend=0 cfg_tog=1 cfg_upd=0
+[REARM] A lines=2160 clean=2160 lost=0 lost_rate=0.0000% bad=0 alias=0 pix_de=2764800 pix_valid=2764800 cov=1.000000 lineorder_bad=0 uf=0
+[REARM] B lines=2160 clean=2160 lost=0 lost_rate=0.0000% bad=0 alias=0 pix_de=2764800 pix_valid=2764800 cov=1.000000 lineorder_bad=0 uf=0
+[REARM] VERDICT REARM_PASS  (两段完全一致：0 丢行 / 0 错字节 / 100% pix_valid)
+[SUM] ---------------- 统计 ----------------
+[SUM] frames_seen          = 9
+[SUM] lines_expected       = 3000  (active=5760 finished=5760)
+[SUM] req_issued(pix)      = 5761
+[SUM] req_accepted(axi)    = 5760
+[SUM] line_start(axi)      = 5761
+[SUM] line_skipped(jump>1) = 0
+[SUM] ar_bursts=345600  r_beats=2764800
+[SUM] pixels_de            = 7372800  (expect 7372800)
+[SUM] pixels_valid         = 7372800  (100.0000%)
+[SUM] pixels_data_mismatch = 0   (V2: 显示缓冲逐像素 == 测试图案)
+[SUM] line_order_bad       = 0   (V3: 帧内行号非 +1 的次数)
+[SUM] x_sequence_bad       = 0   (V2: 行内 pix_x 非 0,1,2.. 的次数)
+[SUM] alias_write_cycles   = 0   (V3: 写到正在显示的 buffer 的拍数)
+[SUM] disp_lines           = 5760
+[SUM] lines_short          = 0
+[SUM] lines_valid(clean)   = 5760
+[SUM] lines_lost(dirty)    = 0
+[SUM] LOST_RATE            = 0.0000%  (0 / 5760)
+[SUM] underflow_cnt(0x2C)  = 0  (per frame=0.00 per line=0.0000)
+[SUM] avg_done_line_at_vde = 359.5 (line#, W=1280, 28.09%)
+[SUM] line_fill_time       = 6440 ns (avg over 5760 lines)  line_period = 22232 ns  ratio = 0.290
+[SUM] STAT st_underflow=0 st_vsync_seen=1 fid_latched=0
+[SUM] VERDICT V1_lost_rate=0.0000 V2_databad=0 V3_lineorder_bad=0 V3_alias=0 V6_uf_cnt=0
+[SUM] VERDICT lost_rate=0.0000 underflow_per_line=0.0000
+[SUM] ================= END rearm_50.79scan100 =================
+log: /media/felix/Data/coding/demoir-fpga/runs/opt_round1/one_shot/sim/logs/repro_rearm_50.79scan100_rlat0_v60_s1c.log
+[run] 汇总：/media/felix/Data/coding/demoir-fpga/runs/opt_round1/one_shot/sim/logs/summary_main_20261104_155122.log
+---- [v60_s1c] 判据 ----
+   [REARM] A lines=2160 clean=2160 lost=0 lost_rate=0.0000% bad=0 alias=0 pix_de=2764800 pix_valid=2764800 cov=1.000000 lineorder_bad=0 uf=0
+   [REARM] B lines=2160 clean=2160 lost=0 lost_rate=0.0000% bad=0 alias=0 pix_de=2764800 pix_valid=2764800 cov=1.000000 lineorder_bad=0 uf=0
+   [REARM] VERDICT REARM_PASS  (两段完全一致：0 丢行 / 0 错字节 / 100% pix_valid)
+   [SUM] LOST_RATE            = 0.0000%  (0 / 5760)
+   [SUM] underflow_cnt(0x2C)  = 0  (per frame=0.00 per line=0.0000)
+   [SUM] VERDICT V1_lost_rate=0.0000 V2_databad=0 V3_lineorder_bad=0 V3_alias=0 V6_uf_cnt=0
+   [SUM] VERDICT lost_rate=0.0000 underflow_per_line=0.0000
+
+################ s3a ################
+[run] xvlog=/data/xilinx/2025.2/2025.2.1/Vivado/bin/xvlog
+[run] RTL md5 = 325992950c9be968d6c3f10ff13ecb80
+[run] RTL=/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/rtl_hand/modules/hdmi_fb_scan.v
+[run] DEFS=<none> VAR=v60_s3a
+[run] NLINES=300 R_LAT=0 TRACE_N=8 CASES=9845:s3_scan100
+[run] === xvlog ===
+[run] === xelab ===
+sweep 2026-11-04T15:51:52+08:00 NLINES=300 R_LAT=0
+--- run aclk_half=9845ps tag=s3_scan100 R_LAT=0 ---
+[SUM] ================ TAG=s3_scan100 ================
+[SUM] CFG  W=1280 H=720 stride=3840 fb=0x10000000
+[SUM] CLK  f_axi=50.787202 MHz f_pix=74.217011 MHz ratio=0.6843 R_LAT=0
+[SUM] AXI 从机模型：主机带宽无限、突发内背靠背、R_LAT_MODE=1（1=流水式首拍延迟）
+[SUM] BUDGET aclk_per_line=1129.11  pops_per_line=1280  fill_need=0.882 aclk/pop
+[SUM] THEORY f_axi_min = f_pix*W/H_TOTAL = 57.574408 MHz
+[SUM] after cfg: s_w=1280 s_h=720 s_stride=3840 s_fsize=2764800 s_beats=480 cfg_tog=1
+[SUM] cfg 已跨域生效（p_en=1，等了 0 pix 拍）@ t=15604 ns
+[CDCWAVE] ---- 开始：8 次快速 CTRL + 8 次 FRAME_ID 写（间隔跨过 fs_busy）
+[CDCWAVE] cfg 终值检查：s_en=1 p_en=1 (期望 1/1)  fid_latched=00000000 (期望 a50000ff)  cfg_req=0
+[CDCWAVE] 后 3 帧：pix_de=2764800 pix_valid=2764800 cov=1.000000
+[CDCWAVE] underflow: DUT=0  TB独立计数=0 (期望相等)
+[CDCWAVE] VERDICT CDC_PASS
+[SUM] ---------------- 统计 ----------------
+[SUM] frames_seen          = 6
+[SUM] lines_expected       = 300  (active=3600 finished=3600)
+[SUM] req_issued(pix)      = 3601
+[SUM] req_accepted(axi)    = 3600
+[SUM] line_start(axi)      = 3601
+[SUM] line_skipped(jump>1) = 0
+[SUM] ar_bursts=216000  r_beats=1728000
+[SUM] pixels_de            = 4608000  (expect 4608000)
+[SUM] pixels_valid         = 4608000  (100.0000%)
+[SUM] pixels_data_mismatch = 3686400   (V2: 显示缓冲逐像素 == 测试图案)
+[SUM] line_order_bad       = 0   (V3: 帧内行号非 +1 的次数)
+[SUM] x_sequence_bad       = 0   (V2: 行内 pix_x 非 0,1,2.. 的次数)
+[SUM] alias_write_cycles   = 0   (V3: 写到正在显示的 buffer 的拍数)
+[SUM] disp_lines           = 3600
+[SUM] lines_short          = 0
+[SUM] lines_valid(clean)   = 3600
+[SUM] lines_lost(dirty)    = 0
+[SUM] LOST_RATE            = 0.0000%  (0 / 3600)
+[SUM] underflow_cnt(0x2C)  = 0  (per frame=0.00 per line=0.0000)
+[SUM] avg_done_line_at_vde = 359.5 (line#, W=1280, 28.09%)
+[SUM] line_fill_time       = 6440 ns (avg over 3600 lines)  line_period = 22232 ns  ratio = 0.290
+[SUM] STAT st_underflow=0 st_vsync_seen=1 fid_latched=2768240895
+[SUM] VERDICT V1_lost_rate=0.0000 V2_databad=3686400 V3_lineorder_bad=0 V3_alias=0 V6_uf_cnt=0
+[SUM] VERDICT lost_rate=0.0000 underflow_per_line=0.0000
+[SUM] ================= END s3_scan100 =================
+log: /media/felix/Data/coding/demoir-fpga/runs/opt_round1/one_shot/sim/logs/repro_s3_scan100_rlat0_v60_s3a.log
+[run] 汇总：/media/felix/Data/coding/demoir-fpga/runs/opt_round1/one_shot/sim/logs/summary_main_20261104_155152.log
+---- [v60_s3a] 判据 ----
+   [CDCWAVE] ---- 开始：8 次快速 CTRL + 8 次 FRAME_ID 写（间隔跨过 fs_busy）
+   [CDCWAVE] cfg 终值检查：s_en=1 p_en=1 (期望 1/1)  fid_latched=00000000 (期望 a50000ff)  cfg_req=0
+   [CDCWAVE] 后 3 帧：pix_de=2764800 pix_valid=2764800 cov=1.000000
+   [CDCWAVE] underflow: DUT=0  TB独立计数=0 (期望相等)
+   [CDCWAVE] VERDICT CDC_PASS
+   [SUM] LOST_RATE            = 0.0000%  (0 / 3600)
+   [SUM] underflow_cnt(0x2C)  = 0  (per frame=0.00 per line=0.0000)
+   [SUM] VERDICT V1_lost_rate=0.0000 V2_databad=3686400 V3_lineorder_bad=0 V3_alias=0 V6_uf_cnt=0
+   [SUM] VERDICT lost_rate=0.0000 underflow_per_line=0.0000
+
+################ s3b ################
+[run] xvlog=/data/xilinx/2025.2/2025.2.1/Vivado/bin/xvlog
+[run] RTL md5 = 325992950c9be968d6c3f10ff13ecb80
+[run] RTL=/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/rtl_hand/modules/hdmi_fb_scan.v
+[run] DEFS=<none> VAR=v60_s3b
+[run] NLINES=300 R_LAT=0 TRACE_N=8 CASES=9845:s3_scan74
+[run] === xvlog ===
+[run] === xelab ===
+sweep 2026-11-04T15:52:12+08:00 NLINES=300 R_LAT=0
+--- run aclk_half=9845ps tag=s3_scan74 R_LAT=0 ---
+[SUM] ================ TAG=s3_scan74 ================
+[SUM] CFG  W=1280 H=720 stride=3840 fb=0x10000000
+[SUM] CLK  f_axi=50.787202 MHz f_pix=74.217011 MHz ratio=0.6843 R_LAT=0
+[SUM] AXI 从机模型：主机带宽无限、突发内背靠背、R_LAT_MODE=1（1=流水式首拍延迟）
+[SUM] BUDGET aclk_per_line=1129.11  pops_per_line=1280  fill_need=0.882 aclk/pop
+[SUM] THEORY f_axi_min = f_pix*W/H_TOTAL = 57.574408 MHz
+[SUM] after cfg: s_w=1280 s_h=720 s_stride=3840 s_fsize=2764800 s_beats=480 cfg_tog=1
+[SUM] cfg 已跨域生效（p_en=1，等了 0 pix 拍）@ t=15604 ns
+[CDCWAVE] ---- 开始：8 次快速 CTRL + 8 次 FRAME_ID 写（间隔跨过 fs_busy）
+[CDCWAVE] cfg 终值检查：s_en=1 p_en=1 (期望 1/1)  fid_latched=00000000 (期望 a50000ff)  cfg_req=0
+[CDCWAVE] 后 3 帧：pix_de=2764800 pix_valid=2764800 cov=1.000000
+[CDCWAVE] underflow: DUT=0  TB独立计数=0 (期望相等)
+[CDCWAVE] VERDICT CDC_PASS
+[SUM] ---------------- 统计 ----------------
+[SUM] frames_seen          = 6
+[SUM] lines_expected       = 300  (active=3600 finished=3600)
+[SUM] req_issued(pix)      = 3601
+[SUM] req_accepted(axi)    = 3600
+[SUM] line_start(axi)      = 3600
+[SUM] line_skipped(jump>1) = 0
+[SUM] ar_bursts=216000  r_beats=1728000
+[SUM] pixels_de            = 4608000  (expect 4608000)
+[SUM] pixels_valid         = 4608000  (100.0000%)
+[SUM] pixels_data_mismatch = 3686400   (V2: 显示缓冲逐像素 == 测试图案)
+[SUM] line_order_bad       = 0   (V3: 帧内行号非 +1 的次数)
+[SUM] x_sequence_bad       = 0   (V2: 行内 pix_x 非 0,1,2.. 的次数)
+[SUM] alias_write_cycles   = 0   (V3: 写到正在显示的 buffer 的拍数)
+[SUM] disp_lines           = 3600
+[SUM] lines_short          = 0
+[SUM] lines_valid(clean)   = 3600
+[SUM] lines_lost(dirty)    = 0
+[SUM] LOST_RATE            = 0.0000%  (0 / 3600)
+[SUM] underflow_cnt(0x2C)  = 0  (per frame=0.00 per line=0.0000)
+[SUM] avg_done_line_at_vde = 359.5 (line#, W=1280, 28.09%)
+[SUM] line_fill_time       = 8675 ns (avg over 3600 lines)  line_period = 22232 ns  ratio = 0.390
+[SUM] STAT st_underflow=0 st_vsync_seen=1 fid_latched=2768240895
+[SUM] VERDICT V1_lost_rate=0.0000 V2_databad=3686400 V3_lineorder_bad=0 V3_alias=0 V6_uf_cnt=0
+[SUM] VERDICT lost_rate=0.0000 underflow_per_line=0.0000
+[SUM] ================= END s3_scan74 =================
+log: /media/felix/Data/coding/demoir-fpga/runs/opt_round1/one_shot/sim/logs/repro_s3_scan74_rlat0_v60_s3b.log
+[run] 汇总：/media/felix/Data/coding/demoir-fpga/runs/opt_round1/one_shot/sim/logs/summary_main_20261104_155212.log
+---- [v60_s3b] 判据 ----
+   [CDCWAVE] ---- 开始：8 次快速 CTRL + 8 次 FRAME_ID 写（间隔跨过 fs_busy）
+   [CDCWAVE] cfg 终值检查：s_en=1 p_en=1 (期望 1/1)  fid_latched=00000000 (期望 a50000ff)  cfg_req=0
+   [CDCWAVE] 后 3 帧：pix_de=2764800 pix_valid=2764800 cov=1.000000
+   [CDCWAVE] underflow: DUT=0  TB独立计数=0 (期望相等)
+   [CDCWAVE] VERDICT CDC_PASS
+   [SUM] LOST_RATE            = 0.0000%  (0 / 3600)
+   [SUM] underflow_cnt(0x2C)  = 0  (per frame=0.00 per line=0.0000)
+   [SUM] VERDICT V1_lost_rate=0.0000 V2_databad=3686400 V3_lineorder_bad=0 V3_alias=0 V6_uf_cnt=0
+   [SUM] VERDICT lost_rate=0.0000 underflow_per_line=0.0000
+
+################ s3c ################
+[run] xvlog=/data/xilinx/2025.2/2025.2.1/Vivado/bin/xvlog
+[run] RTL md5 = 325992950c9be968d6c3f10ff13ecb80
+[run] RTL=/media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/rtl_hand/modules/hdmi_fb_scan.v
+[run] DEFS=<none> VAR=v60_s3c
+[run] NLINES=300 R_LAT=0 TRACE_N=8 CASES=9845:s3_scan38
+[run] === xvlog ===
+[run] === xelab ===
+sweep 2026-11-04T15:52:30+08:00 NLINES=300 R_LAT=0
+--- run aclk_half=9845ps tag=s3_scan38 R_LAT=0 ---
+[SUM] ================ TAG=s3_scan38 ================
+[SUM] CFG  W=1280 H=720 stride=3840 fb=0x10000000
+[SUM] CLK  f_axi=50.787202 MHz f_pix=74.217011 MHz ratio=0.6843 R_LAT=0
+[SUM] AXI 从机模型：主机带宽无限、突发内背靠背、R_LAT_MODE=1（1=流水式首拍延迟）
+[SUM] BUDGET aclk_per_line=1129.11  pops_per_line=1280  fill_need=0.882 aclk/pop
+[SUM] THEORY f_axi_min = f_pix*W/H_TOTAL = 57.574408 MHz
+[SUM] after cfg: s_w=0 s_h=0 s_stride=0 s_fsize=0 s_beats=0 cfg_tog=0
+[SUM] cfg 已跨域生效（p_en=1，等了 267 pix 拍）@ t=19193 ns
+[CDCWAVE] ---- 开始：8 次快速 CTRL + 8 次 FRAME_ID 写（间隔跨过 fs_busy）
+[CDCWAVE] cfg 终值检查：s_en=1 p_en=1 (期望 1/1)  fid_latched=00000000 (期望 a50000ff)  cfg_req=0
+[CDCWAVE] 后 3 帧：pix_de=2764800 pix_valid=2764800 cov=1.000000
+[CDCWAVE] underflow: DUT=0  TB独立计数=0 (期望相等)
+[CDCWAVE] VERDICT CDC_PASS
+[SUM] ---------------- 统计 ----------------
+[SUM] frames_seen          = 6
+[SUM] lines_expected       = 300  (active=3600 finished=3600)
+[SUM] req_issued(pix)      = 3601
+[SUM] req_accepted(axi)    = 3600
+[SUM] line_start(axi)      = 3600
+[SUM] line_skipped(jump>1) = 0
+[SUM] ar_bursts=216000  r_beats=1728000
+[SUM] pixels_de            = 4608000  (expect 4608000)
+[SUM] pixels_valid         = 4608000  (100.0000%)
+[SUM] pixels_data_mismatch = 3686400   (V2: 显示缓冲逐像素 == 测试图案)
+[SUM] line_order_bad       = 0   (V3: 帧内行号非 +1 的次数)
+[SUM] x_sequence_bad       = 0   (V2: 行内 pix_x 非 0,1,2.. 的次数)
+[SUM] alias_write_cycles   = 0   (V3: 写到正在显示的 buffer 的拍数)
+[SUM] disp_lines           = 3600
+[SUM] lines_short          = 0
+[SUM] lines_valid(clean)   = 3600
+[SUM] lines_lost(dirty)    = 0
+[SUM] LOST_RATE            = 0.0000%  (0 / 3600)
+[SUM] underflow_cnt(0x2C)  = 0  (per frame=0.00 per line=0.0000)
+[SUM] avg_done_line_at_vde = 359.5 (line#, W=1280, 28.09%)
+[SUM] line_fill_time       = 16744 ns (avg over 3600 lines)  line_period = 22232 ns  ratio = 0.753
+[SUM] STAT st_underflow=0 st_vsync_seen=1 fid_latched=2768240895
+[SUM] VERDICT V1_lost_rate=0.0000 V2_databad=3686400 V3_lineorder_bad=0 V3_alias=0 V6_uf_cnt=0
+[SUM] VERDICT lost_rate=0.0000 underflow_per_line=0.0000
+[SUM] ================= END s3_scan38 =================
+log: /media/felix/Data/coding/demoir-fpga/runs/opt_round1/one_shot/sim/logs/repro_s3_scan38_rlat0_v60_s3c.log
+[run] 汇总：/media/felix/Data/coding/demoir-fpga/runs/opt_round1/one_shot/sim/logs/summary_main_20261104_155230.log
+---- [v60_s3c] 判据 ----
+   [CDCWAVE] ---- 开始：8 次快速 CTRL + 8 次 FRAME_ID 写（间隔跨过 fs_busy）
+   [CDCWAVE] cfg 终值检查：s_en=1 p_en=1 (期望 1/1)  fid_latched=00000000 (期望 a50000ff)  cfg_req=0
+   [CDCWAVE] 后 3 帧：pix_de=2764800 pix_valid=2764800 cov=1.000000
+   [CDCWAVE] underflow: DUT=0  TB独立计数=0 (期望相等)
+   [CDCWAVE] VERDICT CDC_PASS
+   [SUM] LOST_RATE            = 0.0000%  (0 / 3600)
+   [SUM] underflow_cnt(0x2C)  = 0  (per frame=0.00 per line=0.0000)
+   [SUM] VERDICT V1_lost_rate=0.0000 V2_databad=3686400 V3_lineorder_bad=0 V3_alias=0 V6_uf_cnt=0
+   [SUM] VERDICT lost_rate=0.0000 underflow_per_line=0.0000
+
+================ GATES DONE ================
+[memgate] 命令结束 rc=0  2026-11-04 15:52:45

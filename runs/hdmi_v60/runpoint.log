@@ -1,0 +1,174 @@
+
+****** Vivado v2025.2.1 (64-bit)
+  **** SW Build 6403652 on Thu Mar 19 13:47:00 MDT 2026
+  **** IP Build 6403511 on Thu Mar 19 12:41:45 MDT 2026
+  **** SharedData Build 6403650 on Thu Mar 19 14:02:13 MDT 2026
+  **** Start of session at: Wed Nov  4 16:58:45 2026
+    ** Copyright 1986-2022 Xilinx, Inc. All Rights Reserved.
+    ** Copyright 2022-2026 Advanced Micro Devices, Inc. All Rights Reserved.
+
+source pl/scripts/report_at_runpoint.tcl
+# set REPO /media/felix/Data/coding/demoir-fpga
+# set OUT  [file join $REPO runs hdmi_v60]
+# set DCP  [file join $OUT design_1_v60_routed.dcp]
+# if {![file exists $DCP]} { error "缺 routed DCP：$DCP" }
+# set_param tcl.collectionResultDisplayLimit 0
+# open_checkpoint $DCP
+Command: open_checkpoint /media/felix/Data/coding/demoir-fpga/runs/hdmi_v60/design_1_v60_routed.dcp
+
+Starting open_checkpoint Task
+
+Time (s): cpu = 00:00:00.05 ; elapsed = 00:00:00.02 . Memory (MB): peak = 1582.801 ; gain = 0.000 ; free physical = 1561 ; free virtual = 15267
+INFO: [Device 21-403] Loading part xc7z015clg485-2
+Netlist sorting complete. Time (s): cpu = 00:00:00.13 ; elapsed = 00:00:00.13 . Memory (MB): peak = 1838.309 ; gain = 0.000 ; free physical = 1387 ; free virtual = 15066
+INFO: [Netlist 29-17] Analyzing 3760 Unisim elements for replacement
+INFO: [Netlist 29-28] Unisim Transformation completed in 0 CPU seconds
+INFO: [Project 1-479] Netlist was created with Vivado 2025.2.1
+INFO: [Project 1-570] Preparing netlist for logic optimization
+Read ShapeDB Complete: Time (s): cpu = 00:00:00.04 ; elapsed = 00:00:00.04 . Memory (MB): peak = 1942.184 ; gain = 4.250 ; free physical = 1211 ; free virtual = 14952
+INFO: [Timing 38-478] Restoring timing data from binary archive.
+INFO: [Timing 38-479] Binary timing data restore complete.
+INFO: [Project 1-856] Restoring constraints from binary archive.
+INFO: [Constraints 18-5170] The checkpoint was created with non-default parameter values which do not match the current Vivado settings.  Mismatching parameters are:
+  general.maxThreads
+INFO: [Project 1-853] Binary constraint restore complete.
+INFO: [Designutils 20-5722] Start Reading Physical Databases.
+Reading placement.
+Read Netlist Cache: Time (s): cpu = 00:00:00.04 ; elapsed = 00:00:00.04 . Memory (MB): peak = 2570.535 ; gain = 0.000 ; free physical = 632 ; free virtual = 14368
+Reading placer database...
+Read Device Cache: Time (s): cpu = 00:00:00.01 ; elapsed = 00:00:00.01 . Memory (MB): peak = 2570.535 ; gain = 0.000 ; free physical = 628 ; free virtual = 14364
+Read PlaceDB: Time (s): cpu = 00:00:00 ; elapsed = 00:00:00 . Memory (MB): peak = 2570.535 ; gain = 0.000 ; free physical = 628 ; free virtual = 14364
+Read placeStorage: Time (s): cpu = 00:00:00.68 ; elapsed = 00:00:00.69 . Memory (MB): peak = 2591.535 ; gain = 21.000 ; free physical = 599 ; free virtual = 14341
+Read PulsedLatchDB: Time (s): cpu = 00:00:00 ; elapsed = 00:00:00 . Memory (MB): peak = 2591.535 ; gain = 0.000 ; free physical = 599 ; free virtual = 14341
+Reading routing.
+Read RouteStorage: Time (s): cpu = 00:00:00.72 ; elapsed = 00:00:00.22 . Memory (MB): peak = 2614.160 ; gain = 22.625 ; free physical = 576 ; free virtual = 14316
+Read Physdb Files: Time (s): cpu = 00:00:01 ; elapsed = 00:00:00.97 . Memory (MB): peak = 2614.160 ; gain = 43.625 ; free physical = 576 ; free virtual = 14316
+Restored from archive | CPU: 1.530000 secs | Memory: 40.832932 MB |
+Finished XDEF File Restore: Time (s): cpu = 00:00:01 ; elapsed = 00:00:00.99 . Memory (MB): peak = 2614.160 ; gain = 49.562 ; free physical = 576 ; free virtual = 14316
+Netlist sorting complete. Time (s): cpu = 00:00:00.01 ; elapsed = 00:00:00 . Memory (MB): peak = 2631.598 ; gain = 0.000 ; free physical = 568 ; free virtual = 14307
+INFO: [Project 1-111] Unisim Transformation Summary:
+  A total of 300 instances were transformed.
+  IOBUF => IOBUF (IBUF, OBUFT): 2 instances
+  RAM32M => RAM32M (RAMD32(x6), RAMS32(x2)): 5 instances
+  RAM32X1D => RAM32X1D (RAMD32(x2)): 5 instances
+  RAM64M => RAM64M (RAMD64E(x4)): 264 instances
+  RAM64X1D => RAM64X1D (RAMD64E(x2)): 24 instances
+
+INFO: [Project 1-604] Checkpoint was created with Vivado v2025.2.1 (64-bit) build 6403652
+open_checkpoint: Time (s): cpu = 00:00:17 ; elapsed = 00:00:11 . Memory (MB): peak = 2639.633 ; gain = 1056.832 ; free physical = 567 ; free virtual = 14306
+# puts "================================================================"
+================================================================
+# puts " ① FCLK0 按实际工作点重报（50.79 MHz ⇒ 19.6875 ns）"
+ ① FCLK0 按实际工作点重报（50.79 MHz ⇒ 19.6875 ns）
+# puts "================================================================"
+================================================================
+# set c0 [get_clocks FCLK_CLK0]
+# set oldper [get_property PERIOD $c0]
+# set src [get_property SOURCE_PINS $c0]
+# puts "  改前：FCLK_CLK0 PERIOD = $oldper ns  （10 ns = 100 MHz 的严格口径）"
+  改前：FCLK_CLK0 PERIOD = 10.000 ns  （10 ns = 100 MHz 的严格口径）
+# create_clock -period 19.6875 -name FCLK_CLK0 $src
+INFO: [Vivado 12-2286] Implicit search of objects for pattern 'design_1_i/ps7/FCLK_CLK0' matched to 'pin' objects.
+Resolution: To avoid ambiguous patterns, provide proper objects using get commands e.g. [get_nets xyz].
+WARNING: [Vivado 12-2489] -period contains time 19.687500 which will be rounded to 19.688 to ensure it is an integer multiple of 1 picosecond
+WARNING: [Constraints 18-619] A clock with name 'FCLK_CLK0' already exists, overwriting the previous clock with the same name.
+# puts "  改后：FCLK_CLK0 PERIOD = [get_property PERIOD [get_clocks FCLK_CLK0]] ns（真值 50.79 MHz）"
+  改后：FCLK_CLK0 PERIOD = 19.688 ns（真值 50.79 MHz）
+# update_timing -full
+# report_timing_summary -delay_type max -max_paths 20 \
+#     -file [file join $OUT timing_at_19p6875ns.rpt]
+INFO: [Timing 38-91] UpdateTimingParams: Speed grade: -2, Delay Type: max.
+INFO: [Timing 38-191] Multithreading enabled for timing update using a maximum of 8 CPUs
+# set ps [get_timing_paths -quiet -delay_type max -max_paths 1 -from [get_clocks FCLK_CLK0] -to [get_clocks FCLK_CLK0]]
+# set w [get_property SLACK [lindex $ps 0]]
+# set allp [get_timing_paths -quiet -delay_type max -max_paths 200000 -nworst 1 -slack_lesser_than 0 \
+#               -from [get_clocks FCLK_CLK0] -to [get_clocks FCLK_CLK0]]
+# puts [format "  工作点 19.6875 ns：WNS = %+0.4f ns   违例端点 = %d" $w [llength $allp]]
+  工作点 19.6875 ns：WNS = +7.8780 ns   违例端点 = 0
+# set tns 0.0
+# foreach p $allp { set tns [expr {$tns + [get_property SLACK $p]}] }
+# puts [format "  工作点 19.6875 ns：TNS = %+0.4f ns" $tns]
+  工作点 19.6875 ns：TNS = +0.0000 ns
+# if {[llength $allp] == 0} {
+#     puts "  ⇒ 工作点判定：**PASS**（WNS>0、TNS=0、违例端点 0）"
+# } else {
+#     puts "  ⇒ 工作点判定：**FAIL**（还有 [llength $allp] 个违例端点）"
+# }
+  ⇒ 工作点判定：**PASS**（WNS>0、TNS=0、违例端点 0）
+# foreach nm {FCLK_CLK1 clk_pix_a clk_pix_b clk_pix_c} {
+#     set cc [get_clocks -quiet $nm]
+#     if {[llength $cc] == 0} { continue }
+#     set pp [get_timing_paths -quiet -delay_type max -max_paths 1 -from $cc -to $cc]
+#     if {[llength $pp] == 0} { continue }
+#     set ww [get_property SLACK [lindex $pp 0]]
+#     set per [get_property PERIOD $cc]
+#     puts [format "  %-10s PERIOD=%.4f  WNS=%+0.3f  Fmax=%.1f MHz" $nm $per $ww [expr {1000.0/($per-$ww)}]]
+# }
+  FCLK_CLK1  PERIOD=10.0000  WNS=+1.705  Fmax=120.6 MHz
+  clk_pix_a  PERIOD=6.7370  WNS=+0.724  Fmax=166.3 MHz
+  clk_pix_b  PERIOD=13.4740  WNS=+7.454  Fmax=166.1 MHz
+  clk_pix_c  PERIOD=26.9470  WNS=+20.919  Fmax=165.9 MHz
+# puts ""
+
+# puts "================================================================"
+================================================================
+# puts " ③ 网表指纹：v60 的新逻辑是否真的在网表里"
+ ③ 网表指纹：v60 的新逻辑是否真的在网表里
+# puts "================================================================"
+================================================================
+# proc cnt {pat} { return [llength [get_cells -quiet -hier -filter "NAME =~ $pat"]] }
+# puts "  --- R1-A：半个 LSB 并入 gamma 的 gh_l 寄存器（期望 8 lane × 32 bit = 256）---"
+  --- R1-A：半个 LSB 并入 gamma 的 gh_l 寄存器（期望 8 lane × 32 bit = 256）---
+# set n_gh [cnt "*bin_conv_core8*gh_l*"]
+# if {$n_gh == 0} { set n_gh [cnt "*gh_l_reg*"] }
+# puts "    gh_l 相关 cell 数 = $n_gh"
+    gh_l 相关 cell 数 = 320
+# set gh_reg [get_cells -hier -quiet -filter {NAME =~ *gh_l_reg*}]
+# puts "    其中 gh_l_reg* 触发器 = [llength $gh_reg]"
+    其中 gh_l_reg* 触发器 = 320
+# set ex {}
+# foreach c [lrange $gh_reg 0 2] { lappend ex [get_property NAME $c] }
+# puts "    （示例：$ex）"
+    （示例：{design_1_i/bin_unit_0/inst/inst/u_bin_unit/g_conv.u_unit/u_eng/gh_l_reg[0][0]} {design_1_i/bin_unit_0/inst/inst/u_bin_unit/g_conv.u_unit/u_eng/gh_l_reg[0][10]} {design_1_i/bin_unit_0/inst/inst/u_bin_unit/g_conv.u_unit/u_eng/gh_l_reg[0][11]}）
+# puts "  --- R3(b)：越界抽头计数器 / 快照 / 补偿乘法 ---"
+  --- R3(b)：越界抽头计数器 / 快照 / 补偿乘法 ---
+# foreach pat {*oob_cnt* *oob_snap* *r1_oobtap* *s1_oobtap_q* *oob_add*} {
+#     puts [format "    %-16s cell 数 = %d" $pat [cnt $pat]]
+# }
+    *oob_cnt*        cell 数 = 11
+    *oob_snap*       cell 数 = 12
+    *r1_oobtap*      cell 数 = 1
+    *s1_oobtap_q*    cell 数 = 1
+    *oob_add*        cell 数 = 0
+# puts "  --- R2：阈值 K=6 的移位（纯布线 ⇒ 期望**没有**新 cell，只查信号名存留）---"
+  --- R2：阈值 K=6 的移位（纯布线 ⇒ 期望**没有**新 cell，只查信号名存留）---
+# set xs [get_nets -quiet -hier -filter {NAME =~ *xs_c*}]
+# puts "    xs_c 相关 net 数 = [llength $xs]（0 也正常：常量移位在综合后就是接线）"
+    xs_c 相关 net 数 = 0（0 也正常：常量移位在综合后就是接线）
+# set e1e2 [get_cells -quiet -hier -filter {NAME =~ */g_conv.u_pack}]
+# if {[llength $e1e2] == 1} {
+#     set up [lindex $e1e2 0]
+#     puts "    u_pack 实例 = [get_property NAME $up]"
+#     puts "      CARRY4 = [llength [get_cells -quiet -hier -of_objects $up -filter {REF_NAME == CARRY4}]]"
+#     puts "      LUT*   = [llength [get_cells -quiet -hier -of_objects $up -filter {REF_NAME =~ LUT*}]]"
+#     puts "      FF     = [llength [get_cells -quiet -hier -of_objects $up -filter {IS_SEQUENTIAL}]]"
+#     # 8 个 16 位加法器（xs + thr）的口径：每个 16 位加法 ≈ 4 个 CARRY4
+#     puts "      （口径：8 lane × 16 位加法 = 8×4 = 32 个 CARRY4；改前改后一致 —— 因为 R2 不加宽）"
+# }
+    u_pack 实例 = design_1_i/bin_unit_0/inst/inst/u_bin_unit/g_conv.u_pack
+      CARRY4 = 0
+      LUT*   = 0
+      FF     = 0
+      （口径：8 lane × 16 位加法 = 8×4 = 32 个 CARRY4；改前改后一致 —— 因为 R2 不加宽）
+# puts "  --- DSP 账目（R3 的 n_oob·cin 小乘法应落在 1 个 DSP48E1上）---"
+  --- DSP 账目（R3 的 n_oob·cin 小乘法应落在 1 个 DSP48E1上）---
+# set bu [get_cells -quiet -hier -filter {NAME =~ *bin_unit_0* && IS_SEQUENTIAL == 0}]
+# set ndsp_all [llength [get_cells -hier -quiet -filter {REF_NAME == DSP48E1}]]
+# set ndsp_bin [llength [get_cells -quiet -hier -filter {NAME =~ *u_bin_unit* && REF_NAME == DSP48E1}]]
+# puts "    整设计 DSP48E1 = $ndsp_all     bin_unit 内 = $ndsp_bin（v57 时代 bin_unit 是 16）"
+    整设计 DSP48E1 = 102     bin_unit 内 = 49（v57 时代 bin_unit 是 16）
+# puts ""
+
+# puts "REPORT_AT_RUNPOINT_DONE  工作点WNS=$w  违例=[llength $allp]  TNS=$tns"
+REPORT_AT_RUNPOINT_DONE  工作点WNS=7.878  违例=0  TNS=0.0
+INFO: [Common 17-206] Exiting Vivado at Wed Nov  4 16:59:03 2026...

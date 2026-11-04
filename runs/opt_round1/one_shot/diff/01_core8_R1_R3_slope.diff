@@ -1,0 +1,200 @@
+--- orig/bin_conv_core8.v	2026-11-02 01:40:25.674193400 +0800
++++ /media/felix/Data/coding/demoir-fpga/pynq_specialized_code/pl/rtl_hand/modules/bin_conv_core8.v	2026-11-04 15:53:45.232493800 +0800
+@@ -58,8 +58,16 @@
+     parameter int WMAX     = 256,    // 每 oc 权重字数上限（K = C_B*k² ≤ 256）
+     parameter int EW       = 32,     // epilogue 数据通路位宽
+     parameter int ASH      = 9,      // alpha_shift（契约固定 9）
+-    parameter int SSH      = 8,      // slope_shift（契约固定 8）
+-    parameter int SHW      = 6       // 输出桶形级数：6 → shift∈[0,63]；4 → [0,15]
++    parameter int SSH      = 8,      // slope_shift（契约固定 8；v60 实测 12 是净退步 ⇒ 回退）
++    parameter int SHW      = 6,      // 输出桶形级数：6 → shift∈[0,63]；4 → [0,15]
++    // ---- v60 数值补丁开关（编译期常量，综合后常量折叠，无运行期开销）----
++    //   R1_ROUND = 1：`sat8(r>>>shift)` → `sat8((r+H)>>>shift)`，
++    //                 H = (shift==0)?0:1<<(shift-1)（R1-A：加半并入 gamma，见 §11b）
++    //   OOB_ZERO = 1：空间越界抽头贡献记 0（不再"送字 0 ⇒ xb=−1"）
++    //                 ⇒ pc 记 0 + 每像素补 +n_oob·cin（RTL_SPEC §R3(b)）
++    //   默认全开 = v60 语义；=0 时逐字节回到 v58 行为（A/B 与变异测试用）。
++    parameter bit R1_ROUND = 1'b1,
++    parameter bit OOB_ZERO = 1'b1
+ )(
+     input  logic        ap_clk,
+     input  logic        ap_rst_n,
+@@ -163,6 +171,9 @@
+     // 3. 锁存的配置 / 派生常量
+     // ========================================================================
+     logic [15:0] cout_q, k_q, h_q, w_q, cb_q, hout_q, wout_q;
++    // v60 R3(b)：真实通道数（层常量）。越界抽头的补偿量 = n_oob · cin，
++    //   所以必须锁一份 cin；与 cb_q 同一条装载路径（ST_IDLE）。
++    logic [15:0] cin_q;
+     logic [31:0] o_q;                        // 当前 oc 组起点（VLANES 的倍数）
+     logic [5:0]  ash_q, ssh_q, shift_q;      // ash/ssh 只给仿真断言用
+     logic [31:0] act_b, wgt_b, alpha_b, bias_b, zeta_b, gamma_b, slope_b, out_b;
+@@ -227,6 +238,7 @@
+     // 6. 读流水线登记（T 发读 → T+1 数据有效 → T+2 累加）
+     // ========================================================================
+     logic            r1_vld, r1_rd, r1_last, r1_bm1, r1_l0;
++    logic            r1_oobtap;      // v60 R3(b)：本拍是越界抽头的第一个 term
+     logic [15:0]     r1_b;
+     logic [31:0]     r1_oaddr;
+ 
+@@ -305,6 +317,33 @@
+     end
+ 
+     // ========================================================================
++    // 8b. ★ v60 R1-A：epilogue 四舍五入（把"半个输出 LSB"并进 gamma）
++    // ------------------------------------------------------------------------
++    //   目标语义：out = sat8((r + H) >>> shift)，H = (shift==0) ? 0 : 1<<(shift-1)。
++    //   R1-A 的成立依据（RTL_SPEC §R1）：RPReLU 的两支都是 `...+ gamma`（gamma
++    //   没有缩放）：正支 rp = dd + gamma、负支 r = (dd·slope)>>>SSH + gamma，
++    //   而**分支判据吃的是 dd（e2_ddpos_q），不吃 r** ⇒ 给 gamma 加 H 等价于给 r
++    //   加 H，且不会改变走哪一支。
++    //   ⇒ 数据通路 S1~S8 **零改动**；H 在进入 CMP 的那条边（cmp_init）一次性
++    //     打进 `gh_l`（每组一次），加法器的输入是准静态的 pw/shift_q 寄存器，
++    //     不在逐像素关键路径上。
++    //   ⚠ 半个 LSB 只在 q 域有意义：shift==0 时 LSB 就是 q 单位 ⇒ H=0（不加半）。
++    // ========================================================================
++    wire signed [EW-1:0] half_c = (shift_q == 6'd0)  ? {EW{1'b0}} :
++                                  (shift_q >= 6'd32) ? {1'b0, {(EW-1){1'b1}}} :  // 2^31−1（防坑）
++                                  $signed({{(EW-1){1'b0}}, 1'b1} <<< (shift_q - 6'd1));
++
++    logic signed [EW-1:0] gh_l [0:VLANES-1];   // gamma + H（R1-A 的落点）
++    always_ff @(posedge ap_clk or negedge ap_rst_n) begin
++        if (!ap_rst_n) begin
++            for (int k = 0; k < VLANES; k++) gh_l[k] <= '0;
++        end else if (ap_ce && cmp_init) begin
++            for (int k = 0; k < VLANES; k++)
++                gh_l[k] <= R1_ROUND ? (gamma_l[k] + half_c) : gamma_l[k];
++        end
++    end
++
++    // ========================================================================
+     // 9. 主读口（唯一）：参数 / 权重 / 激活 三选一
+     // ========================================================================
+     logic [31:0] rd_addr_q;
+@@ -327,6 +366,9 @@
+     // ========================================================================
+     logic [6:0]  s1_pc_q [0:VLANES-1];
+     logic        s1_v_q, s1_last_q, s1_l0_q;
++    logic        s1_oobtap_q;        // v60 R3(b)：越界抽头起始（s1 段对齐）
++    logic [4:0]  oob_cnt;            // v60 R3(b)：本像素累计的越界抽头数 0..k²(25)
++    logic [4:0]  oob_snap;           // v60 R3(b)：像素末拍快照（与 p_snap 同拍）
+     logic [31:0] s1_oa_q;
+     logic [15:0] p_acc  [0:VLANES-1];
+     logic [15:0] p_snap [0:VLANES-1];
+@@ -365,8 +407,12 @@
+             r1_oaddr <= oaddr_q;
+             r1_bm1   <= (b_q == cb_m1_q);
+             r1_l0    <= (l_q == {LW{1'b0}});
++            // v60 R3(b)：越界抽头的"起始"标记 = 该 tap 的第一个 64 通道组（b==0）
++            //   且**在界外**。每个抽头只在 b==0 这一拍计一次 ⇒ n_oob ∈ [0,k²]。
++            r1_oobtap <= (b_q == 16'd0) && !in_bounds;
+         end else if (ap_ce) begin
+             r1_vld <= 1'b0;
++            r1_oobtap <= 1'b0;
+         end
+     end
+ 
+@@ -374,13 +420,19 @@
+     always_ff @(posedge ap_clk or negedge ap_rst_n) begin
+         if (!ap_rst_n) begin
+             s1_v_q <= 1'b0; s1_last_q <= 1'b0; s1_l0_q <= 1'b1; s1_oa_q <= 32'd0;
++            s1_oobtap_q <= 1'b0;
+         end else if (ap_ce) begin
+             s1_v_q    <= r1_vld;
+             s1_last_q <= r1_vld & r1_last;
+             if (r1_vld) begin
+                 s1_l0_q <= r1_l0;
+                 s1_oa_q <= r1_oaddr;
+-                for (int k = 0; k < VLANES; k++) s1_pc_q[k] <= pc_c[k];
++                s1_oobtap_q <= r1_oobtap;
++                // ★ v60 R3(b)：越界抽头 pc 记 0（每 lane 一个 7-bit AND，纯 LUT2）
++                //   越界时 act 字是 0 ⇒ popcount(~w) = "wb=−1 的个数"，累进 d 就是 −Σwb。
++                //   记 0 后该 tap 的 d 贡献变成 −64/term，最后由 oob_snap·cin 补回。
++                for (int k = 0; k < VLANES; k++)
++                    s1_pc_q[k] <= (OOB_ZERO && !r1_rd) ? {7{1'b0}} : pc_c[k];
+             end
+         end
+     end
+@@ -389,6 +441,7 @@
+     always_ff @(posedge ap_clk or negedge ap_rst_n) begin
+         if (!ap_rst_n) begin
+             ps_vld <= 1'b0; osnap <= 32'd0;
++            oob_cnt <= 5'd0; oob_snap <= 5'd0;
+         end else if (ap_ce) begin
+             ps_vld <= s1_last_q;
+             if (s1_last_q) osnap <= s1_oa_q;
+@@ -397,6 +450,16 @@
+                     p_acc[k] <= sum_c[k];
+                     if (s1_last_q) p_snap[k] <= sum_c[k];
+                 end
++                // ★ v60 R3(b)：每像素的越界抽头计数。**唯一装载点**：
++                //   · 像素第一个 term（s1_l0_q）⇒ 计数器 = 本拍是否为越界抽头
++                //   · 其余 term ⇒ 只在"越界抽头起始"那一拍 +1（每个抽头只计一次）
++                //   ⇒ 不变量：oob_cnt ≡ 本像素 [0..当前 tap] 内越界抽头的个数。
++                if (s1_l0_q)             oob_cnt <= {4'd0, s1_oobtap_q};
++                else if (s1_oobtap_q)    oob_cnt <= oob_cnt + 5'd1;
++                // 像素末拍快照（与 p_snap 同拍，S1 用它做 d 的补偿）
++                if (s1_last_q)
++                    oob_snap <= s1_l0_q ? {4'd0, s1_oobtap_q}
++                                        : (oob_cnt + {4'd0, s1_oobtap_q});
+             end
+         end
+     end
+@@ -443,10 +506,19 @@
+     logic signed [EW-1:0]    neg_c   [0:VLANES-1];
+     logic signed [EW-1:0]    vsh_c   [0:VLANES-1];
+     logic [7:0]              sat8_c  [0:VLANES-1];
++    // ★ v60 R3(b)：越界抽头补偿量 = n_oob · cin（层常量 cin；n_oob ∈ [0,k²]）
++    //   数学：越界 tap 记 pc=0 后每 tap 的 d 贡献 = −64·C_B = −(cin+n_pad)，
++    //   而目标只是 −n_pad（补零通道的常数偏移由 bias_q 里的 n_pad_total·alpha_eff
++    //   抵掉，口径与 v58 完全一致）⇒ 每越界 tap 补回 +cin。
++    //   值域：n_oob ≤ 25、cin ≤ 65535 ⇒ 21 bit 足够；真实最大 25·640 = 16000。
++    logic [20:0] oob_add;
++    always_comb oob_add = {16'd0, oob_snap} * cin_q;
++
+     always_comb begin
+         for (int k = 0; k < VLANES; k++) begin
+             p_e[k]    = $signed({{(EW-16){1'b0}}, p_snap[k]});
+-            d_c[k]    = (p_e[k] <<< 1) - $signed(ntot_q[EW-1:0]);
++            d_c[k]    = (p_e[k] <<< 1) - $signed(ntot_q[EW-1:0])
++                        + (OOB_ZERO ? $signed({{(EW-21){1'b0}}, oob_add}) : {EW{1'b0}});
+             // 无损截断（见上面的值域证明）：|d| ≤ 2^14 < 2^15
+             d16[k]    = d_c[k][15:0];
+             qsh_c[k]  = e1_prod_q[k] >>> ASH;                 // 静态移位：0 LUT
+@@ -456,7 +528,9 @@
+             //   结果 S5 实际吃的是"下一个像素的 dd"，整条链晚一个像素。
+             pn_c[k]   = $signed(e2_dd_q[k]) * $signed(slope_l[k]);   // S3 寄存器 → S4
+             snw_c[k]  = $signed(e2_pn_q[k]) >>> SSH;                 // S4 寄存器 → S5
+-            neg_c[k]  = $signed(e2_sn_q[k]) + $signed(gamma_l[k]);   // S5 寄存器 → S6
++            // ★ v60 R1-A：两支都改用 gh_l = gamma + H（H 在 cmp_init 打进，
++            //   见 §8b）⇒ 这里仍是"寄存器 + 寄存器"，与改前的路径长度相同。
++            neg_c[k]  = $signed(e2_sn_q[k]) + $signed(gh_l[k]);     // S5 寄存器 → S6
+             vsh_c[k]  = arsh(e2_r_q[k], shift_q);              // S6 寄存器 → S7
+             // ★ S8 必须吃 S7 的**寄存器** e3_sh_q，不能吃 vsh_c（那是 S7 的输入）
+             sat8_c[k] = ((!e3_sh_q[k][EW-1]) && ( |e3_sh_q[k][EW-1:7])) ? 8'd127 :
+@@ -497,7 +571,7 @@
+                 a3_q <= a2_q;
+                 for (int k = 0; k < VLANES; k++) begin
+                     e2_dd_q[k]     <= dd_c[k];
+-                    e2_rp_q[k]     <= dd_c[k] + gamma_l[k];
++                    e2_rp_q[k]     <= dd_c[k] + gh_l[k];      // ★ v60 R1-A：gamma+H
+                     e2_ddpos_q[k]  <= (dd_c[k] > 0);
+                 end
+             end
+@@ -594,7 +668,7 @@
+             prm_i     <= 5'd0;
+             wl_l      <= 16'd0;  wl_lane <= 4'd0;  wl_b <= 16'd0;  wl_ph <= 1'b0;
+             dr_q      <= 4'd0;
+-            cout_q    <= 16'd0;  k_q       <= 16'd0;
++            cout_q    <= 16'd0;  k_q       <= 16'd0;  cin_q <= 16'd0;
+             h_q       <= 16'd0;  w_q       <= 16'd0;
+             cb_q      <= 16'd0;  hout_q    <= 16'd0;  wout_q    <= 16'd0;
+             cb_m1_q   <= 16'hFFFF; k_m1_q  <= 16'hFFFF;
+@@ -633,6 +707,7 @@
+                     zeta_b  <= base_zeta; gamma_b <= base_gamma;
+                     slope_b <= base_slope; out_b  <= base_out;
+                     cb_q    <= cb_c[15:0];
++                    cin_q   <= cfg_cin;                    // v60 R3(b)：补偿用的层常量
+                     kk_q    <= ckk_c;                      // k*k 先打一拍（拆 DSP）
+                     hout_q  <= hout_c;
+                     wout_q  <= wout_c;
