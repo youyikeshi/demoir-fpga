@@ -736,11 +736,13 @@ class DemoPlayer:
         if raw is not None:
             div = ((raw >> 8) & 0x3F) + 1
             fclk = (3200.0 / 3.0) / div        # IO_PLL 1066.67 / (DIV0+1)
+            lo = float(getattr(self.args, "fclk_min", 60.0))
+            hi = float(getattr(self.args, "fclk_max", 75.0))
             self.log("[hw] FCLK0 只读：FPGA0_CLK_CTRL=0x%08X → DIV0+1=%d ⇒ 真值 ≈ %.2f MHz"
-                     "（显示要 66.67）" % (raw, div, fclk))
-            if not (60.0 <= fclk <= 75.0):
-                raise SystemExit("[hw] !! FCLK0 真值 %.2f MHz 不在 60~75 ⇒ "
-                                 "请先把它设成写 100，再启动本程序。" % fclk)
+                     "（允许区间 %.1f~%.1f）" % (raw, div, fclk, lo, hi))
+            if not (lo <= fclk <= hi):
+                raise SystemExit("[hw] !! FCLK0 真值 %.2f MHz 不在 %.1f~%.1f ⇒ "
+                                 "请先把它设成写 100，再启动本程序。" % (fclk, lo, hi))
         self.log("[hw] setup 完成：CTRL=0x%02X｜0x2C 基线=%d｜未做任何软复位"
                  % (mp_ctrl(self.ctx), self.uf_baseline))
 
@@ -1089,6 +1091,10 @@ def _parse_args(argv=None):
     ap.add_argument("--pairs", default=DEFAULT_PAIRS, help="含 manifest.json 的目录")
     ap.add_argument("--bit", default=None, help="位流路径（默认自动找 /home/xilinx/demo/…）")
     ap.add_argument("--log", default=DEFAULT_LOG)
+    ap.add_argument("--fclk-min", type=float, default=60.0,
+                    help="FCLK0 真值下限（默认 60；v60 在 50.79 演示时要放开）")
+    ap.add_argument("--fclk-max", type=float, default=75.0,
+                    help="FCLK0 真值上限（默认 75）")
     ap.add_argument("--cadence", choices=("real", "fast"), default="real",
                     help="real=**默认**，6.2 s/张（= v57 真实算法吞吐，首帧也是 6.2）；"
                          "fast=1 fps（只用于对焦/试片）")
