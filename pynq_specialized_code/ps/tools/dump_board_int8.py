@@ -165,8 +165,15 @@ def tensor_stats(a: np.ndarray) -> dict:
 
 
 def to_u8(a: np.ndarray) -> np.ndarray:
-    """上屏口径：round(255*clip(x,0,1))（与 bin_fp_ref / 板端 to_uint8 同式）。"""
-    return np.rint(np.clip(np.asarray(a, dtype=np.float64), 0.0, 1.0) * 255.0).astype(np.uint8)
+    """上屏口径：round(255*clip(x,0,1))，并统一成 **(H,W,3)**。
+
+    ⚠ 必须与 `bin_fp_ref` / `float_to_u8` 的输出布局一致（它们给 HWC），
+    否则两侧 u8 的 sha1 永远对不上（2026-11-04 基线跑踩到：板端存成 CHW）。
+    """
+    q = np.rint(np.clip(np.asarray(a, dtype=np.float64), 0.0, 1.0) * 255.0).astype(np.uint8)
+    if q.ndim == 3 and q.shape[0] == 3:
+        q = np.ascontiguousarray(q.transpose(1, 2, 0))
+    return q
 
 
 # --------------------------------------------------------------------------
@@ -176,11 +183,14 @@ def main(argv=None) -> int:
     ap = argparse.ArgumentParser(description="板端 int8 输出 dump（PS↔PC 对拍）")
     ap.add_argument("--samples", help="冻结样本目录（NNNN_*.npy）")
     ap.add_argument("--index", default=None, help="index.json：断言 sha1/md5")
-    ap.add_argument("--pack", default="/home/xilinx/demoir/deploy/weights_pack")
+    ap.add_argument("--pack", default="/home/xilinx/demoir/deploy/bin_weights_new",
+                    help="权重包目录（板上实测位置；demo_pipeline 的 PACK_DEFAULT 同值）")
     ap.add_argument("--bit", default=None, help="位流（默认自动找）")
     ap.add_argument("--shape", type=int, default=256, help="网络边长（256/64）")
     ap.add_argument("--out", default="/home/xilinx/demo/dump_board")
     ap.add_argument("--limit", type=int, default=0, help="只跑前 N 张（0=全部）")
+    ap.add_argument("--skip", type=int, default=0,
+                    help="跳过前 N 张（配合 --limit 1 实现「一张一进程」，避免 1 GB 板子 OOM）")
     ap.add_argument("--slots", type=int, default=24, help="arena 槽数（板端实测 24）")
     ap.add_argument("--check-only", action="store_true", help="只查门禁/环境，不跑网络")
     ap.add_argument("--no-pipeline", action="store_true", help="关流水（严格串行，慢但好查）")
@@ -198,6 +208,8 @@ def main(argv=None) -> int:
     files = sorted(glob.glob(os.path.join(a.samples, "*.npy")))
     if not files:
         raise SystemExit("[samples] %s 下没有 .npy" % a.samples)
+    if a.skip:
+        files = files[a.skip:]
     if a.limit:
         files = files[:a.limit]
     print("[samples] %d 张：%s" % (len(files), [os.path.basename(f) for f in files]))
@@ -208,6 +220,8 @@ def main(argv=None) -> int:
     if a.index and os.path.exists(a.index):
         with open(a.index, encoding="utf-8") as f:
             idx = json.load(f)
+        if isinstance(idx, dict) and "items" in idx:      # index.json 的正式格式
+            idx = idx["items"]
         print("[samples] 载入 index：%d 条" % len(idx))
 
     # ---- 只建这一次 BinNet（硬约束 1）----------------------------------
@@ -235,8 +249,13 @@ def main(argv=None) -> int:
             from pynq import Clocks
             Clocks.fclk0_mhz = fclk
             time.sleep(0.3)
-            print("[clk] 已设报数 %g（真值 %g）" % (fclk, fclk / 1.5))
-            env["fclk_set"] = fclk
+            rep = float(Clocks.fclk0_mhz)
+            mhz2, raw2 = fclk_true_mhz()          # 只信 SLCR 解出来的真值
+            print("[clk] 已设报数 %g → 读回报数 %.1f → SLCR 0x%08X ⇒ 真值 %.2f MHz"
+                  % (fclk, rep, raw2, mhz2))
+            env.update(fclk_set_reported=fclk, fclk_readback_reported=rep,
+                       fclk_true_after=round(mhz2, 2),
+                       fpga0_clk_ctrl_after="0x%08X" % raw2)
     except Exception as e:
         print("[clk] 设置时钟失败（继续）：%s" % e)
 
@@ -248,11 +267,25 @@ def main(argv=None) -> int:
     except Exception:
         pass
 
+    # ---- arena 只建一次，N 张复用（否则每张 run() 都新分配 ⇒ 1 GB 板子被 OOM kill）----
+    #   实测 2026-11-04：不传 arena 时第 2 张就被 Killed。
+    pre = []
+    for fp in files:
+        x0, info = norm_input(fp)
+        pre.append((os.path.splitext(os.path.basename(fp))[0], fp, x0, info))
+    g0, _o0, _t0 = net.build_graph(pre[0][2])
+    conv = [o for o in g0.ops if o.kind == "conv"]
+    need = (max(o.layer.act_bytes for o in conv)
+            + max(o.layer.out_bytes for o in conv) + 4096) * max(2, int(a.slots)) + (1 << 16)
+    arena = BE.BinArena(need, name="dump_arena")
+    env["arena_bytes"] = int(need)
+    env["arena_slots"] = max(2, int(a.slots))
+    print("[arena] %.2f MB（%d 槽）@0x%08X  — 5 张复用同一个"
+          % (need / 1e6, max(2, int(a.slots)), int(arena.buf.physical_address)))
+
     os.makedirs(a.out, exist_ok=True)
     rows = []
-    for i, fp in enumerate(files):
-        tag = os.path.splitext(os.path.basename(fp))[0]
-        x0, info = norm_input(fp)
+    for i, (tag, fp, x0, info) in enumerate(pre):
         exp = idx.get(tag) or idx.get(os.path.basename(fp)) or {}
         if exp.get("md5") and exp["md5"] != info["md5"]:
             raise SystemExit("[samples] %s md5 不符（index %s / 实读 %s）"
@@ -265,8 +298,9 @@ def main(argv=None) -> int:
         os.makedirs(d, exist_ok=True)
         np.save(os.path.join(d, "input_f32.npy"), x0)
 
+        arena.reset()
         t0 = time.time()
-        outs, st = net.run(x0, pipeline=not a.no_pipeline, nbuf=2)
+        outs, st = net.run(x0, pipeline=not a.no_pipeline, nbuf=2, arena=arena)
         dur = time.time() - t0
 
         rec = {"i": i, "tag": tag, "input": info,
