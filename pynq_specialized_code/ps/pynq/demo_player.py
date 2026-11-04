@@ -1086,9 +1086,10 @@ def _parse_args(argv=None):
     ap.add_argument("--pairs", default=DEFAULT_PAIRS, help="含 manifest.json 的目录")
     ap.add_argument("--bit", default=None, help="位流路径（默认自动找 /home/xilinx/demo/…）")
     ap.add_argument("--log", default=DEFAULT_LOG)
-    ap.add_argument("--cadence", choices=("real", "fast"), default="real",
-                    help="real=按 v57 实测节奏（首帧 13.5 s，其后 6.2 s/张）；"
-                         "fast=1 fps 观感（默认 real）")
+    ap.add_argument("--cadence", choices=("real", "fast"), default="fast",
+                    help="fast=1 fps（默认，用户规格：收到 START 后一秒一帧）；"
+                         "real=按 v57 真实算法耗时（首帧 13.5 s，其后 6.2 s/张），"
+                         "仅供「诚实对比」演示，不是交付默认")
     ap.add_argument("--period", type=float, default=None,
                     help="每对显示秒数；不填则按 --cadence（real=6.2 / fast=1.0）")
     ap.add_argument("--first-period", type=float, default=None,
@@ -1249,8 +1250,10 @@ def _selfcheck_geometry(log) -> dict:
 def main(argv=None) -> int:
     a = _parse_args(argv)
     # ---- cadence → 具体节奏 -------------------------------------------------
-    # v57 @75 MHz 实测：首轮 13.5 s（含一次性探针 ≈6.2 s），后续 6.2 s/张
-    #   ⇒ t_first = START + 13.5 s，之后每 6.2 s 一张
+    # ⚠ 演示默认 fast（=1 fps）：用户规格是"收到 START 后**一秒一帧**"。
+    #   演示播的是**预生成的成品图对**，与"算法算一张要多久"无关。
+    #   --cadence real 仅供"诚实对比"（v57 @75 MHz 实测：首轮 13.5 s，其后 6.2 s/张），
+    #   **不得**作为默认值——那会把"计算速度"和"播放速度"混为一谈。
     if a.period is None:
         a.period = CADENCE_REAL_PERIOD if a.cadence == "real" else 1.0
     if a.first_period is None:

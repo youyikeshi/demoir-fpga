@@ -141,28 +141,34 @@ $SUDO env XILINX_XRT=/usr $PYB -u demo_player.py --pairs /home/xilinx/demo/pairs
 > 三种跑法**只差命令行参数**，代码一条不改。
 
 
-## 1.6 演示节奏（`--cadence`）——对齐 v57 真实吞吐
+## 1.6 演示节奏：**默认 1 fps**；`--cadence real` 只用于"诚实对比"
 
-v57 @75 MHz 实测：**首轮 13.5 s（含一次性探针 ≈6.2 s），后续 6.2 s/张**
-（`docs/camera/09_板端验收清单.md` D3；`runs/ACCEPT_v57/README.md`：256² 墙钟 6.198~6.234 s）
+**交付默认 = 1 fps**（用户规格原话：「接收到开始信号后**一秒一帧**的速度切换」）：
 
 ```bash
-# real（默认）：START → 13.5 s 出第一张 → 之后 6.2 s/张
+# 默认（不加参数就是这个）：START → 1.0 s 出第一张 → 之后 1.0 s/张
 demo_player.py --pairs /home/xilinx/demo/pairs100 --loops 0
-# fast：1 fps 观感（原来那套）
-demo_player.py --pairs /home/xilinx/demo/pairs100 --loops 0 --cadence fast
-# 手工指定也行（此时 cadence 的默认值被覆盖）
-demo_player.py --pairs ... --start-delay 13.5 --period 6.2
+# 等价写法
+demo_player.py ... --cadence fast          # 或 --start-delay 1.0 --period 1.0
 ```
 
-- 时刻表仍是**绝对网格**：`t_k = START + 13.5 + k*6.2`（与"延迟期间屏幕不动"的协议语义一致）
-- 一轮 100 对：`real` = 13.5 + 99×6.2 ≈ **10 分 27 秒**；`fast` = 100 s
-- 开机自启服务用哪套，由 `demo-player.service` 的 `Environment=DELAY/PERIOD` 决定：
-  ```
-  DELAY=13.5  PERIOD=6.2   → real（当前入库值）
-  DELAY=1.0   PERIOD=1.0   → fast（1 fps）
-  ```
-- ⚠ 板上现在**关机**；这套 env 要下次开机前 `sudo systemctl edit demo-player` 或重装 unit 才生效。
+> **演示播的是预生成的成品图对**，与"算法算一张要多久"是两件事。
+> **真实的板端算法约 0.16 fps（6.2 s/张）** —— 速度用这句话/数据说明，**不要用播放节奏去暗示**。
+
+**只有当有人问"真实算法到底多快"时**，才显式开对比档（v57 @75 MHz 实测：首轮 13.5 s 含一次性探针，其后 6.2 s/张）：
+
+```bash
+demo_player.py --pairs /home/xilinx/demo/pairs100 --loops 0 --cadence real
+# 等价：--start-delay 13.5 --period 6.2     （一轮 100 对 ≈ 10 分 27 秒）
+```
+
+时刻表始终是**绝对网格**：`t_k = START + first + k*period`；显示通路两种模式完全一致。
+
+开机自启用哪套由 `demo-player.service` 的 env 决定（**仓库入库值是 fast**）：
+```
+DELAY=1.0   PERIOD=1.0   → 1 fps（默认，当前入库值）
+DELAY=13.5  PERIOD=6.2   → real（仅用于对比演示）
+```
 
 ## 2. 相机侧命令（MaixCAM）
 
