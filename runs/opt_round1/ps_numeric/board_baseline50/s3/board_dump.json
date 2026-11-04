@@ -1,0 +1,148 @@
+{
+ "version": 1,
+ "env": {
+  "fpga_state": "operating",
+  "fclk_true_mhz": 50.79,
+  "fpga0_clk_ctrl": "0x00101400",
+  "pack": "/home/xilinx/demoir/deploy/bin_weights_new",
+  "shape": 256,
+  "slots": 24,
+  "argv": [
+   "../tools/dump_board_int8.py",
+   "--samples",
+   "/home/xilinx/demo/frozen256",
+   "--index",
+   "/home/xilinx/demo/frozen256/index.json",
+   "--shape",
+   "256",
+   "--skip",
+   "3",
+   "--limit",
+   "1",
+   "--out",
+   "/home/xilinx/demo/dump_baseline50/s3"
+  ],
+  "when": "2025-05-09 22:20:22",
+  "bit": "/home/xilinx/demo/design_1_v58.bit",
+  "bit_md5": "555c22cf29a1482f8d6050645190fe92",
+  "ps_md5": {
+   "bin_net.py": "0990948de490eb6ba6d4aaefbcafa355",
+   "bin_engine.py": "2fd3d0990c47151fe3bc06544b8adb64"
+  },
+  "fclk_set_reported": 75.0,
+  "fclk_readback_reported": 75.0,
+  "fclk_true_after": 50.79,
+  "fpga0_clk_ctrl_after": "0x00101400",
+  "arena_bytes": 66224128,
+  "arena_slots": 24
+ },
+ "samples": [
+  {
+   "i": 0,
+   "tag": "p0067_crop256",
+   "input": {
+    "file": "p0067_crop256.npy",
+    "raw_shape": [
+     256,
+     256,
+     3
+    ],
+    "raw_dtype": "uint8",
+    "md5": "70043b5a003c48b8bdb1f6db8fa2e48e",
+    "divided_by_255": true,
+    "in_sha1": "c13eb436ed6f4709f16f4422b86aca6f4f4dec7a"
+   },
+   "warmup": true,
+   "wall_s": 17.7445,
+   "total_s": 17.728156805038452,
+   "pl_s": 3.9354801177978516,
+   "ps_s": 15.956552174204035,
+   "overlap": 3.0684385299682617,
+   "mmio": 3194,
+   "tensors": {
+    "out1": {
+     "shape": [
+      3,
+      256,
+      256
+     ],
+     "dtype": "float32",
+     "min": 0.09744490683078766,
+     "max": 0.7010799050331116,
+     "mean": 0.4173933267593384,
+     "std": 0.04977917671203613,
+     "sha1": "0ef08a79f7418fe4f57ebeb237fbe7567445c971",
+     "u8": {
+      "shape": [
+       3,
+       256,
+       256
+      ],
+      "dtype": "uint8",
+      "min": 25.0,
+      "max": 179.0,
+      "mean": 106.43564860026042,
+      "std": 12.697607129584432,
+      "sha1": "2dddc3d5dcb65a03acc5e1c91de68d78f90dd066"
+     }
+    },
+    "out2": {
+     "shape": [
+      3,
+      128,
+      128
+     ],
+     "dtype": "float32",
+     "min": 0.7082937359809875,
+     "max": 1.424859881401062,
+     "mean": 1.0484050512313843,
+     "std": 0.08685416728258133,
+     "sha1": "d460b9105d98b1d87a9adc68e27e5807ea0abcea",
+     "u8": {
+      "shape": [
+       3,
+       128,
+       128
+      ],
+      "dtype": "uint8",
+      "min": 181.0,
+      "max": 255.0,
+      "mean": 250.764892578125,
+      "std": 7.5444606357269475,
+      "sha1": "9e7dc26ecdddf6c3601365568377a6ca6beb7bac"
+     }
+    },
+    "out3": {
+     "shape": [
+      3,
+      64,
+      64
+     ],
+     "dtype": "float32",
+     "min": -0.06669551879167557,
+     "max": 2.566352367401123,
+     "mean": 0.6665518879890442,
+     "std": 0.13420610129833221,
+     "sha1": "42ea10d1c99ee5751ec3908decf393cee3e22c12",
+     "u8": {
+      "shape": [
+       3,
+       64,
+       64
+      ],
+      "dtype": "uint8",
+      "min": 0.0,
+      "max": 255.0,
+      "mean": 168.14217122395834,
+      "std": 24.51497706493155,
+      "sha1": "ee377a1cc5cd67d72c235f63b14b8f64af4afaa0"
+     }
+    }
+   },
+   "int8": {}
+  }
+ ],
+ "warm_rows": [],
+ "timing_note": "第 0 张含内核 load/自检（1.4~1.9 s/个）⇒ 稳态看 warm_rows",
+ "gate_hint": "主机侧：A1 max|Δu8| ≤ 1 LSB；A2 rel_rms ≤ 0.01；A3 ≥3 张"
+}

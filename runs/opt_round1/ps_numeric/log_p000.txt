@@ -1,0 +1,20 @@
+[probe] 输入 (3, 256, 256)  range [0.0000, 1.0000] mean 0.8252
+[DEPS] q8=fast c8deq=fast bpack=fast e1e2=fast catpack=fast safe=fast  ⇒ deps_closure_ok=True
+  base                   rel_rms=0.5153 corr=+0.0085  max|Δu8|=192  mean|Δu8|=111.12  PSNR= 7.14 dB   mean 0.852→0.417  std 0.035→0.046
+     最差 5 层：conv_post=6.089  primary_conv=1.848  1=1.844  primary_conv=1.807  primary_conv=1.752
+     第一处 rel_rms>0.02：encoder.encoder_1.rdb.conv_layers.0.conv (0.1527)
+  fix:thr+rnd            rel_rms=0.0509 corr=+0.5280  max|Δu8|=101  mean|Δu8|= 8.77  PSNR=27.24 dB   mean 0.852→0.835  std 0.035→0.045
+     最差 5 层：cheap_operation=1.316  cheap_operation=1.284  cheap_operation=1.175  cheap_operation=1.163  primary_conv=1.127
+     第一处 rel_rms>0.02：encoder.encoder_1.rdb.conv_layers.0.conv (0.1254)
+  fix:+oob0              rel_rms=0.0462 corr=+0.5564  max|Δu8|= 39  mean|Δu8|= 7.97  PSNR=28.08 dB   mean 0.852→0.872  std 0.035→0.038
+     最差 5 层：cheap_operation=1.205  primary_conv=1.124  cheap_operation=1.035  cheap_operation=1.021  primary_conv=1.004
+     第一处 rel_rms>0.02：encoder.encoder_1.rdb.conv_layers.1.conv (0.1281)
+  mut:thr=off            rel_rms=0.3613 corr=+0.2843  max|Δu8|=147  mean|Δu8|=77.89  PSNR=10.22 dB   mean 0.852→0.547  std 0.035→0.034
+     最差 5 层：conv_post=4.906  primary_conv=1.736  primary_conv=1.501  primary_conv=1.403  cheap_operation=1.399
+     第一处 rel_rms>0.02：encoder.encoder_1.rdb.conv_layers.0.conv (0.1517)
+[probe] base         本次浮点 out1 vs 冻结 p000_out1.npy : rel_rms=0.000e+00 corr=1.000000
+[flip] base           翻错率: t_q 判据 中位 9.11% / 最大 54.08%  |  f32 阈值 中位 0.00% / 最大 0.00%  |  t_q=0 但 t>0 的通道 12077/40304
+[flip] fix:thr+rnd    翻错率: t_q 判据 中位 9.11% / 最大 54.08%  |  f32 阈值 中位 0.00% / 最大 0.00%  |  t_q=0 但 t>0 的通道 12077/40304
+[flip] fix:+oob0      翻错率: t_q 判据 中位 9.11% / 最大 54.08%  |  f32 阈值 中位 0.00% / 最大 0.00%  |  t_q=0 但 t>0 的通道 12077/40304
+[flip] mut:thr=off    翻错率: t_q 判据 中位 9.11% / 最大 54.08%  |  f32 阈值 中位 0.00% / 最大 0.00%  |  t_q=0 但 t>0 的通道 12077/40304
+[probe] → verify_p000.json

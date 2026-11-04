@@ -1,0 +1,20 @@
+[probe] 输入 (3, 256, 256)  range [0.0000, 1.0000] mean 0.4643
+[DEPS] q8=fast c8deq=fast bpack=fast e1e2=fast catpack=fast safe=fast  ⇒ deps_closure_ok=True
+  base                   rel_rms=0.2522 corr=+0.6091  max|Δu8|=107  mean|Δu8|=21.59  PSNR=19.76 dB   mean 0.387→0.377  std 0.127→0.058
+     最差 5 层：conv_post=6.894  conv_post=2.569  1=1.854  2=1.746  0=1.480
+     第一处 rel_rms>0.02：encoder.encoder_1.rdb.conv_layers.0.conv (0.2021)
+  fix:thr+rnd            rel_rms=0.3312 corr=+0.9108  max|Δu8|= 82  mean|Δu8|=31.96  PSNR=17.39 dB   mean 0.387→0.512  std 0.127→0.116
+     最差 5 层：cheap_operation=1.101  cheap_operation=1.054  cheap_operation=1.007  primary_conv=0.987  2=0.966
+     第一处 rel_rms>0.02：encoder.encoder_1.rdb.conv_layers.0.conv (0.1649)
+  fix:+oob0              rel_rms=0.2987 corr=+0.9259  max|Δu8|= 70  mean|Δu8|=28.74  PSNR=18.29 dB   mean 0.387→0.499  std 0.127→0.113
+     最差 5 层：cheap_operation=1.009  cheap_operation=0.980  primary_conv=0.976  cheap_operation=0.951  2=0.949
+     第一处 rel_rms>0.02：encoder.encoder_1.rdb.conv_layers.0.conv (0.0232)
+  mut:thr=off            rel_rms=0.2462 corr=+0.7487  max|Δu8|= 94  mean|Δu8|=21.73  PSNR=19.97 dB   mean 0.387→0.417  std 0.127→0.048
+     最差 5 层：conv_post=3.810  cheap_operation=1.558  cheap_operation=1.412  0=1.360  2=1.330
+     第一处 rel_rms>0.02：encoder.encoder_1.rdb.conv_layers.0.conv (0.2025)
+[probe] base         本次浮点 out1 vs 冻结 p001_out1.npy : rel_rms=0.000e+00 corr=1.000000
+[flip] base           翻错率: t_q 判据 中位 7.99% / 最大 49.73%  |  f32 阈值 中位 0.00% / 最大 0.00%  |  t_q=0 但 t>0 的通道 12077/40304
+[flip] fix:thr+rnd    翻错率: t_q 判据 中位 7.99% / 最大 49.73%  |  f32 阈值 中位 0.00% / 最大 0.00%  |  t_q=0 但 t>0 的通道 12077/40304
+[flip] fix:+oob0      翻错率: t_q 判据 中位 7.99% / 最大 49.73%  |  f32 阈值 中位 0.00% / 最大 0.00%  |  t_q=0 但 t>0 的通道 12077/40304
+[flip] mut:thr=off    翻错率: t_q 判据 中位 7.99% / 最大 49.73%  |  f32 阈值 中位 0.00% / 最大 0.00%  |  t_q=0 但 t>0 的通道 12077/40304
+[probe] → verify_p001.json
