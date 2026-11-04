@@ -359,3 +359,60 @@ echo design_1_v58.bit | sudo tee /sys/class/fpga_manager/fpga0/firmware
 cat /sys/class/fpga_manager/fpga0/state       # 必须 == operating
 # ③ 现在才允许读寄存器 / 跑 minimal_proof / 跑播放器
 ```
+
+---
+
+## 增补：T-165 板端实测（2026-11-04）——v60 开跑前置 / v58 验收看 uf / 数值键口径
+
+> `runs/` 是冻结区，本文件是**待合并的增补文本**：把 §A 插到 runbook §0.0 之后，§B 插到 §6 禁令之前。
+
+## §A 每次开跑 v60 前必须做（否则第一句就 RuntimeError）
+
+```sh
+# ① PYNQ 的 psddr 描述必须存在
+SP=/usr/local/share/pynq-venv/lib/python3.10/site-packages/pynq/pl_server
+[ -f "$SP/global_pl_state_.json" ] || cp -p "$SP/global_pl_state_.json.bak_rec" "$SP/global_pl_state_.json"
+```
+为什么：`Overlay(..., download=False)` 会**删掉**这个文件（`pynq/pl_server/embedded_device.py:226 clear_global_state`），
+而 `run100.py` 的 `BinArena`（66.22 MB）分配发生在 `Overlay()` **之前**，那一刻只能靠它提供 `psddr`。
+缺失的症状是 `RuntimeError: Overlay is not downloaded` ——**看着像 CMA 不够，其实不是**。
+`/home/xilinx/pynq/pl_server` 与 `site-packages/pynq/pl_server` 是同一目录。
+
+解释器固定用 `/usr/local/share/pynq-venv/bin/python3`（`sudo` 下的 `python3` 没有 pynq/pydantic），
+且必须 `sudo -S -p '' env XILINX_XRT=/usr PYTHONPATH=<v60/ps>:<ps/pynq> BV_FREE=1 …`。
+
+## §B 换回 v58 后的验收：必须看**播放态**的 `uf`
+
+- `stop → 载 design_1_v58.bin → start` 之后，空闲态 `CTRL=0x15` 显示彩条、**不读 FB**，此时 `0x2C=0` 说明不了任何事；
+- 必须 **START 一次**，再看帧行里的 `uf=`（= `0x2C`）：
+  - `uf=0` ⇒ 正常（历史正常日志都是 0）；
+  - `uf` 以 **~43,000/s（每帧 +266k）** 涨 ⇒ **扫描 FSM 死 = 全黑**，`stop → reload v58.bin → start` 一次即愈。
+- 已知诱因：**"手动 sysfs 载位流 → `systemctl start`"** 这一路容易留下死 FSM
+  （`demo-boot` 见 state=operating 就不载流，bringup 成了唯一一次武装但时序已偏）。
+  稳妥做法：让 `demo-boot` 自己完成"载流 → bringup"，或显式再 reload 一次再 start。
+
+## §C 板端数值 runpoint 的口径（别再照抄主机的两个键）
+
+- `BIN_RTL_ROUND` / `BIN_CONV_OOB0` **只有 `bin_ref_numpy.py`（主机参考路径）读**，板端是空操作；
+- 板端有效的数值键：`BIN_PACK=ps`（启动行 `[DEPS] … pack=ps`）+ `BV_FREE=1` + 容器（`pack_clean`，只读）；
+- 判据里别把"主机 sha1"直接和板端 sha1 比：主机 `out1_u8` 是 `(3,256,256) CHW`，
+  板端 `compose` 用的 `hwc` 是 `(256,256,3) HWC` —— **必须约定同一种布局**再算 sha1，
+  否则 `p0000` 这种"只差 7 个像素 ±1 LSB"也会被判成"模型不一致"。
+
+
+## 增补：T-165 之后的 100 帧正式口径（2026-11-04，可引用）
+
+运行点：v60 位流 `db43e55a…`、`FCLK0` 真值 50.79 MHz（PYNQ 报数 75）、`FCLK1` 96.97 MHz（报数 150）、
+24 槽、arena 66.22 MB、显示复用缓冲 8.97 MB（一次性）、env 仅 `BV_FREE=1` + 两个 `PYTHONPATH`。
+
+100 帧实测（`runs/opt_round1/perf/t165/frames_100f.jsonl`）：
+- `0x2C` 全程 `{0}`；`0x24` 1→100；`latched` 100/100；`nb_disp` 恒 0.888889
+- `allocs` 恒 273、`allocs_disp` 全 0、`alloc_bytes` 恒 301,674,240 B
+- `run_ms` 中位 10502 ms（前 10 中位 10524 → 后 10 10509，无漂移）；中位帧间隔 10955 ms
+- 总 1087.3 s = 18.1 min；`out_sha1` 100/100 唯一；金丝雀 **0 次**（22,700 次层运行）
+- RSS 197.89 → 370.50 MB，f54 起 **44 帧零增长**；MemAvailable 最低 521.9 MB；SwapFree 未动
+
+内存形状判据（正式）：用"台阶"口径而非斜率——后 10 帧 `Δ≥4 MB` 台阶 ≤2 个、幅度和 ≤40 MB、
+最长 `Δ=0` 连续段 ≥5 帧；且 MemAvailable ≥150 MB、SwapFree 不得下降。
+（斜率口径会把 glibc 堆扩张误判成泄漏；`malloc_trim` 对照实验 Δ(5→20) = −14.6 MB 已定死是堆保留。）
+
