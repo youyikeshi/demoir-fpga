@@ -1,0 +1,25 @@
+[run100] BV_FREE=1  （启动第一行；默认由 os.environ.setdefault 设为 1）
+[run100] 参数：frames=5 shape=256 slots=24 dry_run=False engine=auto out=/home/xilinx/demo/logs/t165_5f
+[preflight] 容器 = /home/xilinx/demoir/deploy/v60/pack_clean（/home/xilinx/demoir/deploy/v60/pack_clean/index.json）
+[preflight] PL state = operating；位流 = /home/xilinx/demoir/deploy/v60/design_1_v60.bit（md5 db43e55aef20f3028250d749257def26）
+[inputs] 100 个文件，5 帧 ⇒ 顺序一遍
+[clk] FCLK0 SLCR=0x00101400 ⇒ 真值 50.79 MHz
+[net] 板端 BinNet + BinArena 66.22 MB（24 槽）—— 全程复用
+[net] 建网 16.30 s
+[disp] fpga0 state = operating
+[disp] 用 minimal_proof（/home/xilinx/demo/minimal_proof.py）的已验证 bringup
+[pl] PYNQ 已登记（download=False，1091 ms）—— allocate 可用
+[disp] 路径 = minimal_proof(/home/xilinx/demo/minimal_proof.py)
+[disp] display_layout = /home/xilinx/demoir/ps/pynq/display_layout.py（T-165 补丁版（带 out=/compose 原地写））
+[disp] 复用缓冲：显示 1280x720，整幅 2.76 MB + 复用块共 8.97 MB（一次性，见 [alloc]）
+[alloc] 分配探针已装（阈值 64 KB，包装 12 个 np.* 入口）
+[disp] 0x2C 基线 = 0；0x24 基线 = 0
+[mem] 开跑前：rss=93.2 MB  available=799.8 MB  cma=0.1 MB
+[DEPS] q8=fast c8deq=fast bpack=fast e1e2=fast catpack=fast safe=fast  ⇒ deps_closure_ok=True
+[DEPS] pack=ps（PS 打包，吃容器里的 f32 阈值 off_thr32） —— 正确性优先；要提速请显式 BIN_PACK=e1e2（会丢亚 LSB 阈值）
+Traceback (most recent call last):
+  File "/home/xilinx/demoir/deploy/v60/ps/run100.py", line 1160, in <module>
+    sys.exit(main())
+  File "/home/xilinx/demoir/deploy/v60/ps/run100.py", line 994, in main
+    fid = pipe.show_frame(compose_out)
+AttributeError: 'DisplayPipeline' object has no attribute 'show_frame'

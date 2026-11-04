@@ -1,0 +1,88 @@
+--- /tmp/t165_logs/display_demo.board.py	2026-11-04 20:40:30.912497343 +0800
++++ pynq_specialized_code/ps/pynq/display_demo.py	2026-11-03 17:23:40.956210800 +0800
+@@ -185,20 +185,35 @@
+     def fb_addr(self) -> int: return self._fb_addr
+ 
+     # ------------- 寄存器小工具 -------------
++    def _ensure_io(self):
++        """按需创建 ``MmapRegIo``（**允许在 setup() 之前发生**）。
++
++        为什么必须有这个：契约 §8.2 的板端协议是"**心跳先行**"——上板第一件事
++        只读 ``0x30``，确认像素时钟在跳，才允许碰别的寄存器（否则曾整板挂死）。
++        而 ``setup()`` 内部会写 ``enable`` / ``VIDEO_MODE`` 等寄存器，
++        所以"读心跳"绝不可能等到 ``setup()`` 之后。
++        原先 ``_io`` 只在 ``setup()`` 里创建 ⇒ ``pix_alive()`` 提前调必崩
++        （``AttributeError: 'NoneType' object has no attribute 'read32'``）。
++
++        注入 ``reg_io`` 时（主机自检）此函数是纯 no-op，不碰 pynq。
++        """
++        if self._io is None:
++            self._io = ho.MmapRegIo(self.BASE)
++            self._owns_io = True
++        return self._io
++
+     def _wr(self, name: str, value: int) -> None:
+-        self._io.write32(ho.REG[name], int(value) & 0xFFFF_FFFF)
++        self._ensure_io().write32(ho.REG[name], int(value) & 0xFFFF_FFFF)
+ 
+     def _rd(self, name: str) -> int:
+-        return int(self._io.read32(ho.REG[name])) & 0xFFFF_FFFF
++        return int(self._ensure_io().read32(ho.REG[name])) & 0xFFFF_FFFF
+ 
+     # ------------- 生命周期 -------------
+     def setup(self) -> "DisplayPipeline":
+         """分配双缓冲 → 切模式（契约协议）→ 写几何 → ``enable=1``。"""
+         d = self.mode_def
+         self._check_stride(stride_of(d))
+-        if self._io is None:
+-            self._io = ho.MmapRegIo(self.BASE)
+-            self._owns_io = True
++        self._ensure_io()
+         if self._out is None:
+             self._out = ho.HdmiOut(self.BASE, reg_io=self._io, mode=self._mode)
+         self._ensure_buffers()
+@@ -258,11 +273,23 @@
+         return int(frame_id) & 1
+ 
+     def show(self, orig: np.ndarray, proc: np.ndarray) -> int:
+-        """构图 → 写**后台块** → ``FRAME_ID += 1``（顺序即原子性）→ 返回新帧号。"""
++        """构图 → :meth:`show_frame`（写后台块 → ``FRAME_ID += 1``）→ 返回新帧号。"""
+         if self._out is None or self._blocks is None:
+             raise ho.RegError("还没 setup()：先分配双缓冲并配置 PL")
+         d = self.mode_def
+-        frame = compose(orig, proc, d.W, d.H)  # 含上下黑边；只调用 compose
++        return self.show_frame(compose(orig, proc, d.W, d.H))  # 含上下黑边；只调用 compose
++
++    def show_frame(self, frame: np.ndarray) -> int:
++        """把**已经 compose 好的**整幅画面写后台块并换帧（语义与 :meth:`show` 相同）。
++
++        为什么要拆出来：分段计时需要"构图"与"写块+换帧"各自计时；只给
++        ``show(orig, proc)`` 的话，调用方为了计时就得把 ``compose()`` 跑两遍。
++        本方法是**新增**，``show()`` 改为委派给它 —— 顺序（①整帧先落地 → ②再翻
++        ``FRAME_ID``）、寄存器时序、返回值一字未动，且 ``tools/display_e2e_selftest.py``
++        的 103 条判据覆盖这条路径。
++        """
++        if self._out is None or self._blocks is None:
++            raise ho.RegError("还没 setup()：先分配双缓冲并配置 PL")
+         self._check_frame(frame)
+         fid = (self._frame_id + 1) & 0xFFFF_FFFF
+         self._write_block(self._slot(fid), frame)  # ① 整帧先落地
+@@ -299,6 +326,10 @@
+             time.sleep(0)
+ 
+     # ------------- 诊断 -------------
++    def mmcm_locked(self) -> bool:
++        """``0x30[1]``：MMCM 是否锁定（**只上报状态，绝不进复位**，契约 §8.5）。"""
++        return bool(self._rd("PIX_HB") & 0x2)
++
+     def pix_alive(self, window_ms: float = 100) -> tuple[bool, float]:
+         """有界窗口内数 ``0x30[0]`` 的翻转沿 ⇒ ``(活?, 反推像素时钟 MHz)``。
+ 
+@@ -307,6 +338,7 @@
+         """
+         if not (window_ms > 0):
+             raise ValueError(f"window_ms 必须 > 0，得到 {window_ms}")
++        self._ensure_io()          # 循环外解析一次：setup() 之前也能读，且热循环不加开销
+         t_end = time.monotonic() + window_ms / 1000.0
+         last, edges = None, 0
+         t_first = t_last = time.monotonic()

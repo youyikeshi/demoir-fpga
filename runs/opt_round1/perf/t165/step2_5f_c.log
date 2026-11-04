@@ -1,0 +1,21 @@
+[run100] BV_FREE=1  （启动第一行；默认由 os.environ.setdefault 设为 1）
+[run100] 参数：frames=5 shape=256 slots=24 dry_run=False engine=auto out=/home/xilinx/demo/logs/t165_5f
+[preflight] 容器 = /home/xilinx/demoir/deploy/v60/pack_clean（/home/xilinx/demoir/deploy/v60/pack_clean/index.json）
+[preflight] PL state = operating；位流 = /home/xilinx/demoir/deploy/v60/design_1_v60.bit（md5 db43e55aef20f3028250d749257def26）
+[inputs] 100 个文件，5 帧 ⇒ 顺序一遍
+Traceback (most recent call last):
+  File "/home/xilinx/demoir/deploy/v60/ps/run100.py", line 1160, in <module>
+    sys.exit(main())
+  File "/home/xilinx/demoir/deploy/v60/ps/run100.py", line 827, in main
+    net, arena, need = build_board_net(a.pack, a.bit, a.shape, a.slots, a.fclk)
+  File "/home/xilinx/demoir/deploy/v60/ps/run100.py", line 436, in build_board_net
+    arena = BE.BinArena(need, name="run100_arena")
+  File "/home/xilinx/demoir/deploy/v60/ps/bin_engine.py", line 459, in __init__
+    self.buf = _pynq_allocate(shape=(size,), dtype=np.uint8)
+  File "/usr/local/share/pynq-venv/lib/python3.10/site-packages/pynq/buffer.py", line 159, in allocate
+    return target.allocate(shape, dtype, **kwargs)
+  File "/usr/local/share/pynq-venv/lib/python3.10/site-packages/pynq/pl_server/device.py", line 145, in allocate
+    return self.default_memory.allocate(shape, dtype, **kwargs)
+  File "/usr/local/share/pynq-venv/lib/python3.10/site-packages/pynq/pl_server/embedded_device.py", line 558, in default_memory
+    raise RuntimeError("Overlay is not downloaded")
+RuntimeError: Overlay is not downloaded

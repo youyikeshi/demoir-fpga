@@ -1,0 +1,21 @@
+== 0) 现状 ==
+operating
+inactive
+== 1) 时钟：FCLK0 报数 100 → 66.67；FCLK1 分频域 24 → 42.67 ==
+[pre-0x170] SLCR 0x170=0x00101400  field[13:8]=20 (+1=21) => 真值 50.79 MHz  PYNQ报数 75.0
+[pre-0x180] SLCR 0x180=0x00100A00  field[13:8]=10 (+1=11) => 真值 96.97 MHz  PYNQ报数 150.0
+[post-0x170] SLCR 0x170=0x00100F00  field[13:8]=15 (+1=16) => 真值 66.67 MHz  PYNQ报数 100.0
+[post-0x180] SLCR 0x180=0x00101800  field[13:8]=24 (+1=25) => 真值 42.67 MHz  PYNQ报数 62.5
+== 2) 停 demo-player（若在跑）==
+inactive
+(no player proc)
+== 3) 载 v58 位流（sysfs，.bin）==
+operating
+load rc=0
+operating
+== 4) 起 demo-player ==
+start rc=0
+9999 LISTEN 已就绪（等了 35 s）
+active
+LISTEN 0      8            0.0.0.0:9999       0.0.0.0:*          
+15965 /usr/local/share/pynq-venv/bin/python3 -u demo_player.py --pairs /home/xilinx/demo/pairs100 --loops 0 --start-delay 6.2 --period 6.2 --log /home/xilinx/demo/listen.log --pidfile /tmp/demo-player.pid

@@ -1,0 +1,31 @@
+[run100] BV_FREE=1  （启动第一行；默认由 os.environ.setdefault 设为 1）
+[run100] 参数：frames=5 shape=256 slots=24 dry_run=False engine=auto out=/home/xilinx/demo/logs/t165_5f
+[preflight] 容器 = /home/xilinx/demoir/deploy/v60/pack_clean（/home/xilinx/demoir/deploy/v60/pack_clean/index.json）
+[preflight] PL state = operating；位流 = /home/xilinx/demoir/deploy/v60/design_1_v60.bit（md5 db43e55aef20f3028250d749257def26）
+[inputs] 100 个文件，5 帧 ⇒ 顺序一遍
+[clk] FCLK0 SLCR=0x00101400 ⇒ 真值 50.79 MHz
+[net] 板端 BinNet + BinArena 66.22 MB（24 槽）—— 全程复用
+[net] 建网 16.42 s
+[disp] fpga0 state = operating
+[disp] 用 minimal_proof（/home/xilinx/demo/minimal_proof.py）的已验证 bringup
+[pl] PYNQ 已登记（download=False，1117 ms）—— allocate 可用
+[disp] 路径 = minimal_proof(/home/xilinx/demo/minimal_proof.py)
+[disp] display_layout = /home/xilinx/demoir/ps/pynq/display_layout.py（T-165 补丁版（带 out=/compose 原地写））
+[disp] 复用缓冲：显示 1280x720，整幅 2.76 MB + 复用块共 8.97 MB（一次性，见 [alloc]）
+[alloc] 分配探针已装（阈值 64 KB，包装 12 个 np.* 入口）
+[disp] 0x2C 基线 = 0；0x24 基线 = 0
+[mem] 开跑前：rss=89.9 MB  available=809.0 MB  cma=0.0 MB
+[DEPS] q8=fast c8deq=fast bpack=fast e1e2=fast catpack=fast safe=fast  ⇒ deps_closure_ok=True
+[DEPS] pack=ps（PS 打包，吃容器里的 f32 阈值 off_thr32） —— 正确性优先；要提速请显式 BIN_PACK=e1e2（会丢亚 LSB 阈值）
+[frame   1/5] p000_crop256.npy         run= 12050.3 ms post= 100.2 ms show=283.6 ms rss=  196.6 MB avail=  691.4 MB 0x2C=0 0x24=1 nb=1.000 nb_disp=0.889 allocs=287(disp 0) out=c991afd53a71  (warmup)
+[frame   2/5] p001_crop256.npy         run= 10568.5 ms post= 100.0 ms show=296.6 ms rss=  203.2 MB avail=  687.3 MB 0x2C=0 0x24=2 nb=1.000 nb_disp=0.889 allocs=273(disp 0) out=713a0be69eb5
+[frame   3/5] p002_crop256.npy         run= 10506.0 ms post=  99.5 ms show=294.7 ms rss=  209.2 MB avail=  687.7 MB 0x2C=0 0x24=3 nb=1.000 nb_disp=0.889 allocs=273(disp 0) out=9e106fa14c53
+[frame   4/5] p003_crop256.npy         run= 10551.1 ms post=  98.8 ms show=282.4 ms rss=  221.4 MB avail=  677.9 MB 0x2C=0 0x24=4 nb=1.000 nb_disp=0.889 allocs=273(disp 0) out=ce634ce81e6a
+[run100] ✗ 中止于第 4 帧：VmRSS 连续 3 帧单调增长 24.8 MB > 20.0 MB（196.6,203.2,209.2 ⇒ 221.4）
+[run100] → /home/xilinx/demo/logs/t165_5f/aborted.json
+[alloc] warmup 之后 3 帧：allocs=恒定 273  allocs_disp=恒定 0 ⇒ **PASS（每帧不再新建整幅数组）**
+[mem] 末态：rss=221.4 MB  available=677.9 MB  cma=0.0 MB
+[mem] VmRSS：首帧 196.6 → 末帧 221.4（Δ +24.8 MB，max 221.4，min 196.6）
+[mem] MemAvailable：首帧 691.4 → 末帧 677.9（Δ -13.5 MB）
+[disp] 0x2C：基线 0 → 末帧 0（增量 0）; 0x24 末值 4
+[run100] 完成 4/5 帧（**已中止**） → /home/xilinx/demo/logs/t165_5f/frames.jsonl
