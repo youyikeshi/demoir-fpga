@@ -170,16 +170,23 @@ DELAY=13.5 PERIOD=6.2  → 首轮含探针的诚实对比
 DELAY=1.0  PERIOD=1.0  → 1 fps（仅对焦/试片）
 ```
 
-### ⛔ 改节奏的硬规则：**先重载位流，再 restart**
+### ⛔ 改节奏/改代码的硬规则：**stop → 重载位流 → start**（不是 `reload → restart`！）
 
 ```sh
-cat /sys/class/fpga_manager/fpga0/state                    # 必须 operating
+sudo systemctl stop demo-player            # ① 先停（它的 SIGTERM 会写 0x15，落在【旧 PL】上，无害）
+cat /sys/class/fpga_manager/fpga0/state    # 必须 operating
 sudo sh -c 'echo design_1_v58.bin > /sys/class/fpga_manager/fpga0/firmware'
-cat /sys/class/fpga_manager/fpga0/state                    # 必须 operating
-sudo systemctl restart demo-player                         # 它在进程内只武装一次
+cat /sys/class/fpga_manager/fpga0/state    # 必须 operating（新 PL，寄存器全复位）
+sudo systemctl start demo-player           # ② 它的 bringup 才是这块 PL 上的**第一次**武装
 ```
-**只 `restart` 不重载位流 ⇒ 同一个 PL 上的第二次 `0x15→0x01` ⇒ 扫描 FSM 死 ⇒ 黑屏**
-（黑屏但 `0x2C=0`、`0x24` 照常跳 —— 极难查；2026-11-03 踩过一次）。
+
+**为什么不能 `reload → restart`（2026-11-04 实测踩到）**：
+`systemctl restart` = **先 SIGTERM 再 start**，那个 SIGTERM 会在**刚重载的新 PL** 上写一次 `CTRL=0x15`，
+随后 bringup 的 `0x15→0x01` 就成了**第二次武装** ⇒ 扫描 FSM 死。
+症状极具欺骗性：`CTRL=0x01`、`0x24=0`（未触发）、`state=operating`、`FCLK0=66.67` 全对，
+**但 `0x2C` 每秒涨 4.3 万**（= 720×60 行/秒，每一行都读空）⇒ 屏上全黑。
+
+**自检口诀**：稳态下 `0x2C` 必须**不涨**。`0x2C` 以 ~43,000/s 的速度涨 = 扫描 FSM 死了 = 重来一遍 `stop → reload → start`。
 
 ## 2. 相机侧命令（MaixCAM）
 

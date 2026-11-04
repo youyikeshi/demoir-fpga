@@ -1096,8 +1096,9 @@ def _parse_args(argv=None):
                     help="每对显示秒数；不填则按 --cadence（real=6.2 / fast=1.0）")
     ap.add_argument("--first-period", type=float, default=None,
                     help="第 1 帧之前的额外等待（START→首帧）；不填则 real=13.5 / fast=start-delay")
-    ap.add_argument("--start-delay", type=float, default=1.0,
-                    help="收到 START 后等多久才出第一帧（默认 1.0 s，可设 0）；"
+    ap.add_argument("--start-delay", type=float, default=None,
+                    help="收到 START 后等多久才出第一帧；不填则跟随 --period"
+                         "（real=6.2 / fast=1.0）。要「首轮含探针 13.5 s」就写 13.5。"
                          "期间屏幕保持原状态（彩条/黑）不闪")
     ap.add_argument("--loops", type=int, default=0, help="播几轮；0 = 无限（默认，靠 STOP 停）")
     ap.add_argument("--max-frames", type=int, default=0, help="本轮总帧数上限（测试用）")
@@ -1258,12 +1259,11 @@ def main(argv=None) -> int:
     #   --cadence fast（1 fps）只用于对焦/试片；要"首轮含探针 13.5"就显式 --first-period 13.5。
     if a.period is None:
         a.period = CADENCE_REAL_PERIOD if a.cadence == "real" else 1.0
-    if a.first_period is None:
-        # real：首帧 = 6.2（与后续一致，不额外空等）；fast：沿用 --start-delay
-        a.first_period = a.period if a.cadence == "real" else None
-    if a.first_period is not None:
-        # --first-period 直接定义 "START → 首帧"的总等待（覆盖 --start-delay 的 1.0 s）
-        a.start_delay = max(0.0, float(a.first_period))
+    # START → 首帧 的等待，优先级：--start-delay（显式，含 unit 的 DELAY）>
+    #   --first-period（显式）> 跟随 --period（real=6.2 / fast=1.0）
+    if a.start_delay is None:
+        a.start_delay = a.first_period if a.first_period is not None else a.period
+    a.start_delay = max(0.0, float(a.start_delay))
     if a.period <= 0:
         print("--period 必须 > 0", file=sys.stderr)
         return 3
