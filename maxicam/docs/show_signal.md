@@ -195,22 +195,41 @@ play stop    -> ACK STOP      rtt=22ms
 
 ---
 
-## 8. 电脑端放图程序（1 秒 1 张 + START）
+## 8. 电脑端放图程序（跟随板端节奏 + START）
 
-`apps/pc/play_demo.py`：全屏按**绝对时刻网格**放图（第 i 张 = t0 + i×1.000 s，不累积
-漂移），第一张上屏前先发 `{"t":"cmd","cmd":"play","state":"start"}`，结束发 `stop`。
+`apps/pc/play_demo.py`：全屏放图，第一张上屏前先发 `{"t":"cmd","cmd":"play","state":"start"}`，
+**结束不发 STOP**（板端 STOP 走 `0x15`，随后再 START 算新会话，容易黑屏；停板子用 SIGTERM）。
+
+### 8.1 节奏：2026-11-04 起板端改成 **6.2 s/张**
+
+同事在 restructure1 把 `demo_player.py` 的默认节奏定为 `--cadence real`：
+`--start-delay 6.2 --period 6.2`（= v57 @75 MHz 真实算法吞吐，256² 墙钟 6.198~6.234 s）。
+**电脑这边必须同步改成 6.2 s/张**，否则板子出到第 3 对时电脑已经翻到第 18 张。
+
+`play_demo.py` 默认就按这个来（`--cadence real`），并且默认是 **mirror** 模式：
+每 0.25 s 发一次幂等 START、读回板端 `<n>`，`n` 变了才换图、显示 `files[(n-1) % N]`。
+所以板端无论是 6.2 s/张、首帧 13.5 s（`--first-period 13.5`）、跳帧还是回绕，电脑都自动跟上，
+**不用手改 `--interval`**。
 
 ```bash
-# 正式：全屏 1 秒 1 张，先发 START 等 1 s（对齐板端 --start-delay）
-python3 apps/pc/play_demo.py --src shots/uhdm100/src --host 10.135.70.66
+# 正式：全屏，跟随板端 6.2 s/张（默认参数即可）
+python3 apps/pc/play_demo.py --src ../../../shots/uhdm100/src \
+    --list ../../../shots/uhdm100/playlist.txt --host 10.135.70.66
 
-# 只看节奏 / 联调信号
-python3 apps/pc/play_demo.py --src shots/uhdm100/src --dry-run
-python3 apps/pc/play_demo.py --src shots/uhdm100/src --no-gui --limit 5 --host 10.135.70.66
+# 1 fps 对焦/试片：板端也要 --cadence fast，电脑加同样的参数
+python3 apps/pc/play_demo.py --src ... --cadence fast --host 10.135.70.66
+
+# 板端没起 / 只想看电脑节奏
+python3 apps/pc/play_demo.py --src ... --no-mirror --host 10.135.70.66
+python3 apps/pc/play_demo.py --src ... --dry-run
+python3 apps/pc/play_demo.py --src ... --no-gui --limit 5 --host 10.135.70.66
 ```
 
-- 实测节奏：6 张累计漂移 **+0.7 ms**
-- 发信号**不等回包**（后台线程打印 ack），所以板子不在线也不会卡住播放
-- `--lead 0` 可关掉 1 s 预等待；`--loop 0` 无限循环
+- **`<n>` 是已播帧计数**（协议 v1 §5）：`n=3` 时板子屏上是第 2 号 ⇒ 电脑索引 = `n-1`
+  （`--n-offset 0` 可退回旧的 `n`）
+- 每 0.25 s 一个 START 是**幂等**的：板端播放中收到只回同一个 `<n>`，不碰 CTRL、不重置进度
+- `--log-csv sync.csv` 逐行记 `(时刻, n, 显示的图)`，录像核对同步用
+- grid 模式（`--no-mirror`）才用绝对网格：第 i 张 = t0 + lead + i×interval，实测漂移 **<1 ms**
+- `--loop 0` 无限循环（默认 1 = 跟完 100 张就退出）；`q` / `ESC` 退出，空格暂停
 
 板端地址按 restructure1 演示支线定稿：**`10.13.148.100:9999`**（相机 `10.13.148.1`）。

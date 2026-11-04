@@ -6,7 +6,7 @@
 
     python3 apps/pc/send_show.py --host 10.135.70.66 --idx 1
     python3 apps/pc/send_show.py --host 10.135.70.66 --ping
-    python3 apps/pc/send_show.py --host 10.135.70.66 --stop
+    python3 apps/pc/send_show.py --host 10.135.70.66 --start   # 幂等，播放中再发无副作用
 
 输出就是 MaixCAM 的 ack（含板端 reply / n / rtt_ms）。
 """
@@ -26,7 +26,8 @@ def main(argv=None):
     ap.add_argument("--tag", default="cli")
     ap.add_argument("--file", default="")
     ap.add_argument("--ping", action="store_true", help="只测板子连通")
-    ap.add_argument("--stop", action="store_true", help="发 play stop（板端回彩条）")
+    ap.add_argument("--stop", action="store_true",
+                    help="（本工程不用）板端 STOP 回彩条，之后再 START 属新会话")
     ap.add_argument("--start", action="store_true", help="发 play start")
     ap.add_argument("--timeout", type=float, default=8.0)
     args = ap.parse_args(argv)
@@ -36,7 +37,8 @@ def main(argv=None):
         if args.ping:
             ack = c._send_raw({"t": "cmd", "cmd": "ping"})
         elif args.stop:
-            print("已禁用 STOP：板端收到 STOP 会卡死；停板子只能 kill 进程。")
+            print("本工程不发 STOP：演示不需要它；STOP 之后再 START 属新会话，"
+                  "容易把播放进度搞乱。要停板子就用 SIGTERM（见 RECORD_RUNBOOK §1.6）。")
             return 2
         elif args.start:
             ack = c.play("start")

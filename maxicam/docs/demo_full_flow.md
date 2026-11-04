@@ -1,11 +1,15 @@
 # 演示全流程：电脑放图 → MaixCAM 触发 → 板子轮播
 
-> 适用范围：演示视频里「电脑屏幕按 1 秒 1 张翻页，相机对着屏幕拍，板子同步轮播左右对比图对」。
+> 适用范围：演示视频里「电脑屏幕按 **6.2 s/张** 翻页，相机对着屏幕拍，板子同步轮播左右对比图对」。
 > 本文把**电脑、相机、板子**三端的准备、启动、自检、收工、排障写成可照抄的步骤。
 >
 > 关键前提（先读）：**相机只负责发触发信号，不把照片传给板子**。板子播的是提前生成好的
 > `pairs/*.bin` 对比图对（v57 处理一帧约 6 s，做不到实时）。所以“相机拍照”在流程里的角色是
 > **被拍摄对象**，不是板子的数据源。
+>
+> ⚠️ **2026-11-04 板端节奏改动**：同事把 `demo_player.py` 默认节奏定为
+> `--cadence real` = `--start-delay 6.2 --period 6.2`（= v57 真实算法吞吐）。
+> 电脑侧 `play_demo.py` 默认同步改成 6.2 s/张（`--cadence real`），两边不要再一边 1 fps 一边 6.2 s。
 
 ---
 
@@ -15,7 +19,7 @@
 ┌──────────────┐   WiFi（同一热点/路由器）   ┌──────────────────┐
 │  电脑         │  8555 JSON（开始/停止）     │  MaixCAM Pro      │
 │ play_demo.py │ ─────────────────────────> │  wlan0 192.168.x  │
-│ 全屏 1 秒 1 张│                            │  usb1 10.13.148.1 │
+│ 全屏 6.2 s/张│                            │  usb1 10.13.148.1 │
 └──────────────┘                            └────────┬─────────┘
                                                      │ USB-C（NCM 网卡 + 供电）
                                                      │ TCP 9999 文本行（START/STOP/PING）
@@ -65,16 +69,20 @@
 ssh xilinx@192.168.7.2
 cd /home/xilinx/demo
 # 启动播放器（常驻等 START；--loops 0 = 无限）
+# 2026-11-04 起不加参数就是 6.2 s/张（--cadence real）
 echo xilinx | sudo -S -p '' env XILINX_XRT=/usr \
   /usr/local/share/pynq-venv/bin/python3 -u demo_player.py \
-  --pairs /home/xilinx/demo/pairs --loops 0 --period 1.0 --start-delay 1.0 \
+  --pairs /home/xilinx/demo/pairs100 --loops 0 \
   --log /home/xilinx/demo/player.log --pidfile /tmp/demo_player.pid
 ```
 
 启动约 **12 s**。就绪判据：日志出现 `camera should connect to 10.13.148.100:9999`，
 且 **9999 端口打开**（`ss -ltn | grep 9999` 或从相机侧 `nc`）。
 
-> 板端 `--period 1.0 --start-delay 1.0` 是本文所有时序假设的来源，改参数要同步改电脑侧 `--lead`。
+> 板端节奏 `--cadence real`（`--start-delay 6.2 --period 6.2`）是本文所有时序假设的来源。
+> 电脑侧默认就按 6.2 走（mirror 模式自动跟随），**改板端节奏不用改电脑**；
+> 只有显式用 `--cadence fast`（1 fps 对焦/试片）时两边要同时加这个参数。
+> 改板端节奏/代码的规矩是 **stop → 重载位流 → start**（见同事 `runs/demo_pairs/RECORD_RUNBOOK.md` §1.6）。
 
 ### 3.2 图对（决定“电脑第 N 张”和“板子第 N 对”是不是同一张）
 
@@ -89,7 +97,7 @@ python3 tools/prepare_demo_pairs.py --mode frames ...
 
 生成后按他们的流程拷到板子 `/home/xilinx/demo/pairs`。
 
-> 如果电脑放 100 张、板子只有 8 对，那只能保证“节奏都是 1 秒”，**内容对不上**。
+> 如果电脑放 100 张、板子只有 8 对，那只能保证“节奏都是 6.2 秒”，**内容对不上**。
 
 ### 3.3 相机侧部署（一次性，之后每次开机要启动）
 
@@ -188,7 +196,7 @@ python3 apps/pc/play_demo.py --src /home/zheyang/qiansaiFPGA/shots/uhdm100/src \
 | 3 | 相机 | 上面的 `PING` 一行 | `PONG <ms>` |
 | 4 | 电脑 | `nc -vz <相机IP> 8555` | succeeded |
 | 5 | 电脑 | `./apps/pc/send_show.py --host <相机IP> --start` | `play_ack`，`ok:true`（板子在线时） |
-| 6 | 板子 | `tail -f player.log` | 收到 START 后 1 s 开始出图 |
+| 6 | 板子 | `tail -f player.log` | 收到 START 后 6.2 s 出第一张（`--cadence fast` 时 1 s） |
 | 7 | 相机 | `./deploy.py signal-logs --host <IP>` | `[sig] play -> 10.13.148.100:9999 ACK START <n>` |
 
 第 5 步若 `ok:false` 且 `err` 是 `TimeoutError`/`ConnectionRefused`：相机到板子的 9999 不通，
@@ -199,39 +207,55 @@ python3 apps/pc/play_demo.py --src /home/zheyang/qiansaiFPGA/shots/uhdm100/src \
 ## 6. 正式播放与录制
 
 ```bash
-python3 apps/pc/play_demo.py --src <图片目录> --host <相机IP> --loop 0 --lead 1.0
+# 默认就是：mirror 跟随板端 + 6.2 s/张
+python3 apps/pc/play_demo.py --src <图片目录> --host <相机IP> --loop 0 \
+    --log-csv /tmp/sync.csv
 ```
 
-- 程序会在第一张**上屏前**发 `START`，等 `--lead` 秒后按 1 秒网格开始翻页；
-- 每张打印 `drift`（对目标时刻的偏差，正常 < 几 ms）；
-- 回包异步打印 `[ack] {"t":"play_ack","ok":true,...}`；
-- `q` / `ESC` 退出（会发 `STOP`），空格暂停。
+- 程序连上相机就发 `START`，屏幕先停在 `p000`（板端 6.2 s 后才出第一张，这段时间不黑屏）；
+- 之后每 `--poll`（默认 0.25 s）问一次板端 `<n>`，`n` 一变就换成 `files[(n-1) % 100]`
+  —— **电脑永远和板子同一张**，板子跳帧/回绕也跟得上；
+- 每张打印 `n` 与文件名、`dt`（距上一张的间隔，real 档应 ≈6.20 s）；
+- 回包异步打印 `[ack] {"t":"play_ack","ok":true,...,"n":12}`；
+- `q` / `ESC` 退出，空格暂停，**不发 STOP**（停板子用 SIGTERM，见 §8）。
 
 ---
 
 ## 7. 时序模型（为什么“间隔稳定、绝对有偏”）
 
-两边各自按**绝对时刻网格**跑：
+两种模式，二选一：
+
+**mirror（默认，推荐）**：电脑不自己计时，**跟着板端的 `<n>` 走**。
 
 ```
-电脑第 i 张：  t_pc(i)  = T0 + lead + i × 1.000 s
-板子第 i 对：  t_brd(i) = T_start + 1.0 s + i × 1.000 s     （收到 START 后延迟 1 s）
+板子第 n 帧上屏 ⇒ ACK 里 n=已播帧计数 ⇒ 电脑显示 files[(n-1) % 100]
+电脑比板子晚 ≤ --poll（0.25 s，含 WiFi + 相机转发 RTT ~11 ms）
 ```
 
-- **间隔稳定**：两边都是 `i×1.000 s`，不是 sleep 累加。实测电脑 100 张累计漂移 **+0.7 ms 级**；
+- 板端 6.2 s/张、首帧 13.5 s、跳帧、回绕，电脑全自动跟，**不需要知道 period**；
+- 代价是恒定滞后一个轮询周期（0.25 s）。要更跟手就 `--poll 0.15`（START 幂等，多发无副作用）。
+
+**grid（`--no-mirror`）**：两边各自按绝对时刻网格跑。
+
+```
+电脑第 i 张：  t_pc(i)  = T0 + lead + i × 6.2 s
+板子第 i 对：  t_brd(i) = T_start + 6.2 s + i × 6.2 s     （--cadence real：START 后 6.2 s 出首帧）
+```
+
+- **间隔稳定**：两边都是 `i×6.2 s`，不是 sleep 累加。实测电脑 100 张累计漂移 **+0.7 ms 级**；
   板端实测 40 s 累计 15 µs。
-- **绝对偏差** = `(T0+lead) - (T_start+1.0)` + 网络/调度抖动。`lead=1.0` 与 `start-delay=1.0`
+- **绝对偏差** = `(T0+lead) - (T_start+6.2)` + 网络/调度抖动。`lead=6.2` 与 `start-delay=6.2`
   对消后，只剩 WiFi 往返（20~50 ms）+ 板端调度 + HDMI 刷新相位，**几十毫秒级、不随张数累积**。
-- 两边晶振有 ppm 级差异，100 s 内几毫秒，演示可忽略；要帧锁得做 genlock，这套没有。
+- 两边晶振有 ppm 级差异，10 分钟内几毫秒，演示可忽略；要帧锁得做 genlock，这套没有。
 
-> 想微调“电脑先/板子先”，只改电脑 `--lead`：`1.05` = 电脑晚 50 ms，`0.95` = 电脑早 50 ms。
+> 想微调“电脑先/板子先”，只改电脑 `--lead`：`6.25` = 电脑晚 50 ms，`6.15` = 电脑早 50 ms。
 
 ---
 
 ## 8. 收工（务必按顺序）
 
 ```bash
-# ① 电脑：Ctrl-C / q（会发 STOP）
+# ① 电脑：Ctrl-C / q（不发 STOP）
 # ② 相机：停服务（只杀 pid，不 pkill）
 ./deploy.py signal-stop --host <相机IP>
 
