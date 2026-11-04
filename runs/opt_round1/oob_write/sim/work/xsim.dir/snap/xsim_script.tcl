@@ -1,1 +1,1 @@
-xsim {snap} -testplusarg SWEEP=1 -testplusarg SHAPESET=1 -autoloadwcfg -runall
+xsim {snap} -testplusarg SWEEP=0 -testplusarg COUT=96 -testplusarg CIN=64 -testplusarg K=3 -testplusarg S=1 -testplusarg D=1 -testplusarg PAD=1 -testplusarg H=256 -testplusarg W=256 -testplusarg SHIFT=6 -autoloadwcfg -runall
