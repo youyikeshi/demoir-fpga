@@ -170,6 +170,28 @@ DELAY=13.5 PERIOD=6.2  → 首轮含探针的诚实对比
 DELAY=1.0  PERIOD=1.0  → 1 fps（仅对焦/试片）
 ```
 
+
+### ⛔ 两条生效路径（不一样，别混）
+
+| 改什么 | 正确路径 |
+|---|---|
+| **量级参数**（节奏、图对数、轮数：`DELAY/PERIOD/PAIRS/LOOPS`） | 改仓库默认 → 改 unit 的 `Environment=` → **核对 `ps` 命令行** → `sudo reboot` 验一次 |
+| **显示链路**（`demo_player.py` / `minimal_proof.py` / 任何碰 `CTRL` 的代码） | `sudo systemctl stop` → **重载位流**（`echo design_1_v58.bin > .../firmware`）→ `sudo systemctl start` |
+
+**核实方法（唯一可信）**：不看 env、不看 unit，看**进程真实命令行**：
+```sh
+ps -eo pid,args | grep "[d]emo_player" | grep -v "bash -c"
+# 必须看到 --start-delay 6.2 --period 6.2
+```
+env 设了但脚本没拼进去 ⇒ 命令行里没有 ⇒ 等于没生效。
+
+**2026-11-04 冷启动实测（reboot → 可触发）**：
+```
+reboot 起算 → ping 通 28 s → 9999 可连 93 s
+boot.log：demo-boot 21:53:59（state0=unknown）→ 载位流 → fix_fclk 31 s（75→100→66.67）
+         → 21:54:31 起播放器（delay=6.2 period=6.2）→ 21:55:08 setup 完成 → 就绪
+```
+
 ### ⛔ 改节奏/改代码的硬规则：**stop → 重载位流 → start**（不是 `reload → restart`！）
 
 ```sh
