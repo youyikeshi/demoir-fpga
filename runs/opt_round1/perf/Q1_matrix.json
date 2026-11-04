@@ -1,0 +1,91 @@
+{
+ "runpoint": {
+  "fclk0_reported": 75,
+  "slcr": "0x00101400",
+  "div0_plus1": 21,
+  "true_mhz": 50.79,
+  "f_pll_mhz": 1066.6
+ },
+ "sample": {
+  "name": "p0000",
+  "in_sha1": "8d83f10019713d9d5a1207ecb77847bf535cef09"
+ },
+ "method": {
+  "processes_per_condition": 3,
+  "runs_per_process": 2,
+  "report": "第 2 跑（首跑含内核 load）",
+  "env": {
+   "BV_FREE": 1
+  }
+ },
+ "conditions": {
+  "C1": {
+   "scanner": "off (CTRL=0x15)",
+   "warm_s": [
+    16.88,
+    17.99,
+    17.01
+   ],
+   "steady_s": [
+    10.34,
+    10.26,
+    10.28
+   ],
+   "median_s": 10.28,
+   "0x2C_delta": 0,
+   "valid": true
+  },
+  "C2": {
+   "scanner": "on + play",
+   "warm_s": [
+    16.98,
+    16.97,
+    17.11
+   ],
+   "steady_s": [
+    10.33,
+    10.35,
+    10.31
+   ],
+   "median_s": 10.33,
+   "0x2C_delta_per_s": 38000,
+   "valid": false,
+   "why": "feeder 未载入帧（pairs 路径错），只扫空缓冲；50.79MHz 下 0x24 恒 0"
+  },
+  "C2b": {
+   "scanner": "on + static",
+   "warm_s": [
+    17.12,
+    16.92,
+    17.15
+   ],
+   "steady_s": [
+    10.36,
+    10.3,
+    10.4
+   ],
+   "median_s": 10.36,
+   "0x2C_delta_per_s": 38000,
+   "valid": false,
+   "why": "同 C2"
+  },
+  "C2c": {
+   "scanner": "test pattern (CTRL=0x14, zero DDR read)",
+   "warm_s": [
+    16.79,
+    16.94,
+    16.78
+   ],
+   "steady_s": [
+    10.34,
+    10.4,
+    10.38
+   ],
+   "median_s": 10.38,
+   "0x2C_delta": 0,
+   "valid": true
+  }
+ },
+ "ratio_C2c_over_C1": 1.0097,
+ "conclusion": "像素流本身 +1.0%；DDR 读的代价在 50.79MHz 无法测量（扫描器不工作），需 66.67MHz 或 v60"
+}

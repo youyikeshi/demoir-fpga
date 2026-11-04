@@ -193,6 +193,10 @@ def main(argv=None) -> int:
                     help="跳过前 N 张（配合 --limit 1 实现「一张一进程」，避免 1 GB 板子 OOM）")
     ap.add_argument("--slots", type=int, default=24, help="arena 槽数（板端实测 24）")
     ap.add_argument("--check-only", action="store_true", help="只查门禁/环境，不跑网络")
+    ap.add_argument("--time-only", action="store_true",
+                    help="只计时，不存 npy（测速用，避免写盘干扰）")
+    ap.add_argument("--repeat", type=int, default=1,
+                    help="同一张样本重复跑 N 次（第 1 次 warmup，第 2 次起算稳态）")
     ap.add_argument("--no-pipeline", action="store_true", help="关流水（严格串行，慢但好查）")
     a = ap.parse_args(argv)
 
@@ -272,12 +276,17 @@ def main(argv=None) -> int:
     pre = []
     for fp in files:
         x0, info = norm_input(fp)
-        pre.append((os.path.splitext(os.path.basename(fp))[0], fp, x0, info))
+        for rep in range(max(1, int(a.repeat))):
+            pre.append((os.path.splitext(os.path.basename(fp))[0]
+                        + ("" if a.repeat <= 1 else "_r%d" % rep), fp, x0, info))
     g0, _o0, _t0 = net.build_graph(pre[0][2])
     conv = [o for o in g0.ops if o.kind == "conv"]
     need = (max(o.layer.act_bytes for o in conv)
             + max(o.layer.out_bytes for o in conv) + 4096) * max(2, int(a.slots)) + (1 << 16)
     arena = BE.BinArena(need, name="dump_arena")
+    del g0, _o0, _t0                      # ★ 丢掉建图用的临时图（它持有整层临时张量）
+    import gc as _gc
+    _gc.collect()
     env["arena_bytes"] = int(need)
     env["arena_slots"] = max(2, int(a.slots))
     print("[arena] %.2f MB（%d 槽）@0x%08X  — 5 张复用同一个"
@@ -295,15 +304,22 @@ def main(argv=None) -> int:
                              % (tag, exp["sha1"][:12], info["in_sha1"][:12]))
 
         d = os.path.join(a.out, "%04d" % i)
-        os.makedirs(d, exist_ok=True)
-        np.save(os.path.join(d, "input_f32.npy"), x0)
+        if not a.time_only:
+            os.makedirs(d, exist_ok=True)
+            np.save(os.path.join(d, "input_f32.npy"), x0)
 
         arena.reset()
         t0 = time.time()
         outs, st = net.run(x0, pipeline=not a.no_pipeline, nbuf=2, arena=arena)
         dur = time.time() - t0
 
-        rec = {"i": i, "tag": tag, "input": info,
+        try:
+            with open("/proc/self/status") as _f:
+                _rss = [l.split()[1] for l in _f if l.startswith("VmRSS")]
+            rss_kb = int(_rss[0]) if _rss else -1
+        except Exception:
+            rss_kb = -1
+        rec = {"i": i, "tag": tag, "input": info, "rss_kb": rss_kb,
                "warmup": (i == 0),           # 第 0 张含内核 load/自检，计时别用
                "wall_s": round(dur, 4),
                "total_s": st.get("total"), "pl_s": st.get("pl"),
@@ -317,24 +333,29 @@ def main(argv=None) -> int:
             # 惰性 C8 句柄：能拿到原始 int8 + frac_bits 就一起存
             if isinstance(v, BE.C8Tensor):
                 q = np.asarray(v.buf).reshape(v.shape)
-                np.save(os.path.join(d, "%s_i8.npy" % k), q)
+                if not a.time_only:
+                    np.save(os.path.join(d, "%s_i8.npy" % k), q)
                 rec["int8"][k] = {"fs_out": int(v.fs_out),
                                   "q_min": int(q.min()), "q_max": int(q.max()),
                                   "q_sha1": sha1_of(q)}
                 v = v.materialize()
             arr = np.ascontiguousarray(np.asarray(v, dtype=np.float32))
             u8 = to_u8(arr)
-            np.save(os.path.join(d, "%s_f32.npy" % k), arr)
-            np.save(os.path.join(d, "%s_u8.npy" % k), u8)
+            if not a.time_only:
+                np.save(os.path.join(d, "%s_f32.npy" % k), arr)
+                np.save(os.path.join(d, "%s_u8.npy" % k), u8)
             rec["tensors"][k] = tensor_stats(arr)
             rec["tensors"][k]["u8"] = tensor_stats(u8)
         rows.append(rec)
+        del outs, st                       # ★ 及时释放：1 GB 板子上第二次 run 会 OOM
+        _gc.collect()
         print("[run] %s  %-22s wall=%.2f s  out1[min=%.3f max=%.3f mean=%.3f]%s"
               % (tag, os.path.basename(fp), dur,
                  rec["tensors"].get("out1", {}).get("min", float("nan")),
                  rec["tensors"].get("out1", {}).get("max", float("nan")),
                  rec["tensors"].get("out1", {}).get("mean", float("nan")),
                  "  (warmup，计时别用)" if rec["warmup"] else ""), flush=True)
+        print("        rss=%.0f MB" % (rec["rss_kb"] / 1024.0), flush=True)
 
     dump = {"version": 1, "env": env,
             "samples": rows,
