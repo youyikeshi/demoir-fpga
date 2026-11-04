@@ -10,10 +10,11 @@ Group=root
 Environment=XILINX_XRT=/usr
 Environment=PAIRS=/home/xilinx/demo/pairs100
 Environment=LOOPS=0
-# 演示默认 = 1 fps（用户规格：收到 START 后一秒一帧，播的是预生成图对）
-# 想看"真实算法多快"才换成 DELAY=13.5 / PERIOD=6.2（--cadence real 那一档）
-Environment=DELAY=1.0
-Environment=PERIOD=1.0
+# 演示默认 = 6.2 s/张（= v57 @75 MHz 真实算法吞吐；用户 2026-11-04 决定）
+# 首帧也是 6.2；要演示"首轮含一次性探针"就写 DELAY=13.5
+# 想要 1 fps（仅对焦/试片）就写 DELAY=1.0 / PERIOD=1.0
+Environment=DELAY=6.2
+Environment=PERIOD=6.2
 ExecStart=/usr/local/sbin/demo-boot.sh
 Restart=no
 StandardOutput=journal

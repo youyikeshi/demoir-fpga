@@ -141,34 +141,45 @@ $SUDO env XILINX_XRT=/usr $PYB -u demo_player.py --pairs /home/xilinx/demo/pairs
 > 三种跑法**只差命令行参数**，代码一条不改。
 
 
-## 1.6 演示节奏：**默认 1 fps**；`--cadence real` 只用于"诚实对比"
+## 1.6 演示节奏：**默认 6.2 s/张**（= v57 真实算法吞吐）
 
-**交付默认 = 1 fps**（用户规格原话：「接收到开始信号后**一秒一帧**的速度切换」）：
+**交付默认 = 6.2 s/张**（用户 2026-11-04 决定）：`START → 6.2 s 出第一张 → 之后每 6.2 s 一张`。
 
 ```bash
-# 默认（不加参数就是这个）：START → 1.0 s 出第一张 → 之后 1.0 s/张
+# 默认（不加参数就是这个）：6.2 s/张
 demo_player.py --pairs /home/xilinx/demo/pairs100 --loops 0
 # 等价写法
-demo_player.py ... --cadence fast          # 或 --start-delay 1.0 --period 1.0
+demo_player.py ... --cadence real                      # = --start-delay 6.2 --period 6.2
+# 要演示"首轮含一次性探针 13.5 s"（对拍真实端到端首帧）：
+demo_player.py ... --first-period 13.5                 # 或 unit 里 DELAY=13.5
+# 1 fps：**只**用于对焦/试片/短时预演，不是交付节奏
+demo_player.py ... --cadence fast
 ```
 
-> **演示播的是预生成的成品图对**，与"算法算一张要多久"是两件事。
-> **真实的板端算法约 0.16 fps（6.2 s/张）** —— 速度用这句话/数据说明，**不要用播放节奏去暗示**。
+> **6.2 s/张 = 真实算法吞吐**（v57 @75 MHz，256² 墙钟 6.198~6.234 s，约 0.16 fps）。
+> 首帧也用 6.2，**不用 13.5**——开播前空 13.5 s 会被观众当成卡死；
+> 13.5 只用于"首轮含探针"的诚实对比。
 
-**只有当有人问"真实算法到底多快"时**，才显式开对比档（v57 @75 MHz 实测：首轮 13.5 s 含一次性探针，其后 6.2 s/张）：
+时刻表是**绝对网格**：`t_k = START + first + k*period`；显示通路两种模式完全一致。
+一轮 100 对：`real`(6.2) ≈ **10 分 27 秒**；`fast`(1 fps) = 100 s。
 
-```bash
-demo_player.py --pairs /home/xilinx/demo/pairs100 --loops 0 --cadence real
-# 等价：--start-delay 13.5 --period 6.2     （一轮 100 对 ≈ 10 分 27 秒）
+开机自启由 `demo-player.service` 的 env 决定（**仓库入库值 = 6.2/6.2**）：
+```
+DELAY=6.2  PERIOD=6.2  → 默认（真实吞吐）
+DELAY=13.5 PERIOD=6.2  → 首轮含探针的诚实对比
+DELAY=1.0  PERIOD=1.0  → 1 fps（仅对焦/试片）
 ```
 
-时刻表始终是**绝对网格**：`t_k = START + first + k*period`；显示通路两种模式完全一致。
+### ⛔ 改节奏的硬规则：**先重载位流，再 restart**
 
-开机自启用哪套由 `demo-player.service` 的 env 决定（**仓库入库值是 fast**）：
+```sh
+cat /sys/class/fpga_manager/fpga0/state                    # 必须 operating
+sudo sh -c 'echo design_1_v58.bin > /sys/class/fpga_manager/fpga0/firmware'
+cat /sys/class/fpga_manager/fpga0/state                    # 必须 operating
+sudo systemctl restart demo-player                         # 它在进程内只武装一次
 ```
-DELAY=1.0   PERIOD=1.0   → 1 fps（默认，当前入库值）
-DELAY=13.5  PERIOD=6.2   → real（仅用于对比演示）
-```
+**只 `restart` 不重载位流 ⇒ 同一个 PL 上的第二次 `0x15→0x01` ⇒ 扫描 FSM 死 ⇒ 黑屏**
+（黑屏但 `0x2C=0`、`0x24` 照常跳 —— 极难查；2026-11-03 踩过一次）。
 
 ## 2. 相机侧命令（MaixCAM）
 
