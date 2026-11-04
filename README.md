@@ -207,3 +207,10 @@ python src/train.py --config uhdm_4k_s --dataset-root D:/some/pairs_dir
 | [`deploy/README.md`](deploy/README.md) | 上板用的脚本与配方：有什么、按什么顺序用、由谁解释 |
 | [`docs/仓库/规范_文档编写.md`](docs/仓库/规范_文档编写.md) | **要写或改文档时先读这份**：信息架构（入口/指针/层次）、命名、图怎么画 |
 | [`docs/仓库/规范_目录结构.md`](docs/仓库/规范_目录结构.md) | 仓库为什么这样分区、从旧结构怎么迁过来 |
+
+---
+
+## 许可
+
+本仓库以 **MIT 协议**开源，全文见 [`LICENSE`](LICENSE)。允许再分发、修改与商用，保留版权声明即可。
+若引用本仓库的设计或数据，请注明出处。
