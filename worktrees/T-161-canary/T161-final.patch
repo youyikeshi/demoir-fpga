@@ -1,0 +1,139 @@
+diff --git a/pynq_specialized_code/ps/pynq/bin_engine.py b/pynq_specialized_code/ps/pynq/bin_engine.py
+index 906134f..88512e5 100755
+--- a/pynq_specialized_code/ps/pynq/bin_engine.py
++++ b/pynq_specialized_code/ps/pynq/bin_engine.py
+@@ -201,22 +201,74 @@ class BinGuard:
+                + ("..." if len(regions) > 6 else "")))
+ 
+     @staticmethod
+-    def fill_canary(buf):
++    def canary_spans(buf, n_used=None, tag="?"):
++        """T-161：金丝雀探测窗列表 ``[(start, kind, fallback), ...]``。
++
++        ``n_used`` 给定（生产路径一律传本层 ``out_bytes``）⇒ 主窗**紧贴本层数据**：
++        ``[n_used, n_used+4096)``。旧行为把窗钉在槽尾 ``[len-4096, len)``，
++        槽长固定 ``max_out+4096`` ⇒ 对没达到 ``max_out`` 的层，金丝雀和数据之间
++        最多空 512 KB，越界 8 B 永远踩不到金丝雀（227 层里只有 3 层抓得住）。
++
++        两类写者都要能抓，所以窗有两个：
++
++        * 主窗紧贴 ``n_used`` ⇒ 偏移 0 = 写者就贴着本层数据边界往外写；
++        * 槽尾窗 ``[len-4096, len)``（与主窗不重叠时保留）⇒ 偏移 4088 = 写者越过
++          整个槽（desc/scratch/别的槽），这也是旧行为唯一能抓到的情形。
++
++        回落规则：``n_used + 4096 > len(slot)`` 时主窗放不下 ⇒ **回落**到槽尾
++        （与旧行为逐字节等价），并由 ``fill_canary`` 在日志里注明。
++        """
++        n = len(buf)
++        if n < CANARY_BYTES:
++            raise ValueError("%s: 缓冲只有 %d B，放不下 %d B 金丝雀"
++                             % (tag, n, CANARY_BYTES))
++        if n_used is None:
++            return [(n - CANARY_BYTES, "槽尾", False)]
++        n_used = int(n_used)
++        if n_used > n:
++            raise ValueError("%s: 需要 %d B，但槽只有 %d B（数据本身就超界）"
++                             % (tag, n_used, n))
++        spans, tail = [], n - CANARY_BYTES
++        if n_used + CANARY_BYTES <= n:
++            spans.append((n_used, "紧贴out_bytes", False))
++        else:
++            spans.append((tail, "槽尾", True))          # 回落
++        if tail > n_used + CANARY_BYTES:                # 槽尾窗与主窗不重叠才查
++            spans.append((tail, "槽尾", False))
++        return spans
++
++    @staticmethod
++    def fill_canary(buf, n_used=None, tag="?", log=True):
+         mv = np.frombuffer(buf, np.uint8)
+-        mv[-CANARY_BYTES:] = CANARY
++        for start, kind, fallback in BinGuard.canary_spans(buf, n_used, tag=tag):
++            mv[start:start + CANARY_BYTES] = CANARY
++            if fallback and log:
++                print("[CANARY] %s: out_bytes=%s + %d > len(slot)=%d ⇒ 金丝雀**回落**到"
++                      "槽尾 [%d,%d)（与旧行为等价）"
++                      % (tag, n_used, CANARY_BYTES, len(buf),
++                         start, start + CANARY_BYTES), flush=True)
+ 
+     @staticmethod
+     def check_canary(buf, n_used, tag):
+-        n = len(buf)
+-        start = n - CANARY_BYTES
+-        if n_used > start:
+-            raise ValueError("%s: 需要 %d B，但缓冲只有 %d B 可写（尾部 %d B 是金丝雀）"
+-                             % (tag, n_used, start, CANARY_BYTES))
+-        tail = np.frombuffer(buf, np.uint8)[start:]
+-        bad = int((tail != CANARY).sum())
++        mv = np.frombuffer(buf, np.uint8)
++        bad = []
++        for start, kind, fallback in BinGuard.canary_spans(buf, n_used, tag=tag):
++            win = mv[start:start + CANARY_BYTES]
++            idx = np.flatnonzero(win != CANARY)
++            if idx.size:
++                bad.append((kind, start, fallback, idx))
+         if bad:
+-            raise RuntimeError("%s: 金丝雀被写坏 %d/%d 字节 ⇒ 引擎越界写，立即停机排查"
+-                               % (tag, bad, len(tail)))
++            det = "; ".join(
++                "%s窗 start=%d 坏=%d/%d 首偏移=%d 前16偏移=%s"
++                % (kind, start, int(idx.size), CANARY_BYTES, int(idx[0]),
++                   idx[:16].tolist())
++                for kind, start, _fb, idx in bad)
++            raise RuntimeError(
++                "%s: 金丝雀被写坏 (out_bytes=%s, len(slot)=%d, 回落=%s) %s "
++                "⇒ 偏移0=贴着 out_bytes 的越界写；偏移4088=槽尾之后"
++                "(desc/scratch/别的槽)的写者"
++                % (tag, n_used, len(buf),
++                   "是" if any(b[2] for b in bad) else "否", det))
+         return True
+ 
+ 
+@@ -1546,7 +1598,7 @@ class BinConvEngine:
+                                   fld.upper())
+ 
+         if verify_canary:
+-            BinGuard.fill_canary(out_buf)
++            BinGuard.fill_canary(out_buf, need_out, tag="%s OUT" % L.name)
+ 
+         # ---- 真正下发 ----
+         self.config(L)
+@@ -1564,7 +1616,7 @@ class BinConvEngine:
+         if busy:
+             raise RuntimeError("done=1 但 busy=1（AP_RETURN=%#010x）⇒ 接线/时序可疑" % st)
+         if verify_canary:
+-            BinGuard.check_canary(out_buf, need_out, "bin_unit OUT")
++            BinGuard.check_canary(out_buf, need_out, "%s OUT" % L.name)
+         return RunStats(status=st, seconds=dt, err_code=err, layer=L,
+                         hout=L.Hout, wout=L.Wout, dbg=self.dbg())
+ 
+@@ -1810,7 +1862,7 @@ class BinConvEngine:
+         if (st >> 1) & 1:
+             raise RuntimeError("done=1 但 busy=1（AP_RETURN=%#010x）⇒ 接线/时序可疑" % st)
+         if out_buf is not None and verify_canary:
+-            BinGuard.check_canary(out_buf, L.out_bytes, "bin_unit OUT")
++            BinGuard.check_canary(out_buf, L.out_bytes, "%s OUT" % L.name)
+         return RunStats(status=st, seconds=(t_done or time.time()) - t0, err_code=err,
+                         layer=L, hout=L.Hout, wout=L.Wout, dbg={})
+ 
+@@ -4909,7 +4961,7 @@ def _selftest(pack_dir=None, verbose=True):
+     ob = pool[0:8192]
+     BinGuard.fill_canary(ob)
+     try:
+-        BinGuard.check_canary(ob, len(ob) - CANARY_BYTES + 1, "x")
++        BinGuard.check_canary(ob, len(ob) + 1, "x")   # T-161: 回落区不再算错，数据本身超槽才算
+         chk(False, "金丝雀：需求超界没被拦住")
+     except ValueError:
+         chk(True, "金丝雀：输出需求超过可写区 ⇒ 拒绝启动")
+diff --git a/pynq_specialized_code/ps/pynq/bin_net.py b/pynq_specialized_code/ps/pynq/bin_net.py
+index d398aa4..9b3d541 100755
+--- a/pynq_specialized_code/ps/pynq/bin_net.py
++++ b/pynq_specialized_code/ps/pynq/bin_net.py
+@@ -1023,7 +1023,7 @@ class _PlBackend:
+                 _tt = time.perf_counter()
+         self._ensure_cfg(L, inb, outb)
+         from bin_engine import BinGuard
+-        BinGuard.fill_canary(outb)
++        BinGuard.fill_canary(outb, L.out_bytes, tag="%s OUT" % L.name)
+         if _DBG_PREP:
+             self.net._prep_prof["cfg"] = self.net._prep_prof.get("cfg", 0.0) + (time.perf_counter() - _tt)
+         self.nsub += 1

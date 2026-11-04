@@ -1,0 +1,102 @@
+--- /media/felix/Data/coding/demoir-fpga/pynq_specialized_code/ps/pynq/bin_engine.py	2026-11-04 15:37:11.263279200 +0800
++++ bin_engine.py	2026-11-04 18:26:17.508802314 +0800
+@@ -201,22 +201,51 @@
+                + ("..." if len(regions) > 6 else "")))
+ 
+     @staticmethod
+-    def fill_canary(buf):
++    def canary_start(buf, n_used=None):
++        """金丝雀起点（**T-161**）。
++
++        `n_used` 给了 ⇒ 金丝雀**紧跟本层 out_bytes**（覆盖每一层；这是修复前的致命缺陷：
++        老写法把金丝雀钉在**槽尾** `len(buf)-4096`，而 OUT 槽 = `max_out+4096`
++        ⇒ 只有 `out_bytes == max_out` 的那几层能被保护，其余层的越界落在空档里永远抓不到）。
++        `n_used` 为 None / 放不下 ⇒ 回落老行为（槽尾），对既有调用完全兼容。
++        """
++        n = len(buf)
++        tail = n - CANARY_BYTES
++        if n_used is None:
++            return tail
++        n_used = int(n_used)
++        if n_used < 0 or n_used + CANARY_BYTES > n:
++            return tail
++        return n_used
++
++    @staticmethod
++    def fill_canary(buf, n_used=None):
+         mv = np.frombuffer(buf, np.uint8)
+-        mv[-CANARY_BYTES:] = CANARY
++        st = BinGuard.canary_start(buf, n_used)
++        mv[st:st + CANARY_BYTES] = CANARY
+ 
+     @staticmethod
+     def check_canary(buf, n_used, tag):
+         n = len(buf)
+-        start = n - CANARY_BYTES
+-        if n_used > start:
++        if n_used is None:                      # 回落语义：老写法（金丝雀钉槽尾）
++            start = n - CANARY_BYTES
++        else:
++            start = BinGuard.canary_start(buf, n_used)
++        # 老语义的"装不下"检查：只有回落槽尾时才需要（此时 n_used 必须 ≤ 槽尾）
++        if start == n - CANARY_BYTES and n_used is not None and n_used > start:
+             raise ValueError("%s: 需要 %d B，但缓冲只有 %d B 可写（尾部 %d B 是金丝雀）"
+                              % (tag, n_used, start, CANARY_BYTES))
+-        tail = np.frombuffer(buf, np.uint8)[start:]
+-        bad = int((tail != CANARY).sum())
++        mv = np.frombuffer(buf, np.uint8)
++        tail = mv[start:start + CANARY_BYTES]
++        bad_idx = np.flatnonzero(tail != CANARY)
++        bad = int(bad_idx.size)
+         if bad:
+-            raise RuntimeError("%s: 金丝雀被写坏 %d/%d 字节 ⇒ 引擎越界写，立即停机排查"
+-                               % (tag, bad, len(tail)))
++            raise RuntimeError(
++                "%s: 金丝雀被写坏 %d/%d 字节（金丝雀起点 = len-%d = %d；"
++                "首坏偏移 **+%d**，前 16 个：%r）⇒ 越界写，立即停机排查"
++                % (tag, bad, len(tail),
++                   (n - start) if start != n - CANARY_BYTES else CANARY_BYTES,
++                   start, int(bad_idx[0]), bad_idx[:16].tolist()))
+         return True
+ 
+ 
+@@ -1546,7 +1575,7 @@
+                                   fld.upper())
+ 
+         if verify_canary:
+-            BinGuard.fill_canary(out_buf)
++            BinGuard.fill_canary(out_buf, need_out)      # T-161：金丝雀紧跟本层 out_bytes
+ 
+         # ---- 真正下发 ----
+         self.config(L)
+@@ -1564,7 +1593,8 @@
+         if busy:
+             raise RuntimeError("done=1 但 busy=1（AP_RETURN=%#010x）⇒ 接线/时序可疑" % st)
+         if verify_canary:
+-            BinGuard.check_canary(out_buf, need_out, "bin_unit OUT")
++            BinGuard.check_canary(out_buf, need_out,
++                                  "bin_unit OUT[%s]" % L.name)   # T-161：带层名
+         return RunStats(status=st, seconds=dt, err_code=err, layer=L,
+                         hout=L.Hout, wout=L.Wout, dbg=self.dbg())
+ 
+@@ -1810,7 +1840,8 @@
+         if (st >> 1) & 1:
+             raise RuntimeError("done=1 但 busy=1（AP_RETURN=%#010x）⇒ 接线/时序可疑" % st)
+         if out_buf is not None and verify_canary:
+-            BinGuard.check_canary(out_buf, L.out_bytes, "bin_unit OUT")
++            BinGuard.check_canary(out_buf, L.out_bytes,
++                                  "bin_unit OUT[%s]" % L.name)   # T-161：带层名
+         return RunStats(status=st, seconds=(t_done or time.time()) - t0, err_code=err,
+                         layer=L, hout=L.Hout, wout=L.Wout, dbg={})
+ 
+--- /media/felix/Data/coding/demoir-fpga/pynq_specialized_code/ps/pynq/bin_net.py	2026-11-04 15:32:36.987782100 +0800
++++ bin_net.py	2026-11-04 18:25:36.736305895 +0800
+@@ -1023,7 +1023,7 @@
+                 _tt = time.perf_counter()
+         self._ensure_cfg(L, inb, outb)
+         from bin_engine import BinGuard
+-        BinGuard.fill_canary(outb)
++        BinGuard.fill_canary(outb, L.out_bytes)     # T-161：金丝雀紧跟本层 out_bytes
+         if _DBG_PREP:
+             self.net._prep_prof["cfg"] = self.net._prep_prof.get("cfg", 0.0) + (time.perf_counter() - _tt)
+         self.nsub += 1
