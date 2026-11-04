@@ -1,0 +1,39 @@
+/home/xilinx/demoir/exp_det_canary.py:41: RuntimeWarning: overflow encountered in exp
+  return np.exp(x32)
+/home/xilinx/demoir/exp_det_canary.py:46: RuntimeWarning: overflow encountered in exp
+  return np.float32(np.exp(x32.astype(np.float64)))
+/home/xilinx/demoir/exp_det_canary.py:50: RuntimeWarning: overflow encountered in exp
+  return np.float32(np.exp(x.astype(np.float64)))
+/home/xilinx/demoir/exp_det_canary.py:56: RuntimeWarning: overflow encountered in exp
+  return np.exp(x32, dtype=np.float32)
+/home/xilinx/demoir/exp_det_canary.py:86: RuntimeWarning: overflow encountered in ldexp
+  out = np.ldexp(p, k.astype(np.int32))
+/home/xilinx/demoir/exp_det_canary.py:130: RuntimeWarning: overflow encountered in exp
+  e64 = np.exp(x)
+/home/xilinx/demoir/exp_det_canary.py:137: RuntimeWarning: overflow encountered in exp
+  e32d = np.exp(x.astype(np.float32).astype(np.float64))
+# platform: numpy 1.21.5 / python 3.10.4
+
+=== dsA  input  sha1=339b0c16596d  dtype=<f8 shape=(200000,)  min=-1370 max=1369.99
+  v1  np.exp(x32)                        [现状]     sha1=5d9151eb0752  dtype=<f4 shape=(200000,) n_nonfinite=93523 max|finite|=3.39725e+38
+  v2  float32(np.exp(x32.astype(f64)))            sha1=548277808000  dtype=<f4 shape=(200000,) n_nonfinite=93523 max|finite|=3.39725e+38
+  v3  float32(np.exp(x.astype(f64)))              sha1=3fd4a4a092aa  dtype=<f4 shape=(200000,) n_nonfinite=93523 max|finite|=3.39725e+38
+  v4  np.exp(x32, dtype=f32)                      sha1=5d9151eb0752  dtype=<f4 shape=(200000,) n_nonfinite=93523 max|finite|=3.39725e+38
+  v5  self exp: ldexp(poly, rint(x/ln2))          sha1=3fd4a4a092aa  dtype=<f4 shape=(200000,) n_nonfinite=93523 max|finite|=3.39725e+38
+  d   np.exp(x_f64)  [纯双精度探针]                     sha1=e6cc7eb3f65f  dtype=<f8 shape=(200000,)
+  d   np.exp(f64(x32))  [纯双精度探针2]                 sha1=8858fa622862  dtype=<f8 shape=(200000,)
+
+=== dsB  input  sha1=0d39b113580b  dtype=<f8 shape=(200000,)  min=-13.7 max=13.6863
+  v1  np.exp(x32)                        [现状]     sha1=99608cebc832  dtype=<f4 shape=(200000,) n_nonfinite=0 max|finite|=878789
+  v2  float32(np.exp(x32.astype(f64)))            sha1=e407434779fd  dtype=<f4 shape=(200000,) n_nonfinite=0 max|finite|=878789
+  v3  float32(np.exp(x.astype(f64)))              sha1=bc108924cafb  dtype=<f4 shape=(200000,) n_nonfinite=0 max|finite|=878789
+  v4  np.exp(x32, dtype=f32)                      sha1=99608cebc832  dtype=<f4 shape=(200000,) n_nonfinite=0 max|finite|=878789
+  v5  self exp: ldexp(poly, rint(x/ln2))          sha1=bc108924cafb  dtype=<f4 shape=(200000,) n_nonfinite=0 max|finite|=878789
+  d   np.exp(x_f64)  [纯双精度探针]                     sha1=7cee80d96ce2  dtype=<f8 shape=(200000,)
+  d   np.exp(f64(x32))  [纯双精度探针2]                 sha1=38acae5602eb  dtype=<f8 shape=(200000,)
+
+[meta] /home/xilinx/demoir/exp_det_board/meta.json
+
+real	0m3.493s
+user	0m2.808s
+sys	0m0.692s
