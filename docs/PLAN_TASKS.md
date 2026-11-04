@@ -172,3 +172,24 @@ $$\Rightarrow\ \text{一旦 } \mathtt{FUSE=1}，256^2\ \text{下 } \mathtt{bands
 - 播放期间**不许写 `CTRL[1]` 软复位**（会打死扫描 FSM，表现为"DE 有效但全黑、`0x2C` 仍 0"）
 - **不许在 `setup()` 之后写 `0x15`**（`cfg_enable = ctrl_enable && !ctrl_test` 会关掉扫描）
 - 播放器的寄存器调用**全部走** `minimal_proof.bringup/show`，不自己写；**黑屏先跑 `minimal_proof.py`**
+
+## 2026-11-04 第三轮（v60：共存 + 重武装 + 数值三修 + 三域解耦）
+
+| 编号 | 计划（一句话） | 负责 | 判据（可复算） | 交付物与落点 | 状态 |
+|---|---|---|---|---|---|
+| T-150 | v60 一次构建：R1 舍入 / R2 阈值 K=6 / R3(b) 越界补偿 / slope 维持 8 / 三域解耦 | `0d32926d` | R1 17 组向量恰好 5 组改变；R2 512/512；R3 6/8 有越界形状逐字节 0 差；关任一项即红 | `runs/opt_round1/one_shot/`、`pynq_specialized_code/pl/rtl_hand/modules/` | 已归档 |
+| T-151 | v60 构建与门禁（BD + 综合 + 时序双口径） | `0d32926d` | LUT 21768≤22000 / BRAM 35≤38 / DSP 102≤102 / latch 0 / DRC 0；工作点 19.6875 ns WNS +7.878；10 ns −1.810 留红 | `runs/hdmi_v60/` | 已归档 |
+| T-152 | 容器重打包（无偏移 + `slope_shift=8`）+ 三档配对 + 部署包 | `cc44e370` | 2×2 逐位验证（A≡B、C≡D sha1 5/5）；`pack_v60` `706a1d22`；`deploy_v60` md5sum -c exit 0 | `runs/opt_round1/ps_numeric/pack_v60/`、`deploy_v60/`、`PACK_V60.md` | 已归档 |
+| T-153 | v60 上板验收 V-A/V-B/V-B2/V-C | `eec9aeab` | `0x2C` 增量 0；重武装 ×3 全过；整网结果上屏 PSNR 27.27 / corr 0.9537（用户目视确认） | `runs/opt_round1/ps_numeric/v60_b2/`、`docs/optim/01` | 已归档 |
+| T-154 | V-D 数值 5 张（备用路径） | `eec9aeab` | 中位 `mean|Δu8|` 15.08≤16、PSNR 23.02≥20、corr 0.9097≥0.80 ⇒ PASS；DC 0.057 ⇒ FAIL(未解) | `runs/opt_round1/ps_numeric/v60_vd_results.md` | 已归档 |
+| T-155 | 时间分解四段（PS/PL 归因） | `eec9aeab` | ps+pl−overlap 与 total 差 −3.3%/−3.4%（<5%）；PS 占 88~90% | `runs/opt_round1/perf/segment_breakdown.md` | 已归档 |
+| T-156 | 28 s vs 10.3 s 口径结案（`BV_FREE` 归因） | `cc44e370` | 代码证据 file:line；A/B 板上验证待做（`BV_FREE=1` 预期 ≈10.3 s） | `runs/opt_round1/perf/perframe_analysis.md` | **待复核（需 A/B 两数）** |
+| T-157 | 引擎输出侧 8 字节越界定性 | `7a737f79` | 36 单元形状 + 12 包装形状越界恒 0；误启动表现为 KB~MB 错基址或挂死（排除 +8） | `runs/opt_round1/oob_write/` | **未完（缺 `DBG_WR` 板端判别）** |
+| T-158 | PS 侧写者静态审计（`push_input`/`fill_canary`/f32 `out=`） | `cc44e370` | 逐处给"有无问题 + file:line"；一句"是否存在能产生偶发 +8 的写者" | `runs/opt_round1/perf/ps_write_audit.md` | 进行中 |
+| T-159 | 100 帧端到端（算一张显示一张） | `eec9aeab` | 六组数 + 分段计时中位 + 内存曲线平坦；`0x2C` 全程 0 | `runs/opt_round1/perf/` | **阻塞（需断电重启 + `BV_FREE=1`）** |
+| T-160 | V-E 解耦（FCLK1 66.67 vs 96.97）+ V-F 性能三条件 | 待分派 | 两次 `out1` sha1 相同、耗时差 ≤2%；C2/C1 ≤1.05 | — | 待分派 |
+
+**本轮三条教训（已写进纪律）**
+1. **"绕过"必须先做最小控制实验**：padding 补丁未验证尺寸一致性 ⇒ SIGSEGV，白崩一次板子。
+2. **口径必须与数字同时记录**：28.4 s（冷启动单跑）vs 10.33 s（同进程第 2 跑 + `BV_FREE=1`）混淆，导致"18 s 优化靶子"误判。
+3. **子代理推翻主代理的前提要鼓励**：金丝雀松量恒 0（主代理以为是变量）、`|slope_q|` 624 vs 9990（契约变更后未同步）。
