@@ -2,6 +2,14 @@
 # -*- coding: utf-8 -*-
 """play_demo.py —— 电脑全屏放图 + 给 MaixCAM 发「开始播放」信号（一个文件搞定）。
 
+演示的时间关系：**电脑先放，板子晚一拍出结果**
+--------------------------------------------
+    电脑第 k 张  ──6.2 s（板子的算法延迟）──>  板子第 k 对（左原图 / 右去摩尔纹）
+
+也就是说：**板子显示第 k 对的时候，电脑正在放第 k+1 张**。电脑是"源"，板子是"结果"，
+观众看到的是"输入 → 过一会儿 → 输出"。`--board-delay 1`（默认）就是这个关系；
+`--board-delay 0` 才是两边同一张同时翻（看起来像"零延迟"，不是演示要的效果）。
+
 节奏跟板端走：**2026-11-04 起板端默认 6.2 s/张**
 ---------------------------------------------
 板端 `demo_player.py` 的 `--cadence real`（默认）= `--start-delay 6.2 --period 6.2`，
@@ -11,17 +19,18 @@
 两种模式（默认 mirror，推荐）
 --------------------------
 **mirror（默认）**：每 `--poll`（默认 0.25 s）发一次**幂等** START，读回板端 `<n>`；
-`n` 变了才换图，显示的永远是 `files[(n-1) % N]`。
+`n` 变了才换图。
 
 - 板端 `<n>` 是**已播帧计数**（协议 v1 §5）：`n=3` 时屏上正显示第 **2** 号，
-  所以索引 = `n-1`（可用 `--n-offset 0` 改回旧的 `n`）。
+  所以板子当前那对 = `n-1`，电脑要放的就是 `n-1 + --board-delay`（默认 1 → `n`）。
 - 于是 6.2 s/张、首帧 13.5 s（`--first-period 13.5`）、板子跳帧、回绕，**全都自动跟上**，
   电脑不用知道板端的 period 是多少。
 - 实测这条路径在 1 fps 下 100/100 一一对应；改成 6.2 s 后只是「多久变一次」变了。
 
 **grid（`--no-mirror`）**：不看板端，自己按绝对网格 `t0 + lead + i×interval` 走
 （第 i 张 = t0 + lead + i×interval，不是 sleep 累加，100 张累计漂移毫秒级）。
-首张会先显示并**保持 lead 秒**再开始翻页，所以 START 后那 6.2 s 屏幕不黑。
+`lead` 默认 = 档位延迟 − `--board-delay`×interval（real 档 = 6.2 − 1×6.2 = **0**），
+也就是电脑立刻开翻、板子 6.2 s 后才跟上第一对。
 
 为什么每 0.25 s 就发一次 START
 -----------------------------
@@ -31,7 +40,7 @@ START 幂等（板端 `if not playing` 才触发；播放中再发只回同一�
 
 用法
 ----
-    # 正式：全屏，跟随板端 6.2 s/张（默认就是 real 节奏）
+    # 正式：全屏，跟随板端 6.2 s/张，电脑领先板子一张（默认就是 real 节奏）
     python3 apps/pc/play_demo.py --src ../../../shots/uhdm100/src \\
         --list ../../../shots/uhdm100/playlist.txt --host 10.135.70.66
 
@@ -323,11 +332,13 @@ def main(argv=None):
     ap.add_argument("--interval", type=float, default=None,
                     help="grid 模式每张间隔秒数；不填按 --cadence（real=6.2 / fast=1.0）")
     ap.add_argument("--lead", type=float, default=None,
-                    help="grid 模式发 START 后等多久再走网格；不填按 --cadence（real=6.2 / fast=1.0）")
+                    help="grid 模式发 START 后等多久再走网格；"
+                         "不填 = 档位 lead − board_delay×interval（real 默认 0 = 电脑先动）")
     ap.add_argument("--poll", type=float, default=0.25,
                     help="mirror 模式多久问一次板端 n（默认 0.25 s，越小越跟手）")
-    ap.add_argument("--n-offset", type=int, default=-1,
-                    help="显示索引 = n + 这个偏移；默认 -1（<n>=已播帧计数，屏上是第 n-1 号）")
+    ap.add_argument("--board-delay", type=int, default=1,
+                    help="板子比电脑晚几张（默认 1 = 板子显示第 k 对时电脑在放第 k+1 张，"
+                         "模拟 6.2 s 处理延迟）；0 = 两边同一张同时翻")
     ap.add_argument("--loop", type=int, default=1, help="播几轮；0=无限（按 q 退）")
     ap.add_argument("--limit", type=int, default=0, help="只放前 N 张（联调用）")
     ap.add_argument("--start", type=int, default=0, help="从第几张开始（0 起）")
@@ -353,7 +364,8 @@ def main(argv=None):
 
     d_interval, d_lead = CADENCE[args.cadence]
     interval = d_interval if args.interval is None else float(args.interval)
-    lead = d_lead if args.lead is None else float(args.lead)
+    # grid 档：板子第 k 对在 START+d_lead+k*P，电脑要提前 board_delay 张 ⇒ lead = d_lead - delay*P
+    lead = max(0.0, d_lead - args.board_delay * interval) if args.lead is None else float(args.lead)
     hold_first = lead if args.hold_first is None else float(args.hold_first)
 
     W, H = [int(v) for v in args.size.lower().split("x")]
@@ -465,11 +477,14 @@ def main(argv=None):
                     n = int(n)
                     if last_n is None:
                         last_n = n
-                        print("[sync] 板端已播 %d 帧；索引 = n %+d，屏上第 %d 号"
-                              % (n, args.n_offset, max(0, n + args.n_offset) % total))
+                        print("[sync] 板端已播 %d 帧（屏上是第 %d 对）；电脑领先 %d 张，"
+                              "下面从第 %d 号开始"
+                              % (n, max(0, n - 1), args.board_delay,
+                                 (n - 1 + args.board_delay) % total if n > 0 else 0))
                     if n != last_n:
                         last_n = n
-                        idx = 0 if n <= 0 else (n + args.n_offset) % total
+                        # 板子屏上那对 = n-1；电脑要放的是它 + board_delay
+                        idx = 0 if n <= 0 else (n - 1 + args.board_delay) % total
                         dt = 0.0 if prev_t is None else now - prev_t
                         prev_t = now
                         changes += 1
@@ -497,7 +512,7 @@ def main(argv=None):
                     # 发 START（幂等）并读回 n；n>0 = 板子早就在播，那就从它当前那帧对齐
                     n0 = sig.start_and_wait()
                     if rounds == 1 and args.follow_board and n0:
-                        off = (int(n0) + args.n_offset) % total
+                        off = (int(n0) - 1 + args.board_delay) % total
                         files = files[off:] + files[:off]
                         if fc is not None:
                             fc.set_files(files)
