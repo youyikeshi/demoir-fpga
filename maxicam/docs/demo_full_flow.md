@@ -80,7 +80,8 @@ echo xilinx | sudo -S -p '' env XILINX_XRT=/usr \
 且 **9999 端口打开**（`ss -ltn | grep 9999` 或从相机侧 `nc`）。
 
 > 板端节奏 `--cadence real`（`--start-delay 6.2 --period 6.2`）是本文所有时序假设的来源。
-> 电脑侧默认就按 6.2 走（mirror 模式自动跟随），**改板端节奏不用改电脑**；
+> 电脑侧默认就按 6.2 走（`--cadence real`）；改了板端节奏就同步改电脑侧 `--cadence`，
+> 或者用 `--mirror` 让电脑跟板端的 `<n>` 走；
 > 只有显式用 `--cadence fast`（1 fps 对焦/试片）时两边要同时加这个参数。
 > 改板端节奏/代码的规矩是 **stop → 重载位流 → start**（见同事 `runs/demo_pairs/RECORD_RUNBOOK.md` §1.6）。
 
@@ -207,61 +208,43 @@ python3 apps/pc/play_demo.py --src /home/zheyang/qiansaiFPGA/shots/uhdm100/src \
 ## 6. 正式播放与录制
 
 ```bash
-# 默认就是：mirror 跟随板端 + 6.2 s/张
-python3 apps/pc/play_demo.py --src <图片目录> --host <相机IP> --loop 0 \
-    --log-csv /tmp/sync.csv
+# 默认就是：6.2 s/张，START 与第 0 张同一刻
+python3 apps/pc/play_demo.py --src <图片目录> --list <playlist.txt> --host <相机IP> \
+    --loop 0 --log-csv /tmp/sync.csv
 ```
 
-- 程序连上相机就发 `START`，屏幕先停在 `p000`（板端 6.2 s 后才出第一张，这段时间不黑屏）；
-- 之后每 `--poll`（默认 0.25 s）问一次板端 `<n>`，`n` 一变就换成
-  `files[(n-1 + --board-delay) % 100]`（默认 `--board-delay 1` ⇒ 就是 `files[n]`）
-  —— **板子显示第 k 对时电脑在放第 k+1 张**（板子比电脑晚一个 6.2 s 周期），
-  板子跳帧/回绕也跟得上；
-- 每张打印 `n` 与文件名、`dt`（距上一张的间隔，real 档应 ≈6.20 s）；
+- 第 0 张立刻上屏，同一刻把 `START` 发出去；板子自己的 `--start-delay 6.2 s` 就是那"一拍"；
+- 之后电脑按绝对网格每 6.2 s 翻一张，板子每 6.2 s 出一对，
+  **板子第 k 对正好比电脑第 k 张晚 6.2 s**；
+- 每张打印 `drift`（对目标时刻的偏差，正常 <1 ms）和板端 `n`；
 - 回包异步打印 `[ack] {"t":"play_ack","ok":true,...,"n":12}`；
+- 板子节奏对不上（例如它还在 1 fps）会打 `[WARN] 板子与电脑对不上`；
 - `q` / `ESC` 退出，空格暂停，**不发 STOP**（停板子用 SIGTERM，见 §8）。
 
+> 电脑控制不了板子，只能决定"何时发 START"和"自己放哪张"。
+> 若要把延迟改成两拍（12.4 s），加 `--start-after 6`；
+> 若板子会跳帧/节奏不明，用 `--mirror` 切成"跟板端 n 走"。
+
 ---
 
-## 7. 时序模型（为什么“间隔稳定、绝对有偏”）
+## 7. 时序模型
 
-两种模式，二选一：
+**板子（改不了）**：收到 START 后 `T_s + 6.2 s` 出第 0 对，之后每 6.2 s 一对。
 
-演示要的是**流水线延迟**：电脑先出第 k 张，板子 6.2 s 后才出第 k 对。
-
-```
-电脑：files[k]        t_k
-板子：pair  k        t_k + 6.2 s          ← 板子比电脑晚一张
-```
-
-**mirror（默认，推荐）**：电脑不自己计时，**跟着板端的 `<n>` 走**。
+**电脑（可调）**：绝对网格 `t_k = anchor + k × 6.2 s`，`anchor` = 第 0 张上屏时刻，
+`START` 在 `anchor + start_after` 发出（默认 `start_after = 0`）。
 
 ```
-板子第 n 帧上屏 ⇒ ACK 里 n=已播帧计数 ⇒ 板子屏上那对 = n-1
-                                      ⇒ 电脑显示 files[(n-1) + --board-delay]   （默认 +1 ⇒ n）
-电脑换图比板子翻页晚 ≤ --poll（0.25 s，含 WiFi + 相机转发 RTT ~11 ms）
+电脑第 k 张：  anchor + 6.2k
+板子第 k 对：  anchor + start_after + 6.2(k+1)
+⇒ 板子比电脑晚一张：Δ = start_after + 6.2 s      （默认 6.2 s）
 ```
 
-- 板端 6.2 s/张、首帧 13.5 s、跳帧、回绕，电脑全自动跟，**不需要知道 period**；
-- 用 `--board-delay 0` 就变成"两边同一张同时翻"（看起来零延迟，不是演示要的效果）；
-- 代价是恒定滞后一个轮询周期（0.25 s）。要更跟手就 `--poll 0.15`（START 幂等，多发无副作用）。
-
-**grid（`--no-mirror`）**：两边各自按绝对时刻网格跑。
-
-```
-电脑第 i 张：  t_pc(i)  = T0 + lead + i × 6.2 s
-板子第 i 对：  t_brd(i) = T_start + 6.2 s + i × 6.2 s     （--cadence real：START 后 6.2 s 出首帧）
-```
-
-- **间隔稳定**：两边都是 `i×6.2 s`，不是 sleep 累加。实测电脑 100 张累计漂移 **+0.7 ms 级**；
+- **间隔稳定**：电脑是 `i×6.2 s` 绝对网格，不是 sleep 累加。实测 100 张累计漂移 **<1 ms**；
   板端实测 40 s 累计 15 µs。
-- **绝对偏差** = `(T0+lead) - (T_start+6.2)` + 网络/调度抖动。`lead=6.2` 与 `start-delay=6.2`
-  对消后，只剩 WiFi 往返（20~50 ms）+ 板端调度 + HDMI 刷新相位，**几十毫秒级、不随张数累积**。
-- 两边晶振有 ppm 级差异，10 分钟内几毫秒，演示可忽略；要帧锁得做 genlock，这套没有。
-
-> 想微调“电脑先/板子先”，只改电脑 `--lead`：`6.25` = 电脑晚 50 ms，`6.15` = 电脑早 50 ms。
-
----
+- **绝对偏差** = 网络 RTT / 调度抖动，**几十毫秒级、不随张数累积**。
+- 两边晶振 ppm 级差异，10 分钟几毫秒，演示可忽略；要帧锁得做 genlock，这套没有。
+- `--start-after 6` ⇒ Δ = 12.4 s（两拍），那时电脑已经放到第 k+2 张。
 
 ## 8. 收工（务必按顺序）
 

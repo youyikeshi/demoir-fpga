@@ -65,9 +65,17 @@ class Board:
             return self.n
 
     def _player(self):
-        """第一帧延迟后发 EVT FIRST，然后按 fps 递增计数。"""
+        """start-delay 到点 = 第 0 帧上屏：先 n+=1 再发 EVT FIRST，然后每 period 一帧。
+
+        与真板 `demo_player.py` 的语义一致（`submit()` 里 `n_submitted += 1` 紧跟着上屏），
+        否则会差一拍：假板子若在 start-delay 之后再多睡一个 period 才 n+=1，外部按
+        「n = 已播帧计数」推算会整体慢一张。
+        """
         time.sleep(self.first_delay)
         with self.lock:
+            if not self.playing:
+                return
+            self.n += 1                      # 第 0 帧上屏 ⇒ 已播 1 帧
             c = self.conn
         if c is not None:
             try:

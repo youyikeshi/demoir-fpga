@@ -10,45 +10,41 @@
 观众看到的是"输入 → 过一会儿 → 输出"。`--board-delay 1`（默认）就是这个关系；
 `--board-delay 0` 才是两边同一张同时翻（看起来像"零延迟"，不是演示要的效果）。
 
-节奏跟板端走：**2026-11-04 起板端默认 6.2 s/张**
----------------------------------------------
-板端 `demo_player.py` 的 `--cadence real`（默认）= `--start-delay 6.2 --period 6.2`，
-即「收到 START → 6.2 s 出第一张 → 之后每 6.2 s 一张」。所以电脑这边不能再用 1 秒 1 张，
-否则板子才出到第 3 对，电脑已经翻到第 18 张。
-
-两种模式（默认 mirror，推荐）
+谁掌握时间：**电脑**（默认）
 --------------------------
-**mirror（默认）**：每 `--poll`（默认 0.25 s）发一次**幂等** START，读回板端 `<n>`；
-`n` 变了才换图。
+电脑自己按绝对网格 `t = k×6.2 s` 翻页，**不看板子的时间**；只在每张翻完之后顺带问一句
+板端 `<n>`，核对「板子确实落后一张」。板子要是节奏不对（比如还在 1 fps）会打 `[WARN]`，
+不会跟着板子跑。板子跳帧/节奏不明时，才用 `--mirror` 切成「跟板端 n 走」的备用模式。
 
-- 板端 `<n>` 是**已播帧计数**（协议 v1 §5）：`n=3` 时屏上正显示第 **2** 号，
-  所以板子当前那对 = `n-1`，电脑要放的就是 `n-1 + --board-delay`（默认 1 → `n`）。
-- 于是 6.2 s/张、首帧 13.5 s（`--first-period 13.5`）、板子跳帧、回绕，**全都自动跟上**，
-  电脑不用知道板端的 period 是多少。
-- 实测这条路径在 1 fps 下 100/100 一一对应；改成 6.2 s 后只是「多久变一次」变了。
+节奏基准：**2026-11-04 起板端默认 6.2 s/张**
+-------------------------------------------
+板端 `demo_player.py` 的 `--cadence real`（默认）= `--start-delay 6.2 --period 6.2`，
+即「收到 START → 6.2 s 出第一张 → 之后每 6.2 s 一张」。电脑这边就是照这个跑：
+START 那一刻亮第 0 张，之后每 6.2 s 翻一张。
 
-**grid（`--no-mirror`）**：不看板端，自己按绝对网格 `t0 + lead + i×interval` 走
-（第 i 张 = t0 + lead + i×interval，不是 sleep 累加，100 张累计漂移毫秒级）。
-`lead` 默认 = 档位延迟 − `--board-delay`×interval（real 档 = 6.2 − 1×6.2 = **0**），
-也就是电脑立刻开翻、板子 6.2 s 后才跟上第一对。
+两种模式
+--------
+**grid（默认，电脑主导）**：绝对网格 `anchor + k×interval`，不是 sleep 累加，
+100 张累计漂移毫秒级。`lead` 默认 = 档位延迟 − `--board-delay`×interval
+（real 档 = 6.2 − 1×6.2 = **0**），即 START 与第 0 张同一时刻，板子 6.2 s 后跟上第一对。
+每张翻完顺带读数核对（`--no-check` 关掉）。
 
-为什么每 0.25 s 就发一次 START
------------------------------
-START 幂等（板端 `if not playing` 才触发；播放中再发只回同一个 `<n>`，不碰 CTRL），
-所以轮询完全安全；换来的是「板子一翻页，电脑 ≤0.25 s 内跟上」，且不会像定频轮询那样
-正好踩在帧边界上读到上一帧、然后整整落后 6.2 s。
+**mirror（`--mirror`，备用）**：每 `--poll`（默认 0.25 s）发一次**幂等** START 读回 `<n>`，
+`n` 变了才换图，显示 `files[(n-1 + board_delay) % N]`。
+板端 `<n>` 是**已播帧计数**（协议 v1 §5）：`n=3` 时屏上正显示第 2 号。
+板子跳帧、或板子节奏和 `--cadence` 不一致时用；正常演示不需要。
 
 用法
 ----
-    # 正式：全屏，跟随板端 6.2 s/张，电脑领先板子一张（默认就是 real 节奏）
-    python3 apps/pc/play_demo.py --src ../../../shots/uhdm100/src \\
+    # 正式：全屏 6.2 s/张，电脑先翻、板子晚一张（默认参数就是）
+    python3 apps/pc/play_demo.py --src ../../../shots/uhdm100/src \
         --list ../../../shots/uhdm100/playlist.txt --host 10.135.70.66
 
     # 1 fps 对焦/试片（板端也要 --cadence fast）
     python3 apps/pc/play_demo.py --src ... --cadence fast --host 10.135.70.66
 
-    # 不看板端、自己按 6.2 s 走（板端没起也能演示节奏）
-    python3 apps/pc/play_demo.py --src ... --no-mirror --host 10.135.70.66
+    # 备用：跟着板端 n 走（板子跳帧/节奏不明时）
+    python3 apps/pc/play_demo.py --src ... --mirror --host 10.135.70.66
 
     # 只放图不发信号 / 不开窗口空跑
     python3 apps/pc/play_demo.py --src ... --dry-run
@@ -181,25 +177,6 @@ class Signal:
             return a.get("n")
         self.log("[sync] %.1f s 没等到 play_ack" % timeout)
         return None
-
-    def sync_to_tick(self, total, max_wait=2.5, poll=0.12):
-        """反复发 START（幂等）观察板端 n，抓到 n 变化的那一刻 = 板子刚翻到新的一帧。
-
-        返回此刻的 n（帧号）。这样不依赖板端 --start-delay 是多少、也不管它是不是
-        已经在播——都以板子自己的帧边界为准，PC 从同一帧开始。
-        """
-        prev = None
-        t_end = time.monotonic() + max_wait
-        while time.monotonic() < t_end:
-            n = self.start_and_wait(timeout=1.5)
-            if n is None:
-                return None
-            n = int(n)
-            if prev is not None and n != prev:
-                return n
-            prev = n
-            time.sleep(poll)
-        return prev
 
     def close(self):
         self._stop = True
@@ -334,6 +311,10 @@ def main(argv=None):
     ap.add_argument("--lead", type=float, default=None,
                     help="grid 模式发 START 后等多久再走网格；"
                          "不填 = 档位 lead − board_delay×interval（real 默认 0 = 电脑先动）")
+    ap.add_argument("--start-after", type=float, default=0.0,
+                    help="第 0 张上屏后等几秒再发 START（默认 0 = 同时发）。"
+                         "板子自己还会在 START 后再等 start-delay(6.2 s) 才出第 0 对，"
+                         "所以 0 已经能得到「板子比电脑晚 6.2 s」；填 6 会变成晚两拍")
     ap.add_argument("--poll", type=float, default=0.25,
                     help="mirror 模式多久问一次板端 n（默认 0.25 s，越小越跟手）")
     ap.add_argument("--board-delay", type=int, default=1,
@@ -351,13 +332,14 @@ def main(argv=None):
     ap.add_argument("--hold-first", type=float, default=None,
                     help="grid 模式：先立刻显示第一张并保持 N 秒再走网格；"
                          "不填 = 跟随 --lead（START 后那段不黑屏）")
-    ap.add_argument("--mirror", action="store_true", default=True,
-                    help="跟随板端帧号（默认开）：每 --poll 秒问一次 n，n 变了才换图")
+    ap.add_argument("--mirror", action="store_true", default=False,
+                    help="备用：改成「跟板端帧号走」（每 --poll 秒问一次 n，n 变了才换图）。"
+                         "板子节奏和 --cadence 对不上、或板子会跳帧时用；默认不用")
     ap.add_argument("--no-mirror", dest="mirror", action="store_false",
-                    help="不用板端帧号，自己按绝对网格走")
-    ap.add_argument("--follow-board", action="store_true", default=True,
-                    help="grid 模式下按板端 ACK 的 n 自动对齐起始图（默认开）")
-    ap.add_argument("--no-follow-board", dest="follow_board", action="store_false")
+                    help="（默认就是）电脑按自己的绝对网格走，不跟板子")
+    ap.add_argument("--check", dest="check", action="store_true", default=True,
+                    help="每张顺带读一次板端 n，核对「板子是否落后一张」（默认开）")
+    ap.add_argument("--no-check", dest="check", action="store_false")
     ap.add_argument("--log-csv", default=None,
                     help="把 (时刻, 板端 n, 显示的图) 逐行写 CSV，用作同步证据")
     args = ap.parse_args(argv)
@@ -423,7 +405,7 @@ def main(argv=None):
     if args.log_csv:
         csvf = open(args.log_csv, "w", newline="", encoding="utf-8")
         csvw = csv.writer(csvf)
-        csvw.writerow(["mono_s", "wall", "n", "idx", "file", "dt_change_s"])
+        csvw.writerow(["mono_s", "wall", "board_n", "idx", "file", "dt_s"])
 
     def show_idx(idx):
         if fc is None:
@@ -459,6 +441,7 @@ def main(argv=None):
         return False
 
     rounds = 0
+    shown = 0
     aborted = False
     t0 = time.monotonic()
     try:
@@ -488,6 +471,7 @@ def main(argv=None):
                         dt = 0.0 if prev_t is None else now - prev_t
                         prev_t = now
                         changes += 1
+                        shown = changes
                         if idx != cur_idx:
                             show_idx(idx)
                             cur_idx = idx
@@ -505,51 +489,99 @@ def main(argv=None):
                 if handle_key(args.poll * 1000.0):
                     raise KeyboardInterrupt
         else:
-            # ---------- 绝对时刻网格 ----------
-            while True:
-                rounds += 1
-                if sig is not None and total:
-                    # 发 START（幂等）并读回 n；n>0 = 板子早就在播，那就从它当前那帧对齐
-                    n0 = sig.start_and_wait()
-                    if rounds == 1 and args.follow_board and n0:
-                        off = (int(n0) - 1 + args.board_delay) % total
-                        files = files[off:] + files[:off]
-                        if fc is not None:
-                            fc.set_files(files)
-                        print("[sync] 板子已播 %d 帧 -> 电脑从 %s 开始"
-                              % (n0, os.path.basename(files[0])))
-                # START 已发：先亮第一张并保持 lead 秒，屏幕不空等（板端 6.2 s 后才出第一张）
-                if hold_first > 0 and files:
-                    show_idx(0)
-                    t_end = time.monotonic() + hold_first
+            # ---------- 电脑按自己的网格翻页；板子的相位由"何时发 START"决定 ----------
+            #   t = 0            : 亮第 0 张（--start-after 0 时同一刻把 START 发出去）
+            #   t = k×6.2 s      : 电脑第 k 张
+            #   板子：START + 6.2 s 出第 0 对，之后每 6.2 s 一对（板子自己定的，改不了）
+            #   ⇒ 观众看到「电脑第 k 张 → 6.2 s → 板子第 k 对」
+            anchor = time.monotonic()                    # 网格原点 = 第 0 张上屏时刻
+            if hold_first > 0 and files:
+                show_idx(0)                              # lead>0 时先把第 0 张亮着
+                t_end = anchor + hold_first
+                while time.monotonic() < t_end:
+                    if handle_key(50):
+                        raise KeyboardInterrupt
+                anchor = time.monotonic()
+            elif files:
+                show_idx(0)
+
+            n0 = None
+            if sig is not None and total:
+                if args.start_after > 0:
+                    print("[start] 第 0 张已显示，等 %.2f s 再发 START"
+                          "（板子还会再等 %.1f s 才出第 0 对 ⇒ 总延迟 %.1f s）"
+                          % (args.start_after, d_lead, args.start_after + d_lead))
+                    t_end = time.monotonic() + args.start_after
                     while time.monotonic() < t_end:
                         if handle_key(50):
                             raise KeyboardInterrupt
-
-                txt = time.monotonic()
-                for i in range(total):
-                    target_t = txt + i * interval
-                    while True:               # 分片等，6.2 s 里按 q 也不会没反应
-                        now = time.monotonic()
-                        if target_t - now <= 0:
-                            break
-                        if handle_key(min(1000.0, (target_t - now) * 1000.0)):
-                            raise KeyboardInterrupt
-                    show_idx(i)
-                    if csvw is not None:
-                        csvw.writerow([round(time.monotonic() - t0, 4),
-                                       time.strftime("%H:%M:%S"), "", i,
-                                       os.path.basename(files[i]), ""])
-                        csvf.flush()
-                    drift = (time.monotonic() - (txt + i * interval)) * 1000.0
-                    print("[%3d/%d] %-40s drift %+6.1f ms"
-                          % (i + 1, total, os.path.basename(files[i]), drift))
-                    if handle_key(1):
+                n = sig.start_and_wait()                 # START（幂等）
+                n0 = int(n) if n is not None else None
+                print("[start] START 已发（t=%.2f s），板子 %.1f s 后出第 0 对"
+                      % (time.monotonic() - anchor, d_lead))
+                if n0:
+                    print("[sync] 板端帧计数起点 n0=%d（板子若在播就从这里继续累加）" % n0)
+            k = 0                                        # 全局张数
+            warn_at = -1e9
+            while True:
+                target_t = anchor + k * interval
+                while True:                              # 分片等，6.2 s 里按 q 也不会没反应
+                    now = time.monotonic()
+                    if target_t - now <= 0:
+                        break
+                    if handle_key(min(1000.0, (target_t - now) * 1000.0)):
                         raise KeyboardInterrupt
 
-                if args.loop == 0 or rounds < args.loop:
-                    continue
-                break
+                idx = k % total
+                if k > 0:
+                    show_idx(idx)
+                drift = (time.monotonic() - target_t) * 1000.0
+
+                # 核对：电脑第 k 张时，板子应当在放第 k-1 对
+                #   板子第 j 对出现在 start_after + d_lead + j*interval（还要再加提交/上屏的
+                #   ~0.3 s），电脑此刻第 k 张 ⇒ 期望累计 exp = k - (start_after+d_lead)/interval + 1
+                got = ""
+                exp = None
+                if sig is not None and n0 is not None and args.check:
+                    exp = k - (args.start_after + d_lead) / interval + 1
+                    # 板子翻页比电脑这一拍晚 (d_lead 起点差 + 提交延迟)，等 0.45 s 再读；
+                    # 还没翻就再等 0.25 s 读一次（只影响这一行日志，不影响画面节拍）
+                    if handle_key(450):
+                        raise KeyboardInterrupt
+                    n = sig.start_and_wait(timeout=0.8)
+                    if n is not None and (int(n) - n0) < exp - 0.5:
+                        if handle_key(250):
+                            raise KeyboardInterrupt
+                        n2 = sig.start_and_wait(timeout=0.8)
+                        if n2 is not None:
+                            n = n2
+                    if n is not None:
+                        d = int(n) - n0
+                        got = " n=%d Δ=%+d" % (int(n), int(round(d - exp)))
+                        if abs(d - exp) >= 2 and time.monotonic() - warn_at > 30:
+                            warn_at = time.monotonic()
+                            print("[WARN] 板子与电脑对不上：电脑第 %d 张，板子累计 %d 帧"
+                                  "（应 = %.0f）⇒ 板子可能不是 %.1f s/张，或 START 没送达"
+                                  % (k, d, exp, interval))
+                            print("       先看板端 player.log 的 [frame] 行；"
+                                  "节奏不同就统一 --cadence，或用 --mirror 让电脑跟板子")
+
+                print("[%3d/%d] %-40s drift %+6.1f ms%s"
+                      % (k + 1, total, os.path.basename(files[idx]), drift, got))
+                if csvw is not None:
+                    csvw.writerow([round(time.monotonic() - t0, 4), time.strftime("%H:%M:%S"),
+                                   (int(n) if got else ""), idx,
+                                   os.path.basename(files[idx]), round(drift / 1000.0, 4)])
+                    csvf.flush()
+
+                shown = k + 1
+                k += 1
+                if args.loop > 0 and k >= total * args.loop:
+                    rounds = args.loop
+                    break
+                if handle_key(1):
+                    raise KeyboardInterrupt
+
     except KeyboardInterrupt:
         aborted = True
         print("\n[quit] 用户中止")
@@ -563,7 +595,8 @@ def main(argv=None):
             csvf.close()
         if not args.no_gui:
             cv2.destroyAllWindows()
-    print("[done] 共 %d 轮 / %d 张%s" % (rounds, total, "（用户中止）" if aborted else ""))
+    print("[done] 共 %d 轮 / %d 张（本机实际翻了 %d 张）%s"
+          % (max(rounds, 0), total, shown, "（用户中止）" if aborted else ""))
     return 0
 
 
