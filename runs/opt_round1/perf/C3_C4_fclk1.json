@@ -1,0 +1,98 @@
+{
+ "when": "2026-11-04 16:13-16:21",
+ "harness": "dump_board_int8 --limit 1 --repeat 2 --time-only, BV_FREE=1, sample p0000",
+ "sample": {
+  "name": "p0000",
+  "in_sha1": "8d83f10019713d9d5a1207ecb77847bf535cef09"
+ },
+ "conditions": {
+  "C3_66.67_scanner_off": {
+   "slcr": "0x00100F00",
+   "div0_plus1": 16,
+   "true_mhz": 66.67,
+   "scanner": "CTRL=0x15",
+   "warm_s": [
+    17.74,
+    16.59,
+    16.53
+   ],
+   "steady_s": [
+    10.06,
+    10.02,
+    10.08
+   ],
+   "median_s": 10.06,
+   "0x2C_delta": 0
+  },
+  "C4_66.67_real_play": {
+   "slcr": "0x00100F00",
+   "div0_plus1": 16,
+   "true_mhz": 66.67,
+   "scanner": "CTRL=0x01, 0x24 advancing 7->12->144",
+   "warm_s": [
+    16.77,
+    16.77,
+    16.94
+   ],
+   "steady_s": [
+    10.21,
+    10.21,
+    10.35
+   ],
+   "median_s": 10.21,
+   "0x2C_delta": 0
+  },
+  "C1_50.79_scanner_off": {
+   "true_mhz": 50.79,
+   "steady_s": [
+    10.34,
+    10.26,
+    10.28
+   ],
+   "median_s": 10.28
+  },
+  "C2c_50.79_testpattern": {
+   "true_mhz": 50.79,
+   "steady_s": [
+    10.34,
+    10.4,
+    10.38
+   ],
+   "median_s": 10.38
+  }
+ },
+ "ratios": {
+  "C4_over_C3": 1.0149,
+  "C2c_over_C1": 1.0097,
+  "C3_over_C1": 0.9786
+ },
+ "fclk1_write_read": {
+  "before": {
+   "slcr": "0x00101800",
+   "div1_plus1": 25,
+   "true_mhz": 42.67
+  },
+  "write_100": {
+   "slcr": "0x00100F00",
+   "div1_plus1": 16,
+   "true_mhz": 66.67
+  },
+  "write_150": {
+   "slcr": "0x00100A00",
+   "div1_plus1": 11,
+   "true_mhz": 96.97
+  },
+  "write_200": {
+   "slcr": "0x00100700",
+   "div1_plus1": 8,
+   "true_mhz": 133.33
+  },
+  "restored": {
+   "slcr": "0x00101800",
+   "div1_plus1": 25,
+   "true_mhz": 42.67
+  },
+  "note": "PYNQ 报数→DIV 映射非线性，回写默认必须写 SLCR 分频域：DIV1 = bits[13:8]，raw=(raw&~0x3F00)|(24<<8) → 0x00101800 = 42.67"
+ },
+ "finding": "50.79→10.28 s，66.67→10.06 s：时钟 +31% 只快 2.1% ⇒ 整网在这些频点**不受计算时钟限制**"
+}
