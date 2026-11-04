@@ -144,6 +144,10 @@ DEFAULT_PAIRS = "/home/xilinx/demo/pairs"
 DEFAULT_FLAG = "/home/xilinx/demo/START.flag"
 DEFAULT_LOG = "/home/xilinx/demo/player.log"
 
+#: v57 @75 MHz 的整网实测节奏（docs/camera/09_板端验收清单.md D3）
+CADENCE_REAL_FIRST = 13.5      # START → 首帧（首轮含一次性探针 ≈6.2 s）
+CADENCE_REAL_PERIOD = 6.2      # 后续每张
+
 PROTO_PORT = 9999
 IDLE_TIMEOUT_S = 10.0
 
@@ -1082,7 +1086,13 @@ def _parse_args(argv=None):
     ap.add_argument("--pairs", default=DEFAULT_PAIRS, help="含 manifest.json 的目录")
     ap.add_argument("--bit", default=None, help="位流路径（默认自动找 /home/xilinx/demo/…）")
     ap.add_argument("--log", default=DEFAULT_LOG)
-    ap.add_argument("--period", type=float, default=1.0, help="每对显示秒数（默认 1.0）")
+    ap.add_argument("--cadence", choices=("real", "fast"), default="real",
+                    help="real=按 v57 实测节奏（首帧 13.5 s，其后 6.2 s/张）；"
+                         "fast=1 fps 观感（默认 real）")
+    ap.add_argument("--period", type=float, default=None,
+                    help="每对显示秒数；不填则按 --cadence（real=6.2 / fast=1.0）")
+    ap.add_argument("--first-period", type=float, default=None,
+                    help="第 1 帧之前的额外等待（START→首帧）；不填则 real=13.5 / fast=start-delay")
     ap.add_argument("--start-delay", type=float, default=1.0,
                     help="收到 START 后等多久才出第一帧（默认 1.0 s，可设 0）；"
                          "期间屏幕保持原状态（彩条/黑）不闪")
@@ -1238,6 +1248,16 @@ def _selfcheck_geometry(log) -> dict:
 
 def main(argv=None) -> int:
     a = _parse_args(argv)
+    # ---- cadence → 具体节奏 -------------------------------------------------
+    # v57 @75 MHz 实测：首轮 13.5 s（含一次性探针 ≈6.2 s），后续 6.2 s/张
+    #   ⇒ t_first = START + 13.5 s，之后每 6.2 s 一张
+    if a.period is None:
+        a.period = CADENCE_REAL_PERIOD if a.cadence == "real" else 1.0
+    if a.first_period is None:
+        a.first_period = CADENCE_REAL_FIRST if a.cadence == "real" else None
+    if a.first_period is not None:
+        # --first-period 直接定义 "START → 首帧"的总等待（覆盖 --start-delay 的 1.0 s）
+        a.start_delay = max(0.0, float(a.first_period))
     if a.period <= 0:
         print("--period 必须 > 0", file=sys.stderr)
         return 3
