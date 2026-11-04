@@ -1,0 +1,35 @@
+--- a/bin_ref_numpy.py	2026-11-04 15:33:18.186339000 +0800
++++ b/bin_ref_numpy.py	2026-11-04 22:03:43.000257500 +0800
+@@ -931,7 +931,15 @@
+     y = np.maximum(y, 0)
+     v2 = np.pad(y, (4, 4))
+     z = _windowed_dot_exact(v2, w1, C)
+-    return (1.0 / (1.0 + np.exp(-z))).astype(np.float32)
++    # ★ T-171（exp 跨平台检测）：sigmoid 的 exp **升 float64 算，再一次性回落 float32**。
++    #   原实现 `np.exp(-z)`（z 是 f32）走 numpy 的 f32 exp 内核：x86 有 SIMD 特化、
++    #   armv7l 走标量 libm `expf`，同输入相差 1~2 个 f32 ULP
++    #   （canary：200k 样本 77,900 个元素不同、max|Δ|=0.125；见
++    #    runs/opt_round1/ps_numeric/exp_det/REPORT_A.md）。
++    #   改成 f64 exp 后：双精度结果本身的跨平台差 ≤1 个 double ULP = 2^-29 f32 ULP，
++    #   在最后 `.astype(np.float32)` 时被舍入吸收（实测 0 例翻转，理论 ~2e-9/元素）。
++    e = np.exp(-np.asarray(z, np.float64))
++    return (1.0 / (1.0 + e)).astype(np.float32)
+ 
+ 
+ def _sam_slab(x, y0, y2, y4, w0, w2, w4, c0, c1, out):
+--- a/bin_net.py	2026-11-04 15:32:36.987782100 +0800
++++ b/bin_net.py	2026-11-04 22:07:47.981396300 +0800
+@@ -281,7 +281,12 @@
+     y = np.maximum(y, 0)
+     v2 = np.pad(y.reshape(1, 1, C), ((0, 0), (0, 0), (4, 4)))
+     z = np.array([float(np.dot(w1, v2[0, 0, i:i + 9])) for i in range(C)], np.float32)
+-    return (1.0 / (1.0 + np.exp(-z))).astype(np.float32)
++    # ★ T-171：同 `bin_ref_numpy.eca_attn_f32_from_mean` —— sigmoid 的 exp 升 float64
++    #   算再一次性回落 float32（f32 exp 内核在 x86 SIMD 与 armv7l 标量 libm 上差 1~2 ULP）。
++    #   主机 FAST_ECA=False 时走的正是这条 ref 路径，所以**必须同步改**，
++    #   否则主机会留在旧的 f32 exp 上，两侧永远差一层。见 exp_det/REPORT_A.md。
++    e = np.exp(-np.asarray(z, np.float64))
++    return (1.0 / (1.0 + e)).astype(np.float32)
+ 
+ 
+ def conv2d_f32(x, w, b=None, stride=1, pad=0, dil=1):

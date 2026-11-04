@@ -1,0 +1,61 @@
+-rw-r--r-- 1 root root 349 May 10 00:34 /usr/local/share/pynq-venv/lib/python3.10/site-packages/pynq/pl_server/global_pl_state_.json
+operating
+[code] numpy=1.21.5 py=3.10.4 machine=armv7l FAST_ECA=True
+[code] bin_net=/home/xilinx/demoir/ps/pynq_expdet/bin_net.py
+[code] bin_ref_numpy=/home/xilinx/demoir/ps/pynq_expdet/bin_ref_numpy.py
+[code] bin_net.py patch_exp64=True
+[code] bin_ref_numpy.py patch_exp64=True
+[in] sha1=c13eb436ed6f4709f16f4422b86aca6f4f4dec7a
+[clk] FCLK0=75 FCLK1=150
+[DEPS] q8=fast c8deq=fast bpack=fast e1e2=fast catpack=fast safe=fast  ⇒ deps_closure_ok=True
+[DEPS] pack=ps（PS 打包，吃容器里的 f32 阈值 off_thr32） —— 正确性优先；要提速请显式 BIN_PACK=e1e2（会丢亚 LSB 阈值）
+[run] 12.8 s | out1 f32=e57b6849990d u8CHW=16a84f2df2c6 | rec=44
+[A] idx=36  encoder.encoder_1.sam_blocks.0.b4.conv.conv    x=88fa04850123 A=0cc14d76d688
+[A] idx=37  encoder.encoder_1.down.conv                    x=a9024f4eb440 A=3f0451e8473d
+[A] idx=38  encoder.encoder_2.rdb.conv_layers.0.conv       x=202953d8931e A=8a67a405d86f
+n   kind      in0           in1           in2           in3           out          
+0   add                                                               4041d9071c1a 
+1   bilinear                                                          a90c2db26cd9 
+2   bilinear                                                          b55c5d0a1131 
+3   bilinear                                                          140db6f33ca9 
+4   bilinear                                                          9646da406758 
+5   eca_fast  7b1a2ba4bb39  3c10bcb9252e  d600f22c1b63                15181fbad51b 
+6   sam_mix                               6c410f221b9a                a9024f4eb440 
+7   add                                                               76dc1989eeb0 
+8   bilinear                                                          f9d006cc4403 
+9   bilinear                                                          6ace21f952c1 
+10  bilinear                                                          ce7fd5eb0b5e 
+11  bilinear                                                          7daca36a3424 
+12  eca_fast  98f695c290f3  e0898929c674  8a46a875454c                050b1188b2ee 
+13  sam_mix                               7d9610d414a7                d434165c4526 
+14  add                                                               3f37e418ecb8 
+15  bilinear                                                          469ba122c2f5 
+16  bilinear                                                          79c9b5f417d8 
+17  bilinear                                                          5afbcaef1eff 
+18  bilinear                                                          b683bddbcbf1 
+19  eca_fast  faf90598ba8b  e7a300cc441e  31652fdd32c2                c7a8a18edce3 
+20  sam_mix                               9c430e0d0b67                ef9df6af1471 
+21  add                                                               cdd7535fd443 
+22  bilinear                                                          e822afbe11fb 
+23  bilinear                                                          d9ab6ec4fdc6 
+24  bilinear                                                          d5547d248e3a 
+25  bilinear  b4ffd8180466                                            cf00b9b55d2d 
+26  eca_fast  145ff9626776  1dd767ae22d0  4549e6d7b4a2                5d76b96bbfb7 
+27  sam_mix                               bed28c29bda9                418f295673de 
+28  bilinear                                                          7cf09a1fe2da 
+29  add                                                               a9c5600343e8 
+30  bilinear                                                          afcb84d08f47 
+31  bilinear                                                          9f2a6c2c2104 
+32  bilinear                                                          30366837e81d 
+33  bilinear                                                          7b91cfa5be67 
+34  eca_fast  9a08e2d096e1  f8b52290622f  e4f734b60e27                ded12bbcd742 
+35  sam_mix                               cfea3d02a1d1                b1c76f87794d 
+36  bilinear                                                          db80584d79b1 
+37  add                                                               8df68a96760d 
+38  bilinear                                                          df07864bfa7f 
+39  bilinear                                                          32b876a56507 
+40  bilinear                                                          971fd8332684 
+41  bilinear                                                          396122d7c9e8 
+42  eca_fast  07f5dab9cfc3  5b0a2bcba206  226cd0d2b3a4                615edce34f58 
+43  sam_mix                               a507fae2d75c                a47349522a45 
+[save] /tmp/probe_t171/sam2/sam2_t171.json

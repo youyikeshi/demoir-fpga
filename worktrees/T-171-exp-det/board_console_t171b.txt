@@ -1,0 +1,439 @@
+=== [1] PYNQ global_pl_state_.json
+    已从 .bak_rec 恢复
+=== [2] 停播放器
+=== [3] state（载流前）
+operating
+=== [4] v60 .bin 校验（期望 37a163f7d32e1b1ff661e36b70561142）
+37a163f7d32e1b1ff661e36b70561142  /lib/firmware/design_1_v60.bit.bin
+    与 deploy 逐字节相同
+=== [5] 载 v60
+    state=operating
+=== [6] 一次前向（补丁副本优先）
+====================================================================================================
+[pre] fpga_manager state = operating
+[pre] cwd=/tmp/probe_t171
+[pre] argv=probe12a.py --input /home/xilinx/demo/frozen256/p0067_crop256.npy --pack /home/xilinx/demoir/deploy/v60/pack_clean --bit /home/xilinx/demoir/deploy/v60/design_1_v60.bit --index /home/xilinx/demoir/ps/pynq_expdet/host_index_patched.json --outdir /tmp/probe_t171/out
+[env] BIN_PACK         = ps
+[env] BIN_RTL_ROUND    = 1
+[env] BIN_CONV_OOB0    = 1
+[env] BIN_THR_F32      = 1
+[env] BIN_LAZY_DEQ     = 1
+[env] BIN_CAT_FUSION   = 1
+[env] BIN_BILINEAR_C   = 1
+[env] BIN_PRECOMP      = 1
+[env] Q8CACHE          = 1
+[env] BIN_F32DIRECT    = 1
+[env] BIN_CAT_ECA_FUSE = 1
+[env] BIN_EPI_NOINV    = 1
+[env] BIN_LAZY_SLOTS   = 24
+[env] BV_FREE          = 1
+[env] PYTHONPATH       = /home/xilinx/demoir/ps/pynq_expdet:/home/xilinx/demoir/deploy/v60/ps:/home/xilinx/demoir/ps/pynq
+[pre] python=3.10.4 numpy=1.21.5 platform=armv7l
+[pre] mem {'MemAvailable': 935.6, 'CmaFree': 58.4}
+[pre] bin_net=/home/xilinx/demoir/ps/pynq_expdet/bin_net.py (25dd599b264140d7ce396ea2f345d4b0)
+[pre] bin_engine=/home/xilinx/demoir/deploy/v60/ps/bin_engine.py
+[pre] bin_ref_numpy=/home/xilinx/demoir/ps/pynq_expdet/bin_ref_numpy.py  patch_T171_exp64=True
+[in] /home/xilinx/demo/frozen256/p0067_crop256.npy md5=70043b5a003c48b8bdb1f6db8fa2e48e shape=(256, 256, 3) dtype=uint8 min=75 max=255 mean=196.585
+[in] f32 (3,256,256) CHW sha1=c13eb436ed6f4709f16f4422b86aca6f4f4dec7a  (期望 c13eb436ed6f4709f16f4422b86aca6f4f4dec7a)
+[net] 227-conv 图已建：conv=227, arena need=5.58 MB
+[net] Overlay(download=False) ok
+[clk] FCLK0 报数(设前) = 75
+[clk] 报数(设后) FCLK0=75 FCLK1=150
+[clk] SLCR 0xF8000170=0x00101400 ⇒ FCLK0 真值 50.79 MHz | 0xF8000174=0x00000000 ⇒ FCLK1 真值 1066.67 MHz
+[clk] 期望：FCLK0 报数 75 ⇒ 真值 50.79；FCLK1 报数 150 ⇒ 真值 96.97
+[net] load_weights ok；engine=BinConvEngine
+[H3] engine._e1e2 = None ; net._lazy_deq = False ; net._cat_fusion = False
+====================================================================================================
+[DEPS] q8=fast c8deq=fast bpack=fast e1e2=fast catpack=fast safe=fast  ⇒ deps_closure_ok=True
+[DEPS] pack=ps（PS 打包，吃容器里的 f32 阈值 off_thr32） —— 正确性优先；要提速请显式 BIN_PACK=e1e2（会丢亚 LSB 阈值）
+[run] 整网一次前向 17.41 s（建网 8.3 s）；捕获 int8 层 227 / f32 层 4
+[run] stats: deps_closure_ok=True kernel_deps={"q8": {"state": "fast", "why": "\u5df2\u88c5\u8f7d\uff08ok\uff09", "source": "runtime", "module": "/home/xilinx/demoir/ps/pynq/q8.py", "so": "/home/xilinx/demoir/deploy/v60/ps/q8_armv7l.so", "hint": 
+[run] stats: total=17.40 s pl=3.71 ps=9.89
+====================================================================================================
+[out1] f32 (3,256,256) sha1 = e57b6849990dbc6dccfbe3afabf62d9341c32d44   != 板端记账 85d5e42bc9275c9ff77effc2038d3cf204991af4
+[out1] u8  HWC sha1 = 221b45d13d685ab617426d32665bfccefb7c5a16   != 板端记账 d709f02c0b1a09795daf967a75993fe428c87542
+[out1] u8  CHW sha1 = 16a84f2df2c6f90df202450c8a763535847d23a2 ; min=192 max=255 mean=239.597
+====================================================================================================
+#   类型    层名                                                             期望 sha1        实测 sha1        一致
+1   f32   encoder.conv_first.0                                           8b70516715ca   f65e0a04584f   ✗
+2   int8  encoder.encoder_1.rdb.conv_layers.0.conv                       7c55b4fec700   7c55b4fec700   ✓
+3   int8  encoder.encoder_1.rdb.conv_layers.1.conv                       082d44e2eb1e   082d44e2eb1e   ✓
+4   int8  encoder.encoder_1.rdb.conv_layers.2.conv                       1dae1f7750d0   1dae1f7750d0   ✓
+5   int8  encoder.encoder_1.rdb.conv_post.conv                           d15c331e3371   d15c331e3371   ✓
+6   int8  encoder.encoder_1.sam_blocks.0.b0.ghost_layers.0.cheap_operation.conv 26b0d00cba38   26b0d00cba38   ✓
+7   int8  encoder.encoder_1.sam_blocks.0.b0.ghost_layers.1.primary_conv.conv 3894f14ee982   3894f14ee982   ✓
+8   int8  encoder.encoder_1.down.conv                                    46356d5caec9   43bc3158968b   ✗
+9   int8  encoder.encoder_2.down.conv                                    215c0d7b6c9c   1ee844c86ae0   ✗
+10  int8  decoder.preconv_3.conv                                         d93a19068bd3   4b85a58b3042   ✗
+11  int8  decoder.preconv_1.conv                                         dc187c674f8d   803607a0ae2d   ✗
+12  int8  decoder.decoder_1.sam_blocks.0.b4.conv.conv                    2d2d57653d9e   624b611c1c79   ✗
+====================================================================================================
+[scan] 主机 227 层中未捕获 0 个；板端多出 0 个
+[scan] 板端 vs 主机：相同 37 / 227，不同 190
+[scan] ★ 第一个发散的 int8 层 = idx 37  encoder.encoder_1.down.conv（fs_out=3）
+[scan]   它的前一层 idx 36 encoder.encoder_1.sam_blocks.0.b4.conv.conv：相同
+[scan] 全部不同的层（idx / 名字 / 期望→实测 / 统计 b vs h）：
+     37 encoder.encoder_1.down.conv                                46356d5caec9→43bc3158968b  fs=3  n_zero 60709 vs 60703, min -80 vs -80, max 98 vs 98, mean -5.223 vs -5.223
+     38 encoder.encoder_2.rdb.conv_layers.0.conv                   3f3a49c49280→cbe57708ab17  fs=2  n_zero 92327 vs 92326, min -61 vs -61, max 73 vs 73, mean -1.855 vs -1.855
+     39 encoder.encoder_2.rdb.conv_layers.1.conv                   eddc71b4cc58→bf19524dbe00  fs=1  n_zero 55719 vs 55722, min -37 vs -37, max 56 vs 56, mean -1.942 vs -1.943
+     40 encoder.encoder_2.rdb.conv_layers.2.conv                   7bffc378fc7d→33767ba680dd  fs=2  n_zero 5097 vs 5091, min -98 vs -98, max 121 vs 121, mean -10.407 vs -10.408
+     41 encoder.encoder_2.rdb.conv_post.conv                       5961e2962977→32bc7988dd5c  fs=3  n_zero 87503 vs 87511, min -32 vs -32, max 106 vs 106, mean -1.893 vs -1.893
+     42 encoder_2.sam_blocks.0.b0.ghost_layers.0.primary_conv.conv 428fb8e72132→1e0e2e8771cb  fs=4  n_zero 23446 vs 23466, min -23 vs -23, max 95 vs 95, mean 1.995 vs 1.995
+     43 oder_2.sam_blocks.0.b0.ghost_layers.0.cheap_operation.conv 48a6d1a2f661→cc7197a1a27a  fs=3  n_zero 51102 vs 51123, min -58 vs -58, max 95 vs 95, mean -0.147 vs -0.148
+     44 encoder_2.sam_blocks.0.b0.ghost_layers.1.primary_conv.conv 85050d3d0cfb→f317921da2ec  fs=4  n_zero 47233 vs 47234, min -21 vs -21, max 96 vs 96, mean 0.327 vs 0.326
+     45 oder_2.sam_blocks.0.b0.ghost_layers.1.cheap_operation.conv f671402e8f94→a31d177318bb  fs=4  n_zero 89258 vs 89265, min -26 vs -26, max 47 vs 47, mean -0.440 vs -0.442
+     46 encoder_2.sam_blocks.0.b0.ghost_layers.2.primary_conv.conv 9aad78a95efb→d68d21f4bdc0  fs=3  n_zero 42489 vs 42526, min -53 vs -53, max 81 vs 81, mean 2.207 vs 2.206
+     47 oder_2.sam_blocks.0.b0.ghost_layers.2.cheap_operation.conv 9addc7c77fff→24c417a7fd15  fs=4  n_zero 3927 vs 3901, min -81 vs -81, max 105 vs 105, mean 2.843 vs 2.847
+     48 encoder_2.sam_blocks.0.b0.ghost_layers.3.primary_conv.conv a4d0436f7174→235d42f23646  fs=3  n_zero 50325 vs 50357, min -90 vs -90, max 49 vs 47, mean -4.649 vs -4.651
+     49 oder_2.sam_blocks.0.b0.ghost_layers.3.cheap_operation.conv 52c935b8117e→53db0369d8ef  fs=3  n_zero 22218 vs 22238, min -52 vs -53, max 63 vs 63, mean -2.226 vs -2.230
+     50 encoder_2.sam_blocks.0.b0.ghost_layers.4.primary_conv.conv 3982dacfeae6→fe057ee0dc43  fs=3  n_zero 25220 vs 25256, min -46 vs -46, max 104 vs 104, mean 0.330 vs 0.330
+     51 oder_2.sam_blocks.0.b0.ghost_layers.4.cheap_operation.conv fc4199f2b86a→2d13889dd13c  fs=3  n_zero 9095 vs 9113, min -59 vs -59, max 41 vs 41, mean -7.961 vs -7.970
+     52 encoder.encoder_2.sam_blocks.0.b0.conv.conv                d1b8593d581f→68b149ad5286  fs=2  n_zero 73326 vs 73301, min -51 vs -51, max 72 vs 72, mean 2.239 vs 2.236
+     53 encoder_2.sam_blocks.0.b2.ghost_layers.0.primary_conv.conv b23cba7f292c→d1020c092a59  fs=5  n_zero 9440 vs 9444, min -101 vs -101, max 51 vs 51, mean -3.928 vs -3.929
+     54 oder_2.sam_blocks.0.b2.ghost_layers.0.cheap_operation.conv ea1a7053e229→98e9f4a6de23  fs=3  n_zero 22981 vs 22987, min -25 vs -25, max 54 vs 54, mean -0.835 vs -0.836
+     55 encoder_2.sam_blocks.0.b2.ghost_layers.1.primary_conv.conv d5223b4f7ff4→f6401c47bc72  fs=4  n_zero 6894 vs 6897, min -58 vs -58, max 72 vs 72, mean -2.730 vs -2.731
+     56 oder_2.sam_blocks.0.b2.ghost_layers.1.cheap_operation.conv e48c3dce2ece→927f9a53805c  fs=3  n_zero 2161 vs 2163, min -40 vs -40, max 70 vs 70, mean -2.318 vs -2.318
+     57 encoder_2.sam_blocks.0.b2.ghost_layers.2.primary_conv.conv 8b715fad4775→fca3a2cbd975  fs=3  n_zero 8073 vs 8077, min -27 vs -27, max 68 vs 68, mean 2.828 vs 2.830
+     58 oder_2.sam_blocks.0.b2.ghost_layers.2.cheap_operation.conv fa94f6e5dfc7→e2271da587a3  fs=4  n_zero 481 vs 479, min -88 vs -88, max 67 vs 67, mean -16.123 vs -16.114
+     59 encoder_2.sam_blocks.0.b2.ghost_layers.3.primary_conv.conv 1aca9c195bed→bc37f63a5ee1  fs=4  n_zero 6498 vs 6500, min -87 vs -84, max 127 vs 127, mean 2.455 vs 2.445
+     60 oder_2.sam_blocks.0.b2.ghost_layers.3.cheap_operation.conv d73f8ac353a8→d033b731ed6a  fs=4  n_zero 999 vs 1012, min -78 vs -78, max 71 vs 71, mean -12.558 vs -12.555
+     61 encoder_2.sam_blocks.0.b2.ghost_layers.4.primary_conv.conv ca4a851ded0c→25b5269c67b6  fs=3  n_zero 16210 vs 16208, min -41 vs -41, max 112 vs 112, mean 5.618 vs 5.617
+     62 oder_2.sam_blocks.0.b2.ghost_layers.4.cheap_operation.conv 2de4e2a59ae2→56f593c1074d  fs=4  n_zero 8456 vs 8479, min -128 vs -128, max 127 vs 127, mean -0.453 vs -0.437
+     63 encoder.encoder_2.sam_blocks.0.b2.conv.conv                391bfecd610d→0af092847986  fs=3  n_zero 10622 vs 10642, min -83 vs -83, max 107 vs 107, mean -5.983 vs -5.980
+     64 encoder_2.sam_blocks.0.b4.ghost_layers.0.primary_conv.conv 645ded72e8fd→0ad12955b1b3  fs=5  n_zero 2840 vs 2835, min -15 vs -15, max 127 vs 127, mean 2.842 vs 2.837
+     65 oder_2.sam_blocks.0.b4.ghost_layers.0.cheap_operation.conv d332161011e2→4665bb12e6d0  fs=5  n_zero 1922 vs 1926, min -32 vs -32, max 77 vs 77, mean -1.101 vs -1.096
+     66 encoder_2.sam_blocks.0.b4.ghost_layers.1.primary_conv.conv bfe9495c08fd→20a9bcfd8d13  fs=4  n_zero 3296 vs 3294, min -71 vs -71, max 85 vs 85, mean 0.959 vs 0.957
+     67 oder_2.sam_blocks.0.b4.ghost_layers.1.cheap_operation.conv 81ffb89b0cee→8d9d1557eb24  fs=4  n_zero 398 vs 401, min -98 vs -98, max 45 vs 45, mean -11.814 vs -11.805
+     68 encoder_2.sam_blocks.0.b4.ghost_layers.2.primary_conv.conv f0a768a7e184→266565b6f0b3  fs=4  n_zero 3674 vs 3679, min -11 vs -11, max 127 vs 127, mean 2.823 vs 2.833
+     69 oder_2.sam_blocks.0.b4.ghost_layers.2.cheap_operation.conv ffaaf8968b3c→fcad076d0462  fs=4  n_zero 298 vs 302, min -119 vs -119, max 49 vs 47, mean -4.044 vs -3.995
+     70 encoder_2.sam_blocks.0.b4.ghost_layers.3.primary_conv.conv 29b300f87ae8→fd28484718ea  fs=3  n_zero 3492 vs 3487, min -26 vs -26, max 65 vs 65, mean 3.016 vs 3.015
+     71 oder_2.sam_blocks.0.b4.ghost_layers.3.cheap_operation.conv 9bbfe3b53af2→70712884b4a8  fs=4  n_zero 146 vs 154, min -80 vs -80, max 82 vs 79, mean -3.238 vs -3.307
+     72 encoder_2.sam_blocks.0.b4.ghost_layers.4.primary_conv.conv ab3ecc6bcce8→7b38b425bf26  fs=4  n_zero 1068 vs 1091, min -26 vs -26, max 92 vs 92, mean 2.101 vs 2.117
+     73 oder_2.sam_blocks.0.b4.ghost_layers.4.cheap_operation.conv b9b66c18b4bf→e47476bc96c2  fs=3  n_zero 274 vs 255, min -60 vs -60, max 77 vs 78, mean -1.707 vs -1.918
+     74 encoder.encoder_2.sam_blocks.0.b4.conv.conv                97a7ff432ed5→636b213fd575  fs=3  n_zero 3353 vs 3383, min -56 vs -56, max 127 vs 127, mean 11.794 vs 11.803
+     75 encoder.encoder_2.down.conv                                215c0d7b6c9c→1ee844c86ae0  fs=2  n_zero 81348 vs 81420, min -33 vs -33, max 67 vs 66, mean -0.807 vs -0.851
+     76 encoder.encoder_3.rdb.conv_layers.0.conv                   4af4f30cd597→6038aa985929  fs=1  n_zero 9038 vs 9066, min -54 vs -54, max 49 vs 48, mean -1.431 vs -1.429
+     77 encoder.encoder_3.rdb.conv_layers.1.conv                   0785ef18738b→de9f36b4eed4  fs=2  n_zero 5099 vs 5213, min -100 vs -98, max 127 vs 127, mean -4.340 vs -4.337
+     78 encoder.encoder_3.rdb.conv_layers.2.conv                   cae2f6da3a6e→c98a74ff5d73  fs=1  n_zero 2468 vs 2471, min -49 vs -49, max 61 vs 62, mean -5.870 vs -5.852
+     79 encoder.encoder_3.rdb.conv_post.conv                       b620d90238f4→3f1b24c9e767  fs=3  n_zero 73335 vs 73315, min -128 vs -128, max 127 vs 127, mean 1.155 vs 1.165
+     80 encoder_3.sam_blocks.0.b0.ghost_layers.0.primary_conv.conv 014ac8960165→e8a1881a3893  fs=4  n_zero 3739 vs 3701, min -26 vs -26, max 73 vs 83, mean -2.809 vs -2.794
+     81 oder_3.sam_blocks.0.b0.ghost_layers.0.cheap_operation.conv 75ae5f43847b→7cbe9f6bd006  fs=3  n_zero 24476 vs 24519, min -11 vs -11, max 29 vs 26, mean -0.085 vs -0.080
+     82 encoder_3.sam_blocks.0.b0.ghost_layers.1.primary_conv.conv 8f26f234c860→ad7956ac7a59  fs=4  n_zero 8898 vs 8837, min -38 vs -37, max 99 vs 91, mean -2.203 vs -2.201
+     83 oder_3.sam_blocks.0.b0.ghost_layers.1.cheap_operation.conv 30d727ecacf7→72e0b9487e38  fs=4  n_zero 21139 vs 21141, min -26 vs -26, max 40 vs 40, mean -0.755 vs -0.750
+     84 encoder_3.sam_blocks.0.b0.ghost_layers.2.primary_conv.conv f88409103ba5→ae0664a17a12  fs=3  n_zero 12082 vs 12106, min -39 vs -39, max 59 vs 59, mean -1.782 vs -1.778
+     85 oder_3.sam_blocks.0.b0.ghost_layers.2.cheap_operation.conv 360c44827cfa→fcfc1b0763ad  fs=5  n_zero 3009 vs 3036, min -60 vs -57, max 127 vs 127, mean -2.732 vs -2.396
+     86 encoder_3.sam_blocks.0.b0.ghost_layers.3.primary_conv.conv 0f8d6c0edc5c→a273bd099806  fs=3  n_zero 9941 vs 10107, min -48 vs -49, max 95 vs 95, mean -1.245 vs -1.241
+     87 oder_3.sam_blocks.0.b0.ghost_layers.3.cheap_operation.conv 598125f189fb→d9f44598d53d  fs=3  n_zero 4063 vs 3875, min -58 vs -60, max 43 vs 40, mean -6.581 vs -6.273
+     88 encoder_3.sam_blocks.0.b0.ghost_layers.4.primary_conv.conv 14384b56cbc5→97a646df75f6  fs=2  n_zero 6708 vs 6724, min -47 vs -50, max 64 vs 68, mean -2.427 vs -2.440
+     89 oder_3.sam_blocks.0.b0.ghost_layers.4.cheap_operation.conv 4d7771639560→ea4cd5c3b19c  fs=1  n_zero 1332 vs 1384, min -62 vs -62, max 29 vs 31, mean -6.117 vs -5.911
+     90 encoder.encoder_3.sam_blocks.0.b0.conv.conv                750db1fb8962→3ac2db289da7  fs=2  n_zero 57679 vs 57869, min -39 vs -37, max 101 vs 99, mean 4.486 vs 4.457
+     91 encoder_3.sam_blocks.0.b2.ghost_layers.0.primary_conv.conv 16cda69bc472→cd67c5660944  fs=4  n_zero 1122 vs 1104, min -26 vs -26, max 74 vs 81, mean -0.180 vs -0.185
+     92 oder_3.sam_blocks.0.b2.ghost_layers.0.cheap_operation.conv 828a6fd72260→ca1ff54dcc7b  fs=4  n_zero 4497 vs 4512, min -51 vs -50, max 51 vs 50, mean 0.236 vs 0.188
+     93 encoder_3.sam_blocks.0.b2.ghost_layers.1.primary_conv.conv 57dcaf69ca5d→a3d4711c8224  fs=4  n_zero 1053 vs 1055, min -52 vs -54, max 69 vs 63, mean -3.412 vs -3.383
+     94 oder_3.sam_blocks.0.b2.ghost_layers.1.cheap_operation.conv 15b757ccf135→eab428fb58de  fs=4  n_zero 1099 vs 1100, min -31 vs -32, max 96 vs 98, mean 2.192 vs 2.158
+     95 encoder_3.sam_blocks.0.b2.ghost_layers.2.primary_conv.conv 8e379807578e→4ef3d971001a  fs=3  n_zero 376 vs 371, min -33 vs -35, max 67 vs 73, mean 2.720 vs 2.707
+     96 oder_3.sam_blocks.0.b2.ghost_layers.2.cheap_operation.conv aa21a1b17363→c28ce11804aa  fs=5  n_zero 65 vs 54, min -128 vs -128, max 127 vs 127, mean -13.187 vs -13.025
+     97 encoder_3.sam_blocks.0.b2.ghost_layers.3.primary_conv.conv 987c758de8b4→63e15418dd5c  fs=3  n_zero 1080 vs 1078, min -28 vs -30, max 55 vs 61, mean -1.933 vs -1.912
+     98 oder_3.sam_blocks.0.b2.ghost_layers.3.cheap_operation.conv e5083063472a→48b49f65f02e  fs=4  n_zero 484 vs 532, min -89 vs -89, max 66 vs 73, mean -5.013 vs -5.008
+     99 encoder_3.sam_blocks.0.b2.ghost_layers.4.primary_conv.conv f1b72db7afe0→59a5a98bfd36  fs=3  n_zero 2161 vs 2174, min -39 vs -39, max 58 vs 61, mean -1.521 vs -1.536
+    100 oder_3.sam_blocks.0.b2.ghost_layers.4.cheap_operation.conv 01a1f3ac2f3f→17d7298d0cc0  fs=4  n_zero 1351 vs 1364, min -47 vs -44, max 74 vs 69, mean -2.848 vs -2.758
+    101 encoder.encoder_3.sam_blocks.0.b2.conv.conv                a88dd3edab2c→211ac9cfe028  fs=2  n_zero 13781 vs 13810, min -32 vs -31, max 100 vs 100, mean 4.395 vs 4.428
+    102 encoder_3.sam_blocks.0.b4.ghost_layers.0.primary_conv.conv a1ef6fbe2844→f92a91dd5df5  fs=4  n_zero 413 vs 412, min -6 vs -6, max 73 vs 73, mean 6.315 vs 6.320
+    103 oder_3.sam_blocks.0.b4.ghost_layers.0.cheap_operation.conv 62c020e1ce25→ec8b8698c74f  fs=4  n_zero 165 vs 156, min -18 vs -19, max 127 vs 127, mean 2.367 vs 2.358
+    104 encoder_3.sam_blocks.0.b4.ghost_layers.1.primary_conv.conv 6e1d1b38e3f6→302c6ab54465  fs=4  n_zero 518 vs 536, min -12 vs -11, max 120 vs 120, mean 6.327 vs 6.281
+    105 oder_3.sam_blocks.0.b4.ghost_layers.1.cheap_operation.conv 8d76eed66324→29c64f3732e0  fs=6  n_zero 113 vs 94, min -127 vs -128, max 127 vs 127, mean -10.182 vs -10.002
+    106 encoder_3.sam_blocks.0.b4.ghost_layers.2.primary_conv.conv 1787a0263120→d7df0bdc536d  fs=4  n_zero 410 vs 406, min -53 vs -52, max 127 vs 127, mean -0.945 vs -0.958
+    107 oder_3.sam_blocks.0.b4.ghost_layers.2.cheap_operation.conv d784f73bcaf9→b9e31fd3131a  fs=6  n_zero 38 vs 31, min -128 vs -128, max 127 vs 127, mean -0.124 vs 0.548
+    108 encoder_3.sam_blocks.0.b4.ghost_layers.3.primary_conv.conv f893b3c625df→5c534d66c9bb  fs=3  n_zero 475 vs 478, min -34 vs -34, max 67 vs 68, mean 3.375 vs 3.377
+    109 oder_3.sam_blocks.0.b4.ghost_layers.3.cheap_operation.conv dd58bd6d4ff8→15eafce83137  fs=5  n_zero 21 vs 29, min -56 vs -55, max 92 vs 104, mean -5.283 vs -5.482
+    110 encoder_3.sam_blocks.0.b4.ghost_layers.4.primary_conv.conv a4e4e050d4f2→dee686723dc7  fs=3  n_zero 466 vs 459, min -14 vs -15, max 31 vs 32, mean -0.340 vs -0.367
+    111 oder_3.sam_blocks.0.b4.ghost_layers.4.cheap_operation.conv a477edb321c4→a51811d613c1  fs=4  n_zero 9 vs 9, min -43 vs -42, max 70 vs 72, mean -10.108 vs -10.095
+    112 encoder.encoder_3.sam_blocks.0.b4.conv.conv                731c17f390ba→4dae8659f125  fs=2  n_zero 3530 vs 3520, min -60 vs -62, max 79 vs 82, mean 6.136 vs 6.154
+    113 decoder.preconv_3.conv                                     d93a19068bd3→4b85a58b3042  fs=2  n_zero 42690 vs 42654, min -2 vs -2, max 30 vs 31, mean -0.193 vs -0.195
+    114 decoder.decoder_3.rdb.conv_layers.0.conv                   cade7912e3bc→fefd43f76d08  fs=3  n_zero 38294 vs 38315, min -54 vs -52, max 57 vs 58, mean -4.650 vs -4.645
+    115 decoder.decoder_3.rdb.conv_layers.1.conv                   237da9c5178d→227dff6c1b38  fs=2  n_zero 56153 vs 56084, min -57 vs -59, max 44 vs 44, mean -2.151 vs -2.148
+    116 decoder.decoder_3.rdb.conv_layers.2.conv                   58396e341986→d5217f54332c  fs=3  n_zero 14395 vs 14519, min -80 vs -80, max 105 vs 117, mean -6.327 vs -6.287
+    117 decoder.decoder_3.rdb.conv_post.conv                       94e06a6e1a47→03bc962dd0e0  fs=4  n_zero 14072 vs 14142, min -3 vs -3, max 127 vs 127, mean 1.073 vs 1.073
+    118 decoder_3.sam_blocks.0.b0.ghost_layers.0.primary_conv.conv e7dd14f4e442→eca0138db4e8  fs=4  n_zero 4961 vs 4981, min -27 vs -26, max 56 vs 61, mean 0.408 vs 0.365
+    119 oder_3.sam_blocks.0.b0.ghost_layers.0.cheap_operation.conv 5804f482ac88→ab78d36b9a4a  fs=4  n_zero 444 vs 429, min -128 vs -128, max 127 vs 127, mean -1.585 vs -1.876
+    120 decoder_3.sam_blocks.0.b0.ghost_layers.1.primary_conv.conv e815ed8cd85a→c348f7621b34  fs=4  n_zero 3404 vs 3432, min -90 vs -95, max 125 vs 118, mean -8.196 vs -8.138
+    121 oder_3.sam_blocks.0.b0.ghost_layers.1.cheap_operation.conv b674e89fc57e→1f81ff439969  fs=4  n_zero 3602 vs 3629, min -128 vs -128, max 109 vs 106, mean -19.132 vs -19.155
+    122 decoder_3.sam_blocks.0.b0.ghost_layers.2.primary_conv.conv 684a801e294d→9defd3fb7660  fs=3  n_zero 10987 vs 10948, min -31 vs -30, max 62 vs 60, mean -2.825 vs -2.868
+    123 oder_3.sam_blocks.0.b0.ghost_layers.2.cheap_operation.conv d6e2aec9d4c1→e1bafc4816d2  fs=4  n_zero 500 vs 530, min -125 vs -128, max 105 vs 105, mean -25.687 vs -25.570
+    124 decoder_3.sam_blocks.0.b0.ghost_layers.3.primary_conv.conv 5b802ed9e606→c182c49e7119  fs=3  n_zero 11346 vs 11366, min -80 vs -81, max 123 vs 123, mean -16.480 vs -16.514
+    125 oder_3.sam_blocks.0.b0.ghost_layers.3.cheap_operation.conv 985b2d1f7984→0f5abe3e95cc  fs=4  n_zero 32250 vs 32244, min -80 vs -82, max 86 vs 86, mean -9.034 vs -9.038
+    126 decoder_3.sam_blocks.0.b0.ghost_layers.4.primary_conv.conv 1a5197f6d37b→9f8e70ebe70d  fs=3  n_zero 14891 vs 14775, min -92 vs -91, max 66 vs 66, mean -13.868 vs -13.879
+    127 oder_3.sam_blocks.0.b0.ghost_layers.4.cheap_operation.conv bb2a751054b4→f2e256d4cd0b  fs=3  n_zero 24568 vs 24577, min -87 vs -89, max 54 vs 51, mean -9.700 vs -9.671
+    128 decoder.decoder_3.sam_blocks.0.b0.conv.conv                8a5acca1850c→1a2391ed5928  fs=1  n_zero 41092 vs 41202, min -12 vs -13, max 85 vs 85, mean 0.491 vs 0.495
+    129 decoder_3.sam_blocks.0.b2.ghost_layers.0.primary_conv.conv 86df592c3bc5→e5e6159a28e6  fs=5  n_zero 539 vs 551, min -41 vs -38, max 75 vs 75, mean 6.087 vs 5.866
+    130 oder_3.sam_blocks.0.b2.ghost_layers.0.cheap_operation.conv 5d0e2a4b51ee→b28a89d97d94  fs=4  n_zero 162 vs 162, min -107 vs -104, max 127 vs 127, mean -3.704 vs -4.893
+    131 decoder_3.sam_blocks.0.b2.ghost_layers.1.primary_conv.conv 6c48de9b251f→972e1f1a1206  fs=4  n_zero 524 vs 549, min -54 vs -59, max 98 vs 101, mean 4.188 vs 3.775
+    132 oder_3.sam_blocks.0.b2.ghost_layers.1.cheap_operation.conv e12d89fd139e→1b791137a993  fs=5  n_zero 330 vs 333, min -121 vs -119, max 127 vs 127, mean -22.526 vs -22.375
+    133 decoder_3.sam_blocks.0.b2.ghost_layers.2.primary_conv.conv 9352c86ad851→84d4aaa1c972  fs=5  n_zero 151 vs 155, min -90 vs -90, max 127 vs 127, mean 25.949 vs 25.801
+    134 oder_3.sam_blocks.0.b2.ghost_layers.2.cheap_operation.conv 041280dac873→0b9dcfb3dd71  fs=5  n_zero 1373 vs 1380, min -128 vs -128, max 127 vs 127, mean -36.262 vs -36.164
+    135 decoder_3.sam_blocks.0.b2.ghost_layers.3.primary_conv.conv 9e7f0e31028a→db4efc67f8a0  fs=4  n_zero 4348 vs 4346, min -121 vs -121, max 83 vs 83, mean -10.554 vs -10.631
+    136 oder_3.sam_blocks.0.b2.ghost_layers.3.cheap_operation.conv 55dfb9efe6a9→3fa4859bd0e4  fs=5  n_zero 6541 vs 6546, min -128 vs -128, max 127 vs 123, mean -23.991 vs -23.980
+    137 decoder_3.sam_blocks.0.b2.ghost_layers.4.primary_conv.conv 7256b5268fee→b05d4e4d5cfa  fs=4  n_zero 3556 vs 3560, min -128 vs -128, max 110 vs 107, mean -29.504 vs -29.646
+    138 oder_3.sam_blocks.0.b2.ghost_layers.4.cheap_operation.conv 05947b109de8→9f3a3bec5319  fs=4  n_zero 6765 vs 6756, min -87 vs -87, max 127 vs 127, mean -4.991 vs -5.005
+    139 decoder.decoder_3.sam_blocks.0.b2.conv.conv                be5fc288fed4→0ed55d41aef0  fs=2  n_zero 3331 vs 3334, min -24 vs -23, max 40 vs 53, mean -2.305 vs -2.313
+    140 decoder_3.sam_blocks.0.b4.ghost_layers.0.primary_conv.conv 591fbac4080d→5bca1c60f05d  fs=6  n_zero 36 vs 31, min -61 vs -56, max 127 vs 127, mean 3.389 vs 3.463
+    141 oder_3.sam_blocks.0.b4.ghost_layers.0.cheap_operation.conv c05ced8f3ece→f615eb8e1797  fs=5  n_zero 29 vs 43, min -128 vs -128, max 127 vs 127, mean -11.286 vs -11.269
+    142 decoder_3.sam_blocks.0.b4.ghost_layers.1.primary_conv.conv 74c0d3fb5d97→f846c78a41ba  fs=5  n_zero 34 vs 35, min -73 vs -72, max 127 vs 127, mean 12.604 vs 12.618
+    143 oder_3.sam_blocks.0.b4.ghost_layers.1.cheap_operation.conv f13b61ed4ff4→08e2ebca3c7a  fs=5  n_zero 16 vs 19, min -128 vs -128, max 127 vs 127, mean -17.382 vs -16.452
+    144 decoder_3.sam_blocks.0.b4.ghost_layers.2.primary_conv.conv 6d8bc87e146f→6a38590ff256  fs=3  n_zero 334 vs 307, min -68 vs -64, max 41 vs 38, mean -13.113 vs -12.673
+    145 oder_3.sam_blocks.0.b4.ghost_layers.2.cheap_operation.conv 5da4ea636baf→ea379643d9c3  fs=5  n_zero 1843 vs 1855, min -128 vs -128, max 127 vs 127, mean -14.632 vs -14.771
+    146 decoder_3.sam_blocks.0.b4.ghost_layers.3.primary_conv.conv c83986ff209b→c5c81073f2c0  fs=4  n_zero 1373 vs 1370, min -119 vs -117, max 123 vs 121, mean -18.668 vs -18.431
+    147 oder_3.sam_blocks.0.b4.ghost_layers.3.cheap_operation.conv d98079c9fe45→82fcbb4d785a  fs=6  n_zero 2022 vs 2024, min -128 vs -128, max 127 vs 127, mean -39.410 vs -39.377
+    148 decoder_3.sam_blocks.0.b4.ghost_layers.4.primary_conv.conv 0a96ece44686→4c645ca43531  fs=4  n_zero 498 vs 486, min -115 vs -113, max 77 vs 76, mean -41.844 vs -41.460
+    149 oder_3.sam_blocks.0.b4.ghost_layers.4.cheap_operation.conv 39fc089b855f→f45f60603d4b  fs=3  n_zero 472 vs 469, min -89 vs -89, max 67 vs 67, mean -17.091 vs -17.120
+    150 decoder.decoder_3.sam_blocks.0.b4.conv.conv                320a2bd6cdcc→f1ccea0afdc1  fs=2  n_zero 471 vs 466, min -40 vs -40, max 120 vs 117, mean 4.337 vs 4.328
+    151 decoder.preconv_2.conv                                     9cb8e9c5e770→37d72ed9872d  fs=2  n_zero 222075 vs 221945, min -1 vs -1, max 70 vs 70, mean 0.043 vs 0.043
+    152 decoder.decoder_2.rdb.conv_layers.0.conv                   d9eec3b52f13→5f76968057d4  fs=3  n_zero 142104 vs 141973, min -36 vs -35, max 55 vs 55, mean -4.713 vs -4.726
+    153 decoder.decoder_2.rdb.conv_layers.1.conv                   29bdb9aced43→516b3265cce9  fs=2  n_zero 235770 vs 235544, min -15 vs -15, max 26 vs 25, mean 0.101 vs 0.107
+    154 decoder.decoder_2.rdb.conv_layers.2.conv                   9ced9a4ff2fc→e0cf4a3191f3  fs=2  n_zero 89348 vs 89343, min -42 vs -43, max 45 vs 43, mean -4.285 vs -4.285
+    155 decoder.decoder_2.rdb.conv_post.conv                       e996f1190a66→52f48901f0f8  fs=6  n_zero 19139 vs 19136, min -22 vs -21, max 127 vs 112, mean 3.470 vs 3.472
+    156 decoder_2.sam_blocks.0.b0.ghost_layers.0.primary_conv.conv 3c1dbb60fb26→fcc85ac8a868  fs=4  n_zero 24752 vs 24927, min -22 vs -24, max 62 vs 62, mean -1.738 vs -1.758
+    157 oder_2.sam_blocks.0.b0.ghost_layers.0.cheap_operation.conv 98b57c6da56b→9f180cf00123  fs=4  n_zero 11465 vs 11580, min -103 vs -99, max 108 vs 105, mean -7.537 vs -7.564
+    158 decoder_2.sam_blocks.0.b0.ghost_layers.1.primary_conv.conv ea3b6bc61182→ca54af497a1a  fs=4  n_zero 80523 vs 80521, min -29 vs -29, max 82 vs 82, mean -0.659 vs -0.678
+    159 oder_2.sam_blocks.0.b0.ghost_layers.1.cheap_operation.conv 955810359b06→a65862439597  fs=3  n_zero 95963 vs 95951, min -81 vs -81, max 38 vs 34, mean -16.547 vs -16.531
+    160 decoder_2.sam_blocks.0.b0.ghost_layers.2.primary_conv.conv caaa634c30ee→f63d00703490  fs=4  n_zero 30555 vs 30524, min -92 vs -96, max 107 vs 96, mean -9.523 vs -9.607
+    161 oder_2.sam_blocks.0.b0.ghost_layers.2.cheap_operation.conv c04913ae136f→fde5aef228a3  fs=3  n_zero 54691 vs 54889, min -88 vs -88, max 56 vs 62, mean -6.810 vs -6.839
+    162 decoder_2.sam_blocks.0.b0.ghost_layers.3.primary_conv.conv 72bab8405999→5f74033b66bf  fs=4  n_zero 22709 vs 22733, min -94 vs -96, max 123 vs 118, mean -9.468 vs -9.488
+    163 oder_2.sam_blocks.0.b0.ghost_layers.3.cheap_operation.conv 1abf1fa57a42→ee0fecd43f80  fs=3  n_zero 42027 vs 42059, min -71 vs -69, max 47 vs 54, mean -4.867 vs -4.851
+    164 decoder_2.sam_blocks.0.b0.ghost_layers.4.primary_conv.conv 9e6fd6ecbd8a→513bdb0a5bf2  fs=2  n_zero 67370 vs 67214, min -13 vs -14, max 58 vs 64, mean 1.173 vs 1.156
+    165 oder_2.sam_blocks.0.b0.ghost_layers.4.cheap_operation.conv 9c26a0be2f07→dd41b077a01c  fs=0  n_zero 12230 vs 12067, min -49 vs -51, max 12 vs 12, mean -7.471 vs -7.481
+    166 decoder.decoder_2.sam_blocks.0.b0.conv.conv                230dade2d22b→f2646113979b  fs=1  n_zero 35822 vs 35830, min -18 vs -18, max 72 vs 73, mean -1.165 vs -1.156
+    167 decoder_2.sam_blocks.0.b2.ghost_layers.0.primary_conv.conv f86b7c3ca993→6c6a215b39ec  fs=5  n_zero 436 vs 411, min -47 vs -47, max 74 vs 79, mean 4.277 vs 4.280
+    168 oder_2.sam_blocks.0.b2.ghost_layers.0.cheap_operation.conv f1747e8bb94b→cd704f847a2c  fs=3  n_zero 5529 vs 5540, min -41 vs -42, max 84 vs 86, mean -7.279 vs -7.313
+    169 decoder_2.sam_blocks.0.b2.ghost_layers.1.primary_conv.conv f63a3e0bfa89→ffc558869643  fs=4  n_zero 5423 vs 5429, min -52 vs -53, max 59 vs 59, mean -7.966 vs -7.951
+    170 oder_2.sam_blocks.0.b2.ghost_layers.1.cheap_operation.conv dcded22394e6→68ca4fe03ae3  fs=5  n_zero 1917 vs 1890, min -90 vs -88, max 127 vs 127, mean -24.160 vs -24.212
+    171 decoder_2.sam_blocks.0.b2.ghost_layers.2.primary_conv.conv 670174151980→bff02c2e708d  fs=3  n_zero 6622 vs 6597, min -68 vs -70, max 44 vs 41, mean -5.461 vs -5.467
+    172 oder_2.sam_blocks.0.b2.ghost_layers.2.cheap_operation.conv 3e226c3986f3→e0c04a08e06a  fs=5  n_zero 2357 vs 2319, min -108 vs -111, max 127 vs 127, mean -15.237 vs -15.196
+    173 decoder_2.sam_blocks.0.b2.ghost_layers.3.primary_conv.conv 92d135d0940e→bdf99e793734  fs=3  n_zero 4952 vs 4881, min -80 vs -82, max 53 vs 53, mean -8.239 vs -8.234
+    174 oder_2.sam_blocks.0.b2.ghost_layers.3.cheap_operation.conv f6cbdf91f17f→18fb451c57a2  fs=4  n_zero 9999 vs 10038, min -59 vs -56, max 67 vs 67, mean -17.628 vs -17.556
+    175 decoder_2.sam_blocks.0.b2.ghost_layers.4.primary_conv.conv 986cef9424c5→2efe94eb1fe5  fs=3  n_zero 16004 vs 15956, min -75 vs -75, max 57 vs 55, mean -20.244 vs -20.245
+    176 oder_2.sam_blocks.0.b2.ghost_layers.4.cheap_operation.conv 7edbd4b7ef15→625d748be5cf  fs=3  n_zero 26196 vs 26121, min -83 vs -83, max 54 vs 53, mean -9.032 vs -9.054
+    177 decoder.decoder_2.sam_blocks.0.b2.conv.conv                88c4bb22a490→3585effbd251  fs=2  n_zero 5026 vs 4993, min -35 vs -34, max 92 vs 95, mean -0.434 vs -0.434
+    178 decoder_2.sam_blocks.0.b4.ghost_layers.0.primary_conv.conv 28b56d007f88→5b82261444c3  fs=5  n_zero 316 vs 316, min -32 vs -32, max 45 vs 45, mean 0.437 vs 0.378
+    179 oder_2.sam_blocks.0.b4.ghost_layers.0.cheap_operation.conv ea3bc3216da9→5cd64a1be4f0  fs=4  n_zero 209 vs 194, min -128 vs -128, max 127 vs 127, mean 1.602 vs 1.044
+    180 decoder_2.sam_blocks.0.b4.ghost_layers.1.primary_conv.conv 81c11dfab729→54e589270589  fs=5  n_zero 76 vs 62, min -82 vs -77, max 127 vs 126, mean 3.125 vs 2.370
+    181 oder_2.sam_blocks.0.b4.ghost_layers.1.cheap_operation.conv d24b08b779ec→84da5a892d1e  fs=5  n_zero 39 vs 53, min -128 vs -128, max 127 vs 127, mean -13.118 vs -13.882
+    182 decoder_2.sam_blocks.0.b4.ghost_layers.2.primary_conv.conv fd94e3281bc3→e69e713ef9e6  fs=4  n_zero 293 vs 286, min -54 vs -56, max 88 vs 88, mean 2.166 vs 1.873
+    183 oder_2.sam_blocks.0.b4.ghost_layers.2.cheap_operation.conv f13c5c3b4b01→ec60d28b9352  fs=5  n_zero 442 vs 425, min -128 vs -128, max 127 vs 127, mean 13.633 vs 13.696
+    184 decoder_2.sam_blocks.0.b4.ghost_layers.3.primary_conv.conv 54402196e8c3→dcf9a5184bde  fs=3  n_zero 1533 vs 1542, min -42 vs -41, max 46 vs 43, mean -9.616 vs -9.702
+    185 oder_2.sam_blocks.0.b4.ghost_layers.3.cheap_operation.conv 93324c347ea6→c6d9428df9da  fs=4  n_zero 5133 vs 5148, min -128 vs -128, max 92 vs 92, mean -20.607 vs -20.643
+    186 decoder_2.sam_blocks.0.b4.ghost_layers.4.primary_conv.conv b6a411cb8dd6→4bd0fdc8d854  fs=4  n_zero 3737 vs 3730, min -119 vs -110, max 74 vs 71, mean -12.606 vs -12.678
+    187 oder_2.sam_blocks.0.b4.ghost_layers.4.cheap_operation.conv 3a39c1c80d73→baefd489f907  fs=3  n_zero 6528 vs 6520, min -67 vs -67, max 43 vs 40, mean -4.509 vs -4.525
+    188 decoder.decoder_2.sam_blocks.0.b4.conv.conv                2c16f02bf263→aad8387a5d78  fs=1  n_zero 3989 vs 3983, min -27 vs -27, max 57 vs 58, mean -0.671 vs -0.675
+    189 decoder.preconv_1.conv                                     dc187c674f8d→803607a0ae2d  fs=3  n_zero 752710 vs 752103, min -3 vs -3, max 44 vs 47, mean -0.001 vs -0.002
+    190 decoder.decoder_1.rdb.conv_layers.0.conv                   9a737ef10645→27369ec0eb8b  fs=3  n_zero 863358 vs 863613, min -42 vs -42, max 71 vs 71, mean -1.751 vs -1.753
+    191 decoder.decoder_1.rdb.conv_layers.1.conv                   1ccffbba237c→9fca09150716  fs=2  n_zero 610465 vs 610026, min -38 vs -38, max 73 vs 69, mean -1.601 vs -1.602
+    192 decoder.decoder_1.rdb.conv_layers.2.conv                   551250693b86→b0da32cc6d7b  fs=3  n_zero 189580 vs 189402, min -117 vs -119, max 127 vs 127, mean -13.006 vs -13.014
+    193 decoder.decoder_1.rdb.conv_post.conv                       87ee65449f4d→935ff9456ad8  fs=6  n_zero 144061 vs 143978, min -13 vs -13, max 31 vs 31, mean 1.366 vs 1.366
+    194 decoder_1.sam_blocks.0.b0.ghost_layers.0.primary_conv.conv bc051ea56af9→ce230ffffc71  fs=4  n_zero 102473 vs 102760, min -31 vs -30, max 95 vs 95, mean 3.401 vs 3.384
+    195 oder_1.sam_blocks.0.b0.ghost_layers.0.cheap_operation.conv 0ddf09aaf3c1→3d0a3f94d060  fs=4  n_zero 172045 vs 172058, min -62 vs -62, max 118 vs 124, mean -1.094 vs -1.059
+    196 decoder_1.sam_blocks.0.b0.ghost_layers.1.primary_conv.conv 50a89b4adedb→e338da5a8ea1  fs=4  n_zero 366132 vs 366022, min -92 vs -95, max 127 vs 127, mean -4.386 vs -4.424
+    197 oder_1.sam_blocks.0.b0.ghost_layers.1.cheap_operation.conv 632a74696739→f635b0b42516  fs=3  n_zero 405646 vs 405579, min -71 vs -71, max 101 vs 102, mean -1.246 vs -1.251
+    198 decoder_1.sam_blocks.0.b0.ghost_layers.2.primary_conv.conv 563aa7b56d86→8d01398d4d96  fs=3  n_zero 146379 vs 146453, min -40 vs -41, max 110 vs 112, mean -2.055 vs -2.087
+    199 oder_1.sam_blocks.0.b0.ghost_layers.2.cheap_operation.conv 31a3881250ae→794096c12ce8  fs=3  n_zero 115601 vs 115786, min -51 vs -49, max 58 vs 55, mean -3.365 vs -3.359
+    200 decoder_1.sam_blocks.0.b0.ghost_layers.3.primary_conv.conv 10d7c0ed2ebb→69a0b89486ab  fs=3  n_zero 110674 vs 111037, min -61 vs -61, max 101 vs 103, mean -0.543 vs -0.562
+    201 oder_1.sam_blocks.0.b0.ghost_layers.3.cheap_operation.conv 8c65aefb88ed→114edb9a5686  fs=3  n_zero 123218 vs 123222, min -104 vs -102, max 95 vs 93, mean -6.811 vs -6.836
+    202 decoder_1.sam_blocks.0.b0.ghost_layers.4.primary_conv.conv baed3e657082→ee4dbdb70cb8  fs=3  n_zero 180434 vs 180532, min -36 vs -35, max 105 vs 103, mean 0.722 vs 0.676
+    203 oder_1.sam_blocks.0.b0.ghost_layers.4.cheap_operation.conv af59cf1d68de→891a2facd18a  fs=2  n_zero 20709 vs 20786, min -128 vs -128, max 107 vs 104, mean -8.883 vs -8.823
+    204 decoder.decoder_1.sam_blocks.0.b0.conv.conv                06b5d5d5b74b→b526d5bd34ca  fs=1  n_zero 621880 vs 622456, min -15 vs -15, max 98 vs 98, mean 5.541 vs 5.525
+    205 decoder_1.sam_blocks.0.b2.ghost_layers.0.primary_conv.conv 9be43c6e6247→12bbad06d243  fs=4  n_zero 11314 vs 11308, min -38 vs -38, max 65 vs 65, mean -5.183 vs -5.192
+    206 oder_1.sam_blocks.0.b2.ghost_layers.0.cheap_operation.conv 8704d916cdf9→5d098fa9803b  fs=4  n_zero 61430 vs 61393, min -106 vs -106, max 127 vs 126, mean -12.105 vs -12.095
+    207 decoder_1.sam_blocks.0.b2.ghost_layers.1.primary_conv.conv 05387091725b→cd16f180841b  fs=4  n_zero 45155 vs 45229, min -82 vs -79, max 92 vs 88, mean -15.979 vs -15.989
+    208 oder_1.sam_blocks.0.b2.ghost_layers.1.cheap_operation.conv cd26338488a3→a8e5314b37e0  fs=3  n_zero 67522 vs 67616, min -72 vs -71, max 66 vs 64, mean -11.148 vs -11.148
+    209 decoder_1.sam_blocks.0.b2.ghost_layers.2.primary_conv.conv 07d6e9e16456→09b0a7746061  fs=4  n_zero 28553 vs 28574, min -128 vs -128, max 103 vs 103, mean -18.790 vs -18.782
+    210 oder_1.sam_blocks.0.b2.ghost_layers.2.cheap_operation.conv 5010e433219b→dc0718ce5771  fs=4  n_zero 6357 vs 6486, min -49 vs -49, max 127 vs 127, mean -6.996 vs -7.000
+    211 decoder_1.sam_blocks.0.b2.ghost_layers.3.primary_conv.conv 6a7344757710→834892b2e772  fs=3  n_zero 14105 vs 14061, min -41 vs -44, max 85 vs 87, mean -7.681 vs -7.694
+    212 oder_1.sam_blocks.0.b2.ghost_layers.3.cheap_operation.conv eec401cd4470→2ed14527881b  fs=4  n_zero 22116 vs 22015, min -116 vs -111, max 126 vs 123, mean -9.687 vs -9.700
+    213 decoder_1.sam_blocks.0.b2.ghost_layers.4.primary_conv.conv cdd77566d945→2d0660a2729a  fs=4  n_zero 35306 vs 35282, min -88 vs -90, max 127 vs 127, mean -9.498 vs -9.525
+    214 oder_1.sam_blocks.0.b2.ghost_layers.4.cheap_operation.conv eb0d88b4dd2b→0130b6955162  fs=3  n_zero 31395 vs 31452, min -70 vs -70, max 60 vs 58, mean -6.392 vs -6.459
+    215 decoder.decoder_1.sam_blocks.0.b2.conv.conv                8dcbf4500664→9bf5bf8ca97b  fs=1  n_zero 76709 vs 76625, min -21 vs -20, max 125 vs 123, mean 11.006 vs 11.006
+    216 decoder_1.sam_blocks.0.b4.ghost_layers.0.primary_conv.conv 171f8b2b0224→a21a125d55a5  fs=5  n_zero 4711 vs 4696, min -56 vs -51, max 77 vs 76, mean -3.814 vs -3.821
+    217 oder_1.sam_blocks.0.b4.ghost_layers.0.cheap_operation.conv 711d015b1c38→eb886f715072  fs=4  n_zero 9034 vs 9044, min -64 vs -66, max 127 vs 127, mean -9.680 vs -9.707
+    218 decoder_1.sam_blocks.0.b4.ghost_layers.1.primary_conv.conv af3910baf4fd→c245f99c034d  fs=4  n_zero 11225 vs 11237, min -50 vs -51, max 88 vs 88, mean -5.793 vs -5.799
+    219 oder_1.sam_blocks.0.b4.ghost_layers.1.cheap_operation.conv dc37da25c200→0cc42e0bf41f  fs=4  n_zero 4016 vs 4057, min -126 vs -126, max 80 vs 80, mean -10.372 vs -10.405
+    220 decoder_1.sam_blocks.0.b4.ghost_layers.2.primary_conv.conv 7e741ec3f48f→2b8efecfc0df  fs=4  n_zero 8336 vs 8389, min -52 vs -53, max 106 vs 112, mean 0.959 vs 0.984
+    221 oder_1.sam_blocks.0.b4.ghost_layers.2.cheap_operation.conv 3958194afa52→711e21eba8ab  fs=4  n_zero 1633 vs 1607, min -55 vs -57, max 97 vs 93, mean -9.458 vs -9.593
+    222 decoder_1.sam_blocks.0.b4.ghost_layers.3.primary_conv.conv 5c7d03f4274d→da66e0d3617c  fs=3  n_zero 7160 vs 7148, min -26 vs -28, max 55 vs 58, mean -4.190 vs -4.224
+    223 oder_1.sam_blocks.0.b4.ghost_layers.3.cheap_operation.conv 25afe755144f→8b32d6724bb1  fs=4  n_zero 3990 vs 3977, min -95 vs -95, max 79 vs 76, mean -14.427 vs -14.411
+    224 decoder_1.sam_blocks.0.b4.ghost_layers.4.primary_conv.conv 44acd89bc5ce→991a00e60747  fs=3  n_zero 10678 vs 10714, min -69 vs -71, max 51 vs 51, mean -9.792 vs -9.800
+    225 oder_1.sam_blocks.0.b4.ghost_layers.4.cheap_operation.conv 00f95fba8a0c→abc13d35fe57  fs=4  n_zero 27308 vs 27298, min -128 vs -128, max 92 vs 95, mean -9.714 vs -9.752
+    226 decoder.decoder_1.sam_blocks.0.b4.conv.conv                2d2d57653d9e→624b611c1c79  fs=2  n_zero 6299 vs 6280, min -55 vs -55, max 127 vs 127, mean 25.711 vs 25.724
+====================================================================================================
+[A] idx=36  encoder.encoder_1.sam_blocks.0.b4.conv.conv    x.sha1=88fa04850123  A.sha1=None  A.nz=None
+[A] idx=37  encoder.encoder_1.down.conv                    x.sha1=a9024f4eb440  A.sha1=None  A.nz=None
+[A] idx=38  encoder.encoder_2.rdb.conv_layers.0.conv       x.sha1=202953d8931e  A.sha1=None  A.nz=None
+====================================================================================================
+[fp] input:pixel_unshuffle(2)       MISSING  exp=27343e69ed3dfa  ✗
+[fp] encoder.conv_first.0           f65e0a04584f22  exp=8b70516715cae2  ✗
+[fp] encoder.encoder_1.rdb.conv_layers.0:cat MISSING  exp=d7fdd870592ed8  ✗
+[fp] encoder.encoder_1.rdb.conv_layers.1:cat MISSING  exp=787181d3b93fe8  ✗
+[fp] encoder.encoder_1.rdb.conv_layers.2:cat MISSING  exp=b1ab6eeb00c58a  ✗
+[fp] encoder.encoder_1.rdb:residual MISSING  exp=6f4c422b7fca3a  ✗
+[fp] encoder.encoder_1.sam_blocks.0:x2 MISSING  exp=4a5fac53796a1f  ✗
+[fp] encoder.encoder_1.sam_blocks.0:x4 MISSING  exp=d87d831aeb3f94  ✗
+[fp] encoder.encoder_1.sam_blocks.0.b0.ghost_layers.0:cat_prev MISSING  exp=138869731fc335  ✗
+[fp] encoder.encoder_1.sam_blocks.0.b0.ghost_layers.1:cat_prev MISSING  exp=27c989896331b5  ✗
+[fp] encoder.encoder_1.sam_blocks.0.b0.ghost_layers.2:cat_prev MISSING  exp=e0b7ae0c1cdb28  ✗
+[fp] encoder.encoder_1.sam_blocks.0.b0.ghost_layers.3:cat_prev MISSING  exp=1cc634b5ab23a6  ✗
+[fp] encoder.encoder_1.sam_blocks.0.b0.ghost_layers.4:cat_prev MISSING  exp=39a62d50d4a17b  ✗
+[fp] encoder.encoder_1.sam_blocks.0.b2.ghost_layers.0:cat_prev MISSING  exp=f52055bb8c4e82  ✗
+[fp] encoder.encoder_1.sam_blocks.0.b2.ghost_layers.1:cat_prev MISSING  exp=a4c52e0ab0453c  ✗
+[fp] encoder.encoder_1.sam_blocks.0.b2.ghost_layers.2:cat_prev MISSING  exp=b853cd4f33ca5c  ✗
+[fp] encoder.encoder_1.sam_blocks.0.b2.ghost_layers.3:cat_prev MISSING  exp=e126bbc1e3b909  ✗
+[fp] encoder.encoder_1.sam_blocks.0.b2.ghost_layers.4:cat_prev MISSING  exp=49abd0340b063a  ✗
+[fp] encoder.encoder_1.sam_blocks.0.b4.ghost_layers.0:cat_prev MISSING  exp=b428486e5f2d58  ✗
+[fp] encoder.encoder_1.sam_blocks.0.b4.ghost_layers.1:cat_prev MISSING  exp=d3479bc7546cd9  ✗
+[fp] encoder.encoder_1.sam_blocks.0.b4.ghost_layers.2:cat_prev MISSING  exp=77220f8df66286  ✗
+[fp] encoder.encoder_1.sam_blocks.0.b4.ghost_layers.3:cat_prev MISSING  exp=c5256d7ea56f77  ✗
+[fp] encoder.encoder_1.sam_blocks.0.b4.ghost_layers.4:cat_prev MISSING  exp=a6a89c2a73cd0f  ✗
+[fp] encoder.encoder_1.sam_blocks.0:b2_up MISSING  exp=140db6f33ca992  ✗
+[fp] encoder.encoder_1.sam_blocks.0:b4_up MISSING  exp=9646da406758bd  ✗
+[fp] encoder.encoder_1.sam_blocks.0.fusion MISSING  exp=8b9b9c3c77365a  ✗
+[fp] encoder.encoder_1.sam_blocks.0:weighted_sum MISSING  exp=cabe5df94853c6  ✗
+[fp] encoder.encoder_2.rdb.conv_layers.0:cat MISSING  exp=6e939c6f8a05b3  ✗
+[fp] encoder.encoder_2.rdb.conv_layers.1:cat MISSING  exp=2bdce23461926e  ✗
+[fp] encoder.encoder_2.rdb.conv_layers.2:cat MISSING  exp=b1f3f2acc53351  ✗
+[fp] encoder.encoder_2.rdb:residual MISSING  exp=0ef49ada16c5ed  ✗
+[fp] encoder.encoder_2.sam_blocks.0:x2 MISSING  exp=9221f228f984a6  ✗
+[fp] encoder.encoder_2.sam_blocks.0:x4 MISSING  exp=efa6cc9aa939c4  ✗
+[fp] encoder.encoder_2.sam_blocks.0.b0.ghost_layers.0:cat_prev MISSING  exp=0eb12d7281843f  ✗
+[fp] encoder.encoder_2.sam_blocks.0.b0.ghost_layers.1:cat_prev MISSING  exp=63142ba2ab3302  ✗
+[fp] encoder.encoder_2.sam_blocks.0.b0.ghost_layers.2:cat_prev MISSING  exp=3de12a24cdccfa  ✗
+[fp] encoder.encoder_2.sam_blocks.0.b0.ghost_layers.3:cat_prev MISSING  exp=49c4aeea456462  ✗
+[fp] encoder.encoder_2.sam_blocks.0.b0.ghost_layers.4:cat_prev MISSING  exp=acb0c4da2b6c6e  ✗
+[fp] encoder.encoder_2.sam_blocks.0.b2.ghost_layers.0:cat_prev MISSING  exp=a1200e6cdf4645  ✗
+[fp] encoder.encoder_2.sam_blocks.0.b2.ghost_layers.1:cat_prev MISSING  exp=54287f56fab9aa  ✗
+[fp] encoder.encoder_2.sam_blocks.0.b2.ghost_layers.2:cat_prev MISSING  exp=9466adbff320a7  ✗
+[fp] encoder.encoder_2.sam_blocks.0.b2.ghost_layers.3:cat_prev MISSING  exp=97b979e58cac64  ✗
+[fp] encoder.encoder_2.sam_blocks.0.b2.ghost_layers.4:cat_prev MISSING  exp=76f4ad380bdc8b  ✗
+[fp] encoder.encoder_2.sam_blocks.0.b4.ghost_layers.0:cat_prev MISSING  exp=0e023d8006714e  ✗
+[fp] encoder.encoder_2.sam_blocks.0.b4.ghost_layers.1:cat_prev MISSING  exp=9ff8fbbcaf49f4  ✗
+[fp] encoder.encoder_2.sam_blocks.0.b4.ghost_layers.2:cat_prev MISSING  exp=6431b45aca9cdf  ✗
+[fp] encoder.encoder_2.sam_blocks.0.b4.ghost_layers.3:cat_prev MISSING  exp=d6294f4ec024f4  ✗
+[fp] encoder.encoder_2.sam_blocks.0.b4.ghost_layers.4:cat_prev MISSING  exp=c165fc27b10ff8  ✗
+[fp] encoder.encoder_2.sam_blocks.0:b2_up MISSING  exp=95b36f58fbe0bb  ✗
+[fp] encoder.encoder_2.sam_blocks.0:b4_up MISSING  exp=63b7fd297dc060  ✗
+[fp] encoder.encoder_2.sam_blocks.0.fusion MISSING  exp=d570490b5e6eb4  ✗
+[fp] encoder.encoder_2.sam_blocks.0:weighted_sum MISSING  exp=79d4ace19be181  ✗
+[fp] encoder.encoder_3.rdb.conv_layers.0:cat MISSING  exp=f6456d5b413dcd  ✗
+[fp] encoder.encoder_3.rdb.conv_layers.1:cat MISSING  exp=f1b4e91d24d577  ✗
+[fp] encoder.encoder_3.rdb.conv_layers.2:cat MISSING  exp=477218d03af8fa  ✗
+[fp] encoder.encoder_3.rdb:residual MISSING  exp=fc162420acfa1e  ✗
+[fp] encoder.encoder_3.sam_blocks.0:x2 MISSING  exp=d3bcde462efa66  ✗
+[fp] encoder.encoder_3.sam_blocks.0:x4 MISSING  exp=5410f97a172c8d  ✗
+[fp] encoder.encoder_3.sam_blocks.0.b0.ghost_layers.0:cat_prev MISSING  exp=9d693cd4c2b0c2  ✗
+[fp] encoder.encoder_3.sam_blocks.0.b0.ghost_layers.1:cat_prev MISSING  exp=99ef43004c42c3  ✗
+[fp] encoder.encoder_3.sam_blocks.0.b0.ghost_layers.2:cat_prev MISSING  exp=5503d88d382204  ✗
+[fp] encoder.encoder_3.sam_blocks.0.b0.ghost_layers.3:cat_prev MISSING  exp=e7814c77fef6bc  ✗
+[fp] encoder.encoder_3.sam_blocks.0.b0.ghost_layers.4:cat_prev MISSING  exp=e14168f669b4dd  ✗
+[fp] encoder.encoder_3.sam_blocks.0.b2.ghost_layers.0:cat_prev MISSING  exp=c66b4c8ef2b89a  ✗
+[fp] encoder.encoder_3.sam_blocks.0.b2.ghost_layers.1:cat_prev MISSING  exp=9c3303cce4a063  ✗
+[fp] encoder.encoder_3.sam_blocks.0.b2.ghost_layers.2:cat_prev MISSING  exp=4174981fb5e22f  ✗
+[fp] encoder.encoder_3.sam_blocks.0.b2.ghost_layers.3:cat_prev MISSING  exp=fde417d96ff35c  ✗
+[fp] encoder.encoder_3.sam_blocks.0.b2.ghost_layers.4:cat_prev MISSING  exp=bdd40fa20ca4a2  ✗
+[fp] encoder.encoder_3.sam_blocks.0.b4.ghost_layers.0:cat_prev MISSING  exp=99411709551c4e  ✗
+[fp] encoder.encoder_3.sam_blocks.0.b4.ghost_layers.1:cat_prev MISSING  exp=03178995600d1f  ✗
+[fp] encoder.encoder_3.sam_blocks.0.b4.ghost_layers.2:cat_prev MISSING  exp=911e2f0fee938b  ✗
+[fp] encoder.encoder_3.sam_blocks.0.b4.ghost_layers.3:cat_prev MISSING  exp=e037e5df240570  ✗
+[fp] encoder.encoder_3.sam_blocks.0.b4.ghost_layers.4:cat_prev MISSING  exp=4874d37e0d4dca  ✗
+[fp] encoder.encoder_3.sam_blocks.0:b2_up MISSING  exp=f4fd0cff50d130  ✗
+[fp] encoder.encoder_3.sam_blocks.0:b4_up MISSING  exp=110d9191240d9b  ✗
+[fp] encoder.encoder_3.sam_blocks.0.fusion MISSING  exp=ed1aa22120af46  ✗
+[fp] encoder.encoder_3.sam_blocks.0:weighted_sum MISSING  exp=d5997b0e3fa9c4  ✗
+[fp] decoder.decoder_3.rdb.conv_layers.0:cat MISSING  exp=f98015915355f6  ✗
+[fp] decoder.decoder_3.rdb.conv_layers.1:cat MISSING  exp=f240fdf162468f  ✗
+[fp] decoder.decoder_3.rdb.conv_layers.2:cat MISSING  exp=61b5fd7577e0a1  ✗
+[fp] decoder.decoder_3.rdb:residual MISSING  exp=5d12d0f7df5973  ✗
+[fp] decoder.decoder_3.sam_blocks.0:x2 MISSING  exp=0d923dc4f48129  ✗
+[fp] decoder.decoder_3.sam_blocks.0:x4 MISSING  exp=19726249ec07b0  ✗
+[fp] decoder.decoder_3.sam_blocks.0.b0.ghost_layers.0:cat_prev MISSING  exp=0934d363ea16b8  ✗
+[fp] decoder.decoder_3.sam_blocks.0.b0.ghost_layers.1:cat_prev MISSING  exp=582b93b01c454e  ✗
+[fp] decoder.decoder_3.sam_blocks.0.b0.ghost_layers.2:cat_prev MISSING  exp=58c4ea7d526735  ✗
+[fp] decoder.decoder_3.sam_blocks.0.b0.ghost_layers.3:cat_prev MISSING  exp=403b4885606b41  ✗
+[fp] decoder.decoder_3.sam_blocks.0.b0.ghost_layers.4:cat_prev MISSING  exp=7d191b082d328a  ✗
+[fp] decoder.decoder_3.sam_blocks.0.b2.ghost_layers.0:cat_prev MISSING  exp=7f34d7ee07192c  ✗
+[fp] decoder.decoder_3.sam_blocks.0.b2.ghost_layers.1:cat_prev MISSING  exp=b295d8b0867239  ✗
+[fp] decoder.decoder_3.sam_blocks.0.b2.ghost_layers.2:cat_prev MISSING  exp=3808237b550a88  ✗
+[fp] decoder.decoder_3.sam_blocks.0.b2.ghost_layers.3:cat_prev MISSING  exp=a729dc6afaa752  ✗
+[fp] decoder.decoder_3.sam_blocks.0.b2.ghost_layers.4:cat_prev MISSING  exp=ab33ef6ac6462c  ✗
+[fp] decoder.decoder_3.sam_blocks.0.b4.ghost_layers.0:cat_prev MISSING  exp=7e165c96688ab6  ✗
+[fp] decoder.decoder_3.sam_blocks.0.b4.ghost_layers.1:cat_prev MISSING  exp=e376c60c610bf2  ✗
+[fp] decoder.decoder_3.sam_blocks.0.b4.ghost_layers.2:cat_prev MISSING  exp=9ff9794053c0c4  ✗
+[fp] decoder.decoder_3.sam_blocks.0.b4.ghost_layers.3:cat_prev MISSING  exp=96873d415685a8  ✗
+[fp] decoder.decoder_3.sam_blocks.0.b4.ghost_layers.4:cat_prev MISSING  exp=e0a1243759c7ba  ✗
+[fp] decoder.decoder_3.sam_blocks.0:b2_up MISSING  exp=2f12857cb9dc3f  ✗
+[fp] decoder.decoder_3.sam_blocks.0:b4_up MISSING  exp=3085dccd68d3a6  ✗
+[fp] decoder.decoder_3.sam_blocks.0.fusion MISSING  exp=a661cd45fe57a7  ✗
+[fp] decoder.decoder_3.sam_blocks.0:weighted_sum MISSING  exp=04dc03cf845074  ✗
+[fp] decoder.decoder_3.conv         e0ff990a8a8350  exp=127227e2d28fe8  ✗
+[fp] decoder.decoder_3:pixel_shuffle(2) MISSING  exp=0639cd6309a508  ✗
+[fp] decoder.decoder_3:feat_up      MISSING  exp=a486c5c1a07f1b  ✗
+[fp] decoder.preconv_2:cat          MISSING  exp=11ea5b2b43a4f8  ✗
+[fp] decoder.decoder_2.rdb.conv_layers.0:cat MISSING  exp=e7b0547f0cf4d8  ✗
+[fp] decoder.decoder_2.rdb.conv_layers.1:cat MISSING  exp=c0b2ade13dcbb8  ✗
+[fp] decoder.decoder_2.rdb.conv_layers.2:cat MISSING  exp=1168d26f18e80b  ✗
+[fp] decoder.decoder_2.rdb:residual MISSING  exp=47553470a546db  ✗
+[fp] decoder.decoder_2.sam_blocks.0:x2 MISSING  exp=80c7b1114ccb19  ✗
+[fp] decoder.decoder_2.sam_blocks.0:x4 MISSING  exp=7090c2b62c1a1a  ✗
+[fp] decoder.decoder_2.sam_blocks.0.b0.ghost_layers.0:cat_prev MISSING  exp=4021e4e9f617b5  ✗
+[fp] decoder.decoder_2.sam_blocks.0.b0.ghost_layers.1:cat_prev MISSING  exp=99f9588f2f542a  ✗
+[fp] decoder.decoder_2.sam_blocks.0.b0.ghost_layers.2:cat_prev MISSING  exp=3d911bf435adc5  ✗
+[fp] decoder.decoder_2.sam_blocks.0.b0.ghost_layers.3:cat_prev MISSING  exp=d5e62e280351c8  ✗
+[fp] decoder.decoder_2.sam_blocks.0.b0.ghost_layers.4:cat_prev MISSING  exp=b84a9d66c3a7fd  ✗
+[fp] decoder.decoder_2.sam_blocks.0.b2.ghost_layers.0:cat_prev MISSING  exp=5c45284e1931a2  ✗
+[fp] decoder.decoder_2.sam_blocks.0.b2.ghost_layers.1:cat_prev MISSING  exp=19ca79832bfada  ✗
+[fp] decoder.decoder_2.sam_blocks.0.b2.ghost_layers.2:cat_prev MISSING  exp=a6724850505fc6  ✗
+[fp] decoder.decoder_2.sam_blocks.0.b2.ghost_layers.3:cat_prev MISSING  exp=ee8d2d3293087a  ✗
+[fp] decoder.decoder_2.sam_blocks.0.b2.ghost_layers.4:cat_prev MISSING  exp=0797c2f622410b  ✗
+[fp] decoder.decoder_2.sam_blocks.0.b4.ghost_layers.0:cat_prev MISSING  exp=38043e09363245  ✗
+[fp] decoder.decoder_2.sam_blocks.0.b4.ghost_layers.1:cat_prev MISSING  exp=47899c4790e8fd  ✗
+[fp] decoder.decoder_2.sam_blocks.0.b4.ghost_layers.2:cat_prev MISSING  exp=8ea5f1490c06e5  ✗
+[fp] decoder.decoder_2.sam_blocks.0.b4.ghost_layers.3:cat_prev MISSING  exp=32aa7df730282c  ✗
+[fp] decoder.decoder_2.sam_blocks.0.b4.ghost_layers.4:cat_prev MISSING  exp=a8902769f17fd4  ✗
+[fp] decoder.decoder_2.sam_blocks.0:b2_up MISSING  exp=9ce33bd007fb6d  ✗
+[fp] decoder.decoder_2.sam_blocks.0:b4_up MISSING  exp=211bcd24662a72  ✗
+[fp] decoder.decoder_2.sam_blocks.0.fusion MISSING  exp=1afe0f6de4aacc  ✗
+[fp] decoder.decoder_2.sam_blocks.0:weighted_sum MISSING  exp=82cf5c3ff791a3  ✗
+[fp] decoder.decoder_2.conv         278a47fa335cc5  exp=da6fabe12158ce  ✗
+[fp] decoder.decoder_2:pixel_shuffle(2) MISSING  exp=fd46d1933651e4  ✗
+[fp] decoder.decoder_2:feat_up      MISSING  exp=4c3ebf11b8de16  ✗
+[fp] decoder.preconv_1:cat          MISSING  exp=2c01ff7e310626  ✗
+[fp] decoder.decoder_1.rdb.conv_layers.0:cat MISSING  exp=9f0ecba4980b78  ✗
+[fp] decoder.decoder_1.rdb.conv_layers.1:cat MISSING  exp=80d227a3b44db4  ✗
+[fp] decoder.decoder_1.rdb.conv_layers.2:cat MISSING  exp=936810aa3a8a8e  ✗
+[fp] decoder.decoder_1.rdb:residual MISSING  exp=e895622d5d53f8  ✗
+[fp] decoder.decoder_1.sam_blocks.0:x2 MISSING  exp=be25ef6afc1282  ✗
+[fp] decoder.decoder_1.sam_blocks.0:x4 MISSING  exp=eb083d63b07a28  ✗
+[fp] decoder.decoder_1.sam_blocks.0.b0.ghost_layers.0:cat_prev MISSING  exp=1e27466535857a  ✗
+[fp] decoder.decoder_1.sam_blocks.0.b0.ghost_layers.1:cat_prev MISSING  exp=fb418e30fbd758  ✗
+[fp] decoder.decoder_1.sam_blocks.0.b0.ghost_layers.2:cat_prev MISSING  exp=c8c72c3d095ad0  ✗
+[fp] decoder.decoder_1.sam_blocks.0.b0.ghost_layers.3:cat_prev MISSING  exp=87d28301a6f218  ✗
+[fp] decoder.decoder_1.sam_blocks.0.b0.ghost_layers.4:cat_prev MISSING  exp=b12ca448eb9b63  ✗
+[fp] decoder.decoder_1.sam_blocks.0.b2.ghost_layers.0:cat_prev MISSING  exp=f033f807066d92  ✗
+[fp] decoder.decoder_1.sam_blocks.0.b2.ghost_layers.1:cat_prev MISSING  exp=56a23785548acb  ✗
+[fp] decoder.decoder_1.sam_blocks.0.b2.ghost_layers.2:cat_prev MISSING  exp=406fa45c8d3a6b  ✗
+[fp] decoder.decoder_1.sam_blocks.0.b2.ghost_layers.3:cat_prev MISSING  exp=7ce7c98ea6e6bc  ✗
+[fp] decoder.decoder_1.sam_blocks.0.b2.ghost_layers.4:cat_prev MISSING  exp=cfde505219cab3  ✗
+[fp] decoder.decoder_1.sam_blocks.0.b4.ghost_layers.0:cat_prev MISSING  exp=5accd2e4323ba7  ✗
+[fp] decoder.decoder_1.sam_blocks.0.b4.ghost_layers.1:cat_prev MISSING  exp=914d1334d11329  ✗
+[fp] decoder.decoder_1.sam_blocks.0.b4.ghost_layers.2:cat_prev MISSING  exp=68d5045c816d54  ✗
+[fp] decoder.decoder_1.sam_blocks.0.b4.ghost_layers.3:cat_prev MISSING  exp=50b32cfd5eb249  ✗
+[fp] decoder.decoder_1.sam_blocks.0.b4.ghost_layers.4:cat_prev MISSING  exp=edb91e17483f68  ✗
+[fp] decoder.decoder_1.sam_blocks.0:b2_up MISSING  exp=952b33680553b6  ✗
+[fp] decoder.decoder_1.sam_blocks.0:b4_up MISSING  exp=a65ca8fd59c3cc  ✗
+[fp] decoder.decoder_1.sam_blocks.0.fusion MISSING  exp=6b9465de97402a  ✗
+[fp] decoder.decoder_1.sam_blocks.0:weighted_sum MISSING  exp=e4322871015231  ✗
+[fp] decoder.decoder_1.conv         08b34d834371e0  exp=f61f01cbdf4176  ✗
+[fp] decoder.decoder_1:pixel_shuffle(2) MISSING  exp=35f2806981e4b0  ✗
+[save] 16 个 npy → /tmp/probe_t171/out/layers_p0067（10.96 MB）
+====================================================================================================
+[SUMMARY] 12 项里一致 6/12；227 个 int8 层一致 37；f32 层一致 0/4
+[SUMMARY] 第一个发散的 int8 层：idx 37 encoder.encoder_1.down.conv
+[SUMMARY] summary.json → /tmp/probe_t171/out/summary.json
+=== [7] state（结束）
+operating

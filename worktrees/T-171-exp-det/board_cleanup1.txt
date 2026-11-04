@@ -1,0 +1,42 @@
+=== [1] PYNQ 状态文件
+    已恢复
+=== [2] 停播放器（幂等）
+=== [3] 载流前 state
+operating
+=== [4] 载 v58（期望 md5 65b4f88463a00d76ba19319b8ebe5a3d）
+65b4f88463a00d76ba19319b8ebe5a3d  /lib/firmware/design_1_v58.bin
+    state=operating
+=== [5] start 播放器 + 等 9999
+    9999 已监听（等待 31s）
+LISTEN 0      8            0.0.0.0:9999       0.0.0.0:*          
+=== [6] 空闲态寄存器（CTRL 应为 0x15 彩条）
+[regs] fpga0 state = operating
+  0x00 CTRL  = 0x00000001 (1)
+  0x04 0x04  = 0x00000003 (3)
+  0x08 0x08  = 0x00000000 (0)
+  0x0C 0x0C  = 0x30100000 (806354944)
+  0x10 0x10  = 0x00000000 (0)
+  0x14 0x14  = 0x00000F00 (3840)
+  0x18 0x18  = 0x00000500 (1280)
+  0x1C 0x1C  = 0x000002D0 (720)
+  0x20 0x20  = 0x00000000 (0)
+  0x24 LATCH = 0x00000000 (0)
+  0x28 0x28  = 0x00000000 (0)
+  0x2C UF    = 0x00000000 (0)
+  0x30 0x30  = 0x00000002 (2)
+  0x34 0x34  = 0x00000000 (0)
+=== [7] 时钟（PYNQ 报数；SLCR 0x174 恒读 0，按报告口径不记账）
+  File "/home/xilinx/pynq/pl_server/device.py", line 71, in active_device
+    raise RuntimeError("No Devices Found")
+RuntimeError: No Devices Found
+=== [8] fix_fclk 结果（boot.log 尾部）
+02:59:45 [arm] 第 0 帧已预构（12.9 ms）⇒ START 后无需再构图
+02:59:45 [proto] TCP 已绑定 0.0.0.0:9999（listen）
+02:59:45 [proto] UDP 已绑定 0.0.0.0:9999
+02:59:45 [proto] 文件触发监听 /home/xilinx/demo/START.flag（每 50 ms，触发后改名不删）
+02:59:45 [proto] 已启动：TCP=True UDP=True flag=/home/xilinx/demo/START.flag
+02:59:45 [main] 就绪：等 START（TCP/UDP :9999，flag /home/xilinx/demo/START.flag）
+=== [9] sync
+    rc=0
+=== [10] state
+operating
