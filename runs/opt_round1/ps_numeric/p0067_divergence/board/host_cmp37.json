@@ -1,0 +1,164 @@
+{
+ "tag": "p0067",
+ "side": "host_ref",
+ "watch": [
+  "encoder.encoder_1.rdb.conv_layers.0.conv",
+  "encoder.encoder_1.sam_blocks.0.b4.conv.conv",
+  "encoder.encoder_1.down.conv",
+  "encoder.encoder_2.rdb.conv_layers.0.conv"
+ ],
+ "rec": {
+  "encoder.encoder_1.rdb.conv_layers.0.conv": {
+   "idx": 0,
+   "cin": 48,
+   "shape": [
+    48,
+    128,
+    128
+   ],
+   "producer": [
+    "convfp",
+    "encoder.conv_first.0"
+   ],
+   "x": {
+    "shape": [
+     48,
+     128,
+     128
+    ],
+    "dtype": "float32",
+    "sha1": "8b70516715cae2cae2a8619c6d7ff0e3ccca8d6c",
+    "nbytes": 3145728,
+    "min": 0.0,
+    "max": 10.178637504577637,
+    "mean": 2.162553548812866
+   },
+   "A": {
+    "sha1": "244c21492d1aea61efce8e0dcebf6142017e53f8",
+    "dtype": "uint64",
+    "shape": [
+     1,
+     128,
+     128
+    ],
+    "nbytes": 131072,
+    "nz": 98304
+   }
+  },
+  "encoder.encoder_1.sam_blocks.0.b4.conv.conv": {
+   "idx": 36,
+   "cin": 368,
+   "shape": [
+    368,
+    32,
+    32
+   ],
+   "producer": [
+    "cat",
+    "encoder.encoder_1.sam_blocks.0.b4.ghost_layers.4:cat_prev"
+   ],
+   "x": {
+    "shape": [
+     368,
+     32,
+     32
+    ],
+    "dtype": "float32",
+    "sha1": "a6a89c2a73cd0fd5251dedc10badd76ac7a322c1",
+    "nbytes": 1507328,
+    "min": -8.875,
+    "max": 10.125,
+    "mean": 0.5019689798355103
+   },
+   "A": {
+    "sha1": "0cc14d76d6883fd3548841b1d24f70ce9ba4f628",
+    "dtype": "uint64",
+    "shape": [
+     6,
+     32,
+     32
+    ],
+    "nbytes": 49152,
+    "nz": 45300
+   }
+  },
+  "encoder.encoder_1.down.conv": {
+   "idx": 37,
+   "cin": 48,
+   "shape": [
+    48,
+    128,
+    128
+   ],
+   "producer": [
+    "sam",
+    "encoder.encoder_1.sam_blocks.0:weighted_sum"
+   ],
+   "x": {
+    "shape": [
+     48,
+     128,
+     128
+    ],
+    "dtype": "float32",
+    "sha1": "a726e0f7da7948d885a0abe86bb1256d1082be3f",
+    "nbytes": 3145728,
+    "min": -3.4516685009002686,
+    "max": 8.798762321472168,
+    "mean": 0.07254185527563095
+   },
+   "A": {
+    "sha1": "cc76cfea63ce2b4d0f4b5044e9dcef2c641dca9e",
+    "dtype": "uint64",
+    "shape": [
+     1,
+     128,
+     128
+    ],
+    "nbytes": 131072,
+    "nz": 86986
+   }
+  },
+  "encoder.encoder_2.rdb.conv_layers.0.conv": {
+   "idx": 38,
+   "cin": 96,
+   "shape": [
+    96,
+    64,
+    64
+   ],
+   "producer": [
+    "conv",
+    "encoder.encoder_1.down.conv"
+   ],
+   "x": {
+    "shape": [
+     96,
+     64,
+     64
+    ],
+    "dtype": "float32",
+    "sha1": "31c6deff507fbb06ac098c849b9993def713b39d",
+    "nbytes": 1572864,
+    "min": -10.0,
+    "max": 12.25,
+    "mean": -0.6529343724250793
+   },
+   "A": {
+    "sha1": "2fba72ae958b0035785e03563fddd3616d4227a4",
+    "dtype": "uint64",
+    "shape": [
+     2,
+     64,
+     64
+    ],
+    "nbytes": 65536,
+    "nz": 42517
+   }
+  }
+ },
+ "sha1_out1_f32": "2b1cd63cc7ef5fe528229d4038d56000a038d8c6",
+ "sha1_conv_first": {
+  "encoder.conv_first.0": "8b70516715cae2cae2a8619c6d7ff0e3ccca8d6c"
+ }
+}
